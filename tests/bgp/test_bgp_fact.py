@@ -1,8 +1,13 @@
+import pytest
+
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
 
 def test_bgp_facts(duthost):
     """compare the bgp facts between observed states and target state"""
 
-    npus = duthost.num_npus()
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 

@@ -20,9 +20,16 @@
 import logging
 import pytest
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 class TestQosSai(QosSaiBase):
     """
@@ -36,6 +43,10 @@ class TestQosSai(QosSaiBase):
         'Force10-S6100',
         'Arista-7260CX3-Q64'
     ]
+
+    def testParameter(self, duthost, dutQosConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile):
+        logger.info("asictype {}".format(duthost.facts["asic_type"]))
+        logger.info("qosConfig {}".format(dutQosConfig))
 
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2"])
     def testQosSaiPfcXoffLimit(self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
@@ -75,6 +86,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
         }
+        if "pkts_num_margin" in qosConfig[xoffProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams)
 
@@ -116,8 +129,12 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
-            "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
+            "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"]
         }
+        if "pkts_num_hysteresis" in qosConfig[xonProfile].keys():
+            testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
+        if "pkts_num_margin" in qosConfig[xonProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams)
 
@@ -164,6 +181,63 @@ class TestQosSai(QosSaiBase):
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
 
+    @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
+    def testQosSaiBufferPoolWatermark(self, request, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, egressLossyProfile, resetWatermark):
+        """
+            Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
+
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLosslessProfile (Fixture): Map of ingress lossless buffer profile attributes
+                egressLossyProfile (Fixture): Map of egress lossy buffer profile attributes
+                resetWatermark (Fixture): reset watermarks
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        disableTest = request.config.getoption("--disable_test")
+        if disableTest:
+            pytest.skip("Buffer Pool watermark test is disabled")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if "wm_buf_pool_lossless" in bufPool:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+            triggerDrop = qosConfig[bufPool]["pkts_num_trig_pfc"]
+            fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
+            buf_pool_roid = ingressLosslessProfile["bufferPoolRoid"]
+        elif "wm_buf_pool_lossy" in bufPool:
+            qosConfig = dutQosConfig["param"]
+            triggerDrop = qosConfig[bufPool]["pkts_num_trig_egr_drp"]
+            fillMin = qosConfig[bufPool]["pkts_num_fill_egr_min"]
+            buf_pool_roid = egressLossyProfile["bufferPoolRoid"]
+        else:
+            pytest.fail("Unknown pool type")
+
+        testParams = {
+            "dscp": qosConfig[bufPool]["dscp"],
+            "ecn": qosConfig[bufPool]["ecn"],
+            "pg": qosConfig[bufPool]["pg"],
+            "queue": qosConfig[bufPool]["queue"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkts_num_fill_min": fillMin,
+            "pkts_num_fill_shared": triggerDrop - 1,
+            "cell_size": qosConfig[bufPool]["cell_size"],
+            "buf_pool_roid": buf_pool_roid
+        }
+        testParams.update(dutTestParams["basicParams"])
+        self.runPtfTest(ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest", testParams=testParams)
+
     def testQosSaiLossyQueue(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLossyProfile):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -200,6 +274,11 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
         }
+        if "packet_size" in qosConfig["lossy_queue_1"].keys():
+            testParams["packet_size"] = qosConfig["lossy_queue_1"]["packet_size"]
+            testParams["cell_size"] = qosConfig["lossy_queue_1"]["cell_size"]
+        if "pkts_num_margin" in qosConfig["lossy_queue_1"].keys():
+            testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.LossyQueueTest", testParams=testParams)
 
@@ -310,9 +389,10 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_fill_min": qosConfig[pgProfile]["pkts_num_fill_min"],
             "pkts_num_fill_shared": pktsNumFillShared,
-            "packet_size": qosConfig[pgProfile]["packet_size"],
             "cell_size": qosConfig[pgProfile]["cell_size"],
         }
+        if "packet_size" in qosConfig[pgProfile].keys():
+            testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest", testParams=testParams)
 
@@ -350,6 +430,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_ingr_drp": qosConfig["wm_pg_headroom"]["pkts_num_trig_ingr_drp"],
             "cell_size": qosConfig["wm_pg_headroom"]["cell_size"],
         }
+        if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
+            testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest", testParams=testParams)
 
@@ -392,6 +474,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_drp": triggerDrop,
             "cell_size": qosConfig[queueProfile]["cell_size"],
         }
+        if "packet_size" in qosConfig[queueProfile].keys():
+            testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
         testParams.update(dutTestParams["basicParams"])
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.QSharedWatermarkTest", testParams=testParams)
 

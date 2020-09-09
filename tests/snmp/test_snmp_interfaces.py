@@ -1,5 +1,9 @@
 import pytest
 
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
 
 @pytest.mark.bsl
 def test_snmp_interfaces(duthost, localhost, creds):

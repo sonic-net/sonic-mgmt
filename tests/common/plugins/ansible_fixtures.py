@@ -7,7 +7,7 @@ import pytest
 # fixtures we have to override the scope here in global conftest.py
 # Let's have it with module scope for now, so if something really breaks next test module run will have
 # this fixture reevaluated
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def ansible_adhoc(request):
     """Return an inventory initialization method."""
     plugin = request.config.pluginmanager.getplugin("ansible")

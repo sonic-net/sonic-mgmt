@@ -3,11 +3,18 @@ import logging
 import time
 import json
 import re
-from ptf_runner import ptf_runner
-from common import reboot
-from common  import config_reload
-from common.utilities import wait_until
+
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common import reboot
+from tests.common  import config_reload
+from tests.common.utilities import wait_until
 from netaddr import *
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +22,11 @@ logger = logging.getLogger(__name__)
 def setup(duthost, ptfhost):
     global var
     var = {}
+
+    feature_status, _ = duthost.get_feature_status()
+    if 'sflow' not in feature_status or feature_status['sflow'] == 'disabled':
+        pytest.skip("sflow feature is not eanbled")
+
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     var['host_facts']  = duthost.setup()['ansible_facts']
     vlan_dict = mg_facts['minigraph_vlans']
@@ -30,9 +42,9 @@ def setup(duthost, ptfhost):
     var['dut_intf_ips'] = ['20.1.1.1','30.1.1.1']
     var['mgmt_ip'] = mg_facts['minigraph_mgmt_interface']['addr']
     var['lo_ip'] =  mg_facts['minigraph_lo_interfaces'][0]['addr']
- 
+
     config_dut_ports(duthost,var['test_ports'][0:2],vlan=1000)
- 
+
     for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
         port = interfaces['members'][0]
         var['sflow_ports'][port] = {}
@@ -62,20 +74,18 @@ def setup_ptf(ptfhost, collector_ports):
     extra_vars = {'arp_responder_args' : '--conf /tmp/sflow_arpresponder.conf'}
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="../ansible/roles/test/templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
-    ptfhost.copy(src="ptftests", dest=root_dir)
-    ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py", dest="/opt")
     ptfhost.shell('supervisorctl reread')
     ptfhost.shell('supervisorctl update')
-    for i in range(len(collector_ports)): 
-        ptfhost.shell('ifconfig eth%s %s/24' %(collector_ports[i],var['collector%s'%i]['ip_addr'])) 
+    for i in range(len(collector_ports)):
+        ptfhost.shell('ifconfig eth%s %s/24' %(collector_ports[i],var['collector%s'%i]['ip_addr']))
     ptfhost.copy(content=var['portmap'],dest="/tmp/sflow_ports.json")
 
 # ----------------------------------------------------------------------------------
 
 def config_dut_ports(duthost, ports, vlan):
-   # https://github.com/Azure/sonic-buildimage/issues/2665 
-   # Introducing config vlan member add and remove for the test port due to above mentioned PR. 
-   # Even though port is deleted from vlan , the port shows its master as Bridge upon assigning ip address. 
+   # https://github.com/Azure/sonic-buildimage/issues/2665
+   # Introducing config vlan member add and remove for the test port due to above mentioned PR.
+   # Even though port is deleted from vlan , the port shows its master as Bridge upon assigning ip address.
    # Hence config reload is done as workaround. ##FIXME
     for i in range(len(ports)):
         duthost.command('config vlan member add %s %s' %(vlan,ports[i]))
@@ -89,7 +99,7 @@ def config_dut_ports(duthost, ports, vlan):
 
 def get_ifindex(duthost, port):
      ifindex = duthost.shell('cat /sys/class/net/%s/ifindex' %port)['stdout']
-     return ifindex 
+     return ifindex
 # ----------------------------------------------------------------------------------
 
 def config_sflow(duthost, sflow_status='enable'):
@@ -99,17 +109,17 @@ def config_sflow(duthost, sflow_status='enable'):
 # ----------------------------------------------------------------------------------
 
 def config_sflow_interfaces(duthost, intf, **kwargs):
- 
+
     if 'status' in kwargs:
         duthost.shell('config sflow interface %s %s'%(kwargs['status'],intf))
-    if 'sample_rate' in kwargs: 
+    if 'sample_rate' in kwargs:
         duthost.shell('config sflow interface sample-rate %s %s' %(intf,kwargs['sample_rate']))
 
 # ----------------------------------------------------------------------------------
 
 def config_sflow_collector(duthost, collector, config):
      collector = var[collector]
-     if config == 'add': 
+     if config == 'add':
           duthost.shell('config sflow collector add %s %s --port %s ' %(collector['name'],collector['ip_addr'],collector['port']))
      elif config == 'del':
           duthost.shell('config sflow collector  del %s' %collector['name'])
@@ -126,13 +136,13 @@ def verify_show_sflow(duthost, status, **kwargs):
         assert re.search("sFlow AgentID:\s+%s"%kwargs['agent_id'],show_sflow), "Sflow Agent Id is not %s" %kwargs['agent_id']
     if 'collector' in kwargs:
         collector = kwargs['collector']
-        if len(collector) is None: 
+        if len(collector) is None:
             assert re.search("0 Collectors configured",show_sflow)," Expected 0 collectors , but collectors are present"
-        else: 
+        else:
             assert re.search("%s Collectors configured:"%len(collector),show_sflow) ,"Number of Sflow collectors should be %s"%len(collector)
-            for col  in collector: 
+            for col  in collector:
                 assert re.search("Name:\s+%s\s+IP addr:\s%s\s+UDP port:\s%s"%(var[col]['name'],var[col]['ip_addr'],var[col]['port']),show_sflow) , "col %s is not properly Configured" %col
-    
+
 # ----------------------------------------------------------------------------------
 
 def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
@@ -180,12 +190,12 @@ def sflowbase_config(duthost, testbed):
 
 class TestSflowCollector():
     """
-    Test Sflow with 2 collectors , adding or removibg collector and verify collector samples 
+    Test Sflow with 2 collectors , adding or removibg collector and verify collector samples
     """
 
     def test_sflow_config(self, duthost, partial_ptf_runner):
-        # Enable sflow globally and enable sflow on 4 test interfaces 
-        # add single collector , send traffic and check samples are received in collector 
+        # Enable sflow globally and enable sflow on 4 test interfaces
+        # add single collector , send traffic and check samples are received in collector
         config_sflow(duthost,'enable')
         config_sflow_collector(duthost,'collector0','add')
         duthost.command("config sflow interface disable all")
@@ -194,7 +204,7 @@ class TestSflowCollector():
         verify_show_sflow(duthost,status='up',collector=['collector0'])
         for intf in var['sflow_ports']:
             verify_sflow_interfaces(duthost,intf,'up',512)
-        time.sleep(5) 
+        time.sleep(5)
         partial_ptf_runner(
               enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0']" )
@@ -217,16 +227,16 @@ class TestSflowCollector():
               enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0']" )
 
-    
+
     def test_two_collectors(self, sflowbase_config, duthost, partial_ptf_runner):
-        #add 2 collectors with 2 different udp ports and check samples are received in both collectors 
+        #add 2 collectors with 2 different udp ports and check samples are received in both collectors
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         time.sleep(2)
         partial_ptf_runner(
               enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
 
-        # Remove second collector anc check samples are received in only 1st collector 
+        # Remove second collector anc check samples are received in only 1st collector
         config_sflow_collector(duthost,'collector1','del')
         verify_show_sflow(duthost,status='up',collector=['collector0'])
         time.sleep(5)
@@ -234,19 +244,19 @@ class TestSflowCollector():
               enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0']" )
 
-        #Re-add second collector and check if samples are received in both collectors again 
+        #Re-add second collector and check if samples are received in both collectors again
         config_sflow_collector(duthost,'collector1','add')
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
-        time.sleep(5)        
+        time.sleep(5)
         partial_ptf_runner(
               enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
 
-        # Add third collector and check only 2 collectors can be configured 
+        # Add third collector and check only 2 collectors can be configured
         out = duthost.command("config sflow collector add collector2 192.168.0.5 ",module_ignore_errors=True)
         assert "Only 2 collectors can be configured, please delete one" in out['stdout']
-            
-        #remove first collector and check DUT sends samples to collector 2 woth non default port number (6344)  
+
+        #remove first collector and check DUT sends samples to collector 2 woth non default port number (6344)
         config_sflow_collector(duthost,'collector0','del')
         verify_show_sflow(duthost,status='up',collector=['collector1'])
         time.sleep(10)
@@ -260,12 +270,12 @@ class TestSflowCollector():
 
 class TestSflowPolling():
     """
-    Test Sflow polling with different polling interval and check whether the test interface sends one counter sample for every polling interval 
+    Test Sflow polling with different polling interval and check whether the test interface sends one counter sample for every polling interval
     Disable polling and check the dut doesn't send counter samples .
     """
 
     def testPolling(self, sflowbase_config, duthost, partial_ptf_runner):
-        duthost.shell("config sflow polling-interval 20")        
+        duthost.shell("config sflow polling-interval 20")
         verify_show_sflow(duthost,status='up',polling_int=20)
         partial_ptf_runner(
               polling_int=20,
@@ -310,7 +320,7 @@ class TestSflowInterface():
               active_collectors="['collector0','collector1']" )
 
     def testIntfSamplingRate(self, sflowbase_config, duthost, ptfhost, partial_ptf_runner):
-       
+
         #re-add ports with different sampling rate
         sflow_int = sorted(var['sflow_ports'].keys())
         test_intf = sflow_int[0]
@@ -328,13 +338,13 @@ class TestSflowInterface():
         partial_ptf_runner(
               enabled_sflow_interfaces=sflow_int,
               active_collectors="['collector0','collector1']" )
-  
+
     def testIntfChangeSamplingRate(self, sflowbase_config, duthost, partial_ptf_runner, ptfhost):
 
         sflow_int = sorted(var['sflow_ports'].keys())
         test_intf = sflow_int[0]
         test_intf1 =  sflow_int[1]
-        # revert the sampling rate to 512 on both ports 
+        # revert the sampling rate to 512 on both ports
         config_sflow_interfaces(duthost,test_intf,sample_rate=512)
         config_sflow_interfaces(duthost,test_intf1,sample_rate=512)
         var['sflow_ports'][test_intf]['sample_rate'] = 512
@@ -351,9 +361,9 @@ class TestSflowInterface():
 
 class TestAgentId():
     """
-    Add loopback0 ip as the agent id and check the samples are received with intended agent-id. 
+    Add loopback0 ip as the agent id and check the samples are received with intended agent-id.
     Remove agent-ip and check whether samples are received with previously cofigured agent ip.
-    Add eth0 ip as the agent ip and check the samples are received with intended agent-id. 
+    Add eth0 ip as the agent ip and check the samples are received with intended agent-id.
     """
 
     def testNonDefaultAgent(self, sflowbase_config, duthost, partial_ptf_runner):
@@ -371,7 +381,7 @@ class TestAgentId():
         duthost.shell(" config sflow agent-id del")
         verify_show_sflow(duthost,status='up',agent_id='default')
         time.sleep(5)
-        #Verify  whether the samples are received with previously configured agent ip 
+        #Verify  whether the samples are received with previously configured agent ip
         partial_ptf_runner(
               polling_int=20,
               agent_id=var['lo_ip'],

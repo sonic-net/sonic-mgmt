@@ -3,6 +3,11 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_check_topo(testbed):
     if testbed['topo']['type'] == 'ptf':
@@ -31,8 +36,18 @@ def test_lldp(duthost, localhost, collect_techsupport):
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
 
-def test_lldp_neighbor(duthost, localhost, eos, collect_techsupport):
+def test_lldp_neighbor(duthost, localhost, eos,
+                       collect_techsupport, loganalyzer):
     """ verify LLDP information on neighbors """
+
+    if loganalyzer:
+        loganalyzer.ignore_regex.extend([
+            ".*ERR syncd#syncd: :- check_fdb_event_notification_data.*",
+            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb \
+                notifications, NOT translating and NOT storing in ASIC DB.*",
+            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was \
+                not sent since it contain invalid OIDs, bug.*",
+        ])
 
     mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")

@@ -1,10 +1,14 @@
 import pytest
 import time
 import logging
-from ptf_runner import ptf_runner
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
+pytestmark = [
+    pytest.mark.topology('t1')
+]
 
 @pytest.mark.parametrize("mtu", [1514,9114])
 def test_mtu(testbed, duthost, ptfhost, mtu):
@@ -15,7 +19,6 @@ def test_mtu(testbed, duthost, ptfhost, mtu):
     log_file = "/tmp/mtu_test.{}-{}.log".format(mtu,datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
 
     logging.info("Starting MTU test. PTF log file: %s" % log_file)
-    ptfhost.copy(src="ptftests", dest="/root")
 
     ptf_runner(ptfhost,
                "ptftests",

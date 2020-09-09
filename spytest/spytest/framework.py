@@ -507,7 +507,8 @@ class Context(object):
                 res["TimeTaken"] = "0:00:00"
             row = ["", res["Module"], func, res["Result"], res["TimeTaken"],
                    res["ExecutedOn"], res["Description"]]
-            item.user_properties.append(row)
+            # FIXME: temporarily remove to support junit-xml
+            # item.user_properties.append(row)
         if not self.slave_id:
             self.run_progress_report(self.all_tc_executed)
         return True

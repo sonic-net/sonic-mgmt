@@ -7,14 +7,20 @@ from jinja2 import Template
 from netaddr import IPNetwork
 from ansible.plugins.filter.core import to_bool
 
-from ptf_runner import ptf_runner
-from common.plugins.fib import generate_routes
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common.plugins.fib import generate_routes
 
 logger = logging.getLogger(__name__)
 
 PTFRUNNER_QLEN = 1000
 FIB_INFO_DEST = "/root/fib_info.txt"
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def get_uplink_ports(topology, topo_type):
 
@@ -105,12 +111,6 @@ def gen_fib_info(ptfhost, testbed, cfg_facts):
 
 
 def prepare_ptf(ptfhost, testbed, cfg_facts):
-    logger.info("Remove IP and change MAC on PTF container")
-    ptfhost.script("./scripts/remove_ip.sh")
-    ptfhost.script("./scripts/change_mac.sh")
-
-    logger.info("Copy PTF scripts to PTF container")
-    ptfhost.copy(src="ptftests", dest="/root")
 
     gen_fib_info(ptfhost, testbed, cfg_facts)
 
@@ -123,7 +123,7 @@ def setup_teardown(request, testbed, duthost, ptfhost):
     ecn_mode = "copy_from_outer"
     ttl_mode = "pipe"
 
-    # The hostvars dict has definitions defined in ansible/group_vars/sonic/vars
+    # The hostvars dict has definitions defined in ansible/group_vars/sonic/variables
     hostvars = duthost.host.options["variable_manager"]._hostvars[duthost.hostname]
     sonic_hwsku = duthost.facts["hwsku"]
     mellanox_hwskus = hostvars["mellanox_hwskus"]

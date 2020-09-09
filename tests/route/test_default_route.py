@@ -1,6 +1,12 @@
+import pytest
 import ipaddress
 import logging
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
+
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +34,12 @@ def test_default_route_set_src(duthost):
     pytest_assert(lo_ipv4, "cannot find ipv4 Loopback0 address")
     pytest_assert(lo_ipv6, "cannot find ipv6 Loopback0 address")
 
-    rtinfo = duthost.get_ip_route_info(ipaddress.ip_address(u"0.0.0.0"))
+    rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(u"0.0.0.0/0"))
     pytest_assert(rtinfo['set_src'], "default route do not have set src. {}".format(rtinfo))
     pytest_assert(rtinfo['set_src'] == lo_ipv4.ip, \
             "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
 
-    rtinfo = duthost.get_ip_route_info(ipaddress.ip_address(u"::"))
+    rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
     pytest_assert(rtinfo['set_src'], "default v6 route do not have set src. {}".format(rtinfo))
     pytest_assert(rtinfo['set_src'] == lo_ipv6.ip, \
             "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
@@ -44,7 +50,7 @@ def test_default_ipv6_route_next_hop_global_address(duthost):
 
     """
 
-    rtinfo = duthost.get_ip_route_info(ipaddress.ip_address(u"::"))
+    rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
     pytest_assert(rtinfo['nexthops'] > 0, "cannot find ipv6 nexthop for default route")
     for nh in rtinfo['nexthops']:
         pytest_assert(not nh[0].is_link_local, \

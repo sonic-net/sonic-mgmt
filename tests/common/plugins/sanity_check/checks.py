@@ -3,7 +3,7 @@ import json
 import logging
 import time
 
-from common.utilities import wait
+from tests.common.utilities import wait
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -96,6 +96,27 @@ def check_interfaces(dut):
     logger.info("Done checking interfaces status.")
     return check_result
 
+def check_bgp_status(dut):
+    logger.info("Checking bgp status...")
+    check_result = {"failed": False, "check_item": "bgp"}
+
+    neis = dut.get_bgp_neighbors()
+    if not neis:
+        logger.info("BGP neighbors: None")
+        check_result["failed"] = True
+    else:
+        down_neis = []
+        for nei, v in neis.items():
+            if v["state"] != "established":
+                down_neis.append(nei)
+        if down_neis:
+            logger.info("BGP neighbors down: {}".format(down_neis))
+            check_result["failed"] = True
+            check_result["down_neighbors"] = down_neis
+
+    logger.info("Done checking bgp status.")
+    return check_result
+
 def check_dbmemory(dut):
     logger.info("Checking database memory...")
 
@@ -168,6 +189,8 @@ def do_checks(dut, check_items):
             results.append(check_dbmemory(dut))
         elif item == "processes":
             results.append(check_processes(dut))
+        elif item == "bgp":
+            results.append(check_bgp_status(dut))
 
     return results
 

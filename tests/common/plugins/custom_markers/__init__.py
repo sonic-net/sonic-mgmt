@@ -1,4 +1,9 @@
+import sys
 import pytest
+import warnings
+import logging
+from tests.common.plugins import test_completeness
+
 
 def pytest_addoption(parser):
         parser.addoption("--topology", action="store", metavar="TOPO_NAME",
@@ -11,6 +16,9 @@ def pytest_addoption(parser):
                          help="only run tests matching the connection CONN_TYPE ('fabric', 'direct')")
         parser.addoption("--device_type", action="store", metavar="DEV_TYPE",
                          help="only run tests matching the device DEV_TYPE ('physical', 'vs')")
+        parser.addoption("--completeness_level", metavar="TEST_LEVEL", action="store",
+                         help="Coverage level of test \n Defined levels: Debug, Basic, Confident, Thorough")
+
 
 def pytest_configure(config):
     # register all the markers
@@ -29,6 +37,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "device_type(DEV_TYPE): mark test to specify the need for a physical dut or vs only test. allowed values: 'physical', 'vs'"
     )
+    config.addinivalue_line(
+        "markers", "supported_completeness_level(TEST_LEVEL): mark test to specify the completeness level for the test. Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
+    )
 
 def pytest_runtest_setup(item):
     if item.config.getoption("--topology"):
@@ -42,14 +53,21 @@ def pytest_runtest_setup(item):
     if item.config.getoption("--device_type"):
         check_device_type(item)
 
+    check_test_completeness(item)
+
 def check_topology(item):
-    toponames = [mark.args for mark in item.iter_markers(name="topology")]
-    if toponames:
+    # The closest marker is used here so that the module or class level
+    # marker will be overrided by case level marker
+    topo_marks = [mark for mark in item.iter_markers(name="topology")]   # Get all 'topology' marks on the chain
+    if topo_marks:
+        topo_mark = topo_marks[0]   # The nearest mark overides others
         cfg_topos = item.config.getoption("--topology").split(',')
-        if all(topo not in toponames[0] for topo in cfg_topos):
-            pytest.skip("test requires topology in {!r}".format(toponames))
+        if all(topo not in topo_mark.args for topo in cfg_topos):
+            pytest.skip("test requires topology in {!r}".format(topo_mark))
     else:
-        pytest.skip("test does not match topology")
+        warn_msg = "testcase {} is skipped when no topology marker is given".format(item.nodeid)
+        warnings.warn(warn_msg)
+        pytest.skip(warn_msg)
 
 def check_feature(item):
     feature_names = [mark.args for mark in item.iter_markers(name="feature")]
@@ -83,3 +101,36 @@ def check_device_type(item):
             pytest.skip("test requires device type in {!r}".format(dev))
     else:
         pytest.skip("test does not match device type")
+
+def check_test_completeness(item):
+    '''
+    API to set the completeness level. If the specified level does not match
+    a defined level in the testcase, level-normalization is done based on below
+    defined cases. The normalized level is set as a Pytest marker "supported_completeness_level":
+    Cases:
+    1. Completeness level not specified - set to the default (basic) value of test completeness.
+    2. Test does not define any completeness level - run the testcase entirely.
+    3. Specified completeness level do not match any defined level in a test case:
+        3.1 Specified level is higher than any defined level - go to highest level defined
+        3.2 Specified level is lower than any defined level - go to lowest level defined
+        3.3 Specified level is in between two defined levels - go to next lower level
+    4. Specified level matches one of the defined levels
+    '''
+    specified_level = item.config.getoption("--completeness_level")
+    # Check for case 1
+    specified_level = test_completeness.set_default(specified_level)
+
+    # The closest marker is used here so that the module or class level
+    # marker will be overrided by case level marker
+    defined_levels = [mark.args for mark in item.iter_markers(name="supported_completeness_level")]
+    # Check for case 2
+    if len(defined_levels) == 0:
+        logging.info("Test has no defined levels. Continue without test completeness checks")
+        return
+    defined_levels = defined_levels[0] # The nearest mark overides others
+
+    # Check for case 3, 4
+    normalized_completeness_level = test_completeness.normalize_levels(specified_level, defined_levels)
+
+    normalized_completeness_level = pytest.mark.supported_completeness_level(normalized_completeness_level)
+    item.add_marker(normalized_completeness_level, append=False)

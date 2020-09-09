@@ -3,9 +3,9 @@ import logging
 
 import constants
 
-from common.utilities import wait
-from common.errors import RunAnsibleModuleFail
-from common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.utilities import wait
+from tests.common.errors import RunAnsibleModuleFail
+from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def reboot_dut(dut, localhost, cmd, wait_time):
 def __recover_interfaces(dut, fanouthosts, result, wait_time):
     action = None
     for port in result['down_ports']:
-        logging.info("Restoring port {}".format(port))
+        logging.warning("Restoring port: {}".format(port))
 
         pn = str(port).lower()
         if 'portchannel' in pn or 'vlan' in pn:
@@ -50,7 +50,7 @@ def __recover_interfaces(dut, fanouthosts, result, wait_time):
 def __recover_services(dut, result):
     status   = result['services_status']
     services = [ x for x in status if not status[x] ]
-    logging.info("Service(s) down: {}".format(services))
+    logging.warning("Service(s) down: {}".format(services))
     return 'reboot' if 'database' in services else 'config_reload'
 
 
@@ -63,12 +63,11 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
     outstanding_action = None
     for result in check_results:
         if result['failed']:
-            logging.info("Restoring {}".format(result))
             if result['check_item'] == 'interfaces':
                 action = __recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
                 action = __recover_services(dut, result)
-            elif result['check_item'] == 'processes':
+            elif result['check_item'] in [ 'processes', 'bgp' ]:
                 action = 'config_reload'
             else:
                 action = 'reboot'
@@ -77,6 +76,8 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
             # 'reboot' is last resort and cannot be overridden.
             if action and (not outstanding_action or outstanding_action == 'config_reload'):
                 outstanding_action = action
+
+            logging.warning("Restoring {} with proposed action: {}, final action: {}".format(result, action, outstanding_action))
 
     if outstanding_action:
         method    = constants.RECOVER_METHODS[outstanding_action]
@@ -88,7 +89,7 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
 
 
 def recover(dut, localhost, fanouthosts, check_results, recover_method):
-    logger.info("Try to recover %s using method %s" % (dut.hostname, recover_method))
+    logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
     method    = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
     if method["adaptive"]:

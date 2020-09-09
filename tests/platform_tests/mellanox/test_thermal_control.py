@@ -3,11 +3,16 @@ import operator
 import pytest
 import random
 import time
-from common.mellanox_data import SWITCH_MODELS
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from common.utilities import wait_until
-from ..thermal_control_test_helper import *
+from tests.common.mellanox_data import SWITCH_MODELS
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.utilities import wait_until
+from tests.platform_tests.thermal_control_test_helper import *
 from mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
+
+pytestmark = [
+    pytest.mark.asic('mellanox'),
+    pytest.mark.topology('any')
+]
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
@@ -69,7 +74,7 @@ def test_set_psu_fan_speed(duthost, mocker_factory):
     single_fan_mocker.mock_absence()
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, 10, operator.eq), \
         'Current cooling state is {}'.format(get_cooling_cur_state(duthost))
-    
+
     logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_CHECK_INTERVAL))
     time.sleep(THERMAL_CONTROL_TEST_CHECK_INTERVAL)
     full_speeds = []

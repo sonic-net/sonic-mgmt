@@ -6,6 +6,7 @@
 #
 # ARPTest
 # DHCPTest
+# DHCPTopoT1Test
 # LLDPTest
 # BGPTest
 # LACPTest
@@ -53,12 +54,21 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.timeout_thr = None
 
+        self.minig_bgp = test_params.get('minig_bgp', None)
+        idx = 0
         self.myip = {}
         self.peerip = {}
-        for i in xrange(self.MAX_PORTS):
-            self.myip[i] = "10.0.0.%d" % (i*2+1)
-            self.peerip[i] = "10.0.0.%d" % (i*2)
-
+      
+        for peer in self.minig_bgp:
+            if str(peer['peer_addr']).find('10.0.0') == 0:#filter IPv6 info.
+              self.myip[idx] = peer['addr']
+              self.peerip[idx] = peer['peer_addr']
+              idx = idx+1
+        #if port number is out of the total of IPv4, take the last IPv4
+        if int(target_port_str) > idx-1:
+          self.myip[self.target_port] = self.myip[idx-1]
+          self.peerip[self.target_port] = self.peerip[idx-1]
+       
         return
 
     def log(self, message, debug=False):
@@ -247,6 +257,41 @@ class ARPTest(PolicyTest):
                        hw_tgt='ff:ff:ff:ff:ff:ff')
 
         return packet
+
+# SONIC configuration has no packets to CPU for DHCP-T1 Topo
+class DHCPTopoT1Test(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+        # T1 DHCP no packet to packet to CPU so police rate is 0
+        self.PPS_LIMIT_MIN = 0
+        self.PPS_LIMIT_MAX = 0
+
+    def runTest(self):
+        self.log("DHCPTopoT1Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        packet = simple_udp_packet(pktlen=100,
+                          eth_dst='ff:ff:ff:ff:ff:ff',
+                          eth_src=src_mac,
+                          dl_vlan_enable=False,
+                          vlan_vid=0,
+                          vlan_pcp=0,
+                          dl_vlan_cfi=0,
+                          ip_src='0.0.0.0',
+                          ip_dst='255.255.255.255',
+                          ip_tos=0,
+                          ip_ttl=64,
+                          udp_sport=68,
+                          udp_dport=67,
+                          ip_ihl=None,
+                          ip_options=False,
+                          with_udp_chksum=True
+                          )
+
+        return packet
+
 
 # SONIC configuration has no policer limiting for DHCP
 class DHCPTest(NoPolicyTest):

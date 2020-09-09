@@ -1,5 +1,13 @@
 import pytest
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('t0')
+]
+
 @pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot(request, get_advanced_reboot):
     '''

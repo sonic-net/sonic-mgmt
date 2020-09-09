@@ -10,11 +10,8 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
-import ipaddress
 import logging
 import random
-import socket
-import sys
 
 import ptf
 import ptf.packet as scapy
@@ -92,7 +89,7 @@ class FibTest(BaseTest):
                      and down links.
          - pkt_action: expect to receive test traffic or not. Default: fwd
          - ipv4/ipv6: enable ipv4/ipv6 tests
-        
+
         Other test parameters:
          - ttl:             ttl of test pkts. Auto decrease 1 for expected pkts.
          - ip_options       enable ip option header in ipv4 pkts. Default: False(disable)
@@ -150,10 +147,11 @@ class FibTest(BaseTest):
             ip_ranges = self.fib.ipv4_ranges()
         else:
             ip_ranges = self.fib.ipv6_ranges()
-        
+
         for ip_range in ip_ranges:
-            next_hop = self.fib[ip_range.get_first_ip()]
-            self.check_ip_range(ip_range, next_hop, ipv4)
+            if ip_range.get_first_ip() in self.fib:
+                next_hop = self.fib[ip_range.get_first_ip()]
+                self.check_ip_range(ip_range, next_hop, ipv4)
 
     def check_ip_range(self, ip_range, next_hop, ipv4=True):
         # Get the expected list of ports that would receive the packets
@@ -178,7 +176,7 @@ class FibTest(BaseTest):
 
         # Test traffic balancing across ECMP/LAG members
         if (self.test_balancing and self.pkt_action == self.ACTION_FWD
-                and len(exp_port_list) > 1  
+                and len(exp_port_list) > 1
                 and random.random() < self.balancing_test_ratio):
             logging.info("Check IP range balancing...")
             dst_ip = ip_range.get_random_ip()

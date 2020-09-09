@@ -2,7 +2,12 @@ import logging
 import pytest
 import time
 
-from common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
+
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 logger = logging.getLogger(__name__)
 
@@ -126,19 +131,6 @@ class TestFdbMacExpire:
         ptfhost.template(src="fdb/files/fdb.j2", dest=self.FDB_INFO_FILE)
 
     @pytest.fixture(scope="class", autouse=True)
-    def copyPtfDirectory(self, ptfhost):
-        """
-            Copys PTF directory to PTF host.
-
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                None
-        """
-        ptfhost.copy(src="ptftests", dest="/root")
-
-    @pytest.fixture(scope="class", autouse=True)
     def clearSonicFdbEntries(self, duthost):
         """
             Clears SONiC FDB entries before and after test
@@ -158,7 +150,7 @@ class TestFdbMacExpire:
     @pytest.fixture(scope="class", autouse=True)
     def validateDummyMacAbsent(self, duthost):
         """
-            Validates that test/dummy MAC entry is absent before the test runs 
+            Validates that test/dummy MAC entry is absent before the test runs
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -214,7 +206,7 @@ class TestFdbMacExpire:
 
             Args:
                 request (Fixture): pytest request object
-                testbed (Fixture, dict): Map containing testbed information 
+                testbed (Fixture, dict): Map containing testbed information
                 duthost (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
 

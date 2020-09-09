@@ -53,7 +53,10 @@ class PfcWdTest(BaseTest):
                 dport = random.randint(0, 65535)
                 ip_src = socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
                 ip_src =ipaddress.IPv4Address(unicode(ip_src,'utf-8'))
-                while ip_src == ipaddress.IPv4Address(unicode(self.ip_dst,'utf-8')) or ip_src.is_multicast or ip_src.is_private or ip_src.is_global or ip_src.is_reserved:
+                if not isinstance(self.ip_dst, unicode):
+                    self.ip_dst = unicode(self.ip_dst, 'utf-8')
+                ip_dst = ipaddress.IPv4Address(self.ip_dst)
+                while ip_src == ip_dst or ip_src.is_multicast or ip_src.is_private or ip_src.is_global or ip_src.is_reserved:
                     ip_src = socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
                     ip_src =ipaddress.IPv4Address(unicode(ip_src,'utf-8'))
 

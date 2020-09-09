@@ -1,33 +1,31 @@
 import ipaddress
 import pytest
+import random
 import time
 
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
 
+pytestmark = [
+    pytest.mark.topology('t0'),
+    pytest.mark.device_type('vs')
+]
 
-@pytest.fixture(scope="module", autouse=True)
-def copy_ptftests_directory(ptfhost):
-    """ Fixture which copies the ptftests directory to the PTF host. This fixture
-        is scoped to the module, as it only needs to be performed once before
-        the first test is run. It does not need to be run before each test.
-        We also set autouse=True to ensure this fixture gets instantiated before
-        the first test runs, even if we don't explicitly pass it to them, and since
-        there is no return value, there is no point in passing it into the functions.
-    """
-    ptfhost.copy(src="ptftests", dest="/root")
+BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
+DEFAULT_DHCP_CLIENT_PORT = 68
 
-@pytest.fixture(scope="module", autouse=True)
-def ptf_configure_unique_interface_mac_addresses(ptfhost, autouse=True):
-    """ Fixture which copies the change_mac.sh script to the PTF host and executes
-        it there, changing the MAC addresses of the PTF host's interfaces such that
-        each interface has a unique MAC address.
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR snmp#snmp-subagent.*",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
 
-        This fixture is scoped to the module, as it only needs to be performed once
-        before the first test is run.
-    """
-    ptfhost.copy(src="scripts/change_mac.sh", dest="/tmp")
+    yield
 
-    ptfhost.shell("/bin/bash /tmp/change_mac.sh")
 
 @pytest.fixture(scope="module")
 def dut_dhcp_relay_data(duthost, ptfhost, testbed):
@@ -42,7 +40,7 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
     host_facts = duthost.setup()['ansible_facts']
 
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
-    vlan_dict = mg_facts['minigraph_vlans'] 
+    vlan_dict = mg_facts['minigraph_vlans']
     for vlan_iface_name, vlan_info_dict in vlan_dict.items():
         # Gather information about the downlink VLAN interface this relay agent is listening on
         downlink_vlan_iface = {}
@@ -72,7 +70,7 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
         for iface_name, neighbor_info_dict in mg_facts['minigraph_neighbors'].items():
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
-                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] == 'LeafRouter': 
+                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] == 'LeafRouter':
                     # If this uplink's physical interface is a member of a portchannel interface,
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.
@@ -107,8 +105,7 @@ def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
-        assert len(rtInfo["nexthops"]) > 0, \
-            "Failed to find route to DHCP server '{0}' with error '{1}".format(dhcp_server, result["stderr"])
+        assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
 
 def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
@@ -130,7 +127,9 @@ def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask'])},
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
@@ -168,7 +167,9 @@ def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data, valid
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask'])},
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
@@ -214,5 +215,59 @@ def test_dhcp_relay_start_with_uplinks_down(duthost, ptfhost, dut_dhcp_relay_dat
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask'])},
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+
+
+def test_dhcp_relay_unicast_mac(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+    """Test DHCP relay functionality on T0 topology with unicast mac
+
+       Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
+    """
+    for dhcp_relay in dut_dhcp_relay_data:
+        # Run the DHCP relay test on the PTF host
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": duthost.facts["router_mac"],
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+
+
+def test_dhcp_relay_random_sport(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+    """Test DHCP relay functionality on T0 topology with random source port (sport)
+
+       If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68). 
+       Verify that DHCP relay works with random high sport.
+    """
+    RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))
+    for dhcp_relay in dut_dhcp_relay_data:
+        # Run the DHCP relay test on the PTF host
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": RANDOM_CLIENT_PORT},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")

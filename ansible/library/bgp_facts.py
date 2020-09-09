@@ -52,16 +52,20 @@ class BgpModule(object):
         self.module = AnsibleModule(
             argument_spec=dict(
                 num_npus=dict(type='int', default=1),
+                instance_id=dict(type='int'),
             ),
             supports_check_mode=True)
 
         m_args = self.module.params
-        npus = m_args['num_npus']
-        if npus > 1:
-            for npu in range(0, npus):
-                self.instances.append("bgp{}".format(npu))
+        if 'instance_id' in m_args and m_args['instance_id'] is not None:
+            self.instances.append("bgp{}".format(m_args['instance_id']))
         else:
-            self.instances.append("bgp")
+            npus = m_args['num_npus']
+            if npus > 1:
+                for npu in range(0, npus):
+                    self.instances.append("bgp{}".format(npu))
+            else:
+                self.instances.append("bgp")
                     
         self.out = None
         self.facts = {}
@@ -138,6 +142,7 @@ class BgpModule(object):
                     lines = n.splitlines()
                     neighbor['admin'] = 'up'
                     neighbor['accepted prefixes'] = 0
+                    neighbor_ip = None
 
                     for line in lines:
                         if regex_ipv4.match(line):
@@ -182,7 +187,8 @@ class BgpModule(object):
                         if message_stats:
                             neighbor['message statistics'] = message_stats
 
-                    neighbors[neighbor_ip] = neighbor
+                    if neighbor_ip:
+                        neighbors[neighbor_ip] = neighbor
 
         except Exception as e:
             self.module.fail_json(msg=str(e))

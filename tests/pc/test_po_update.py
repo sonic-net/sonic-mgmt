@@ -2,6 +2,37 @@ import time
 import pytest
 import logging
 
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+    """
+        Ignore expected failures logs during test execution.
+
+        LAG tests are triggering following syncd complaints but the don't cause
+        harm to DUT.
+
+        Args:
+            duthost: DUT fixture
+            loganalyzer: Loganalyzer utility fixture
+    """
+    # when loganalyzer is disabled, the object could be None
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
+            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
+            ".*ERR syncd#syncd: :- translate_vid_to_rid: unable to get RID for VID.*",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+    yield
+
 def test_po_update(duthost):
     """
     test port channel add/deletion as well ip address configuration
@@ -44,9 +75,8 @@ def test_po_update(duthost):
 
         time.sleep(30)
         int_facts = duthost.interface_facts()['ansible_facts']
-        assert not int_facts['ansible_interface_facts'][portchannel]['link']
-        bgp_facts = duthost.bgp_facts()['ansible_facts']
-        assert bgp_facts['bgp_statistics']['ipv4_idle'] == 1
+        pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
+        pytest_assert(wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 1))
 
         # Step 3: Create tmp portchannel
         duthost.shell("config portchannel add %s" % tmp_portchannel)
@@ -60,14 +90,13 @@ def test_po_update(duthost):
         # Step 5: Add portchannel ip to tmp portchannel
         duthost.shell("config interface ip add %s %s/31" % (tmp_portchannel, portchannel_ip))
         int_facts = duthost.interface_facts()['ansible_facts']
-        assert int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip
+        pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
         add_tmp_portchannel_ip = True
 
         time.sleep(30)
         int_facts = duthost.interface_facts()['ansible_facts']
-        assert int_facts['ansible_interface_facts'][tmp_portchannel]['link']
-        bgp_facts = duthost.bgp_facts()['ansible_facts']
-        assert bgp_facts['bgp_statistics']['ipv4_idle'] == 0
+        pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
+        pytest_assert(wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 0))
     finally:
         # Recover all states
         if add_tmp_portchannel_ip:
@@ -86,7 +115,5 @@ def test_po_update(duthost):
         if remove_portchannel_members:
             for member in portchannel_members:
                 duthost.shell("config portchannel member add %s %s" % (portchannel, member))
+        pytest_assert(wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 0))
 
-        time.sleep(30)
-        bgp_facts = duthost.bgp_facts()['ansible_facts']
-        assert bgp_facts['bgp_statistics']['ipv4_idle'] == 0

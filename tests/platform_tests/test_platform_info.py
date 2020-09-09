@@ -7,16 +7,17 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 import logging
 import re
 import time
-import os
-import sys
 
 import pytest
 
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from common.utilities import wait_until
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.utilities import wait_until
 from thermal_control_test_helper import *
 
-CMD_PLATFORM_SUMMARY = "show platform summary"
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_FANSTATUS = "show platform fan"
 CMD_PLATFORM_TEMPER = "show platform temperature"
@@ -101,54 +102,6 @@ def psu_test_setup_teardown(duthost):
         logging.info("sensord is running, pid = {}".format(sensord_pid))
 
 
-def test_show_platform_summary(duthost):
-    """
-    @summary: Check output of 'show platform summary'
-    """
-    logging.info("Check output of '%s'" % CMD_PLATFORM_SUMMARY)
-    platform_summary = duthost.command(CMD_PLATFORM_SUMMARY)
-    expected_fields = set(["Platform", "HwSKU", "ASIC"])
-    actual_fields = set()
-    for line in platform_summary["stdout_lines"]:
-        key_value = line.split(":")
-        assert len(key_value) == 2, "output format is not 'field_name: field_value'"
-        assert len(key_value[1]) > 0, "No value for field %s" % key_value[0]
-        actual_fields.add(line.split(":")[0])
-    assert actual_fields == expected_fields, \
-        "Unexpected output fields, actual=%s, expected=%s" % (str(actual_fields), str(expected_fields))
-
-
-def check_vendor_specific_psustatus(dut, psu_status_line):
-    """
-    @summary: Vendor specific psu status check
-    """
-    if dut.facts["asic_type"] in ["mellanox"]:
-        current_file_dir = os.path.dirname(os.path.realpath(__file__))
-        sub_folder_dir = os.path.join(current_file_dir, "mellanox")
-        if sub_folder_dir not in sys.path:
-            sys.path.append(sub_folder_dir)
-        from check_sysfs import check_psu_sysfs
-
-        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
-        psu_match = psu_line_pattern.match(psu_status_line)
-        psu_id = psu_match.group(1)
-        psu_status = psu_match.group(2)
-
-        check_psu_sysfs(dut, psu_id, psu_status)
-
-
-def test_show_platform_psustatus(duthost):
-    """
-    @summary: Check output of 'show platform psustatus'
-    """
-    logging.info("Check PSU status using '%s', hostname: %s" % (CMD_PLATFORM_PSUSTATUS, duthost.hostname))
-    psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
-    for line in psu_status["stdout_lines"][2:]:
-        assert psu_line_pattern.match(line), "Unexpected PSU status output"
-        check_vendor_specific_psustatus(duthost, line)
-
-
 def get_psu_num(dut):
     cmd_num_psu = "sudo psuutil numpsus"
 
@@ -161,6 +114,21 @@ def get_psu_num(dut):
         assert False, "Unable to get the number of PSUs using command '%s'" % cmd_num_psu
 
     return psu_num
+
+
+def check_vendor_specific_psustatus(dut, psu_status_line):
+    """
+    @summary: Vendor specific psu status check
+    """
+    if dut.facts["asic_type"] in ["mellanox"]:
+        from .mellanox.check_sysfs import check_psu_sysfs
+
+        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
+        psu_match = psu_line_pattern.match(psu_status_line)
+        psu_id = psu_match.group(1)
+        psu_status = psu_match.group(2)
+
+        check_psu_sysfs(dut, psu_id, psu_status)
 
 
 def turn_all_psu_on(psu_ctrl):
@@ -258,45 +226,10 @@ def test_turn_on_off_psu_and_check_psustatus(duthost, psu_controller):
     loganalyzer.analyze(marker)
 
 
-def parse_platform_summary(raw_input_lines):
-    """
-    @summary: Helper function for parsing the output of 'show system platform'
-    @return: Returned parsed information in a dictionary
-    """
-    res = {}
-    for line in raw_input_lines:
-        fields = line.split(":")
-        if len(fields) != 2:
-            continue
-        res[fields[0].lower()] = fields[1].strip()
-    return res
-
-
-def check_show_platform_fanstatus_output(lines):
-    """
-    @summary: Check basic output of 'show platform fan'. Expect output are:
-              "Fan Not detected" or a table of fan status data with 8 columns.
-    """
-    assert len(lines) > 0, 'There must be at least one line output for show platform fans'
-    if len(lines) == 1:
-        assert lines[0].encode('utf-8').strip() == 'Fan Not detected'
-    else:
-        assert len(lines) > 2, 'There must be at least two lines output for show platform fans if any FAN is detected'
-        second_line = lines[1]
-        field_ranges = get_field_range(second_line)
-        assert len(field_ranges) == 8, 'There must be 8 columns in output of show platform fans'
-
-
-def test_show_platform_fanstatus(duthost, mocker_factory):
+def test_show_platform_fanstatus_mocked(duthost, mocker_factory):
     """
     @summary: Check output of 'show platform fan'.
     """
-    # Do basic check first
-    logging.info("Check output of '%s'" % CMD_PLATFORM_FANSTATUS)
-    cli_fan_status = duthost.command(CMD_PLATFORM_FANSTATUS)
-    lines = cli_fan_status["stdout_lines"]
-    check_show_platform_fanstatus_output(lines)
-
     # Mock data and check
     mocker = mocker_factory(duthost, 'FanStatusMocker')
     if mocker is None:
@@ -310,29 +243,10 @@ def test_show_platform_fanstatus(duthost, mocker_factory):
     assert result, 'FAN mock data mismatch'
 
 
-def check_show_platform_temperature_output(lines):
-    """
-    @summary: Check basic output of 'show platform temperature'. Expect output are:
-              "Thermal Not detected" or a table of thermal status data with 8 columns.
-    """
-    assert len(lines) > 0, 'There must be at least one line output for show platform temperature'
-    if len(lines) == 1:
-        assert lines[0].encode('utf-8').strip() == 'Thermal Not detected'
-    else:
-        assert len(lines) > 2, 'There must be at least two lines output for show platform temperature if any thermal is detected'
-        second_line = lines[1]
-        field_ranges = get_field_range(second_line)
-        assert len(field_ranges) == 8, 'There must be 8 columns in output of show platform temperature'
-
-
-def test_show_platform_temperature(duthost, mocker_factory):
+def test_show_platform_temperature_mocked(duthost, mocker_factory):
     """
     @summary: Check output of 'show platform temperature'
     """
-    # Do basic check first
-    logging.info("Check output of '%s'" % CMD_PLATFORM_TEMPER)
-    cli_thermal_status = duthost.command(CMD_PLATFORM_TEMPER)
-
     # Mock data and check
     mocker = mocker_factory(duthost, 'ThermalStatusMocker')
     if mocker is None:
@@ -513,7 +427,7 @@ def test_thermal_control_fan_status(duthost, mocker_factory):
             logging.info('Mocking the fault FAN back to normal...')
             single_fan_mocker.mock_status(True)
             check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
-        
+
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]
         with loganalyzer:
             logging.info('Mocking an over speed FAN...')

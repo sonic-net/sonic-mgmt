@@ -7,6 +7,13 @@ import itertools
 import logging
 import pprint
 
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+
+pytestmark = [
+    pytest.mark.topology('t0')
+]
+
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
 DUMMY_MAC_COUNT = 10
@@ -15,7 +22,6 @@ FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
 PKT_TYPES = ["ethernet", "arp_request", "arp_reply"]
 
 logger = logging.getLogger(__name__)
-
 
 def send_eth(ptfadapter, source_port, source_mac, dest_mac):
     """
@@ -167,10 +173,6 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
     host_facts  = duthost.setup()['ansible_facts']
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-    # remove existing IPs from PTF host
-    ptfhost.script('scripts/remove_ip.sh')
-    # set unique MACs to PTF interfaces
-    ptfhost.script('scripts/change_mac.sh')
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 

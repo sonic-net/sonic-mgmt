@@ -5,18 +5,19 @@ This script is to cover the test case 'Reload configuration' in the SONiC platfo
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-import os
-import sys
 
 import pytest
 
-from common.fixtures.conn_graph_facts import conn_graph_facts
-from common.utilities import wait_until
-from check_critical_services import check_critical_services
-from check_transceiver_status import check_transceiver_basic
-from check_all_interface_info import check_interface_information
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.utilities import wait_until
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.transceiver_utils import check_transceiver_basic
+from tests.common.platform.interface_utils import check_interface_information
 
-pytestmark = [pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
+]
 
 
 def test_reload_configuration(duthost, conn_graph_facts):
@@ -30,7 +31,7 @@ def test_reload_configuration(duthost, conn_graph_facts):
     duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
 
     logging.info("Wait until all critical services are fully started")
-    check_critical_services(duthost)
+    wait_critical_processes(duthost)
 
     logging.info("Wait some time for all the transceivers to be detected")
     assert wait_until(300, 20, check_interface_information, duthost, interfaces), \
@@ -41,12 +42,8 @@ def test_reload_configuration(duthost, conn_graph_facts):
 
     if asic_type in ["mellanox"]:
 
-        current_file_dir = os.path.dirname(os.path.realpath(__file__))
-        sub_folder_dir = os.path.join(current_file_dir, "mellanox")
-        if sub_folder_dir not in sys.path:
-            sys.path.append(sub_folder_dir)
-        from check_hw_mgmt_service import check_hw_management_service
-        from check_sysfs import check_sysfs
+        from .mellanox.check_hw_mgmt_service import check_hw_management_service
+        from .mellanox.check_sysfs import check_sysfs
 
         logging.info("Check the hw-management service")
         check_hw_management_service(duthost)

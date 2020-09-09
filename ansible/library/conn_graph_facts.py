@@ -188,6 +188,8 @@ class Parse_Lab_Graph():
             self.vlanport[hostname] = {}
             for port in self.links[hostname]:
                 peerdevice = self.links[hostname][port]['peerdevice']
+                if self.devices[peerdevice]["Type"].lower() == "devsonic":
+                    continue
                 peerport = self.links[hostname][port]['peerport']
                 peerportmode = self.vlanport[peerdevice][peerport]['mode']
                 peervlanids = self.vlanport[peerdevice][peerport]['vlanids']
@@ -233,12 +235,17 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             host=dict(required=False),
+            hosts=dict(required=False, type='list'),
             filename=dict(required=False),
         ),
+        mutually_exclusive=[['host', 'hosts']],
         supports_check_mode=True
     )
     m_args = module.params
-    hostname = m_args['host']
+
+    hostnames = m_args['hosts']
+    if not hostnames:
+        hostnames = [m_args['host']]
     try:
         if m_args['filename']:
             filename = m_args['filename']
@@ -246,16 +253,31 @@ def main():
             filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
         lab_graph = Parse_Lab_Graph(filename)
         lab_graph.parse_graph()
-        dev = lab_graph.get_host_device_info(hostname)
-        if dev is None:
-            module.fail_json(msg="cannot find info for "+hostname)
-        results = {}
-        results['device_info'] =  lab_graph.get_host_device_info(hostname)
-        results['device_conn'] = lab_graph.get_host_connections(hostname)
-        if lab_graph.get_host_vlan(hostname):
-            results['device_vlan_range'] = lab_graph.get_host_vlan(hostname)['VlanRange']
-            results['device_vlan_list'] = lab_graph.get_host_vlan(hostname)['VlanList']
-        results['device_port_vlans'] = lab_graph.get_host_port_vlans(hostname)
+
+        device_info = []
+        device_conn = []
+        device_port_vlans = []
+        device_vlan_range = []
+        device_vlan_list = []
+        for hostname in hostnames:
+            dev = lab_graph.get_host_device_info(hostname)
+            if dev is None:
+                module.fail_json(msg="cannot find info for %s" % hostname)
+            device_info.append(dev)
+            device_conn.append(lab_graph.get_host_connections(hostname))
+            host_vlan = lab_graph.get_host_vlan(hostname)
+            # for multi-DUTs, must ensure all have vlan configured.
+            if host_vlan:
+                device_vlan_range.append(host_vlan["VlanRange"])
+                device_vlan_list.append(host_vlan["VlanList"])
+            device_port_vlans.append(lab_graph.get_host_port_vlans(hostname))
+        results = {k: v for k, v in locals().items()
+                   if (k.startswith("device_") and v)}
+
+        # flatten the lists for single host
+        if m_args['hosts'] is None:
+            results = {k: v[0] for k, v in results.items()}
+
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
         module.fail_json(msg="Can not find lab graph file "+LAB_CONNECTION_GRAPH_FILE)
@@ -264,7 +286,5 @@ def main():
 
 
 from ansible.module_utils.basic import *
-if __name__== "__main__":
+if __name__ == "__main__":
     main()
-
-

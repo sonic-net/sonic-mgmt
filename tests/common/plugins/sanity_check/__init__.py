@@ -41,13 +41,13 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(localhost, duthost, request, fanouthosts):
+def sanity_check(localhost, duthost, request, fanouthosts, testbed):
     logger.info("Start pre-test sanity check")
 
     skip_sanity = False
     allow_recover = False
     recover_method = "adaptive"
-    check_items = set(copy.deepcopy(constants.SUPPORTED_CHECK_ITEMS))  # Default check items
+    check_items = set(copy.deepcopy(constants.DEFAULT_CHECK_ITEMS))  # Default check items
     post_check = False
 
     customized_sanity_check = None
@@ -76,6 +76,14 @@ def sanity_check(localhost, duthost, request, fanouthosts):
         skip_sanity = True
     if request.config.option.allow_recover:
         allow_recover = True
+    items = request.config.getoption("--check_items")
+    if items:
+        items_array=str(items).split(',')
+        check_items = _update_check_items(check_items, items_array, constants.SUPPORTED_CHECK_ITEMS)
+
+    # ignore BGP check for particular topology type
+    if testbed['topo']['type'] == 'ptf' and 'bgp' in check_items:
+        check_items.remove('bgp')
 
     logger.info("Sanity check settings: skip_sanity=%s, check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \
         (skip_sanity, check_items, allow_recover, recover_method, post_check))

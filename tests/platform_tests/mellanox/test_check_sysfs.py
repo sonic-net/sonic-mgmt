@@ -5,9 +5,13 @@ This script covers the test case 'Check SYSFS' in the SONiC platform test plan:
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-
+import pytest
 from check_sysfs import check_sysfs
 
+pytestmark = [
+    pytest.mark.asic('mellanox'),
+    pytest.mark.topology('any')
+]
 
 def test_check_hw_mgmt_sysfs(duthost):
     """This test case is to check the symbolic links under /var/run/hw-management

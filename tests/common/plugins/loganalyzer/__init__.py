@@ -11,17 +11,21 @@ def pytest_addoption(parser):
 
 @pytest.fixture(autouse=True)
 def loganalyzer(duthost, request):
+    if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
+        logging.info("Log analyzer is disabled")
+        yield
+        return
+    # Force rotate logs
+    duthost.shell(
+        "/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1"
+        )
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
     logging.info("Add start marker into DUT syslog")
     marker = loganalyzer.init()
+    logging.info("Load config and analyze log")
+    # Read existed common regular expressions located with legacy loganalyzer module
+    loganalyzer.load_common_config()
+
     yield loganalyzer
-    if not request.config.getoption("--disable_loganalyzer") and "disable_loganalyzer" not in request.keywords:
-        logging.info("Load config and analyze log")
-        # Read existed common regular expressions located with legacy loganalyzer module
-        loganalyzer.load_common_config()
-        # Parse syslog and process result. Raise "LogAnalyzerError" exception if: total match or expected missing
-        # match is not equal to zero
-        loganalyzer.analyze(marker)
-    else:
-        logging.info("Add end marker into DUT syslog")
-        loganalyzer._add_end_marker(marker)
+
+    loganalyzer.analyze(marker)

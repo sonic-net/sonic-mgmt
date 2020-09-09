@@ -1,8 +1,8 @@
 import json
 import logging
 import pytest
-
-from ptf_runner import ptf_runner
+import ipaddr as ipaddress
+from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +65,14 @@ class PopulateFdb:
                     "vlan": vlan,
                     "index": mgFacts["minigraph_port_indices"][port]
                 })
+        vlan_interfaces = {}
+        for vlan in mgFacts["minigraph_vlan_interfaces"]:
+            if ipaddress.IPNetwork(vlan['addr']).version == 4:
+                vlan_interfaces[vlan["attachto"]] = vlan
 
         vlanConfigData = {
             "vlan_ports": mgVlanPorts,
-            "vlan_interfaces": {vlan["attachto"]: vlan for vlan in mgFacts["minigraph_vlan_interfaces"]},
+            "vlan_interfaces": vlan_interfaces,
             "dut_mac": self.duthost.setup()["ansible_facts"]["ansible_Ethernet0"]["macaddress"]
         }
 
@@ -77,9 +81,6 @@ class PopulateFdb:
 
         logger.info("Copying VLan config file to {0}".format(self.ptfhost.hostname))
         self.ptfhost.copy(src=self.VLAN_CONFIG_FILE, dest="/tmp/")
-
-        logger.info("Copying ptftests to {0}".format(self.ptfhost.hostname))
-        self.ptfhost.copy(src="ptftests", dest="/root")
 
     def run(self):
         """

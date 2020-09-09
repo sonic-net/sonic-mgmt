@@ -2,10 +2,20 @@ import logging
 
 import pytest
 
-from common.platform.device_utils import fanout_switch_port_lookup
-from common.utilities import wait_until
+from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.utilities import wait_until
+from tests.common.plugins.test_completeness import CompletenessLevel
+
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any'),
+    pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic)
+]
 
 class TestLinkFlap:
+    def __init__(self, request):
+        self.completeness_level = CompletenessLevel.get_normalized_level(request)
+        
     def __get_dut_if_status(self, dut, ifname=None):
         if not ifname:
             status = dut.show_interface(command='status')['ansible_facts']['int_status']
@@ -25,7 +35,7 @@ class TestLinkFlap:
     def __toggle_one_link(self, dut, dut_port, fanout, fanout_port):
         logging.info("Testing link flap on {}".format(dut_port))
 
-        assert self.__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(status)
+        assert self.__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port)
 
         logging.info("Shutting down fanout switch {} port {} connecting to {}".format(fanout.hostname, fanout_port, dut_port))
         self.ports_shutdown_by_test.add((fanout, fanout_port))
@@ -53,6 +63,9 @@ class TestLinkFlap:
                 logging.info("Skipping port {} that is admin down".format(dut_port))
             else:
                 candidates.append((dut_port, fanout, fanout_port))
+                if self.completeness_level == 'debug':
+                    # Run the test for one port only - to just test if the test works fine
+                    return candidates
 
         return candidates
 
@@ -73,9 +86,7 @@ class TestLinkFlap:
                 logging.debug("Restoring fanout switch {} port {} shut down by test".format(fanout.hostname, fanout_port))
                 fanout.no_shutdown(fanout_port)
 
-
-@pytest.mark.topology('any')
 @pytest.mark.platform('physical')
-def test_link_flap(duthost, fanouthosts):
-    tlf = TestLinkFlap()
+def test_link_flap(request, duthost, fanouthosts):
+    tlf = TestLinkFlap(request)
     tlf.run_link_flap_test(duthost, fanouthosts)

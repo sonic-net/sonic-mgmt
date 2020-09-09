@@ -5,11 +5,12 @@
 import collections
 import logging
 import os
-import time
-import yaml
 
-from common.broadcom_data import is_broadcom_device
-from common.mellanox_data import is_mellanox_device
+from tests.common import config_reload
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.broadcom_data import is_broadcom_device
+from tests.common.mellanox_data import is_mellanox_device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class DockerRegistryInfo(_DockerRegistryInfo):
     """
     pass
 
-def load_docker_registry_info(dut):
+def load_docker_registry_info(dut, creds):
     """
         Attempts to load Docker registry information.
 
@@ -47,31 +48,12 @@ def load_docker_registry_info(dut):
         Returns:
             DockerRegistryInfo: The registry information that was loaded.
     """
+    host = creds.get("docker_registry_host")
+    username = creds.get("docker_registry_username")
+    password = creds.get("docker_registry_password")
 
-    # FIXME: In Ansible we're able to load the facts regardless of where they're
-    # stored. We should figure out how to do this in pytest so the registry
-    # location isn't hard-coded.
-    registry_vars = dut.host.options['variable_manager'] \
-                            ._hostvars.get(dut.hostname, {}) \
-                            .get("secret_vars", {}) \
-                            .get("docker_registry")
-
-    if not registry_vars:
-        _LOGGER.warning("Registry info not found in inventory, falling back to registry file")
-
-        try:
-            with open(SONIC_DOCKER_REGISTRY) as contents:
-                registry_vars = yaml.safe_load(contents)
-        except IOError as err:
-            _LOGGER.error("Failed to parse registry file (%s)", err)
-            raise
-
-    host = registry_vars.get("docker_registry_host")
-    username = registry_vars.get("docker_registry_username")
-    password = registry_vars.get("docker_registry_password")
-
-    if not host or not username or not password:
-        error_message = "Missing registry hostname or login"
+    if not host:
+        error_message = "Missing registry hostname"
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 
@@ -99,7 +81,9 @@ def download_image(dut, registry, image_name, image_version="latest"):
             image_version (str): The version of the image to download.
     """
 
-    dut.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registry.password))
+    if registry.username and registry.password:
+        dut.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registry.password))
+
     dut.command("docker pull {}/{}:{}".format(registry.host, image_name, image_version))
 
 def tag_image(dut, tag, image_name, image_version="latest"):
@@ -115,7 +99,7 @@ def tag_image(dut, tag, image_name, image_version="latest"):
 
     dut.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
-def swap_syncd(dut):
+def swap_syncd(dut, creds):
     """
         Replaces the running syncd container with the RPC version of it.
 
@@ -137,17 +121,45 @@ def swap_syncd(dut):
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
+    dut.command("config bgp shutdown all")  # Force image download to go through mgmt network
     dut.command("systemctl stop swss")
     delete_container(dut, "syncd")
 
     # Set sysctl RCVBUF parameter for tests
-    dut.command("sysctl -w net.core.rmem_max=509430500")
+    dut.command("sysctl -w net.core.rmem_max=609430500")
+
+    # Set sysctl SENDBUF parameter for tests
+    dut.command("sysctl -w net.core.wmem_max=609430500")
 
     # TODO: Getting the base image version should be a common utility
     output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
     sonic_version = output["stdout_lines"][0].strip()
 
-    registry = load_docker_registry_info(dut)
+    def ready_for_swap():
+        syncd_status = dut.command("docker ps -f name=syncd")["stdout_lines"]
+        if len(syncd_status) > 1:
+            return False
+
+        swss_status = dut.command("docker ps -f name=swss")["stdout_lines"]
+        if len(swss_status) > 1:
+            return False
+
+        bgp_summary = dut.command("show ip bgp summary")["stdout_lines"]
+        idle_count = 0
+        expected_idle_count = 0
+        for line in bgp_summary:
+            if "Idle (Admin)" in line:
+                idle_count += 1
+
+            if "Total number of neighbors" in line:
+                tokens = line.split()
+                expected_idle_count = int(tokens[-1])
+
+        return idle_count == expected_idle_count
+
+    pytest_assert(wait_until(30, 3, ready_for_swap), "Docker and/or BGP failed to shut down")
+
+    registry = load_docker_registry_info(dut, creds)
     download_image(dut, registry, docker_rpc_image, sonic_version)
 
     tag_image(dut,
@@ -155,13 +167,11 @@ def swap_syncd(dut):
               "{}/{}".format(registry.host, docker_rpc_image),
               sonic_version)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
+    _LOGGER.info("Reloading config and restarting swss...")
+    config_reload(dut)
 
-    _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
-    time.sleep(60)
 
-def restore_default_syncd(dut):
+def restore_default_syncd(dut, creds):
     """
         Replaces the running syncd with the default syncd that comes with the image.
 
@@ -194,8 +204,10 @@ def restore_default_syncd(dut):
               docker_syncd_name,
               sonic_version)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
+    _LOGGER.info("Reloading config and restarting swss...")
+    config_reload(dut)
 
-    _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
-    time.sleep(60)
+    # Remove the RPC image from the DUT
+    docker_rpc_image = docker_syncd_name + "-rpc"
+    registry = load_docker_registry_info(dut, creds)
+    dut.command("docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, sonic_version))
