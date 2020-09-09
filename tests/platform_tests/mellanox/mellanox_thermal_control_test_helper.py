@@ -869,17 +869,17 @@ class AbnormalFanMocker(SingleFanMocker):
     def check_result(self, actual_data):
         """
         Check actual data with mocked data.
-        :param actual_data: A dictionary contains actual command line data. Key of the dictionary is FAN name. Value
-                            of the dictionary is a list of field values for a line of FAN data.
+        :param actual_data: A list of dictionary contains actual command line data.
+
         :return: True if a match line is found.
         """
-        for name, fields in actual_data.items():
-            if name == self.fan_data.name:
+        for fan in actual_data:
+            if fan['fan'] == self.fan_data.name:
                 try:
                     actual_color = self.fan_drawer_data.get_status_led()
-                    assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(name,
-                                                                                                        actual_color,
-                                                                                                        self.expect_led_color)
+                    assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(fan['fan'],
+                                                                                                          actual_color,
+                                                                                                          self.expect_led_color)
                 except SysfsNotExistError as e:
                     logging.info('LED check only support on SPC2 and SPC3: {}'.format(e))
                 return
