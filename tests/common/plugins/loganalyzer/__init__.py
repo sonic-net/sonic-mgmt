@@ -27,5 +27,7 @@ def loganalyzer(duthost, request):
     loganalyzer.load_common_config()
 
     yield loganalyzer
-
+    # Skip LogAnalyzer if case is skipped
+    if request.node.rep_call.skipped:
+        return
     loganalyzer.analyze(marker)
