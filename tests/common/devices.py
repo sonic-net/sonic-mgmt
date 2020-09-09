@@ -268,6 +268,19 @@ class SonicHost(AnsibleHostBase):
                 result["hwsku"] = line.split(":")[1].strip()
             elif line.startswith("ASIC:"):
                 result["asic_type"] = line.split(":")[1].strip()
+
+        if result["platform"]:
+            platform_file_path = os.path.join('/usr/share/sonic/device',result["platform"],'platform.json')
+
+            try:
+                out = self.command("cat {}".format(platform_file_path))
+                platform_info = json.loads(out["stdout"])
+                result["chassis"] = platform_info["chassis"]
+            except:
+                # if platform.json does not exist, then it's not added currently for certain platforms
+                # eventually all the platforms should have the platform.json
+                pass
+
         return result
 
     def _get_os_version(self):
