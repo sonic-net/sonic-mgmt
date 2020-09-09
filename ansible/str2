@@ -23,6 +23,8 @@ all:
           ansible_host: 10.64.246.58
         vms17-5:
           ansible_host: 10.64.246.118
+        vms17-6:
+          ansible_host: 10.64.246.120
 
 fanout:
   hosts:
@@ -41,6 +43,8 @@ fanout:
       ansible_host: 10.3.146.220
     str2-7260cx3-acs-fan-08:
       ansible_host: 10.3.146.55
+    str2-7260cx3-64-19:
+      ansible_host: 10.3.146.150
 
 sonic:
   vars:
@@ -51,6 +55,7 @@ sonic:
     sonic_arista_Q32:
     sonic_mlnx_3800:
     sonic_mlnx_3800_50:
+    sonic_dx010_100:
 
 sonic_mlnx:
   vars:
@@ -109,3 +114,11 @@ sonic_arista_Q32:
   hosts:
     str2-7060cx-32s-29:
       ansible_host: 10.3.146.57
+
+sonic_dx010_100:
+  vars:
+    hwsku: Celestica-DX010-C32
+    iface_speed: 100000
+  hosts:
+    str2-dx010-acs-6:
+      ansible_host: 10.64.246.100

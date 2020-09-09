@@ -7,6 +7,7 @@ str2-7260cx3-fan-07,10.3.146.244/23,Arista-7260CX3,FanoutLeaf
 str2-7260cx3-fan-08,10.3.146.245/23,Arista-7260CX3,FanoutLeaf
 str2-7260cx3-acs-fan-07,10.3.146.54/23,Arista-7260CX3,FanoutLeaf
 str2-7260cx3-acs-fan-08,10.3.146.55/23,Arista-7260CX3,FanoutLeaf
+str2-7260cx3-64-19,10.3.146.150/23,Arista-7260CX3,FanoutLeaf
 str2-msn2700-spy-1,10.3.146.242,Mellanox-SN2700,DevSonic
 str2-msn2700-spy-2,10.3.146.243,Mellanox-SN2700,DevSonic
 str2-a7060-spy-1,10.3.146.241,Arista-7060CX-32S-C32,DevSonic
@@ -17,5 +18,6 @@ str2-sn3800-02,10.3.146.232/23,Mellanox-SN3800-D112C8,DevSonic
 str2-n3164-acs-4,10.3.146.124/23,Nexus-3164,DevSonic
 str2-n3164-acs-3,10.3.146.132/23,Nexus-3164,DevSonic
 str2-7050cx3-acs-01,10.3.146.85/23,Arista-7050CX3-32S-C32,DevSonic
+str2-dx010-acs-6,10.64.246.100/23,Celestica-DX010-C32,DevSonic
 str2-acs-serv-16,10.64.246.95/23,TestServ,Server
 str2-acs-serv-17,10.64.246.96/23,TestServ,Server
