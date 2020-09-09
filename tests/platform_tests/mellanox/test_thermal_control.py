@@ -11,7 +11,6 @@ from mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
-    pytest.mark.usefixtures('check_dut_asic_type'),
     pytest.mark.topology('any')
 ]
 
