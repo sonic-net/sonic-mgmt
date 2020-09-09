@@ -41,10 +41,7 @@ class TestFan_drawer_DrawerApi(PlatformApiTestBase):
             except:
                 pytest.fail("num_fan_drawers is not an integer")
 
-        chassis = duthost.facts.get('chassis', None)
-
-        if chassis and len(chassis['fan_drawers']) > 0 :
-            fan_drawer_truth = chassis['fan_drawers']
+        self.fan_drawer_truth = duthost.facts.get('fan_drawers', None)
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -55,8 +52,8 @@ class TestFan_drawer_DrawerApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Fan_drawer {} name".format(i)):
                 self.expect(isinstance(name, str), "Fan_drawer {} name appears incorrect".format(i))
-                if fan_drawer_truth:
-                    self.expect(name == fan_drawer_truth[i]['name'], "Fan_drawer {} name does not match".format(i))
+                if self.fan_drawer_truth:
+                    self.expect(name == self.fan_drawer_truth[i]['name'], "Fan_drawer {} name does not match,  expected name {} ".format(i, self.fan_drawer_truth[i]['name']))
 
         self.assert_expectations()
 
@@ -106,8 +103,8 @@ class TestFan_drawer_DrawerApi(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, i)
             if self.expect(num_fans is not None, "Unable to retrieve fan_drawer {} number of fans".format(i)):
                 self.expect(isinstance(num_fans, int), "fan drawer {} number of fans appear to be incorrect".format(i))
-                if fan_drawer_truth:
-                    self.expect(num_fans == fan_drawer_truth[i]['num_fans'], "Fan_drawer {} number of fans does not match".format(i))
+                if self.fan_drawer_truth:
+                    self.expect(name == self.fan_drawer_truth[i]['num_fans'], "Fan_drawer {} num_fans does not match,  expected num_fans {} ".format(i, self.fan_drawer_truth[i]['num_fans']))
         self.assert_expectations()
 
     def test_get_all_fans(self, duthost, localhost, platform_api_conn):
