@@ -20,37 +20,6 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 
-CMD_FEATURE = "show feature"
-CMD_CONTAINER_FEATURE_AUTORESTART = "show container feature autorestart"
-
-
-def get_critical_group_and_process_list(duthost, container_name):
-    """
-    @summary: Get critical group and process lists by parsing the
-              critical_processes file in the specified container
-    @return: Two lists which include the critical process and critical groups respectively
-    """
-    critical_group_list = []
-    critical_process_list = []
-
-    file_content = duthost.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
-            && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
-    for line in file_content["stdout_lines"]:
-        line_info = line.strip('\n').split(':')
-        if len(line_info) != 2:
-            pytest.fail("Syntax of the line '{}' in critical_processes file is incorrect.".format(line))
-
-        identifier_key = line_info[0].strip()
-        identifier_value = line_info[1].strip()
-        if identifier_key == "group" and identifier_value:
-            critical_group_list.append(identifier_value)
-        elif identifier_key == "program" and identifier_value:
-            critical_process_list.append(identifier_value)
-        else:
-            pytest.fail("Syntax of the line '{}' in critical_processes file is incorrect.".format(line))
-
-    return critical_group_list, critical_process_list
-
 
 def get_group_program_info(duthost, container_name, group_name):
     """
@@ -105,26 +74,6 @@ def get_program_info(duthost, container_name, program_name):
     return program_status, program_pid
 
 
-def get_container_autorestart_states(duthost):
-    """
-    @summary: Get container names and their autorestart states by analyzing
-              the command output of "show container feature autorestart"
-    @return:  A dictionary where keys are the names of containers which have the
-              autorestart feature implemented and values are the autorestart feature
-              state for that container
-    """
-    container_autorestart_states = {}
-
-    show_cmd_output = duthost.shell(CMD_CONTAINER_FEATURE_AUTORESTART)
-    for line in show_cmd_output["stdout_lines"]:
-        container_name = line.split()[0].strip()
-        container_state = line.split()[1].strip()
-        if container_state in ["enabled", "disabled"]:
-            container_autorestart_states[container_name] = container_state
-
-    return container_autorestart_states
-
-
 def get_disabled_container_list(duthost):
     """
     @summary: Get the container/service names which are disabled
@@ -132,11 +81,12 @@ def get_disabled_container_list(duthost):
     """
     disabled_containers = []
 
-    show_cmd_output = duthost.shell(CMD_FEATURE)
-    for line in show_cmd_output["stdout_lines"]:
-        container_name = line.split()[0].strip()
-        container_state = line.split()[1].strip()
-        if container_state == "disabled":
+    container_status, succeeded = duthost.get_feature_status()
+    if not succeeded:
+        pytest.fail("Failed to get status ('enabled'|'disabled') of containers. Exiting...")
+
+    for container_name, status in container_status.items():
+        if status == "disabled":
             disabled_containers.append(container_name)
 
     return disabled_containers
@@ -157,23 +107,6 @@ def check_container_state(duthost, container_name, should_be_running):
     """
     is_running = is_container_running(duthost, container_name)
     return is_running == should_be_running
-
-
-def get_program_status(duthost, container_name, program_name):
-    """
-    @summary: Return the status of a program in the specified container
-    @return: "RUNNING" or "EXITED" represents the program is in the running
-             or exited status
-    """
-    program_status = None
-
-    process_list = duthost.shell("docker exec {} supervisorctl status".format(container_name))
-    for process_info in process_list["stdout_lines"]:
-        if process_info.find(program_name) != -1:
-            program_status = process_info.split()[1].strip()
-            break
-
-    return program_status
 
 
 def kill_process_by_pid(duthost, container_name, program_name, program_pid):
@@ -276,7 +209,7 @@ def test_containers_autorestart(duthost):
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    container_autorestart_states = get_container_autorestart_states(duthost)
+    container_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
     for container_name in container_autorestart_states.keys():
@@ -304,7 +237,10 @@ def test_containers_autorestart(duthost):
         verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd",
                                                         program_status, program_pid)
 
-        critical_group_list, critical_process_list = get_critical_group_and_process_list(duthost, container_name)
+        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_list(container_name)
+        if not succeeded:
+            pytest.fail("Failed to get critical group and process lists of container '{}'".format(container_name))
+
         for critical_process in critical_process_list:
             program_status, program_pid = get_program_info(duthost, container_name, critical_process)
             verify_autorestart_with_critical_process(duthost, container_name, critical_process,
