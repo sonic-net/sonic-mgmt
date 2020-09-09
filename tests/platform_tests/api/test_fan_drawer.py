@@ -41,7 +41,7 @@ class TestFan_drawer_DrawerApi(PlatformApiTestBase):
             except:
                 pytest.fail("num_fan_drawers is not an integer")
 
-        chassis = duthost.facts['chassis']
+        chassis = duthost.facts.get('chassis', None)
 
         if chassis and len(chassis['fan_drawers']) > 0 :
             fan_drawer_truth = chassis['fan_drawers']

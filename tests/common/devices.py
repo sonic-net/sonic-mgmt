@@ -270,7 +270,7 @@ class SonicHost(AnsibleHostBase):
                 result["asic_type"] = line.split(":")[1].strip()
 
         if result["platform"]:
-            platform_file_path = os.path.join('/usr/share/sonic/device',result["platform"],'platform.json')
+            platform_file_path = os.path.join('/usr/share/sonic/device', result["platform"], 'platform.json')
 
             try:
                 out = self.command("cat {}".format(platform_file_path))
@@ -279,6 +279,8 @@ class SonicHost(AnsibleHostBase):
             except:
                 # if platform.json does not exist, then it's not added currently for certain platforms
                 # eventually all the platforms should have the platform.json
+                logging.debug("platform.json is not available for this platform, dut facts will not contain
+                              chassis and interfaces data")
                 pass
 
         return result
