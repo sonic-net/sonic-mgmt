@@ -4,12 +4,13 @@ import time
 import random
 
 import pytest
+import ptf.testutils as testutils
 
 from nat_helpers import DIRECTION_PARAMS
 from nat_helpers import POOL_RANGE_START_PORT
 from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
 from nat_helpers import POOL_RANGE_END_PORT
-from nat_helpers import check_rule_by_traffic
+from nat_helpers import TCP_GLOBAL_PORT
 from nat_helpers import configure_dynamic_nat_rule
 from nat_helpers import wait_timeout
 from nat_helpers import get_dst_ip
@@ -17,15 +18,21 @@ from nat_helpers import get_src_ip
 from nat_helpers import get_dst_port
 from nat_helpers import get_src_port
 from nat_helpers import expected_mask_nated_packet
-from nat_helpers import set_l4_default_ports
+from nat_helpers import get_l4_default_ports
 from nat_helpers import exec_command
 from nat_helpers import get_public_ip
 from nat_helpers import nat_statistics
 from nat_helpers import nat_translations
 from nat_helpers import dut_interface_control
 from nat_helpers import dut_nat_iptables_status
-from nat_helpers import nat_zones_config
-import ptf.testutils as testutils
+from nat_helpers import perform_handshake
+from nat_helpers import get_network_data
+from nat_helpers import generate_and_verify_traffic
+from nat_helpers import generate_and_verify_icmp_traffic
+from nat_helpers import generate_and_verify_not_translated_traffic
+from nat_helpers import generate_and_verify_not_translated_icmp_traffic
+from nat_helpers import generate_and_verify_traffic_dropped
+
 from tests.common.helpers.assertions import pytest_assert
 
 
@@ -37,67 +44,125 @@ class TestDynamicNat(object):
                                protocol_type):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
         # Configure default rules for Dynamic NAT
-        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
-                                   remove_bindings=False)
-        # Traffic send and check
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction,
-                                  interface_type, protocol_type, icmp_id=POOL_RANGE_START_PORT,
-                                  negative=False, handshake=True, nat_type='dynamic', default=True)
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True, remove_bindings=False)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        for path in DIRECTION_PARAMS:
+            generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_basic_icmp(self, testbed, duthost, ptfadapter, setup_test_env):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True, remove_bindings=False)
+        # Send ICMP traffic(host-tor -> leaf-tor) and check
+        generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type, icmp_id=POOL_RANGE_START_PORT)
 
     @pytest.mark.nat_dynamic
     def test_nat_dynamic_entry_persist(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
                                        protocol_type):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
-        # Configure Dynamic NAT rules
-        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
-        # Check if NAT entry stays persist due TCP/UDP timeout
-        handshake = True
-        for attempt in range(0, 4):
-            if attempt == 1:
-                handshake = False
-            for direction in DIRECTION_PARAMS:
-                if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                    continue
-                check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type,
-                                      protocol_type, icmp_id=POOL_RANGE_START_PORT, handshake=handshake,
-                                      nat_type='dynamic', default=True)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
+                                   remove_bindings=False)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        for _ in range(0, 4):
+            for path in DIRECTION_PARAMS:
+                generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
             # Wait some time and send packet again
             wait = random.randint(1, GLOBAL_UDP_NAPT_TIMEOUT / 2)
             wait_timeout(protocol_type, wait_time=wait, default=False)
 
     @pytest.mark.nat_dynamic
-    def test_nat_dynamic_disable_nat(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
-                                     protocol_type, enable_nat_config):
+    def test_nat_dynamic_entry_persist_icmp(self, testbed, duthost, ptfadapter, setup_test_env):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
-        # Configure Dynamic NAT rules
-        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
-        # Disable NAT feature
-        duthost.command("config nat feature disable")
-        # Send traffic and check that NAT does not happen
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type,
-                                  protocol_type, exp_source_port=POOL_RANGE_START_PORT, icmp_id=POOL_RANGE_START_PORT,
-                                  handshake=True, nat_type='dynamic', default=True, negative=True)
-        # Enable NAT feature and send traffic to check that NAT happens
-        duthost.command("config nat feature enable")
-        # Traffic send and check
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction,
-                                  interface_type, protocol_type, icmp_id=POOL_RANGE_START_PORT,
-                                  negative=False, handshake=True, nat_type='dynamic', default=True)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        protocol_type = 'ICMP'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True, remove_bindings=False)
+        # Send ICMP traffic(host-tor -> leaf-tor) and check
+        for _ in range(0, 4):
+            generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type=nat_type, icmp_id=POOL_RANGE_START_PORT)
+            wait_timeout(protocol_type, wait_time=15, default=False)
 
     @pytest.mark.nat_dynamic
-    def test_nat_dynamic_other_protocols(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env):
+    def test_nat_dynamic_disable_nat(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
+                                     protocol_type, enable_nat_feature):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
+                                   remove_bindings=False)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Disable NAT feature
+        duthost.command("config nat feature disable")
+        # Send traffic and check that traffic was L3 forwarded
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
+        # Enable NAT feature and send traffic to check that NAT happens
+        duthost.command("config nat feature enable")
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        for path in DIRECTION_PARAMS:
+            generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_disable_nat_icmp(self, testbed, duthost, ptfadapter, setup_test_env, enable_nat_feature):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True, remove_bindings=False)
+        # Disable NAT feature
+        duthost.command("config nat feature disable")
+        # Send ICMP traffic and check that NAT does not happen
+        generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type=nat_type)
+        # Enable NAT feature and send traffic to check that NAT happens
+        duthost.command("config nat feature enable")
+        # Send ICMP traffic(host-tor -> leaf-tor) and check
+        generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type=nat_type, icmp_id=POOL_RANGE_START_PORT)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_other_protocols(self, testbed, duthost, ptfadapter, setup_test_env):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
         direction = 'host-tor'
@@ -113,8 +178,7 @@ class TestDynamicNat(object):
         ip_src = get_src_ip(setup_data, direction, interface_type)
         ip_dst = get_dst_ip(setup_data, direction, interface_type)
         pkt = testutils.simple_gre_packet(eth_dst=eth_dst, eth_src=eth_src, ip_src=ip_src, ip_dst=ip_dst)
-        exp_pkt = expected_mask_nated_packet(pkt, setup_data, interface_type, direction, "gre",
-                                             exp_src_ip=ip_src, exp_dst_ip=ip_dst)
+        exp_pkt = expected_mask_nated_packet(pkt, "gre", ip_dst=ip_dst, ip_src=ip_src)
         # Check that packet was forwarded and not NAT
         testutils.send(ptfadapter, inner_ports[0], pkt, count=5)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=outer_ports)
@@ -124,50 +188,85 @@ class TestDynamicNat(object):
                                           protocol_type):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+        # Configure Dynamic NAT rule and set action to "do_not_nat"
+        acl_subnet = setup_data[interface_type]["acl_subnet"]
+        acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "do_not_nat"}]
+        # Configure rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
+                                   remove_bindings=False, acl_rules=acl_rules)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send traffic and check that NAT does not happen
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
+        # Change rules ACL rule from "do_not_nat" to "forward" and check that NAT traffic was NAT
+        acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "forward"}]
+        # Configure rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
+                                   remove_bindings=False, acl_rules=acl_rules)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Verify the behaviour when the ACL binding action changed from "do_not_nat" to "forward"
+        for path in DIRECTION_PARAMS:
+            generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
+        # Change rules ACL rule from "forward" to "do_not_nat" and check that NAT traffic was not NAT
+        acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "do_not_nat"}]
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
+                                   remove_bindings=False, acl_rules=acl_rules)
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
+
+    def test_nat_dynamic_acl_rule_actions_icmp(self, testbed, duthost, ptfadapter, setup_test_env):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
         # Configure Dynamic NAT rule and set action to "do_not_nat"
         acl_subnet = setup_data[interface_type]["acl_subnet"]
         acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "do_not_nat"}]
         configure_dynamic_nat_rule(duthost, setup_data, interface_type, acl_rules=acl_rules, default=True)
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type,
-                                  protocol_type, exp_source_port=POOL_RANGE_START_PORT, icmp_id=POOL_RANGE_START_PORT,
-                                  handshake=True, nat_type='dynamic', default=True, negative=True, action='do_not_nat')
+        generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type)
         # Change rules ACL rule from "do_not_nat" to "forward" and check that NAT traffic was NAT
         acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "forward"}]
         configure_dynamic_nat_rule(duthost, setup_data, interface_type, acl_rules=acl_rules, default=True)
         # Verify the behaviour when the ACL binding action changed from "do_not_nat" to "forward"
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type,
-                                  protocol_type, icmp_id=POOL_RANGE_START_PORT, handshake=True, nat_type='dynamic',
-                                  default=True)
+        generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type=nat_type, icmp_id=POOL_RANGE_START_PORT)
         # Change rules ACL rule from "forward" to "do_not_nat" and check that NAT traffic was not NAT
         acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "do_not_nat"}]
         configure_dynamic_nat_rule(duthost, setup_data, interface_type, acl_rules=acl_rules, default=True)
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type,
-                                  protocol_type, exp_source_port=POOL_RANGE_START_PORT, icmp_id=POOL_RANGE_START_PORT,
-                                  nat_type='dynamic', default=True, negative=True, action='do_not_nat')
+        generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type=nat_type)
 
     @pytest.mark.nat_dynamic
     def test_nat_dynamic_acl_modify_rule(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
                                          protocol_type):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
         # Configure default rules for Dynamic NAT
-        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
-        # Traffic send and check
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type,
-                                  protocol_type, icmp_id=POOL_RANGE_START_PORT, handshake=True, nat_type='dynamic',
-                                  default=True)
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True, remove_bindings=False)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        for path in DIRECTION_PARAMS:
+            generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
         # Configure Dynamic NAT rule and set action to "do_not_nat"
         acl_subnet = "172.20.0.0/24"
         acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "do_not_nat"}]
@@ -175,66 +274,279 @@ class TestDynamicNat(object):
         # Send traffic from 172.20.0.0 subnet and verify that it was not NAT
         packet_source_ip = "172.20.19.2"
         # Check that packet is L3 forwarded after rule was chenged from forward to do_not_nat
-        source_l4_port, dest_l4_port = set_l4_default_ports(protocol_type)
-        check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, 'host-tor', interface_type,
-                              protocol_type, ip_src=packet_source_ip, exp_src_ip=packet_source_ip,
-                              source_l4_port=source_l4_port, dest_l4_port=dest_l4_port,
-                              exp_source_port=source_l4_port,
-                              exp_dst_port=dest_l4_port, icmp_id=POOL_RANGE_START_PORT,
-                              negative=True if protocol_type == "ICMP" else False)
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type,
+                                                   ip_src=packet_source_ip, exp_ip_src=packet_source_ip)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_acl_modify_rule_icmp(self, testbed, duthost, ptfadapter, setup_test_env):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True, remove_bindings=False)
+        # Send ICMP traffic(host-tor -> leaf-tor) and check
+        generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type, icmp_id=POOL_RANGE_START_PORT)
+        # Configure Dynamic NAT rule and set action to "do_not_nat"
+        acl_subnet = "172.20.0.0/24"
+        acl_rules = [{"priority": "10", "src_ip": acl_subnet, "action": "do_not_nat"}]
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, acl_rules=acl_rules, default=True)
+        # Send traffic from 172.20.0.0 subnet and verify that it was not NAT
+        packet_source_ip = "172.20.19.2"
+        # Check that packet is L3 forwarded after rule was chenged from forward to do_not_nat
+        generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type, ip_src=packet_source_ip, check_reply=False)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_pool_threshold(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
+                                        protocol_type):
+        from nat_helpers import get_dynamic_l4_ports
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+        # Configure default rules for Dynamic NAT, but change pool configuration
+        pool = "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_START_PORT + 1)
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, port_range=pool, default=True)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Define dynamic source port for expected packet
+        l4_ports = get_dynamic_l4_ports(duthost, protocol_type, direction, network_data.public_ip)
+        if l4_ports.exp_src_port != POOL_RANGE_START_PORT:
+            first_exp_src_port = POOL_RANGE_START_PORT + 1
+            second_exp_src_port = POOL_RANGE_START_PORT
+        else:
+            first_exp_src_port = POOL_RANGE_START_PORT
+            second_exp_src_port = POOL_RANGE_START_PORT + 1
+        # Send traffic with different source L4 port and check that first two packets were NAT and 3-d one was dropped
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        # Check first translation entry
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,
+                                    src_port=src_port, dst_port=TCP_GLOBAL_PORT, exp_src_port=first_exp_src_port, exp_dst_port=TCP_GLOBAL_PORT)
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'leaf-tor', protocol_type, nat_type=nat_type,
+                                    src_port=TCP_GLOBAL_PORT, dst_port=first_exp_src_port, exp_src_port=TCP_GLOBAL_PORT, exp_dst_port=src_port)
+        # Check second translation entry
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port + 1,
+                          network_data.public_ip)
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,
+                                    src_port=src_port + 1, dst_port=TCP_GLOBAL_PORT, exp_src_port=second_exp_src_port, exp_dst_port=TCP_GLOBAL_PORT)
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'leaf-tor', protocol_type, nat_type=nat_type,
+                                    src_port=TCP_GLOBAL_PORT, dst_port=second_exp_src_port, exp_src_port=TCP_GLOBAL_PORT, exp_dst_port=src_port + 1)
+        # Check that third translation entry was not created and packets are dropped
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port + 2,
+                          network_data.public_ip)
+        translation_rules = nat_translations(duthost, show=True)
+        for entry in translation_rules:
+            if network_data.ip_src in entry:
+                translated_port = int(re.search(r'[0-9]{1,6}$', translation_rules[entry]["Source"]).group())
+                pytest_assert(translated_port != src_port + 2,
+                              "Unexpected translated l4 port in rule {}: {}".format(entry, translation_rules[entry]))
+        generate_and_verify_traffic_dropped(ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,
+                                            src_port=src_port + 2, dst_port=TCP_GLOBAL_PORT, exp_src_port=first_exp_src_port, exp_dst_port=TCP_GLOBAL_PORT)
+        generate_and_verify_traffic_dropped(ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,
+                                            src_port=src_port + 2, dst_port=TCP_GLOBAL_PORT, exp_src_port=second_exp_src_port, exp_dst_port=TCP_GLOBAL_PORT)
+        # Wait until entry expired
+        wait_timeout(protocol_type)
+        # Check that NAT entries were deleted
+        translation_rules = nat_translations(duthost, show=True)
+        pytest_assert(not translation_rules,
+                      "Unexpected NAT translations output")
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port + 2,
+                          network_data.public_ip)
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        # Check new translation entry
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,
+                                    src_port=src_port + 2, dst_port=TCP_GLOBAL_PORT, exp_src_port=first_exp_src_port, exp_dst_port=TCP_GLOBAL_PORT)
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'leaf-tor', protocol_type, nat_type=nat_type,
+                                    src_port=TCP_GLOBAL_PORT, dst_port=first_exp_src_port, exp_src_port=TCP_GLOBAL_PORT, exp_dst_port=src_port + 2)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_full_cone(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
+                                   protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+        # Configure rules with port range what will be including source port for protocols
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, port_range="2000-5000", default=True)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,
+                                    dst_port=dst_port, exp_dst_port=dst_port)
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'leaf-tor', protocol_type, nat_type=nat_type,
+                                    src_port=dst_port, exp_dst_port=src_port, exp_src_port=dst_port)
 
     @pytest.mark.nat_dynamic
     def test_nat_dynamic_enable_disable_nat_docker(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
-                                                   protocol_type, enable_nat_docker):
+                                                   protocol_type):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
         # Configure default rules for Dynamic NAT
-        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
+                                   remove_bindings=False)
         # Check that NAT entries are present in iptables
         output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
         pattern = r"SNAT.*({0}:{1} fullcone)"
-        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
-                             format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
+                                            "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
         pytest_assert(len(entries) == 3, "IP Tables rules were not created")
-        # Traffic send and check
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type,
-                                  protocol_type, icmp_id=POOL_RANGE_START_PORT, handshake=True, nat_type='dynamic',
-                                  default=True)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
+        for path in DIRECTION_PARAMS:
+            generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
         # Disable NAT docker
         exec_command(duthost, ["sudo docker stop nat"])
         # Check that NAT rules were removed from iptables
         output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
-        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
-                             format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
+                                            "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
         pytest_assert(len(entries) == 0, "IP Tables rules were not removed")
         # Enable NAT docker
         exec_command(duthost, ["sudo docker start nat"])
         wait_timeout(protocol_type, wait_time=5, default=False)
         # Check that NAT rules were added to iptables
         output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
-        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
-                             format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
+                                            "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
         pytest_assert(len(entries) == 3, "IP Tables rules were not added after enabled NAT docker")
 
     @pytest.mark.nat_dynamic
-    def test_nat_clear_translations_dynamic(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
-                                            protocol_type_no_icmp):
+    def test_nat_dynamic_enable_disable_nat_docker_icmp(self, testbed, duthost, ptfadapter, setup_test_env):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
         direction = 'host-tor'
+        nat_type = 'dynamic'
+        protocol_type = 'ICMP'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True, remove_bindings=False)
+        # Check that NAT entries are present in iptables
+        output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
+        pattern = r"SNAT.*({0}:{1} fullcone)"
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
+                                            "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        pytest_assert(len(entries) == 3, "IP Tables rules were not created")
+        # Send ICMP traffic(host-tor -> leaf-tor) and check
+        generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type, icmp_id=POOL_RANGE_START_PORT)
+        # Disable NAT docker
+        exec_command(duthost, ["sudo docker stop nat"])
+        # Check that NAT rules were removed from iptables
+        output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
+                                            "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        pytest_assert(len(entries) == 0, "IP Tables rules were not removed")
+        # Enable NAT docker
+        exec_command(duthost, ["sudo docker start nat"])
+        wait_timeout(protocol_type, wait_time=5, default=False)
+        # Check that NAT rules were added to iptables
+        output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
+                                            "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        pytest_assert(len(entries) == 3, "IP Tables rules were not added after enabled NAT docker")
+
+    @pytest.mark.nat_dynamic
+    def test_nat_clear_statistics_dynamic(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
+                                          protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
+        # Traffic send and check
+        cleared_counters = nat_statistics(duthost, show=True)
+        # make sure NAT counters do not exist
+        pytest_assert(not cleared_counters,
+                      "Unexpected NAT counters output")
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        for path in DIRECTION_PARAMS:
+            generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
+        # wait for counters update
+        time.sleep(5)
+        # make sure NAT counters have incremented
+        nat_counters = nat_statistics(duthost, show=True)
+        pytest_assert(nat_counters,
+                      "Unexpected empty NAT counters output")
+        for entry in nat_counters:
+            pytest_assert(int(nat_counters[entry]["Packets"]) > 0,
+                          "Unexpected value {} for NAT counter 'Packets'".format(nat_counters[entry]["Packets"]))
+            pytest_assert(int(nat_counters[entry]["Bytes"]) > 0,
+                          "Unexpected value {} for NAT counter 'Bytes'".format(nat_counters[entry]["Bytes"]))
+        # Clear NAT counters
+        nat_statistics(duthost, clear=True)
+        # wait for counters update
+        time.sleep(5)
+        # make sure NAT counters have cleared
+        cleared_counters = nat_statistics(duthost, show=True)
+        pytest_assert(cleared_counters,
+                      "Unexpected empty NAT counters output")
+        for entry in cleared_counters:
+            pytest_assert(int(cleared_counters[entry]["Packets"]) == 0,
+                          "Unexpected value {} for NAT counter 'Packets'".format(cleared_counters[entry]["Packets"]))
+            pytest_assert(int(cleared_counters[entry]["Bytes"]) == 0,
+                          "Unexpected value {} for NAT counter 'Bytes'".format(cleared_counters[entry]["Bytes"]))
+
+    @pytest.mark.nat_dynamic
+    def test_nat_clear_translations_dynamic(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
+                                            protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
         # Configure default rules for Dynamic NAT
         configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
         # make sure static NAT translations don't exist
         cleared_translations = nat_translations(duthost, show=True)
         pytest_assert(not cleared_translations,
                       "Unexpected NAT translations output")
-        # Traffic send and check
-        check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type, protocol_type_no_icmp,
-                              icmp_id=POOL_RANGE_START_PORT, handshake=True, nat_type='dynamic', default=True)
-        source_l4_port, _ = set_l4_default_ports(protocol_type_no_icmp)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send traffic
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+
+        source_l4_port, _ = get_l4_default_ports(protocol_type)
         nat_translated_source_ip = setup_data[interface_type]["public_ip"]
         nat_source_ip = setup_data[interface_type]["src_ip"]
         nat_source = "{}:{}".format(setup_data[interface_type]["src_ip"], source_l4_port)
@@ -279,16 +591,24 @@ class TestDynamicNat(object):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
         direction = 'host-tor'
+        nat_type = 'dynamic'
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
         # Configure default rules for Dynamic NAT
         configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True)
-        # Traffic send and check
-        check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type, protocol_type,
-                              icmp_id=POOL_RANGE_START_PORT, handshake=True, nat_type='dynamic', default=True)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send traffic
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Disable outer interface
         ifname_to_disable = setup_data[interface_type]["outer_zone_interfaces"][0]
         dut_interface_control(duthost, "disable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
         # make sure trasnlations are not expired
-        source_l4_port, _ = set_l4_default_ports(protocol_type)
+        source_l4_port, _ = get_l4_default_ports(protocol_type)
         nat_translated_source_ip = setup_data[interface_type]["public_ip"]
         nat_source_ip = setup_data[interface_type]["src_ip"]
         nat_source = "{}:{}".format(setup_data[interface_type]["src_ip"], source_l4_port)
@@ -329,50 +649,15 @@ class TestDynamicNat(object):
                                                                                                  portrange),
                               "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
                                                                                                   portrange)]
-                          }
+                         }
         pytest_assert(iptables_rules == iptables_ouput,
                       "Unexpected iptables output for nat table")
         # Enable outer interface
         dut_interface_control(duthost, "enable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
-        # Traffic send and check
-        check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction, interface_type, protocol_type,
-                              icmp_id=POOL_RANGE_START_PORT, nat_type='dynamic', default=True)
-
-    @pytest.mark.nat_dynamic
-    @pytest.mark.parametrize("zone_type", [0, 1])
-    def test_nat_dynamic_zones(self, ptfhost, testbed, duthost, ptfadapter, setup_test_env,
-                               protocol_type, zone_type):
-        # Prepare configuration for NAT zones modify test
-        interface_type, setup_info = setup_test_env
-        setup_data = copy.deepcopy(setup_info)
-        setup_info_negative_zones = copy.deepcopy(setup_info)
-        for key in setup_info_negative_zones['interfaces_nat_zone']:
-            setup_info_negative_zones['interfaces_nat_zone'][key]['zone_id'] = zone_type
-        # Check dynamic NAT when all NAT interfaces zones are corect
-        configure_dynamic_nat_rule(duthost, setup_data, interface_type, default=True,
-                                   remove_bindings=False)
-        # Traffic send and check
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction,
-                                  interface_type, protocol_type, icmp_id=POOL_RANGE_START_PORT,
-                                  negative=False, handshake=True, nat_type='dynamic', default=True)
-        # Check dynamic NAT when all NAT interfaces zones are 0
-        nat_zones_config(duthost, setup_info_negative_zones, interface_type)
-        # Traffic send and check
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_info_negative_zones, direction,
-                                  interface_type, protocol_type, icmp_id=POOL_RANGE_START_PORT,
-                                  negative=True, handshake=False, nat_type='dynamic')
-        # Check dynamic NAT when all NAT interfaces zones are corect
-        nat_zones_config(duthost, setup_data, interface_type)
-        # Traffic send and check
-        for direction in DIRECTION_PARAMS:
-            if protocol_type == 'ICMP' and direction == 'leaf-tor':
-                continue
-            check_rule_by_traffic(duthost, ptfhost, ptfadapter, setup_data, direction,
-                                  interface_type, protocol_type, icmp_id=POOL_RANGE_START_PORT,
-                                  negative=False, handshake=True, nat_type='dynamic', default=True)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send traffic
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
