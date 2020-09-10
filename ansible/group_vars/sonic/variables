@@ -1,4 +1,6 @@
 ansible_ssh_user: admin
+ansible_connection: multi_passwd_ssh
+ansible_altpassword: YourPaSsWoRd
 
 sonic_version: "v2"
 

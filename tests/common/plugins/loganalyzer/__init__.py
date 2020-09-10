@@ -15,6 +15,10 @@ def loganalyzer(duthost, request):
         logging.info("Log analyzer is disabled")
         yield
         return
+    # Force rotate logs
+    duthost.shell(
+        "/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1"
+        )
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
     logging.info("Add start marker into DUT syslog")
     marker = loganalyzer.init()

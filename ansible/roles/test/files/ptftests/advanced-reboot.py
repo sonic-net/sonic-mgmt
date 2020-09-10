@@ -123,9 +123,9 @@ class ReloadTest(BaseTest):
         self.log_lock = threading.RLock()
         self.vm_handle = None
         self.sad_handle = None
+        self.process_id = str(os.getpid())
         self.test_params = testutils.test_params_get()
         self.check_param('verbose', False, required=False)
-        self.check_param('enable_continuous_io', False, required=False)
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
         self.check_param('dut_hostname', '', required=True)
@@ -744,13 +744,13 @@ class ReloadTest(BaseTest):
         except Queue.Full:
             pass
 
-    def runTest(self):
+    def pre_reboot_test_setup(self):
         self.reboot_start = None
-        no_routing_start = None
-        no_routing_stop = None
-        no_cp_replies = None
-        upper_replies = []
-        routing_always = False
+        self.no_routing_start = None
+        self.no_routing_stop = None
+        self.no_cp_replies = None
+        self.upper_replies = []
+        self.routing_always = False
         self.ssh_jobs = []
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
@@ -759,251 +759,240 @@ class ReloadTest(BaseTest):
             self.ssh_jobs.append((thr, q))
             thr.start()
 
-        thr = threading.Thread(target=self.reboot_dut)
-        thr.setDaemon(True)
+        if self.setup_fdb_before_test:
+            self.log("Run some server traffic to populate FDB table...")
+            self.setup_fdb()
+
+        self.log("Starting reachability state watch thread...")
+        self.watching    = True
+        self.light_probe = False
+        self.watcher_is_stopped = threading.Event() # Waiter Event for the Watcher state is stopped.
+        self.watcher_is_running = threading.Event() # Waiter Event for the Watcher state is running.
+        self.watcher_is_stopped.set()               # By default the Watcher is not running.
+        self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
+        # Give watch thread some time to wind up
+        watcher = self.pool.apply_async(self.reachability_watcher)
+        time.sleep(5)
+
+    def wait_until_reboot(self):
+        self.log("Wait until Control plane is down")
+        self.timeout(self.wait_until_cpu_port_down, self.task_timeout, "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
+        if self.reboot_type == 'fast-reboot':
+            self.light_probe = True
+        else:
+            # add or del routes during boot
+            self.do_inboot_oper()
+        self.reboot_start = datetime.datetime.now()
+        self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
+
+    def handle_fast_reboot_health_check(self):
+        self.log("Check that device is still forwarding data plane traffic")
+        self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
+        self.check_alive()
+        self.fails['dut'].clear()
+
+        self.log("Wait until control plane up")
+        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up)
+
+        self.log("Wait until data plane stops")
+        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop)
 
         try:
-            if self.setup_fdb_before_test:
-                self.log("Run some server traffic to populate FDB table...")
-                self.setup_fdb()
+            async_cpu_up.get(timeout=self.task_timeout)
+        except TimeoutError as e:
+            self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+            self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
+            raise
 
+        try:
+            self.no_routing_start, self.upper_replies = async_forward_stop.get(timeout=self.task_timeout)
+            self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(self.no_routing_start))
+        except TimeoutError:
+            self.log("Data plane never stop")
+            self.routing_always = True
+            self.upper_replies = [self.nr_vl_pkts]
 
-            self.log("Starting reachability state watch thread...")
-            self.watching    = True
-            self.light_probe = False
-            self.watcher_is_stopped = threading.Event() # Waiter Event for the Watcher state is stopped.
-            self.watcher_is_running = threading.Event() # Waiter Event for the Watcher state is running.
-            self.watcher_is_stopped.set()               # By default the Watcher is not running.
-            self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
-            # Give watch thread some time to wind up
-            watcher = self.pool.apply_async(self.reachability_watcher)
-            # If enable_continuous_io is set to True (default - False), prevent the script from proceeding further
-            if self.test_params['enable_continuous_io'] is True:
-                self.log("Waiting for the continuous I/O event to complete")
+        if self.no_routing_start is not None:
+            self.no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
+                    self.task_timeout,
+                    "DUT hasn't started to work for %d seconds" % self.task_timeout)
+        else:
+            self.no_routing_stop = datetime.datetime.min
+            self.no_routing_start = datetime.datetime.min
 
-                def receiveSignal(signalNumber, frame):
-                    self.log("Received signal SIGUSR1:", signalNumber)
-                    self.log("Disabling continuous I/O operation..")
-                    self.test_params['enable_continuous_io'] = False
-                    return
-                # register for an event to disable continuous I/O
-                signal.signal(signal.SIGUSR1, receiveSignal)
-                # Log the PID of the running process so that remote process could communicate via process signals
-                with open("/tmp/advanced-reboot-pid.log", "w") as fp:
-                    mypid = str(os.getpid())
-                    fp.write(mypid)
-                # Wait until continuous I/O event is disabled
-                while self.test_params['enable_continuous_io'] is True:
-                    time.sleep(5)
-                self.log("Continuous I/O operation disabled")
-                return
-            time.sleep(5)
+        # Stop watching DUT
+        self.watching = False
 
+    def handle_warm_reboot_health_check(self):
+        self.send_and_sniff()
+
+        # Stop watching DUT
+        self.watching = False
+        self.log("Stopping reachability state watch thread.")
+        self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
+
+        self.save_sniffed_packets()
+
+        examine_start = datetime.datetime.now()
+        self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
+        self.examine_flow()
+        self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
+
+        if self.lost_packets:
+            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
+            self.log("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
+            self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
+                (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
+        else:
+            self.no_routing_start = self.reboot_start
+            self.no_routing_stop  = self.reboot_start
+
+    def handle_post_reboot_health_check(self):
+        # wait until all bgp session are established
+        self.log("Wait until bgp routing is up on all devices")
+        for _, q in self.ssh_jobs:
+            q.put('quit')
+
+        def wait_for_ssh_threads():
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+                time.sleep(self.TIMEOUT)
+
+            for thr, _ in self.ssh_jobs:
+                thr.join()
+
+        self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
+
+        self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
+        self.log("")
+
+        if self.reboot_type == 'fast-reboot':
+            self.no_cp_replies = self.extract_no_cpu_replies(self.upper_replies)
+
+        if self.no_routing_stop - self.no_routing_start > self.limit:
+            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
+                    % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
+        if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
+            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
+        if self.reboot_type == 'fast-reboot' and self.no_cp_replies < 0.95 * self.nr_vl_pkts:
+            self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
+
+        if self.reboot_type == 'warm-reboot':
+            if self.total_disrupt_time > self.limit.total_seconds():
+                self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
+                    % (str(self.limit), str(self.total_disrupt_time)))
+
+            # after the data plane is up, check for routing changes
+            if self.test_params['inboot_oper'] and self.sad_handle:
+                self.check_inboot_sad_status()
+
+            # postboot check for all preboot operations
+            if self.test_params['preboot_oper'] and self.sad_handle:
+                self.check_postboot_sad_status()
+
+            else:
+                # verify there are no interface flaps after warm boot
+                self.neigh_lag_status_check()
+
+    def handle_post_reboot_test_reports(self):
+        # Stop watching DUT
+        self.watching = False
+        # revert to pretest state
+        if self.sad_oper and self.sad_handle:
+            self.sad_revert()
+            if self.test_params['inboot_oper']:
+                self.check_postboot_sad_status()
+            self.log(" ")
+
+        # Generating report
+        self.log("="*50)
+        self.log("Report:")
+        self.log("="*50)
+
+        self.log("LACP/BGP were down for (extracted from cli):")
+        self.log("-"*50)
+        for ip in sorted(self.cli_info.keys()):
+            self.log("    %s - lacp: %7.3f (%d) po_events: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
+                        % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0], \
+                            self.cli_info[ip]['po'][1], \
+                            self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],\
+                            self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
+
+        self.log("-"*50)
+        self.log("Extracted from VM logs:")
+        self.log("-"*50)
+        for ip in sorted(self.logs_info.keys()):
+            self.log("Extracted log info from %s" % ip)
+            for msg in sorted(self.logs_info[ip].keys()):
+                if not msg in [ 'error', 'route_timeout' ]:
+                    self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
+                else:
+                    self.log("    %s" % self.logs_info[ip][msg])
+            self.log("-"*50)
+
+        self.log("Summary:")
+        self.log("-"*50)
+
+        if self.no_routing_stop:
+            self.log("Longest downtime period was %s" % str(self.no_routing_stop - self.no_routing_start))
+            reboot_time = "0:00:00" if self.routing_always else str(self.no_routing_stop - self.reboot_start)
+            self.log("Reboot time was %s" % reboot_time)
+            self.log("Expected downtime is less then %s" % self.limit)
+
+        if self.reboot_type == 'fast-reboot' and self.no_cp_replies:
+            self.log("How many packets were received back when control plane was down: %d Expected: %d" % (self.no_cp_replies, self.nr_vl_pkts))
+
+        has_info = any(len(info) > 0 for info in self.info.values())
+        if has_info:
+            self.log("-"*50)
+            self.log("Additional info:")
+            self.log("-"*50)
+            for name, info in self.info.items():
+                for entry in info:
+                    self.log("INFO:%s:%s" % (name, entry))
+            self.log("-"*50)
+
+        is_good = all(len(fails) == 0 for fails in self.fails.values())
+
+        errors = ""
+        if not is_good:
+            self.log("-"*50)
+            self.log("Fails:")
+            self.log("-"*50)
+
+            errors = "\n\nSomething went wrong. Please check output below:\n\n"
+            for name, fails in self.fails.items():
+                for fail in fails:
+                    self.log("FAILED:%s:%s" % (name, fail))
+                    errors += "FAILED:%s:%s\n" % (name, fail)
+
+        self.log("="*50)
+
+        self.assertTrue(is_good, errors)
+
+    def runTest(self):
+        self.pre_reboot_test_setup()        
+        try:
             self.log("Check that device is alive and pinging")
             self.fails['dut'].add("DUT is not ready for test")
             self.wait_dut_to_warm_up()
             self.fails['dut'].clear()
 
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
+            thr = threading.Thread(target=self.reboot_dut)
+            thr.setDaemon(True)
             thr.start()
 
-            self.log("Wait until Control plane is down")
-            self.timeout(self.wait_until_cpu_port_down, self.task_timeout, "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
-
+            self.wait_until_reboot()
             if self.reboot_type == 'fast-reboot':
-                self.light_probe = True
-            else:
-                # add or del routes during boot
-                self.do_inboot_oper()
-
-            self.reboot_start = datetime.datetime.now()
-            self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
-
-            if self.reboot_type == 'fast-reboot':
-                self.log("Check that device is still forwarding data plane traffic")
-                self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
-                self.check_alive()
-                self.fails['dut'].clear()
-
-                self.log("Wait until control plane up")
-                async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up)
-
-                self.log("Wait until data plane stops")
-                async_forward_stop = self.pool.apply_async(self.check_forwarding_stop)
-
-                try:
-                    async_cpu_up.get(timeout=self.task_timeout)
-                except TimeoutError as e:
-                    self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
-                    self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
-                    raise
-
-                try:
-                    no_routing_start, upper_replies = async_forward_stop.get(timeout=self.task_timeout)
-                    self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(no_routing_start))
-                except TimeoutError:
-                    self.log("Data plane never stop")
-                    routing_always = True
-                    upper_replies = [self.nr_vl_pkts]
-
-                if no_routing_start is not None:
-                    no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
-                            self.task_timeout,
-                            "DUT hasn't started to work for %d seconds" % self.task_timeout)
-                else:
-                    no_routing_stop = datetime.datetime.min
-                    no_routing_start = datetime.datetime.min
-
-                # Stop watching DUT
-                self.watching = False
-
+                self.handle_fast_reboot_health_check()
             if self.reboot_type == 'warm-reboot':
-                self.send_and_sniff()
-
-                # Stop watching DUT
-                self.watching = False
-                self.log("Stopping reachability state watch thread.")
-                self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
-
-                self.save_sniffed_packets()
-
-                examine_start = datetime.datetime.now()
-                self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
-                self.examine_flow()
-                self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
-
-                if self.lost_packets:
-                    no_routing_stop, no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-                    self.log("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-                    self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
-                        (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
-                else:
-                    no_routing_start = self.reboot_start
-                    no_routing_stop  = self.reboot_start
-
-            # wait until all bgp session are established
-            self.log("Wait until bgp routing is up on all devices")
-            for _, q in self.ssh_jobs:
-                q.put('quit')
-
-            def wait_for_ssh_threads():
-                while any(thr.is_alive() for thr, _ in self.ssh_jobs):
-                    time.sleep(self.TIMEOUT)
-
-                for thr, _ in self.ssh_jobs:
-                    thr.join()
-
-            self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
-
-            self.log("Data plane works again. Start time: %s" % str(no_routing_stop))
-            self.log("")
-
-            if self.reboot_type == 'fast-reboot':
-                no_cp_replies = self.extract_no_cpu_replies(upper_replies)
-
-            if no_routing_stop - no_routing_start > self.limit:
-                self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
-                        % (self.test_params['reboot_limit_in_seconds'], str(no_routing_stop - no_routing_start)))
-            if no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-                self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
-            if self.reboot_type == 'fast-reboot' and no_cp_replies < 0.95 * self.nr_vl_pkts:
-                self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (no_cp_replies, self.nr_vl_pkts))
-
-            if self.reboot_type == 'warm-reboot':
-                if self.total_disrupt_time > self.limit.total_seconds():
-                    self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
-                        % (str(self.limit), str(self.total_disrupt_time)))
-
-                # after the data plane is up, check for routing changes
-                if self.test_params['inboot_oper'] and self.sad_handle:
-                    self.check_inboot_sad_status()
-
-                # postboot check for all preboot operations
-                if self.test_params['preboot_oper'] and self.sad_handle:
-                    self.check_postboot_sad_status()
-
-                else:
-                    # verify there are no interface flaps after warm boot
-                    self.neigh_lag_status_check()
+                self.handle_warm_reboot_health_check()
+            self.handle_post_reboot_health_check()
 
         except Exception as e:
             self.fails['dut'].add(e)
         finally:
-            # Stop watching DUT
-            self.watching = False
-
-            # revert to pretest state
-            if self.sad_oper and self.sad_handle:
-                self.sad_revert()
-                if self.test_params['inboot_oper']:
-                    self.check_postboot_sad_status()
-                self.log(" ")
-
-            # Generating report
-            self.log("="*50)
-            self.log("Report:")
-            self.log("="*50)
-
-            self.log("LACP/BGP were down for (extracted from cli):")
-            self.log("-"*50)
-            for ip in sorted(self.cli_info.keys()):
-                self.log("    %s - lacp: %7.3f (%d) po_events: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
-                         % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0], \
-                                self.cli_info[ip]['po'][1], \
-                                self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],\
-                                self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
-
-            self.log("-"*50)
-            self.log("Extracted from VM logs:")
-            self.log("-"*50)
-            for ip in sorted(self.logs_info.keys()):
-                self.log("Extracted log info from %s" % ip)
-                for msg in sorted(self.logs_info[ip].keys()):
-                    if not msg in [ 'error', 'route_timeout' ]:
-                        self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
-                    else:
-                        self.log("    %s" % self.logs_info[ip][msg])
-                self.log("-"*50)
-
-            self.log("Summary:")
-            self.log("-"*50)
-
-            if no_routing_stop:
-                self.log("Longest downtime period was %s" % str(no_routing_stop - no_routing_start))
-                reboot_time = "0:00:00" if routing_always else str(no_routing_stop - self.reboot_start)
-                self.log("Reboot time was %s" % reboot_time)
-                self.log("Expected downtime is less then %s" % self.limit)
-
-            if self.reboot_type == 'fast-reboot' and no_cp_replies:
-                self.log("How many packets were received back when control plane was down: %d Expected: %d" % (no_cp_replies, self.nr_vl_pkts))
-
-            has_info = any(len(info) > 0 for info in self.info.values())
-            if has_info:
-                self.log("-"*50)
-                self.log("Additional info:")
-                self.log("-"*50)
-                for name, info in self.info.items():
-                    for entry in info:
-                        self.log("INFO:%s:%s" % (name, entry))
-                self.log("-"*50)
-
-            is_good = all(len(fails) == 0 for fails in self.fails.values())
-
-            errors = ""
-            if not is_good:
-                self.log("-"*50)
-                self.log("Fails:")
-                self.log("-"*50)
-
-                errors = "\n\nSomething went wrong. Please check output below:\n\n"
-                for name, fails in self.fails.items():
-                    for fail in fails:
-                        self.log("FAILED:%s:%s" % (name, fail))
-                        errors += "FAILED:%s:%s\n" % (name, fail)
-
-            self.log("="*50)
-
-            self.assertTrue(is_good, errors)
+            self.handle_post_reboot_test_reports()
 
     def neigh_lag_status_check(self):
         """
