@@ -81,11 +81,7 @@ class Parse_Lab_Graph():
     """
 
     def __init__(self, xmlfile):
-        if xmlfile:
-            self.root = ET.parse(xmlfile)
-        else:
-            # create an empty tree
-            self.root = ET.element('root')
+        self.root = ET.parse(xmlfile)
         self.devices = {}
         self.vlanport = {}
         self.vlanrange = {}
@@ -237,6 +233,7 @@ class Parse_Lab_Graph():
 
 
 LAB_CONNECTION_GRAPH_FILE = 'graph_files.yml'
+EMPTY_GRAPH_FILE = 'empty_graph.yml'
 LAB_GRAPHFILE_PATH = 'files/'
 
 """
@@ -256,8 +253,12 @@ def find_graph(hostnames, anchor):
         if anchor and lab_graph.contains_hosts(anchor):
             return lab_graph
 
-    # Fallback to return an empty connection graph
-    lab_graph = Parse_Lab_Graph(None)
+    # Fallback to return an empty connection graph, this is
+    # needed to bridge the kvm test needs. The KVM test needs
+    # A graph file, which used to be whatever hardcoded file.
+    # Here we provide one empty file for the purpose.
+    lab_graph = Parse_Lab_Graph(LAB_GRAPHFILE_PATH + EMPTY_GRAPH_FILE)
+    lab_graph.parse_graph()
     return lab_graph
 
 def main():
