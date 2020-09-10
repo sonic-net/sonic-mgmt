@@ -55,7 +55,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
             if self.expect(name is not None, "Unable to retrieve Fan_drawer {} name".format(i)):
                 self.expect(isinstance(name, str), "Fan_drawer {} name appears incorrect".format(i))
                 if self.fan_drawer_truth:
-                    self.expect(name == self.fan_drawer_truth[i]['name'], "Fan_drawer {} name does not match,  expected name {} ".format(i, self.fan_drawer_truth[i]['name']))
+                    self.expect(name == self.fan_drawer_truth[i]['name'], "Fan_drawer {} name does not match, expected name {}".format(i, self.fan_drawer_truth[i]['name']))
 
         self.assert_expectations()
 
@@ -106,7 +106,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
             if self.expect(num_fans is not None, "Unable to retrieve fan_drawer {} number of fans".format(i)):
                 self.expect(isinstance(num_fans, int), "fan drawer {} number of fans appear to be incorrect".format(i))
                 if self.fan_drawer_truth:
-                    self.expect(name == self.fan_drawer_truth[i]['num_fans'], "Fan_drawer {} num_fans does not match,  expected num_fans {} ".format(i, self.fan_drawer_truth[i]['num_fans']))
+                    self.expect(name == self.fan_drawer_truth[i]['num_fans'], "Fan_drawer {} num_fans does not match, expected num_fans {}".format(i, self.fan_drawer_truth[i]['num_fans']))
         self.assert_expectations()
 
     def test_get_all_fans(self, duthost, localhost, platform_api_conn):
