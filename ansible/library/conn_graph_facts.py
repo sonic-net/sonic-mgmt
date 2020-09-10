@@ -238,7 +238,7 @@ LAB_GRAPHFILE_PATH = 'files/'
 """
     Find a graph file contains all devices in testbed.
 """
-def find_graph(hostnames):
+def find_graph(hostnames, anchor):
     filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
     with open(filename) as fd:
         file_list = yaml.load(fd)
@@ -247,7 +247,9 @@ def find_graph(hostnames):
         filename = LAB_GRAPHFILE_PATH + fn
         lab_graph = Parse_Lab_Graph(filename)
         lab_graph.parse_graph()
-        if lab_graph.contains_hosts(hostnames):
+        if hostnames and lab_graph.contains_hosts(hostnames):
+            return lab_graph
+        if anchor and lab_graph.contains_hosts(anchor):
             return lab_graph
 
     return None
@@ -258,6 +260,7 @@ def main():
             host=dict(required=False),
             hosts=dict(required=False, type='list'),
             filename=dict(required=False),
+            anchor=dict(required=False, type='list'),
         ),
         mutually_exclusive=[['host', 'hosts']],
         supports_check_mode=True
@@ -265,6 +268,7 @@ def main():
     m_args = module.params
 
     hostnames = m_args['hosts']
+    anchor = m_args['anchor']
     if not hostnames:
         hostnames = [m_args['host']]
     try:
@@ -273,7 +277,7 @@ def main():
             lab_graph = Parse_Lab_Graph(filename)
             lab_graph.parse_graph()
         else:
-            lab_graph = find_graph(hostnames)
+            lab_graph = find_graph(hostnames, anchor)
 
         device_info = []
         device_conn = []
