@@ -68,9 +68,6 @@ EXAMPLES='''
 
 '''
 
-LAB_CONNECTION_GRAPH_FILE = 'lab_connection_graph.xml'
-LAB_GRAPHFILE_PATH = 'files/'
-
 class Parse_Lab_Graph():
     """
     Parse the generated lab physical connection graph and insert Ansible fact of the graph
@@ -231,6 +228,30 @@ class Parse_Lab_Graph():
         else:
             return self.links
 
+    def contains_hosts(self, hostnames):
+        return set(hostnames) <= set(self.devices)
+
+
+LAB_CONNECTION_GRAPH_FILE = 'graph_files.yml'
+LAB_GRAPHFILE_PATH = 'files/'
+
+"""
+    Find a graph file contains all devices in testbed.
+"""
+def find_graph(hostnames):
+    filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
+    with open(filename) as fd:
+        file_list = yaml.load(fd)
+
+    for fn in file_list:
+        filename = LAB_GRAPHFILE_PATH + fn
+        lab_graph = Parse_Lab_Graph(filename)
+        lab_graph.parse_graph()
+        if lab_graph.contains_hosts(hostnames):
+            return lab_graph
+
+    return None
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -249,10 +270,10 @@ def main():
     try:
         if m_args['filename']:
             filename = m_args['filename']
+            lab_graph = Parse_Lab_Graph(filename)
+            lab_graph.parse_graph()
         else:
-            filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
-        lab_graph = Parse_Lab_Graph(filename)
-        lab_graph.parse_graph()
+            lab_graph = find_graph(hostnames)
 
         device_info = []
         device_conn = []
@@ -280,7 +301,7 @@ def main():
 
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
-        module.fail_json(msg="Can not find lab graph file "+LAB_CONNECTION_GRAPH_FILE)
+        module.fail_json(msg="Can not find lab graph file")
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())
 

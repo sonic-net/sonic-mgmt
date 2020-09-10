@@ -1,0 +1,7 @@
+---
+    # Public graph files
+    - lab_connection_graph.xml
+    - example_ixia_connection_graph.xml
+
+
+    # Private graph files
