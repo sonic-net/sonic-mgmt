@@ -22,17 +22,6 @@ device_groups:
       hwsku: 36x100Gb
       iface_speed: '100000'
 devices:
-  docker-ptf:
-    alias: null
-    ansible:
-      ansible_become_pass: root
-      ansible_host: 192.168.122.66/24
-      ansible_ssh_pass: root
-    credentials:
-      password: root
-      username: root
-    device_type: ptf
-    hwsku: null
   lab-s6000-01:
     alias: null
     ansible:
@@ -116,12 +105,21 @@ testbed:
   docker-ptf:
     comment: Test ptf Sherman
     dut: sherman-01
-    group-name: ptf1
+    group-name: sonic_cisco
     ptf_image_name: docker-ptf-sherman
     ptf_ip: 192.168.122.66/24
+    ptf: docker-ptf 
     server: server_1
     topo: t1
     vm_base: VM0100
+    ansible:
+      ansible_ssh_usr: root
+      ansible_host: 192.168.122.66/24
+      ansible_ssh_pass: root
+    credentials:
+      password: root
+      username: root
+
 testbed_config:
   alias: ShermantopologyTestbed
   name: testbed-sherman-t1
