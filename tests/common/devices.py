@@ -281,7 +281,7 @@ class SonicHost(AnsibleHostBase):
             except Exception:
                 # if platform.json does not exist, then it's not added currently for certain platforms
                 # eventually all the platforms should have the platform.json
-                logging.debug("platform.json is not available for this platform."
+                logging.debug("platform.json is not available for this platform, "
                               + "DUT facts will not contain complete platform information.")
 
         return result
