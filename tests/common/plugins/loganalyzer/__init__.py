@@ -15,10 +15,10 @@ def loganalyzer(duthost, request):
         logging.info("Log analyzer is disabled")
         yield
         return
-        
+
     # Force rotate logs
     hwsku = duthost.facts["hwsku"].lower()
-    if "arista" in hwsku and "7060" in duthost.facts["hwsku"]:
+    if "arista" in hwsku and "7060" in hwsku:
         duthost.shell(
             "/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1"
             )
