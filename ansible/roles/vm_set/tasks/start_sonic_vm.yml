@@ -15,6 +15,7 @@
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
     hwsku: "{{ hostvars[dut_name].hwsku }}"
+    num_asic: "{{ hostvars[dut_name]['num_asic'] | default(1) }}"
 
 - name: Device debug output
   debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"
@@ -28,7 +29,7 @@
   when: not file_stat.stat.exists
 
 - name: Get DUT port alias
-  port_alias: hwsku={{ hostvars[dut_name].hwsku }} all_ports='False'
+  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }} all_ports='False' 
   delegate_to: localhost
 
 - name: Define SONiC vm {{ dut_name }}
@@ -55,8 +56,14 @@
              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
              new_password={{ sonic_password }}
+             num_asic={{ num_asic }}
   register: kickstart_output
 
 - name: Fail if kickstart gives error for {{ dut_name }}
   fail: msg="Start sonic vm weren't succesfull"
   when: kickstart_output.kickstart_code != 0
+
+- name: Reboot sonic-vm to bring up as multi-asic vs {{ num_asic }}
+  command: "virsh reboot {{ dut_name }}"
+  become: yes
+  when: num_asic|int > 1 

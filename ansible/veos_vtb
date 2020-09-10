@@ -56,6 +56,7 @@ all:
           type: kvm
           hwsku: msft_multi_asic_vs
           serial_port: 9003
+          num_asic: 6
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3

@@ -13,12 +13,15 @@ module: port_alias.py
 Ansible_version_added:  2.0.0.2
 short_description:   Find SONiC device port alias mapping if there is alias mapping
 Description:
-        Minigraph file is using SONiC deivce alias to describe the interface name, it's vendor and and hardware platform dependent
+        Minigraph file is using SONiC device alias to describe the interface name, it's vendor and and hardware platform dependent
         This module is used to find the correct port_config.ini for the hwsku and return Ansible ansible_facts.port_alias
         The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
         You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
+        For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
+        all_ports input will be used to determine if all the ports information has to be returned or not. 
+        When bringing up the testbed, port-alias will only contain external interfaces, for which all_ports will be false.
     Input:
-        hwsku
+        hwsku num_asic all_ports
 
     Return Ansible_facts:
     port_alias:  SONiC interface name or SONiC interface alias if alias is available
@@ -27,7 +30,7 @@ Description:
 
 EXAMPLES = '''
     - name: get hardware interface name
-      port_alias: hwsku='ACS-MSN2700'
+      port_alias: hwsku='ACS-MSN2700' num_asic=1 all_ports='True'
 '''
 
 RETURN = '''
@@ -69,6 +72,18 @@ class SonicPortAliasMap():
                     return value
         return None
 
+    def get_portconfig_path(self, asic_id=None):
+        platform = self.get_platform_type()
+        if platform is None:
+            return None
+        if asic_id is None:
+            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
+        else:
+            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
+        if os.path.exists(portconfig):
+            return portconfig
+        return None
+
     def get_num_asic(self):
         num_asic = 1
         platform = self.get_platform_type()
@@ -83,18 +98,6 @@ class SonicPortAliasMap():
                 if key.strip().upper() == "NUM_ASIC":
                     num_asic = value.strip()
         return int(num_asic)
-
-    def get_portconfig_path(self, asic_id=None):
-        platform = self.get_platform_type()
-        if platform is None:
-            return None
-        if asic_id is None:
-            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
-        else:
-            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
-        if os.path.exists(portconfig):
-            return portconfig
-        return None
 
     def get_portmap(self, all_ports, asic_id=None):
         aliases = []
@@ -148,6 +151,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             hwsku=dict(required=True, type='str'),
+            num_asic=dict(type='int', required=False),
             all_ports=dict(type='str', default='True')
         ),
         supports_check_mode=True
@@ -160,9 +164,12 @@ def main():
         portspeed = {}
         allmap = SonicPortAliasMap(m_args['hwsku'])
         all_ports = m_args['all_ports']
-        num_asic = allmap.get_num_asic()
+        if 'num_asic' in m_args:
+            num_asic = m_args['num_asic']
+        else:
+            num_asic = allmap.get_num_asic()
         if num_asic == 1:
-            (aliases, portmap, aliasmap, portspeed) = allmap.get_portmap()
+            (aliases, portmap, aliasmap, portspeed) = allmap.get_portmap(all_ports)
         else:
             for asic_id in range(num_asic):
                 (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(all_ports, asic_id)

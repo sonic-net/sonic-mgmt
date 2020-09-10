@@ -117,6 +117,7 @@ def session(new_params):
         ('ip route add 0.0.0.0/0 via %s table default' % str(new_params['mgmt_gw']), [r'#']),
         ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
+        ('echo NUM_ASIC=%s > /usr/share/sonic/device/x86_64-kvm_x86_64-r0/asic.conf' % (str(new_params['num_asic'])), [r'#']),
     ]
 
     curtime = datetime.datetime.now().isoformat()
@@ -146,6 +147,7 @@ def main():
         mgmt_ip = dict(required=True),
         mgmt_gw = dict(required=True),
         new_password = dict(required=True),
+        num_asic = dict(required=True),
     ))
 
     try:
