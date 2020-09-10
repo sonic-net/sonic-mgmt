@@ -381,7 +381,7 @@ class SonicHost(AnsibleHostBase):
             return result
 
         # get critical group and process lists for the service
-        critical_group_list, critical_process_list, succeeded = self.get_critical_group_and_process_list(service)
+        critical_group_list, critical_process_list, succeeded = self.get_critical_group_and_process_lists(service)
         if succeeded == False:
             result['status'] = False
             return result
