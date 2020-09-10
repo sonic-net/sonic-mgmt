@@ -233,7 +233,7 @@ class Parse_Lab_Graph():
 
 
 LAB_CONNECTION_GRAPH_FILE = 'graph_files.yml'
-EMPTY_GRAPH_FILE = 'empty_graph.yml'
+EMPTY_GRAPH_FILE = 'empty_graph.xml'
 LAB_GRAPHFILE_PATH = 'files/'
 
 """
