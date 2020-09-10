@@ -66,4 +66,4 @@
 - name: Reboot sonic-vm to bring up as multi-asic vs {{ num_asic }}
   command: "virsh reboot {{ dut_name }}"
   become: yes
-  when: num_asic|int > 1 
+  when: num_asic|int > 1
