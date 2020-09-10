@@ -278,7 +278,7 @@ class SonicHost(AnsibleHostBase):
                 result["chassis"] = platform_info.get('chassis', None)
                 result["interfaces"] = platform_info.get('interfaces', None)
 
-            except:
+             except Exception:
                 # if platform.json does not exist, then it's not added currently for certain platforms
                 # eventually all the platforms should have the platform.json
                 logging.debug("platform.json is not available for this platform."
