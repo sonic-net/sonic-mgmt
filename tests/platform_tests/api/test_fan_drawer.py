@@ -24,7 +24,7 @@ STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
 
-class TestFan_drawer_DrawerApi(PlatformApiTestBase):
+class TestFanDrawerApi(PlatformApiTestBase):
 
     num_fan_drawers = None
     fan_drawer_truth = None
@@ -41,7 +41,9 @@ class TestFan_drawer_DrawerApi(PlatformApiTestBase):
             except:
                 pytest.fail("num_fan_drawers is not an integer")
 
-        self.fan_drawer_truth = duthost.facts.get('fan_drawers', None)
+        chassis_truth = duthost.facts.get('chassis', None)
+        if chassis_truth:
+            self.fan_drawer_truth = chassis_truth.get('fan_drawers', None)
 
     #
     # Functions to test methods inherited from DeviceBase class

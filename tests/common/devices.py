@@ -275,17 +275,8 @@ class SonicHost(AnsibleHostBase):
             try:
                 out = self.command("cat {}".format(platform_file_path))
                 platform_info = json.loads(out["stdout"])
-                chassis = platform_info.get('chassis', None)
-                if chassis:
-                    result["name"] = chassis.get('name', None)
-                    result["model"] = chassis.get('model', None)
-                    result["components"] = chassis.get('components', None)
-                    result["modules"] = chassis.get('modules', None)
-                    result["fans"] = chassis.get('fans', None)
-                    result["fan_drawers"] = chassis.get('fan_drawers', None)
-                    result["psus"] = chassis.get('psus', None)
-                    result["thermals"] = chassis.get('thermals', None)
-                    result["sfps"] = chassis.get('sfps', None)
+                result["chassis"] = platform_info.get('chassis', None)
+                result["interfaces"] = platform_info.get('interfaces', None)
 
             except:
                 # if platform.json does not exist, then it's not added currently for certain platforms
