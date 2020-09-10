@@ -30,7 +30,6 @@
 | Rev |     Date       |       Author         | Change Description               |
 |:---:|:---------------|:---------------------|:-----------------------------------|
 | 0.1 |        Aug-28-2020     | Wei Bai, Microsoft<br>                           Suvendu Mozumdar, Keysight     | Initial version of test plan <br> More test in subsequent version                 |
-|
 | 0.2 |        Sep-10-2020     | Wei Bai, Microsoft<br>                           Suvendu Mozumdar, Keysight     | Inclusion of test case - 802.3x GLOBAL PAUSE                  |
 |
 
