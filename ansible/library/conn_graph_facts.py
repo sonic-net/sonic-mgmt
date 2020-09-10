@@ -81,7 +81,11 @@ class Parse_Lab_Graph():
     """
 
     def __init__(self, xmlfile):
-        self.root = ET.parse(xmlfile)
+        if xmlfile:
+            self.root = ET.parse(xmlfile)
+        else:
+            # create an empty tree
+            self.root = ET.element('root')
         self.devices = {}
         self.vlanport = {}
         self.vlanrange = {}
@@ -252,7 +256,9 @@ def find_graph(hostnames, anchor):
         if anchor and lab_graph.contains_hosts(anchor):
             return lab_graph
 
-    return None
+    # Fallback to return an empty connection graph
+    lab_graph = Parse_Lab_Graph(None)
+    return lab_graph
 
 def main():
     module = AnsibleModule(
