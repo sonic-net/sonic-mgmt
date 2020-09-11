@@ -34,7 +34,7 @@ import defusedxml.ElementTree as ET
 
 TEST_REPORT_CLIENT_VERSION = (1, 0, 0)
 
-MAXIMUM_XML_SIZE = 10e7  # 10MB
+MAXIMUM_XML_SIZE = 20e7  # 20MB
 
 # Fields found in the testsuite/root section of the JUnit XML file.
 TESTSUITE_TAG = "testsuite"

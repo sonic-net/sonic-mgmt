@@ -145,7 +145,7 @@ def test_invalid_junit_xml_missing_xml(input_string):
 
 def test_invalid_junit_xml_too_large():
     with pytest.raises(JUnitXMLValidationError, match="provided stream is too large"):
-        validate_junit_xml_stream("a" * int(10e7))
+        validate_junit_xml_stream("a" * int(20e7))
 
 
 @pytest.mark.parametrize("token,replacement", [("</", "<"), ("</properties>", "")])
