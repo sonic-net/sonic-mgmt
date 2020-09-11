@@ -132,13 +132,13 @@ class SonicPortAliasMap():
                     if (role_index != -1) and (len(mapping) > role_index):
                         role = mapping[role_index]
                     else:
-                        role = "Ext"
+                        role = 'Ext'
                     if alias_index != -1 and len(mapping) > alias_index:
                         alias = mapping[alias_index]
                     else:
                         alias = name
-                    if (all_ports == "False" and role == "Ext") or \
-                       (all_ports == "True"):
+                    if (all_ports == 'False' and role == 'Ext') or \
+                       (all_ports == 'True'):
                         aliases.append(alias)
                         portmap[name] = alias
                         aliasmap[alias] = name
@@ -152,7 +152,7 @@ def main():
         argument_spec=dict(
             hwsku=dict(required=True, type='str'),
             num_asic=dict(type='int', required=False),
-            all_ports=dict(type='str', default='True')
+            all_ports=dict(type='str', default='True', required=False)
         ),
         supports_check_mode=True
     )
@@ -164,7 +164,7 @@ def main():
         portspeed = {}
         allmap = SonicPortAliasMap(m_args['hwsku'])
         all_ports = m_args['all_ports']
-        if 'num_asic' in m_args:
+        if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
         else:
             num_asic = allmap.get_num_asic()
