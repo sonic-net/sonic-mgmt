@@ -44,6 +44,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
         chassis_truth = duthost.facts.get('chassis', None)
         if chassis_truth:
             self.fan_drawer_truth = chassis_truth.get('fan_drawers', None)
+            if not self.fan_drawer_truth:
+                logger.warning("Unable to get fan_drawer_truth from platform.json, test results will not be comprehensive")
         else:
             logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
 
