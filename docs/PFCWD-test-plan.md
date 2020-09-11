@@ -1,27 +1,27 @@
-# 1. PFC Watchdog test plan
+# PFC Watchdog test plan
 
-- [1. PFC Watchdog test plan](#1-pfc-watchdog-test-plan)
-  - [1.1. Overview](#11-overview)
+- [PFC Watchdog test plan](#pfc-watchdog-test-plan)
+  - [1.1 Overview](#11-overview)
     - [PFC Storm Detection](#pfc-storm-detection)
     - [PFC Storm Mitigation](#pfc-storm-mitigation)
     - [PFC Storm Restoration](#pfc-storm-restoration)
-    - [1.1.1. Scope](#111-scope)
-    - [1.1.2. Testbed](#112-testbed)
+    - [1.1.1 Scope](#111-scope)
+    - [1.1.2 Testbed](#112-testbed)
       - [1.1.2.1 Topology 1](#1121-topology-1)
-  - [1.2. Setup configuration](#12-setup-configuration)
-    - [1.2.1. DUT Configuration](#121-dut-configuration)
-    - [1.2.2. Keysight configuration](#122-keysight-configuration)
-  - [1.3. Test Cases](#13-test-cases)
-    - [1.3.1. Test Case #1 - PFCWD two senders two receivers](#131-test-case-1---pfcwd-two-senders-two-receivers)
-      - [1.3.1.1. Test Objective](#1311-test-objective)
-      - [1.3.1.2. Test Topology](#1312-test-topology)
-      - [1.3.1.3. Test Configuration](#1313-test-configuration)
-      - [1.3.1.4. Test Steps](#1314-test-steps)
-    - [1.3.2. Test Case #2 - PFCWD all to all multi-host lossless traffic](#132-test-case-2---pfcwd-all-to-all-multi-host-lossless-traffic)
-      - [1.3.2.1. Test Objective](#1321-test-objective)
-      - [1.3.2.2. Test Topology](#1322-test-topology)
-      - [1.3.2.3. Test Configuration](#1323-test-configuration)
-      - [1.3.2.4. Test Steps](#1324-test-steps)
+  - [1.2 Setup configuration](#12-setup-configuration)
+    - [1.2.1 DUT Configuration](#121-dut-configuration)
+    - [1.2.2 Keysight configuration](#122-keysight-configuration)
+  - [1.3 Test Cases](#13-test-cases)
+    - [1.3.1 Test Case #1 - PFCWD two senders two receivers](#131-test-case-1---pfcwd-two-senders-two-receivers)
+      - [1.3.1.1 Test Objective](#1311-test-objective)
+      - [1.3.1.2 Test Topology](#1312-test-topology)
+      - [1.3.1.3 Test Configuration](#1313-test-configuration)
+      - [1.3.1.4 Test Steps](#1314-test-steps)
+    - [1.3.2 Test Case #2 - PFCWD all to all multi-host lossless traffic](#132-test-case-2---pfcwd-all-to-all-multi-host-lossless-traffic)
+      - [1.3.2.1 Test Objective](#1321-test-objective)
+      - [1.3.2.2 Test Topology](#1322-test-topology)
+      - [1.3.2.3 Test Configuration](#1323-test-configuration)
+      - [1.3.2.4 Test Steps](#1324-test-steps)
 
 Revision of the document
 
@@ -31,7 +31,7 @@ Revision of the document
 |
 
 
-## 1.1. Overview
+## 1.1 Overview
 
 PFC watchdog is designed to detect and mitigate PFC storm received for each port. PFC pause frames are used in lossless Ethernet to pause the link partner from sending packets. Such back-pressure mechanism could propagate to the whole network and cause the network stop forwarding traffic. PFC watchdog is to detect abnormal back-pressure caused by receiving excessive PFC pause frames, and mitigate such situation by disabling PFC caused pause temporarily.
 
@@ -55,11 +55,11 @@ When forward action is selected, following actions need to be implemented:
 
 The watchdog should continue count the PFC frames received on the queue. If there is no PFC frame received over T1 period. Then, re-enable the PFC on the queue and stop dropping packets if the previous mitigation was drop. T1 is port level parameter. T1 should be on the scale of hundred milliseconds.
 
-### 1.1.1. Scope
+### 1.1.1 Scope
 
 The test cases depicted in this document aim to do functional testing of ECN behavior of SONiC DUT (Device Under Test) as per RED (Random Early Detection) algorithm.
 
-### 1.1.2. Testbed
+### 1.1.2 Testbed
 #### 1.1.2.1 Topology 1
 ```
 +-----------------+           +--------------+           +-----------------+       
@@ -75,30 +75,30 @@ The test cases depicted in this document aim to do functional testing of ECN beh
 ```
 *Fig. 1: Topology 1*
 
-## 1.2. Setup configuration
+## 1.2 Setup configuration
 
-### 1.2.1. DUT Configuration
-•	PFC watchdog must be enabled in the DUT.
+### 1.2.1 DUT Configuration
+•PFC watchdog must be enabled in the DUT.
 
 
-### 1.2.2. Keysight configuration
+### 1.2.2 Keysight configuration
 •All Keysight ports should have the same bandwidth capacity.
 
 •	Test specific configurations are mentioned in respective test cases.
 
-## 1.3. Test Cases
+## 1.3 Test Cases
 
-### 1.3.1. Test Case #1 - PFCWD two senders two receivers
+### 1.3.1 Test Case #1 - PFCWD two senders two receivers
 
-#### 1.3.1.1. Test Objective
+#### 1.3.1.1 Test Objective
 
 This test aims to verify how PFC watchdog can handle PFC storms in a topology with two senders and two receivers.
 
-#### 1.3.1.2. Test Topology
+#### 1.3.1.2 Test Topology
 
 Refer to Topology 1.1.2.1 for the test topology.
 
-#### 1.3.1.3. Test Configuration
+#### 1.3.1.3 Test Configuration
 
 - On SONiC DUT configure the following:
   1. Enable watchdog with default storm detection time (400ms) and restoration time (2sec).
@@ -114,7 +114,7 @@ Refer to Topology 1.1.2.1 for the test topology.
         inter-frame transmission interval should be lesser than
         per-frame pause duration.
 
-#### 1.3.1.4. Test Steps
+#### 1.3.1.4 Test Steps
 
 Refer to the time diagram below to understand the work flow of the test case:
 
@@ -137,17 +137,17 @@ Refer to the time diagram below to understand the work flow of the test case:
 6. Repeat the test for other lossless priorities.
 
 
-### 1.3.2. Test Case #2 - PFCWD all to all multi-host lossless traffic
+### 1.3.2 Test Case #2 - PFCWD all to all multi-host lossless traffic
 
-#### 1.3.2.1. Test Objective
+#### 1.3.2.1 Test Objective
 
 This test aims to verify how PFC watchdog can handle PFC storm under all-to-all traffic in a multi-host topology.
 
-#### 1.3.2.2. Test Topology
+#### 1.3.2.2 Test Topology
 
 Refer to Topology 1 for the test topology.
 
-#### 1.3.2.3. Test Configuration
+#### 1.3.2.3 Test Configuration
 
 - On SONiC DUT configure the following:
   1. Enable watchdog with default storm detection time (400ms) and restoration time (2sec).
@@ -164,7 +164,7 @@ Refer to Topology 1 for the test topology.
         inter-frame transmission interval should be lesser than
         per-frame pause duration.
 
-#### 1.3.2.4. Test Steps
+#### 1.3.2.4 Test Steps
 
 Refer to the time diagram below to understand the work flow of the test case:
 
