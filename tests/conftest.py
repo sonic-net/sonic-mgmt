@@ -17,9 +17,6 @@ from collections import defaultdict
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
-# We must rename function starts with pytest in conftests, or it will be treated as hook by pytest
-from tests.common.helpers.assertions import pytest_require as check_pytest_require
-
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +30,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
-                  'tests.common.plugins.log_section_start')
+                  'tests.common.plugins.log_section_start',
+                  'tests.common.plugins.custom_fixtures')
 
 
 class TestbedInfo(object):
@@ -425,15 +423,4 @@ def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_pr
         record_testsuite_property("os_version", duthost.os_version)
 
         __report_metadata_added = True
-
-@pytest.fixture(scope="function", autouse=True)
-def check_dut_asic_type(request, duthost):
-    asic_marks = [mark for mark in request.node.iter_markers(name="asic")]
-    if not asic_marks:
-        return
-    supported_asics = [x.lower() for x in asic_marks[0].args]
-    if not supported_asics:
-        return
-    dut_asic_type = duthost.facts["asic_type"].lower()
-    check_pytest_require((dut_asic_type in supported_asics), "Unsupported platform")
 
