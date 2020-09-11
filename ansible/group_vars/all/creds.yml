@@ -10,6 +10,3 @@ sonic_default_passwords:
  - "YourPaSsWoRd"
  - "password"
 sonic_password: "password"
-
-ceos_image_orig: ceosimage:4.23.2F
-ceos_image: ceosimage:4.23.2F-1

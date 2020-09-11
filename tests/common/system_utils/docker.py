@@ -7,6 +7,8 @@ import logging
 import os
 
 from tests.common import config_reload
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 
@@ -119,6 +121,7 @@ def swap_syncd(dut, creds):
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
+    dut.command("config bgp shutdown all")  # Force image download to go through mgmt network
     dut.command("systemctl stop swss")
     delete_container(dut, "syncd")
 
@@ -131,6 +134,30 @@ def swap_syncd(dut, creds):
     # TODO: Getting the base image version should be a common utility
     output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
     sonic_version = output["stdout_lines"][0].strip()
+
+    def ready_for_swap():
+        syncd_status = dut.command("docker ps -f name=syncd")["stdout_lines"]
+        if len(syncd_status) > 1:
+            return False
+
+        swss_status = dut.command("docker ps -f name=swss")["stdout_lines"]
+        if len(swss_status) > 1:
+            return False
+
+        bgp_summary = dut.command("show ip bgp summary")["stdout_lines"]
+        idle_count = 0
+        expected_idle_count = 0
+        for line in bgp_summary:
+            if "Idle (Admin)" in line:
+                idle_count += 1
+
+            if "Total number of neighbors" in line:
+                tokens = line.split()
+                expected_idle_count = int(tokens[-1])
+
+        return idle_count == expected_idle_count
+
+    pytest_assert(wait_until(30, 3, ready_for_swap), "Docker and/or BGP failed to shut down")
 
     registry = load_docker_registry_info(dut, creds)
     download_image(dut, registry, docker_rpc_image, sonic_version)

@@ -31,7 +31,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
-                  'tests.common.plugins.custom_fixtures')
+                  'tests.common.plugins.custom_fixtures',
+                  'tests.vxlan')
 
 
 class TestbedInfo(object):
@@ -96,6 +97,9 @@ def pytest_addoption(parser):
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
+
+    # qos_sai options
+    parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
 
     ############################
     # pfc_asym options         #

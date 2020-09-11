@@ -29,6 +29,13 @@ def setup(duthost):
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
+    port_speed_facts = port_alias_facts['port_speed']
+    if not port_speed_facts:
+        all_vars = duthost.host.options['variable_manager'].get_vars()
+        iface_speed = all_vars['hostvars'][duthost.hostname]['iface_speed']
+        iface_speed = str(iface_speed)
+        port_speed_facts = {_: iface_speed for _ in
+                            port_alias_facts['port_alias_map'].keys()}
 
     port_alias = list()
     port_name_map = dict()
@@ -43,7 +50,7 @@ def setup(duthost):
         port_alias.append(port_alias_new)
         port_name_map[item] = port_alias_new
         port_alias_map[port_alias_new] = item
-        port_speed[port_alias_new] = port_alias_facts['port_speed'][port_alias_old]
+        port_speed[port_alias_new] = port_speed_facts[port_alias_old]
 
         # Update port alias name in redis db
         duthost.command('redis-cli -n 4 HSET "PORT|{}" alias {}'.format(item, port_alias_new))
