@@ -332,6 +332,36 @@ class SonicHost(AnsibleHostBase):
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
 
+    def get_critical_group_and_process_lists(self, container_name):
+        """
+        @summary: Get critical group and process lists by parsing the
+                  critical_processes file in the specified container
+        @return: Two lists which include the critical groups and critical processes respectively
+        """
+        critical_group_list = []
+        critical_process_list = []
+        succeeded = True
+
+        file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
+                && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
+        for line in file_content["stdout_lines"]:
+            line_info = line.strip().split(':')
+            if len(line_info) != 2:
+                succeeded = False
+                break
+
+            identifier_key = line_info[0].strip()
+            identifier_value = line_info[1].strip()
+            if identifier_key == "group" and identifier_value:
+                critical_group_list.append(identifier_value)
+            elif identifier_key == "program" and identifier_value:
+                critical_process_list.append(identifier_value)
+            else:
+                succeeded = False
+                break
+
+        return critical_group_list, critical_process_list, succeeded
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -341,6 +371,7 @@ class SonicHost(AnsibleHostBase):
         result = {'status': True}
         result['exited_critical_process'] = []
         result['running_critical_process'] = []
+        critical_group_list = []
         critical_process_list = []
 
         # return false if the service is not started
@@ -349,12 +380,10 @@ class SonicHost(AnsibleHostBase):
             result['status'] = False
             return result
 
-        # get critical process list for the service
-        output = self.command("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] && cat /etc/supervisor/critical_processes'".format(service), module_ignore_errors=True)
-        for l in output['stdout'].split():
-            # If ':' exists, the second field is got. Otherwise the only field is got.
-            critical_process_list.append(l.split(':')[-1].rstrip())
-        if len(critical_process_list) == 0:
+        # get critical group and process lists for the service
+        critical_group_list, critical_process_list, succeeded = self.get_critical_group_and_process_lists(service)
+        if succeeded == False:
+            result['status'] = False
             return result
 
         # get process status for the service
@@ -364,11 +393,11 @@ class SonicHost(AnsibleHostBase):
         for l in output['stdout_lines']:
             (pname, status, info) = re.split("\s+", l, 2)
             if status != "RUNNING":
-                if pname in critical_process_list:
+                if pname in critical_group_list or pname in critical_process_list:
                     result['exited_critical_process'].append(pname)
                     result['status'] = False
             else:
-                if pname in critical_process_list:
+                if pname in critical_group_list or pname in critical_process_list:
                     result['running_critical_process'].append(pname)
 
         return result
@@ -767,6 +796,25 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 return iface_info["macaddress"]
 
         return None
+
+    def get_container_autorestart_states(self):
+        """
+        @summary: Get container names and their autorestart states by analyzing
+                  the command output of "show feature autorestart"
+        @return:  A dictionary where keys are the names of containers which have the
+                  autorestart feature implemented and values are the autorestart feature
+                  state for that container
+        """
+        container_autorestart_states = {}
+
+        show_cmd_output = self.shell("show feature autorestart")
+        for line in show_cmd_output["stdout_lines"]:
+            container_name = line.split()[0].strip()
+            container_state = line.split()[1].strip()
+            if container_state in ["enabled", "disabled"]:
+                container_autorestart_states[container_name] = container_state
+
+        return container_autorestart_states
 
     def get_feature_status(self):
         """
