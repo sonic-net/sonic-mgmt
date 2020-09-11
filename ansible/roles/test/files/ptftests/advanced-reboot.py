@@ -131,7 +131,7 @@ class ReloadTest(BaseTest):
         self.check_param('dut_hostname', '', required=True)
         self.check_param('reboot_limit_in_seconds', 30, required=False)
         self.check_param('reboot_type', 'fast-reboot', required=False)
-        self.check_param('graceful_limit', 180, required=False)
+        self.check_param('graceful_limit', 240, required=False)
         self.check_param('portchannel_ports_file', '', required=True)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)

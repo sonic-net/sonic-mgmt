@@ -6,7 +6,7 @@ def add_cont_warm_reboot_args(parser):
         "--continuous_reboot_count",
         action="store",
         type=int,
-        default=5,
+        default=3,
         help="Number of iterations of warm-reboot",
     )
 
