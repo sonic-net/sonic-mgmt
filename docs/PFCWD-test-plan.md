@@ -1,5 +1,26 @@
-# 1. PFCWD test plan
-
+# 1. PFC Watchdog test plan
+- [1. PFC Watchdog test plan](#1-pfc-watchdog-test-plan)
+  - [1.1. Overview](#11-overview)
+    - [PFC Storm Detection](#pfc-storm-detection)
+    - [PFC Storm Mitigation](#pfc-storm-mitigation)
+    - [PFC Storm Restoration](#pfc-storm-restoration)
+    - [1.1.1. Scope](#111-scope)
+    - [1.1.2. Testbed](#112-testbed)
+      - [1.1.2.1 Topology 1](#1121-topology-1)
+  - [1.2. Setup configuration](#12-setup-configuration)
+    - [1.2.1. DUT Configuration](#121-dut-configuration)
+    - [1.2.2. Keysight configuration](#122-keysight-configuration)
+  - [1.3. Test Cases](#13-test-cases)
+    - [1.3.1. Test Case #1 - PFCWD two senders two receivers](#131-test-case-1---pfcwd-two-senders-two-receivers)
+      - [1.3.1.1. Test Objective](#1311-test-objective)
+      - [1.3.1.2. Test Topology](#1312-test-topology)
+      - [1.3.1.3. Test Configuration](#1313-test-configuration)
+      - [1.3.1.4. Test Steps](#1314-test-steps)
+    - [1.3.2. Test Case #2 - PFCWD all to all multi-host lossless traffic](#132-test-case-2---pfcwd-all-to-all-multi-host-lossless-traffic)
+      - [1.3.2.1. Test Objective](#1321-test-objective)
+      - [1.3.2.2. Test Topology](#1322-test-topology)
+      - [1.3.2.3. Test Configuration](#1323-test-configuration)
+      - [1.3.2.4. Test Steps](#1324-test-steps)
 
 | Rev |     Date       |       Author         | Change Description               |
 |:---:|:---------------|:---------------------|:-----------------------------------|
@@ -96,7 +117,8 @@ Refer to Topology 1.1.2.1 for the test topology.
 Refer to the time diagram below to understand the work flow of the test case:
 
 ![](image/PFCWD_2rcvrs_2senders_test_workflow.PNG)
-*Fig. 2: Test Workflow*
+
+*Fig. 2: #Test 1 Workflow*
 
 1. At time **_T<sub>startTraffic</sub>_** , start all the bi-directional lossless traffic items.
 2. At time **_T<sub>startPause</sub>_** , start PFC pause storm.
@@ -145,6 +167,8 @@ Refer to Topology 1 for the test topology.
 Refer to the time diagram below to understand the work flow of the test case:
 
 ![](image/PFCWD_2rcvrs_2senders_test_workflow.PNG)
+
+*Fig. 3: #Test 2 Workflow*
 
 1. At time **_T<sub>startTraffic</sub>_** , start all the bi-directional lossless traffic items.
 2. At time **_T<sub>startPause</sub>_** , start PFC pause storm.
