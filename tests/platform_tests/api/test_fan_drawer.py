@@ -44,6 +44,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
         chassis_truth = duthost.facts.get('chassis', None)
         if chassis_truth:
             self.fan_drawer_truth = chassis_truth.get('fan_drawers', None)
+        else:
+            logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
 
     #
     # Functions to test methods inherited from DeviceBase class
