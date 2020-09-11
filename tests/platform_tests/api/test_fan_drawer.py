@@ -34,7 +34,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):
+    def setup(self, duthost, platform_api_conn):
         if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
