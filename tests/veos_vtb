@@ -39,8 +39,8 @@ all:
           ansible_password: password
           ansible_user: admin
         vlab-02:
-          ansible_host: 10.250.0.103
-          ansible_hostv6: fec0::ffff:afa:3
+          ansible_host: 10.250.0.102
+          ansible_hostv6: fec0::ffff:afa:2
           type: kvm
           hwsku: Force10-S6100
           ansible_password: password
