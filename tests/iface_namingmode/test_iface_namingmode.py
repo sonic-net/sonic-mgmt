@@ -33,6 +33,7 @@ def setup(duthost):
     if not port_speed_facts:
         all_vars = duthost.host.options['variable_manager'].get_vars()
         iface_speed = all_vars['hostvars'][duthost.hostname]['iface_speed']
+        iface_speed = str(iface_speed)
         port_speed_facts = {_: iface_speed for _ in
                             port_alias_facts['port_alias_map'].keys()}
 
