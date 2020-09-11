@@ -134,6 +134,21 @@ def validate_junit_xml_file(document_name):
 
 
 def validate_junit_xml_archive(directory_name):
+    """Validate that an XML archive contains valid JUnit XML.
+
+    Args:
+        directory_name: The name of the directory containing XML documents.
+
+    Returns:
+        A list of roots of validated XML documents.
+
+    Raises:
+        JUnitXMLValidationError: if any of the following are true:
+            - The provided directory doesn't exist
+            - The provided files exceed 10MB
+            - Any of the provided files are unparseable
+            - Any of the provided files are missing required fields
+    """
     if not os.path.exists(directory_name) or not os.path.isdir(directory_name):
         raise JUnitXMLValidationError("file not found")
 
@@ -339,16 +354,17 @@ def _parse_test_cases(root):
 
         # NOTE: "if failure" and "if error" does not work with the ETree library.
         failure = test_case.find("failure")
-        if failure is not None:
-            result["failure"] = failure.get("message")
-
         error = test_case.find("error")
-        if error is not None:
-            result["error"] = error.get("message")
-
         skipped = test_case.find("skipped")
-        if skipped is not None:
-            result["skipped"] = skipped.get("message")
+
+        if failure is not None:
+            result["result"] = "failure"
+        elif error is not None:
+            result["result"] = "error"
+        elif skipped is not None:
+            result["result"] = "skipped"
+        else:
+            result["result"] = "success"
 
         return feature, result
 

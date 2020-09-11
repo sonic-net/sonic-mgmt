@@ -45,7 +45,7 @@ EXPECTED_JSON_OUTPUT = {
         "acl": [
             {
                 "classname": "acl.test_acl",
-                "error": "test machine broke",
+                "result": "error",
                 "file": "acl/test_acl.py",
                 "line": "257",
                 "name": "test_acl",
@@ -56,7 +56,7 @@ EXPECTED_JSON_OUTPUT = {
                 "file": "acl/test_acl.py",
                 "line": "369",
                 "name": "test_acl_2",
-                "skipped": "test machine skipped",
+                "result": "skipped",
                 "time": "0.0"
             }
         ],
@@ -66,11 +66,12 @@ EXPECTED_JSON_OUTPUT = {
                 "file": "bgp/test_bgp.py",
                 "line": "161",
                 "name": "test_bgp_fact",
-                "time": "109.472"
+                "time": "109.472",
+                "result": "success"
             },
             {
                 "classname": "bgp.test_bgp",
-                "failure": "test machine go brr",
+                "result": "failure",
                 "file": "bgp/test_bgp.py",
                 "line": "248",
                 "name": "test_bgp_speaker",
