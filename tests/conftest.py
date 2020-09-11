@@ -17,6 +17,8 @@ from collections import defaultdict
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
+# We must rename function starts with pytest in conftests, or it will be treated as hook by pytest
+from tests.common.helpers.assertions import pytest_require as check_pytest_require
 
 
 logger = logging.getLogger(__name__)
@@ -430,7 +432,8 @@ def check_dut_asic_type(request, duthost):
     if not asic_marks:
         return
     supported_asics = [x.lower() for x in asic_marks[0].args]
+    if not supported_asics:
+        return
     dut_asic_type = duthost.facts["asic_type"].lower()
-    if supported_asics and dut_asic_type not in supported_asics:
-        pytest.skip("test requires asic in {!r}, current DUT asic is {!r}".format(supported_asics, dut_asic_type))
+    check_pytest_require((dut_asic_type in supported_asics), "Unsupported platform")
 
