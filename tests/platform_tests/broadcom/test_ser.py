@@ -41,7 +41,7 @@ def enable_ssh_timout(dut):
     @param dut: Ansible host DUT
     '''
     logger.info('Enabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo cp /etc/ssh/sshd_config.bak /etc/ssh/sshd_config")
+    dut.command("sudo mv /etc/ssh/sshd_config.bak /etc/ssh/sshd_config")
 
     dut.command("sudo systemctl restart ssh")
     time.sleep(5)
