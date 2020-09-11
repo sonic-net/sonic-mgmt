@@ -17,6 +17,7 @@ from collections import defaultdict
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
+from tests.common.connections import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
@@ -354,7 +355,9 @@ def creds(duthost):
         "sonicadmin_password",
         "docker_registry_host",
         "docker_registry_username",
-        "docker_registry_password"
+        "docker_registry_password",
+        "console_server_user",
+        "console_server_password"
     ]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
@@ -427,3 +430,20 @@ def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_pr
         record_testsuite_property("os_version", duthost.os_version)
 
         __report_metadata_added = True
+
+@pytest.fixture(scope="module")
+def duthost_console(localhost, testbed, creds):
+    # todo: Multi-dut is needed?
+    dut_hostname = testbed["duts"][0]
+
+    vars = localhost.host.options['inventory_manager'].get_host(dut_hostname).vars
+    host = ConsoleHost(console_type=vars['console_type'],
+                       console_host=vars['console_host'],
+                       console_port=vars['console_port'],
+                       sonic_username=creds['sonicadmin_user'],
+                       sonic_password=creds['sonicadmin_password'],
+                       console_server_username=creds['console_server_user'],
+                       console_server_password=creds['console_server_password'])
+    yield host
+    host.disconnect()
+
