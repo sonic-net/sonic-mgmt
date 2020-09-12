@@ -11,6 +11,16 @@ from tests.common.helpers.platform_api import chassis, fan_drawer
 
 from platform_api_test_base import PlatformApiTestBase
 
+###################################################
+# TODO: Remove this after we transition to Python 3
+import sys
+if sys.version_info.major == 3:
+    STRING_TYPE = str
+else:
+    STRING_TYPE = basestring
+# END Remove this after we transition to Python 3
+###################################################
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -57,7 +67,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
             name = fan_drawer.get_name(platform_api_conn, i)
 
             if self.expect(name is not None, "Unable to retrieve Fan_drawer {} name".format(i)):
-                self.expect(isinstance(name, str), "Fan_drawer {} name appears incorrect".format(i))
+                self.expect(isinstance(name, STRING_TYPE), "Fan_drawer {} name appears incorrect".format(i))
                 if self.fan_drawer_truth:
                     self.expect(name == self.fan_drawer_truth[i]['name'], "Fan_drawer {} name does not match, expected name {}".format(i, self.fan_drawer_truth[i]['name']))
 
@@ -78,7 +88,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
             model = fan_drawer.get_model(platform_api_conn, i)
 
             if self.expect(model is not None, "Unable to retrieve fan_drawer {} model".format(i)):
-                self.expect(isinstance(model, str), "Fan_drawer {} model appears incorrect".format(i))
+                self.expect(isinstance(model, STRING_TYPE), "Fan_drawer {} model appears incorrect".format(i))
 
         self.assert_expectations()
 
@@ -87,7 +97,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
             serial = fan_drawer.get_serial(platform_api_conn, i)
 
             if self.expect(serial is not None, "Unable to retrieve fan_drawer {} serial number".format(i)):
-                self.expect(isinstance(serial, str), "Fan_drawer {} serial number appears incorrect".format(i))
+                self.expect(isinstance(serial, STRING_TYPE), "Fan_drawer {} serial number appears incorrect".format(i))
 
         self.assert_expectations()
 
@@ -139,7 +149,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
                 color_actual = fan_drawer.get_status_led(platform_api_conn, i)
 
                 if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                    if self.expect(isinstance(color_actual, str), "Status LED color appears incorrect"):
+                    if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
                         self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan_drawer {})".format(
                             color, color_actual, i))
 
