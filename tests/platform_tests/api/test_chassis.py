@@ -210,7 +210,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if self.chassis_truth:
             expected_num_components = len(self.chassis_truth.get('components'))
-            pytest_assert(num_components == expected_num_components
+            pytest_assert(num_components == expected_num_components,
                           "Number of components ({}) does not match expected number ({})"
                           .format(num_components, expected_num_components))
 
