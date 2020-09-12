@@ -16,6 +16,17 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+###################################################
+# TODO: Remove this after we transition to Python 3
+import sys
+if sys.version_info.major == 3:
+    STRING_TYPE = str
+else:
+    STRING_TYPE = basestring
+# END Remove this after we transition to Python 3
+###################################################
+
+
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
 
@@ -58,7 +69,7 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_name(self, duthost, localhost, platform_api_conn):
         name = chassis.get_name(platform_api_conn)
         pytest_assert(name is not None, "Unable to retrieve chassis name")
-        pytest_assert(isinstance(name, str), "Chassis name appears incorrect")
+        pytest_assert(isinstance(name, STRING_TYPE), "Chassis name appears incorrect")
 
         if self.chassis_truth:
             expected_name = self.chassis_truth.get('name')
@@ -75,7 +86,7 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_model(self, duthost, localhost, platform_api_conn):
         model = chassis.get_model(platform_api_conn)
         pytest_assert(model is not None, "Unable to retrieve chassis model")
-        pytest_assert(isinstance(model, str), "Chassis model appears incorrect")
+        pytest_assert(isinstance(model, STRING_TYPE), "Chassis model appears incorrect")
 
         if self.chassis_truth:
             expected_model = self.chassis_truth.get('model')
@@ -85,7 +96,7 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_serial(self, duthost, localhost, platform_api_conn):
         serial = chassis.get_serial(platform_api_conn)
         pytest_assert(serial is not None, "Unable to retrieve chassis serial number")
-        pytest_assert(isinstance(serial, str), "Chassis serial number appears incorrect")
+        pytest_assert(isinstance(serial, STRING_TYPE), "Chassis serial number appears incorrect")
 
         if 'serial' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
             expected_serial = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['serial']
@@ -371,7 +382,7 @@ class TestChassisApi(PlatformApiTestBase):
 
             color_actual = chassis.get_status_led(platform_api_conn)
             if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                if self.expect(isinstance(color_actual, str), "Status LED color appears incorrect"):
+                if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
                     self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
         self.assert_expectations()
 
