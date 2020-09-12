@@ -232,7 +232,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if self.chassis_truth:
             expected_num_modules = len(self.chassis_truth.get('modules'))
-            pytest_assert(num_modules, expected_num_modules,
+            pytest_assert(num_modules == expected_num_modules,
                           "Number of modules ({}) does not match expected number ({})"
                           .format(num_modules, expected_num_modules))
 
@@ -254,7 +254,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if self.chassis_truth:
             expected_num_fans = len(self.chassis_truth.get('fans'))
-            pytest_assert(num_fans, expected_num_fans,
+            pytest_assert(num_fans == expected_num_fans,
                           "Number of fans ({}) does not match expected number ({})"
                           .format(num_fans, expected_num_fans))
 
@@ -276,7 +276,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if self.chassis_truth:
             expected_num_fan_drawers = len(self.chassis_truth.get('fan_drawers'))
-            pytest_assert(num_fan_drawers, expected_num_fan_drawers,
+            pytest_assert(num_fan_drawers == expected_num_fan_drawers,
                           "Number of fan drawers ({}) does not match expected number ({})"
                           .format(num_fan_drawers, expected_num_fan_drawers))
 
@@ -298,7 +298,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if self.chassis_truth:
             expected_num_psus = len(self.chassis_truth.get('psus'))
-            pytest_assert(num_psus, expected_num_psus,
+            pytest_assert(num_psus == expected_num_psus,
                           "Number of psus ({}) does not match expected number ({})"
                           .format(num_psus, expected_num_psus))
 
@@ -320,7 +320,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if self.chassis_truth:
             expected_num_thermals = len(self.chassis_truth.get('thermals'))
-            pytest_assert(num_thermals, expected_num_thermals,
+            pytest_assert(num_thermals == expected_num_thermals,
                           "Number of thermals ({}) does not match expected number ({})"
                           .format(num_thermals, expected_num_thermals))
 
@@ -342,7 +342,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         if self.chassis_truth:
             expected_num_sfps = len(self.chassis_truth.get('sfps'))
-            pytest_assert(num_sfps, expected_num_sfps,
+            pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))
 
