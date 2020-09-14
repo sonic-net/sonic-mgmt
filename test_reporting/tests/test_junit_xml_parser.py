@@ -11,7 +11,8 @@ VALID_TEST_RESULT = """<?xml version="1.0" encoding="utf-8"?>
 <testsuite errors="1" failures="1" name="pytest" skipped="1" tests="4" time="214.054">
     <properties>
         <property name="topology" value="t0"/>
-        <property name="markers" value=""/>
+        <property name="timestamp" value="2020-09-14 18:24:19.675190" />
+        <property name="testbed" value="vms-kvm-t0" />
         <property name="host" value="vlab-01"/>
         <property name="asic" value="vs"/>
         <property name="platform" value="x86_64-kvm_x86_64-r0"/>
@@ -82,6 +83,8 @@ EXPECTED_JSON_OUTPUT = {
     "test_metadata": {
         "asic": "vs",
         "host": "vlab-01",
+        "timestamp": "2020-09-14 18:24:19.675190",
+        "testbed": "vms-kvm-t0",
         "hwsku": "Force10-S6000",
         "os_version": "master.449-9c22d19b",
         "platform": "x86_64-kvm_x86_64-r0",
