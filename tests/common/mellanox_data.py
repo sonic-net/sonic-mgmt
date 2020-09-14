@@ -568,5 +568,10 @@ def is_mellanox_device(dut):
 
 
 def get_platform_data(dut):
+    """
+    Get the platform physical data for the given dut object
+    :param dut: dut object
+    :return: A dictionary contains the platform physical data
+    """
     dut_platform = dut.facts["platform"]
     return SWITCH_MODELS[dut_platform]

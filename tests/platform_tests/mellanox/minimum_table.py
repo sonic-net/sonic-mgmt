@@ -41,6 +41,12 @@ MINIMUM_TABLE= {
     }
 }
 
+
 def get_min_table(dut):
+    """
+    Get the dynamic minimum fan speed table for the given switch dut object
+    :param dut: switch dut object
+    :return: A dictionary contains the dynamic minimum fan speed data
+    """
     dut_platform = dut.facts["platform"]
     return MINIMUM_TABLE[dut_platform]

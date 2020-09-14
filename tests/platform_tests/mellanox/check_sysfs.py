@@ -122,8 +122,8 @@ def check_psu_sysfs(dut, psu_id, psu_state):
                                                    (psu_exist, psu_exist_content["stdout"])
     else:
         platform_data = get_platform_data(dut)
-        hot_swappabe = platform_data["psus"]["hot_swappable"]
-        if hot_swappabe:
+        hot_swappable = platform_data["psus"]["hot_swappable"]
+        if hot_swappable:
             psu_exist_content = dut.command("cat %s" % psu_exist)
             logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
             assert psu_exist_content["stdout"] == "1", "CLI returns %s while %s contains %s" % \
@@ -162,11 +162,12 @@ def _is_fan_speed_in_range(sysfs_facts):
             high_threshold = ((float(fan_speed_set) / 255) * fan_max_speed) * (1 + 0.5)
             return low_threshold < fan_speed_get < high_threshold
         except Exception as e:
-            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}'.format(
+            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}, exception={}'.format(
                 fan_info["speed_get"],
                 fan_info["speed_set"],
                 fan_info["min_speed"],
                 fan_info["max_speed"],
+                e
             )
 
 

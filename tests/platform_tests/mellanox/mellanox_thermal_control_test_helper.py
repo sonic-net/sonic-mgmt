@@ -342,6 +342,7 @@ class FanDrawerData:
         else:
             assert 0, 'Invalid FAN led color for FAN: {}, green={}, red={}'.format(self.name, green_led_value,
                                                                                    red_led_value)
+
     def get_expect_led_color(self):
         if self.mocked_presence == 'Not Present':
             return 'red'
@@ -970,6 +971,7 @@ class MinTableMocker(object):
     FAN_AMB_PATH = 'fan_amb'
     PORT_AMB_PATH = 'port_amb'
     TRUST_PATH = 'module1_temp_fault'
+
     def __init__(self, dut):
         self.mock_helper = MockerHelper(dut)
 
