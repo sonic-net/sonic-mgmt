@@ -77,7 +77,7 @@ class TestChassisApi(PlatformApiTestBase):
         if self.chassis_truth:
             expected_value = self.chassis_truth.get(name)
 
-        if not self.chassis_truth or not expected_value:
+        if not expected_value:
             logger.warning("Unable to get expected value for '{}' from platform.json file".format(name))
             return
 
@@ -90,7 +90,7 @@ class TestChassisApi(PlatformApiTestBase):
         if self.duthost_vars:
             expected_value = self.duthost_vars.get(name)
 
-        if not self.duthost_vars or not expected_value:
+        if not expected_value:
             logger.warning("Unable to get expected value for '{}' from inventory file".format(name))
             return
 
