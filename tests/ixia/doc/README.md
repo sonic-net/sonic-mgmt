@@ -1,4 +1,4 @@
-#  RUN PFC EXP
+##  RUN PFC EXP
 def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                 test_dscp_list, bg_dscp_list, exp_dur, paused,
                 global_pause=False) :
@@ -24,7 +24,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
     Returns:
         This function returns nothing.
 ```
-#  TEST PFC PAUSE LOSSLESS
+##  TEST PFC PAUSE LOSSLESS
 def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,
                             duthost, ixia_dev, ixia_api_server_session,
                             fanout_graph_facts):
@@ -52,7 +52,7 @@ def test_pfc_pause_lossless(testbed, conn_graph_facts, lossless_prio_dscp_map,
           that is always equal to the priority pause frame priority.
        b. 'Background Data Traffic' will always flow.
 ```
-#  TEST PAUSES ON LOSSY PRIORITIES 
+##  TEST PAUSES ON LOSSY PRIORITIES 
 def test_pauses_on_lossy_priorities (testbed,
                                      conn_graph_facts,
                                      lossless_prio_dscp_map,
@@ -88,7 +88,7 @@ def test_pauses_on_lossy_priorities (testbed,
         Value of test traffic dscp = {d : 0 <= d <= 63}
         Currently in this test cases m = 3, n = 4.
 ```
-#  TEST PFC GLOBAL PAUSE 
+##  TEST PFC GLOBAL PAUSE 
 def test_pfc_global_pause (testbed,
                            conn_graph_facts,
                            lossless_prio_dscp_map,
