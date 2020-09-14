@@ -25,6 +25,7 @@ from files.configs.pfc import configure_pfc_lossy
 from abstract_open_traffic_generator.control import FlowTransmit
 
 START_DELAY = 1
+TRAFFIC_DURATION = 5
 
 def run_pfc_pause_lossy_traffic_test(api, dut, exp_dur) :
     """
@@ -59,7 +60,7 @@ def run_pfc_pause_lossy_traffic_test(api, dut, exp_dur) :
     # start all flows
     api.set_flow_transmit(FlowTransmit('start'))
 
-    logger.info("Traffic is running for minutes %s second" %(exp_dur))
+    logger.info("Traffic is running for %s seconds" %(exp_dur))
     time.sleep(exp_dur)
 
     api.set_flow_transmit(FlowTransmit('stop'))
@@ -139,7 +140,8 @@ def test_pfc_pause_for_lossy_traffic(testbed,
             background_flow_name='Background Data',
             start_delay=START_DELAY)
 
-        run_pfc_pause_lossy_traffic_test(api=api, 
-                                         dut=duthost, 
-                                         exp_dur=(START_DELAY + 5))
+        run_pfc_pause_lossy_traffic_test(
+            api=api, 
+            dut=duthost, 
+            exp_dur=(START_DELAY + TRAFFIC_DURATION))
 
