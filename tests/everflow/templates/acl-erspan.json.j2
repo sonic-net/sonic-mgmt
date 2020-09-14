@@ -19,7 +19,7 @@
                                 "{{ qset }}": {
                                     "config": {
                                         {% for qualifier, value in rule["qualifiers"][qset].items() %}
-                                        "{{ qualifier }}": {{ value|tojson }}{% if not loop.last %},{% endif %}
+                                        "{{ qualifier }}": {{ value|to_nice_json }}{% if not loop.last %},{% endif %}
                                         {% endfor %}
                                     }
                                 }{% if not loop.last %},{% endif %}
