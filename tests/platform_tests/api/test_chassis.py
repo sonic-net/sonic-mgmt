@@ -57,45 +57,45 @@ class TestChassisApi(PlatformApiTestBase):
     chassis_truth = None
     duthost_vars = None
 
-    @pytest.fixture(scope="class", autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def setup(self, duthost):
         # Get platform truths from platform.json file
-        chassis_truth = duthost.facts.get("chassis")
-        if not chassis_truth:
+        self.chassis_truth = duthost.facts.get("chassis")
+        if not self.chassis_truth:
             logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
 
         # Get host vars from inventory file
-        duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+        self.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
 
     #
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, name, value):
+    def compare_value_with_platform_facts(self, key, value):
         expected_value = None
 
         if self.chassis_truth:
-            expected_value = self.chassis_truth.get(name)
+            expected_value = self.chassis_truth.get(key)
 
         if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file".format(name))
+            logger.warning("Unable to get expected value for '{}' from platform.json file".format(key))
             return
 
         pytest_assert(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}'".format(name, value, expected_value))
+                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
-    def compare_value_with_device_facts(self, name, value):
+    def compare_value_with_device_facts(self, key, value):
         expected_value = None
 
         if self.duthost_vars:
-            expected_value = self.duthost_vars.get(name)
+            expected_value = self.duthost_vars.get(key)
 
         if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from inventory file".format(name))
+            logger.warning("Unable to get expected value for '{}' from inventory file".format(key))
             return
 
         pytest_assert(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}'".format(name, value, expected_value))
+                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     #
     # Functions to test methods inherited from DeviceBase class
