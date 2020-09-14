@@ -63,9 +63,10 @@ def run_pfc_pause_lossy_traffic_test(api, dut, exp_dur) :
     logger.info("Traffic is running for %s seconds" %(exp_dur))
     time.sleep(exp_dur)
 
+    # stop all flows
     api.set_flow_transmit(FlowTransmit('stop'))
 
-    # stop all flows
+    # Get statistics
     test_stat = api.get_flow_results('Test Data')
 
     for rows in test_stat['rows'] :
