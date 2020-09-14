@@ -55,12 +55,47 @@ class TestChassisApi(PlatformApiTestBase):
     """Platform API test cases for the Chassis class"""
 
     chassis_truth = None
+    duthost_vars = None
 
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, duthost):
-        chassis_truth = duthost.facts.get("chassis", None)
+        # Get platform truths from platform.json file
+        chassis_truth = duthost.facts.get("chassis")
         if not chassis_truth:
             logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
+
+        # Get host vars from inventory file
+        duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+
+    #
+    # Helper functions
+    #
+
+    def compare_value_with_platform_facts(self, name, value):
+        expected_value = None
+
+        if self.chassis_truth:
+            expected_value = self.chassis_truth.get(name)
+
+        if not self.chassis_truth or not expected_value:
+            logger.warning("Unable to get expected value for '{}' from platform.json file".format(name))
+            return
+
+        pytest_assert(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}'".format(name, value, expected_value))
+
+    def compare_value_with_device_facts(self, name, value):
+        expected_value = None
+
+        if self.duthost_vars:
+            expected_value = self.duthost_vars.get(name)
+
+        if not self.duthost_vars or not expected_value:
+            logger.warning("Unable to get expected value for '{}' from inventory file".format(name))
+            return
+
+        pytest_assert(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}'".format(name, value, expected_value))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -70,11 +105,7 @@ class TestChassisApi(PlatformApiTestBase):
         name = chassis.get_name(platform_api_conn)
         pytest_assert(name is not None, "Unable to retrieve chassis name")
         pytest_assert(isinstance(name, STRING_TYPE), "Chassis name appears incorrect")
-
-        if self.chassis_truth:
-            expected_name = self.chassis_truth.get('name')
-            pytest_assert(name == expected_name,
-                          "Chassis name '{}' does not match expected name '{}'".format(name, expected_name))
+        self.compare_value_with_platform_facts('name', name)
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
         presence = chassis.get_presence(platform_api_conn)
@@ -87,23 +118,13 @@ class TestChassisApi(PlatformApiTestBase):
         model = chassis.get_model(platform_api_conn)
         pytest_assert(model is not None, "Unable to retrieve chassis model")
         pytest_assert(isinstance(model, STRING_TYPE), "Chassis model appears incorrect")
-
-        if self.chassis_truth:
-            expected_model = self.chassis_truth.get('model')
-            pytest_assert(model == expected_model,
-                          "Chassis model '{}' does not match expected model '{}'".format(model, expected_model))
+        self.compare_value_with_device_facts('model', model)
 
     def test_get_serial(self, duthost, localhost, platform_api_conn):
         serial = chassis.get_serial(platform_api_conn)
         pytest_assert(serial is not None, "Unable to retrieve chassis serial number")
         pytest_assert(isinstance(serial, STRING_TYPE), "Chassis serial number appears incorrect")
-
-        if 'serial' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
-            expected_serial = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['serial']
-            pytest_assert(serial == expected_serial,
-                          "Serial number is incorrect. Got '{}', expected '{}'".format(serial, expected_serial))
-        else:
-            logger.warning('Inventory file does not contain serial number for {}'.format(duthost.hostname))
+        self.compare_value_with_device_facts('serial', serial)
 
     def test_get_status(self, duthost, localhost, platform_api_conn):
         status = chassis.get_status(platform_api_conn)
@@ -119,12 +140,7 @@ class TestChassisApi(PlatformApiTestBase):
         base_mac = chassis.get_base_mac(platform_api_conn)
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
-
-        if 'base_mac' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
-            expected_base_mac = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['base_mac']
-            pytest_assert(base_mac.lower() == expected_base_mac.lower(), "Base MAC address is incorrect")
-        else:
-            logger.warning('Inventory file does not contain base MAC address for {}'.format(duthost.hostname))
+        self.compare_value_with_device_facts('base_mac', base_mac)
 
     def test_get_serial_number(self, duthost, localhost, platform_api_conn):
         # Ensure the serial number is sane
@@ -137,13 +153,7 @@ class TestChassisApi(PlatformApiTestBase):
         serial = chassis.get_serial_number(platform_api_conn).rstrip('\x00')
         pytest_assert(serial is not None, "Failed to retrieve serial number")
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
-
-        if 'serial' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
-            expected_serial = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['serial']
-            pytest_assert(serial == expected_serial,
-                          "Serial number is incorrect. Got '{}', expected '{}'".format(serial, expected_serial))
-        else:
-            logger.warning('Inventory file does not contain serial number for {}'.format(duthost.hostname))
+        self.compare_value_with_device_facts('serial', serial)
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
@@ -197,11 +207,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(serial is not None, "Failed to retrieve serial number")
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
 
-        if 'syseeprom_info' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
-            expected_syseeprom_info_dict = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['syseeprom_info']
-            pytest_assert(syseeprom_info_dict == expected_syseeprom_info_dict, "System EEPROM info is incorrect")
-        else:
-            logger.warning('Inventory file does not contain system EEPROM info for {}'.format(duthost.hostname))
+        self.compare_value_with_device_facts('syseeprom_info', syseeprom_info_dict)
 
     def test_get_reboot_cause(self, duthost, localhost, platform_api_conn):
         # TODO: Compare return values to potential combinations
