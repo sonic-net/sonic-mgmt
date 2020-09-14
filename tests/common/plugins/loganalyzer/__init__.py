@@ -23,7 +23,10 @@ def loganalyzer(duthost, request):
             "/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1"
             )
     except RunAnsibleModuleFail as e:
-        logging.warning("logrotate: duplicate log entry in configuration files")
+        logging.warning("logrotate is failed. Command returned:\n" 
+                        "Stdout: {}\n" 
+                        "Stderr: {}\n" 
+                        "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
     logging.info("Add start marker into DUT syslog")
