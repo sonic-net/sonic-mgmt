@@ -75,10 +75,15 @@
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
-  - name: gather testbed VM informations
+  - name: gather testbed VM informations from testbed_facts
     testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
     delegate_to: localhost
-    when: "VM_topo | bool"
+    when: "VM_topo | bool and testbed_name is defined"
+
+  - name: gather testbed VM informations from extra variables
+    testbed_vm_info: base_vm={{ vm_base }} topo={{ topo }} vm_file={{ vm_file }}
+    delegate_to: localhost
+    when: "VM_topo | bool and testbed_name is not defined"
 
   - name: find interface name mapping and individual interface speed if defined
     port_alias: hwsku="{{ hwsku }}"
