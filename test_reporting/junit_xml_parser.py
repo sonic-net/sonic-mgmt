@@ -28,6 +28,7 @@ import sys
 import os
 
 from collections import defaultdict
+from datetime import datetime
 
 import defusedxml.ElementTree as ET
 
@@ -52,14 +53,13 @@ METADATA_TAG = "properties"
 METADATA_PROPERTY_TAG = "property"
 REQUIRED_METADATA_PROPERTIES = [
     "topology",
+    "testbed",
+    "timestamp",
     "host",
     "asic",
     "platform",
     "hwsku",
     "os_version",
-]
-OPTIONAL_METADATA_PROPERTIES = [
-    "markers"
 ]
 
 # Fields found in the testcase sections of the JUnit XML file.
@@ -168,7 +168,8 @@ def validate_junit_xml_archive(directory_name):
     for document in doc_list:
         try:
             root = validate_junit_xml_file(document)
-            root_metadata = {k: v for k, v in _parse_test_metadata(root).items() if k in REQUIRED_METADATA_PROPERTIES}
+            root_metadata = {k: v for k, v in _parse_test_metadata(root).items()
+                             if k in REQUIRED_METADATA_PROPERTIES and k != "timestamp"}
 
             if not root_metadata:
                 continue
@@ -245,7 +246,7 @@ def _validate_test_metadata(root):
                 f"<{METADATA_PROPERTY_TAG}> element"
             )
 
-        if property_name not in REQUIRED_METADATA_PROPERTIES + OPTIONAL_METADATA_PROPERTIES:
+        if property_name not in REQUIRED_METADATA_PROPERTIES:
             raise JUnitXMLValidationError(f"unexpected metadata element: {property_name}")
 
         if property_name in seen_properties:
@@ -261,6 +262,9 @@ def _validate_test_metadata(root):
             )
 
         seen_properties.append(property_name)
+
+    if sorted(seen_properties) != sorted(REQUIRED_METADATA_PROPERTIES):
+        raise JUnitXMLValidationError(f"missing metadata element(s)")
 
 
 def _validate_test_cases(root):
@@ -311,7 +315,8 @@ def parse_test_result(roots):
     for root in roots:
         test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
                                                                 _parse_test_summary(root))
-        test_result_json["test_metadata"] = _parse_test_metadata(root)
+        test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
+                                                                  _parse_test_metadata(root))
         test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], _parse_test_cases(root))
 
     return test_result_json
@@ -386,19 +391,34 @@ def _update_test_summary(current, update):
     return new_summary
 
 
+def _update_test_metadata(current, update):
+    if not current:
+        return update
+
+    new_metadata = {}
+    for prop in REQUIRED_METADATA_PROPERTIES:
+        if prop == "timestamp":
+            new_metadata[prop] = str(min(datetime.strptime(current[prop], "%Y-%m-%d %H:%M:%S.%f"),
+                                         datetime.strptime(update[prop], "%Y-%m-%d %H:%M:%S.%f")))
+        else:
+            new_metadata[prop] = update[prop]
+
+    return new_metadata
+
+
 def _update_test_cases(current, update):
     if not current:
         return update
 
-    new_summary = current.copy()
+    new_cases = current.copy()
     for group, cases in update.items():
         updated_cases = cases
-        if group in new_summary:
-            updated_cases += new_summary[group]
+        if group in new_cases:
+            updated_cases += new_cases[group]
 
-        new_summary[group] = updated_cases
+        new_cases[group] = updated_cases
 
-    return new_summary
+    return new_cases
 
 
 def _run_script():
