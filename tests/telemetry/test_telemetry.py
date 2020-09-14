@@ -1,14 +1,18 @@
+import logging
 import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, wait_tcp_connection
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
+
+TELEMETRY_PORT = 50051
+
 
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
@@ -67,7 +71,7 @@ def test_config_db_parameters(duthost):
     d = get_dict_stdout(gnmi, certs)
     for key, value in d.items():
         if str(key) == "port":
-            port_expected = "50051"
+            port_expected = str(TELEMETRY_PORT)
             pytest_assert(str(value) == port_expected, "'port' value is not '{}'".format(port_expected))
         if str(key) == "ca_crt":
             ca_crt_value_expected = "/etc/sonic/telemetry/dsmsroot.cer"
@@ -97,7 +101,7 @@ def test_telemetry_enabledbydefault(duthost):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthost, ptfhost):
+def test_telemetry_ouput(duthost, ptfhost, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     docker_present = verify_telemetry_dockerimage(duthost)
@@ -106,14 +110,20 @@ def test_telemetry_ouput(duthost, ptfhost):
 
     logger.info('start telemetry output testing')
     setup_telemetry_forpyclient(duthost)
+
     # wait till telemetry is restarted
     pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started")
     logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
-    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+
+    # Wait until the TCP port is open
+    dut_ip = duthost.mgmt_ip
+    wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
+
     # pyclient should be available on ptfhost. If not fail pytest.
     file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
     pytest_assert(file_exists["stat"]["exists"] is True)
-    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p 50051 -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip)
+    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
+           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
