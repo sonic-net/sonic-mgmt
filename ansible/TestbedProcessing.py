@@ -496,14 +496,12 @@ updateDockerRegistry
 hard codes the docker registry to search locally rather than externally
 """
 def updateDockerRegistry(docker_registry, outfile):
-    if (not docker_registry.get("docker_registry_host")) or (not docker_registry.get("docker_registry_username")) or (not docker_registry.get("docker_registry_password")):
+    if not docker_registry.get("docker_registry_host"):
         print("\t\tREGISTRY FIELD BLANK - SKIPPING THIS STEP")
     else:
         with open(outfile, "w") as toWrite:
             toWrite.write("docker_registry_host: " + docker_registry.get("docker_registry_host"))
             toWrite.write("\n\n")
-            toWrite.write("docker_registry_username: " + docker_registry.get("docker_registry_username") + "\n")
-            toWrite.write("docker_registry_password: root" + docker_registry.get("docker_registry_password"))
 
 
 def main():

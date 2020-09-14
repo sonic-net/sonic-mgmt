@@ -4,8 +4,9 @@ import re
 import pytest
 import yaml
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module
+
+from platform_api_test_base import PlatformApiTestBase
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 
-class TestModuleApi(object):
+class TestModuleApi(PlatformApiTestBase):
     """Platform API test cases for the Module class"""
 
     num_modules = None
@@ -58,14 +59,16 @@ class TestModuleApi(object):
     #
     # Functions to test methods inherited from DeviceBase class
     #
+
     def test_get_name(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
         for i in range(self.num_modules):
             name = module.get_name(platform_api_conn, i)
-            pytest_assert(name is not None, "Module {}: Unable to retrieve name".format(i))
-            pytest_assert(isinstance(name, str), "Module {}: Name appears incorrect".format(i))
+            if self.expect(name is not None, "Unable to retrieve module {} name".format(i)):
+                self.expect(isinstance(name, str), "Module {} name appears incorrect".format(i))
+        self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -73,10 +76,10 @@ class TestModuleApi(object):
 
         for i in range(self.num_modules):
             presence = module.get_presence(platform_api_conn, i)
-            pytest_assert(presence is not None, "Module {}: Unable to retrieve presence".format(i))
-            pytest_assert(isinstance(presence, bool), "Module {}: Presence appears incorrect".format(i))
-            # All modules are expected to be present on DuT
-            pytest_assert(presence is True, "Module {} not present".format(i))
+            if self.expect(presence is not None, "Unable to retrieve module {} presence".format(i)):
+                if self.expect(isinstance(presence, bool), "Module {} presence appears incorrect".format(i)):
+                    self.expect(presence is True, "Module {} is not present".format(i))
+        self.assert_expectations()
 
     def test_get_model(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -84,8 +87,9 @@ class TestModuleApi(object):
 
         for i in range(self.num_modules):
             model = module.get_model(platform_api_conn, i)
-            pytest_assert(model is not None, "Module {}: Unable to retrieve model".format(i))
-            pytest_assert(isinstance(model, str), "Module {}: Model appears incorrect".format(i))
+            if self.expect(model is not None, "Unable to retrieve module {} model".format(i)):
+                self.expect(isinstance(model, str), "Module {} model appears incorrect".format(i))
+        self.assert_expectations()
 
     def test_get_serial(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -93,8 +97,9 @@ class TestModuleApi(object):
 
         for i in range(self.num_modules):
             serial = module.get_serial(platform_api_conn, i)
-            pytest_assert(serial is not None, "Module {}: Unable to retrieve serial number".format(i))
-            pytest_assert(isinstance(serial, str), "Module {}: Serial number appears incorrect".format(i))
+            if self.expect(serial is not None, "Unable to retrieve module {} serial number".format(i)):
+                self.expect(isinstance(serial, str), "Module {} serial number appears incorrect".format(i))
+        self.assert_expectations()
 
     def test_get_status(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -102,8 +107,9 @@ class TestModuleApi(object):
 
         for i in range(self.num_modules):
             status = module.get_status(platform_api_conn, i)
-            pytest_assert(status is not None, "Module {}: Unable to retrieve status".format(i))
-            pytest_assert(isinstance(status, bool), "Module {}: Status appears incorrect".format(i))
+            if self.expect(status is not None, "Unable to retrieve module {} status".format(i)):
+                self.expect(isinstance(status, bool), "Module {} status appears incorrect".format(i))
+        self.assert_expectations()
 
     #
     # Functions to test methods defined in ModuleBase class
@@ -117,8 +123,10 @@ class TestModuleApi(object):
         # TODO: Add expected base MAC address for each module to inventory file and compare against it
         for i in range(self.num_modules):
             base_mac = module.get_base_mac(platform_api_conn, i)
-            pytest_assert(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i))
-            pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
+            if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
+                continue
+            self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
+        self.assert_expectations()
 
     def test_get_serial_number(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -134,8 +142,10 @@ class TestModuleApi(object):
         # TODO: Add expected serial number of each module to inventory file and compare against it
         for i in range(self.num_modules):
             serial = module.get_serial_number(platform_api_conn, i).rstrip('\x00')
-            pytest_assert(serial is not None, "Module {}: Failed to retrieve serial number".format(i))
-            pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
+            if not self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
+                continue
+            self.expect(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
+        self.assert_expectations()
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         """
@@ -174,26 +184,30 @@ class TestModuleApi(object):
         # TODO: Add expected system EEPROM info for each module to inventory file and compare against it
         for i in range(self.num_modules):
             syseeprom_info_dict = module.get_system_eeprom_info(platform_api_conn, i)
-            pytest_assert(syseeprom_info_dict is not None, "Module {}: Failed to retrieve system EEPROM data".format(i))
-            pytest_assert(isinstance(syseeprom_info_dict, dict), "Module {}: System EEPROM data is not in the expected format".format(i))
+            if not self.expect(syseeprom_info_dict is not None, "Module {}: Failed to retrieve system EEPROM data".format(i)):
+                continue
+
+            if not self.expect(isinstance(syseeprom_info_dict, dict), "Module {}: System EEPROM data is not in the expected format".format(i)):
+                continue
 
             syseeprom_type_codes_list = syseeprom_info_dict.keys()
 
             # Ensure that all keys in the resulting dictionary are valid ONIE TlvInfo type codes
-            pytest_assert(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST), "Module {}: Invalid TlvInfo type code found".format(i))
+            self.expect(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST), "Module {}: Invalid TlvInfo type code found".format(i))
 
             # Ensure that we were able to obtain the minimum required type codes
-            pytest_assert(set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list), "Module {}: Minimum required TlvInfo type codes not provided".format(i))
+            self.expect(set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list), "Module {}: Minimum required TlvInfo type codes not provided".format(i))
 
             # Ensure the base MAC address is sane
             base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
-            pytest_assert(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i))
-            pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
+            self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i))
+            self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
 
             # Ensure the serial number is sane
             serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
-            pytest_assert(serial is not None, "Module {}: Failed to retrieve serial number".format(i))
-            pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
+            self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i))
+            self.expect(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
+        self.assert_expectations()
 
     def test_components(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -207,12 +221,15 @@ class TestModuleApi(object):
                 pytest.fail("Module {}: num_components is not an integer".format(mod_idx))
 
             component_list = module.get_all_components(platform_api_conn, mod_idx)
-            pytest_assert(component_list is not None, "Module {}: Failed to retrieve components".format(mod_idx))
-            pytest_assert(isinstance(component_list, list) and len(component_list) == num_components, "Module {}: Components appear to be incorrect".format(mod_idx))
+            if not self.expect(component_list is not None, "Module {}: Failed to retrieve components".format(mod_idx)):
+                continue
+
+            self.expect(isinstance(component_list, list) and len(component_list) == num_components, "Module {}: Components appear to be incorrect".format(mod_idx))
 
             for comp_idx in range(num_components):
                 component = module.get_component(platform_api_conn, mod_idx, comp_idx)
-                pytest_assert(component and component == component_list[mod_idx], "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
+                self.expect(component and component == component_list[mod_idx], "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
+        self.assert_expectations()
 
     def test_fans(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -226,12 +243,15 @@ class TestModuleApi(object):
                 pytest.fail("Module {}: num_fans is not an integer".format(mod_idx))
 
             fan_list = module.get_all_fans(platform_api_conn, mod_idx)
-            pytest_assert(fan_list is not None, "Module {}: Failed to retrieve fans".format(mod_idx))
-            pytest_assert(isinstance(fan_list, list) and len(fan_list) == num_fans, "Module {}: Fans appear to be incorrect".format(mod_idx))
+            if not self.expect(fan_list is not None, "Module {}: Failed to retrieve fans".format(mod_idx)):
+                continue
+
+            self.expect(isinstance(fan_list, list) and len(fan_list) == num_fans, "Module {}: Fans appear to be incorrect".format(mod_idx))
 
             for fan_idx in range(num_fans):
                 fan = module.get_fan(platform_api_conn, mod_idx, fan_idx)
-                pytest_assert(fan and fan == fan_list[mod_idx], "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
+                self.expect(fan and fan == fan_list[mod_idx], "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
+        self.assert_expectations()
 
     def test_psus(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -245,12 +265,15 @@ class TestModuleApi(object):
                 pytest.fail("Module {}: num_psus is not an integer".format(mod_idx))
 
             psu_list = module.get_all_psus(platform_api_conn, mod_idx)
-            pytest_assert(psu_list is not None, "Module {}: Failed to retrieve PSUs".format(mod_idx))
-            pytest_assert(isinstance(psu_list, list) and len(psu_list) == num_psus, "Module {}: PSUs appear to be incorrect".format(mod_idx))
+            if not self.expect(psu_list is not None, "Module {}: Failed to retrieve PSUs".format(mod_idx)):
+                continue
+
+            self.expect(isinstance(psu_list, list) and len(psu_list) == num_psus, "Module {}: PSUs appear to be incorrect".format(mod_idx))
 
             for psu_idx in range(num_psus):
                 psu = module.get_psu(platform_api_conn, mod_idx, psu_idx)
-                pytest_assert(psu and psu == psu_list[mod_idx], "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
+                self.expect(psu and psu == psu_list[mod_idx], "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
+        self.assert_expectations()
 
     def test_thermals(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -264,12 +287,15 @@ class TestModuleApi(object):
                 pytest.fail("Module {}: num_thermals is not an integer".format(mod_idx))
 
             thermal_list = module.get_all_thermals(platform_api_conn, mod_idx)
-            pytest_assert(thermal_list is not None, "Module {}: Failed to retrieve thermals".format(mod_idx))
-            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Module {}: Thermals appear to be incorrect".format(mod_idx))
+            if not self.expect(thermal_list is not None, "Module {}: Failed to retrieve thermals".format(mod_idx)):
+                continue
+
+            self.expect(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Module {}: Thermals appear to be incorrect".format(mod_idx))
 
             for therm_idx in range(num_thermals):
                 thermal = module.get_thermal(platform_api_conn, mod_idx, therm_idx)
-                pytest_assert(thermal and thermal == thermal_list[mod_idx], "Thermal {} is incorrect".format(mod_idx, therm_idx))
+                self.expect(thermal and thermal == thermal_list[mod_idx], "Thermal {} is incorrect".format(mod_idx, therm_idx))
+        self.assert_expectations()
 
     def test_sfps(self, duthost, localhost, platform_api_conn):
         if self.num_modules == 0:
@@ -283,9 +309,12 @@ class TestModuleApi(object):
                 pytest.fail("Module {}: num_sfps is not an integer".format(mod_idx))
 
             sfp_list = module.get_all_sfps(platform_api_conn, mod_idx)
-            pytest_assert(sfp_list is not None, "Module {}: Failed to retrieve SFPs".format(mod_idx))
-            pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "Module {}: SFPs appear to be incorrect".format(mod_idx))
+            if not self.expect(sfp_list is not None, "Module {}: Failed to retrieve SFPs".format(mod_idx)):
+               continue
+
+            self.expect(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "Module {}: SFPs appear to be incorrect".format(mod_idx))
 
             for sfp_idx in range(num_sfps):
                 sfp = module.get_sfp(platform_api_conn, mod_idx, sfp_idx)
-                pytest_assert(sfp and sfp == sfp_list[mod_idx], "Module {}: SFP {} is incorrect".format(mod_idx, sfp_idx))
+                self.expect(sfp and sfp == sfp_list[mod_idx], "Module {}: SFP {} is incorrect".format(mod_idx, sfp_idx))
+        self.assert_expectations()

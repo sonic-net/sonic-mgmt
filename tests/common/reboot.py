@@ -114,7 +114,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
                              timeout=timeout,
                              module_ignore_errors=True)
 
-    if 'failed' in res:
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
         if reboot_res.ready():
             logger.error('reboot result: {}'.format(reboot_res.get()))
         raise Exception('DUT did not shutdown')
@@ -131,7 +131,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
                              delay=delay,
                              timeout=timeout,
                              module_ignore_errors=True)
-    if 'failed' in res:
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
         raise Exception('DUT did not startup')
 
     logger.info('ssh has started up')

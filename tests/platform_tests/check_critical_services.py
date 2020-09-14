@@ -6,6 +6,7 @@ This script contains re-usable functions for checking status of critical service
 import time
 import logging
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 
@@ -33,5 +34,6 @@ def check_critical_services(dut):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
     logging.info("Wait until all critical services are fully started")
-    assert wait_until(300, 20, _all_critical_services_fully_started, dut), "Not all critical services are fully started"
+    pytest_assert(wait_until(300, 20, _all_critical_services_fully_started, dut),
+                  "Not all critical services are fully started")
 

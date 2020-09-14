@@ -22,6 +22,7 @@ import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -203,7 +204,6 @@ def arp_responder(ptfhost, testbed_params):
     ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
 
     logging.info("Copying ARP responder to PTF container")
-    ptfhost.copy(src="scripts/arp_responder.py", dest="/opt")
 
     logging.info("Copying ARP responder config file")
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
@@ -241,14 +241,9 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost)
     duthost.command("sonic-clear arp")
 
     # Populate FDB
-    logging.info("Populating FDB entry for mock server under VLAN")
-    src_mac = _hex_to_mac(arp_responder[server_dst_port][server_dst_addr])
-    pkt = _get_simple_ip_packet(src_mac,
-                                duthost.get_dut_iface_mac(server_dst_intf),
-                                server_dst_addr,
-                                MOCK_DEST_IP)
-    _send_packets(duthost, ptfadapter, pkt, server_dst_port, count=100)
-
+    logging.info("Populating FDB and ARP entry for mock server under VLAN")
+    # Issue a ping to populate ARP table on DUT
+    duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
@@ -265,12 +260,15 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
     # - MACs are generated sequentially as offsets from VLAN_BASE_MAC_PATTERN
     # - IP addresses are randomly selected from the given VLAN network
     # - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
+    addr_list = list(IPNetwork(vlan_network))
     for counter, i in enumerate(xrange(2, VLAN_HOSTS + 2)):
         mac = VLAN_BASE_MAC_PATTERN.format(counter)
         port = vlan_ports[i % len(vlan_ports)]
-        addr = str(random.choice(list(IPNetwork(vlan_network))))
+        addr = random.choice(addr_list)
+        # Ensure that we won't get a duplicate ip address
+        addr_list.remove(addr)
 
-        vlan_host_map[port][addr] = mac
+        vlan_host_map[port][str(addr)] = mac
 
     return vlan_host_map
 
@@ -299,6 +297,3 @@ def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
     testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=count)
     time.sleep(1)
 
-
-def _hex_to_mac(hex_mac):
-    return ':'.join(hex_mac[i:i+2] for i in range(0, len(hex_mac), 2))

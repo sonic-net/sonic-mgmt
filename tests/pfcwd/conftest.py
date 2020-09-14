@@ -24,6 +24,8 @@ def pytest_addoption(parser):
                      help='Warm reboot needs to be enabled or not')
     parser.addoption('--restore-time', action='store', type=int, default=3000,
                      help='PFC WD storm restore interval')
+    parser.addoption('--fake-storm', action='store', type=bool, default=True,
+                     help='Fake storm for most ports instead of using pfc gen')
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
@@ -54,9 +56,6 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
         vlan_dev = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
         vlan_ips = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix), exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
-
-        duthost.shell("ip route flush {}/32".format(vlan_nw))
-        duthost.shell("ip route add {}/32 dev {}".format(vlan_nw, vlan_dev))
 
     # build the port list for the test
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw)

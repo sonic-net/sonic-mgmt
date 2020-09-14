@@ -187,7 +187,7 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
 def remove_exabgp_conf(name):
     try:
         os.remove("/etc/exabgp/%s.conf" % name)
-    except e:
+    except Exception:
         pass
 
 
@@ -200,7 +200,7 @@ def setup_exabgp_supervisord_conf(name):
 def remove_exabgp_supervisord_conf(name):
     try:
         os.remove("/etc/supervisor/conf.d/exabgp-%s.conf" % name)
-    except e:
+    except Exception:
         pass
 
 def setup_exabgp_processor():
