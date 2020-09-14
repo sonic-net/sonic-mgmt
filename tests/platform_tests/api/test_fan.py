@@ -11,6 +11,16 @@ from tests.common.helpers.platform_api import chassis, fan
 
 from platform_api_test_base import PlatformApiTestBase
 
+###################################################
+# TODO: Remove this after we transition to Python 3
+import sys
+if sys.version_info.major == 3:
+    STRING_TYPE = str
+else:
+    STRING_TYPE = basestring
+# END Remove this after we transition to Python 3
+###################################################
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -52,7 +62,7 @@ class TestFanApi(PlatformApiTestBase):
             name = fan.get_name(platform_api_conn, i)
 
             if self.expect(name is not None, "Unable to retrieve Fan {} name".format(i)):
-                self.expect(isinstance(name, str), "Fan {} name appears incorrect".format(i))
+                self.expect(isinstance(name, STRING_TYPE), "Fan {} name appears incorrect".format(i))
 
         self.assert_expectations()
 
@@ -71,7 +81,7 @@ class TestFanApi(PlatformApiTestBase):
             model = fan.get_model(platform_api_conn, i)
 
             if self.expect(model is not None, "Unable to retrieve fan {} model".format(i)):
-                self.expect(isinstance(model, str), "Fan {} model appears incorrect".format(i))
+                self.expect(isinstance(model, STRING_TYPE), "Fan {} model appears incorrect".format(i))
 
         self.assert_expectations()
 
@@ -80,7 +90,7 @@ class TestFanApi(PlatformApiTestBase):
             serial = fan.get_serial(platform_api_conn, i)
 
             if self.expect(serial is not None, "Unable to retrieve fan {} serial number".format(i)):
-                self.expect(isinstance(serial, str), "Fan {} serial number appears incorrect".format(i))
+                self.expect(isinstance(serial, STRING_TYPE), "Fan {} serial number appears incorrect".format(i))
 
         self.assert_expectations()
 
@@ -180,7 +190,7 @@ class TestFanApi(PlatformApiTestBase):
                 color_actual = fan.get_status_led(platform_api_conn, i)
 
                 if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                    if self.expect(isinstance(color_actual, str), "Status LED color appears incorrect"):
+                    if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
                         self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
                             color, color_actual, i))
 
