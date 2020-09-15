@@ -4,26 +4,30 @@ Contains configurations for pfc lossy and pfc global pause
 import json
 import sys
 
-from abstract_open_traffic_generator.port import\
-    Port, OneHundredGbe, Layer1, Fcoe
+from abstract_open_traffic_generator.port import Port
+from abstract_open_traffic_generator.result import PortRequest
+from abstract_open_traffic_generator.config import Options
+from abstract_open_traffic_generator.config import Config
+
+from abstract_open_traffic_generator.layer1 import\
+    Layer1, OneHundredGbe, FlowControl, Ieee8021qbb
+
 from abstract_open_traffic_generator.device import\
     DeviceGroup, Device, Ethernet, Vlan, Ipv4, Pattern
 
-from abstract_open_traffic_generator.config import Config
 from abstract_open_traffic_generator.flow import\
     DeviceEndpoint, Endpoint, Flow, Header, Size, Rate,\
     Duration, Fixed, PortEndpoint, PfcPause, Counter, Random
+
+from abstract_open_traffic_generator.flow_ipv4 import\
+    Priority, Dscp
 
 from abstract_open_traffic_generator.flow import Pattern as PATTERN
 from abstract_open_traffic_generator.flow import Ipv4 as IPV4
 from abstract_open_traffic_generator.flow import Vlan as VLAN
 from abstract_open_traffic_generator.flow import Ethernet as ETHERNET
-from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
-from abstract_open_traffic_generator.request import Port as Request
-from abstract_open_traffic_generator.config import Options
 from abstract_open_traffic_generator.port import Options as PortOptions
 
-from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
 
 def configure_pfc_lossy (api,
                          phy_tx_port,
@@ -39,9 +43,12 @@ def configure_pfc_lossy (api,
                          rx_gateway_incr='0.0.0.0',
                          test_data_priority=[0, 1, 2, 5, 6, 7],
                          background_data_priority=[3, 4],
-                         start_delay=1,
                          test_flow_name='Test Data',
                          background_flow_name='Background Data',
+                         test_line_rate=50,
+                         background_line_rate=50,
+                         pause_line_rate=100, 
+                         start_delay=1,
                          configure_pause_frame=True) :
     """
     Create the configuration of the PFC lossy.
@@ -56,28 +63,29 @@ def configure_pfc_lossy (api,
     #########################################################################
     # common L1 configuration
     #########################################################################
+    pfc = Ieee8021qbb(pfc_delay=1,
+                pfc_class_0=0,
+                pfc_class_1=1,
+                pfc_class_2=2,
+                pfc_class_3=3,
+                pfc_class_4=4,
+                pfc_class_5=5,
+                pfc_class_6=6,
+                pfc_class_7=7)
+
+    flow_ctl = FlowControl(choice=pfc)
+
+
     l1_oneHundredGbe = OneHundredGbe(link_training=True,
                                      ieee_media_defaults=False,
                                      auto_negotiate=False,
                                      speed='one_hundred_gbps',
+                                     flow_control=flow_ctl,
                                      rs_fec=True)
-
-
-    fcoe = Fcoe(flow_control_type='ieee_802_1qbb',
-                pfc_delay_quanta=1,
-                pfc_class_0='zero',
-                pfc_class_1='one',
-                pfc_class_2='two',
-                pfc_class_3='three',
-                pfc_class_4='four',
-                pfc_class_5='five',
-                pfc_class_6='six',
-                pfc_class_7='seven')
 
     common_l1_config = Layer1(name='common L1 config',
                               choice=l1_oneHundredGbe,
-                              port_names=[tx.name, rx.name],
-                              fcoe=fcoe)
+                              port_names=[tx.name, rx.name])
 
     ###########################################################################
     # Create TX stack configuration
@@ -140,7 +148,7 @@ def configure_pfc_lossy (api,
             Header(choice=IPV4(priority=test_dscp))
         ],
         size=Size(1024),
-        rate=Rate('line', 50),
+        rate=Rate('line', test_line_rate),
         duration=Duration(Fixed(packets=0, delay=start_delay, delay_unit='nanoseconds'))
     )
 
@@ -156,7 +164,7 @@ def configure_pfc_lossy (api,
             Header(choice=IPV4(priority=background_dscp))
         ],
         size=Size(1024),
-        rate=Rate('line', 50),
+        rate=Rate('line', background_line_rate),
         duration=Duration(Fixed(packets=0, delay=start_delay, delay_unit='nanoseconds'))
     )
 
@@ -164,7 +172,6 @@ def configure_pfc_lossy (api,
     # Traffic configuration Pause
     ###########################################################################
     if (configure_pause_frame) :
-        #pause_endpoint = PortEndpoint(tx_port_name=rx.name, rx_port_name=rx.name)
         pause_endpoint = PortEndpoint(tx_port_name=rx.name, rx_port_names=[rx.name])
         pause = Header(PfcPause(
             dst=PATTERN(choice='01:80:C2:00:00:01'),
@@ -185,7 +192,7 @@ def configure_pfc_lossy (api,
             endpoint=Endpoint(pause_endpoint),
             packet=[pause],
             size=Size(64),
-            rate=Rate('line', value=100),
+            rate=Rate('line', value=pause_line_rate),
             duration=Duration(Fixed(packets=0, delay=0, delay_unit='nanoseconds'))
         )
         flows = [test_flow, background_flow, pause_flow]

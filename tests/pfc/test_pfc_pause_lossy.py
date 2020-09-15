@@ -4,6 +4,7 @@ import pytest
 import json
 
 from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
+from abstract_open_traffic_generator.result import FlowRequest
 
 from tests.common.reboot import logger
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
@@ -67,7 +68,7 @@ def run_pfc_pause_lossy_traffic_test(api, dut, exp_dur) :
     api.set_flow_transmit(FlowTransmit('stop'))
 
     # Get statistics
-    test_stat = api.get_flow_results('Test Data')
+    test_stat = api.get_flow_results(FlowRequest())
 
     for rows in test_stat['rows'] :
         tx_frame_index = test_stat['columns'].index('frames_tx')
