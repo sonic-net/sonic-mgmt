@@ -353,6 +353,8 @@ class ContinuousReboot:
         with open(report_file, "w") as report_file:
             json.dump(test_report, report_file, indent=4)
 
+        pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".\
+            format(self.test_failures, self.reboot_count))
 
     def wait_until_uptime(self):
         logging.info("Wait until DUT uptime reaches {}s".format(self.continuous_reboot_delay))
