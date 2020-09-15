@@ -420,3 +420,28 @@ def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_pr
     record_testsuite_property("platform", duthost.facts["platform"])
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
+
+@pytest.fixture(scope="module", autouse=True)
+def disable_container_autorestart(duthost, request):
+    skip = False
+    for m in request.node.iter_markers():
+        if m.name == "enable_container_autorestart":
+            skip = True
+            break
+    if skip:
+        yield
+        return
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    # Disable autorestart for all containers
+    logging.info("Disable container autorestart")
+    cmd_disable = "config feature autorestart {} disabled"
+    for name, state in container_autorestart_states.items():
+        if state == "enabled":
+            duthost.command(cmd_disable.format(name))
+    yield
+    # Recover autorestart states
+    logging.info("Recover container autorestart")
+    cmd_enable = "config feature autorestart {} enabled"
+    for name, state in container_autorestart_states.items():
+        if state == "enabled":
+            duthost.command(cmd_enable.format(name))
