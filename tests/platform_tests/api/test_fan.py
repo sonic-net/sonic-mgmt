@@ -41,18 +41,62 @@ STATUS_LED_COLOR_OFF = "off"
 class TestFanApi(PlatformApiTestBase):
 
     num_fans = None
+    fan_truth = None
+    duthost_vars = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):
+    def setup(self, duthost, platform_api_conn):
         if self.num_fans is None:
             try:
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
             except:
                 pytest.fail("num_fans is not an integer")
+
+        # Get fan truths from platform.json file
+        chassis_truth = duthost.facts.get("chassis")
+        if chassis_truth:
+            self.fan_truth = chassis_truth.get('fans', None)
+            if not self.fan_truth:
+                logger.warning("Unable to get fan_truth from platform.json, test results will not be comprehensive")
+        else:
+            logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
+
+        # Get host vars from inventory file
+        self.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+
+    #
+    # Helper functions
+    #
+
+    def compare_value_with_platform_facts(self, key, value):
+        expected_value = None
+
+        if self.fan_truth:
+            expected_value = self.fan_truth.get(key)
+
+        if not expected_value:
+            logger.warning("Unable to get expected value for '{}' from platform.json file".format(key))
+            return
+
+        self.expect(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
+
+    def compare_value_with_device_facts(self, key, value):
+        expected_value = None
+
+        if self.duthost_vars:
+            expected_value = self.duthost_vars.get(key)
+
+        if not expected_value:
+            logger.warning("Unable to get expected value for '{}' from inventory file".format(key))
+            return
+
+        self.expect(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -63,6 +107,7 @@ class TestFanApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Fan {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Fan {} name appears incorrect".format(i))
+                self.compare_value_with_platform_facts('name', name)
 
         self.assert_expectations()
 
@@ -82,6 +127,7 @@ class TestFanApi(PlatformApiTestBase):
 
             if self.expect(model is not None, "Unable to retrieve fan {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Fan {} model appears incorrect".format(i))
+                self.compare_value_with_device_facts('model', model)
 
         self.assert_expectations()
 
@@ -91,6 +137,7 @@ class TestFanApi(PlatformApiTestBase):
 
             if self.expect(serial is not None, "Unable to retrieve fan {} serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "Fan {} serial number appears incorrect".format(i))
+                self.compare_value_with_device_facts('serial', serial)
 
         self.assert_expectations()
 
@@ -115,6 +162,8 @@ class TestFanApi(PlatformApiTestBase):
                 if self.expect(isinstance(speed, int), "Fan {} speed appears incorrect".format(i)):
                     self.expect(speed > 0 and speed <= 100,
                                 "Fan {} speed {} reading is not within range".format(i, speed))
+                    self.compare_value_with_platform_facts('speed', speed)
+
         self.assert_expectations()
 
     def test_get_direction(self, duthost, localhost, platform_api_conn):
@@ -128,6 +177,7 @@ class TestFanApi(PlatformApiTestBase):
             direction = fan.get_direction(platform_api_conn, i)
             if self.expect(direction is not None, "Unable to retrieve Fan {} direction".format(i)):
                 self.expect(direction in FAN_DIRECTION_LIST, "Fan {} direction is not one of predefined directions".format(i))
+                self.compare_value_with_platform_facts('direction', direction)
 
         self.assert_expectations()
 
@@ -147,10 +197,11 @@ class TestFanApi(PlatformApiTestBase):
     def test_get_fans_speed_tolerance(self, duthost, localhost, platform_api_conn):
 
         for i in range(self.num_fans):
-            speed_tol = fan.get_speed_tolerance(platform_api_conn, i)
-            if self.expect(speed_tol is not None, "Unable to retrieve Fan {} speed tolerance".format(i)):
-                if self.expect(isinstance(speed_tol, int), "Fan {} speed tolerance appears incorrect".format(i)):
-                    self.expect(speed_tol > 0 and speed_tol <= 100, "Fan {} speed tolerance {} reading does not make sense".format(i, speed_tol))
+            speed_tolerance = fan.get_speed_tolerance(platform_api_conn, i)
+            if self.expect(speed_tolerance is not None, "Unable to retrieve Fan {} speed tolerance".format(i)):
+                if self.expect(isinstance(speed_tolerance, int), "Fan {} speed tolerance appears incorrect".format(i)):
+                    self.expect(speed_tolerance > 0 and speed_tolerance <= 100, "Fan {} speed tolerance {} reading does not make sense".format(i, speed_tolerance))
+                    self.compare_value_with_platform_facts('tolernace', speed_tolerance)
 
         self.assert_expectations()
 
@@ -162,7 +213,6 @@ class TestFanApi(PlatformApiTestBase):
             speed = fan.get_speed(platform_api_conn, i)
             speed_tol = fan.get_speed_tolerance(platform_api_conn, i)
 
-            led_status = fan.get_status_led(platform_api_conn, i)
             speed_set = fan.set_speed(platform_api_conn, i, target_speed)
             time.sleep(5)
 
