@@ -221,7 +221,6 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(isinstance(reboot_cause, list) and len(reboot_cause) == 2, "Reboot cause appears to be incorrect")
 
     def test_components(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of components and that the returned list is correct for this platform
         try:
             num_components = int(chassis.get_num_components(platform_api_conn))
         except:
@@ -243,7 +242,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_modules(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of modules and that the returned list is correct for this platform
         try:
             num_modules = int(chassis.get_num_modules(platform_api_conn))
         except:
@@ -265,7 +263,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_fans(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of fans and that the returned list is correct for this platform
         try:
             num_fans = int(chassis.get_num_fans(platform_api_conn))
         except:
@@ -287,7 +284,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_fan_drawers(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of fan drawers and that the returned list is correct for this platform
         try:
             num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
         except:
@@ -309,7 +305,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_psus(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of PSUs and that the returned list is correct for this platform
         try:
             num_psus = int(chassis.get_num_psus(platform_api_conn))
         except:
@@ -331,7 +326,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_thermals(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of thermals and that the returned list is correct for this platform
         try:
             num_thermals = int(chassis.get_num_thermals(platform_api_conn))
         except:
@@ -353,7 +347,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_sfps(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of SFPs and that the returned list is correct for this platform
         try:
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
