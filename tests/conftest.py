@@ -19,7 +19,6 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
 
-
 logger = logging.getLogger(__name__)
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
@@ -33,6 +32,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
+                  'tests.common.plugins.custom_fixtures',
                   'tests.vxlan')
 
 
