@@ -9,8 +9,8 @@ from transceiver_utils import all_transceivers_detected
 
 def parse_intf_status(lines):
     """
-    @summary: Parse the output of command "intfutil description".
-    @param lines: The output lines of command "intfutil description".
+    @summary: Parse the output of command "show interface description".
+    @param lines: The output lines of command "show interface description".
     @return: Return a dictionary like:
         {
             "Ethernet0": {
@@ -38,9 +38,9 @@ def check_interface_status(dut, interfaces):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
-    logging.info("Check interface status using cmd 'intfutil'")
+    logging.info("Check interface status using cmd 'show interface'")
     mg_ports = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
-    output = dut.command("intfutil description")
+    output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
     check_intf_presence_command = 'show interface transceiver presence {}'
     for intf in interfaces:
