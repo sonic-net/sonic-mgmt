@@ -51,21 +51,23 @@ ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get platform truths from platform.json file
+    request.cls.chassis_truth = duthost.facts.get("chassis")
+    if not request.cls.chassis_truth:
+        logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
+
+    # Get host vars from inventory file
+    request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+
+
+@pytest.mark.usefixtures("gather_facts")
 class TestChassisApi(PlatformApiTestBase):
     """Platform API test cases for the Chassis class"""
 
     chassis_truth = None
     duthost_vars = None
-
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, duthost):
-        # Get platform truths from platform.json file
-        self.chassis_truth = duthost.facts.get("chassis")
-        if not self.chassis_truth:
-            logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
-
-        # Get host vars from inventory file
-        self.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
 
     #
     # Helper functions
