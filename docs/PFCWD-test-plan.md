@@ -132,7 +132,6 @@ Refer to the time diagram below to understand the work flow of the test case:
    * For 'Traffic 2<->3', between **_T<sub>startPause</sub>_** and **_T<sub>stopPause</sub>_** , there should be almost 100% packet loss in both directions. 
    * After **_T<sub>stopPause</sub>_** , the traffic throughput should gradually increase and become 50% of line rate in both directions. 
    * There should not be any traffic loss after PFC storm restoration time has elapsed.
-   * Keysight Port 1 and Keysight Port 2 must not receive any PFC pause packets during the test (either by DUT counters or packet capture at Keysight port 1/2).
 
 6. Repeat the test for other lossless priorities.
 
