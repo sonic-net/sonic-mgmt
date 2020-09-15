@@ -1,7 +1,7 @@
 import pytest
 from tests.common.helpers.assertions import pytest_require
 
-@pytest.fixture(scope="function", autouse=False)
+@pytest.fixture(scope="function")
 def check_dut_asic_type(request, duthost):
     asic_marks = [mark for mark in request.node.iter_markers(name="asic")]
     if not asic_marks:
