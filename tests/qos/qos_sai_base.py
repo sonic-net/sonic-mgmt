@@ -586,13 +586,13 @@ class QosSaiBase:
         yield "/root/{}".format(portMapFile.split('/')[-1])
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthost, testbed, ptfPortMapFile):
+    def dutTestParams(self, duthost, tbinfo, ptfPortMapFile):
         """
             Prepares DUT host test params
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                testbed (Fixture, dict): Map containing testbed information
+                tbinfo (Fixture, dict): Map containing testbed information
                 ptfPortMapFile (Fxiture, str): filename residing on PTF host and contains port maps information
 
             Returns:
@@ -600,7 +600,7 @@ class QosSaiBase:
         """
         dutFacts = duthost.setup()['ansible_facts']
         mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        topo = testbed["topo"]["name"]
+        topo = tbinfo["topo"]["name"]
 
         yield {
             "topo": topo,
@@ -736,7 +736,7 @@ class QosSaiBase:
     def egressLossyProfile(self, request, duthost, dutConfig):
         """
             Retreives egress lossy profile
- 
+
             Args:
                 request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)

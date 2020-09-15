@@ -187,7 +187,7 @@ def config_logging(request):
 
 
 @pytest.fixture(scope="session")
-def testbed(request):
+def tbinfo(request):
     """
     Create and return testbed information
     """
@@ -196,20 +196,20 @@ def testbed(request):
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
 
-    tbinfo = TestbedInfo(tbfile)
-    return tbinfo.testbed_topo[tbname]
+    testbedinfo = TestbedInfo(tbfile)
+    return testbedinfo.testbed_topo[tbname]
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(ansible_adhoc, testbed):
+def fixture_duthosts(ansible_adhoc, tbinfo):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
         Source of the various device objects. It is
         mandatory argument for the class constructors.
-    @param testbed: Ansible framework testbed information
+    @param tbinfo: fixture provides information about testbed.
     """
-    return [SonicHost(ansible_adhoc, dut) for dut in testbed["duts"]]
+    return [SonicHost(ansible_adhoc, dut) for dut in tbinfo["duts"]]
 
 
 @pytest.fixture(scope="session")
@@ -245,9 +245,9 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, testbed, duthost):
-    if "ptf" in testbed:
-        return PTFHost(ansible_adhoc, testbed["ptf"])
+def ptfhost(ansible_adhoc, tbinfo, duthost):
+    if "ptf" in tbinfo:
+        return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
@@ -256,21 +256,21 @@ def ptfhost(ansible_adhoc, testbed, duthost):
 
 
 @pytest.fixture(scope="module")
-def nbrhosts(ansible_adhoc, testbed, creds):
+def nbrhosts(ansible_adhoc, tbinfo, creds):
     """
     Shortcut fixture for getting VM host
     """
 
-    vm_base = int(testbed['vm_base'][2:])
+    vm_base = int(tbinfo['vm_base'][2:])
     devices = {}
-    for k, v in testbed['topo']['properties']['topology']['VMs'].items():
+    for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         devices[k] = {'host': EosHost(ansible_adhoc,
                                       "VM%04d" % (vm_base + v['vm_offset']),
                                       creds['eos_login'],
                                       creds['eos_password'],
                                       shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                                       shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                      'conf': testbed['topo']['properties']['configuration'][k]}
+                      'conf': tbinfo['topo']['properties']['configuration'][k]}
     return devices
 
 @pytest.fixture(scope="module")
@@ -405,13 +405,13 @@ def collect_techsupport(request, duthost):
         logging.info("########### Collected tech support for test {} ###########".format(testname))
 
 @pytest.fixture(scope="session", autouse=True)
-def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_property):
+def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
     if not request.config.getoption("--junit-xml"):
         return
 
     # Test run information
-    record_testsuite_property("topology", testbed["topo"]["name"])
-    record_testsuite_property("testbed", testbed["conf-name"])
+    record_testsuite_property("topology", tbinfo["topo"]["name"])
+    record_testsuite_property("testbed", tbinfo["conf-name"])
     record_testsuite_property("timestamp", datetime.utcnow())
 
     # Device information

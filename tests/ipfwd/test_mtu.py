@@ -11,9 +11,9 @@ pytestmark = [
 ]
 
 @pytest.mark.parametrize("mtu", [1514,9114])
-def test_mtu(testbed, duthost, ptfhost, mtu):
+def test_mtu(tbinfo, duthost, ptfhost, mtu):
 
-    testbed_type = testbed['topo']['name']
+    testbed_type = tbinfo['topo']['name']
     router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
     log_file = "/tmp/mtu_test.{}-{}.log".format(mtu,datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))

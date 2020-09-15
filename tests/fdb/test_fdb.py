@@ -164,7 +164,7 @@ def fdb_cleanup(duthost):
 @pytest.mark.bsl
 @pytest.mark.usefixtures('fdb_cleanup')
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
+def test_fdb(ansible_adhoc, ptfadapter, duthost, ptfhost, pkt_type):
     """
     1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.

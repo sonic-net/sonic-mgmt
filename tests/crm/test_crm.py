@@ -5,6 +5,9 @@ import json
 import ipaddress
 import netaddr
 import copy
+import logging
+import os
+import tempfile
 
 from jinja2 import Template
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -112,7 +115,7 @@ def generate_fdb_config(duthost, entry_num, vlan_id, iface, op, dest):
     entry_key_template = "FDB_TABLE:Vlan{vid}:{mac}"
 
     for mac_address in generate_mac(entry_num):
-        fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address): 
+        fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address):
             {"port": iface, "type": "dynamic"},
             "OP": op
         }
@@ -719,7 +722,7 @@ def test_acl_entry(duthost, collector):
 
 def test_acl_counter(duthost, collector):
     if not "acl_tbl_key" in collector:
-        pytest.skip("acl_tbl_key is not retreived")
+        pytest.skip("acl_tbl_key is not retrieved")
     acl_tbl_key = collector["acl_tbl_key"]
 
     RESTORE_CMDS["crm_threshold_name"] = "acl_counter"
@@ -784,8 +787,8 @@ def test_acl_counter(duthost, collector):
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
 
-def test_crm_fdb_entry(duthost, testbed):
-    if "t0" not in testbed["topo"]["name"].lower():
+def test_crm_fdb_entry(duthost, tbinfo):
+    if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
 
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"

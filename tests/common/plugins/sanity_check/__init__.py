@@ -41,7 +41,7 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(localhost, duthost, request, fanouthosts, testbed):
+def sanity_check(localhost, duthost, request, fanouthosts, tbinfo):
     logger.info("Start pre-test sanity check")
 
     skip_sanity = False
@@ -82,7 +82,7 @@ def sanity_check(localhost, duthost, request, fanouthosts, testbed):
         check_items = _update_check_items(check_items, items_array, constants.SUPPORTED_CHECK_ITEMS)
 
     # ignore BGP check for particular topology type
-    if testbed['topo']['type'] == 'ptf' and 'bgp' in check_items:
+    if tbinfo['topo']['type'] == 'ptf' and 'bgp' in check_items:
         check_items.remove('bgp')
 
     logger.info("Sanity check settings: skip_sanity=%s, check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \

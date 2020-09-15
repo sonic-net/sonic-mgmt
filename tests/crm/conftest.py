@@ -72,7 +72,7 @@ def crm_thresholds(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthost, testbed):
+def crm_interface(duthost):
     """ Return tuple of two DUT interfaces """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
 
