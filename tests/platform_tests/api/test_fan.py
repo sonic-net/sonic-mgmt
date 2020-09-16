@@ -75,18 +75,18 @@ class TestFanApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value):
+    def compare_value_with_platform_facts(self, key, value, i):
         expected_value = None
 
-        if self.fan_truth:
-            expected_value = self.fan_truth.get(key)
+        if self.fan_truth[i]:
+            expected_value = self.fan_truth[i].get(key)
 
         if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file".format(key))
+            logger.warning("Unable to get expected value for '{}' from platform.json file for fan {}".format(key, i))
             return
 
         self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
+                      "'{}' value is incorrect. Got '{}', expected '{}' for fan {}".format(key, value, expected_value, i))
 
     def compare_value_with_device_facts(self, key, value):
         expected_value = None
@@ -110,7 +110,7 @@ class TestFanApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Fan {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Fan {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name)
+                self.compare_value_with_platform_facts('name', name, i)
 
         self.assert_expectations()
 
@@ -165,7 +165,7 @@ class TestFanApi(PlatformApiTestBase):
                 if self.expect(isinstance(speed, int), "Fan {} speed appears incorrect".format(i)):
                     self.expect(speed > 0 and speed <= 100,
                                 "Fan {} speed {} reading is not within range".format(i, speed))
-                    self.compare_value_with_platform_facts('speed', speed)
+                    self.compare_value_with_platform_facts('speed', speed, i)
 
         self.assert_expectations()
 
@@ -180,7 +180,7 @@ class TestFanApi(PlatformApiTestBase):
             direction = fan.get_direction(platform_api_conn, i)
             if self.expect(direction is not None, "Unable to retrieve Fan {} direction".format(i)):
                 self.expect(direction in FAN_DIRECTION_LIST, "Fan {} direction is not one of predefined directions".format(i))
-                self.compare_value_with_platform_facts('direction', direction)
+                self.compare_value_with_platform_facts('direction', direction, i)
 
         self.assert_expectations()
 
@@ -204,7 +204,7 @@ class TestFanApi(PlatformApiTestBase):
             if self.expect(speed_tolerance is not None, "Unable to retrieve Fan {} speed tolerance".format(i)):
                 if self.expect(isinstance(speed_tolerance, int), "Fan {} speed tolerance appears incorrect".format(i)):
                     self.expect(speed_tolerance > 0 and speed_tolerance <= 100, "Fan {} speed tolerance {} reading does not make sense".format(i, speed_tolerance))
-                    self.compare_value_with_platform_facts('tolernace', speed_tolerance)
+                    self.compare_value_with_platform_facts('tolernace', speed_tolerance, i)
 
         self.assert_expectations()
 
