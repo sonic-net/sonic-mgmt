@@ -37,7 +37,22 @@ STATUS_LED_COLOR_AMBER = "amber"
 STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get fan truths from platform.json file
+    chassis_truth = duthost.facts.get("chassis")
+    if chassis_truth:
+        request.cls.fan_truth = chassis_truth.get('fans', None)
+        if not request.cls.fan_truth:
+            logger.warning("Unable to get fan_truth from platform.json, test results will not be comprehensive")
+    else:
+        logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
 
+    # Get host vars from inventory file
+    request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+
+
+@pytest.mark.usefixtures("gather_facts")
 class TestFanApi(PlatformApiTestBase):
 
     num_fans = None
@@ -55,18 +70,6 @@ class TestFanApi(PlatformApiTestBase):
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
             except:
                 pytest.fail("num_fans is not an integer")
-
-        # Get fan truths from platform.json file
-        chassis_truth = duthost.facts.get("chassis")
-        if chassis_truth:
-            self.fan_truth = chassis_truth.get('fans', None)
-            if not self.fan_truth:
-                logger.warning("Unable to get fan_truth from platform.json, test results will not be comprehensive")
-        else:
-            logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
-
-        # Get host vars from inventory file
-        self.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
 
     #
     # Helper functions
