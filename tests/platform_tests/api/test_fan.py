@@ -88,19 +88,6 @@ class TestFanApi(PlatformApiTestBase):
         self.expect(value == expected_value,
                       "'{}' value is incorrect. Got '{}', expected '{}' for fan {}".format(key, value, expected_value, i))
 
-    def compare_value_with_device_facts(self, key, value):
-        expected_value = None
-
-        if self.duthost_vars:
-            expected_value = self.duthost_vars.get(key)
-
-        if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from inventory file".format(key))
-            return
-
-        self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
-
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -130,7 +117,6 @@ class TestFanApi(PlatformApiTestBase):
 
             if self.expect(model is not None, "Unable to retrieve fan {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Fan {} model appears incorrect".format(i))
-                self.compare_value_with_device_facts('model', model)
 
         self.assert_expectations()
 
@@ -140,7 +126,6 @@ class TestFanApi(PlatformApiTestBase):
 
             if self.expect(serial is not None, "Unable to retrieve fan {} serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "Fan {} serial number appears incorrect".format(i))
-                self.compare_value_with_device_facts('serial', serial)
 
         self.assert_expectations()
 
@@ -165,7 +150,6 @@ class TestFanApi(PlatformApiTestBase):
                 if self.expect(isinstance(speed, int), "Fan {} speed appears incorrect".format(i)):
                     self.expect(speed > 0 and speed <= 100,
                                 "Fan {} speed {} reading is not within range".format(i, speed))
-                    self.compare_value_with_platform_facts('speed', speed, i)
 
         self.assert_expectations()
 
