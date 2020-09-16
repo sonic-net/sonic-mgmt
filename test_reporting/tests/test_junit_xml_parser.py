@@ -1,6 +1,5 @@
 """Tests for the JUnit XML parser."""
 import os
-import re
 import pytest
 
 from test_reporting.junit_xml_parser import validate_junit_xml_stream, validate_junit_xml_file
