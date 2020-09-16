@@ -284,7 +284,7 @@ def main():
         hostnames = [m_args['host']]
     try:
         # When called by pytest, the file path is obscured to /tmp/.../.
-        # we need the caller to tell us wehre the graph files are with
+        # we need the caller to tell us where the graph files are with
         # filepath argument.
         if m_args['filepath']:
             global LAB_GRAPHFILE_PATH
