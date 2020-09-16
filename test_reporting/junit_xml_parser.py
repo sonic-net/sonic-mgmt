@@ -310,11 +310,12 @@ def parse_test_result(roots):
     test_result_json = defaultdict(dict)
 
     for root in roots:
-        test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
-                                                                _parse_test_summary(root))
         test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
                                                                   _parse_test_metadata(root))
-        test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], _parse_test_cases(root))
+        test_cases = _parse_test_cases(root)
+        test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
+        test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
+                                                                _extract_test_summary(test_cases))
 
     return test_result_json
 
@@ -324,6 +325,20 @@ def _parse_test_summary(root):
     for attribute, _ in REQUIRED_TESTSUITE_ATTRIBUTES:
         test_result_summary[attribute] = root.get(attribute)
 
+    return test_result_summary
+
+
+def _extract_test_summary(test_cases):
+    test_result_summary = defaultdict(int)
+    for _, cases in test_cases.items():
+        for case in cases:
+            test_result_summary["tests"] += 1
+            test_result_summary["failures"] += case["result"] == "failure"
+            test_result_summary["skipped"] += case["result"] == "skipped"
+            test_result_summary["errors"] += case["error"]
+            test_result_summary["time"] += float(case["time"])
+
+    test_result_summary = {k: str(v) for k, v in test_result_summary.items()}
     return test_result_summary
 
 
@@ -359,16 +374,22 @@ def _parse_test_cases(root):
         error = test_case.find("error")
         skipped = test_case.find("skipped")
 
-        # NOTE: Errors can occur during a failed, skipped, or succesful test run, so we capture those
-        # first for consistency.
-        if error is not None:
-            result["result"] = "error"
-        elif failure is not None:
+        # NOTE: "error" is unique in that it can occur alongside a succesful, failed, or skipped test result.
+        # Because of this, we track errors separately so that the error can be correlated with the stage it
+        # occurred.
+        #
+        # If there is *only* an error tag we note that as well, as this indicates that the framework
+        # errored out during setup or teardown.
+        if failure is not None:
             result["result"] = "failure"
         elif skipped is not None:
             result["result"] = "skipped"
+        elif error is not None:
+            result["result"] = "error"
         else:
             result["result"] = "success"
+
+        result["error"] = error is not None
 
         return feature, result
 
@@ -381,7 +402,7 @@ def _parse_test_cases(root):
 
 def _update_test_summary(current, update):
     if not current:
-        return update
+        return update.copy()
 
     new_summary = {}
     for attribute, attr_type in REQUIRED_TESTSUITE_ATTRIBUTES:
@@ -393,12 +414,12 @@ def _update_test_summary(current, update):
 def _update_test_metadata(current, update):
     # Case 1: On the very first update, current will be empty since we haven't seen any results yet.
     if not current:
-        return update
+        return update.copy()
 
     # Case 2: For test cases that are 100% skipped there will be no metadata added, so we need to
     # default to current.
     if not update:
-        return current
+        return current.copy()
 
     # Case 3: For all other cases, take the earliest timestamp and default everything else to update.
     new_metadata = {}
@@ -414,11 +435,11 @@ def _update_test_metadata(current, update):
 
 def _update_test_cases(current, update):
     if not current:
-        return update
+        return update.copy()
 
     new_cases = current.copy()
     for group, cases in update.items():
-        updated_cases = cases
+        updated_cases = cases.copy()
         if group in new_cases:
             updated_cases += new_cases[group]
 
