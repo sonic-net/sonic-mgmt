@@ -213,6 +213,6 @@ def configure_pfc_lossy (api,
         options=Options(PortOptions(location_preemption=True))
     )
 
-    api.set_config(config)
+    #api.set_config(config)
     return config
 

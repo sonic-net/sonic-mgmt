@@ -28,65 +28,13 @@ from abstract_open_traffic_generator.control import FlowTransmit
 START_DELAY = 1
 TRAFFIC_DURATION = 5
 
-def run_pfc_pause_lossy_traffic_test(api, dut, exp_dur) :
-    """
-    This test case checks the behaviour of the SONiC DUT when it receives 
-    a PFC pause frame on lossy priorities.
-
-                                +-----------+
-    [Keysight Chassis Tx Port]  |           | [Keysight Chassis Rx Port]
-    --------------------------->| SONiC DUT |<---------------------------
-    Test Data Traffic +         |           |  PFC pause frame on 
-    Background Dada Traffic     +-----------+  "lossy" priorities.
-
-    1. Configure SONiC DUT with multipul lossless priorities. 
-    2. On SONiC DUT enable PFC on several priorities e.g priority 3 and 4.
-    3. On the Keysight chassis Tx port create two flows - a) 'Test Data Traffic'
-       and b) 'Background Data traffic'.
-    4. Configure 'Test Data Traffic' such that it contains traffic items
-       with all lossy priorities.
-    5. Configure 'Background Data Traffic' it contains traffic items with
-       all lossless priorities.
-    6. From Rx port send pause frames on all lossless priorities. Then
-       start 'Test Data Traffic' and 'Background Data Traffic'.
-    7. Verify the following: 
-       (a) When Pause Storm are running, Keysight Rx port is receiving
-       both 'Test Data Traffic' and 'Background Data traffic'.
-       (b) When Pause Storm are stoped, then also Keysight Rx port is receiving
-       both 'Test Data Traffic' and 'Background Data traffic'.
-    """
-    
-    dut.shell('sudo pfcwd stop')
-
-    # start all flows
-    api.set_flow_transmit(FlowTransmit('start'))
-
-    logger.info("Traffic is running for %s seconds" %(exp_dur))
-    time.sleep(exp_dur)
-
-    # stop all flows
-    api.set_flow_transmit(FlowTransmit('stop'))
-
-    # Get statistics
-    test_stat = api.get_flow_results(FlowRequest())
-
-    for rows in test_stat['rows'] :
-        tx_frame_index = test_stat['columns'].index('frames_tx')
-        rx_frame_index = test_stat['columns'].index('frames_rx')
-        caption_index = test_stat['columns'].index('name')   
-        if ((rows[caption_index] == 'Test Data') or
-            (rows[caption_index] == 'Background Data')):
-            if rows[tx_frame_index] != rows[rx_frame_index] :
-                pytest_assert(False,
-                    "Not all %s reached Rx End" %(rows[caption_index]))
-
-
-def test_pfc_pause_for_lossy_traffic(testbed,
-                                     conn_graph_facts,
-                                     duthost,
-                                     api,
-                                     fanout_graph_facts,
-                                     lossless_prio_dscp_map) :
+@pytest.fixture
+def base_configs(testbed,
+                 conn_graph_facts,
+                 duthost,
+                 api,
+                 fanout_graph_facts,
+                 lossless_prio_dscp_map) :
 
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
     fanout_devices.get_fanout_device_details(device_number=0)
@@ -102,7 +50,7 @@ def test_pfc_pause_for_lossy_traffic(testbed,
         peer_port = intf['peer_port']
         intf['speed'] = int(device_conn[peer_port]['speed'])
 
-
+    configs = []
     for i in range(len(available_phy_port)):
         rx_id = i
         tx_id = (i + 1) % len(available_phy_port)
@@ -142,8 +90,66 @@ def test_pfc_pause_for_lossy_traffic(testbed,
             background_flow_name='Background Data',
             start_delay=START_DELAY)
 
-        run_pfc_pause_lossy_traffic_test(
-            api=api, 
-            dut=duthost, 
-            exp_dur=(START_DELAY + TRAFFIC_DURATION))
+        configs.append(config)
+
+    return configs
+
+
+def test_pfc_pause_lossy_traffic(api, duthost, base_configs) :
+    """
+    This test case checks the behaviour of the SONiC DUT when it receives 
+    a PFC pause frame on lossy priorities.
+
+                                +-----------+
+    [Keysight Chassis Tx Port]  |           | [Keysight Chassis Rx Port]
+    --------------------------->| SONiC DUT |<---------------------------
+    Test Data Traffic +         |           |  PFC pause frame on 
+    Background Dada Traffic     +-----------+  "lossy" priorities.
+
+    1. Configure SONiC DUT with multipul lossless priorities. 
+    2. On SONiC DUT enable PFC on several priorities e.g priority 3 and 4.
+    3. On the Keysight chassis Tx port create two flows - a) 'Test Data Traffic'
+       and b) 'Background Data traffic'.
+    4. Configure 'Test Data Traffic' such that it contains traffic items
+       with all lossy priorities.
+    5. Configure 'Background Data Traffic' it contains traffic items with
+       all lossless priorities.
+    6. From Rx port send pause frames on all lossless priorities. Then
+       start 'Test Data Traffic' and 'Background Data Traffic'.
+    7. Verify the following: 
+       (a) When Pause Storm are running, Keysight Rx port is receiving
+       both 'Test Data Traffic' and 'Background Data traffic'.
+       (b) When Pause Storm are stoped, then also Keysight Rx port is receiving
+       both 'Test Data Traffic' and 'Background Data traffic'.
+    """
+    duthost.shell('sudo pfcwd stop')
+    import json
+
+    for base_config in base_configs :
+
+        # set config
+        api.set_config(base_config)
+
+        # start all flows
+        api.set_flow_transmit(FlowTransmit('start'))
+
+        exp_dur = START_DELAY + TRAFFIC_DURATION
+        logger.info("Traffic is running for %s seconds" %(exp_dur))
+        time.sleep(exp_dur)
+
+        # stop all flows
+        api.set_flow_transmit(FlowTransmit('stop'))
+
+        # Get statistics
+        test_stat = api.get_flow_results(FlowRequest())
+
+        for rows in test_stat['rows'] :
+            tx_frame_index = test_stat['columns'].index('frames_tx')
+            rx_frame_index = test_stat['columns'].index('frames_rx')
+            caption_index = test_stat['columns'].index('name')   
+            if ((rows[caption_index] == 'Test Data') or
+                (rows[caption_index] == 'Background Data')):
+                if rows[tx_frame_index] != rows[rx_frame_index] :
+                    pytest_assert(False,
+                        "Not all %s reached Rx End" %(rows[caption_index]))
 
