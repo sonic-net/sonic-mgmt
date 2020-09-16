@@ -176,12 +176,6 @@ def test_invalid_junit_xml_testsuite_errors(token, replacement, message):
         validate_junit_xml_stream(test_string)
 
 
-def test_invalid_junit_xml_no_metadata():
-    test_string = re.sub(r"<properties>[\s\S]*?</properties>", "", VALID_TEST_RESULT)
-    with pytest.raises(JUnitXMLValidationError, match="metadata element .* not found"):
-        validate_junit_xml_stream(test_string)
-
-
 @pytest.mark.parametrize(
     "token,replacement,message",
     [

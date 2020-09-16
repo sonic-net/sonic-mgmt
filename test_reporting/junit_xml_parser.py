@@ -196,16 +196,14 @@ def validate_junit_xml_archive(directory_name):
 
 
 def _validate_junit_xml(root):
-    tests, skipped = _validate_test_summary(root)
-    if tests != skipped:
-        _validate_test_metadata(root)
+    _validate_test_summary(root)
+    _validate_test_metadata(root)
     _validate_test_cases(root)
 
     return root
 
 
 def _validate_test_summary(root):
-    tests, skipped = 0, 0
     if root.tag != TESTSUITE_TAG:
         raise JUnitXMLValidationError(f"{TESTSUITE_TAG} tag not found on root element")
 
@@ -222,19 +220,12 @@ def _validate_test_summary(root):
                 f'"{root.get(xml_field)}"'
             ) from e
 
-        if xml_field == "tests":
-            tests = int(root.get(xml_field))
-        elif xml_field == "skipped":
-            skipped = int(root.get(xml_field))
-
-    return tests, skipped
-
 
 def _validate_test_metadata(root):
     properties_element = root.find("properties")
 
     if not properties_element:
-        raise JUnitXMLValidationError(f"metadata element <{METADATA_TAG}> not found")
+        return
 
     seen_properties = []
     for prop in properties_element.iterfind(METADATA_PROPERTY_TAG):
