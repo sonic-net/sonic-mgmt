@@ -75,5 +75,6 @@ vms17-t0-3800-azd,vms17-3,t0,docker-ptf-mlnx,vms17-3,10.64.246.107/23,,server_17
 vms17-t0-7060,vms17-4,t0,docker-ptf-brcm,vms17-4,10.64.246.58/23,,server_17,VM1736,str2-7060cx-32s-29,vadixit
 vms17-t0-7050cx3-1,vms17-5,t0,docker-ptf-brcm,vms17-5,10.64.246.118/23,,server_17,VM1740,str2-7050cx3-acs-01,lawlee
 vms17-t1-dx010-6,vms17-6,t1-lag,docker-ptf-brcm,vms17-6,10.64.246.120/23,,server_17,VM1744,str2-dx010-acs-6,v-saidia
+vms17-t0-7050cx3-tor-01,vms17-7,t0,docker-ptf-brcm,vms17-7,10.64.246.125/23,,server_17,VM1768,str2-7050cx3-tor-01,v-saidia
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,superman
 spytest,spytest,fullmesh,docker-ptf-brcm,ptf-unknown,10.64.246.101/23,,server_16,,[str2-msn2700-spy-1;str2-msn2700-spy-2;str2-a7060-spy-1;str2-a7060-spy-2],hellospytest

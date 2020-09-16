@@ -25,6 +25,8 @@ all:
           ansible_host: 10.64.246.118
         vms17-6:
           ansible_host: 10.64.246.120
+        vms17-7:
+          ansible_host: 10.64.246.125
 
 fanout:
   hosts:
@@ -99,6 +101,9 @@ sonic_arista:
   hosts:
     str2-7050cx3-acs-01:
       ansible_host: 10.3.146.85
+      hwsku: Arista-7050CX3-32S-C32
+    str2-7050cx3-tor-01:
+      ansible_host: 10.3.146.187
       hwsku: Arista-7050CX3-32S-C32
     str2-a7060-spy-1:
       ansible_host: 10.3.146.241
