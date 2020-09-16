@@ -16,6 +16,9 @@ import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
+from ansible import constants
+from ansible.plugins.loader import connection_loader
+
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 
@@ -122,8 +125,33 @@ class SonicHost(AnsibleHostBase):
 
     _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
-    def __init__(self, ansible_adhoc, hostname):
+    def __init__(self, ansible_adhoc, hostname,
+                 shell_user=None, shell_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+
+        if shell_user and shell_passwd:
+            im = self.host.options['inventory_manager']
+            vm = self.host.options['variable_manager']
+            sonic_conn = vm.get_vars(
+                host=im.get_hosts(pattern='sonic')[0]
+                )['ansible_connection']
+            hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
+            # parse connection options and reset those options with
+            # passed credentials
+            connection_loader.get(sonic_conn, class_only=True)
+            user_def = constants.config.get_configuration_definition(
+                "remote_user", "connection", sonic_conn
+                )
+            pass_def = constants.config.get_configuration_definition(
+                "password", "connection", sonic_conn
+                )
+            for user_var in (_['name'] for _ in user_def['vars']):
+                if user_var in hostvars:
+                    vm.extra_vars.update({user_var: shell_user})
+            for pass_var in (_['name'] for _ in pass_def['vars']):
+                if pass_var in hostvars:
+                    vm.extra_vars.update({pass_var: shell_passwd})
+
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
 
@@ -1261,7 +1289,9 @@ class FanoutHost():
         self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
-            self.host = SonicHost(ansible_adhoc, hostname)
+            self.host = SonicHost(ansible_adhoc, hostname,
+                                  shell_user=shell_user,
+                                  shell_passwd=shell_passwd)
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
