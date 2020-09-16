@@ -181,8 +181,6 @@ def test_invalid_junit_xml_no_metadata():
 @pytest.mark.parametrize(
     "token,replacement,message",
     [
-        ("name=", "foo=", 'invalid metadata element: "name" not found in .*'),
-        ("asic", "basic", "unexpected metadata element: .*"),
         ("hwsku", "host", "duplicate metadata element: .*"),
         ("value", "salut", 'invalid metadata element: no "value" field provided .*'),
     ],

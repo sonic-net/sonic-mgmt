@@ -155,8 +155,10 @@ def validate_junit_xml_archive(directory_name):
     roots = []
     metadata_source = None
     metadata = {}
-    doc_list = glob.glob(os.path.join(directory_name, "*.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "**", "*.xml"))
+    doc_list = glob.glob(os.path.join(directory_name, "tr.xml"))
+    doc_list += glob.glob(os.path.join(directory_name, "*test*.xml"))
+    doc_list += glob.glob(os.path.join(directory_name, "**", "*test*.xml"), recursive=True)
+    doc_list = set(doc_list)
 
     total_size = 0
     for document in doc_list:
@@ -171,19 +173,17 @@ def validate_junit_xml_archive(directory_name):
             root_metadata = {k: v for k, v in _parse_test_metadata(root).items()
                              if k in REQUIRED_METADATA_PROPERTIES and k != "timestamp"}
 
-            if not root_metadata:
-                continue
+            if root_metadata:
+                # All metadata from a single test run should be identical, so we
+                # just use the first one we see to validate the rest.
+                if not metadata_source:
+                    metadata_source = document
+                    metadata = root_metadata
 
-            # All metadata from a single test run should be identical, so we
-            # just use the first one we see to validate the rest.
-            if not metadata_source:
-                metadata_source = document
-                metadata = root_metadata
-
-            if root_metadata != metadata:
-                raise JUnitXMLValidationError(f"{document} metadata differs from {metadata_source}\n"
-                                              f"{document}: {root_metadata}\n"
-                                              f"{metadata_source}: {metadata}")
+                if root_metadata != metadata:
+                    raise JUnitXMLValidationError(f"{document} metadata differs from {metadata_source}\n"
+                                                  f"{document}: {root_metadata}\n"
+                                                  f"{metadata_source}: {metadata}")
 
             roots.append(root)
         except Exception as e:
@@ -241,13 +241,10 @@ def _validate_test_metadata(root):
         property_name = prop.get("name", None)
 
         if not property_name:
-            raise JUnitXMLValidationError(
-                f'invalid metadata element: "name" not found in '
-                f"<{METADATA_PROPERTY_TAG}> element"
-            )
+            continue
 
         if property_name not in REQUIRED_METADATA_PROPERTIES:
-            raise JUnitXMLValidationError(f"unexpected metadata element: {property_name}")
+            continue
 
         if property_name in seen_properties:
             raise JUnitXMLValidationError(
@@ -263,8 +260,8 @@ def _validate_test_metadata(root):
 
         seen_properties.append(property_name)
 
-    if sorted(seen_properties) != sorted(REQUIRED_METADATA_PROPERTIES):
-        raise JUnitXMLValidationError(f"missing metadata element(s)")
+    if set(seen_properties) < set(REQUIRED_METADATA_PROPERTIES):
+        raise JUnitXMLValidationError("missing metadata element(s)")
 
 
 def _validate_test_cases(root):
@@ -362,10 +359,12 @@ def _parse_test_cases(root):
         error = test_case.find("error")
         skipped = test_case.find("skipped")
 
-        if failure is not None:
-            result["result"] = "failure"
-        elif error is not None:
+        # NOTE: Errors can occur during a failed, skipped, or succesful test run, so we capture those
+        # first for consistency.
+        if error is not None:
             result["result"] = "error"
+        elif failure is not None:
+            result["result"] = "failure"
         elif skipped is not None:
             result["result"] = "skipped"
         else:
@@ -392,9 +391,16 @@ def _update_test_summary(current, update):
 
 
 def _update_test_metadata(current, update):
+    # Case 1: On the very first update, current will be empty since we haven't seen any results yet.
     if not current:
         return update
 
+    # Case 2: For test cases that are 100% skipped there will be no metadata added, so we need to
+    # default to current.
+    if not update:
+        return current
+
+    # Case 3: For all other cases, take the earliest timestamp and default everything else to update.
     new_metadata = {}
     for prop in REQUIRED_METADATA_PROPERTIES:
         if prop == "timestamp":
