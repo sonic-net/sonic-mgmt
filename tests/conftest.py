@@ -279,29 +279,39 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     Shortcut fixture for getting Fanout hosts
     """
 
-    dev_conn     = conn_graph_facts['device_conn'] if 'device_conn' in conn_graph_facts else {}
+    dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
+    admin_user = creds['fanout_admin_user']
+    admin_password = creds['fanout_admin_password']
+
     try:
         for dut_port in dev_conn.keys():
-            fanout_rec  = dev_conn[dut_port]
+            fanout_rec = dev_conn[dut_port]
             fanout_host = fanout_rec['peerdevice']
             fanout_port = fanout_rec['peerport']
+
             if fanout_host in fanout_hosts.keys():
-                fanout  = fanout_hosts[fanout_host]
+                fanout = fanout_hosts[fanout_host]
             else:
-                host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
-                os_type = 'eos' if 'os' not in host_vars else host_vars['os']
+                host_vars = ansible_adhoc().options[
+                    'inventory_manager'].get_host(fanout_host).vars
+                os_type = host_vars.get('os', 'eos')
 
-                # `fanout_network_user` and `fanout_network_password` are for accessing the non-shell CLI of fanout
-                # Ansible will use this set of credentail for establishing `network_cli` connection with device
-                # when applicable.
-                network_user = creds['fanout_network_user'] if 'fanout_network_user' in creds else creds['fanout_admin_user']
-                network_password = creds['fanout_network_password'] if 'fanout_network_password' in creds else creds['fanout_admin_password']
-                shell_user = creds['fanout_shell_user'] if 'fanout_shell_user' in creds else creds['fanout_admin_user']
-                shell_password = creds['fanout_shell_password'] if 'fanout_shell_password' in creds else creds['fanout_admin_password']
+                # `fanout_network_user` and `fanout_network_password` are for
+                # accessing the non-shell CLI of fanout.
+                # Ansible will use this set of credentail for establishing
+                # `network_cli` connection with device when applicable.
+                network_user = creds.get('fanout_network_user', admin_user)
+                network_password = creds.get('fanout_network_password',
+                                             admin_password)
+                shell_user = creds.get('fanout_shell_user', admin_user)
+                shell_password = creds.get('fanout_shell_pass', admin_password)
+                if os_type == 'sonic':
+                    shell_user = creds['fanout_sonic_user']
+                    shell_password = creds['fanout_sonic_password']
 
-                fanout  = FanoutHost(ansible_adhoc,
+                fanout = FanoutHost(ansible_adhoc,
                                     os_type,
                                     fanout_host,
                                     'FanoutLeaf',
