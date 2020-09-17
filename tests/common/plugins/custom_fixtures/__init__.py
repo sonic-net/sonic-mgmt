@@ -12,5 +12,7 @@ def pytest_collection_modifyitems(items):
                         break
                 except:
                     pos = len(item.fixturenames)
+            else:
+                pos = len(item.fixturenames)
             item.fixturenames.insert(pos, "check_dut_asic_type")
 
