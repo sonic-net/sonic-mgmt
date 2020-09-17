@@ -19,17 +19,34 @@
     container_type: "API-SERVER"
   when: ptf_imagename is defined and ptf_imagename == "docker-keysight-api-server"
 
+- name: Try to pull ptf docker image
+  docker_image:
+    name: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+    source: pull
+    build:
+      pull: yes
+  become: yes
+  register: docker_pull_result
+  ignore_errors: yes
+
+- name: Try to login into docker registry if pull failed
+  docker_login:
+    registry_url: "{{ docker_registry_host }}"
+    username: "{{ docker_registry_username }}"
+    password: "{{ docker_registry_password }}"
+  become: yes
+  when: docker_pull_result.failed == true
 
 - name: Start Keysight API Server container
-  block: 
+  block:
     - name: default secret_group_vars if not defined
       set_fact:
         secret_group_vars:
           ixia_api_server:
             rest_port: 443
       when: >
-        secret_group_vars is not defined 
-        or secret_group_vars.ixia_api_server is not defined 
+        secret_group_vars is not defined
+        or secret_group_vars.ixia_api_server is not defined
         or secret_group_vars.ixia_api_server.rest_port is not defined
 
     - name: Pull and start Keysight API Server container
@@ -49,7 +66,7 @@
 
 
 - name: Start PTF container
-  block: 
+  block:
   - name: Create ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
