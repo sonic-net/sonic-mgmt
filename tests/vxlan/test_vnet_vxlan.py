@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.sanity_check(post_check=True)
+    pytest.mark.sanity_check(post_check=True),
+    pytest.mark.asic("mellanox")
 ]
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):

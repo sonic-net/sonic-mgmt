@@ -11,7 +11,8 @@ from vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tun
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0"),
+    pytest.mark.asic("mellanox")
 ]
 
 BGP_WAIT_TIMEOUT = 240
