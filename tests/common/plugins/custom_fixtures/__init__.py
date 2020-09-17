@@ -7,11 +7,8 @@ def pytest_collection_modifyitems(items):
         asic_marks = [mark for mark in item.iter_markers(name="asic")]
         if asic_marks:
             for pos, name in enumerate(item.fixturenames):
-                try:
-                    if item._fixtureinfo.name2fixturedefs[name][0].scope == 'module':
-                        break
-                except:
-                    pos = len(item.fixturenames)
+                if item._fixtureinfo.name2fixturedefs[name][0].scope == 'module':
+                    break
             else:
                 pos = len(item.fixturenames)
             item.fixturenames.insert(pos, "check_dut_asic_type")
