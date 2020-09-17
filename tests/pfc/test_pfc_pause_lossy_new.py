@@ -28,6 +28,8 @@ START_DELAY = 1
 TRAFFIC_DURATION = 5
 
 ###############################################################################
+# Imports for Tgen and IxNetwork abstract class
+###############################################################################
 import json
 import sys
 
@@ -81,8 +83,6 @@ def serializer(request):
             return namedtuple('X', converted_dict.keys())(*converted_dict.values())
 
     return Serializer(request)
-
-
 
 @pytest.fixture
 def novus_100_gig_layer1(testbed,
