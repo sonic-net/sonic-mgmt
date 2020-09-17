@@ -17,7 +17,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--num_vnet",
         action="store",
-        default=None,
+        default=8,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
@@ -25,7 +25,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--num_routes",
         action="store",
-        default=None,
+        default=16000,
         type=int,
         help="number of routes for VNET VxLAN test"
     )
@@ -33,7 +33,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--num_endpoints",
         action="store",
-        default=None,
+        default=4000,
         type=int,
         help="number of endpoints for VNET VxLAN"
     )
@@ -41,7 +41,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--num_intf_per_vnet",
         action="store",
-        default=None,
+        default=1,
         type=int,
         help="number of VLAN interfaces per VNET"
     )
