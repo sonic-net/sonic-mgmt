@@ -3,7 +3,7 @@ import json
 import logging
 import time
 
-from tests.common.utilities import wait
+from tests.common.utilities import wait, wait_until
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -96,23 +96,39 @@ def check_interfaces(dut):
     logger.info("Done checking interfaces status.")
     return check_result
 
+
 def check_bgp_status(dut):
+
+    def _check_bgp_status_helper():
+        neighbors.clear()
+        neighbors.update(dut.get_bgp_neighbors())
+        if neighbors:
+            down_neighbors = [k for k, v in neighbors.items()
+                              if v['state'] != 'established']
+            if down_neighbors:
+                check_result['down_neighbors'] = down_neighbors
+                check_result['failed'] = True
+            else:
+                check_result['failed'] = False
+                check_result.pop('down_neighbors', None)
+        else:
+            check_result['failed'] = True
+        return not check_result['failed']
+
     logger.info("Checking bgp status...")
     check_result = {"failed": False, "check_item": "bgp"}
+    networking_uptime = dut.get_networking_uptime().seconds
+    timeout = max(SYSTEM_STABILIZE_MAX_TIME - networking_uptime, 1)
+    interval = 20
+    neighbors = {}
 
-    neis = dut.get_bgp_neighbors()
-    if not neis:
-        logger.info("BGP neighbors: None")
-        check_result["failed"] = True
+    wait_until(timeout, interval, _check_bgp_status_helper)
+    if neighbors:
+        if 'down_neighbors' in check_result:
+            logger.info('BGP neighbors down: %s',
+                        check_result['down_neighbors'])
     else:
-        down_neis = []
-        for nei, v in neis.items():
-            if v["state"] != "established":
-                down_neis.append(nei)
-        if down_neis:
-            logger.info("BGP neighbors down: {}".format(down_neis))
-            check_result["failed"] = True
-            check_result["down_neighbors"] = down_neis
+        logger.info('BGP neighbors: None')
 
     logger.info("Done checking bgp status.")
     return check_result

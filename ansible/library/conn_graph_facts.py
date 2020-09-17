@@ -68,9 +68,6 @@ EXAMPLES='''
 
 '''
 
-LAB_CONNECTION_GRAPH_FILE = 'lab_connection_graph.xml'
-LAB_GRAPHFILE_PATH = 'files/'
-
 class Parse_Lab_Graph():
     """
     Parse the generated lab physical connection graph and insert Ansible fact of the graph
@@ -231,12 +228,46 @@ class Parse_Lab_Graph():
         else:
             return self.links
 
+    def contains_hosts(self, hostnames):
+        return set(hostnames) <= set(self.devices)
+
+
+LAB_CONNECTION_GRAPH_FILE = 'graph_files.yml'
+EMPTY_GRAPH_FILE = 'empty_graph.xml'
+LAB_GRAPHFILE_PATH = 'files/'
+
+"""
+    Find a graph file contains all devices in testbed.
+"""
+def find_graph(hostnames, anchor):
+    filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
+    with open(filename) as fd:
+        file_list = yaml.load(fd)
+
+    for fn in file_list:
+        filename = LAB_GRAPHFILE_PATH + fn
+        lab_graph = Parse_Lab_Graph(filename)
+        lab_graph.parse_graph()
+        if hostnames and lab_graph.contains_hosts(hostnames):
+            return lab_graph
+        if anchor and lab_graph.contains_hosts(anchor):
+            return lab_graph
+
+    # Fallback to return an empty connection graph, this is
+    # needed to bridge the kvm test needs. The KVM test needs
+    # A graph file, which used to be whatever hardcoded file.
+    # Here we provide one empty file for the purpose.
+    lab_graph = Parse_Lab_Graph(LAB_GRAPHFILE_PATH + EMPTY_GRAPH_FILE)
+    lab_graph.parse_graph()
+    return lab_graph
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
             host=dict(required=False),
             hosts=dict(required=False, type='list'),
             filename=dict(required=False),
+            anchor=dict(required=False, type='list'),
         ),
         mutually_exclusive=[['host', 'hosts']],
         supports_check_mode=True
@@ -244,15 +275,16 @@ def main():
     m_args = module.params
 
     hostnames = m_args['hosts']
+    anchor = m_args['anchor']
     if not hostnames:
         hostnames = [m_args['host']]
     try:
         if m_args['filename']:
             filename = m_args['filename']
+            lab_graph = Parse_Lab_Graph(filename)
+            lab_graph.parse_graph()
         else:
-            filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
-        lab_graph = Parse_Lab_Graph(filename)
-        lab_graph.parse_graph()
+            lab_graph = find_graph(hostnames, anchor)
 
         device_info = []
         device_conn = []
@@ -280,7 +312,7 @@ def main():
 
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
-        module.fail_json(msg="Can not find lab graph file "+LAB_CONNECTION_GRAPH_FILE)
+        module.fail_json(msg="Can not find lab graph file")
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())
 

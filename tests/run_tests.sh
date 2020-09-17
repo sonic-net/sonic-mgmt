@@ -7,7 +7,7 @@ function show_help_and_exit()
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
-    echo "    -d <dut name>  : specify DUT name (*)"
+    echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
     echo "    -i <inventory> : specify inventory name"
@@ -25,6 +25,14 @@ function show_help_and_exit()
     echo "    -x             : print commands and their arguments as they are executed"
 
     exit $1
+}
+
+function get_dut_from_testbed_file() {
+    if [[ -z ${DUT_NAME} ]]; then
+        LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
+        IFS=',' read -ra ARRAY <<< "$LINE"
+        DUT_NAME=${ARRAY[9]}
+    fi
 }
 
 function validate_parameters()
@@ -76,10 +84,31 @@ function setup_environment()
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
+    export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
 }
 
 function setup_test_options()
 {
+    # If a test script is explicitly specified in pytest command line, then use `--ignore` to ignore it will not work
+    # Below logic is to ensure that SKIP_FOLDERS and SKIP_SCRIPTS take precedence over the specified TEST_CASES.
+    # If a test script is in both ${TEST_CASES} and ${SKIP_SCRIPTS}, the script will not be executed. This design is
+    # for the scenario of specifying test scripts using pattern like `subfolder/test_*.py`. The pattern will be
+    # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
+    # explicitly specify the script to be skipped.
+    ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
+    if [[ -z ${TEST_CASES} ]]; then
+        # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
+        all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
+    else
+        # When TEST_CASES is specified, ignore the scripts under $SKIP_FOLDERS
+        all_scripts=""
+        for test_script in ${TEST_CASES}; do
+            all_scripts="${all_scripts} $(echo ${test_script} | sed s:^./:: | grep -vE "^(${ignores})")"
+        done
+    fi
+    # Ignore the scripts specified in $SKIP_SCRIPTS
+    TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
                       --testbed ${TESTBED_NAME} \
@@ -180,26 +209,15 @@ function cleanup_dut()
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
-    pytest ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${TEST_CASES}
+    pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
 }
 
 function run_individual_tests()
 {
-    if [[ -n ${TEST_CASES} ]] ;then
-        test_scripts=${TEST_CASES}
-    else
-        SKIP_SCRIPTS="${SKIP_SCRIPTS} test_announce_routes.py test_nbr_health.py"
-
-        ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
-
-        all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${SKIP_FOLDERS})")
-        test_scripts=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
-    fi
-
     EXIT_CODE=0
 
     echo "=== Running tests individually ==="
-    for test_script in ${test_scripts}; do
+    for test_script in ${TEST_CASES}; do
         if [[ x"${OMIT_FILE_LOG}" != x"True" ]]; then
             test_dir=$(dirname ${test_script})
             script_name=$(basename ${test_script})
@@ -210,7 +228,7 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        pytest ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${test_script} ${EXTRA_PARAMETERS}
+        pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
         ret_code=$?
 
         # If test passed, no need to keep its log.
@@ -293,6 +311,8 @@ while getopts "h?a:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
             ;;
     esac
 done
+
+get_dut_from_testbed_file
 
 if [[ x"${TEST_METHOD}" != x"debug" ]]; then
     validate_parameters

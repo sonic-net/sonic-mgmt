@@ -7,6 +7,8 @@
 - set_fact: dut="{{ leaf_name }}"
   when: deploy_leaf
 
+- debug: msg="Configuring fanout switch for {{ dut }}"
+
 - name: Gathering connection facts about the DUTs or leaffanout device
   conn_graph_facts:
     host: "{{ dut if ',' not in dut else omit }}"
@@ -17,6 +19,7 @@
 
 - name: Gathering connection facts about the lab
   conn_graph_facts:
+    anchor: "{{ dut.split(',') | list }}"
   delegate_to: localhost
   tags: always
   register: lab
