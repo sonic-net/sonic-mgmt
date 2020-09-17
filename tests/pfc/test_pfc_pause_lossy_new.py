@@ -22,7 +22,6 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, \
     get_addrs_in_subnet
 
 from files.qos_fixtures import lossless_prio_dscp_map
-#from files.configs.pfc import configure_pfc_lossy
 from abstract_open_traffic_generator.control import FlowTransmit
 
 START_DELAY = 1
