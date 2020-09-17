@@ -112,7 +112,7 @@ def generate_fdb_config(duthost, entry_num, vlan_id, iface, op, dest):
     entry_key_template = "FDB_TABLE:Vlan{vid}:{mac}"
 
     for mac_address in generate_mac(entry_num):
-        fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address): 
+        fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address):
             {"port": iface, "type": "dynamic"},
             "OP": op
         }
@@ -837,6 +837,8 @@ def test_crm_fdb_entry(duthost, testbed):
 
     used_percent = get_used_percent(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
     if used_percent < 1:
+        # Clear pre-set fdb entry
+        duthost.command("fdbclear")
         # Preconfiguration needed for used percentage verification
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT
