@@ -28,10 +28,26 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get thermal truths from platform.json file
+    chassis_truth = duthost.facts.get("chassis")
+    if chassis_truth:
+        request.cls.thermal_truth = chassis_truth.get('thermals', None)
+        if not request.cls.thermal_truth:
+            logger.warning("Unable to get thermal_truth from platform.json, test results will not be comprehensive")
+    else:
+        logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
+
+    # Get host vars from inventory file
+    request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+
 
 class TestThermalApi(PlatformApiTestBase):
 
     num_thermals = None
+    thermal_truth = None
+    duthost_vars = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
@@ -46,6 +62,24 @@ class TestThermalApi(PlatformApiTestBase):
                 pytest.fail("num_thermals is not an integer")
 
     #
+    # Helper functions
+    #
+
+    def compare_value_with_platform_facts(self, key, value, i):
+        expected_value = None
+
+        if self.thermal_truth[i]:
+            expected_value = self.thermal_truth[i].get(key)
+
+        if not expected_value:
+            logger.warning("Unable to get expected value for '{}' from platform.json file for thermal {}".format(key, i))
+            return
+
+        self.expect(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value, expected_value, i))
+
+
+    #
     # Functions to test methods inherited from DeviceBase class
     #
     def test_get_name(self, duthost, localhost, platform_api_conn):
@@ -54,6 +88,7 @@ class TestThermalApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Thermal {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Thermal {} name appears incorrect".format(i))
+                self.compare_value_with_platform_facts('name', name, i)
 
         self.assert_expectations()
 
@@ -111,45 +146,49 @@ class TestThermalApi(PlatformApiTestBase):
     def test_get_low_threshold(self, duthost, localhost, platform_api_conn):
         # Ensure the thermal low threshold temperature is sane
         for i in range(self.num_thermals):
-            temperature = thermal.get_low_threshold(platform_api_conn, i)
+            low_threshold = thermal.get_low_threshold(platform_api_conn, i)
 
-            if self.expect(temperature is not None, "Unable to retrieve Thermal {} low threshold".format(i)):
-                if self.expect(isinstance(temperature, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
-                                "Thermal {} low threshold {} reading is not within range".format(i, temperature))
+            if self.expect(low_threshold is not None, "Unable to retrieve Thermal {} low threshold".format(i)):
+                if self.expect(isinstance(low_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
+                    self.expect(low_threshold > 0 and low_threshold <= 100,
+                                "Thermal {} low threshold {} reading is not within range".format(i, low_threshold))
+                    self.compare_value_with_platform_facts('low_threshold', low_threshold, i)
         self.assert_expectations()
 
     def test_get_high_threshold(self, duthost, localhost, platform_api_conn):
         # Ensure the thermal high threshold temperature is sane
         for i in range(self.num_thermals):
-            temperature = thermal.get_high_threshold(platform_api_conn, i)
+            high_threshold = thermal.get_high_threshold(platform_api_conn, i)
 
-            if self.expect(temperature is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
-                if self.expect(isinstance(temperature, float), "Thermal {} high threshold appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
-                                "Thermal {} high threshold {} reading is not within range".format(i, temperature))
+            if self.expect(high_threshold is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
+                if self.expect(isinstance(high_threshold, float), "Thermal {} high threshold appears incorrect".format(i)):
+                    self.expect(high_threshold > 0 and high_threshold <= 100,
+                                "Thermal {} high threshold {} reading is not within range".format(i, high_threshold))
+                    self.compare_value_with_platform_facts('high_threshold', high_threshold, i)
         self.assert_expectations()
 
     def test_get_low_critical_threshold(self, duthost, localhost, platform_api_conn):
         # Ensure the thermal low critical threshold temperature is sane
         for i in range(self.num_thermals):
-            temperature = thermal.get_low_critical_threshold(platform_api_conn, i)
+            low_critical_threshold = thermal.get_low_critical_threshold(platform_api_conn, i)
 
-            if self.expect(temperature is not None, "Unable to retrieve Thermal {} low critical threshold".format(i)):
-                if self.expect(isinstance(temperature, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 110,
-                                "Thermal {} low critical threshold {} reading is not within range".format(i, temperature))
+            if self.expect(low_critical_threshold is not None, "Unable to retrieve Thermal {} low critical threshold".format(i)):
+                if self.expect(isinstance(low_critical_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
+                    self.expect(low_critical_threshold > 0 and low_critical_threshold <= 110,
+                                "Thermal {} low critical threshold {} reading is not within range".format(i, low_critical_threshold))
+                    self.compare_value_with_platform_facts('low_critical_threshold', low_critical_threshold, i)
         self.assert_expectations()
 
     def test_get_high_critical_threshold(self, duthost, localhost, platform_api_conn):
         # Ensure the thermal high threshold temperature is sane
         for i in range(self.num_thermals):
-            temperature = thermal.get_high_critical_threshold(platform_api_conn, i)
+            high_critical_threshold = thermal.get_high_critical_threshold(platform_api_conn, i)
 
-            if self.expect(temperature is not None, "Unable to retrieve Thermal {} high critical threshold".format(i)):
-                if self.expect(isinstance(temperature, float), "Thermal {} high threshold appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 110,
-                                "Thermal {} high critical threshold {} reading is not within range".format(i, temperature))
+            if self.expect(high_critical_threshold is not None, "Unable to retrieve Thermal {} high critical threshold".format(i)):
+                if self.expect(isinstance(high_critical_threshold, float), "Thermal {} high threshold appears incorrect".format(i)):
+                    self.expect(high_critical_threshold > 0 and high_critical_threshold <= 110,
+                                "Thermal {} high critical threshold {} reading is not within range".format(i, high_critical_threshold))
+                    self.compare_value_with_platform_facts('high_critical_threshold', high_critical_threshold, i)
         self.assert_expectations()
 
     def test_set_low_threshold(self, duthost, localhost, platform_api_conn):
