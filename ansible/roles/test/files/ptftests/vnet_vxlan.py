@@ -53,8 +53,9 @@ class VNET(BaseTest):
     def readMacs(self):
         addrs = {}
         for intf in os.listdir('/sys/class/net'):
-            with open('/sys/class/net/%s/address' % intf) as fp:
-                addrs[intf] = fp.read().strip()
+            if os.path.isdir('/sys/class/net/%s' % intf):
+                with open('/sys/class/net/%s/address' % intf) as fp:
+                    addrs[intf] = fp.read().strip()
 
         return addrs
 
