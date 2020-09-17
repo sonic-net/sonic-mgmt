@@ -19,12 +19,21 @@ function usage
   echo "    -m <vmfile> : virtual machine file name (default: 'veos')"
   echo "    -k <vmtype> : vm type (veos|ceos) (default: 'veos')"
   echo "    -n <vm_num> : vm num (default: 0)"
+  echo "    -b <vmbase> : Specify the VM Base ID the format is VM0100, VM0201 (default: parsing from testbed.csv)"
+
   echo
   echo "Positional Arguments:"
   echo "    <server-name>         : Hostname of server on which to start VMs"
   echo "    <vault-password-file> : Path to file containing Ansible Vault password"
   echo "    <topo-name>           : Name of the target topology"
   echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
+  echo "    <vmbase>              : Specify the VM base ID and the format is VM01xx or VM02xx (xx = 01~63, default: parsing from testbed.csv)"
+  echo "                  Cost of VMs  0VM    4VMs      6VMs   8VMs   24VMs      32VMs  64VMs"
+  echo "                  Topologies   ptf32  t0        t0-16  t0-56  t1-lag     t1     t1-64"
+  echo "                               ptf64  t0-64                   t1-64-lag"
+  echo "                                      t0-64-32"
+  echo "                                      t0-52"
+  echo "                                      t0-116"
   echo
   echo "To start all VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
@@ -90,7 +99,12 @@ function read_file
   ptf_ip=${line_arr[5]}
   ptf_ipv6=${line_arr[6]}
   server=${line_arr[7]}
-  vm_base=${line_arr[8]}
+  if test -z "$vmbase"
+  then
+    vm_base=${line_arr[8]}
+  else
+    vm_base=${vmbase}
+  fi
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
 }
@@ -325,8 +339,9 @@ vmfile=veos
 tbfile=testbed.csv
 vm_type=veos
 vm_num=0
+vmbase=''
 
-while getopts "t:m:k:n:" OPTION; do
+while getopts "t:m:k:n:b:" OPTION; do
     case $OPTION in
     t)
         tbfile=$OPTARG
@@ -339,6 +354,9 @@ while getopts "t:m:k:n:" OPTION; do
         ;;
     n)
         vm_num=$OPTARG
+        ;;
+    b)
+        vmbase=$OPTARG
         ;;
     *)
         usage
