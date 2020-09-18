@@ -295,7 +295,7 @@ class FanDrawerData:
         :param presence: Given presence value. 1 means present, 0 means not present.
         :return:
         """
-        always_present = self.platform_data['fans']['hot_swappable']
+        always_present = not self.platform_data['fans']['hot_swappable']
         if always_present:
             self.mocked_presence = 'Present'
         elif self.presence_file:
