@@ -100,7 +100,7 @@ k8s_server_19:
 4. Update the server network configuration for the Kubernetes VM management interfaces in [`ansible/host_vars/STR-ACS-SERV-19.yml`](../host_vars/STR-ACS-SERV-19.yml).
     - `mgmt_gw`: ip of the gateway for the VM management interfaces
     - `mgmt_prefixlen`: prefixlen for the management interfaces
-5. Set proxy if necessary in ['ansible/groupo_vars/all/env.yml](../group_vars/all/env.yml)
+5. Set proxy if necessary in ['ansible/group_vars/all/env.yml](../group_vars/all/env.yml)
 6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml).   
 7. From `docker-sonic-mgmt` container, run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password.txt"`
    - `k8s-server-name` corresponds to the group name used to describe the testbed server in the [`ansible/k8s-ubuntu`](../k8s-ubuntu) inventory file in the form `k8s_server_{unit}`. 

@@ -166,7 +166,6 @@
     veos_vm_required: false 
   when: 
     - k8s is defined
-    - k8s == True
 
 - name: VMs not needed in case of Keysight API Server
   set_fact:
