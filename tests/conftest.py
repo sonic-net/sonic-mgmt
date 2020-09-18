@@ -18,6 +18,7 @@ from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
+from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 
 logger = logging.getLogger(__name__)
 
@@ -455,3 +456,52 @@ def disable_container_autorestart(duthost, request):
     for name, state in container_autorestart_states.items():
         if state == "enabled":
             duthost.command(cmd_enable.format(name))
+
+def generate_param_asic_index(request, dut_indices, param_type):
+    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
+    inv_file =  request.config.getoption("ansible_inventory")
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    
+    with open(inv_file, 'r') as fh:
+        inv = yaml.safe_load(fh)
+
+    hosts = inv['all']['children']['sonic']['hosts']
+    tbinfo = TestbedInfo(tbfile)
+
+    #if the params are not present treat the device as a single asic device
+    asic_index_params = [DEFAULT_ASIC_ID]
+
+    for dut_id in dut_indices:
+        dut = tbinfo.testbed_topo[tbname]["duts"][dut_id]
+        inv_data = hosts[dut]
+        if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
+            asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+        if param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_ALL in inv_data:
+            asic_index_params = inv_data[ASIC_PARAM_TYPE_ALL]
+        logging.info("dut_index {} dut name {}  asics params = {}".format(
+            dut_id, dut, asic_index_params))
+    return asic_index_params
+
+def generate_params_dut_index(request):
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    tbinfo = TestbedInfo(tbfile)
+    num_duts = len(tbinfo.testbed_topo[tbname]["duts"])
+    logging.info("Num of duts in testbed topology {}".format(num_duts))
+    return range(num_duts)
+
+def pytest_generate_tests(metafunc):
+    # The topology always has atleast 1 dut
+    dut_indices = [0]
+    if "dut_index" in metafunc.fixturenames:
+        dut_indices = generate_params_dut_index(metafunc)
+        metafunc.parametrize("dut_index",dut_indices)
+    if "asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
+    if "frontend_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
