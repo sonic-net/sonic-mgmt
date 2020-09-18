@@ -102,8 +102,8 @@ k8s_server_19:
     - `mgmt_prefixlen`: prefixlen for the management interfaces
 5. Set proxy if necessary in ['ansible/groupo_vars/all/env.yml](../group_vars/all/env.yml)
 6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml).   
-7. From `docker-sonic-mgmt` container, run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] create-master 'k8s-server-name' ~/.password.txt"`
-   - k8s_server_name corresponds to the group name used to describe the testbed server in the [`ansible/k8s-ubuntu`](../k8s-ubuntu) inventory file. 
+7. From `docker-sonic-mgmt` container, run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password.txt"`
+   - `k8s-server-name` corresponds to the group name used to describe the testbed server in the [`ansible/k8s-ubuntu`](../k8s-ubuntu) inventory file in the form `k8s_server_{unit}`. 
    - Please note: password.txt is the ansible vault password file name/path. Ansible allows users to use ansible-vault to encrypt password files. By default, this shell script requires a password file. If you are not using ansible-vault, just create an empty file and pass the file name to the command line. The file name and location are created and maintained by the user.
    
 For HA Kubernetes master set 1 running on server 19 shown above, the proper command would be: 
@@ -111,7 +111,7 @@ For HA Kubernetes master set 1 running on server 19 shown above, the proper comm
 
 OPTIONAL: We offer the functionality to run multiple master sets on one server. 
   - Each master set is one HA Kubernetes master composed of 4 Linux KVMs. 
-  - Should an additional HA master be necessary on an occupied server, add the option `-s {msetnumber}`, where `msetnumber` would be 2 if this is the 2nd master set running on `{k8s-server-name}`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. `msetnumber` is 1 by default. 
+  - Should an additional HA master set be necessary on an occupied server, add the option `-s {msetnumber}`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. `msetnumber` is 1 by default. 
 
 
 8. Join Kubernetes-enabled SONiC DUT to cluster (kube_join function to be written).
