@@ -95,7 +95,7 @@ EXPECTED_JSON_OUTPUT = {
     },
     "test_summary": {
         "errors": "1",
-        "failures": "1",
+        "failures": "2",
         "skipped": "1",
         "tests": "4",
         "time": "213.949"
