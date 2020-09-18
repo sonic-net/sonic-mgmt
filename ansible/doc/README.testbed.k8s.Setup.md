@@ -44,8 +44,15 @@ In order to connect each SONiC DUT to a High Availability Kubernetes master, we 
 - Each high availability master setup requires 4 new Linux KVMs running on a Testbed Server via bridged networking.
     - 3 Linux KVMs to serve as 3-node high availability Kubernetes master
     - 1 Linux KVM to serve as HAProxy Load Balancer node    
-- Each KVM has one management interface assigned an IP address reachable from SONiC DUT
+- Each KVM has one management interface assigned an IP address reachable from SONiC DUT.
 - HAProxy Load Balancer proxies requests to 3 backend Kubernetes master nodes. 
+
+Our setup meets Kubernetes Minimum Requirements to setup a High Available cluster. The Minimum Requirements are as follows:
+- 2 GB or more of RAM per machine
+- 2 CPUs or more per machine
+- Full network connectivity between all machines in the cluster (public or private network)
+- sudo privileges on all machines
+- SSH access from one device to all nodes in the system
 
 ## How to Setup High Availability Kubernetes Master
 
@@ -61,7 +68,7 @@ We will walk through an example of setting up HA Kubernetes master set 1 on serv
        STR-ACS-SERV-19:
          ansible_host: 10.251.0.101
   ```
-Replace ansible_host value with the IP address of the testbed server.
+Replace `ansible_host` value above with the IP address of the testbed server.
 
   ```
   k8s_vms1_19:
@@ -83,8 +90,7 @@ Replace ansible_host value with the IP address of the testbed server.
       haproxy: true 
   ```
   
-
-Replace each ansible_host value with an available IP address. 
+Replace each `ansible_host` value with an IP address allocated in step 2. 
 
 Take note of the group name `k8s_vms1_19`. At the bottom of [`ansible/k8s-ubuntu`](../k8s-ubuntu), make sure that `k8s_server_19` has its `host_var_file` and two `children` properly set: 
 
@@ -100,30 +106,26 @@ k8s_server_19:
 4. Update the server network configuration for the Kubernetes VM management interfaces in [`ansible/host_vars/STR-ACS-SERV-19.yml`](../host_vars/STR-ACS-SERV-19.yml).
     - `mgmt_gw`: ip of the gateway for the VM management interfaces
     - `mgmt_prefixlen`: prefixlen for the management interfaces
-5. Set proxy if necessary in ['ansible/group_vars/all/env.yml](../group_vars/all/env.yml)
+5. If necessary, set proxy in [`ansible/group_vars/all/env.yml`](../group_vars/all/env.yml)
 6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml).   
-7. From `docker-sonic-mgmt` container, run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password.txt"`
+7. From `docker-sonic-mgmt` container, `cd` into `sonic-mgmt/ansible` directory and run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password`
    - `k8s-server-name` corresponds to the group name used to describe the testbed server in the [`ansible/k8s-ubuntu`](../k8s-ubuntu) inventory file in the form `k8s_server_{unit}`. 
-   - Please note: password.txt is the ansible vault password file name/path. Ansible allows users to use ansible-vault to encrypt password files. By default, this shell script requires a password file. If you are not using ansible-vault, just create an empty file and pass the file name to the command line. The file name and location are created and maintained by the user.
+   - Please note: `~/.password` is the ansible vault password file name/path. Ansible allows users to use ansible-vault to encrypt password files. By default, this shell script requires a password file. If you are not using ansible-vault, just create an empty file and pass the file name to the command line. The file name and location are created and maintained by the user.
    
 For HA Kubernetes master set 1 running on server 19 shown above, the proper command would be: 
 `./testbed-cli.sh -m k8s-ubuntu create-master k8s_server_19 ~/.password` 
 
 OPTIONAL: We offer the functionality to run multiple master sets on one server. 
   - Each master set is one HA Kubernetes master composed of 4 Linux KVMs. 
-  - Should an additional HA master set be necessary on an occupied server, add the option `-s {msetnumber}`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. `msetnumber` is 1 by default. 
+  - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. `msetnumber` is 1 by default. 
 
 
 8. Join Kubernetes-enabled SONiC DUT to cluster (kube_join function to be written).
 
-The setup above meets Kubernetes Minimum Requirements to setup a High Available cluster. The Minimum Requirements are as follows:
-- 2 GB or more of RAM per machine
-- 2 CPUs or more per machine
-- Full network connectivity between all machines in the cluster (public or private network)
-- sudo privileges on all machines
-- SSH access from one device to all nodes in the system
 
-To remove a HA Kubernetes master, run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] destroy-master 'k8s-server-name' ~/.password.txt"`
+To remove a HA Kubernetes master:
+Run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] destroy-master <k8s-server-name> ~/.password`
+
 For HA Kubernetes master set 1 running on server 19 shown above, the proper command would be: 
 `./testbed-cli.sh -m k8s-ubuntu destroy-master k8s_server_19 ~/.password` 
 
