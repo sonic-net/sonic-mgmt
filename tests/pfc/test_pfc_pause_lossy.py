@@ -3,99 +3,24 @@ import time
 import pytest
 import json
 
-from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
 from abstract_open_traffic_generator.result import FlowRequest
+from abstract_open_traffic_generator.control import FlowTransmit
 
 from tests.common.reboot import logger
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts 
 
-from tests.common.helpers.assertions import pytest_assert
 
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port,\
     ixia_api_serv_session_id, api
 
-from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_location
-
-from tests.common.ixia.common_helpers import get_vlan_subnet, \
-    get_addrs_in_subnet
-
+from files.configs.pfc import lossy_configs, one_hundred_gbe, serializer
+from files.configs.pfc import START_DELAY, TRAFFIC_DURATION
 from files.qos_fixtures import lossless_prio_dscp_map
-from files.configs.pfc import configure_pfc_lossy
-from abstract_open_traffic_generator.control import FlowTransmit
-
-START_DELAY = 1
-TRAFFIC_DURATION = 5
-
-@pytest.fixture
-def base_configs(testbed,
-                 conn_graph_facts,
-                 duthost,
-                 api,
-                 fanout_graph_facts,
-                 lossless_prio_dscp_map) :
-
-    fanout_devices = IxiaFanoutManager(fanout_graph_facts)
-    fanout_devices.get_fanout_device_details(device_number=0)
-    device_conn = conn_graph_facts['device_conn']
-
-    # The number of ports should be at least two for this test
-    available_phy_port = fanout_devices.get_ports()
-    pytest_assert(len(available_phy_port) > 2,
-                  "Number of physical ports must be at least 2")
-
-    # Get interface speed of peer port
-    for intf in available_phy_port:
-        peer_port = intf['peer_port']
-        intf['speed'] = int(device_conn[peer_port]['speed'])
-
-    configs = []
-    for i in range(len(available_phy_port)):
-        rx_id = i
-        tx_id = (i + 1) % len(available_phy_port)
-        
-        tx_location = get_location(available_phy_port[tx_id])
-        rx_location = get_location(available_phy_port[rx_id])
-
-        tx_speed = available_phy_port[tx_id]['speed']
-        rx_speed = available_phy_port[rx_id]['speed']
-
-        pytest_assert(tx_speed == rx_speed,
-            "Tx bandwidth must be equal to Rx bandwidth") 
-       
-        vlan_subnet = get_vlan_subnet(duthost)
-        pytest_assert(vlan_subnet is not None,
-                      "Fail to get Vlan subnet information")
-        vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
-
-        gw_addr = vlan_subnet.split('/')[0]
-        interface_ip_addr = vlan_ip_addrs[0]
-
-        bg_dscp_list = [prio for prio in lossless_prio_dscp_map]
-        test_dscp_list = [x for x in range(64) if x not in bg_dscp_list]
-
-        config = configure_pfc_lossy(
-            api = api,
-            phy_tx_port=tx_location,
-            phy_rx_port=rx_location,
-            port_speed=tx_speed,
-            tx_port_ip=vlan_ip_addrs[1],
-            rx_port_ip=vlan_ip_addrs[0],
-            tx_gateway_ip=gw_addr,
-            rx_gateway_ip=gw_addr,
-            test_data_priority=test_dscp_list,
-            background_data_priority=bg_dscp_list,
-            test_flow_name='Test Data',
-            background_flow_name='Background Data',
-            start_delay=START_DELAY)
-
-        configs.append(config)
-
-    return configs
 
 
-def test_pfc_pause_lossy_traffic(api, duthost, base_configs) :
+def test_pfc_pause_lossy_traffic(api, duthost, lossy_configs) :
     """
     This test case checks the behaviour of the SONiC DUT when it receives 
     a PFC pause frame on lossy priorities.
@@ -107,7 +32,8 @@ def test_pfc_pause_lossy_traffic(api, duthost, base_configs) :
     Background Dada Traffic     +-----------+  "lossy" priorities.
 
     1. Configure SONiC DUT with multipul lossless priorities. 
-    2. On SONiC DUT enable PFC on several priorities e.g priority 3 and 4.
+    2. On SONiC DUT enable PFC on several lossless priorities e.g priority 
+       3 and 4.
     3. On the Keysight chassis Tx port create two flows - a) 'Test Data Traffic'
        and b) 'Background Data traffic'.
     4. Configure 'Test Data Traffic' such that it contains traffic items
@@ -123,22 +49,21 @@ def test_pfc_pause_lossy_traffic(api, duthost, base_configs) :
        both 'Test Data Traffic' and 'Background Data traffic'.
     """
     duthost.shell('sudo pfcwd stop')
-    import json
 
-    for base_config in base_configs :
+    for base_config in lossy_configs:
 
-        # set config
+        # create the configuration
         api.set_config(base_config)
 
         # start all flows
-        api.set_flow_transmit(FlowTransmit('start'))
+        api.set_flow_transmit(FlowTransmit(state='start'))
 
         exp_dur = START_DELAY + TRAFFIC_DURATION
         logger.info("Traffic is running for %s seconds" %(exp_dur))
         time.sleep(exp_dur)
 
         # stop all flows
-        api.set_flow_transmit(FlowTransmit('stop'))
+        api.set_flow_transmit(FlowTransmit(state='stop'))
 
         # Get statistics
         test_stat = api.get_flow_results(FlowRequest())
