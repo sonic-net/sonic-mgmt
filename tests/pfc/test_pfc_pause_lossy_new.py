@@ -84,7 +84,7 @@ def serializer(request):
 
     return Serializer(request)
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def novus_100_gig_layer1(testbed,
                          conn_graph_facts,
                          api,
@@ -160,15 +160,15 @@ def novus_100_gig_layer1(testbed,
     return configs
 
 
-@pytest.fixture
-def configure_pfc_lossy(testbed,
-                        conn_graph_facts,
-                        duthost,
-                        api,
-                        fanout_graph_facts,
-                        lossless_prio_dscp_map,
-                        novus_100_gig_layer1,
-                        serializer) :
+@pytest.fixture(scope="function")
+def lossy_configs(testbed,
+                  conn_graph_facts,
+                  duthost,
+                  api,
+                  fanout_graph_facts,
+                  lossless_prio_dscp_map,
+                  novus_100_gig_layer1,
+                  serializer) :
 
     for config in novus_100_gig_layer1 :
 
@@ -190,7 +190,6 @@ def configure_pfc_lossy(testbed,
         tx_gateway_ip = gw_addr
         rx_gateway_ip = gw_addr
  
-
         test_flow_name = 'Test Data'
         background_flow_name = 'Background Data'
 
@@ -200,9 +199,9 @@ def configure_pfc_lossy(testbed,
 
         start_delay = START_DELAY 
         configure_pause_frame = 1
-        ###########################################################################
+        ######################################################################
         # Create TX stack configuration
-        ###########################################################################
+        ######################################################################
         tx_ipv4 = Ipv4(name='Tx Ipv4',
                        address=Pattern(tx_port_ip),
                        prefix=Pattern('24'),
@@ -220,9 +219,9 @@ def configure_pfc_lossy(testbed,
 
         config.device_groups.append(tx_device_group)
 
-        ###########################################################################
+        ######################################################################
         # Create RX stack configuration
-        ###########################################################################
+        ######################################################################
         rx_ipv4 = Ipv4(name='Rx Ipv4',
                        address=Pattern(rx_port_ip),
                        prefix=Pattern('24'),
@@ -239,9 +238,9 @@ def configure_pfc_lossy(testbed,
                                       devices=[rx_device])
 
         config.device_groups.append(rx_device_group)
-        ###########################################################################
+        ######################################################################
         # Traffic configuration Test data
-        ###########################################################################
+        ######################################################################
         data_endpoint = DeviceEndpoint(
             tx_device_names=[tx_device.name],
             rx_device_names=[rx_device.name],
@@ -267,9 +266,9 @@ def configure_pfc_lossy(testbed,
         )
 
         config.flows.append(test_flow)
-        ###########################################################################
+        #######################################################################
         # Traffic configuration Background data
-        ###########################################################################
+        #######################################################################
         background_dscp = Priority(Dscp(phb=PATTERN(choice=bg_dscp_list)))
         background_flow = Flow(
             name=background_flow_name,
@@ -284,9 +283,9 @@ def configure_pfc_lossy(testbed,
         )
         config.flows.append(background_flow)
 
-        ###########################################################################
+        #######################################################################
         # Traffic configuration Pause
-        ###########################################################################
+        #######################################################################
         if (configure_pause_frame) :
             pause_endpoint = PortEndpoint(tx_port_name='Rx', rx_port_names=['Rx'])
             pause = Header(PfcPause(
@@ -317,7 +316,7 @@ def configure_pfc_lossy(testbed,
     return novus_100_gig_layer1
 
 
-def test_pfc_pause_lossy_traffic(api, duthost, configure_pfc_lossy, serializer) :
+def test_pfc_pause_lossy_traffic(api, duthost, lossy_configs, serializer) :
     """
     This test case checks the behaviour of the SONiC DUT when it receives 
     a PFC pause frame on lossy priorities.
@@ -348,21 +347,20 @@ def test_pfc_pause_lossy_traffic(api, duthost, configure_pfc_lossy, serializer) 
     duthost.shell('sudo pfcwd stop')
     import json
 
-    for base_config in configure_pfc_lossy :
+    for base_config in lossy_configs:
 
-        #logger.info(serializer.json(base_config))
-        # set config
+        # create the configuration
         api.set_config(base_config)
 
         # start all flows
-        api.set_flow_transmit(FlowTransmit('start'))
+        api.set_flow_transmit(FlowTransmit(state='start'))
 
         exp_dur = START_DELAY + TRAFFIC_DURATION
         logger.info("Traffic is running for %s seconds" %(exp_dur))
         time.sleep(exp_dur)
 
         # stop all flows
-        api.set_flow_transmit(FlowTransmit('stop'))
+        api.set_flow_transmit(FlowTransmit(state='stop'))
 
         # Get statistics
         test_stat = api.get_flow_results(FlowRequest())
