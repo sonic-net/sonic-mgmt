@@ -123,7 +123,8 @@ OPTIONAL: We offer the functionality to run multiple master sets on one server.
 8. Join Kubernetes-enabled SONiC DUT to cluster (kube_join function to be written).
 
 
-To remove a HA Kubernetes master:
+#### To remove a HA Kubernetes master:
+
 Run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] destroy-master <k8s-server-name> ~/.password`
 
 For HA Kubernetes master set 1 running on server 19 shown above, the proper command would be: 
