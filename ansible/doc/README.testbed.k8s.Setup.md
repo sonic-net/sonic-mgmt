@@ -51,9 +51,17 @@ In order to connect each SONiC DUT to a High Availability Kubernetes master, we 
 
 1. Prepare Testbed Server and build and run `docker-sonic-mgmt` container as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md) 
 2. Allocate 4 available IPs reachable from SONiC DUT.
-3. Update [`ansible/k8s-ubuntu`](../k8s-ubuntu) to include your 4 newly allocated IP addresses for the HA Kubernetes master.
+3. Update [`ansible/k8s-ubuntu`](../k8s-ubuntu) to include your 4 newly allocated IP addresses for the HA Kubernetes master and IP address of testbed server.
 
-We will walk through an example of setting up HA Kubernetes master set 1 on server 19 (STR-ACS-SERV-19). The following snippet is the relevant portion from [`ansible/k8s-ubuntu`](../k8s-ubuntu).
+We will walk through an example of setting up HA Kubernetes master set 1 on server 19 (STR-ACS-SERV-19). The following snippets are the relevant portions from [`ansible/k8s-ubuntu`](../k8s-ubuntu).
+
+   ```
+   k8s_vm_host19:
+     hosts:
+       STR-ACS-SERV-19:
+         ansible_host: 10.251.0.101
+  ```
+Replace ansible_host value with the IP address of the testbed server.
 
   ```
   k8s_vms1_19:

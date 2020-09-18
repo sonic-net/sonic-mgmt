@@ -328,13 +328,12 @@ function config_vm
 
 function start_k8s_vms
 {
-  #vmfile=k8s-ubuntu
   server=$1
   servernumber="${server#*"k8s_server_"}"
-  #msetnumber="${masterset#*"set"}"
   passwd=$2
   shift
   shift
+
   echo "Starting Kubernetes VMs on server '${server}'"
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_k8s_VMs.yml -vvv --vault-password-file="${passwd}" -e k8s="true" -l "${server}" $@
@@ -342,26 +341,23 @@ function start_k8s_vms
 
 function setup_k8s_vms
 {
-  #vmfile=k8s-ubuntu
   server=$1
   servernumber="${server#*"k8s_server_"}"
-  #masterset=$2
-  #msetnumber="${masterset#*"set"}"
-  #echo "Server number '$servernumber' Mset number '$msetnumber'"
   passwd=$2
+
   echo "Setting up Kubernetes VMs on server '${server}'"
+  
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -vvv -i $vmfile testbed_setup_k8s_master.yml -vvv -e servernumber="${servernumber}" -e k8s="true" -e msetnumber="${msetnumber}" 
 }
 
 function stop_k8s_vms
 {
-  #vmfile=k8s-ubuntu
   server=$1
   servernumber="${server#*"k8s_server_"}"
-  #masterset=$2
   passwd=$2
   shift
   shift
+  
   echo "Stopping Kubernetes VMs on server '${server}'"
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_k8s_VMs.yml -vvv --vault-password-file="${passwd}" -l "${server}" -e k8s="true" $@
