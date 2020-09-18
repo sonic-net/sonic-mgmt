@@ -65,13 +65,13 @@ class KustoConnector(ReportDBConnector):
         """
         self.db_name = db_name
 
-        ingest_cluster = os.getenv("TESTPILOT_INGEST_KUSTO_CLUSTER")
-        tenant_id = os.getenv("TESTPILOT_AAD_TENANT_ID")
-        service_id = os.getenv("TESTPILOT_AAD_CLIENT_ID")
-        service_key = os.getenv("TESTPILOT_AAD_CLIENT_KEY")
+        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
+        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
+        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
+        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
 
         if not ingest_cluster or not tenant_id or not service_id or not service_key:
-            raise RuntimeError("Could not load Testpilot Kusto Credentials from environment")
+            raise RuntimeError("Could not load Kusto Credentials from environment")
 
         kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
                                                                                     service_id,
