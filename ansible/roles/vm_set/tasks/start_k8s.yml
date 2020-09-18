@@ -1,3 +1,6 @@
+- name: Ensure {{ k8s_root_path }} exists
+  file: path={{ k8s_root_path }} state=directory
+
 - name: Find current server group
   set_fact: current_server={{ group_names | extract_by_prefix('k8s_server_') }}
 
