@@ -1,0 +1,8 @@
+---
+# This playbook configures and initializes 3 Kubernetes master backend VMs and 1 HAProxy VM to form 1 HA Kubernetes master set 
+#
+- hosts: k8s_vms{{ msetnumber }}_{{ servernumber }}
+  gather_facts: yes
+  roles:
+    - { role: k8s_haproxy, when: haproxy is defined}
+    - { role: k8s_master, when: master is defined}

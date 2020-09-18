@@ -1,0 +1,4 @@
+k8s_root_path: /home/azure/ubuntu-vm
+k8s_vm_images_url: https://acsbe.blob.core.windows.net/vmimages
+k8s_hdd_image_filename: bionic-server-cloudimg-amd64.qcow2
+k8s_skip_image_downloading: false

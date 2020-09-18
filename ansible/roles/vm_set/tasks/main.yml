@@ -71,6 +71,7 @@
     - curl
     - software-properties-common
     - libvirt-clients
+    - cloud-image-utils
 
 - name:
   apt:
@@ -156,87 +157,66 @@
       when: home_path is not defined
     - debug: msg="{{ home_path }}"
 
-- name: Require VMs by default
-  set_fact:
-    vm_required: true
+- name: Ensure {{ root_path }} exists
+  file: path={{ root_path }} state=directory
+  when: k8s is not defined
 
-- name: VMs not needed in case of Keysight API Server
-  set_fact:
-    vm_required: false
-  when:
-    - ptf_imagename is defined
-    - ptf_imagename == "docker-keysight-api-server"
+- name: Install cleanup script
+  template: src=cleanup.sh.j2
+            dest={{ root_path }}/cleanup.sh
+  when: k8s is not defined
 
-- block:
-    - name: Ensure {{ root_path }} exists
-      file: path={{ root_path }} state=directory
+- name: Copy vm_resumer.py to the {{ root_path }}
+  become: true
+  copy:
+    src: roles/vm_set/files/vm_resumer.py
+    dest: "{{ root_path }}"
+    mode: 0755
+  when: k8s is not defined
 
-    - name: Install cleanup script
-      template: src=cleanup.sh.j2
-                dest={{ root_path }}/cleanup.sh
+- name: Retrieve a list of the defined VMs
+  virt: command=list_vms
+        uri=qemu:///system
+  register: vm_list_defined
+  become: true
 
-    - name: Copy vm_resumer.py to the {{ root_path }}
-      become: true
-      copy:
-        src: roles/vm_set/files/vm_resumer.py
-        dest: "{{ root_path }}"
-        mode: 0755
+- name: Retrieve a list of the running VMs
+  virt: command=list_vms
+        uri=qemu:///system
+        state=running
+  register: vm_list_running
+  become: true
 
-    - name: Retrieve a list of the defined VMs
-      virt: command=list_vms
-            uri=qemu:///system
-      register: vm_list_defined
-      become: true
+- name: Retrieve a list of the paused VMs
+  virt: command=list_vms
+        uri=qemu:///system
+        state=pause
+  register: vm_list_paused
+  become: true
 
-    - name: Retrieve a list of the running VMs
-      virt: command=list_vms
-            uri=qemu:///system
-            state=running
-      register: vm_list_running
-      become: true
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+  when: k8s is not defined
 
-    - name: Retrieve a list of the paused VMs
-      virt: command=list_vms
-            uri=qemu:///system
-            state=pause
-      register: vm_list_paused
-      become: true
+- name: Extract VM names from the inventory
+  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
+  when: k8s is not defined
 
-    - name: Find current server group
-      set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+- name: Limit VM
+  set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
+  when: VM_num is defined and VM_num|int > 0
 
-    - name: Extract VM names from the inventory
-      set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
+- name: Generate vm list of target VMs
+  set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+  when: topology['VMs'] is defined
 
-    - name: Limit VM
-      set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
-      when: VM_num is defined and VM_num|int > 0
+- name: Stop VMs
+  include_tasks: stop.yml
+  when: action == 'stop'
 
-    - name: Generate vm list of target VMs
-      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
-      when: topology['VMs'] is defined
-
-    - name: Stop VMs
-      include_tasks: stop.yml
-      when: action == 'stop'
-
-    - name: Start VMs
-      include_tasks: start.yml
-      when: action == 'start'
-
-    - name: Connect VMs
-      include_tasks: connect_vms.yml
-      when: action == 'connect_vms'
-
-    - name: Disconnect VMs
-      include_tasks: disconnect_vms.yml
-      when: action == 'disconnect_vms'
-
-    - name: Renumber topology
-      include_tasks: renumber_topo.yml
-      when: action == 'renumber_topo'
-
-  when: vm_required is defined and vm_required == True
+- name: Start VMs
+  include_tasks: start.yml
+  when: action == 'start'
 
 - name: Add topology
   include_tasks: add_topo.yml
@@ -245,6 +225,26 @@
 - name: Remove topology
   include_tasks: remove_topo.yml
   when: action == 'remove_topo'
+
+- name: Renumber topology
+  include_tasks: renumber_topo.yml
+  when: action == 'renumber_topo'
+
+- name: Connect VMs
+  include_tasks: connect_vms.yml
+  when: action == 'connect_vms'
+
+- name: Disconnect VMs
+  include_tasks: disconnect_vms.yml
+  when: action == 'disconnect_vms'
+
+- name: Stop Kubernetes VMs
+  include_tasks: stop_k8s.yml
+  when: action == 'stop_k8s'
+
+- name: Start Kubernetes VMs
+  include_tasks: start_k8s.yml
+  when: action == 'start_k8s'
 
 - block:
     - name: Start SONiC VM
@@ -267,3 +267,5 @@
     - dut_name.split(',')|length == 1
     - hostvars[dut_name] is defined
     - hostvars[dut_name].type is defined
+
+

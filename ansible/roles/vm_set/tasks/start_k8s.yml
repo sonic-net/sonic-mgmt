@@ -1,0 +1,56 @@
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('k8s_server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: kvm_hosts={{ groups[current_server] | filter_by_prefix('kvm') | sort}}
+
+- name: Create directory for Ubuntu VM image
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "{{ k8s_root_path }}/images"
+
+- name: Check Ubuntu 18.04 cloud image
+  uri: 
+    url: https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img
+    method: HEAD
+  register: cloudimg_http_stat
+  check_mode: no
+  environment: "{{ proxy_env | default({}) }}" 
+
+- name: Check local cloud image 
+  stat: 
+    path: "{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
+    get_checksum: no 
+  register: cloudimg_local_stat 
+
+- name: Update Ubuntu 18.04 cloud image
+  get_url:
+    url: https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img
+    dest: "{{ k8s_root_path }}/images/bionic-server-cloudimg-amd64.img"
+  when: not cloudimg_local_stat.stat.exists or 
+        cloudimg_local_stat.stat.size != cloudimg_http_stat.content_length
+  register: cloudimg_local_updated 
+  environment: "{{ proxy_env | default({}) }}"
+
+#- name: Download Ubuntu 18.04 hdd image
+#  get_url: url="{{ k8s_vm_images_url }}/{{ k8s_hdd_image_filename }}?{{ vmimage_saskey }}" dest="{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
+#  when: not cloudimg_local_stat.stat.exists and not k8s_skip_image_downloading
+
+- name: Convert cloud image qcow format 
+  shell: 
+    chdir: "{{ k8s_root_path }}/images"
+    cmd: qemu-img convert -f qcow2 bionic-server-cloudimg-amd64.img bionic-server-cloudimg-amd64.qcow2
+    creates: "{{ k8s_root_path }}/images/bionic-server-cloudimg-amd64.qcow2"
+  when: cloudimg_local_updated.changed|bool
+
+- name: Start Kubernetes VMs
+  include_tasks: start_k8s_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    src_disk_image: "{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
+    disk_image: "{{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_hdd.qcow2"
+    mgmt_gw: "{{ mgmt_gw_k8s }}"
+  with_items: "{{ kvm_hosts }}"
+
