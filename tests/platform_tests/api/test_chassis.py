@@ -53,10 +53,10 @@ ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 @pytest.fixture(scope="class")
 def gather_facts(request, duthost):
-    # Get platform truths from platform.json file
-    request.cls.chassis_truth = duthost.facts.get("chassis")
-    if not request.cls.chassis_truth:
-        logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
+    # Get platform facts from platform.json file
+    request.cls.chassis_facts = duthost.facts.get("chassis")
+    if not request.cls.chassis_facts:
+        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
 
     # Get host vars from inventory file
     request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
@@ -66,7 +66,7 @@ def gather_facts(request, duthost):
 class TestChassisApi(PlatformApiTestBase):
     """Platform API test cases for the Chassis class"""
 
-    chassis_truth = None
+    chassis_facts = None
     duthost_vars = None
 
     #
@@ -76,8 +76,8 @@ class TestChassisApi(PlatformApiTestBase):
     def compare_value_with_platform_facts(self, key, value):
         expected_value = None
 
-        if self.chassis_truth:
-            expected_value = self.chassis_truth.get(key)
+        if self.chassis_facts:
+            expected_value = self.chassis_facts.get(key)
 
         if not expected_value:
             logger.warning("Unable to get expected value for '{}' from platform.json file".format(key))
@@ -226,8 +226,8 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_components is not an integer")
 
-        if self.chassis_truth:
-            expected_num_components = len(self.chassis_truth.get('components'))
+        if self.chassis_facts:
+            expected_num_components = len(self.chassis_facts.get('components'))
             pytest_assert(num_components == expected_num_components,
                           "Number of components ({}) does not match expected number ({})"
                           .format(num_components, expected_num_components))
@@ -262,8 +262,8 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_fans is not an integer")
 
-        if self.chassis_truth:
-            expected_num_fans = len(self.chassis_truth.get('fans'))
+        if self.chassis_facts:
+            expected_num_fans = len(self.chassis_facts.get('fans'))
             pytest_assert(num_fans == expected_num_fans,
                           "Number of fans ({}) does not match expected number ({})"
                           .format(num_fans, expected_num_fans))
@@ -283,8 +283,8 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_fan_drawers is not an integer")
 
-        if self.chassis_truth:
-            expected_num_fan_drawers = len(self.chassis_truth.get('fan_drawers'))
+        if self.chassis_facts:
+            expected_num_fan_drawers = len(self.chassis_facts.get('fan_drawers'))
             pytest_assert(num_fan_drawers == expected_num_fan_drawers,
                           "Number of fan drawers ({}) does not match expected number ({})"
                           .format(num_fan_drawers, expected_num_fan_drawers))
@@ -304,8 +304,8 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_psus is not an integer")
 
-        if self.chassis_truth:
-            expected_num_psus = len(self.chassis_truth.get('psus'))
+        if self.chassis_facts:
+            expected_num_psus = len(self.chassis_facts.get('psus'))
             pytest_assert(num_psus == expected_num_psus,
                           "Number of psus ({}) does not match expected number ({})"
                           .format(num_psus, expected_num_psus))
@@ -325,8 +325,8 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_thermals is not an integer")
 
-        if self.chassis_truth:
-            expected_num_thermals = len(self.chassis_truth.get('thermals'))
+        if self.chassis_facts:
+            expected_num_thermals = len(self.chassis_facts.get('thermals'))
             pytest_assert(num_thermals == expected_num_thermals,
                           "Number of thermals ({}) does not match expected number ({})"
                           .format(num_thermals, expected_num_thermals))
@@ -346,8 +346,8 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_sfps is not an integer")
 
-        if self.chassis_truth:
-            expected_num_sfps = len(self.chassis_truth.get('sfps'))
+        if self.chassis_facts:
+            expected_num_sfps = len(self.chassis_facts.get('sfps'))
             pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))
