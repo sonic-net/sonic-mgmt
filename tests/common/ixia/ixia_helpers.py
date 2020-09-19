@@ -9,7 +9,6 @@ This module also contains a definition of a simple helper class
 "IxiaFanoutManager" which can be used to manage cards and ports of ixia 
 chassis instead of reading it from fanout_graph_facts fixture.
 """
-
 from tests.common.reboot import logger
 from ixnetwork_restpy import SessionAssistant, Files
 
@@ -734,6 +733,33 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
     return traffic_item
 
+def get_location (intf) :
+    """ Extracting location from interface, since TgenApi accepts location 
+    in terms of chassis ip, card, and port in different format.
+    
+    Note: Interface must have the keys 'ip', 'card_id' and 'port_id'
+                                                                                                           
+    Args:
+    intf (dict) : intf must containg the keys 'ip', 'card_id', 'port_id'.
+        Example format :
+        {'ip': u'10.36.78.53', 
+         'port_id': u'1', 
+         'card_id': u'9', 
+         'speed': 100000, 
+         'peer_port': u'Ethernet0'}
+
+    Returns: location in string format. Example: '10.36.78.5;1;2' where
+    1 is card_id and 2 is port_id.
+    """    
+    location = None
+    try :
+        location = str("%s;%s;%s"%(intf['ip'],intf['card_id'],intf['port_id']))
+    except :
+        pytest_assert(False,
+            "Interface must have the keys 'ip', 'card_id' and 'port_id'")
+    return location
+
+
 # This section defines helper function used in the module. These functions
 # should not be called from test script.
 # 1. __set_global_pause_fields 
@@ -812,6 +838,20 @@ def __set_pfc_fields(pfc_stack_obj, pause_prio_list):
             pause_duration.SingleValue = 'ffff'
         else:
             pause_duration.SingleValue = '0'
+
+def __set_global_pause_fields__(pfc_stack_obj):
+    code = pfc_stack_obj.find(DisplayName='Control opcode')
+    code.ValueType = 'singleValue'
+    code.SingleValue = '1'
+
+    prio_enable_vector = pfc_stack_obj.find(DisplayName='priority_enable_vector')
+    prio_enable_vector.ValueType = 'singleValue'
+    prio_enable_vector.SingleValue = 'ffff'
+
+    for i in range(8):
+        pause_duration = pfc_stack_obj.find(DisplayName='PFC Queue {}'.format(i))
+        pause_duration.ValueType = 'singleValue'
+        pause_duration.SingleValue = '0'
 
 
 def __create_pkt_hdr(ixnetwork, 
