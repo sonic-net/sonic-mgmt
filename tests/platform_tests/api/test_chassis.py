@@ -247,12 +247,6 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_modules is not an integer")
 
-        if self.chassis_truth:
-            expected_num_modules = len(self.chassis_truth.get('modules'))
-            pytest_assert(num_modules == expected_num_modules,
-                          "Number of modules ({}) does not match expected number ({})"
-                          .format(num_modules, expected_num_modules))
-
         module_list = chassis.get_all_modules(platform_api_conn)
         pytest_assert(module_list is not None, "Failed to retrieve modules")
         pytest_assert(isinstance(module_list, list) and len(module_list) == num_modules, "Modules appear to be incorrect")
