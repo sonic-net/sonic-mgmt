@@ -462,13 +462,15 @@ class QosSaiBase:
             Returns:
                 None
         """
-        ignoreRegex = [
-            ".*ERR monit.*'lldpd_monitor' process is not running",
-            ".*ERR monit.*'lldp_syncd' process is not running",
-            ".*ERR monit.*'bgpd' process is not running",
-            ".*ERR monit.*'bgpcfgd' process is not running",
-        ]
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        if loganalyzer:
+            ignoreRegex = [
+                ".*ERR monit.*'lldpd_monitor' process is not running",
+                ".*ERR monit.*'lldp_syncd' process is not running",
+                ".*ERR monit.*'bgpd' process is not running",
+                ".*ERR monit.*'bgpcfgd' process is not running",
+                ".*ERR syncd#syncd:.*brcm_sai_set_switch_attribute:.*updating switch mac addr failed.*"
+            ]
+            loganalyzer.ignore_regex.extend(ignoreRegex)
 
         yield
 

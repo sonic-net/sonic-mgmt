@@ -16,7 +16,7 @@ def reboot_dut(dut, localhost, cmd, wait_time):
 
     logger.info("Wait for DUT to go down")
     try:
-        localhost.wait_for(host=dut.hostname, port=22, state="stopped", delay=10, timeout=300)
+        localhost.wait_for(host=dut.mgmt_ip, port=22, state="stopped", delay=10, timeout=300)
     except RunAnsibleModuleFail as e:
         logger.error("DUT did not go down, exception: " + repr(e))
         if reboot_task.is_alive():
@@ -25,7 +25,7 @@ def reboot_dut(dut, localhost, cmd, wait_time):
         logger.error("reboot result %s" % str(reboot_res.get()))
         assert False, "Failed to reboot the DUT"
 
-    localhost.wait_for(host=dut.hostname, port=22, state="started", delay=10, timeout=300)
+    localhost.wait_for(host=dut.mgmt_ip, port=22, state="started", delay=10, timeout=300)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 

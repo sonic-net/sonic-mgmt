@@ -28,8 +28,8 @@ def disable_ssh_timout(dut):
     @param dut: Ansible host DUT
     '''
     logger.info('Disabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i 's/^ClientAliveInterval/#&/' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
+    dut.command("sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak")
+    dut.command("sudo sed -i -e 's/^ClientAliveInterval/#&/' -e 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
 
     dut.command("sudo systemctl restart ssh")
     time.sleep(5)
@@ -41,8 +41,7 @@ def enable_ssh_timout(dut):
     @param dut: Ansible host DUT
     '''
     logger.info('Enabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i '/^#ClientAliveInterval/s/^#//' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i '/^#ClientAliveCountMax/s/^#//' /etc/ssh/sshd_config")
+    dut.command("sudo mv /etc/ssh/sshd_config.bak /etc/ssh/sshd_config")
 
     dut.command("sudo systemctl restart ssh")
     time.sleep(5)
