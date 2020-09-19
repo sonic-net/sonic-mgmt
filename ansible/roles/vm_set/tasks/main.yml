@@ -71,7 +71,6 @@
     - curl
     - software-properties-common
     - libvirt-clients
-    - cloud-image-utils
 
 - name:
   apt:

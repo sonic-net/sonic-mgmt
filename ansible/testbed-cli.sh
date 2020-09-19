@@ -347,7 +347,7 @@ function setup_k8s_vms
 
   echo "Setting up Kubernetes VMs on server '${server}'"
   
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -vvv -i $vmfile testbed_setup_k8s_master.yml -vvv -e servernumber="${servernumber}" -e k8s="true" -e msetnumber="${msetnumber}" 
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -vvv -i $vmfile testbed_setup_k8s_master.yml -vvv -e servernumber="${servernumber}" -e k8s="true" -e msetnumber="${msetnumber}" --extra-vars "ansible_ssh_user=ubuntu ansible_ssh_pass=admin" 
 }
 
 function stop_k8s_vms

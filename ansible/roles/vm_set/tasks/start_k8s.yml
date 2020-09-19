@@ -1,3 +1,8 @@
+- name: Install cloud-image-utils
+  apt:
+    name: cloud-image-utils
+    state: present
+
 - name: Ensure {{ k8s_root_path }} exists
   file: path={{ k8s_root_path }} state=directory
 
