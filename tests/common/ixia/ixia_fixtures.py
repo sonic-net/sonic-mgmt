@@ -150,9 +150,14 @@ def api (ixia_api_serv_ip,
          ixia_api_serv_session_id) :
 
     if (ixia_api_serv_session_id.lower() != 'none') :
+        # Currently Tgen APIs do not support to connect to
+        # a specific session ID 
         pass
     else: 
-        api_session = IxNetworkApi(ixia_api_serv_ip, port=ixia_api_serv_port)
+        api_session = IxNetworkApi(ixia_api_serv_ip, 
+                                   port=ixia_api_serv_port,
+                                   username=ixia_api_serv_user,
+                                   password=ixia_api_serv_passwd)
 
     yield api_session
 

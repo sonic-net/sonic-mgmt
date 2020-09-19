@@ -1,7 +1,5 @@
-import logging
 import time
 import pytest
-import json
 
 from abstract_open_traffic_generator.result import FlowRequest
 from abstract_open_traffic_generator.control import FlowTransmit
@@ -10,17 +8,19 @@ from tests.common.reboot import logger
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts 
 
-
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port,\
     ixia_api_serv_session_id, api
 
 from files.configs.pfc import lossy_configs, one_hundred_gbe, serializer
-from files.configs.pfc import START_DELAY, TRAFFIC_DURATION
+from files.configs.pfc import start_delay, traffic_duration
 from files.qos_fixtures import lossless_prio_dscp_map
 
-
-def test_pfc_pause_lossy_traffic(api, duthost, lossy_configs) :
+def test_pfc_pause_lossy_traffic(api, 
+                                 duthost, 
+                                 lossy_configs, 
+                                 start_delay, 
+                                 traffic_duration) :
     """
     This test case checks the behaviour of the SONiC DUT when it receives 
     a PFC pause frame on lossy priorities.
@@ -58,7 +58,7 @@ def test_pfc_pause_lossy_traffic(api, duthost, lossy_configs) :
         # start all flows
         api.set_flow_transmit(FlowTransmit(state='start'))
 
-        exp_dur = START_DELAY + TRAFFIC_DURATION
+        exp_dur = start_delay + traffic_duration
         logger.info("Traffic is running for %s seconds" %(exp_dur))
         time.sleep(exp_dur)
 

@@ -1,32 +1,13 @@
-import logging
 import time
 import pytest
-import json
 import sys
 
-from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
-from abstract_open_traffic_generator.result import FlowRequest
-
 from tests.common.reboot import logger
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
-
 from tests.common.helpers.assertions import pytest_assert
-
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port,\
-    ixia_api_serv_session_id, api
-
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_location
 
 from tests.common.ixia.common_helpers import get_vlan_subnet, \
     get_addrs_in_subnet
-
-from ..qos_fixtures import lossless_prio_dscp_map
-from abstract_open_traffic_generator.control import FlowTransmit
-
-START_DELAY = 1
-TRAFFIC_DURATION = 5
 
 ###############################################################################
 # Imports for Tgen and IxNetwork abstract class
@@ -50,12 +31,21 @@ from abstract_open_traffic_generator.flow import\
 from abstract_open_traffic_generator.flow_ipv4 import\
     Priority, Dscp
 
-from abstract_open_traffic_generator.flow import Pattern as PATTERN
-from abstract_open_traffic_generator.flow import Ipv4 as IPV4
-from abstract_open_traffic_generator.flow import Vlan as VLAN
-from abstract_open_traffic_generator.flow import Ethernet as ETHERNET
+from abstract_open_traffic_generator.flow import Pattern as FieldPattern
+from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
+from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.port import Options as PortOptions
-from abstract_open_traffic_generator.control import FlowTransmit
+
+@pytest.fixture
+def start_delay():
+    start_delay = 1
+    return start_delay
+
+
+@pytest.fixture
+def traffic_duration():
+    traffic_duration = 5
+    return traffic_duration  
 
 
 @pytest.fixture(scope='session')
@@ -84,10 +74,10 @@ def serializer(request):
 
     return Serializer(request)
 
+
 @pytest.fixture
 def one_hundred_gbe(testbed,
                     conn_graph_facts,
-                    api,
                     fanout_graph_facts,
                     serializer) :
 
@@ -118,8 +108,6 @@ def one_hundred_gbe(testbed,
 
         pytest_assert(tx_speed == rx_speed,
             "Tx bandwidth must be equal to Rx bandwidth")
-
-        api.set_config(None)
 
         #########################################################################
         # common L1 configuration
@@ -164,9 +152,9 @@ def one_hundred_gbe(testbed,
 def lossy_configs(testbed,
                   conn_graph_facts,
                   duthost,
-                  api,
                   lossless_prio_dscp_map,
                   one_hundred_gbe,
+                  start_delay,
                   serializer) :
 
     for config in one_hundred_gbe :
@@ -196,7 +184,6 @@ def lossy_configs(testbed,
         background_line_rate = 50
         pause_line_rate = 100
 
-        start_delay = START_DELAY
         configure_pause_frame = 1
         ######################################################################
         # Create TX stack configuration
@@ -250,14 +237,14 @@ def lossy_configs(testbed,
             allow_self_destined=False
         )
 
-        test_dscp = Priority(Dscp(phb=PATTERN(choice=test_dscp_list)))
+        test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
 
         test_flow = Flow(
             name=test_flow_name,
             endpoint=Endpoint(data_endpoint),
             packet=[
-                Header(choice=ETHERNET()),
-                Header(choice=IPV4(priority=test_dscp))
+                Header(choice=EthernetHeader()),
+                Header(choice=Ipv4Header(priority=test_dscp))
             ],
             size=Size(1024),
             rate=Rate('line', test_line_rate),
@@ -268,13 +255,13 @@ def lossy_configs(testbed,
         #######################################################################
         # Traffic configuration Background data
         #######################################################################
-        background_dscp = Priority(Dscp(phb=PATTERN(choice=bg_dscp_list)))
+        background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
         background_flow = Flow(
             name=background_flow_name,
             endpoint=Endpoint(data_endpoint),
             packet=[
-                Header(choice=ETHERNET()),
-                Header(choice=IPV4(priority=background_dscp))
+                Header(choice=EthernetHeader()),
+                Header(choice=Ipv4Header(priority=background_dscp))
             ],
             size=Size(1024),
             rate=Rate('line', background_line_rate),
@@ -288,17 +275,17 @@ def lossy_configs(testbed,
         if (configure_pause_frame) :
             pause_endpoint = PortEndpoint(tx_port_name='Rx', rx_port_names=['Rx'])
             pause = Header(PfcPause(
-                dst=PATTERN(choice='01:80:C2:00:00:01'),
-                src=PATTERN(choice='00:00:fa:ce:fa:ce'),
-                class_enable_vector=PATTERN(choice='E7'),
-                pause_class_0=PATTERN(choice='ffff'),
-                pause_class_1=PATTERN(choice='ffff'),
-                pause_class_2=PATTERN(choice='ffff'),
-                pause_class_3=PATTERN(choice='0'),
-                pause_class_4=PATTERN(choice='0'),
-                pause_class_5=PATTERN(choice='ffff'),
-                pause_class_6=PATTERN(choice='ffff'),
-                pause_class_7=PATTERN(choice='ffff'),
+                dst=FieldPattern(choice='01:80:C2:00:00:01'),
+                src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
+                class_enable_vector=FieldPattern(choice='E7'),
+                pause_class_0=FieldPattern(choice='ffff'),
+                pause_class_1=FieldPattern(choice='ffff'),
+                pause_class_2=FieldPattern(choice='ffff'),
+                pause_class_3=FieldPattern(choice='0'),
+                pause_class_4=FieldPattern(choice='0'),
+                pause_class_5=FieldPattern(choice='ffff'),
+                pause_class_6=FieldPattern(choice='ffff'),
+                pause_class_7=FieldPattern(choice='ffff'),
             ))
 
             pause_flow = Flow(
