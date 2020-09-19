@@ -86,7 +86,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(value == expected_value,
                       "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
-    def compare_value_with_device_facts(self, key, value):
+    def compare_value_with_device_facts(self, key, value, case_sensitive=True):
         expected_value = None
 
         if self.duthost_vars:
@@ -96,8 +96,14 @@ class TestChassisApi(PlatformApiTestBase):
             logger.warning("Unable to get expected value for '{}' from inventory file".format(key))
             return
 
-        pytest_assert(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
+        if case_sensitive:
+            pytest_assert(value == expected_value,
+                          "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
+        else:
+            value_lower = value.lower()
+            expected_value_lower = expected_value.lower()
+            pytest_assert(value_lower == expected_value_lower,
+                          "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -142,7 +148,7 @@ class TestChassisApi(PlatformApiTestBase):
         base_mac = chassis.get_base_mac(platform_api_conn)
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
-        self.compare_value_with_device_facts('base_mac', base_mac)
+        self.compare_value_with_device_facts('base_mac', base_mac, False)
 
     def test_get_serial_number(self, duthost, localhost, platform_api_conn):
         # Ensure the serial number is sane
