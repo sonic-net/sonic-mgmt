@@ -12,7 +12,7 @@ FORCE=no
 STRICT=no
 REBOOT_METHOD="/sbin/kexec -e"
 ASSISTANT_IP_LIST=""
-ASSISTANT_SCRIPT="/usr/bin/neighbor_advertiser"
+ASSISTANT_SCRIPT="/usr/local/bin/neighbor_advertiser"
 
 # Require 100M available on the hard drive for warm reboot temp files,
 # Size is in 1K blocks:
@@ -263,7 +263,7 @@ function reboot_pre_check()
     fi
     
     # Make sure ASIC configuration has not changed between images
-    ASIC_CONFIG_CHECK_SCRIPT="/usr/bin/asic_config_check"
+    ASIC_CONFIG_CHECK_SCRIPT="/usr/local/bin/asic_config_check"
     ASIC_CONFIG_CHECK_SUCCESS=0
     if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
         ASIC_CONFIG_CHECK_EXIT_CODE=0
@@ -382,7 +382,7 @@ if [[ "$REBOOT_TYPE" = "fast-reboot" ]]; then
     # into /host/fast-reboot
     mkdir -p /host/fast-reboot
     FAST_REBOOT_DUMP_RC=0
-    /usr/bin/fast-reboot-dump.py -t /host/fast-reboot || FAST_REBOOT_DUMP_RC=$?
+    /usr/local/bin/fast-reboot-dump.py -t /host/fast-reboot || FAST_REBOOT_DUMP_RC=$?
     if [[ FAST_REBOOT_DUMP_RC -ne 0 ]]; then
         error "Failed to run fast-reboot-dump.py. Exit code: $FAST_REBOOT_DUMP_RC"
         unload_kernel
