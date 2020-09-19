@@ -282,9 +282,6 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
-    admin_user = creds['fanout_admin_user']
-    admin_password = creds['fanout_admin_password']
-
     try:
         for dut_port in dev_conn.keys():
             fanout_rec = dev_conn[dut_port]
@@ -297,7 +294,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                 host_vars = ansible_adhoc().options[
                     'inventory_manager'].get_host(fanout_host).vars
                 os_type = host_vars.get('os', 'eos')
-
+                admin_user = creds['fanout_admin_user']
+                admin_password = creds['fanout_admin_password']
                 # `fanout_network_user` and `fanout_network_password` are for
                 # accessing the non-shell CLI of fanout.
                 # Ansible will use this set of credentail for establishing
