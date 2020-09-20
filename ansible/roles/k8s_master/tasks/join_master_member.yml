@@ -1,5 +1,6 @@
 - name: Generated token - 1.
   local_action: shell sed -n 70,73p ./token > ./mastertoken
+
 - name: Copy master token
   copy: 
     src: ./mastertoken
@@ -7,10 +8,13 @@
     owner: root
     group: root
     mode: '0777'
+
 - name: Generated token - 2.
   shell: sed -i 's/\b:80\b/& --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --ignore-preflight-errors=NumCPU/' /tmp/join-command.sh
+
 - name: Add new Kubernetes master member
   command: sh /tmp/join-command.sh
+
 - name: Create .kube directory
   become: yes
   become_user: ubuntu
@@ -18,6 +22,7 @@
     path: $HOME/.kube
     state: directory
     mode: 0755
+
 - name: Copy admin.conf to user's kube config
   copy:
     src: /etc/kubernetes/admin.conf

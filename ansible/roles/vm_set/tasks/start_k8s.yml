@@ -2,6 +2,7 @@
   apt:
     name: cloud-image-utils
     state: present
+  become: yes
 
 - name: Ensure {{ k8s_root_path }} exists
   file: path={{ k8s_root_path }} state=directory
