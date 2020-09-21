@@ -1,7 +1,5 @@
 - name: Create directory for Ubuntu VM disks
-  file: path={{ item }} state=directory mode=0755
-  with_items:
-    - "{{ k8s_root_path }}/{{ vm_name }}"
+  file: path={{ k8s_root_path }}/{{ vm_name }} state=directory mode=0755
 
 - name: Check destination file existence
   stat: path={{ disk_image }}

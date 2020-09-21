@@ -6,10 +6,6 @@
   apt: name=haproxy state=present
   environment: "{{ proxy_env | default({}) }}" 
 
-- name: Check that servernumber is defined
-  fail: msg="servernumber not define"
-  when: servernumber is not defined
-
 - name: Enable init script
   replace: dest='/etc/default/haproxy'
          regexp='ENABLED=0'

@@ -1,7 +1,7 @@
 - name: Get IP Address for HAProxy Machine
   set_fact: 
     haproxy_ip="{{ hostvars[item].ansible_ens2.ipv4.address }}"
-  when: "{{ hostvars[item].haproxy is defined }}"
+  when: hostvars[item].haproxy is defined
   with_items: 
   - "{{ groups['k8s_vms' + msetnumber + '_' + servernumber] }}"
 
