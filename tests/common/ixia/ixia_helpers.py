@@ -708,7 +708,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
     if start_delay > 0:
         traffic_config.TransmissionControl.update(
             StartDelayUnits='nanoseconds',
-            StartDelay=start_delay*(10**6))
+            StartDelay=start_delay*(10**9))
 
     # Add PFC header
     pfc_stack_obj = __create_pkt_hdr(
