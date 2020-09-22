@@ -360,20 +360,20 @@ sonic_mlnx_40:
       ansible_host: 10.3.147.45
       pdu_host: pdu-99
       hwsku: Mellanox-SN2700
-      serial: MT1552X08318
-      base_mac: 7c:fe:90:e8:10:c0
+      serial: MT2020T04274
+      base_mac: 1c:34:da:a1:a5:80
       syseeprom_info:
-        "0x21": "Panther"
+        "0x21": "MSN2700"
         "0x22": "MSN2700-CS2FO"
-        "0x23": "MT1552X08318"
-        "0x24": "7C:FE:90:E8:10:C0"
-        "0x25": "12/25/2015"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_x86-r0"
-        "0x29": "2016.11-5.1.0008-9600"
+        "0x23": "MT2020T04274"
+        "0x24": "1C:34:DA:A1:A5:80"
+        "0x25": "05/16/2020 20:54:31"
+        "0x26": "17"
+        "0x28": "x86_64-mlnx_msn2700-r0"
+        "0x29": "2019.08-5.2.0016-9600"
         "0x2A": "128"
         "0x2B": "Mellanox"
-        "0xFE": "0xA4B42DB0"
+        "0xFE": "0x5AA345B9"
     str-msn2700-03:
       ansible_host: 10.3.147.46
       pdu_host: pdu-98
