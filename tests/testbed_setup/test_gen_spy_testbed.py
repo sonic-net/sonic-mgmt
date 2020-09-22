@@ -6,6 +6,7 @@ import yaml
 
 from collections import defaultdict
 from jinja2 import Template
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts_multi_duts
 
 
 TESTBED_TEMPLATE = "templates/spytest_testbed.yaml.j2"
