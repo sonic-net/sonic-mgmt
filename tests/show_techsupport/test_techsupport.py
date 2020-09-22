@@ -136,9 +136,9 @@ def acl(duthost, acl_setup):
 # MIRRORING PART #
 
 @pytest.fixture(scope='function')
-def neighbor_ip(duthost, testbed):
+def neighbor_ip(duthost, tbinfo):
     # ptf-32 topo is not supported in mirroring
-    if testbed['topo']['name'] == 'ptf32':
+    if tbinfo['topo']['name'] == 'ptf32':
         pytest.skip('Unsupported Topology')
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     dst_ip = None
@@ -254,12 +254,11 @@ def execute_command(duthost, since):
     return stdout['rc'] == SUCCESS_CODE
 
 
-def test_techsupport(request, config, duthost, testbed):
+def test_techsupport(request, config, duthost):
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
     :param duthost: DUT host
-    :param testbed: testbed
     """
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY

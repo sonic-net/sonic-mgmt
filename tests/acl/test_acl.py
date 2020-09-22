@@ -47,11 +47,11 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = '.*Successfully deleted ACL rule.*'
 
 
 @pytest.fixture(scope='module')
-def setup(duthost, testbed, ptfadapter):
+def setup(duthost, tbinfo, ptfadapter):
     """
-    setup fixture gathers all test required information from DUT facts and testbed
+    setup fixture gathers all test required information from DUT facts and tbinfo
     :param duthost: DUT host object
-    :param testbed: Testbed object
+    :param tbinfo: fixture provides information about testbed
     :return: dictionary with all test required information
     """
 
@@ -62,7 +62,7 @@ def setup(duthost, testbed, ptfadapter):
     port_channels = []
     acl_table_ports = []
 
-    if testbed['topo']['name'] not in ('t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'):
+    if tbinfo['topo']['name'] not in ('t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'):
         pytest.skip('Unsupported topology')
 
     # gather ansible facts
@@ -82,10 +82,10 @@ def setup(duthost, testbed, ptfadapter):
     port_channels = mg_facts['minigraph_portchannels']
 
     # get the list of port to be combined to ACL tables
-    if testbed['topo']['name'] in ('t1', 't1-lag'):
+    if tbinfo['topo']['name'] in ('t1', 't1-lag'):
         acl_table_ports += tor_ports
 
-    if testbed['topo']['name'] in ('t1-lag', 't1-64-lag', 't1-64-lag-clet'):
+    if tbinfo['topo']['name'] in ('t1-lag', 't1-64-lag', 't1-64-lag-clet'):
         acl_table_ports += port_channels
     else:
         acl_table_ports += spine_ports
