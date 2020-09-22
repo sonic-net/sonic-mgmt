@@ -54,6 +54,8 @@ sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
+    sonic_stable:
+    sonic_latest:
     sonic_mlnx:
     sonic_arista:
     sonic_arista_Q32:
