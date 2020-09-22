@@ -104,6 +104,7 @@ def mocker_factory():
         mocker_object = None
 
         if 'mlnx' in platform:
+            from tests.platform_tests.mellanox import mellanox_thermal_control_test_helper
             mocker_type = BaseMocker.get_mocker_type(mocker_name)
             if mocker_type:
                 mocker_object = mocker_type(dut)
@@ -211,49 +212,6 @@ class ThermalStatusMocker(BaseMocker):
         pass
 
 
-def get_field_range(second_line):
-    """
-    @summary: Utility function to help get field range from a simple tabulate output line.
-    Simple tabulate output looks like:
-
-    Head1   Head2       H3 H4
-    -----  ------  ------- --
-       V1      V2       V3 V4
-
-    @return: Returned a list of field range. E.g. [(0,4), (6, 10)] means there are two fields for
-    each line, the first field is between position 0 and position 4, the second field is between
-    position 6 and position 10.
-    """
-    field_ranges = []
-    begin = 0
-    while 1:
-        end = second_line.find(' ', begin)
-        if end == -1:
-            field_ranges.append((begin, len(second_line)))
-            break
-
-        field_ranges.append((begin, end))
-        begin = second_line.find('-', end)
-        if begin == -1:
-            break
-
-    return field_ranges
-
-
-def get_fields(line, field_ranges):
-    """
-    @summary: Utility function to help extract all fields from a simple tabulate output line
-    based on field ranges got from function get_field_range.
-    @return: A list of fields.
-    """
-    fields = []
-    for field_range in field_ranges:
-        field = line[field_range[0]:field_range[1]].encode('utf-8')
-        fields.append(field.strip())
-
-    return fields
-
-
 def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key_index=0):
     """
     Check the command line output matches the mocked data.
@@ -265,17 +223,9 @@ def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key
     """
     time.sleep(max_wait_time)
 
-    output = dut.command(command)
-    assert output["rc"] == 0, "Run command '%s' failed" % command
-    second_line = output["stdout_lines"][1]
-    field_ranges = get_field_range(second_line)
-
-    actual_data = {}
-    for line in output["stdout_lines"][2:]:
-        fields = get_fields(line, field_ranges)
-        actual_data[fields[key_index]] = fields
-
-    return mocker_object.check_result(actual_data)
+    result = dut.show_and_parse(command)
+    assert len(result) > 0, "Run and parse output of command '{}' failed".format(command)
+    return mocker_object.check_result(result)
 
 
 def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
