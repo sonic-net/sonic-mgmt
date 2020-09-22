@@ -25,14 +25,14 @@ class AdvancedReboot:
     inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
     '''
-    def __init__(self, request, duthost, ptfhost, localhost, testbed, creds, **kwargs):
+    def __init__(self, request, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
         '''
         Class constructor.
         @param request: pytest request object
         @param duthost: AnsibleHost instance of DUT
         @param ptfhost: PTFHost for interacting with PTF through ansible
         @param localhost: Localhost for interacting with localhost through ansible
-        @param testbed: fixture provides information about testbed
+        @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
         assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot'], (
@@ -43,7 +43,7 @@ class AdvancedReboot:
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.localhost = localhost
-        self.testbed = testbed
+        self.tbinfo = tbinfo
         self.creds = creds
         self.moduleIgnoreErrors = False
         self.__dict__.update(kwargs)
@@ -100,7 +100,7 @@ class AdvancedReboot:
         '''
         Accessor method for testbed's topology name
         '''
-        return self.testbed['topo']['name']
+        return self.tbinfo['topo']['name']
 
     def __buildTestbedData(self):
         '''
@@ -143,8 +143,8 @@ class AdvancedReboot:
         '''
         if self.inbootList is not None:
             self.rebootData['nexthop_ips'] = [
-                self.testbed['topo']['properties']['configuration_properties']['common']['nhipv4'],
-                self.testbed['topo']['properties']['configuration_properties']['common']['nhipv6'],
+                self.tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4'],
+                self.tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6'],
             ]
         else:
             self.rebootData['nexthop_ips'] = None
@@ -497,14 +497,14 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed, creds):
+def get_advanced_reboot(request, duthost, ptfhost, localhost, tbinfo, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
         @param duthost: AnsibleHost instance of DUT
         @param ptfhost: PTFHost for interacting with PTF through ansible
         @param localhost: Localhost for interacting with localhost through ansible
-        @param testbed: fixture provides information about testbed
+        @param tbinfo: fixture provides information about testbed
     '''
     instances = []
 
@@ -513,7 +513,7 @@ def get_advanced_reboot(request, duthost, ptfhost, localhost, testbed, creds):
         API that returns instances of AdvancedReboot class
         '''
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, creds, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

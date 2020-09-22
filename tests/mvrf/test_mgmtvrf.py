@@ -24,7 +24,7 @@ def restore_config_db(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_mvrf(duthost, testbed, localhost):
+def setup_mvrf(duthost, tbinfo, localhost):
     """
     Setup Management vrf configs before the start of testsuite
     """
@@ -38,7 +38,7 @@ def setup_mvrf(duthost, testbed, localhost):
         mvrf = True
         var = {}
         var["dut_ip"] = duthost.setup()["ansible_facts"]["ansible_eth0"]["ipv4"]["address"]
-        var["ptf_ip"] = testbed["ptf_ip"]
+        var["ptf_ip"] = tbinfo["ptf_ip"]
         var["filename"] = "README.md"
         duthost.command("sudo config vrf add mgmt")
         SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
@@ -135,7 +135,7 @@ class TestMvrfOutbound():
 
         ptfhost.file(path=server_script_dest_path, state="absent")
 
-    def test_ping(self, testbed, duthost):
+    def test_ping(self, tbinfo, duthost):
         logger.info("Test OutBound Ping")
         command = "ping  -c 3 " + var["ptf_ip"]
         execute_dut_command(duthost, command, mvrf=True)
@@ -190,28 +190,28 @@ class TestServices():
 
 
 class TestReboot():
-    def basic_check_after_reboot(self, duthost, localhost, testbed):
+    def basic_check_after_reboot(self, duthost, localhost, tbinfo):
         verify_show_command(duthost)
         inbound_test = TestMvrfInbound()
         outbound_test = TestMvrfOutbound()
-        outbound_test.test_ping(testbed, duthost)
+        outbound_test.test_ping(tbinfo, duthost)
         inbound_test.test_ping(duthost, localhost)
         inbound_test.test_snmp_fact(localhost)
 
-    def test_warmboot(self, duthost, localhost, testbed):
+    def test_warmboot(self, duthost, localhost, tbinfo):
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        self.basic_check_after_reboot(duthost, localhost, testbed)
+        self.basic_check_after_reboot(duthost, localhost, tbinfo)
 
-    def test_reboot(self, duthost, localhost, testbed):
+    def test_reboot(self, duthost, localhost, tbinfo):
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        self.basic_check_after_reboot(duthost, localhost, testbed)
+        self.basic_check_after_reboot(duthost, localhost, tbinfo)
 
-    def test_fastboot(self, duthost, localhost, testbed):
+    def test_fastboot(self, duthost, localhost, tbinfo):
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        self.basic_check_after_reboot(duthost, localhost, testbed)
+        self.basic_check_after_reboot(duthost, localhost, tbinfo)

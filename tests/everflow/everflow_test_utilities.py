@@ -32,20 +32,20 @@ EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthost, testbed):
+def setup_info(duthost, tbinfo):
     """
     Gather all required test information.
 
     Args:
         duthost: DUT fixture
-        testbed: testbed fixture
+        tbinfo: tbinfo fixture
 
     Returns:
         dict: Required test information
 
     """
     # TODO: Support all T1 and T0 topos in these tests.
-    if testbed["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
+    if tbinfo["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
         pytest.skip("Unsupported topology")
 
     tor_ports = []

@@ -109,11 +109,11 @@ def dut_type(duthost):
     return dut_type
 
 @pytest.fixture(scope="class")
-def copp_testbed(duthost, creds, ptfhost, testbed, request):
+def copp_testbed(duthost, creds, ptfhost, tbinfo, request):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
-    test_params = _gather_test_params(testbed, duthost, request)
+    test_params = _gather_test_params(tbinfo, duthost, request)
 
     if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
@@ -171,7 +171,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
                debug_level=None,
                device_sockets=device_sockets)
 
-def _gather_test_params(testbed, duthost, request):
+def _gather_test_params(tbinfo, duthost, request):
     """
         Fetches the test parameters from pytest.
     """
@@ -179,7 +179,7 @@ def _gather_test_params(testbed, duthost, request):
     nn_target_port = request.config.getoption("--nn_target_port")
     pkt_tx_count = request.config.getoption("--pkt_tx_count")
     swap_syncd = request.config.getoption("--copp_swap_syncd")
-    topo = testbed["topo"]["name"]
+    topo = tbinfo["topo"]["name"]
     bgp_graph = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]["minigraph_bgp"]
 
     return _COPPTestParameters(nn_target_port=nn_target_port,

@@ -152,9 +152,9 @@ def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
 # ----------------------------------------------------------------------------------
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, testbed):
+def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(**kwargs):
-        params = {'testbed_type': testbed['topo']['name'],
+        params = {'testbed_type': tbinfo['topo']['name'],
                   'router_mac': var['host_facts']['ansible_Ethernet0']['macaddress'],
                   'dst_port' : var['ptf_test_indices'][2],
                   'agent_id' : var['mgmt_ip'],
@@ -172,7 +172,7 @@ def partial_ptf_runner(request, ptfhost, testbed):
 
 # ----------------------------------------------------------------------------------
 @pytest.fixture(scope='class')
-def sflowbase_config(duthost, testbed):
+def sflowbase_config(duthost):
     config_sflow(duthost,'enable')
     config_sflow_collector(duthost,'collector0','add')
     config_sflow_collector(duthost,'collector1','add')

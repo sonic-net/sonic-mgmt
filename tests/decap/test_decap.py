@@ -52,10 +52,10 @@ def get_downlink_ports(topology, topo_type):
     return downlink_ports
 
 
-def gen_fib_info(ptfhost, testbed, cfg_facts):
+def gen_fib_info(ptfhost, tbinfo, cfg_facts):
 
-    topo_type = testbed["topo"]["type"]
-    topology = testbed["topo"]["properties"]["topology"]
+    topo_type = tbinfo["topo"]["type"]
+    topology = tbinfo["topo"]["properties"]["topology"]
 
     # uplink ports
     uplink_ports_str = " ".join(get_uplink_ports(topology, topo_type))
@@ -110,13 +110,13 @@ def gen_fib_info(ptfhost, testbed, cfg_facts):
     ptfhost.copy(content="\n".join(fibs), dest="/root/fib_info.txt")
 
 
-def prepare_ptf(ptfhost, testbed, cfg_facts):
+def prepare_ptf(ptfhost, tbinfo, cfg_facts):
 
-    gen_fib_info(ptfhost, testbed, cfg_facts)
+    gen_fib_info(ptfhost, tbinfo, cfg_facts)
 
 
 @pytest.fixture(scope="module")
-def setup_teardown(request, testbed, duthost, ptfhost):
+def setup_teardown(request, tbinfo, duthost, ptfhost):
 
     # Initialize parameters
     dscp_mode = "pipe"
@@ -160,7 +160,7 @@ def setup_teardown(request, testbed, duthost, ptfhost):
     decap_conf_template = Template(open("../ansible/roles/test/templates/decap_conf.j2").read())
 
     src_ports = set()
-    topology = testbed["topo"]["properties"]["topology"]
+    topology = tbinfo["topo"]["properties"]["topology"]
     if "host_interfaces" in topology:
         src_ports.update(topology["host_interfaces"])
     if "disabled_host_interfaces" in topology:
@@ -188,7 +188,7 @@ def setup_teardown(request, testbed, duthost, ptfhost):
     duthost.shell('docker exec swss sh -c "swssconfig /decap_conf.json"')
 
     # Prepare PTFf docker
-    prepare_ptf(ptfhost, testbed, cfg_facts)
+    prepare_ptf(ptfhost, tbinfo, cfg_facts)
 
     setup_info = {
         "src_ports": ",".join([str(port) for port in src_ports]),
@@ -208,7 +208,7 @@ def setup_teardown(request, testbed, duthost, ptfhost):
     duthost.shell('docker exec swss sh -c "swssconfig /decap_conf.json"')
 
 
-def test_decap(setup_teardown, testbed, ptfhost):
+def test_decap(setup_teardown, tbinfo, ptfhost):
 
     setup_info = setup_teardown
 
@@ -217,7 +217,7 @@ def test_decap(setup_teardown, testbed, ptfhost):
                "ptftests",
                "IP_decap_test.DecapPacketTest",
                 platform_dir="ptftests",
-                params={"testbed_type": testbed['topo']['type'],
+                params={"testbed_type": tbinfo['topo']['type'],
                         "outer_ipv4": setup_info["outer_ipv4"],
                         "outer_ipv6": setup_info["outer_ipv6"],
                         "inner_ipv4": setup_info["inner_ipv4"],

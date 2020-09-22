@@ -93,10 +93,10 @@ def port_facts(dut, mg_facts):
 
 
 @pytest.fixture(scope='function')
-def gather_facts(testbed, duthost):
+def gather_facts(tbinfo, duthost):
     facts = {}
 
-    topo_type = testbed['topo']['type']
+    topo_type = tbinfo['topo']['type']
     if topo_type not in ('t0', 't1'):
         pytest.skip("Unsupported topology")
 

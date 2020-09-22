@@ -8,9 +8,9 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
-def test_dir_bcast(duthost, ptfhost, testbed, fib):
+def test_dir_bcast(duthost, ptfhost, tbinfo, fib):
     support_testbed_types = frozenset(['t0', 't0-16', 't0-56', 't0-64', 't0-64-32', 't0-116'])
-    testbed_type = testbed['topo']['name']
+    testbed_type = tbinfo['topo']['name']
     if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)
 

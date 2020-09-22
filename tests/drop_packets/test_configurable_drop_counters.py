@@ -71,14 +71,14 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server
 
 
 @pytest.fixture(scope="module")
-def testbed_params(duthost, testbed):
+def testbed_params(duthost, tbinfo):
     """
     Gathers parameters about the testbed for the test cases to use.
 
     Returns: A Dictionary with the following information:
     """
-    if testbed["topo"]["type"] != "t0":
-        pytest.skip("Unsupported topology {}".format(testbed["topo"]["name"]))
+    if tbinfo["topo"]["type"] != "t0":
+        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
 
     minigraph_facts = \
         duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]

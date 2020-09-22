@@ -16,7 +16,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthost, ptfhost, testbed):
+def common_setup_teardown(duthost, ptfhost, tbinfo):
     logging.info("########### Setup for lag testing ###########")
 
     lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
@@ -31,7 +31,7 @@ def common_setup_teardown(duthost, ptfhost, testbed):
         ptfhost.copy(src=src, dest=dst)
 
     # Inlucde testbed topology configuration
-    testbed_type = testbed['topo']['name']
+    testbed_type = tbinfo['topo']['name']
 
     support_testbed_types = frozenset(['t1-lag', 't0', 't0-116'])
     if testbed_type not in support_testbed_types:

@@ -146,7 +146,7 @@ def run_test_t0(fanouthosts,
 def run_test(fanouthosts,
              duthost,
              ptfhost,
-             testbed,
+             tbinfo,
              conn_graph_facts,
              leaf_fanouts,
              dscp,
@@ -159,7 +159,7 @@ def run_test(fanouthosts,
              max_test_intfs_count=128):
     """
     @Summary: Run a series of tests (only support T0 topology)
-    @param testbed: Testbed information
+    @param tbinfo: Testbed information
     @param conn_graph_facts: Testbed topology
     @param leaf_fanouts: Leaf fanout switches
     @param dscp: DSCP value of test data packets
@@ -173,8 +173,8 @@ def run_test(fanouthosts,
     return: Return # of iterations and # of passed iterations for each tested interface.
     """
 
-    print testbed
-    if testbed['topo']['name'].startswith('t0'):
+    print tbinfo
+    if tbinfo['topo']['name'].startswith('t0'):
         return run_test_t0(fanouthosts=fanouthosts,
                            duthost=duthost,
                            ptfhost=ptfhost,
@@ -194,14 +194,14 @@ def run_test(fanouthosts,
 def test_pfc_pause_lossless(fanouthosts,
                             duthost,
                             ptfhost,
-                            testbed,
+                            tbinfo,
                             conn_graph_facts,
                             leaf_fanouts,
                             lossless_prio_dscp_map):
 
     """
     @Summary: Test if PFC pause frames can pause a lossless priority without affecting the other priorities
-    @param testbed: Testbed information
+    @param tbinfo: Testbed information
     @param conn_graph_facts: Testbed topology
     @param lossless_prio_dscp_map: lossless priorities and their DSCP values
     """
@@ -229,7 +229,7 @@ def test_pfc_pause_lossless(fanouthosts,
                 results = run_test(fanouthosts=fanouthosts,
                                    duthost=duthost,
                                    ptfhost=ptfhost,
-                                   testbed=testbed,
+                                   tbinfo=tbinfo,
                                    conn_graph_facts=conn_graph_facts,
                                    leaf_fanouts=leaf_fanouts,
                                    dscp=dscp,
@@ -266,7 +266,7 @@ def test_pfc_pause_lossless(fanouthosts,
 def test_no_pfc(fanouthosts,
                 duthost,
                 ptfhost,
-                testbed,
+                tbinfo,
                 conn_graph_facts,
                 leaf_fanouts,
                 lossless_prio_dscp_map):
@@ -274,7 +274,7 @@ def test_no_pfc(fanouthosts,
     """
     @Summary: Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames
     @param fanouthosts: Fixture for fanout hosts
-    @param testbed: Testbed information
+    @param tbinfo: Testbed information
     @param conn_graph_facts: Testbed topology
     @param lossless_prio_dscp_map: lossless priorities and their DSCP values
     """
@@ -302,7 +302,7 @@ def test_no_pfc(fanouthosts,
                 results = run_test(fanouthosts=fanouthosts,
                                    duthost=duthost,
                                    ptfhost=ptfhost,
-                                   testbed=testbed,
+                                   tbinfo=tbinfo,
                                    conn_graph_facts=conn_graph_facts,
                                    leaf_fanouts=leaf_fanouts,
                                    dscp=dscp,
