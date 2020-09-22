@@ -8,6 +8,8 @@ from lxml import etree
 
 DEFAULT_DEVICECSV = 'sonic_lab_devices.csv'
 DEFAULT_LINKCSV = 'sonic_lab_links.csv'
+DEFAULT_CONSOLECSV = 'sonic_lab_console_links.csv'
+DEFAULT_PDUCSV = 'sonic_lab_pdu_links.csv'
 
 LAB_CONNECTION_GRAPH_ROOT_NAME = 'LabConnectionGraph'
 LAB_CONNECTION_GRAPH_DPGL2_NAME = 'DevicesL2Info'
@@ -20,30 +22,48 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment. 
     """
 
-    def __init__(self, dev_csvfile=None, link_csvfile=None, graph_xmlfile=None):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
         #TODO:make generated xml file name as parameters in the future to make it more flexible
         self.devices = []
         self.links =  []
+        self.consoles =  []
+        self.pdus =  []
         self.devcsv = dev_csvfile
         self.linkcsv = link_csvfile
+        self.conscsv = cons_csvfile
+        self.pducsv = pdu_csvfile
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
         self.one_xmlfile = graph_xmlfile
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
         self.dpgroot = etree.Element('DataPlaneGraph')
+        self.csgroot = etree.Element('ConsoleGraphDeclaration')
+        self.pcgroot = etree.Element('PowerControlGraphDeclaration')
 
 
     def read_devices(self):
         csv_dev = open(self.devcsv)
         csv_devices = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_dev))
         devices_root = etree.SubElement(self.pngroot, 'Devices')
+        pdus_root = etree.SubElement(self.pcgroot, 'DevicesPowerControlInfo')
+        cons_root = etree.SubElement(self.csgroot, 'DevicesConsoleInfo')
         for row in csv_devices:
             attrs = {}
             self.devices.append(row)
-            for  key in row:
-                if key.lower() != 'managementip':
+            devtype=row['Type'].lower()
+            if 'pdu' in devtype:
+                for  key in row:
                     attrs[key]=row[key].decode('utf-8')
-            prod = etree.SubElement(devices_root, 'Device', attrs)
+                etree.SubElement(pdus_root, 'DevicePowerControlInfo', attrs)
+            elif 'consoleserver' in devtype:
+                for  key in row:
+                    attrs[key]=row[key].decode('utf-8')
+                etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+            else:
+                for  key in row:
+                    if key.lower() != 'managementip' and key.lower() !='protocol':
+                        attrs[key]=row[key].decode('utf-8')
+                etree.SubElement(devices_root, 'Device', attrs)
         csv_dev.close()
  
     def read_links(self):
@@ -55,10 +75,34 @@ class LabGraph(object):
             for key in link:
                 if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
                     attrs[key]=link[key].decode('utf-8')
-            prod = etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
+            etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
             self.links.append(link)
         csv_file.close()
  
+    def read_consolelinks(self):
+        csv_file = open(self.conscsv)
+        csv_cons = csv.DictReader(csv_file)
+        conslinks_root = etree.SubElement(self.csgroot, 'ConsoleLinksInfo')
+        for cons in csv_cons:
+            attrs = {}
+            for key in cons:
+                attrs[key]=cons[key].decode('utf-8')
+            etree.SubElement(conslinks_root, 'ConsoleLinkInfo', attrs)
+            self.consoles.append(cons)
+        csv_file.close()
+
+    def read_pdulinks(self):
+        csv_file = open(self.pducsv)
+        csv_pdus = csv.DictReader(csv_file)
+        pduslinks_root = etree.SubElement(self.pcgroot, 'PowerControlLinksInfo')
+        for pdu_link in csv_pdus:
+            attrs = {}
+            for key in pdu_link:
+                attrs[key]=pdu_link[key].decode('utf-8')
+            etree.SubElement(pduslinks_root, 'PowerControlLinkInfo', attrs)
+            self.pdus.append(pdu_link)
+        csv_file.close()
+
     def generate_dpg(self):
         for dev in self.devices:
             hostname = dev.get('Hostname', '')
@@ -99,6 +143,8 @@ class LabGraph(object):
         root=etree.Element(LAB_CONNECTION_GRAPH_ROOT_NAME)
         root.append(self.pngroot)
         root.append(self.dpgroot)
+        root.append(self.csgroot)
+        root.append(self.pcgroot)
         result = etree.tostring(root, pretty_print=True)
         onexml.write(result)
 
@@ -107,13 +153,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--device", help="device file", default=DEFAULT_DEVICECSV)
     parser.add_argument("-l", "--links", help="link file", default=DEFAULT_LINKCSV)
+    parser.add_argument("-c", "--console", help="console connection file", default=DEFAULT_CONSOLECSV)
+    parser.add_argument("-p", "--pdu", help="pdu connection file", default=DEFAULT_PDUCSV)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
     args = parser.parse_args()
 
-    mygraph = LabGraph(args.device, args.links, args.output)
+    mygraph = LabGraph(args.device, args.links, args.console, args.pdu, args.output)
 
     mygraph.read_devices()
     mygraph.read_links()
+    mygraph.read_consolelinks()
+    mygraph.read_pdulinks()
     mygraph.generate_dpg()
     mygraph.create_xml()
 
