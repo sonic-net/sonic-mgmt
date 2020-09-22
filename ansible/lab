@@ -66,7 +66,7 @@ sonic_s6000:
       ansible_hostv6: fec0::ffff:afa:9
     vlab-01:
       ansible_host: 10.250.0.101
-      ansible_hostv6: fec0::ffff:afa:a
+      ansible_hostv6: fec0::ffff:afa:1
     vlab-03:
       ansible_host: 10.250.0.105
       ansible_hostv6: fec0::ffff:afa:5

@@ -10,64 +10,112 @@
     ptf_imagetag: "latest"
   when: ptf_imagetag is not defined
 
-- name: Create ptf container ptf_{{ vm_set_name }}
-  docker_container:
-    name: ptf_{{ vm_set_name }}
-    image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-    pull: yes
-    state: started
-    restart: no
-    network_mode: none
-    detach: True
-    capabilities:
-      - net_admin
-    privileged: yes
+- name: set "PTF" container type, by default
+  set_fact:
+    container_type: "PTF"
+
+- name: set "API-SERVER" container type if Keysight Api Server is used
+  set_fact:
+    container_type: "API-SERVER"
+  when: ptf_imagename is defined and ptf_imagename == "docker-keysight-api-server"
+
+- name: Try to login into docker registry
+  docker_login:
+    registry_url: "{{ docker_registry_host }}"
+    username: "{{ docker_registry_username }}"
+    password: "{{ docker_registry_password }}"
   become: yes
+  when: docker_registry_username is defined and docker_registry_password is defined
 
-- name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
-  command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
-  become: yes
+- name: Start Keysight API Server container
+  block:
+    - name: default secret_group_vars if not defined
+      set_fact:
+        secret_group_vars:
+          ixia_api_server:
+            rest_port: 443
+      when: >
+        secret_group_vars is not defined
+        or secret_group_vars.ixia_api_server is not defined
+        or secret_group_vars.ixia_api_server.rest_port is not defined
 
-- name: Set front panel/mgmt port for dut
-  include_tasks: set_dut_port.yml
+    - name: Pull and start Keysight API Server container
+      docker_container:
+        name: apiserver
+        image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+        pull: yes
+        state: started
+        restart: no
+        published_ports: "{{ secret_group_vars.ixia_api_server.rest_port }}:443"
+        detach: True
+        capabilities:
+          - net_admin
+        privileged: yes
+      become: yes
+  when: container_type == "API-SERVER"
 
-- name: Setup vlan port for vlan tunnel
-  vlan_port:
-    external_port: "{{ external_port }}"
-    vlan_ids: "{{ device_vlan_list }}"
-    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
-    cmd: "create"
-  become: yes
-  when: external_port is defined
 
-- include_tasks: add_ceos_list.yml
-  when: vm_type is defined and vm_type == "ceos"
+- name: Start PTF container
+  block:
+  - name: Create ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+      pull: yes
+      state: started
+      restart: no
+      network_mode: none
+      detach: True
+      capabilities:
+        - net_admin
+      privileged: yes
+    become: yes
 
-- name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
-  vm_topology:
-    cmd: "bind"
-    vm_set_name: "{{ vm_set_name }}"
-    topo: "{{ topology }}"
-    vm_names: "{{ VM_hosts }}"
-    vm_base: "{{ VM_base }}"
-    ptf_mgmt_ip_addr: "{{ ptf_ip }}"
-    ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
-    ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
-    ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
-    ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
-    ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
-    mgmt_bridge: "{{ mgmt_bridge }}"
-    dut_fp_ports: "{{ dut_fp_ports }}"
-    dut_mgmt_port: "{{ dut_mgmt_port }}"
-    fp_mtu: "{{ fp_mtu_size }}"
-    max_fp_num: "{{ max_fp_num }}"
-    is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
-  become: yes
+  - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
+    become: yes
 
-- name: Send arp ping packet to gw for flusing the ARP table
-  command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
-  become: yes
+  - name: Set front panel/mgmt port for dut
+    include_tasks: set_dut_port.yml
 
-- name: Start ptf_tgen service
-  include_tasks: start_ptf_tgen.yml
-  when: topo == 'fullmesh'
+  - name: Setup vlan port for vlan tunnel
+    vlan_port:
+      external_port: "{{ external_port }}"
+      vlan_ids: "{{ device_vlan_list }}"
+      is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
+      cmd: "create"
+    become: yes
+    when: external_port is defined
+
+  - include_tasks: add_ceos_list.yml
+    when: vm_type is defined and vm_type == "ceos"
+
+  - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
+    vm_topology:
+      cmd: "bind"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_hosts }}"
+      vm_base: "{{ VM_base }}"
+      ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+      ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
+      ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+      ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
+      ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
+      mgmt_bridge: "{{ mgmt_bridge }}"
+      dut_fp_ports: "{{ dut_fp_ports }}"
+      dut_mgmt_port: "{{ dut_mgmt_port }}"
+      fp_mtu: "{{ fp_mtu_size }}"
+      max_fp_num: "{{ max_fp_num }}"
+      is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
+    become: yes
+
+  - name: Send arp ping packet to gw for flusing the ARP table
+    command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
+    become: yes
+
+  - name: Start ptf_tgen service
+    include_tasks: start_ptf_tgen.yml
+    when: topo == 'fullmesh'
+
+  when: container_type == "PTF"

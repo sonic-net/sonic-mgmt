@@ -17,8 +17,28 @@ Description:
     Retrive lab fanout switches physical and vlan connections
     add to Ansible facts
 options:
-    host:  [fanout switch name|Server name|Sonic Switch Name]
-    requred: True
+    host:
+        [fanout switch name|Server name|Sonic Switch Name]
+        required: False
+    hosts:
+        List of hosts. Applicable for multi-DUT and single-DUT setup. The host option for single DUT setup is kept
+        for backward compatibility.
+        required: False
+    anchor:
+        List of hosts. When no host and hosts is provided, the anchor option must be specified with list of hosts.
+        This option is to supply the relevant list of hosts for looking up the connection graph xml file which has
+        all the supplied hosts. The whole graph will be returned when this option is used. This is for configuring
+        the root fanout switch.
+        required: False
+    filepath:
+        Path of the connection graph xml file. Override the default path for looking up connection graph xml file.
+        required: False
+    filename:
+        Name of the connection graph xml file. Override the behavior of looking up connection graph xml file. When
+        this option is specified, always use the specified connection graph xml file.
+        required: False
+
+    Mutually exclusive options: host, hosts, anchor
 
 Ansible_facts:
     device_info: The device(host) type and hwsku
@@ -67,9 +87,6 @@ EXAMPLES='''
 
 
 '''
-
-LAB_CONNECTION_GRAPH_FILE = 'lab_connection_graph.xml'
-LAB_GRAPHFILE_PATH = 'files/'
 
 class Parse_Lab_Graph():
     """
@@ -231,28 +248,78 @@ class Parse_Lab_Graph():
         else:
             return self.links
 
+    def contains_hosts(self, hostnames):
+        return set(hostnames) <= set(self.devices)
+
+
+LAB_CONNECTION_GRAPH_FILE = 'graph_files.yml'
+EMPTY_GRAPH_FILE = 'empty_graph.xml'
+LAB_GRAPHFILE_PATH = 'files/'
+
+"""
+    Find a graph file contains all devices in testbed.
+    duts are spcified by hostnames
+
+    Parameters:
+        hostnames: list of duts in the target testbed.
+"""
+def find_graph(hostnames):
+    filename = os.path.join(LAB_GRAPHFILE_PATH, LAB_CONNECTION_GRAPH_FILE)
+    with open(filename) as fd:
+        file_list = yaml.safe_load(fd)
+
+    # Finding the graph file contains all duts from hostnames,
+    for fn in file_list:
+        filename = os.path.join(LAB_GRAPHFILE_PATH, fn)
+        lab_graph = Parse_Lab_Graph(filename)
+        lab_graph.parse_graph()
+        if lab_graph.contains_hosts(hostnames):
+            return lab_graph
+
+    # Fallback to return an empty connection graph, this is
+    # needed to bridge the kvm test needs. The KVM test needs
+    # A graph file, which used to be whatever hardcoded file.
+    # Here we provide one empty file for the purpose.
+    lab_graph = Parse_Lab_Graph(os.path.join(LAB_GRAPHFILE_PATH, EMPTY_GRAPH_FILE))
+    lab_graph.parse_graph()
+    return lab_graph
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
             host=dict(required=False),
             hosts=dict(required=False, type='list'),
             filename=dict(required=False),
+            filepath=dict(required=False),
+            anchor=dict(required=False, type='list'),
         ),
-        mutually_exclusive=[['host', 'hosts']],
+        mutually_exclusive=[['host', 'hosts', 'anchor']],
         supports_check_mode=True
     )
     m_args = module.params
 
     hostnames = m_args['hosts']
+    anchor = m_args['anchor']
     if not hostnames:
         hostnames = [m_args['host']]
     try:
+        # When called by pytest, the file path is obscured to /tmp/.../.
+        # we need the caller to tell us where the graph files are with
+        # filepath argument.
+        if m_args['filepath']:
+            global LAB_GRAPHFILE_PATH
+            LAB_GRAPHFILE_PATH = m_args['filepath']
+
         if m_args['filename']:
-            filename = m_args['filename']
+            filename = os.path.join(LAB_GRAPHFILE_PATH, m_args['filename'])
+            lab_graph = Parse_Lab_Graph(filename)
+            lab_graph.parse_graph()
         else:
-            filename = LAB_GRAPHFILE_PATH + LAB_CONNECTION_GRAPH_FILE
-        lab_graph = Parse_Lab_Graph(filename)
-        lab_graph.parse_graph()
+            # When calling passed in anchor instead of hostnames,
+            # the caller is asking to return the whole graph. This
+            # is needed when configuring the root fanout switch.
+            target = anchor if anchor else hostnames
+            lab_graph = find_graph(target)
 
         device_info = []
         device_conn = []
@@ -280,7 +347,7 @@ def main():
 
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
-        module.fail_json(msg="Can not find lab graph file "+LAB_CONNECTION_GRAPH_FILE)
+        module.fail_json(msg="Can not find lab graph file under {}".format(LAB_GRAPHFILE_PATH))
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())
 

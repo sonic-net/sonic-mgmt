@@ -21,8 +21,8 @@ from tests.common.reboot import *
 from tests.common.platform.interface_utils import check_interface_information
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
+from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 
-from check_critical_services import check_critical_services
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -39,7 +39,7 @@ def teardown_module(duthost, conn_graph_facts):
 
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     interfaces = conn_graph_facts["device_conn"]
-    check_critical_services(duthost)
+    check_critical_processes(duthost, watch_secs=10)
     check_interfaces_and_services(duthost, interfaces)
 
 
@@ -68,7 +68,7 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
     @param interfaces: DUT's interfaces defined by minigraph
     """
     logging.info("Wait until all critical services are fully started")
-    check_critical_services(dut)
+    wait_critical_processes(dut)
 
     if reboot_type is not None:
         logging.info("Check reboot cause")

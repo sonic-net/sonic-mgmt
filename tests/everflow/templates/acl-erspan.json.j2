@@ -1,0 +1,35 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "{{ acl_table_name }}": {
+                    "acl-entries": {
+                        "acl-entry": { 
+                            {% for rule in rules %}
+                            "{{ loop.index }}": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": {{ loop.index }}
+                                },
+                                {% for qset in rule["qualifiers"].keys() %}
+                                "{{ qset }}": {
+                                    "config": {
+                                        {% for qualifier, value in rule["qualifiers"][qset].items() %}
+                                        "{{ qualifier }}": {{ value|to_nice_json }}{% if not loop.last %},{% endif %}
+                                        {% endfor %}
+                                    }
+                                }{% if not loop.last %},{% endif %}
+                                {% endfor %}
+                            }{% if not loop.last %},{% endif %}
+                            {% endfor %}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -131,7 +131,7 @@ class ReloadTest(BaseTest):
         self.check_param('dut_hostname', '', required=True)
         self.check_param('reboot_limit_in_seconds', 30, required=False)
         self.check_param('reboot_type', 'fast-reboot', required=False)
-        self.check_param('graceful_limit', 180, required=False)
+        self.check_param('graceful_limit', 240, required=False)
         self.check_param('portchannel_ports_file', '', required=True)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
@@ -970,7 +970,7 @@ class ReloadTest(BaseTest):
         self.assertTrue(is_good, errors)
 
     def runTest(self):
-        self.pre_reboot_test_setup()        
+        self.pre_reboot_test_setup()
         try:
             self.log("Check that device is alive and pinging")
             self.fails['dut'].add("DUT is not ready for test")
@@ -989,6 +989,8 @@ class ReloadTest(BaseTest):
                 self.handle_warm_reboot_health_check()
             self.handle_post_reboot_health_check()
 
+            # Check sonic version after reboot
+            self.check_sonic_version_after_reboot()
         except Exception as e:
             self.fails['dut'].add(e)
         finally:
@@ -1019,10 +1021,8 @@ class ReloadTest(BaseTest):
                 current_version = str(stdout[0]).replace('\n', '')
             self.log("Current={} Target={}".format(current_version, target_version))
             if current_version != target_version:
-                self.fails['dut'].add("Sonic upgrade failed. Target={} Current={}".format(\
+                raise Exception("Sonic upgrade failed. Target={} Current={}".format(\
                     target_version, current_version))
-                return False
-        return True
 
     def extract_no_cpu_replies(self, arr):
       """
@@ -1047,9 +1047,6 @@ class ReloadTest(BaseTest):
         if stderr != []:
             self.log("stderr from %s: %s" % (self.reboot_type, str(stderr)))
         self.log("return code from %s: %s" % (self.reboot_type, str(return_code)))
-        # Check sonic version after reboot
-        if not self.check_sonic_version_after_reboot():
-            thread.interrupt_main()
 
         # Note: a timeout reboot in ssh session will return a 255 code
         if return_code not in [0, 255]:
@@ -1323,6 +1320,7 @@ class ReloadTest(BaseTest):
         return self.asic_state.get_state_time(state), self.get_asic_vlan_reachability()
 
     def ping_data_plane(self, light_probe=True):
+        self.dataplane.flush()
         replies_from_servers = self.pingFromServers()
         if replies_from_servers > 0 or not light_probe:
             replies_from_upper = self.pingFromUpperTier()
@@ -1354,7 +1352,7 @@ class ReloadTest(BaseTest):
                     up_time = datetime.datetime.now()
                 up_secs = (datetime.datetime.now() - up_time).total_seconds()
                 if up_secs > dut_stabilize_secs:
-                    break;
+                    break
             else:
                 # reset up_time
                 up_time = None

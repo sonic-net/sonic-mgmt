@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import logging
 from tests.platform_tests.thermal_control_test_helper import *
@@ -551,8 +552,59 @@ class TemperatureData:
             self.mocked_high_critical_threshold = NOT_AVAILABLE
 
 
+class CheckMockerResultMixin(object):
+
+    def check_result(self, actual_data):
+        """
+        Check actual data with mocked data.
+        :param actual_data: A list of dictionary contains actual command line data.
+
+        :return: True if match else False.
+        """
+        expected = {}
+        for name, fields in self.expected_data.items():
+            data = {}
+            for idx, header in enumerate(self.expected_data_headers):
+                data[header] = fields[idx]
+            expected[name] = data
+
+        logging.info("Expected: {}".format(json.dumps(expected, indent=2)))
+        logging.info("Actual: {}".format(json.dumps(actual_data, indent=2)))
+
+        extra_in_actual_data = []
+        mismatch_in_actual_data = []
+        for actual_data_item in actual_data:
+            primary = actual_data_item[self.primary_field]
+            if not primary in expected:
+                extra_in_actual_data.append(actual_data_item)
+            else:
+                for field in actual_data_item.keys():
+                    if field in self.excluded_fields:
+                        continue
+                    if actual_data_item[field] != expected[primary][field]:
+                        mismatch_in_actual_data.append(actual_data_item)
+                        break
+                expected.pop(primary)
+
+        result = True
+        if len(extra_in_actual_data) > 0:
+            logging.error('Found extra data in actual_data: {}'\
+                .format(json.dumps(extra_in_actual_data, indent=2)))
+            result = False
+        if len(mismatch_in_actual_data) > 0:
+            logging.error('Found mismatch data in actual_data: {}'\
+                .format(json.dumps(mismatch_in_actual_data, indent=2)))
+            result = False
+        if len(expected.keys()) > 0:
+            logging.error('Expected data not found in actual_data: {}'\
+                .format(json.dumps(expected, indent=2)))
+            result = False
+
+        return result
+
+
 @mocker('FanStatusMocker')
-class RandomFanStatusMocker(FanStatusMocker):
+class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
     """
     Mocker class to help generate random FAN status and check it with actual data.
     """
@@ -569,6 +621,9 @@ class RandomFanStatusMocker(FanStatusMocker):
         self.mock_helper = MockerHelper(dut)
         self.drawer_list = []
         self.expected_data = {}
+        self.expected_data_headers = ['drawer', 'led', 'fan', 'speed', 'direction', 'presence', 'status']
+        self.primary_field = 'fan'
+        self.excluded_fields = ['timestamp',]
 
     def deinit(self):
         """
@@ -659,32 +714,6 @@ class RandomFanStatusMocker(FanStatusMocker):
                 logging.info('Failed to mock fan data for {} - {}'.format(fan_data.name, e))
                 continue
 
-    def check_result(self, actual_data):
-        """
-        Check actual data with mocked data.
-        :param actual_data: A dictionary contains actual command line data. Key of the dictionary is FAN name. Value
-                            of the dictionary is a list of field values for a line of FAN data.
-        :return: True if match else False.
-        """
-        for name, fields in self.expected_data.items():
-            if name in actual_data:
-                actual_fields = actual_data[name]
-                for i, expected_field in enumerate(fields):
-                    if name.find('psu') != -1 and i ==1:
-                        continue # skip led status check for PSU because we don't mock it
-                    if expected_field != actual_fields[i]:
-                        logging.error('Check fan status for {} failed, ' \
-                                     'expected: {}, actual: {}'.format(name, expected_field, actual_fields[i]))
-                        logging.error('Expect data set: {}'.format(self.expected_data))
-                        logging.error('Actual data set: {}'.format(actual_data))
-                        return False
-            else:
-                logging.error('Expected FAN data {} not found'.format(fields))
-                logging.error('Expect data set: {}'.format(self.expected_data))
-                logging.error('Actual data set: {}'.format(actual_data))
-                return False
-        return True
-
     def check_all_fan_speed(self, expected_speed):
         """
         Check all FAN speed match the given expect speed.
@@ -702,7 +731,7 @@ class RandomFanStatusMocker(FanStatusMocker):
 
 
 @mocker('ThermalStatusMocker')
-class RandomThermalStatusMocker(ThermalStatusMocker):
+class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
     """
     RandomThermalStatusMocker class to help generate random thermal status and check it with actual data.
     """
@@ -721,6 +750,9 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
         ThermalStatusMocker.__init__(self, dut)
         self.mock_helper = MockerHelper(dut)
         self.expected_data = {}
+        self.expected_data_headers = ['sensor', 'temperature', 'high th', 'low th', 'crit high th', 'crit low th', 'warning']
+        self.primary_field = 'sensor'
+        self.excluded_fields = ['timestamp',]
 
     def deinit(self):
         """
@@ -782,30 +814,6 @@ class RandomThermalStatusMocker(ThermalStatusMocker):
         except SysfsNotExistError as e:
             logging.info('Failed to mock thermal data for {} - {}'.format(mock_data.name, e))
 
-    def check_result(self, actual_data):
-        """
-        Check actual data with mocked data.
-        :param actual_data: A dictionary contains actual command line data. Key of the dictionary is thermal name. Value
-                            of the dictionary is a list of field values for a line of thermal data.
-        :return: True if match else False.
-        """
-        for name, fields in self.expected_data.items():
-            if name in actual_data:
-                actual_fields = actual_data[name]
-                for i, expected_field in enumerate(fields):
-                    if expected_field != actual_fields[i]:
-                        logging.info('Check thermal status for {} failed, ' \
-                                     'expected: {}, actual: {}'.format(name, expected_field, actual_fields[i]))
-                        logging.error('Expect data set: {}'.format(self.expected_data))
-                        logging.error('Actual data set: {}'.format(actual_data))
-                        return False
-            else:
-                logging.error('Expected thermal data {} not found'.format(fields))
-                logging.error('Expect data set: {}'.format(self.expected_data))
-                logging.error('Actual data set: {}'.format(actual_data))
-                return False
-        return True
-
     def check_thermal_algorithm_status(self, expected_status):
         """
         Check if actual thermal algorithm status match given expected value.
@@ -861,17 +869,17 @@ class AbnormalFanMocker(SingleFanMocker):
     def check_result(self, actual_data):
         """
         Check actual data with mocked data.
-        :param actual_data: A dictionary contains actual command line data. Key of the dictionary is FAN name. Value
-                            of the dictionary is a list of field values for a line of FAN data.
+        :param actual_data: A list of dictionary contains actual command line data.
+
         :return: True if a match line is found.
         """
-        for name, fields in actual_data.items():
-            if name == self.fan_data.name:
+        for fan in actual_data:
+            if fan['fan'] == self.fan_data.name:
                 try:
                     actual_color = self.fan_drawer_data.get_status_led()
-                    assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(name,
-                                                                                                        actual_color,
-                                                                                                        self.expect_led_color)
+                    assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(fan['fan'],
+                                                                                                          actual_color,
+                                                                                                          self.expect_led_color)
                 except SysfsNotExistError as e:
                     logging.info('LED check only support on SPC2 and SPC3: {}'.format(e))
                 return
