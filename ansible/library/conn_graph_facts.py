@@ -19,7 +19,7 @@ Description:
 options:
     host:
         [fanout switch name|Server name|Sonic Switch Name]
-        requred: False
+        required: False
     hosts:
         List of hosts. Applicable for multi-DUT and single-DUT setup. The host option for single DUT setup is kept
         for backward compatibility.
