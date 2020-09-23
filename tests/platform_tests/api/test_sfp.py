@@ -118,9 +118,9 @@ class TestSfpApi(PlatformApiTestBase):
         expected_value = None
 
         if self.chassis_facts:
-            expeceted_sfps = self.chassis_facts.get("sfps")
-            if expeceted_sfps:
-                expected_value = expeceted_sfps[sfp_idx].get(key)
+            expected_sfps = self.chassis_facts.get("sfps")
+            if expected_sfps:
+                expected_value = expected_sfps[sfp_idx].get(key)
 
         if not expected_value:
             logger.warning("Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx))
