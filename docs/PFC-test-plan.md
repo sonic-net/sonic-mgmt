@@ -20,7 +20,7 @@
       - [Test Objective](#test-objective-2)
       - [Test Configuration](#test-configuration-2)
       - [Test Steps](#test-steps-2)
-    - [Test Case #3 - GLOBAL PAUSE (IEEE 802.3x link level Flow Control)](#test-case-3---global-pause-ieee-8023x-link-level-flow-control)
+    - [Test Case #4 - GLOBAL PAUSE (IEEE 802.3x link level Flow Control)](#test-case-4---global-pause-ieee-8023x-link-level-flow-control)
       - [Test Objective](#test-objective-3)
       - [Test Configuration](#test-configuration-3)
       - [Test Steps](#test-steps-3)
@@ -256,7 +256,7 @@ Verify Device Under Test (DUT) processes the PFC PAUSE frame with lossy prioriti
 5. Stop the PFC PAUSE storm.
 6. Repeat the test with a different lossless priority value (!=Pi).
    
-### Test Case #3 - GLOBAL PAUSE (IEEE 802.3x link level Flow Control)
+### Test Case #4 - GLOBAL PAUSE (IEEE 802.3x link level Flow Control)
 
 <b>Note</b> : 802.3x link level Flow Control is different than IEEE 802.1Qbb PFC (Priority-based Flow Control)
 
@@ -273,8 +273,8 @@ Verify Device Under Test (DUT) processes the GLOBAL PAUSE frame.
 
 1. Start GLOBAL PAUSE storm.
 2. After a fixed duration (eg. 1 sec), start the Test data traffic.
-3. Keep the Test data traffic running for a fixed duration (eg 5sec) and then stop the traffic item.
+3. Keep the Test data traffic running for a fixed duration (eg 5 sec) and then stop the traffic item.
 4. Stop the GLOBAL PAUSE storm.
 5. Verify the following:
    * Keysight Rx port should receive all the 'Test data traffic'. There should not be any loss observed. Throughput should be close to link capacity.
-   * SONiC Device Under Test (DUT) will discard all Global pause frames. However presently there is no way to check if SONiC will discard all global pause frames.
+   
