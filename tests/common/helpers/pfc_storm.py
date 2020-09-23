@@ -131,7 +131,6 @@ class PFCStorm(object):
         """
         self.extra_vars = dict()
         self.extra_vars = {
-            "pfc_gen_dir": self._PFC_GEN_DIR[self.peer_device.os],
             "pfc_gen_file": self.pfc_gen_file,
             "pfc_queue_index": self.pfc_queue_idx,
             "pfc_frames_number": self.pfc_frames_number,
@@ -139,6 +138,9 @@ class PFCStorm(object):
             "ansible_eth0_ipv4_addr": self.ip_addr,
             "peer_hwsku": self.peer_info['hwsku']
             }
+        if self.peer_device_os in self._PFC_GEN_DIR:
+            self.extra_vars['pfc_gen_dir'] = \
+                self._PFC_GEN_DIR[self.peer_device.os]
         if getattr(self, "pfc_storm_defer_time", None):
             self.extra_vars.update({"pfc_storm_defer_time": self.pfc_storm_defer_time})
         if getattr(self, "pfc_storm_stop_defer_time", None):
