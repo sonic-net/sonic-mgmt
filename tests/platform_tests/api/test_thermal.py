@@ -30,24 +30,16 @@ pytestmark = [
 
 @pytest.fixture(scope="class")
 def gather_facts(request, duthost):
-    # Get thermal truths from platform.json file
-    chassis_truth = duthost.facts.get("chassis")
-    if chassis_truth:
-        request.cls.thermal_truth = chassis_truth.get('thermals', None)
-        if not request.cls.thermal_truth:
-            logger.warning("Unable to get thermal_truth from platform.json, test results will not be comprehensive")
-    else:
-        logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
-
-    # Get host vars from inventory file
-    request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    # Get platform facts from platform.json file
+    request.cls.chassis_facts = duthost.facts.get("chassis")
+    if not request.cls.chassis_facts:
+        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
 
 
+@pytest.mark.usefixtures("gather_facts")
 class TestThermalApi(PlatformApiTestBase):
 
     num_thermals = None
-    thermal_truth = None
-    duthost_vars = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
@@ -65,18 +57,21 @@ class TestThermalApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, i):
+    def compare_value_with_platform_facts(self, key, value, thermal_idx):
         expected_value = None
 
-        if self.thermal_truth[i]:
-            expected_value = self.thermal_truth[i].get(key)
+        if self.chassis_facts:
+            expected_thermals = self.chassis_facts.get("thermals")
+            if expected_thermals:
+                expected_value = expected_thermals[thermal_idx].get(key)
+
 
         if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file for thermal {}".format(key, i))
+            logger.warning("Unable to get expected value for '{}' from platform.json file for thermal {}".format(key, thermal_idx))
             return
 
         self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value, expected_value, i))
+                      "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value, expected_value, thermal_idx))
 
 
     #
@@ -88,7 +83,7 @@ class TestThermalApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Thermal {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Thermal {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i)
+                compare_value_with_platform_facts(self, 'name', name, i)
 
         self.assert_expectations()
 
