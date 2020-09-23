@@ -55,7 +55,7 @@ class TestFanApi(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self , platform_api_conn):
+    def setup(self, platform_api_conn):
         if self.num_fans is None:
             try:
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
