@@ -106,10 +106,10 @@ sonic_arista:
     str2-7050cx3-acs-01:
       ansible_host: 10.3.146.85
       hwsku: Arista-7050CX3-32S-C32
-    str2-7050cx3-tor-01:
+    str2-7050cx3-acs-02:
       ansible_host: 10.3.146.187
       hwsku: Arista-7050CX3-32S-C32
-    str2-7050cx3-tor-02:
+    str2-7050cx3-acs-03:
       ansible_host: 10.3.146.185
       hwsku: Arista-7050CX3-32S-C32
     str2-a7060-spy-1:
