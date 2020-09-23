@@ -49,6 +49,10 @@ fanout:
       ansible_host: 10.3.146.55
     str2-7260cx3-64-19:
       ansible_host: 10.3.146.150
+    str2-7260cx3-acs-root02:
+      ansible_host: 10.3.146.104
+    str2-7263CX3-azd-01:
+      ansible_host: 10.3.146.32
 
 sonic:
   vars:
@@ -80,6 +84,8 @@ sonic_mlnx_3800:
   hosts:
     str2-sn3800-azd:
       ansible_host: 10.3.146.183
+    str2-sn3800-azd-2:
+      ansible_host: 10.3.146.238
 
 sonic_mlnx_3800_50:
   vars:

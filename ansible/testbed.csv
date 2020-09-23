@@ -79,3 +79,4 @@ vms17-t0-7050cx3-acs-02,vms17-7,t0,docker-ptf-brcm,vms17-7,10.64.246.125/23,,ser
 vms17-t1-7050cx3-acs-03,vms17-8,t1-lag,docker-ptf-brcm,vms17-8,10.64.246.126/23,,server_17,VM1772,str2-7050cx3-acs-03,lawlee
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,superman
 spytest,spytest,fullmesh,docker-ptf-brcm,ptf-unknown,10.64.246.101/23,,server_16,,[str2-msn2700-spy-1;str2-msn2700-spy-2;str2-a7060-spy-1;str2-a7060-spy-2],hellospytest
+vms17-t0-3800-azd-2,v17-4,t0,docker-ptf-mlnx,10.64.246.110/23,server_17,VM1732,str2-sn3800-azd-2,annarsia
