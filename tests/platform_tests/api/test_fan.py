@@ -37,6 +37,15 @@ STATUS_LED_COLOR_AMBER = "amber"
 STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get platform facts from platform.json file
+    request.cls.chassis_facts = duthost.facts.get("chassis")
+    if not request.cls.chassis_facts:
+        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
+
+
+@pytest.mark.usefixtures("gather_facts")
 class TestFanApi(PlatformApiTestBase):
 
     num_fans = None
