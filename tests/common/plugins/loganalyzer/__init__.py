@@ -34,6 +34,14 @@ def loganalyzer(duthost, request):
     logging.info("Load config and analyze log")
     # Read existed common regular expressions located with legacy loganalyzer module
     loganalyzer.load_common_config()
+    # sflowmgrd is configed in Monit, but not included in current master branch image
+    # So a workaround is added for master branch. Once the issue is adressed, we should
+    # rm this patch
+    if "master" in duthost.os_version:
+        log_to_ignore = [
+            r".*'sflowmgrd' process is not running"
+        ]
+        loganalyzer.ignore_regex.extend(log_to_ignore)
 
     yield loganalyzer
     # Skip LogAnalyzer if case is skipped
