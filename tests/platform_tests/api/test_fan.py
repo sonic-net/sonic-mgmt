@@ -37,7 +37,6 @@ STATUS_LED_COLOR_AMBER = "amber"
 STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
-@pytest.mark.usefixtures("gather_facts")
 class TestFanApi(PlatformApiTestBase):
 
     num_fans = None
@@ -47,7 +46,7 @@ class TestFanApi(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, duthost, platform_api_conn):
+    def setup(self , platform_api_conn):
         if self.num_fans is None:
             try:
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
@@ -63,7 +62,7 @@ class TestFanApi(PlatformApiTestBase):
 
         if self.chassis_facts:
             expected_fan_drawers = self.chassis_facts.get("fan_drawers")
-            if expeceted_fan_drawers:
+            if expected_fan_drawers:
                 expected_fans = expected_fan_drawers[(fan_idx -1)/2].get("fans")
                 if expected_fans:
                     expected_value = expected_fans[fan_idx].get(key)
