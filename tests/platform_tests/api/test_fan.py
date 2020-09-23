@@ -37,27 +37,10 @@ STATUS_LED_COLOR_AMBER = "amber"
 STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
-@pytest.fixture(scope="class")
-def gather_facts(request, duthost):
-    # Get fan truths from platform.json file
-    chassis_truth = duthost.facts.get("chassis")
-    if chassis_truth:
-        request.cls.fan_truth = chassis_truth.get('fans', None)
-        if not request.cls.fan_truth:
-            logger.warning("Unable to get fan_truth from platform.json, test results will not be comprehensive")
-    else:
-        logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
-
-    # Get host vars from inventory file
-    request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
-
-
 @pytest.mark.usefixtures("gather_facts")
 class TestFanApi(PlatformApiTestBase):
 
     num_fans = None
-    fan_truth = None
-    duthost_vars = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
@@ -75,18 +58,23 @@ class TestFanApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, i):
+    def compare_value_with_platform_facts(self, key, value, fan_idx):
         expected_value = None
 
-        if self.fan_truth[i]:
-            expected_value = self.fan_truth[i].get(key)
+        if self.chassis_facts:
+            expected_fan_drawers = self.chassis_facts.get("fan_drawers")
+            if expeceted_fan_drawers:
+                expected_fans = expected_fan_drawers[(fan_idx -1)/2].get("fans")
+                if expected_fans:
+                    expected_value = expected_fans[fan_idx].get(key)
+
 
         if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file for fan {}".format(key, i))
+            logger.warning("Unable to get expected value for '{}' from platform.json file for fan {}".format(key, fan_idx))
             return
 
         self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}' for fan {}".format(key, value, expected_value, i))
+                      "'{}' value is incorrect. Got '{}', expected '{}' for fan {}".format(key, value, expected_value, fan_idx))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -97,7 +85,7 @@ class TestFanApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Fan {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Fan {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i)
+                compare_value_with_platform_facts(self, 'name', name, i)
 
         self.assert_expectations()
 
