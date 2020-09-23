@@ -1,0 +1,20 @@
+# Flattened views of the report information stored in various Kusto tables
+
+# Combines report metadata and report summaries into one flat view
+.create-or-alter function FlatTestSummaryView()
+{
+    TestReportMetadata
+    | join kind=innerunique TestReportSummary on ReportId
+    | project Timestamp, OSVersion, HardwareSku, TotalCasesRun, Successes=(TotalCasesRun - Failures - Skipped),
+              Failures, Errors, Skipped, TestbedName, TrackingId, TotalRuntime,
+              AsicType, Platform, Topology, ReportId, UploadTimestamp
+    | sort by Timestamp desc
+}
+
+# Combines report metadata and test case results into one flat view
+.create-or-alter function FlatTestReportView()
+{
+    TestReportMetadata
+    | join kind=innerunique TestCases on ReportId
+    | project-away ReportId1
+}

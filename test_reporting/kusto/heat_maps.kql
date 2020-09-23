@@ -1,0 +1,31 @@
+# Helper functions for identifying problem areas in the overall test suite
+
+# Return the failure rate for each test case in the test suite
+.create-or-alter function TestDefectRate(timeframe: timespan = 3d, asic: string = "", sku: string = "", topo: string = "", version: string = "201911")
+{
+    FlatTestReportView
+    | where Timestamp >= ago(timeframe) 
+            and (Result != "skipped" or Error)
+            and AsicType contains asic
+            and HardwareSku contains sku
+            and Topology contains topo
+            and OSVersion contains version
+    | summarize Successes = countif(Result == "success" and not(Error)),
+                Failures = countif(Result == "failure" and not(Error)),
+                Errors = countif(Result in~ ("error", "skipped")) by Feature, TestCase
+    | extend Total = Successes + Failures + Errors
+    | extend DefectPercentage = ((Failures + Errors) * 100) / Total
+    | sort by DefectPercentage, Total desc
+}
+
+# Return the failure rate for each feature area in the test suite
+.create-or-alter function TestDefectRateBrief(timeframe: timespan = 3d, asic: string = "", sku: string = "", topo: string = "", version: string = "201911")
+{
+    TestDefectRate(timeframe, asic, sku, topo, version)
+    | summarize Successes = sum(Successes),
+                Failures = sum(Failures),
+                Errors = sum(Errors),
+                Total = sum(Total) by Feature
+    | extend DefectPercentage = ((Failures + Errors) * 100) / Total
+    | sort by DefectPercentage, Total desc
+}
