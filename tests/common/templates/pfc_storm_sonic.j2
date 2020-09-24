@@ -1,0 +1,6 @@
+cd {{pfc_gen_dir}}
+{% if (pfc_asym is defined) and (pfc_asym == True) %}
+nohup sh -c "{% if pfc_storm_defer_time is defined %}sleep {{pfc_storm_defer_time}} &&{% endif %} python {{pfc_gen_file}} -p {{pfc_queue_index}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface}}" > /dev/null 2>&1 &
+{% else %}
+nohup sh -c "{% if pfc_storm_defer_time is defined %}sleep {{pfc_storm_defer_time}} &&{% endif %} python {{pfc_gen_file}} -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface}} -r {{ansible_eth0_ipv4_addr}}" > /dev/null 2>&1 &
+{% endif %}
