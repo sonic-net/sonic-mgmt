@@ -19,8 +19,6 @@ all:
           ansible_host: 10.64.246.106
         vms17-3:
           ansible_host: 10.64.246.107
-        vms17-4:
-          ansible_host: 10.64.246.58
         vms17-5:
           ansible_host: 10.64.246.118
         vms17-7:
@@ -29,6 +27,8 @@ all:
           ansible_host: 10.64.246.126
         vms20-6:
           ansible_host: 10.64.246.120
+        vms20-2:
+          ansible_host: 10.64.246.58
 
 fanout:
   hosts:
