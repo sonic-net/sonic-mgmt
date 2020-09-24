@@ -92,9 +92,9 @@
     update_cache: yes
   vars:
     packages:
-      - kubelet={{ KUBERNETES_VERSION }}-00 
-      - kubeadm={{ KUBERNETES_VERSION }}-00 
-      - kubectl={{ KUBERNETES_VERSION }}-00
+      - kubelet={{ KUBERNETES_VERSION }} 
+      - kubeadm={{ KUBERNETES_VERSION }} 
+      - kubectl={{ KUBERNETES_VERSION }}
   environment: "{{ proxy_env | default({}) }}"
 
 - name: Restart kubelet

@@ -2,20 +2,20 @@
   file: path={{ k8s_root_path }}/{{ vm_name }} state=directory mode=0755
 
 - name: Check destination file existence
-  stat: path={{ disk_image }}
+  stat: path={{ disk_image }} get_checksum="no"
   register: file_stat
 
 - name: "Generate cloud-config file for {{ vm_name }}"
   template: 
     src: templates/cloud-config.yml.j2
     dest: "{{ k8s_root_path }}/{{ vm_name }}/cloud-config.yml"
-  when: not file_stat.stat.exists
+    force: no
 
 - name: "Generate network metadata file for {{ vm_name }}"
   template: 
     src: templates/network-config-v2.yml.j2
     dest: "{{ k8s_root_path }}/{{ vm_name }}/network-config-v2.yml"
-  when: not file_stat.stat.exists
+    force: no
 
 - name: "Generate cloud-config image for {{ vm_name }}"
   shell: 
@@ -25,11 +25,9 @@
       --network-config={{ k8s_root_path }}/{{ vm_name }}/network-config-v2.yml
       {{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_cloud-config.img 
       {{ k8s_root_path }}/{{ vm_name }}/cloud-config.yml
-  when: not file_stat.stat.exists  
 
 - name: Copy Ubuntu disk image for {{ hostname }}
-  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
-  when: not file_stat.stat.exists
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True force="no"
 
 - name: "Resize virtual machine disk for {{ hostname }}"
   shell: 
@@ -53,7 +51,7 @@
         --network bridge={{ mgmt_bridge_k8s }},model=virtio 
         --import
   become: yes
-  when: not file_stat.stat.exists and vm_name not in vm_list_defined.list_vms
+  when: vm_name not in vm_list_defined.list_vms
 
 - name: "{{ vm_name }} start with host startup"
   virt: 

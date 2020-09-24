@@ -108,7 +108,9 @@ k8s_server_19:
     - `mgmt_prefixlen`: prefixlen for the management interfaces
 5. If necessary, set proxy in [`ansible/group_vars/all/env.yml`](../group_vars/all/env.yml)
 6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml).   
-7. If using Azure Storage to source Ubuntu 18.04 KVM image, set `k8s_vmimage_saskey` in [`ansible/vars/azure_storage.yml`](../vars/azure_storage.yml). Alternatively, manually download and store the Ubuntu 18.04 qcow2 image file at the path `/home/azure/ubuntu-vm/images/bionic-server-cloudimg-amd64.qcow2` on your testbed server.
+7. If using Azure Storage to source Ubuntu 18.04 KVM image, set `k8s_vmimage_saskey` in [`ansible/vars/azure_storage.yml`](../vars/azure_storage.yml). 
+
+To source image from public URL: download from  [here](https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img). Then, convert to qcow2 by running `qemu-img convert -f qcow2 bionic-server-cloudimg-amd64.img bionic-server-cloudimg-amd64.qcow2`. Store qcow2 image at the path `/home/azure/ubuntu-vm/images/bionic-server-cloudimg-amd64.qcow2` on your testbed server. 
 8. From `docker-sonic-mgmt` container, `cd` into `sonic-mgmt/ansible` directory and run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password`
    - `k8s-server-name` corresponds to the group name used to describe the testbed server in the [`ansible/k8s-ubuntu`](../k8s-ubuntu) inventory file, of the form `k8s_server_{unit}`. 
    - Please note: `~/.password` is the ansible vault password file name/path. Ansible allows users to use ansible-vault to encrypt password files. By default, this shell script requires a password file. If you are not using ansible-vault, just create an empty file and pass the file name to the command line. The file name and location are created and maintained by the user.

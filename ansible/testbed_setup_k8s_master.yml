@@ -11,9 +11,10 @@
             timeout: 100
       rescue:
         - ping:
+     # This block/rescue segment is a workaround for occasional HOST UNREACHABLE error on last KVM to be configured 
     - name: Gathering facts
       setup:
-  
+   
   roles:
     - { role: k8s_haproxy, when: haproxy is defined}
     - { role: k8s_master, when: master is defined}
