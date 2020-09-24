@@ -186,7 +186,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthost, psu_controller):
         pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
     assert len(psu_test_results.keys()) == psu_num, \
-        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, cmd_num_psu)
+        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus")
 
     logging.info("Start testing turn off/on PSUs")
     all_psu_status = psu_ctrl.get_psu_status()
@@ -434,6 +434,7 @@ def test_thermal_control_fan_status(duthost, mocker_factory):
             with loganalyzer:
                 logging.info('Mocking the fault FAN back to normal...')
                 single_fan_mocker.mock_status(True)
+
             check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]

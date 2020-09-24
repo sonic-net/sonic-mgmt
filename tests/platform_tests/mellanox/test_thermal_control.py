@@ -3,7 +3,7 @@ import operator
 import pytest
 import random
 import time
-from tests.common.mellanox_data import SWITCH_MODELS
+from tests.common.mellanox_data import get_platform_data
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.platform_tests.thermal_control_test_helper import *
@@ -62,11 +62,11 @@ def test_dynamic_minimum_table(duthost, mocker_factory):
 
 @pytest.mark.disable_loganalyzer
 def test_set_psu_fan_speed(duthost, mocker_factory):
-    hwsku = duthost.facts["hwsku"]
-    psu_num = SWITCH_MODELS[hwsku]['psus']['number']
-    hot_swappable = SWITCH_MODELS[hwsku]['psus']['hot_swappable']
+    platform_data = get_platform_data(duthost)
+    psu_num = platform_data['psus']['number']
+    hot_swappable = platform_data['psus']['hot_swappable']
     if not hot_swappable:
-        pytest.skip('The SKU {} does not support this test case.'.format(hwsku))
+        pytest.skip('The platform {} does not support this test case.'.format(duthost.facts["platform"]))
 
     logging.info('Create mocker, it may take a few seconds...')
     single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')

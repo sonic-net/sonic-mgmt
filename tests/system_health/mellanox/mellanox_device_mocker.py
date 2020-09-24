@@ -1,5 +1,5 @@
 from ..device_mocker import DeviceMocker
-from tests.common.mellanox_data import SWITCH_MODELS
+from tests.common.mellanox_data import get_platform_data
 from tests.platform_tests.mellanox.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
     FAN_NAMING_RULE
 
@@ -76,8 +76,8 @@ class MellanoxDeviceMocker(DeviceMocker):
         self.mock_helper.deinit()
 
     def mock_fan_presence(self, status):
-        dut_hwsku = self.mock_helper.dut.facts["hwsku"]
-        always_present = not SWITCH_MODELS[dut_hwsku]['fans']['hot_swappable']
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['fans']['hot_swappable']
         if always_present:
             return False, None
 
