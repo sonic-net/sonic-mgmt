@@ -16,6 +16,11 @@ from files.configs.pfc import lossy_configs, one_hundred_gbe, serializer
 from files.configs.pfc import start_delay, traffic_duration
 from files.qos_fixtures import lossless_prio_dscp_map
 
+START_DELAY = [1]
+TRAFFIC_DURATION = [3]
+
+@pytest.mark.parametrize('start_delay', START_DELAY)
+@pytest.mark.parametrize('traffic_duration', TRAFFIC_DURATION)
 def test_pfc_pause_lossy_traffic(api, 
                                  duthost, 
                                  lossy_configs, 

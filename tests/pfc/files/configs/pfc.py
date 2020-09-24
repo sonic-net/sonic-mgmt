@@ -2,6 +2,9 @@ import time
 import pytest
 import sys
 
+#START_DELAY = 1
+#TRAFFIC_DURATION = 5
+
 from tests.common.reboot import logger
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_location
@@ -212,16 +215,12 @@ def base_configs(testbed,
 
 
 @pytest.fixture
-def start_delay():
-    start_delay = 1
-    return start_delay
-
+def start_delay(request):
+    return request
 
 @pytest.fixture
-def traffic_duration():
-    traffic_duration = 5
-    return traffic_duration  
-
+def traffic_duration(request):
+    return request
 
 @pytest.fixture(scope='session')
 def serializer(request):
