@@ -405,10 +405,10 @@ class SonicHost(AnsibleHostBase):
                 break
 
         # For PMon container, since different daemons are enabled in different platforms, we need find common processes
-        # which are not only in the critical_processes file and also are running in that platform.
+        # which are not only in the critical_processes file and also are configured to run on that platform.
         if succeeded and container_name == "pmon":
-            common_groups = []
-            common_processes = []
+            expected_critical_group_list = []
+            expected_critical_process_list = []
             process_list = self.shell("docker exec {} supervisorctl status".format(container_name))
             for process_info in process_list["stdout_lines"]:
                 process_name = process_info.split()[0].strip()
@@ -417,12 +417,13 @@ class SonicHost(AnsibleHostBase):
                     group_name = process_name.split(":")[0]
                     process_name = process_name.split(":")[1]
                     if process_status == "RUNNING" and group_name in critical_group_list:
-                        common_groups.append(process_name)
+                        expected_critical_group_list.append(process_name)
                 else:
                     if process_status == "RUNNING" and process_name in critical_process_list:
-                        common_processes.append(process_name)
-
-            return common_groups, common_processes, succeeded
+                        expected_critical_process_list.append(process_name)
+            
+            critical_group_list = expected_critical_group_list
+            critical_process_list = expected_critical_process_list
 
         return critical_group_list, critical_process_list, succeeded
 
