@@ -138,7 +138,7 @@ class PFCStorm(object):
             "ansible_eth0_ipv4_addr": self.ip_addr,
             "peer_hwsku": self.peer_info['hwsku']
             }
-        if self.peer_device_os in self._PFC_GEN_DIR:
+        if self.peer_device.os in self._PFC_GEN_DIR:
             self.extra_vars['pfc_gen_dir'] = \
                 self._PFC_GEN_DIR[self.peer_device.os]
         if getattr(self, "pfc_storm_defer_time", None):
