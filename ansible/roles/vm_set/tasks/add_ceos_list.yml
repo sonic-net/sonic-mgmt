@@ -51,5 +51,40 @@
       pull: no
     source: build
 
-- include_tasks: add_ceos.yml
-  with_items: "{{ VM_targets }}"
+- name: Create net base containers
+  become: yes
+  docker_container:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    image: debian:jessie
+    pull: yes
+    state: started
+    restart: no
+    tty: yes
+    network_mode: none
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+  async: 300
+  poll: 0
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+  register: async_create_results
+
+- name: Wait for creation of net base containers
+  become: yes
+  async_status:
+    jid: "{{ async_create_result_item.ansible_job_id }}"
+  loop: "{{ async_create_results.results }}"
+  loop_control:
+    loop_var: async_create_result_item
+  register: async_create_poll_results
+  until: async_create_poll_results.finished
+  retries: 10
+  delay: 30
+
+- include_tasks: add_ceos_network.yml
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
