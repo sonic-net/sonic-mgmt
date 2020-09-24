@@ -1296,7 +1296,7 @@ class IxiaHost (AnsibleHostBase):
             eval(cmd)
 
 
-class FanoutHost():
+class FanoutHost(object):
     """
     @summary: Class for Fanout switch
 
