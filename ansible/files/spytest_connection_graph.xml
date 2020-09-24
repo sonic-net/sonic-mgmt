@@ -27,10 +27,16 @@
       <Device Hostname="str2-dx010-acs-6" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
       <Device Hostname="str2-acs-serv-16" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str2-acs-serv-17" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str2-acs-serv-18" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str2-acs-serv-19" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str2-acs-serv-20" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-16" EndPort="eno2" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet3/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-17" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet4/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-18" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet5/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-19" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet6/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-20" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet7/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-8" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-06" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet13/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-fan-08" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet11/1"/>
@@ -561,6 +567,9 @@
     <DevicesL2Info Hostname="str2-7260cx3-acs-root02">
       <InterfaceVlan mode="Trunk" portname="Ethernet3/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet4/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet7/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="249-351,481-598"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="217-248,352,401,465,599-600,2716,2748"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids="353-400,402-416"/>

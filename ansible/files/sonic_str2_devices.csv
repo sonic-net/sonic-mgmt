@@ -25,3 +25,6 @@ str2-7050cx3-acs-03,10.3.146.185/23,Arista-7050CX3-32S-C32,DevSonic
 str2-dx010-acs-6,10.64.246.100/23,Celestica-DX010-C32,DevSonic
 str2-acs-serv-16,10.64.246.95/23,TestServ,Server
 str2-acs-serv-17,10.64.246.96/23,TestServ,Server
+str2-acs-serv-18,10.64.246.97/23,TestServ,Server
+str2-acs-serv-19,10.64.246.111/23,TestServ,Server
+str2-acs-serv-20,10.64.246.119/23,TestServ,Server
