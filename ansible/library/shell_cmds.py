@@ -45,7 +45,8 @@
 #       "cmds": [
 #         "ls /home",
 #         "pwd"
-#       ]
+#       ],
+#       "continue_on_fail": false
 #     }
 #   }
 # }
@@ -64,6 +65,7 @@ description:
     - Run multiple commands by /bin/sh on remote host.
 options:
     cmds: List of commands. Each command should be a string.
+    continue_on_fail: Bool. Specify whether to continue running rest of the commands if any of the command failed.
 '''
 
 EXAMPLES = r'''
@@ -73,6 +75,7 @@ EXAMPLES = r'''
     cmds:
         - ls /home
         - pwd
+    continue_on_fail: False
 '''
 
 def run_cmd(module, cmd):
@@ -90,18 +93,24 @@ def run_cmd(module, cmd):
 
 def main():
 
-    module = AnsibleModule(argument_spec=dict(
-            cmds=dict(type='list')
+    module = AnsibleModule(
+        argument_spec=dict(
+            cmds=dict(type='list', required=True),
+            continue_on_fail=dict(type='bool', default=True)
         )
     )
 
     cmds = module.params['cmds']
+    continue_on_fail = module.params['continue_on_fail']
 
     startd = datetime.datetime.now()
 
     results = []
     for cmd in cmds:
-        results.append(run_cmd(module, cmd))
+        result = run_cmd(module, cmd)
+        results.append(result)
+        if result['rc'] != 0 and not continue_on_fail:
+            break
 
     endd = datetime.datetime.now()
     delta = endd - startd
