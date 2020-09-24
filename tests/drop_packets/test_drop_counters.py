@@ -386,6 +386,7 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, duthost, setup, tx_dut_po
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
 
+    global L2_COL_KEY
     if  "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
 
