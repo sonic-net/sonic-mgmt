@@ -75,7 +75,6 @@ vms17-t0-3800-azd,vms17-3,t0,docker-ptf-mlnx,vms17-3,10.64.246.107/23,,server_17
 vms17-t0-3800-azd-2,v17-4,t0,docker-ptf-mlnx,v17-4,10.64.246.110/23,,server_17,VM1732,str2-sn3800-azd-2,annarsia
 vms17-t0-7060,vms17-4,t0,docker-ptf-brcm,vms17-4,10.64.246.58/23,,server_17,VM1736,str2-7060cx-32s-29,vadixit
 vms17-t0-7050cx3-1,vms17-5,t0,docker-ptf-brcm,vms17-5,10.64.246.118/23,,server_17,VM1740,str2-7050cx3-acs-01,lawlee
-vms17-t1-dx010-6,vms17-6,t1-lag,docker-ptf-brcm,vms17-6,10.64.246.120/23,,server_17,VM1744,str2-dx010-acs-6,v-saidia
 vms17-t0-7050cx3-acs-02,vms17-7,t0,docker-ptf-brcm,vms17-7,10.64.246.125/23,,server_17,VM1768,str2-7050cx3-acs-02,lawlee
 vms17-t1-7050cx3-acs-03,vms17-8,t1-lag,docker-ptf-brcm,vms17-8,10.64.246.126/23,,server_17,VM1772,str2-7050cx3-acs-03,lawlee
 vms20-t1-dx010-6,vms20-6,t1-lag,docker-ptf-brcm,vms20-6,10.64.246.120/23,,server_20,VM2000,str2-dx010-acs-6,Jenkins
