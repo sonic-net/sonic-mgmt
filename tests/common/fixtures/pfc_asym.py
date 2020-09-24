@@ -167,7 +167,7 @@ def enable_pfc_asym(setup, duthost):
             assert setup["pfc_bitmask"]["pfc_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"])
 
 @pytest.fixture(scope="module")
-def setup(testbed, duthost, ptfhost, ansible_facts, minigraph_facts, request):
+def setup(tbinfo, duthost, ptfhost, ansible_facts, minigraph_facts, request):
     """
     Fixture performs initial steps which is required for test case execution.
     Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is used in test case logic.
@@ -204,7 +204,7 @@ def setup(testbed, duthost, ptfhost, ansible_facts, minigraph_facts, request):
     - Remove ARP responder
     - Restore supervisor configuration in PTF container
     """
-    if testbed['topo']['name'] != "t0":
+    if tbinfo['topo']['name'] != "t0":
         pytest.skip('Unsupported topology')
     setup_params = {
         "pfc_bitmask": {

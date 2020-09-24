@@ -39,7 +39,7 @@ class DhcpPktFwdBase:
 
     def __getPortLagsAndPeerIp(self, duthost, testPort):
         """
-        Retreives all port lag members for a given testPort
+        Retrieves all port lag members for a given testPort
 
         Args:
             duthost(Ansible Fixture): instance of SonicHost class of DUT
@@ -92,18 +92,18 @@ class DhcpPktFwdBase:
         ))
 
     @pytest.fixture(scope="class")
-    def dutPorts(self, duthost, testbed):
+    def dutPorts(self, duthost, tbinfo):
         """
         Build list of DUT ports and classify them as Upstream/Downstream ports.
 
         Args:
             duthost(Ansible Fixture): instance of SonicHost class of DUT
-            testbed(Ansible Fixture): testbed information
+            tbinfo(Ansible Fixture): testbed information
 
         Returns:
             dict: contains downstream/upstream ports information
         """
-        if "t1" not in testbed["topo"]["name"]:
+        if "t1" not in tbinfo["topo"]["name"]:
             pytest.skip("Unsupported topology")
 
         downstreamPorts = []

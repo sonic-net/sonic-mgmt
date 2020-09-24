@@ -1,6 +1,5 @@
 """Tests for the JUnit XML parser."""
 import os
-import re
 import pytest
 
 from test_reporting.junit_xml_parser import validate_junit_xml_stream, validate_junit_xml_file
@@ -50,7 +49,8 @@ EXPECTED_JSON_OUTPUT = {
                 "file": "acl/test_acl.py",
                 "line": "257",
                 "name": "test_acl",
-                "time": "58.161"
+                "time": "58.161",
+                "error": True
             },
             {
                 "classname": "acl.test_acl",
@@ -58,7 +58,8 @@ EXPECTED_JSON_OUTPUT = {
                 "line": "369",
                 "name": "test_acl_2",
                 "result": "skipped",
-                "time": "0.0"
+                "time": "0.0",
+                "error": False
             }
         ],
         "bgp": [
@@ -68,7 +69,8 @@ EXPECTED_JSON_OUTPUT = {
                 "line": "161",
                 "name": "test_bgp_fact",
                 "time": "109.472",
-                "result": "success"
+                "result": "success",
+                "error": False
             },
             {
                 "classname": "bgp.test_bgp",
@@ -76,7 +78,8 @@ EXPECTED_JSON_OUTPUT = {
                 "file": "bgp/test_bgp.py",
                 "line": "248",
                 "name": "test_bgp_speaker",
-                "time": "46.316"
+                "time": "46.316",
+                "error": False
             }
         ]
     },
@@ -92,10 +95,10 @@ EXPECTED_JSON_OUTPUT = {
     },
     "test_summary": {
         "errors": "1",
-        "failures": "1",
+        "failures": "2",
         "skipped": "1",
         "tests": "4",
-        "time": "214.054"
+        "time": "213.949"
     }
 }
 
@@ -169,12 +172,6 @@ def test_invalid_junit_xml_broken_xml(token, replacement):
 def test_invalid_junit_xml_testsuite_errors(token, replacement, message):
     test_string = VALID_TEST_RESULT.replace(token, replacement)
     with pytest.raises(JUnitXMLValidationError, match=message):
-        validate_junit_xml_stream(test_string)
-
-
-def test_invalid_junit_xml_no_metadata():
-    test_string = re.sub(r"<properties>[\s\S]*?</properties>", "", VALID_TEST_RESULT)
-    with pytest.raises(JUnitXMLValidationError, match="metadata element .* not found"):
         validate_junit_xml_stream(test_string)
 
 

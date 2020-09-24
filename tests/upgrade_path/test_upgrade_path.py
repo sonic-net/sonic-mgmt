@@ -11,9 +11,13 @@ from datetime import datetime
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.sanity_check(skip_sanity=True),
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)
@@ -49,9 +53,6 @@ def cleanup(localhost, ptfhost, duthost, upgrade_path_lists):
 
 def prepare_ptf(ptfhost, duthost):
     logger.info("Preparing ptfhost")
-    ptfhost.script("./scripts/remove_ip.sh")
-    ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py",
-                 dest="/opt")
 
     # Prapare vlan conf file
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
@@ -80,7 +81,7 @@ def prepare_ptf(ptfhost, duthost):
 
 
 @pytest.fixture(scope="module")
-def ptf_params(duthost, nbrhosts):
+def ptf_params(duthost, nbrhosts, creds):
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     lo_v6_prefix = ""
@@ -96,14 +97,10 @@ def ptf_params(duthost, nbrhosts):
         #TODO:Update to vm_hosts.append(value['host'].host.mgmt_ip)
         vm_hosts.append(value['host'].host.options['inventory_manager'].get_host(value['host'].hostname).vars['ansible_host'])
 
-    hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    inventory = hostVars['inventory_file'].split('/')[-1]
-    secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
-
     ptf_params = {
         "verbose": False,
-        "dut_username": secrets[inventory]['sonicadmin_user'],
-        "dut_password": secrets[inventory]['sonicadmin_password'],
+        "dut_username": creds.get('sonicadmin_user'),
+        "dut_password": creds.get('sonicadmin_password'),
         "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
         "reboot_limit_in_seconds": 30,
         "reboot_type": "warm-reboot",
@@ -161,6 +158,6 @@ def test_upgrade_path(localhost, duthost, ptfhost, upgrade_path_lists, ptf_param
                        platform_dir="ptftests",
                        params=test_params,
                        platform="remote",
-                       qlen=1000,
+                       qlen=10000,
                        log_file=log_file)
 
