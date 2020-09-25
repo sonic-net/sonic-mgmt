@@ -55,8 +55,6 @@ ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
-    if not request.cls.chassis_facts:
-        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
 
     # Get host vars from inventory file
     request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
@@ -79,9 +77,8 @@ class TestChassisApi(PlatformApiTestBase):
         if self.chassis_facts:
             expected_value = self.chassis_facts.get(key)
 
-        if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file".format(key))
-            return
+        pytest_assert(expected_value is not None,
+                      "Unable to get expected value for '{}' from platform.json file".format(key))
 
         pytest_assert(value == expected_value,
                       "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
@@ -92,9 +89,8 @@ class TestChassisApi(PlatformApiTestBase):
         if self.duthost_vars:
             expected_value = self.duthost_vars.get(key)
 
-        if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from inventory file".format(key))
-            return
+        pytest_assert(expected_value is not None,
+                      "Unable to get expected value for '{}' from inventory file".format(key))
 
         if case_sensitive:
             pytest_assert(value == expected_value,
