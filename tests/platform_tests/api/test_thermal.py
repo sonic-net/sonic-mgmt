@@ -32,14 +32,12 @@ pytestmark = [
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
-    if not request.cls.chassis_facts:
-        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
-
 
 @pytest.mark.usefixtures("gather_facts")
 class TestThermalApi(PlatformApiTestBase):
 
     num_thermals = None
+    chassis_facts = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
@@ -65,14 +63,10 @@ class TestThermalApi(PlatformApiTestBase):
             if expected_thermals:
                 expected_value = expected_thermals[thermal_idx].get(key)
 
-
-        if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file for thermal {}".format(key, thermal_idx))
-            return
-
-        self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value, expected_value, thermal_idx))
-
+        if self.expect(expected_value is not None,
+                       "Unable to get expected value for '{}' from platform.json file for thermal {}".format(key, thermal_idx)):
+            self.expect(value == expected_value,
+                          "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value, expected_value, thermal_idx))
 
     #
     # Functions to test methods inherited from DeviceBase class
