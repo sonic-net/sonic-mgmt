@@ -36,8 +36,6 @@ image_list = [
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
-    if not request.cls.chassis_facts:
-        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
 
 
 @pytest.mark.usefixtures("gather_facts")
@@ -70,11 +68,10 @@ class TestComponentApi(PlatformApiTestBase):
             if expected_components:
                 expected_value = expected_components[component_idx].get(key)
 
-        if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file for component {}".format(key, component_idx))
-            return
+        pytest_assert(expected_value is not None,
+                      "Unable to get expected value for '{}' from platform.json file for component {}".format(key, component_idx))
 
-        self.expect(value == expected_value,
+        pytest_assert(value == expected_value,
                       "'{}' value is incorrect. Got '{}', expected '{}' for component {}".format(key, value, expected_value, component_idx))
 
     #
