@@ -41,14 +41,13 @@ STATUS_LED_COLOR_OFF = "off"
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
-    if not request.cls.chassis_facts:
-        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
 
 
 @pytest.mark.usefixtures("gather_facts")
 class TestFanApi(PlatformApiTestBase):
 
     num_fans = None
+    chassis_facts = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
@@ -74,12 +73,11 @@ class TestFanApi(PlatformApiTestBase):
             if expected_fans:
                 expected_value = expected_fans[fan_idx].get(key)
 
-        if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file for fan {}".format(key, fan_idx))
-            return
+        if self.expect(expected_value is not None,
+                       "Unable to get expected value for '{}' from platform.json file for fan {}".format(key, fan_idx)):
+            self.expect(value == expected_value,
+                          "'{}' value is incorrect. Got '{}', expected '{}' for fan {}".format(key, value, expected_value, fan_idx))
 
-        self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}' for fan {}".format(key, value, expected_value, fan_idx))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -157,7 +155,6 @@ class TestFanApi(PlatformApiTestBase):
             direction = fan.get_direction(platform_api_conn, i)
             if self.expect(direction is not None, "Unable to retrieve Fan {} direction".format(i)):
                 self.expect(direction in FAN_DIRECTION_LIST, "Fan {} direction is not one of predefined directions".format(i))
-                self.compare_value_with_platform_facts('direction', direction, i)
 
         self.assert_expectations()
 
@@ -181,7 +178,6 @@ class TestFanApi(PlatformApiTestBase):
             if self.expect(speed_tolerance is not None, "Unable to retrieve Fan {} speed tolerance".format(i)):
                 if self.expect(isinstance(speed_tolerance, int), "Fan {} speed tolerance appears incorrect".format(i)):
                     self.expect(speed_tolerance > 0 and speed_tolerance <= 100, "Fan {} speed tolerance {} reading does not make sense".format(i, speed_tolerance))
-                    self.compare_value_with_platform_facts('tolernace', speed_tolerance, i)
 
         self.assert_expectations()
 
