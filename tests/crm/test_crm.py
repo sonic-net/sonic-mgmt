@@ -1,6 +1,5 @@
 import pytest
 import time
-import re
 import json
 import ipaddress
 import netaddr
@@ -216,8 +215,9 @@ def verify_thresholds(duthost, **kwargs):
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
-            if used_percent < 1:
-                logger.warning("CRM used entries is < 1 percent")
+            if used_percent < 1 or used_percent >= 100:
+                logger.warning("CRM used entries is < 1 or >= 100 percent")
+                continue
             if key == "exceeded_percentage":
                 kwargs["th_lo"] = used_percent - 1
                 kwargs["th_hi"] = used_percent
@@ -749,9 +749,13 @@ def test_acl_counter(duthost, collector):
     used_percent = get_used_percent(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
     if used_percent < 1:
         # Preconfiguration needed for used percentage verification
-        nexthop_group_num = get_entries_num(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
+        needed_acl_counter_num = get_entries_num(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
 
-        apply_acl_config(duthost, "test_acl_counter", collector, nexthop_group_num)
+        get_acl_entry_stats = "redis-cli --raw -n 2 HMGET {acl_tbl_key} crm_stats_acl_entry_used \
+        crm_stats_acl_entry_available".format(acl_tbl_key=acl_tbl_key)
+        _, available_acl_entry_num = get_crm_stats(get_acl_entry_stats, duthost)
+        # The number we can applied is limited to available_acl_entry_num
+        apply_acl_config(duthost, "test_acl_counter", collector, min(needed_acl_counter_num, available_acl_entry_num))
 
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
