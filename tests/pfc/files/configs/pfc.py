@@ -2,9 +2,6 @@ import time
 import pytest
 import sys
 
-#START_DELAY = 1
-#TRAFFIC_DURATION = 5
-
 from tests.common.reboot import logger
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_location
@@ -25,11 +22,11 @@ from abstract_open_traffic_generator.layer1 import\
     Layer1, OneHundredGbe, FlowControl, Ieee8021qbb
 
 from abstract_open_traffic_generator.device import\
-    DeviceGroup, Device, Ethernet, Vlan, Ipv4, Pattern
+     Device, Ethernet, Vlan, Ipv4, Pattern
 
 from abstract_open_traffic_generator.flow import\
-    DeviceEndpoint, Endpoint, Flow, Header, Size, Rate,\
-    Duration, Fixed, PortEndpoint, PfcPause, Counter, Random,\
+    DeviceTxRx, TxRx, Flow, Header, Size, Rate,\
+    Duration, Fixed, PortTxRx, PfcPause, Counter, Random,\
     EthernetPause
 
 from abstract_open_traffic_generator.flow_ipv4 import\
@@ -54,6 +51,9 @@ def base_configs(testbed,
 
         bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
         test_dscp_list = [str(x) for x in range(64) if x not in bg_dscp_list]
+
+        tx = config.ports[0]
+        rx = config.ports[1]
 
         # extremely poor line should be deleted
         bg_dscp_list = ['0', '3', '4']
@@ -87,19 +87,12 @@ def base_configs(testbed,
         tx_ipv4 = Ipv4(name='Tx Ipv4',
                        address=Pattern(tx_port_ip),
                        prefix=Pattern('24'),
-                       gateway=Pattern(tx_gateway_ip))
+                       gateway=Pattern(tx_gateway_ip),
+                       ethernet=Ethernet(name='Tx Ethernet'))
 
-        tx_ethernet = Ethernet(name='Tx Ethernet', ipv4=tx_ipv4)
-
-        tx_device = Device(name='Tx Device',
-                           devices_per_port=1,
-                           ethernets=[tx_ethernet])
-
-        tx_device_group = DeviceGroup(name='Tx Device Group',
-                                      port_names=['Tx'],
-                                      devices=[tx_device])
-
-        config.device_groups.append(tx_device_group)
+        tx.devices.append(Device(name='Tx Device',
+                                        device_count=1,
+                                        choice=tx_ipv4))
 
         ######################################################################
         # Create RX stack configuration
@@ -107,37 +100,27 @@ def base_configs(testbed,
         rx_ipv4 = Ipv4(name='Rx Ipv4',
                        address=Pattern(rx_port_ip),
                        prefix=Pattern('24'),
-                       gateway=Pattern(rx_gateway_ip))
+                       gateway=Pattern(rx_gateway_ip),
+                       ethernet=Ethernet(name='Rx Ethernet'))
 
-        rx_ethernet = Ethernet(name='Rx Ethernet', ipv4=rx_ipv4)
 
-        rx_device = Device(name='Rx Device',
-                           devices_per_port=1,
-                           ethernets=[rx_ethernet])
+        rx.devices.append(Device(name='Rx Device',
+                                        device_count=1,
+                                        choice=rx_ipv4))
 
-        rx_device_group = DeviceGroup(name='Rx Device Group',
-                                      port_names=['Rx'],
-                                      devices=[rx_device])
-
-        config.device_groups.append(rx_device_group)
         ######################################################################
         # Traffic configuration Test data
         ######################################################################
-        data_endpoint = DeviceEndpoint(
-            tx_device_names=[tx_device.name],
-            rx_device_names=[rx_device.name],
-            packet_encap='ipv4',
-            src_dst_mesh='',
-            route_host_mesh='',
-            bi_directional=False,
-            allow_self_destined=False
+        data_endpoint = DeviceTxRx(
+            tx_device_names=[tx.devices[0].name],
+            rx_device_names=[rx.devices[0].name],
         )
 
         test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
 
         test_flow = Flow(
             name=test_flow_name,
-            endpoint=Endpoint(data_endpoint),
+            tx_rx=TxRx(data_endpoint),
             packet=[
                 Header(choice=EthernetHeader()),
                 Header(choice=Ipv4Header(priority=test_dscp))
@@ -154,7 +137,7 @@ def base_configs(testbed,
         background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
         background_flow = Flow(
             name=background_flow_name,
-            endpoint=Endpoint(data_endpoint),
+            tx_rx=TxRx(data_endpoint),
             packet=[
                 Header(choice=EthernetHeader()),
                 Header(choice=Ipv4Header(priority=background_dscp))
@@ -168,7 +151,7 @@ def base_configs(testbed,
         #######################################################################
         # Traffic configuration Pause
         #######################################################################
-        pause_endpoint = PortEndpoint(tx_port_name='Rx', rx_port_names=['Rx'])
+        pause_endpoint = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
         if (pause_frame_type == 'priority') :
             pause = Header(PfcPause(
                 dst=FieldPattern(choice='01:80:C2:00:00:01'),
@@ -186,7 +169,7 @@ def base_configs(testbed,
 
             pause_flow = Flow(
                 name='Pause Storm',
-                endpoint=Endpoint(pause_endpoint),
+                tx_rx=TxRx(pause_endpoint),
                 packet=[pause],
                 size=Size(64),
                 rate=Rate('line', value=100),
@@ -200,7 +183,7 @@ def base_configs(testbed,
 
             pause_flow = Flow(
                 name='Pause Storm',
-                endpoint=Endpoint(pause_endpoint),
+                tx_rx=TxRx(pause_endpoint),
                 packet=[pause],
                 size=Size(64),
                 rate=Rate('line', value=pause_line_rate),
@@ -218,9 +201,11 @@ def base_configs(testbed,
 def start_delay(request):
     return request
 
+
 @pytest.fixture
 def traffic_duration(request):
     return request
+
 
 @pytest.fixture(scope='session')
 def serializer(request):
