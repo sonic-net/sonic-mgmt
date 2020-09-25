@@ -66,7 +66,7 @@ class TestPsuApi(PlatformApiTestBase):
                 expected_value = expected_psus[psu_idx].get(key)
 
         if self.expect(expected_value is not None,
-                      "Unable to get expected value for '{}' from platform.json file for PSU {}".format(key, psu_idx))
+                      "Unable to get expected value for '{}' from platform.json file for PSU {}".format(key, psu_idx)):
             self.expect(value == expected_value,
                       "'{}' value is incorrect. Got '{}', expected '{}' for PSU {}".format(key, value, expected_value, psu_idx))
 

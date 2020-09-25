@@ -69,7 +69,7 @@ class TestComponentApi(PlatformApiTestBase):
                 expected_value = expected_components[component_idx].get(key)
 
         if self.expect(expected_value is not None,
-                      "Unable to get expected value for '{}' from platform.json file for component {}".format(key, component_idx))
+                      "Unable to get expected value for '{}' from platform.json file for component {}".format(key, component_idx)):
             self.expect(value == expected_value,
                       "'{}' value is incorrect. Got '{}', expected '{}' for component {}".format(key, value, expected_value, component_idx))
 
