@@ -32,10 +32,18 @@ image_list = [
     "next"
 ]
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get platform facts from platform.json file
+    request.cls.chassis_facts = duthost.facts.get("chassis")
+
+
+@pytest.mark.usefixtures("gather_facts")
 class TestComponentApi(PlatformApiTestBase):
     """Platform API test cases for the Component class"""
 
     num_components = None
+    chassis_facts = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
@@ -49,6 +57,23 @@ class TestComponentApi(PlatformApiTestBase):
                 pytest.fail("num_components is not an integer")
 
     #
+    # Helper functions
+    #
+
+    def compare_value_with_platform_facts(self, key, value, component_idx):
+        expected_value = None
+
+        if self.chassis_facts:
+            expected_components = self.chassis_facts.get("components")
+            if expected_components:
+                expected_value = expected_components[component_idx].get(key)
+
+        if self.expect(expected_value is not None,
+                      "Unable to get expected value for '{}' from platform.json file for component {}".format(key, component_idx)):
+            self.expect(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}' for component {}".format(key, value, expected_value, component_idx))
+
+    #
     # Functions to test methods inherited from DeviceBase class
     #
 
@@ -60,6 +85,7 @@ class TestComponentApi(PlatformApiTestBase):
             name = component.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Component {}: Unable to retrieve name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Component {}: Name appears incorrect".format(i))
+                self.compare_value_with_platform_facts(self, 'name', name, i)
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
