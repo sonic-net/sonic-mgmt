@@ -24,32 +24,45 @@ all:
           - t0-116
       children:
         server_1:
+    lab:
+      hosts:
+        vlab-01:
+        vlab-02:
+        vlab-03:
     sonic:
       hosts:
         vlab-01:
           ansible_host: 10.250.0.101
-          ansible_hostv6: fec0::ffff:afa:a
+          ansible_hostv6: fec0::ffff:afa:1
           type: kvm
           hwsku: Force10-S6000
           serial_port: 9000
+          ansible_password: password
+          ansible_user: admin
         vlab-02:
           ansible_host: 10.250.0.102
           ansible_hostv6: fec0::ffff:afa:2
           type: kvm
           hwsku: Force10-S6100
           serial_port: 9000
+          ansible_password: password
+          ansible_user: admin
         vlab-03:
           ansible_host: 10.250.0.105
           ansible_hostv6: fec0::ffff:afa:5
           type: kvm
           hwsku: Force10-S6000
           serial_port: 9001
+          ansible_password: password
+          ansible_user: admin
         vlab-04:
           ansible_host: 10.250.0.107
           ansible_hostv6: fec0::ffff:afa:7
           type: kvm
           hwsku: Force10-S6000
           serial_port: 9002
+          ansible_password: password
+          ansible_user: admin
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3
@@ -60,6 +73,21 @@ all:
           ansible_hostv6: fec0::ffff:afa:4
           type: simx
           hwsku: MSN3700
+        ptf-01:
+          ansible_host: 10.250.0.102
+          ansible_hostv6: fec0::ffff:afa:2
+          ansible_user: root
+          ansible_password: root
+        ptf-02:
+          ansible_host: 10.250.0.106
+          ansible_hostv6: fec0::ffff:afa:6
+          ansible_user: root
+          ansible_password: root
+        ptf-03:
+          ansible_host: 10.250.0.108
+          ansible_hostv6: fec0::ffff:afa:8
+          ansible_user: root
+          ansible_password: root
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

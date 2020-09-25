@@ -27,7 +27,7 @@ pytestmark = [pytest.mark.disable_loganalyzer]
 # Data packet size in bytes.
 DATA_PKT_SIZE = 1024
 START_DELAY = 1.5
-RATE_PERCENTAGE = 50 
+RATE_PERCENTAGE = 50
 TOLERANCE_THRESHOLD = .97
 
 def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
@@ -42,8 +42,8 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
        will be received at the rx_port.
     4. No test traffic will be received at the rx_port when pause priority
        is equal to test traffic priority.
-   
-    Note: PFC pause frames should always be dropped, regardless of their 
+
+    Note: PFC pause frames should always be dropped, regardless of their
           pause priorities.
 
     Args:
@@ -86,7 +86,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
                                     gw_start=gw_addr,
                                     gw_incr_step='0.0.0.0')
 
-    # Assumption: Line rate percentage of background data traffic 
+    # Assumption: Line rate percentage of background data traffic
     # is equal to Line rate percentage of test data traffic.
     pytest_assert(2 * RATE_PERCENTAGE <= 100,
         "Value of RATE_PERCENTAGE should not be more than 50!")
@@ -139,7 +139,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
     start_traffic(session)
 
     # Wait for test and background traffic to finish.
-    time.sleep(exp_dur + start_delay + 1) 
+    time.sleep(exp_dur + start_delay + 1)
 
     # Capture traffic statistics.
     flow_statistics = get_traffic_statistics(session)
@@ -151,7 +151,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
         rx_frames = int(flow_stat['Rx Frames'])
         rx_bytes  = int(flow_stat['Rx Bytes'])
 
-        tolerance_ratio = rx_bytes / exp_tx_bytes  
+        tolerance_ratio = rx_bytes / exp_tx_bytes
         if 'Test' in flow_stat['Traffic Item']:
             if test_traffic_pause_expected:
                 pytest_assert(tx_frames > 0 and rx_frames == 0,
@@ -167,7 +167,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
 
                     logger.error("tolerance_ratio = %s" %(tolerance_ratio))
 
-                    pytest_assert(False, 
+                    pytest_assert(False,
                         "expected % of packets not received at the RX port")
 
         elif 'PFC' in flow_stat['Traffic Item']:
@@ -176,7 +176,7 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
         else:
             pytest_assert(tx_frames > 0 and tx_frames == rx_frames,
                 "Background traffic should not be impacted")
-           
+
             if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                 (tolerance_ratio > 1)) :
                 logger.error("Expected Tx/Rx = %s actual Rx = %s"
@@ -184,17 +184,16 @@ def run_pfc_exp(session, dut, tx_port, rx_port, port_bw, test_prio_list,
 
                 logger.error("tolerance_ratio = %s" %(tolerance_ratio))
 
-                pytest_assert(False, 
+                pytest_assert(False,
                     "expected % of packets not received at the RX port")
 
     stop_traffic(session)
 
 
-def test_pfc_pause_single_lossless_priority(testbed, 
-                                            conn_graph_facts, 
+def test_pfc_pause_single_lossless_priority(conn_graph_facts,
                                             lossless_prio_dscp_map,
-                                            duthost, 
-                                            ixia_dev, 
+                                            duthost,
+                                            ixia_dev,
                                             ixia_api_server_session,
                                             fanout_graph_facts):
     """
@@ -203,12 +202,12 @@ def test_pfc_pause_single_lossless_priority(testbed,
     2. Disable the PFC watchdog on the SONiC DUT.
     3. On the Ixia Tx port create two flows - a) 'Test Data Traffic' and
        b) 'Background Data traffic'.
-    4. The flow 'Test Data Traffic' can assume one of the lossless priority 
+    4. The flow 'Test Data Traffic' can assume one of the lossless priority
        values Pi.
     5. The flow 'Background Data Traffic' can assume all the priority values
        which are not in 'Test Data Traffic'. For example if the priority of
-       'Test Data Traffic' is 3, the priorities of the 'Background Data 
-       Traffic' should be 0, 1, 2, 4, 5, 6, 7.   
+       'Test Data Traffic' is 3, the priorities of the 'Background Data
+       Traffic' should be 0, 1, 2, 4, 5, 6, 7.
     6. From Rx port send pause frames on priority Pi. Such that priority of
        'Test Data Traffic' at Tx end == Pause Priority at Rx end. That is,
        send pause frames on priority Pi.
@@ -221,7 +220,7 @@ def test_pfc_pause_single_lossless_priority(testbed,
 
     Note: Test and background traffic should be started after PFC pause storm.
 
-    """ 
+    """
     port_list = list()
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
     fanout_devices.get_fanout_device_details(device_number=0)
@@ -276,11 +275,10 @@ def test_pfc_pause_single_lossless_priority(testbed,
                 clean_configuration(session=session)
 
 
-def test_pfc_pause_multi_lossless_priorities(testbed, 
-                                             conn_graph_facts, 
+def test_pfc_pause_multi_lossless_priorities(conn_graph_facts,
                                              lossless_prio_dscp_map,
-                                             duthost, 
-                                             ixia_dev, 
+                                             duthost,
+                                             ixia_dev,
                                              ixia_api_server_session,
                                              fanout_graph_facts):
     """
@@ -295,7 +293,7 @@ def test_pfc_pause_multi_lossless_priorities(testbed,
        all lossy priorities.
     6. From Rx port send pause frames on all lossless priorities. Then
        start 'Test Data Traffic' and 'Background Data Traffic'.
-    7. When pause frames are started 'Test Data Traffic' will stop; 
+    7. When pause frames are started 'Test Data Traffic' will stop;
        and when pause frames are stopped 'Test Data Traffic' will start.
     8. 'Background Data Traffic' will always flow.
     9. Repeat the steps 4 to 8 on all ports.
@@ -338,7 +336,7 @@ def test_pfc_pause_multi_lossless_priorities(testbed,
             bg_dscp_list = [x for x in range(64) if x not in test_dscp_list]
             exp_dur = 2
 
- 
+
             run_pfc_exp(session=session,
                         dut=duthost,
                         tx_port=tx_port,

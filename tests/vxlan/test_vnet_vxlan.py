@@ -14,7 +14,9 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0"),
+    pytest.mark.sanity_check(post_check=True),
+    pytest.mark.asic("mellanox")
 ]
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
@@ -50,7 +52,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
         "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"],
         "vnet_interfaces": vnet_config["vnet_intf_list"],
-        "vnet_routes": vnet_config["vnet_route_list"],
+        "vnet_routes": vnet_config["vnet_route_list"] + vnet_config["vnet_subnet_routes"],
         "vnet_local_routes": vnet_config["vnet_local_routes"],
         "vnet_neighbors": vnet_config["vnet_nbr_list"],
         "vnet_peers": vnet_config["vnet_peer_list"]

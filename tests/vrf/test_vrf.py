@@ -24,7 +24,7 @@ from tests.common.reboot import reboot
     and cleanup after all tests. Both of the two tasks should be called only once.
 
     A module-scoped fixture `setup_vrf` is added to accompilsh the setup/cleanup tasks.
-    We want to use ansible_adhoc/testbed fixtures during the setup/cleanup stages, but
+    We want to use ansible_adhoc/tbinfo fixtures during the setup/cleanup stages, but
         1. Injecting fixtures to xunit-style setup/teardown functions is not support by
             [now](https://github.com/pytest-dev/pytest/issues/5289).
         2. Calling a fixture function directly is deprecated.
@@ -311,10 +311,10 @@ def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
     for vrf, ns in vlan_peer_vrf2ns_map.iteritems():
         ptfhost.shell("ip netns del {}".format(ns))
 
-def gen_vrf_fib_file(vrf, testbed, ptfhost, dst_intfs, \
+def gen_vrf_fib_file(vrf, tbinfo, ptfhost, dst_intfs, \
                      render_file, limited_podset_number=10, limited_tor_number=10):
     extra_vars = {
-        'testbed_type': testbed['topo']['name'],
+        'testbed_type': tbinfo['topo']['name'],
         'props': g_vars['props'],
         'intf_member_indices': g_vars['vrf_intf_member_port_indices'][vrf],
         'dst_intfs': dst_intfs,
@@ -361,7 +361,7 @@ def restore_config_db(localhost, duthost, ptfhost):
         cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
+def setup_vrf(tbinfo, duthost, ptfhost, localhost, host_facts):
 
     # backup config_db.json
     duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
@@ -385,7 +385,7 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
         duthost.shell("sonic-clear nd")
         duthost.shell("sonic-clear fdb all")
 
-        with open("../ansible/vars/topo_{}.yml".format(testbed['topo']['name']), 'r') as fh:
+        with open("../ansible/vars/topo_{}.yml".format(tbinfo['topo']['name']), 'r') as fh:
             g_vars['topo_properties'] = yaml.safe_load(fh)
 
         g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']
@@ -416,9 +416,9 @@ def setup_vrf(testbed, duthost, ptfhost, localhost, host_facts):
 
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, testbed, host_facts):
+def partial_ptf_runner(request, ptfhost, tbinfo, host_facts):
     def _partial_ptf_runner(testname, **kwargs):
-        params = {'testbed_type': testbed['topo']['name'],
+        params = {'testbed_type': tbinfo['topo']['name'],
                   'router_mac': host_facts['ansible_Ethernet0']['macaddress']}
         params.update(kwargs)
         ptf_runner(host=ptfhost,
@@ -506,12 +506,12 @@ class TestVrfNeigh():
 class TestVrfFib():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_fib_test(self, ptfhost, testbed):
-        gen_vrf_fib_file('Vrf1', testbed, ptfhost,
+    def setup_fib_test(self, ptfhost, tbinfo):
+        gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file='/tmp/vrf1_fib.txt')
 
-        gen_vrf_fib_file('Vrf2', testbed, ptfhost,
+        gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file='/tmp/vrf2_fib.txt')
 
@@ -547,12 +547,12 @@ class TestVrfFib():
 class TestVrfIsolation():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_isolation(self, ptfhost, testbed):
-        gen_vrf_fib_file('Vrf1', testbed, ptfhost,
+    def setup_vrf_isolation(self, ptfhost, tbinfo):
+        gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file='/tmp/vrf1_fib.txt')
 
-        gen_vrf_fib_file('Vrf2', testbed, ptfhost,
+        gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file='/tmp/vrf2_fib.txt')
 
@@ -709,7 +709,7 @@ class TestVrfLoopbackIntf():
     announce_prefix = '10.10.10.0/26'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_loopback(self, ptfhost, cfg_facts, testbed):
+    def setup_vrf_loopback(self, ptfhost, cfg_facts, tbinfo):
         # -------- Setup ----------
         lb0_ip_facts = get_intf_ips('Loopback0', cfg_facts)
         vlan1000_ip_facts = get_intf_ips('Vlan1000', cfg_facts)
@@ -872,9 +872,9 @@ class TestVrfLoopbackIntf():
 
 class TestVrfWarmReboot():
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_warm_reboot(self, ptfhost, testbed):
+    def setup_vrf_warm_reboot(self, ptfhost, tbinfo):
         # -------- Setup ----------
-        gen_vrf_fib_file('Vrf1', testbed, ptfhost,
+        gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                          dst_intfs=['PortChannel0001', 'PortChannel0002'],
                          render_file='/tmp/vrf1_fib.txt',
                          limited_podset_number=50,
@@ -1193,7 +1193,7 @@ class TestVrfUnbindIntf():
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_unbindintf(self, duthost, ptfhost, testbed, cfg_facts):
+    def setup_vrf_unbindintf(self, duthost, ptfhost, tbinfo, cfg_facts):
         # -------- Setup ----------
         duthost.shell("config interface vrf unbind PortChannel0001")
 
@@ -1258,8 +1258,8 @@ class TestVrfUnbindIntf():
             ipv6=False
         )
 
-    def test_pc1_routes_flushed(self, ptfhost, testbed, partial_ptf_runner):
-        gen_vrf_fib_file('Vrf1', testbed, ptfhost,
+    def test_pc1_routes_flushed(self, ptfhost, tbinfo, partial_ptf_runner):
+        gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                          dst_intfs=['PortChannel0001'],
                          render_file="/tmp/unbindvrf_fib_1.txt")
 
@@ -1285,8 +1285,8 @@ class TestVrfUnbindIntf():
             dst_ports=[g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0002']]
         )
 
-    def test_pc2_fib(self, ptfhost, testbed, partial_ptf_runner):
-        gen_vrf_fib_file('Vrf1', testbed, ptfhost,
+    def test_pc2_fib(self, ptfhost, tbinfo, partial_ptf_runner):
+        gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                          dst_intfs=['PortChannel0002'],
                          render_file="/tmp/unbindvrf_fib_2.txt")
 
@@ -1315,8 +1315,8 @@ class TestVrfUnbindIntf():
         )
 
     @pytest.mark.usefixtures('setup_vrf_rebind_intf')
-    def test_vrf1_fib_after_rebind(self, ptfhost, testbed, partial_ptf_runner):
-        gen_vrf_fib_file('Vrf1', testbed, ptfhost,
+    def test_vrf1_fib_after_rebind(self, ptfhost, tbinfo, partial_ptf_runner):
+        gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                          dst_intfs=['PortChannel0001', 'PortChannel0002'],
                          render_file='/tmp/rebindvrf_vrf1_fib.txt')
 
@@ -1340,13 +1340,13 @@ class TestVrfDeletion():
                     duthost.shell("config interface ip add {} {}".format(intf, ip))
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_deletion(self, duthost, ptfhost, testbed, cfg_facts):
+    def setup_vrf_deletion(self, duthost, ptfhost, tbinfo, cfg_facts):
         # -------- Setup ----------
-        gen_vrf_fib_file('Vrf1', testbed, ptfhost,
+        gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file="/tmp/vrf1_fib.txt")
 
-        gen_vrf_fib_file('Vrf2', testbed, ptfhost,
+        gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file="/tmp/vrf2_fib.txt")
 

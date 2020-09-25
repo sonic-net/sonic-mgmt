@@ -11,6 +11,16 @@ from tests.common.helpers.platform_api import chassis, thermal
 
 from platform_api_test_base import PlatformApiTestBase
 
+###################################################
+# TODO: Remove this after we transition to Python 3
+import sys
+if sys.version_info.major == 3:
+    STRING_TYPE = str
+else:
+    STRING_TYPE = basestring
+# END Remove this after we transition to Python 3
+###################################################
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -43,7 +53,7 @@ class TestThermalApi(PlatformApiTestBase):
             name = thermal.get_name(platform_api_conn, i)
 
             if self.expect(name is not None, "Unable to retrieve Thermal {} name".format(i)):
-                self.expect(isinstance(name, str), "Thermal {} name appears incorrect".format(i))
+                self.expect(isinstance(name, STRING_TYPE), "Thermal {} name appears incorrect".format(i))
 
         self.assert_expectations()
 
@@ -62,7 +72,7 @@ class TestThermalApi(PlatformApiTestBase):
             model = thermal.get_model(platform_api_conn, i)
 
             if self.expect(model is not None, "Unable to retrieve thermal {} model".format(i)):
-                self.expect(isinstance(model, str), "Thermal {} model appears incorrect".format(i))
+                self.expect(isinstance(model, STRING_TYPE), "Thermal {} model appears incorrect".format(i))
 
         self.assert_expectations()
 
@@ -71,7 +81,7 @@ class TestThermalApi(PlatformApiTestBase):
             serial = thermal.get_serial(platform_api_conn, i)
 
             if self.expect(serial is not None, "Unable to retrieve thermal {} serial number".format(i)):
-                self.expect(isinstance(serial, str), "Thermal {} serial number appears incorrect".format(i))
+                self.expect(isinstance(serial, STRING_TYPE), "Thermal {} serial number appears incorrect".format(i))
 
         self.assert_expectations()
 

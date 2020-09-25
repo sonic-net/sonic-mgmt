@@ -94,7 +94,7 @@ def expected_packet_mask(pkt):
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, testbed):
+def setup(duthost, tbinfo):
     """
     Setup fixture for collecting PortChannel, VLAN and RIF port members.
     @return: Dictionary with keys:
@@ -105,8 +105,8 @@ def setup(duthost, testbed):
     configured_vlans = []
     rif_members = []
 
-    if testbed["topo"]["type"] == "ptf":
-        pytest.skip("Unsupported topology {}".format(testbed["topo"]))
+    if tbinfo["topo"]["type"] == "ptf":
+        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]))
 
     # Gather ansible facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']

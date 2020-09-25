@@ -29,6 +29,13 @@ def setup(duthost):
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
+    port_speed_facts = port_alias_facts['port_speed']
+    if not port_speed_facts:
+        all_vars = duthost.host.options['variable_manager'].get_vars()
+        iface_speed = all_vars['hostvars'][duthost.hostname]['iface_speed']
+        iface_speed = str(iface_speed)
+        port_speed_facts = {_: iface_speed for _ in
+                            port_alias_facts['port_alias_map'].keys()}
 
     port_alias = list()
     port_name_map = dict()
@@ -43,7 +50,7 @@ def setup(duthost):
         port_alias.append(port_alias_new)
         port_name_map[item] = port_alias_new
         port_alias_map[port_alias_new] = item
-        port_speed[port_alias_new] = port_alias_facts['port_speed'][port_alias_old]
+        port_speed[port_alias_new] = port_speed_facts[port_alias_old]
 
         # Update port alias name in redis db
         duthost.command('redis-cli -n 4 HSET "PORT|{}" alias {}'.format(item, port_alias_new))
@@ -480,8 +487,8 @@ class TestShowQueue():
 class TestShowVlan():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, testbed):
-        if testbed['topo']['type'] != 't0':
+    def setup_check_topo(self, tbinfo):
+        if tbinfo['topo']['type'] != 't0':
             pytest.skip('Unsupported topology')
 
     @pytest.fixture()
@@ -543,8 +550,8 @@ class TestShowVlan():
 class TestConfigInterface():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, testbed):
-        if testbed['topo']['type'] != 't1':
+    def setup_check_topo(self, tbinfo):
+        if tbinfo['topo']['type'] != 't1':
             pytest.skip('Unsupported topology')
 
     @pytest.fixture(scope='class', autouse=True)
@@ -673,12 +680,12 @@ class TestConfigInterface():
 
         assert speed == native_speed
 
-def test_show_acl_table(setup, setup_config_mode, testbed):
+def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if testbed['topo']['type'] != 't1':
+    if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
@@ -697,12 +704,12 @@ def test_show_acl_table(setup, setup_config_mode, testbed):
             elif mode == 'default':
                 assert item in acl_table
 
-def test_show_interfaces_neighbor_expected(setup, setup_config_mode, testbed):
+def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
-    if testbed['topo']['type'] != 't1':
+    if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology')
 
     dutHostGuest, mode, ifmode = setup_config_mode
@@ -721,8 +728,8 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, testbed):
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, setup, testbed):
-        if testbed['topo']['type'] != 't1':
+    def setup_check_topo(self, setup, tbinfo):
+        if tbinfo['topo']['type'] != 't1':
             pytest.skip('Unsupported topology')
 
         if not setup['physical_interfaces']:
@@ -769,8 +776,8 @@ class TestNeighbors():
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, setup, testbed):
-        if testbed['topo']['type'] != 't1':
+    def setup_check_topo(self, setup, tbinfo):
+        if tbinfo['topo']['type'] != 't1':
             pytest.skip('Unsupported topology')
 
         if not setup['physical_interfaces']:

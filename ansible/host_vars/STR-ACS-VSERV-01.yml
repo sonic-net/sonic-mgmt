@@ -1,7 +1,6 @@
 mgmt_bridge: br1
 mgmt_prefixlen: 24
 mgmt_gw: 10.250.0.1
-mgmt_gw_v6: fec0::ffff:afa:1
 vm_mgmt_gw: 10.250.0.1
 
 internal_mgmt_port: True

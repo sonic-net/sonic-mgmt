@@ -6,8 +6,8 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_check_topo(testbed):
-    if testbed['topo']['type'] == 'ptf':
+def setup_check_topo(tbinfo):
+    if tbinfo['topo']['type'] == 'ptf':
         pytest.skip('Unsupported topology')
 
 @pytest.mark.bsl
