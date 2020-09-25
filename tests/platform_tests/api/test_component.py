@@ -71,11 +71,11 @@ class TestComponentApi(PlatformApiTestBase):
                 expected_value = expected_components[component_idx].get(key)
 
         if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file for COMPONENT {}".format(key, component_idx))
+            logger.warning("Unable to get expected value for '{}' from platform.json file for component {}".format(key, component_idx))
             return
 
         self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}' for COMPONENT {}".format(key, value, expected_value, component_idx))
+                      "'{}' value is incorrect. Got '{}', expected '{}' for component {}".format(key, value, expected_value, component_idx))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -89,7 +89,7 @@ class TestComponentApi(PlatformApiTestBase):
             name = component.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Component {}: Unable to retrieve name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Component {}: Name appears incorrect".format(i))
-                compare_value_with_platform_facts(self, 'name', name, i)
+                self.compare_value_with_platform_facts(self, 'name', name, i)
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
