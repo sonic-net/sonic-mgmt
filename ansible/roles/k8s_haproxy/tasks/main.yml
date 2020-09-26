@@ -1,0 +1,22 @@
+- name: update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+  environment: "{{ proxy_env | default({}) }}" 
+
+- name: Install haproxy
+  apt: name=haproxy state=present
+  environment: "{{ proxy_env | default({}) }}" 
+
+- name: Enable init script
+  replace: dest='/etc/default/haproxy'
+         regexp='ENABLED=0'
+         replace='ENABLED=1'
+
+- name: Setup haproxy config file
+  template:
+    src: haproxy.j2
+    dest: /etc/haproxy/haproxy.cfg
+    backup: yes
+
+- name: Restart HAProxy
+  become: yes
+  service: name=haproxy state=restarted

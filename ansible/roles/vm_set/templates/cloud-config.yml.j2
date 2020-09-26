@@ -1,0 +1,6 @@
+#cloud-config
+hostname: "{{ vm_name  }}"
+
+password: admin
+chpasswd: { expire: False }
+ssh_pwauth: True

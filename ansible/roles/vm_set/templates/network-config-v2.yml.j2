@@ -1,0 +1,7 @@
+version: 2
+ethernets:
+  ens2:
+    dhcp4: false
+    addresses: [{{ mgmt_ip_address }}/{{ mgmt_prefixlen_k8s }}, ]
+    gateway4: {{ mgmt_gw }}
+      

@@ -1,0 +1,8 @@
+---
+# This Playbook removes all VMs defined in an inventory file under k8s_vms{msetnumber}_{servernumber}
+#
+
+- hosts: k8s_servers:&k8s_vm_host
+  gather_facts: no
+  roles:
+  - { role: vm_set, action: 'stop_k8s' }

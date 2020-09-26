@@ -1,0 +1,40 @@
+- name: Install cloud-image-utils
+  apt:
+    name: cloud-image-utils
+    state: present
+  become: yes
+
+- name: Ensure {{ k8s_root_path }} exists
+  file: path={{ k8s_root_path }} state=directory
+
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('k8s_server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: kvm_hosts={{ groups[current_server] | filter_by_prefix('kvm') | sort}}
+
+- name: Create directory for Ubuntu VM image
+  file: path={{ k8s_root_path }}/images state=directory mode=0755
+
+- name: Check local cloud image 
+  stat: 
+    path: "{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
+    get_checksum: no 
+  register: cloudimg_local_stat 
+
+- name: Download Ubuntu 18.04 hdd image
+  get_url: url="{{ k8s_vm_images_url }}/{{ k8s_hdd_image_filename }}?{{ k8s_vmimage_saskey }}" dest="{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
+  when: not cloudimg_local_stat.stat.exists
+  become: yes
+
+- name: Start Kubernetes VMs
+  include_tasks: start_k8s_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    src_disk_image: "{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
+    disk_image: "{{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_hdd.qcow2"
+    mgmt_gw: "{{ mgmt_gw_k8s }}"
+  with_items: "{{ kvm_hosts }}"
+
