@@ -145,7 +145,7 @@ class TestSfpApi(PlatformApiTestBase):
             name = sfp.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve transceiver {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Transceiver {} name appears incorrect".format(i))
-                compare_value_with_platform_facts(self, 'name', name, i)
+                self.compare_value_with_platform_facts(self, 'name', name, i)
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
