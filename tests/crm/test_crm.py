@@ -215,14 +215,19 @@ def verify_thresholds(duthost, **kwargs):
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
-            if used_percent < 1 or used_percent >= 100:
-                logger.warning("CRM used entries is < 1 or >= 100 percent")
-                continue
             if key == "exceeded_percentage":
+                if used_percent < 1:
+                    logger.warning("The used percentage for {} is {} and verification for exceeded_percentage is skipped" \
+                               .format(kwargs["crm_cli_res"], used_percent))
+                    continue
                 kwargs["th_lo"] = used_percent - 1
                 kwargs["th_hi"] = used_percent
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
             elif key == "clear_percentage":
+                if used_percent >= 100:
+                    logger.warning("The used percentage for {} is {} and verification for clear_percentage is skipped" \
+                               .format(kwargs["crm_cli_res"], used_percent))
+                    continue
                 kwargs["th_lo"] = used_percent
                 kwargs["th_hi"] = used_percent + 1
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
