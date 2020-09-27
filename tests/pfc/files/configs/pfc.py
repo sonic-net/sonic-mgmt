@@ -2,6 +2,7 @@ import time
 import pytest
 import sys
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import logger
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_location
@@ -44,8 +45,11 @@ def base_configs(testbed,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
                  start_delay,
-                 serializer,
-                 pause_frame_type) :
+                 pause_line_rate,
+                 traffic_line_rate,
+                 pause_frame_type,
+                 frame_size,
+                 serializer) :
 
     for config in one_hundred_gbe :
 
@@ -54,10 +58,6 @@ def base_configs(testbed,
 
         tx = config.ports[0]
         rx = config.ports[1]
-
-        # extremely poor line should be deleted
-        bg_dscp_list = ['0', '3', '4']
-        test_dscp_list = ['0', '1', '2', '5', '6', '7'] 
 
         vlan_subnet = get_vlan_subnet(duthost)
         pytest_assert(vlan_subnet is not None,
@@ -77,9 +77,12 @@ def base_configs(testbed,
         test_flow_name = 'Test Data'
         background_flow_name = 'Background Data'
 
-        test_line_rate = 50
-        background_line_rate = 50
-        pause_line_rate = 100
+        test_line_rate = traffic_line_rate
+        background_line_rate = traffic_line_rate
+        pause_line_rate = pause_line_rate
+
+        pytest_assert(test_line_rate + background_line_rate <= 100,
+            "test_line_rate + background_line_rate should be less than 100")
 
         ######################################################################
         # Create TX stack configuration
@@ -125,7 +128,7 @@ def base_configs(testbed,
                 Header(choice=EthernetHeader()),
                 Header(choice=Ipv4Header(priority=test_dscp))
             ],
-            size=Size(1024),
+            size=Size(frame_size),
             rate=Rate('line', test_line_rate),
             duration=Duration(Fixed(packets=0, delay=start_delay, delay_unit='nanoseconds'))
         )
@@ -142,7 +145,7 @@ def base_configs(testbed,
                 Header(choice=EthernetHeader()),
                 Header(choice=Ipv4Header(priority=background_dscp))
             ],
-            size=Size(1024),
+            size=Size(frame_size),
             rate=Rate('line', background_line_rate),
             duration=Duration(Fixed(packets=0, delay=start_delay, delay_unit='nanoseconds'))
         )
@@ -206,6 +209,23 @@ def start_delay(request):
 def traffic_duration(request):
     return request
 
+@pytest.fixture
+def bw_multiplier(request):
+    return request
+
+@pytest.fixture
+def pause_line_rate(request):
+    pytest_assert(request <= 100, "pause line rate must be less than 100")
+    return request
+
+@pytest.fixture
+def traffic_line_rate(request):
+    pytest_assert(request <= 100, "traffic line rate must be less than 100")
+    return request
+
+@pytest.fixture
+def frame_size(request):
+    return request
 
 @pytest.fixture(scope='session')
 def serializer(request):
@@ -235,6 +255,25 @@ def serializer(request):
 
 
 @pytest.fixture
+def port_bandwidth(testbed,
+                   conn_graph_facts,
+                   fanout_graph_facts,
+                   bw_multiplier) :
+   fanout_devices = IxiaFanoutManager(fanout_graph_facts)
+   fanout_devices.get_fanout_device_details(device_number=0)
+   device_conn = conn_graph_facts['device_conn']
+   available_phy_port = fanout_devices.get_ports()
+   reference_peer = available_phy_port[0]['peer_port']
+   reference_speed = int(device_conn[reference_peer]['speed'])
+   for intf in available_phy_port:
+        peer_port = intf['peer_port']
+        intf['speed'] = int(device_conn[peer_port]['speed'])
+        pytest_assert(intf['speed'] == reference_speed,
+            "speed of all the ports are not same")
+
+   return reference_speed * bw_multiplier
+
+@pytest.fixture
 def one_hundred_gbe(testbed,
                     conn_graph_facts,
                     fanout_graph_facts,
@@ -249,11 +288,6 @@ def one_hundred_gbe(testbed,
     pytest_assert(len(available_phy_port) > 2,
                   "Number of physical ports must be at least 2")
 
-    # Get interface speed of peer port
-    for intf in available_phy_port:
-        peer_port = intf['peer_port']
-        intf['speed'] = int(device_conn[peer_port]['speed'])
-
     configs = []
     for i in range(len(available_phy_port)):
         rx_id = i
@@ -261,12 +295,6 @@ def one_hundred_gbe(testbed,
 
         phy_tx_port = get_location(available_phy_port[tx_id])
         phy_rx_port = get_location(available_phy_port[rx_id])
-
-        tx_speed = available_phy_port[tx_id]['speed']
-        rx_speed = available_phy_port[rx_id]['speed']
-
-        pytest_assert(tx_speed == rx_speed,
-            "Tx bandwidth must be equal to Rx bandwidth")
 
         #########################################################################
         # common L1 configuration
@@ -314,6 +342,9 @@ def lossy_configs(testbed,
                   lossless_prio_dscp_map,
                   one_hundred_gbe,
                   start_delay,
+                  pause_line_rate,
+                  traffic_line_rate,
+                  frame_size, 
                   serializer) :
 
     return(base_configs(testbed=testbed,
@@ -322,8 +353,11 @@ def lossy_configs(testbed,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
                         start_delay=start_delay,
-                        serializer=serializer,
-                        pause_frame_type='priority'))
+                        pause_line_rate=pause_line_rate,
+                        traffic_line_rate=traffic_line_rate,
+                        pause_frame_type='priority',
+                       frame_size=frame_size,
+                        serializer=serializer))
 
 
 @pytest.fixture
@@ -333,6 +367,9 @@ def global_pause(testbed,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
                  start_delay,
+                 pause_line_rate,
+                 traffic_line_rate,
+                 frame_size,
                  serializer) :
 
     return(base_configs(testbed=testbed,
@@ -341,6 +378,9 @@ def global_pause(testbed,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
                         start_delay=start_delay,
-                        serializer=serializer,
-                        pause_frame_type='global'))
+                        pause_line_rate=pause_line_rate,
+                        traffic_line_rate=traffic_line_rate,
+                        pause_frame_type='global',
+                        frame_size=frame_size,
+                        serializer=serializer))
 
