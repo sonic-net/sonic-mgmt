@@ -11,6 +11,12 @@
 - name: Verify interfaces are all down
   assert: { that: "{{ ansible_interface_link_down_ports | length }} == {{ minigraph_ports | length }}" }
 
+- name: Get interface status from show interface status
+  show_interface: up_ports={{minigraph_ports}} command=status
+
+- name: Verify interfaces with command output
+  assert: { that: "{{ ansible_interface_link_down_ports | length }} == {{ minigraph_ports | length }}" }
+
 - block:
     - name: build shell command string
       debug: msg="PORTS={{minigraph_ports.keys() | join(' ')}}; for port in $PORTS; do config interface startup $port; done"
