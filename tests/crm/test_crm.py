@@ -581,6 +581,7 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
 
     # Get "crm_stats_nexthop_group_[member]" used and available counter value
     get_nexthop_group_stats = get_group_member_stats if group_member else get_group_stats
+    get_nexthop_group_another_stats = get_group_stats if group_member else get_group_member_stats
     nexthop_group_used, nexthop_group_available = get_crm_stats(get_nexthop_group_stats, duthost)
 
     # Get NH IP 1
@@ -644,7 +645,8 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
     used_percent = get_used_percent(new_nexthop_group_used, new_nexthop_group_available)
     if used_percent < 1:
         nexthop_group_num = get_entries_num(new_nexthop_group_used, new_nexthop_group_available)
-
+        _, nexthop_available_resource_num = get_crm_stats(get_nexthop_group_another_stats, duthost)
+        nexthop_group_num = min(nexthop_group_num, nexthop_available_resource_num)
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
