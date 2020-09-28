@@ -542,6 +542,7 @@ class TestShowVlan():
         dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan member add 100 {}'.format(ifmode, v_intf))
         show_vlan = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show vlan config | grep -w "Vlan100"'.format(ifmode))['stdout']
         logger.info('show_vlan:\n{}'.format(show_vlan))
+        dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan member del 100 {}'.format(ifmode, v_intf))
 
         assert v_intf in show_vlan
 
