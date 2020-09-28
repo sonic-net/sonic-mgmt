@@ -1,6 +1,21 @@
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
+{% if vm_type is defined and vm_type == "ceos" %}
+{% set mgmt_if_index = 0 %}
+{% else %}
+{% set mgmt_if_index = 1 %}
+{% endif %}
 no schedule tech-support
+!
+{% if vm_type is defined and vm_type == "ceos" %}
+agent LicenseManager shutdown
+agent PowerFuse shutdown
+agent PowerManager shutdown
+agent Thermostat shutdown
+agent LedPolicy shutdown
+agent StandbyCpld shutdown
+agent Bfd shutdown
+{% endif %}
 !
 hostname {{ hostname }}
 !
@@ -16,7 +31,7 @@ username admin privilege 15 role network-admin secret 0 123456
 clock timezone UTC
 !
 lldp run
-lldp management-address Management1
+lldp management-address Management{{ mgmt_if_index }}
 lldp management-address vrf MGMT
 !
 snmp-server community {{ snmp_rocommunity }} ro
@@ -28,29 +43,13 @@ ipv6 unicast-routing
 !
 ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
 !
-route-map DEFAULT_ROUTES permit
-!
-{% for podset in range(0, props.podset_number) %}
-{% for tor in range(0, props.tor_number) %}
-{% for subnet in range(0, props.tor_subnet_number) %}
-ip route 192.168.{{ podset }}.{{ tor * 16 + subnet }}/32 {{ props.nhipv4 }}
-ipv6 route 20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16 + subnet)}}::/64 {{ props.nhipv6 }}
-{% endfor %}
-{% endfor %}
-{% endfor %}
-!
-{% for podset in range(0, props.podset_number) %}
-{% for tor in range(0, props.tor_number) %}
-ip prefix-list test_ipv4_{{ podset}}_{{ tor }} seq 10 permit 192.168.{{ podset }}.{{ tor * 16 }}/28 ge 28
-ipv6 prefix-list test_ipv6_{{ podset}}_{{ tor }}
- seq 10 permit 20C0:A8{{ '%02X' % podset }}:0:{{ '%02X' % (tor * 16) }}::/60 ge 60
-exit
-{% endfor %}
-{% endfor %}
-!
-interface Management 1
+interface Management {{ mgmt_if_index }}
  description TO LAB MGMT SWITCH
+{% if vm_type is defined and vm_type == "ceos" %}
+ vrf MGMT
+{% else %}
  vrf forwarding MGMT
+{% endif %}
  ip address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
  no shutdown
 !
@@ -93,23 +92,6 @@ interface {{ bp_ifname }}
 {% endif %}
  no shutdown
 !
-{% for podset in range(0, props.podset_number) %}
-{% if range(0, 1000)|random() >= props.failure_rate %}
-{% for tor in range(0, props.tor_number) %}
-{% set leafasn = props.leaf_asn_start + podset %}
-{% set torasn = props.tor_asn_start + tor %}
-route-map PREPENDAS permit {{ 2 * (podset * props.tor_number + tor + 1) }}
-  match ip address prefix-list test_ipv4_{{ podset }}_{{ tor }}
-  set as-path prepend {{ leafasn }} {{ torasn }}
-!
-route-map PREPENDAS permit {{ 2 * (podset * props.tor_number + tor + 1) + 1 }}
-  match ipv6 address prefix-list test_ipv6_{{ podset }}_{{ tor }}
-  set as-path prepend {{ leafasn }} {{ torasn }}
-!
-{% endfor %}
-{% endif %}
-{% endfor %}
-!
 router bgp {{ host['bgp']['asn'] }}
  router-id {{ host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
  !
@@ -117,7 +99,6 @@ router bgp {{ host['bgp']['asn'] }}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
- neighbor {{ remote_ip }} default-originate route-map DEFAULT_ROUTES
 {% if remote_ip | ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate
@@ -125,6 +106,13 @@ router bgp {{ host['bgp']['asn'] }}
 {% endif %}
 {% endfor %}
 {% endfor %}
+ neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv4 }} description exabgp_v4
+ neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv6 }} description exabgp_v6
+ address-family ipv6
+  neighbor {{ props.nhipv6 }} activate
+ exit
  !
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
 {% if iface['ipv4'] is defined %}
@@ -134,7 +122,6 @@ router bgp {{ host['bgp']['asn'] }}
  network {{ iface['ipv6'] }}
 {% endif %}
 {% endfor %}
- redistribute static route-map PREPENDAS
 !
 management api http-commands
  no protocol https
@@ -142,4 +129,3 @@ management api http-commands
  no shutdown
 !
 end
-
