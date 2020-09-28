@@ -1,0 +1,73 @@
+simulation:
+  sim_rel: /auto/vxr/vxr2_user/vxr2_npsuite_1.61.1
+  sim_flags: [-k ConfigLeabaSdkVer=1.32.0 -k ConfigDsimNplPath=/ws/balajib-sjc/b2b_ping_issue/npl -k ConfigNpsuiteVer=1.61.1]
+  slurm_flags:
+    hours: 120
+
+devices:
+
+  SD1:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.29.93.10/sonic-images/pevenkat/sonic-cisco-8000-sfd.bin
+    linecard_versions: [p7]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    vxr_sim_config:
+      shelf:
+          ConfigDsimNplPath: /auto/vxr/sonic_npl/1.50.0
+
+  SD2:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.29.93.10/sonic-images/pevenkat/sonic-cisco-8000-sfd.bin
+    linecard_versions: [p7]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    vxr_sim_config:
+      shelf:
+          ConfigDsimNplPath: /auto/vxr/sonic_npl/1.50.0
+
+  spt:
+    platform: spirent_cafy1
+    spirent_images:
+        windows: /auto/vxr/vxr_images/spirent/WindowsWithTestCenter_5_05
+        api: /auto/vxr/vxr_images/spirent/Spirent_TestCenter_LabServer-5.05-dhcp.img
+        port: /auto/vxr/vxr_images/spirent/sptvm-5_05-dhcp.img
+    data_ports:
+    - data0
+    - data1
+    - data2
+    - data3
+    - data4
+    - data5
+    - data6
+    - data7
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0:
+      - SD1.Ethernet[0..3]
+      - SD2.Ethernet[0..3]
+    hub1:
+      - SD1.Ethernet[4..7]
+      - spt.data[0..3]
+    hub2:
+      - SD2.Ethernet[4..7]
+      - spt.data[4..7]
+      
+

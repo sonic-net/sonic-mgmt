@@ -1,0 +1,24 @@
+simulation:
+  no_image_copy: true
+  sim_rel: /auto/vxr/vxr2_user/vxr2_npsuite_1.61.1
+  sim_flags: [-k ConfigLeabaSdkVer=1.32.1 -k ConfigDsimNplPath=/ws/venkatg-sjc/sonic/for_devesh/npl -k ConfigNpsuiteVer=1.61.1]
+
+devices:
+  R0: &sonic_router
+    platform: spitfire_f
+    os_type: sonic
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: /ws/venkatg-sjc/sonic/sonic-cisco-8000-nsim.bin
+    linecard_versions: [p7]
+
+  R1:
+      <<: *sonic_router
+
+
+connections:
+  hubs:
+    R0_R1:
+      - R0.Ethernet[0..35]
+      - R1.Ethernet[0..35]
