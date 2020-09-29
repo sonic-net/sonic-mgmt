@@ -28,7 +28,7 @@ description:
                 "deploy-mg <topo_topo_name> <dut> <server>",
                 "run_test <test-topo_name> <topo_topo_name> <dut> <server>",
             ],
-            failures: [
+            all: [
                 "deploy-mg <topo_topo_name> <dut> <server>",
                 "run_test <topo_topo_name> <dut> <server>",
                 "run_test <test-topo_name> <topo_topo_name> <dut> <server>",
@@ -47,7 +47,7 @@ description:
     - run_test: Make Sure, deploy-mg it True.
     - remove-topo: makes sure current_topo['topo_name'] == topo. Match
     dut and server too. Assign current_topo == None.
-    - For each action, store it in either action['success'] or action['failures'].
+    - For each action, store it in either action['success'] or action['all'].
 
     Note:
     - deploy-mg may not be necessary always after add topo, for that we can add
@@ -63,7 +63,7 @@ EXAMPLES = '''
     register: action_sync
 '''
 
-MaxLogLen = 5
+MaxLogLen = 25
 
 class ActionSync(object):
     def __init__(self):
@@ -198,7 +198,6 @@ class ActionSync(object):
             raise Exception("{} failed".format(self.action))
         else:
             self.logSuccess()
-
 
     def logSuccess(self):
 
