@@ -2,24 +2,12 @@ import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0')
 ]
-
-@pytest.fixture
-def backup_and_restore_config_db(duthost):
-    """
-    Some cases will shutdown interfaces or BGP in test, and the change is writen to
-    config db after warm-reboot. Therefore, we need to backup config_db.json before
-    test starts and then restore after test ends
-    """
-    CONFIG_DB = "/etc/sonic/config_db.json"
-    CONFIG_DB_BAK = "/etc/sonic/config_db.json.before_advanced_reboot"
-    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
-    yield
-    duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
 
 @pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot(request, get_advanced_reboot):
