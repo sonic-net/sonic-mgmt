@@ -105,19 +105,12 @@ configuration_properties:
   common:
     dut_asn: 65100
     dut_type: LeafRouter
-    nhipv4: 10.10.246.100
-    nhipv6: FC0A::C9
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
   spine:
     swrole: spine
-    podset_number: 200
-    tor_number: 16
-    tor_subnet_number: 2
-    leaf_asn_start: 62001
-    tor_asn_start: 65501
-    failure_rate: 0
   tor:
     swrole: tor
-    tor_subnet_number: 5
 
 configuration:
   ARISTA01T2:
