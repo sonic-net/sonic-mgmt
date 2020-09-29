@@ -1,8 +1,8 @@
-# Guidelines for designing a customized ansible module to support multi-ASIC
+# Requirements for designing a customized ansible module to support multi-ASIC
 
-PR https://github.com/Azure/SONiC/pull/644 introduced the HLD to support multi ASIC. In the future, multi DUT or Chassis will be supported by SONiC as well. Some of the customized ansible modules need to be updated to support testing of the upcoming new architectures. This document tries to propose some guidelines for designing customized ansible modules that need to deal with multi-ASIC. The idea is to have a clean and easy to use interface for calling these ansible modules in scripts testing multi DUT and multi ASIC system. Meanwhile, the ansible modules need to maintain backward compatibility for single DUT and single ASIC testing.
+PR https://github.com/Azure/SONiC/pull/644 introduced the HLD to support multi ASIC. In the future, multi DUT or Chassis will be supported by SONiC as well. Some of the customized ansible modules need to be updated to support testing of the upcoming new architectures. This document tries to propose some requirements for designing customized ansible modules that need to deal with multi-ASIC. The idea is to have a clean and easy to use interface for calling these ansible modules in scripts testing multi DUT and multi ASIC system. Meanwhile, the ansible modules need to maintain backward compatibility for single DUT and single ASIC testing.
 
-## Guidelines
+## Requirements
 
 * The module must take optional argument for specifying ASIC index.
 * The module must not take argument for specifying the number of ASICs the host has. Instead the module must figure out by itself whether the current host supports multi ASIC and how many ASICs it has.
