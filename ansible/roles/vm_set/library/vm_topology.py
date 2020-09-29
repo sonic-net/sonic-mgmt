@@ -297,12 +297,12 @@ class VMTopology(object):
         self.update()
         if int_if in self.cntr_ifaces:
             VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" % (self.pid, int_if))
-            VMTopology.cmd("nsenter -t %s -n ip -6 addr flush dev %s" % (self.pid, int_if))
-            VMTopology.cmd("nsenter -t %s -n ip -6 route flush default" % (self.pid))
             VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" % (self.pid, mgmt_ip_addr, int_if))
             if mgmt_gw:
                 VMTopology.cmd("nsenter -t %s -n ip route add default via %s dev %s" % (self.pid, mgmt_gw, int_if))
             if mgmt_ipv6_addr and mgmt_gw_v6:
+                VMTopology.cmd("nsenter -t %s -n ip -6 addr flush dev %s" % (self.pid, int_if))
+                VMTopology.cmd("nsenter -t %s -n ip -6 route flush default" % (self.pid))
                 VMTopology.cmd("nsenter -t %s -n ip -6 addr add %s dev %s" % (self.pid, mgmt_ipv6_addr, int_if))
                 VMTopology.cmd("nsenter -t %s -n ip -6 route add default via %s dev %s" % (self.pid, mgmt_gw_v6, int_if))
 
