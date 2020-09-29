@@ -68,7 +68,7 @@ def parallel_run(target, args, kwargs, nodes, timeout=None):
         for p in running_processes:
             try:
                 os.kill(p.pid, signal.SIGKILL)
-            except:
+            except OSError:
                 pass
 
         pt_assert(False, \
