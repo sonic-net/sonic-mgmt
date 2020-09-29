@@ -23,8 +23,8 @@ vms1-t1-2700,vms1-2,t1-lag,docker-ptf-mlnx,vms1-2,10.64.246.57/23,,server_1,VM01
 vms1-8,vms1-8,t1-lag,docker-ptf-mlnx,vms1-8,10.64.246.43/23,,server_1,VM0160,str-msn2700-06,Jenkins
 vms1-t0-3132,vms1-10,t0,docker-ptf-brcm,vms1-10,10.64.246.82/23,,server_1,VM0184,str-n3132-acs-1,Jenkins
 vms2-2-t0-2700,vms2-2,t0-56,docker-ptf-mlnx,vms2-2,10.64.246.27/23,,server_2,VM0232,str-msn2700-20,weibai
-vms2-3-t1-2700,vms2-3,t1,docker-ptf-mlnx,vms2-3,10.64.246.29/23,,server_2,VM0240,str-msn2700-22,stumkurv
-vms2-4-t0-2700,vms2-4,t0,docker-ptf-mlnx,vms2-4,10.64.246.29/23,,server_2,VM0240,str-msn2700-22,stumkurv
+vms2-3-t1-2700,vms2-3,t1,docker-ptf-mlnx,vms2-3,10.64.246.131/23,,server_2,VM0240,str-msn2700-22,stumkurv
+vms2-4-t0-2700,vms2-4,t0,docker-ptf-mlnx,vms2-4,10.64.246.131/23,,server_2,VM0240,str-msn2700-22,stumkurv
 vms2-5-t0-7050-1,vms2-5,t0,docker-ptf-brcm,vms2-5,10.64.247.23/23,,server_2,VM0272,str-a7050-acs-1,daall
 vms3-t0-s6100,vms3-61,t0-64,docker-ptf-brcm,vms3-61,10.64.246.21/23,,server_3,VM0356,str-s6100-acs-1,Pavel
 vms3-4,vms3-4,t0,docker-ptf-brcm,vms3-4,10.64.246.11/23,,server_3,VM0360,str-s6000-acs-13,Renuka
