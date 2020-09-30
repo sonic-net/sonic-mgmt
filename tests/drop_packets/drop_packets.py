@@ -664,6 +664,11 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, tx_dut_port
     # records=[gr_obj]).build()
     # The rest packets are build like "simple_igmp_packet" function from PTF testutils.py
 
+    # FIXME: Need some sort of configuration for EOS and SONiC fanout hosts to
+    # not drop IGMP packets before they reach the DUT
+    if not fanouthost:
+        pytest.skip("Test case requires explicit fanout support")
+
     from scapy.contrib.igmp import IGMP
     Ether = testutils.scapy.Ether
     IP = testutils.scapy.IP
