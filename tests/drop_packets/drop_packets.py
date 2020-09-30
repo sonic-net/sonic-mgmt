@@ -635,7 +635,7 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, duthost, setup, tx_du
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"), ("v1", "membership_report"),
 ("v2", "membership_report"), ("v3", "membership_report"), ("v2", "leave_group")])
-def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
+def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, fanouthost, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Create an IGMP non-routable packets.
     """
@@ -663,6 +663,11 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, tx_dut_port
     # v3_membership_report = IGMPv3(type=0x22, mrcode=0, chksum=None)/scapy.contrib.igmpv3.IGMPv3mr(res2=0x00, numgrp=1,
     # records=[gr_obj]).build()
     # The rest packets are build like "simple_igmp_packet" function from PTF testutils.py
+
+    # FIXME: Need some sort of configuration for EOS and SONiC fanout hosts to
+    # not drop IGMP packets before they reach the DUT
+    if not fanouthost:
+        pytest.skip("Test case requires explicit fanout support")
 
     from scapy.contrib.igmp import IGMP
     Ether = testutils.scapy.Ether
