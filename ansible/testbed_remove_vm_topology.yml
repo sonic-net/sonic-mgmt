@@ -47,6 +47,21 @@
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
     when: ptf_imagename is not defined
 
+  - name: Check that variable topo_name is defined
+    fail: msg="Define topo_name"
+    when: topo_name is not defined
+
+  - name: Check that variable server is defined
+    fail: msg="Define server"
+    when: server is not defined
+
+  - name: call test action sync
+    action_sync: action="remove-topo" topo={{ topo_name }} dut={{ dut_name }} server={{ server }}
+    connection: local
+    register: action_sync_result
+
+  - debug: msg="{{ action_sync_result }}"
+
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
 
