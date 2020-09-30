@@ -14,6 +14,7 @@ import ptf.packet as packet
 
 from tests.common import reboot, port_toggle
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +190,8 @@ def acl_table_config(duthost, setup, stage):
     }
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
+@pytest.mark.usefixtures("backup_and_restore_config_db")
 def acl_table(duthost, acl_table_config):
     """
     fixture to apply ACL table configuration and remove after tests
@@ -222,9 +224,6 @@ def acl_table(duthost, acl_table_config):
         with loganalyzer:
             logger.info('removing ACL table {}'.format(name))
             duthost.command('config acl remove table {}'.format(name))
-
-        # save cleaned configuration
-        duthost.command('config save -y')
 
 
 class BaseAclTest(object):
