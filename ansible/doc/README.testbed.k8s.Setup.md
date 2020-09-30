@@ -135,7 +135,7 @@ This setup allows us to test the following:
 - Expected container behavior after the container is intentionally or unintentionally stopped
 - Switching between Local and Kubernetes management mode for a given container
   - Addition and removal of SONiC DUT labels
-- Changing image version in middle of Daemonset deployment
+- Proper management of Kubernetes features through DUT reboots, unreachable master
 
 During each of the following states:
 - When all master servers are up and running
@@ -145,13 +145,7 @@ During each of the following states:
 
 Down: shut off, disconnected, or in the middle of reboot
 
-
 In this setup, we do not consider load balancer performance. For Kubernetes feature testing purposes, HAProxy is configured to perform vanilla round-robin load balancing on available master servers.
 
+For a more detailed test plan, see [this document](../../docs/K8s-test-plan.md).
 
-## How to Create Tests
-Each manifest is a yaml file
-
-CLI to make changes to manifest files
-
-pytests to apply manifest changes and check status
