@@ -443,13 +443,17 @@ def disable_container_autorestart(duthost, request):
     # Disable autorestart for all containers
     logging.info("Disable container autorestart")
     cmd_disable = "config feature autorestart {} disabled"
+    cmds_disable = []
     for name, state in container_autorestart_states.items():
         if state == "enabled":
-            duthost.command(cmd_disable.format(name))
+            cmds_disable.append(cmd_disable.format(name))
+    duthost.shell_cmds(cmds=cmds_disable)
     yield
     # Recover autorestart states
     logging.info("Recover container autorestart")
     cmd_enable = "config feature autorestart {} enabled"
+    cmds_enable = []
     for name, state in container_autorestart_states.items():
         if state == "enabled":
-            duthost.command(cmd_enable.format(name))
+            cmds_enable.append(cmd_enable.format(name))
+    duthost.shell_cmds(cmds=cmds_enable)
