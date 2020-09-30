@@ -28,17 +28,11 @@ from ptf.mask import Mask
 import ptf.testutils as testutils
 from ptf.testutils import *
 
-import fib
 import lpm
 
 PERSIST_MAP = '/tmp/fg_ecmp_persist_map.json'
 
 class FgEcmpTest(BaseTest):
-
-    #---------------------------------------------------------------------
-    # Class variables
-    #---------------------------------------------------------------------
-    NUM_FLOWS = 1000
 
     def __init__(self):
         '''
@@ -68,6 +62,7 @@ class FgEcmpTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.test_params = testutils.test_params_get()
+        self.max_deviation = 0.25
         if 'test_case' in self.test_params:
             self.test_case = self.test_params['test_case']
         else:
@@ -86,6 +81,10 @@ class FgEcmpTest(BaseTest):
             raise Exception("required parameter 'config_file' is not present")
         config = self.test_params['config_file']
 
+        if 'exp_flow_count' not in self.test_params:
+            raise Exception("required parameter 'exp_flow_count' is not present")
+        self.exp_flow_count = self.test_params['exp_flow_count']
+
         if not os.path.isfile(config):
             raise Exception("the config file %s doesn't exist" % config)
 
@@ -99,6 +98,8 @@ class FgEcmpTest(BaseTest):
         self.dst_ip = graph['dst_ip']
         self.router_mac = graph['dut_mac']
         self.ip_to_port = graph['ip_to_port']
+        self.num_flows = graph['num_flows']
+        self.inner_hashing = graph['inner_hashing']
 
         self.log(self.net_ports)
         self.log(self.exp_ports)
@@ -108,24 +109,44 @@ class FgEcmpTest(BaseTest):
         self.log(self.router_mac)
         self.log(self.test_case)
         self.log(self.ip_to_port)
+        self.log(self.num_flows)
+        self.log(self.inner_hashing)
+        self.log(self.exp_flow_count)
 
         self.trigger_mac_learning(self.ip_to_port)
         time.sleep(3)
 
 
     #---------------------------------------------------------------------
+    def test_balancing(self, hit_count_map):
+        for port, exp_flows in self.exp_flow_count.items():
+            assert port in hit_count_map
+            num_flows = hit_count_map[port]
+            deviation = float(num_flows)/float(exp_flows)
+            deviation = abs(1-deviation)
+            self.log("port "+ str(port) + " exp_flows " + str(exp_flows) + 
+                    " num_flows " + str(num_flows) + " deviation " + str(deviation))
+            assert deviation <= self.max_deviation
+
 
     def fg_ecmp(self):
-        if isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')), ipaddress.IPv4Address):
-            ipv4=True
+        ipv4 = isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')),
+                ipaddress.IPv4Address)
+
+        if self.inner_hashing:
             base_ip = ipaddress.ip_address(u'8.0.0.0')
         else:
-            ipv4=False
-            base_ip = ipaddress.ip_address(u'20D0:A800:0:00::')
+            if isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')), ipaddress.IPv4Address):
+                base_ip = ipaddress.ip_address(u'8.0.0.0')
+            else:
+                base_ip = ipaddress.ip_address(u'20D0:A800:0:00::')
 
         # initialize all parameters
         src_ip = base_ip
-        dst_ip = self.dst_ip
+        if self.inner_hashing:
+            dst_ip = '5.5.5.5'
+        else:
+            dst_ip = self.dst_ip
         src_port = 20000
         dst_port = 30000
         in_port = self.net_ports[0]
@@ -137,13 +158,17 @@ class FgEcmpTest(BaseTest):
             # Send packets with varying src_ips to create NUM_FLOWS unique flows
             # and generate a flow to port map
             self.log("Creating flow to port map ...")
-            for i in range(0, self.NUM_FLOWS):
+            for i in range(0, self.num_flows):
                 src_ip = str(base_ip + i)
-                in_port = self.net_ports[0] #random.choice(self.net_ports)
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
                 (port_idx, _) = self.send_rcv_ip_pkt(
                     in_port, src_port, dst_port, src_ip, dst_ip, self.exp_ports, ipv4)
                 hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
                 tuple_to_port_map[src_ip] = port_idx
+            self.test_balancing(hit_count_map)
 
             json.dump(tuple_to_port_map, open(PERSIST_MAP,"w"))
             return
@@ -155,7 +180,10 @@ class FgEcmpTest(BaseTest):
             # step 2: Send the same flows once again and verify that they end up on the same port
             self.log("Ensure that flow to port map is maintained when the same flow is re-sent...")
             for src_ip, port in tuple_to_port_map.iteritems():
-                in_port = self.net_ports[0]#random.choice(self.net_ports)
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
                 (port_idx, _) = self.send_rcv_ip_pkt(
                     in_port, src_port, dst_port, src_ip, dst_ip, self.exp_ports, ipv4)
                 assert port_idx == port
@@ -172,7 +200,10 @@ class FgEcmpTest(BaseTest):
                 withdraw_port_grp = self.exp_port_set_two
             hit_count_map = {}
             for src_ip, port in tuple_to_port_map.iteritems():
-                in_port = self.net_ports[0]#random.choice(self.net_ports)
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
                 (port_idx, _) = self.send_rcv_ip_pkt(
                     in_port, src_port, dst_port, src_ip, dst_ip, self.exp_ports, ipv4)
                 hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
@@ -183,6 +214,8 @@ class FgEcmpTest(BaseTest):
                     tuple_to_port_map[src_ip] = port_idx
                 else:
                     assert port_idx == port
+
+            self.test_balancing(hit_count_map)
 
             json.dump(tuple_to_port_map, open(PERSIST_MAP,"w"))
             return
@@ -198,7 +231,10 @@ class FgEcmpTest(BaseTest):
                 add_port_grp = self.exp_port_set_two
             hit_count_map = {}
             for src_ip, port in tuple_to_port_map.iteritems():
-                in_port = self.net_ports[0]#random.choice(self.net_ports)
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
                 (port_idx, _) = self.send_rcv_ip_pkt(
                     in_port, src_port, dst_port, src_ip, dst_ip, self.exp_ports, ipv4)
                 hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
@@ -206,6 +242,8 @@ class FgEcmpTest(BaseTest):
                     assert (port in add_port_grp)
                 else:
                     assert port_idx == port
+
+            self.test_balancing(hit_count_map)
 
             json.dump(tuple_to_port_map, open(PERSIST_MAP,"w"))
             return
@@ -221,7 +259,10 @@ class FgEcmpTest(BaseTest):
                 active_port_grp = self.exp_port_set_one
             hit_count_map = {}
             for src_ip, port in tuple_to_port_map.iteritems():
-                in_port = self.net_ports[0]#random.choice(self.net_ports)
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
                 (port_idx, _) = self.send_rcv_ip_pkt(
                     in_port, src_port, dst_port, src_ip, dst_ip, self.exp_ports, ipv4)
                 hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
@@ -230,6 +271,8 @@ class FgEcmpTest(BaseTest):
                     tuple_to_port_map[src_ip] = port_idx
                 else:
                     assert port_idx == port
+
+            self.test_balancing(hit_count_map)
 
             json.dump(tuple_to_port_map, open(PERSIST_MAP,"w"))
             return
@@ -246,17 +289,23 @@ class FgEcmpTest(BaseTest):
             assert tuple_to_port_map
             hit_count_map = {}
             for src_ip, port in tuple_to_port_map.iteritems():
-                in_port = self.net_ports[0]#random.choice(self.net_ports)
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
                 (port_idx, _) = self.send_rcv_ip_pkt(
                     in_port, src_port, dst_port, src_ip, dst_ip, self.exp_ports, ipv4)
                 hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
                 flow_redistribution_in_correct_grp = False
                 if port_idx in active_port_grp:
+                    assert port_idx == port
                     flow_redistribution_in_correct_grp = True
                 elif port_idx == self.first_nh:
                     flow_redistribution_in_correct_grp = True
                     tuple_to_port_map[src_ip] = port_idx
                 assert flow_redistribution_in_correct_grp == True
+
+            self.test_balancing(hit_count_map)
             return
 
         else:
@@ -283,8 +332,8 @@ class FgEcmpTest(BaseTest):
 
     def send_rcv_ipv4_pkt(self, in_port, sport, dport,
                          ip_src, ip_dst, dst_port_list):
-
         src_mac = self.dataplane.get_mac(0, in_port)
+        rand_int = random.randint(1, 254)
 
         pkt = simple_tcp_packet(
                             eth_dst=self.router_mac,
@@ -294,52 +343,67 @@ class FgEcmpTest(BaseTest):
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=64)
-        exp_pkt = simple_tcp_packet(
-                            eth_src=self.router_mac,
-                            ip_src=ip_src,
-                            ip_dst=ip_dst,
-                            tcp_sport=sport,
-                            tcp_dport=dport,
-                            ip_ttl=63)
-        masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        if self.inner_hashing:
+            pkt = simple_vxlan_packet(
+                    eth_dst=self.router_mac,
+                    eth_src=src_mac,
+                    ip_id=0,
+                    ip_src='2.2.2.' + str(rand_int),
+                    ip_dst=self.dst_ip,
+                    ip_ttl=64,
+                    udp_sport=rand_int,
+                    udp_dport=4789,
+                    vxlan_vni=rand_int,
+                    with_udp_chksum=False,
+                    inner_frame=pkt)
 
         send_packet(self, in_port, pkt)
-        logging.info("Sending packet from port " + str(in_port) + " to " + ip_dst)
+
+        masked_exp_pkt = Mask(pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
         return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
 
     def send_rcv_ipv6_pkt(self, in_port, sport, dport,
                          ip_src, ip_dst, dst_port_list):
-
         src_mac = self.dataplane.get_mac(0, in_port)
+        rand_int = random.randint(1, 254)
 
-        pkt = simple_tcpv6_packet(
-                                eth_dst=self.router_mac,
-                                eth_src=src_mac,
-                                ipv6_dst=ip_dst,
-                                ipv6_src=ip_src,
-                                tcp_sport=sport,
-                                tcp_dport=dport,
-                                ipv6_hlim=64)
-        exp_pkt = simple_tcpv6_packet(
-                                eth_src=self.router_mac,
-                                ipv6_dst=ip_dst,
-                                ipv6_src=ip_src,
-                                tcp_sport=sport,
-                                tcp_dport=dport,
-                                ipv6_hlim=63)
-        masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+        pkt = simple_tcp_packet(
+                            eth_dst=self.router_mac,
+                            eth_src=src_mac,
+                            ip_src=ip_src,
+                            ip_dst=ip_dst,
+                            tcp_sport=sport,
+                            tcp_dport=dport,
+                            ip_ttl=64)
+        if self.inner_hashing:
+            pkt = simple_vxlanv6_packet(
+                    eth_dst=self.router_mac,
+                    eth_src=src_mac,
+                    ipv6_src='2:2:2::' + str(rand_int),
+                    ipv6_dst=self.dst_ip,
+                    udp_sport=rand_int,
+                    udp_dport=4789,
+                    vxlan_vni=rand_int,
+                    with_udp_chksum=False,
+                    inner_frame=pkt)
 
         send_packet(self, in_port, pkt)
-        logging.info("Sending packet from port " + str(in_port) + " to " + ip_dst)
+
+        masked_exp_pkt = Mask(pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
         return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
 
+    #---------------------------------------------------------------------
     def runTest(self):
         # Main function which triggers all the tests
         self.fg_ecmp()

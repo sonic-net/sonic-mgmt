@@ -23,6 +23,8 @@ PREFIX_IPv4 = u'100.50.25.12/32'
 PREFIX_IPv6 = u'fc:05::/128'
 ARP_CFG = '/tmp/arp_cfg.json'
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'
+USE_INNER_HASHING = False
+NUM_FLOWS = 1000
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix)
 
     fgnhg_data['FG_NHG'] = {}
     fgnhg_data['FG_NHG'][fgnhg_name] = {
-        "bucket_size": 120
+        "bucket_size": 125
     }
 
     fgnhg_data['FG_NHG_MEMBER'] = {}
@@ -134,7 +136,9 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
             "bank_1_port": bank_1_port,
             "dut_mac": router_mac,
             "dst_ip": prefix.split('/')[0],
-            "net_ports": net_ports
+            "net_ports": net_ports,
+            "inner_hashing": USE_INNER_HASHING,
+            "num_flows": NUM_FLOWS 
     }
     ptfhost.copy(content=json.dumps(fg_ecmp, indent=2), dest=FG_ECMP_CFG)
 
@@ -160,58 +164,91 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
     time.sleep(1)
 
-    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+    test_time = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.create_flows.log".format(test_time)
+
+    exp_flow_count = {}
+    flows_per_nh = NUM_FLOWS/len(port_list)
+    for port in port_list:
+        exp_flow_count[port] = flows_per_nh
 
     ptf_runner(ptfhost,
-	   "ptftests",
-	   "fg_ecmp_test.FgEcmpTest",
-	    platform_dir="ptftests",
-	    params={"test_case": 'create_flows',
-		    "config_file": FG_ECMP_CFG},
-	    qlen=1000,
-	    log_file=log_file)
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'create_flows',
+                    "exp_flow_count": exp_flow_count,
+                    "config_file": FG_ECMP_CFG},
+            qlen=1000,
+            log_file=log_file)
+
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.initial_hash_check.log".format(test_time)
 
     ptf_runner(ptfhost,
-	   "ptftests",
-	   "fg_ecmp_test.FgEcmpTest",
-	    platform_dir="ptftests",
-	    params={"test_case": 'initial_hash_check',
-		    "config_file": FG_ECMP_CFG},
-	    qlen=1000,
-	    log_file=log_file) 
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'initial_hash_check',
+                "exp_flow_count": exp_flow_count,
+                "config_file": FG_ECMP_CFG},
+            qlen=1000,
+            log_file=log_file) 
 
+    exp_flow_count = {}
+    flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
     withdraw_nh_port = bank_0_port[1]
+    for port in bank_1_port:
+        exp_flow_count[port] = flows_per_nh
+    for port in bank_0_port:
+        if port != withdraw_nh_port:
+            exp_flow_count[port] = flows_for_withdrawn_nh_bank
+
     for nexthop, port in ip_to_port.items():
         if port == withdraw_nh_port:
             duthost.shell("vtysh -c 'configure terminal' -c 'no {} {} {}'".format(ipcmd, prefix, nexthop))
 
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.withdraw_nh.log".format(test_time)
+
     time.sleep(1)
 
     ptf_runner(ptfhost,
-	   "ptftests",
-	   "fg_ecmp_test.FgEcmpTest",
-	    platform_dir="ptftests",
-	    params={"test_case": 'withdraw_nh',
-		    "config_file": FG_ECMP_CFG,
-                    "withdraw_nh_port": withdraw_nh_port},
-	    qlen=1000,
-	    log_file=log_file)
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'withdraw_nh',
+                "config_file": FG_ECMP_CFG,
+                "exp_flow_count": exp_flow_count,
+                "withdraw_nh_port": withdraw_nh_port},
+            qlen=1000,
+            log_file=log_file)
+
+
+    exp_flow_count = {}
+    for port in port_list:
+        exp_flow_count[port] = flows_per_nh
 
     for nexthop, port in ip_to_port.items():
         if port == withdraw_nh_port:
             duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
 
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.add_nh.{}.log".format(test_time)
+
     time.sleep(1)
 
     ptf_runner(ptfhost,
-	   "ptftests",
-	   "fg_ecmp_test.FgEcmpTest",
-	    platform_dir="ptftests",
-	    params={"test_case": 'add_nh',
-		    "config_file": FG_ECMP_CFG,
-                    "add_nh_port": withdraw_nh_port},
-	    qlen=1000,
-	    log_file=log_file)
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'add_nh',
+                "config_file": FG_ECMP_CFG,
+                "exp_flow_count": exp_flow_count,
+                "add_nh_port": withdraw_nh_port},
+            qlen=1000,
+            log_file=log_file)
 
 
     withdraw_nh_bank = bank_0_port
@@ -219,37 +256,55 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port in withdraw_nh_bank:
             duthost.shell("vtysh -c 'configure terminal' -c 'no {} {} {}'".format(ipcmd, prefix, nexthop))
 
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.withdraw_bank.log".format(test_time)
+
     time.sleep(1)
 
+    exp_flow_count = {}
+    flows_per_nh = NUM_FLOWS/len(bank_1_port)
+    for port in bank_1_port:
+        exp_flow_count[port] = flows_per_nh
+
     ptf_runner(ptfhost,
-	   "ptftests",
-	   "fg_ecmp_test.FgEcmpTest",
-	    platform_dir="ptftests",
-	    params={"test_case": 'withdraw_bank',
-		    "config_file": FG_ECMP_CFG,
-                    "withdraw_nh_bank": withdraw_nh_bank},
-	    qlen=1000,
-	    log_file=log_file)
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'withdraw_bank',
+                "config_file": FG_ECMP_CFG,
+                "exp_flow_count": exp_flow_count,
+                "withdraw_nh_bank": withdraw_nh_bank},
+            qlen=1000,
+            log_file=log_file)
 
     first_nh = bank_0_port[3]
     for nexthop, port in ip_to_port.items():
         if port == first_nh:
             duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
 
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.add_first_nh.log".format(test_time)
+
     time.sleep(1)
 
+    exp_flow_count = {}
+    flows_per_nh = (NUM_FLOWS/2)/(len(bank_1_port))
+    for port in bank_1_port:
+        exp_flow_count[port] = flows_per_nh
+
+    exp_flow_count[first_nh] = NUM_FLOWS/2
+
     ptf_runner(ptfhost,
-	   "ptftests",
-	   "fg_ecmp_test.FgEcmpTest",
-	    platform_dir="ptftests",
-	    params={"test_case": 'add_first_nh',
-		    "config_file": FG_ECMP_CFG,
-                    "first_nh": first_nh},
-	    qlen=1000,
-	    log_file=log_file)
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'add_first_nh',
+                "config_file": FG_ECMP_CFG,
+                "exp_flow_count": exp_flow_count,
+                "first_nh": first_nh},
+            qlen=1000,
+            log_file=log_file)
 
 
-@pytest.mark.bsl
 def test_fg_ecmp(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost):
     if testbed['topo']['name'] != 't0':
         pytest.skip("Unsupported topology")
