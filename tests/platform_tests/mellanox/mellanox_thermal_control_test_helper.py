@@ -660,7 +660,9 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 fan_index += 1
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
-                    fan_data.mock_speed(random.randint(0, 100))
+                    speed = random.randint(60, 100)
+                    fan_data.mock_speed(speed)
+                    fan_data.mock_target_speed(speed)
                     self.expected_data[fan_data.name] = [
                         drawer_data.name,
                         'N/A', # update this value later
