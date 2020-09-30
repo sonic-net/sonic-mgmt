@@ -9,7 +9,7 @@
 
 "PORT": {
 {% for alias in device_conn %}
-    "{{ port_alias_map[alias] }}": {
+    "{{ alias }}": {
 {% if device_conn[alias]['speed'] == "100000" %}
         "fec" : "rs",
 {% endif %}
@@ -31,14 +31,14 @@
 {% for alias in device_port_vlans %}
 {% if device_port_vlans[alias]['mode'] == 'Access' %}
 {% if ns.firstPrinted %},{% endif %}
-    "Vlan{{ device_port_vlans[alias]['vlanids'] }}|{{ port_alias_map[alias] }}": {
+    "Vlan{{ device_port_vlans[alias]['vlanids'] }}|{{ alias }}": {
         "tagging_mode" : "untagged"
     }
 {% if ns.update({'firstPrinted': True}) %} {% endif %}
 {% elif device_port_vlans[alias]['mode'] == 'Trunk' %}
   {% for vlanid in device_port_vlans[alias]['vlanlist'] %}
 {% if ns.firstPrinted %},{% endif %}
-    "Vlan{{ vlanid }}|{{ port_alias_map[alias] }}": {
+    "Vlan{{ vlanid }}|{{ alias }}": {
         "tagging_mode" : "tagged"
     }
 {% if ns.update({'firstPrinted': True}) %} {% endif %}
