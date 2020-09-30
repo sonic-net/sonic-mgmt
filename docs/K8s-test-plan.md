@@ -220,256 +220,272 @@ These test cases ensure SONiC worker node is able to properly remove itself from
 
 - Reset SONiC 8) reset with correct VIP, then change to incorrect VIP and reset again, master enabled throughout
 
-- Reset SONiC 9) reset with correct VIP, cancel reset request in middle, then resubmit reset request
+- Reset SONiC 9) reset with correct VIP, cancel reset request in middle, then resubmit reset request, master enabled throughout
 
+- Reset SONiC 10) reset with incorrect VIP, cancel reset request in middle, change to correct VIP, then resubmit reset request, master enabled throughout
+
+- Reset SONiC 11) In all cases when Insecure is off, output warning that Secure transfer is not yet enabled
 
 ### Test Cases - Manifest Deployment from Master
 
-Kube mode feature, master reachable, update manifest deployment with incorrect image URL, ACR reachable
-	1. Config feature owner kube
-	2. Sudo config kube disable = false (by default)
-	3. Sudo config kube server IP <correct VIP>
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 3
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	5. Show features
-	6. Docker ps
-		a. Observe feature running in kube mode
+These test cases ensure manifest applications from Kubernetes master are properly processed by SONiC DUT worker nodes. "Master reachable" implies master is enabled, and configured VIP is correct and valid. 
+
+- Manifest Deployment from Master 1) kube mode feature, master reachable, update manifest deployment with incorrect image URL, ACR reachable
+	1. `config feature owner kube`
+	2. `sudo config kube disable off` (by default)
+	3. `sudo config kube server ip <correct VIP>`
+	4. `show kube server`
+    	- `IP` should be set to <correct VIP> from step 3
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	5. `show features`
+	6. `docker ps`
+		- Should see k8s container for feature running in kube mode
 	7. From master: deploy manifest with wrong URL
-		a. Should output warning that image does not exist at URL
-	8. Docker ps
-		a. Observe same container from 6a running in kube mode
+		- Should output warning that image does not exist at URL
+	8. `docker ps`
+		- Should observe same k8s container from step 6 running in kube mode
 	9. Fix manifest URL
 	10. From master: reapply manifest
-	11. Docker ps
-		a. Observe new container with newer version running in kube mode
+	11. `docker ps`
+		- Should observe new k8s container with newer image version, feature running in kube mode
+	12. `kubectl get pods`
+        - Should observe new pod that corresponds to new container
 
-Kube mode feature, master reachable, update manifest deployment with incorrect image URL, ACR unreachable
-	1. Config feature owner kube
-	2. Sudo config kube disable = false (by default)
-	3. Sudo config kube server IP <correct VIP>
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 3
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	5. Show features
-	6. Docker ps
-		a. Observe feature running in kube mode
+- Manifest Deployment from Master 2) kube mode feature, master reachable, update manifest deployment with incorrect image URL, ACR unreachable
+	1. `config feature owner kube`
+	2. `sudo config kube disable off` (by default)
+	3. `sudo config kube server ip <correct VIP>`
+	4. `show kube server`
+    	- `IP` should be set to <correct VIP> from step 3
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	5. `show features`
+	6. `docker ps`
+		- Should see k8s container for feature running
 	7. Remove proxy to simulate unreachable ACR
 	8. From master: deploy manifest with incorrect URL
-		a. Output warning that cannot reach ACR
+		- Should output warning that cannot reach ACR
 	9. Add proxy to reach ACR
 	10. Proceed prior test from step 9
 
-Kube mode feature, master reachable, update manifest deployment with correct image URL, ACR reachable
-	1. Config feature owner kube
-	2. Sudo config kube disable = false (by default)
-	3. Sudo config kube server IP <correct VIP>
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 3
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	5. Show features
-	6. Docker ps
-		a. Observe feature running in kube mode
+- Manifest Deployment from Master 3) kube mode feature, master reachable, update manifest deployment with correct image URL, ACR reachable
+	1. `config feature owner kube`
+	2. `sudo config kube disable off` (by default)
+	3. `sudo config kube server ip <correct VIP>`
+	4. `show kube server`
+    	- `IP` should be set to <correct VIP> from step 3
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	5. `show features`
+	6. `docker ps`
+		- Should observe feature running in kube mode
 	7. From master: Deploy manifest with correct URL
-	8. Docker ps
-		a. Observe feature running in kube mode- updated image version
-	9. Kubectl get pods
+	8. `docker ps`
+		- Should observe new k8s container with newer image version, feature running in kube mode
+	9. `kubectl get pods`
+        - Should observe new pod that corresponds to new container
 
-Kube mode feature, master reachable, update manifest deployment with correct image URL, ACR unreachable
-	1. Config feature owner kube
-	2. Sudo config kube disable = false (by default)
-	3. Sudo config kube server IP <correct VIP>
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 3
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	5. Show features
-	6. Docker ps
-		a. Observe feature running in kube mode
+- Manifest Deployment from Master 4) kube mode feature, master reachable, update manifest deployment with correct image URL, ACR unreachable
+	1. `config feature owner kube`
+	2. `sudo config kube disable off` (by default)
+	3. `sudo config kube server ip <correct VIP>`
+	4. `show kube server`
+    	- `IP` should be set to <correct VIP> from step 3
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	5. `show features`
+	6. `docker ps`
+		- Should see k8s container for feature running in kube mode
 	7. Remove proxy to simulate unreachable ACR
 	8. From master: deploy manifest with correct URL
-		a. Output warning that cannot reach ACR
-	9. Add proxy
+		- Output warning that cannot reach ACR
+	9. Add proxy to simulate reachable ACR
 	10. Repeat prior test from step 7
 
-To test all kube mode feature cases, when master starts as not reachable: 
-	1. Config feature owner kube
-	2. Sudo config kube disable = true AND/OR sudo config kube server <incorrect VIP>
-	3. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 2 OR <incorrect VIP> from step 2, where applicable
-		b. Insecure should be True
-		c. Disable should be true OR False if only <incorrect VIP> was set in step 2
-		d. Connected should be True OR False if <incorrect VIP> was set in step 2
-	4. From master: kubectl get pods
+- Manifest Deployment from Master 5) kube mode, when master starts as not reachable when manifest is deployed: 
+	1. `config feature owner kube`
+	2. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
+	3. `show kube server`
+		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 2. Otherwise, it should be the previously set <correct VIP>
+		- `insecure` should be True
+		- `disable` should be True iff master was disabled in step 2
+        - `server_reachability` should be False iff <incorrect VIP> was set in step 2. Else, should be True
+		- `connected` should be True
+	4. From master: `kubectl get pods`
 	5. From master: apply manifest
-	6. From master: kubectl get pods
-		a. Should be same pods output as in step 4
-	7. Make master reachable, fixing either VIP or enabling master connection
-	8. Kubectl get pods
-		a. Observe correct pods come up from most recent manifest deployment that originally did not go through due to unreachable master
+	6. From master: `kubectl get pods`
+		- Should observe the same pods that were output in step 4
+	7. Make master reachable, fixing either VIP or enabling master connection as necessary
+	8. `kubectl get pods` or `docker ps`
+		- Should observe correct pods/containers from most recent manifest deployment that originally did not go through due to unreachable master
 
-To test all kube mode feature cases, when master starts as reachable and changes to unreachable in middle of manifest deployment: 
-	1. Config feature owner kube
-	2. Sudo config kube disable = false (by default)
-	3. Sudo config kube server IP <correct VIP>
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	5. From master: kubectl get pods
+- Manifest Deployment from Master 6) kube mode, when master starts as reachable and changes to unreachable in middle of manifest deployment: 
+	1. `config feature owner kube`
+	2. `sudo config kube disable off` (by default)
+	3. `sudo config kube server ip <correct VIP>`
+	4. `show kube server`
+    	- `IP` should be set to <correct VIP> from step 3
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	5. From master: `kubectl get pods`
 	6. From master: apply manifest
-	7. Before deployment finishes, go into node not yet updated and make master unreachable (disable or make incorrect VIP)
+	7. Before deployment in DUT, make master unreachable (disable and/or set incorrect VIP)
 	8. Wait
-	9. Docker ps
-		a. Check if updated manifest image container was created
-		b. If it was:
-			i. Kubectl get pods at master would not reflect new pod until after master is made reachable again
-			ii. Kubectl get pods on SONiC will not work, as there is no connection to master
-	10. Make master reachable
-		a. Kubectl get pods at master should show new pod that corresponds to container
+	9. `docker ps`
+		- Check if updated manifest image container was created
+		- If it was:
+			- `kubectl get pods` at master would not reflect new pod until after master is made reachable again
+			- `kubectl get pods` on SONiC will not work, as there is no connection to master
+	10. Make master reachable (set correct VIP or enable master as necessary)
+    11. `docker ps`
+    12. `kubectl get pods`
+         - Should observe new pod that corresponds to new k8s feature from udpated manifest
+
 
 To kube with higher, same, and lower image version
+
+Deploy manifest,
+Remove DUT
+Deploy manifest
+Join DUT
 
 All of the above conditions with new manifest as well (not just updating preexisting manifest)
 
 ### Test Cases - Transition between Kube and Local Mode
 
-MODE TRANSITIONS
+These test cases ensure transitions betbetween kube and local mode for a SONiC feature happen as expected when the master is reachable and unreachable. 
 
-Kube version exists: feature has remote_state ready
-
-Local to kube with master reachable, kube version exists
-	1. Sudo config kube disable = false (by default)
-	2. Sudo config kube server IP <correct VIP>
-	3. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	4. Show features
-		a. Feature currently in local mode
-		b. Remote_state set to none
-	5. Kubectl get pods
+- Mode Transition 1) local to kube with master reachable, kube version exists
+	1. `sudo config kube disable off` (by default)
+	2. `sudo config kube server ip <correct VIP>`
+	3. `show kube server`
+        - `IP` should be set to <correct VIP> from step 2
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	4. `show features`
+		- Should observe feature currently in `local` mode
+		- Should observe `remote_state` set to `None`
+	5. `kubectl get pods`
 	6. Deploy manifest successfully (test case 3 from MANIFEST DEPLOYMENT)
-	7. Show feature
-		a. Remote_state of feature shows ready
-	8. Kubectl get nodes --show-labels
-	9. Kubectl get pods
-	10. Sudo config feature owner kube
-	11. Kubectl get nodes --show-labels
-		a. Should show newly created label
-	12. Kubectl get pods
-		a. New pod comes up with newly configured feature
-	13. Docker ps
-		a. Old local feature container killed
-		b. New kube feature container created
-	
+	7. `show features`
+		- Should observe `remote_state` set to `pending`
+	8. `kubectl get nodes --show-labels`
+	9. `kubectl get pods`
+	10. `sudo config feature owner kube`
+	11. `kubectl get nodes --show-labels`
+		- Should observe newly created label
+	12. `kubectl get pods`
+		- Should observe new pod come up for nearly set kube feature
+	13. `Docker ps`
+		- Should observe local feature container killed
+		- Should observe new kube feature container created
 
-Local to kube with master reachable, kube version does not exist
-	1. Sudo config kube disable = false (by default)
-	2. Sudo config kube server IP <correct VIP>
-	3. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	4. Show features
-		a. Feature currently in local mode
-		b. Remote_state set to none
-	5. Kubectl get pods
-	6. Show feature
-		a. Remote_state shows none
-	7. Sudo config feature owner kube
-		a. Output error that this feature does has remote_state none
+- Mode Transition 2) local to kube with master reachable, kube version does not exist
+	1. `sudo config kube disable off` (by default)
+	2. `sudo config kube server ip <correct VIP>`
+	3. `show kube server`
+        - `IP` should be set to <correct VIP> from step 2
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	4. `show features`
+		- Should observe feature currently in `local` mode
+		- Should observe `remote_state` set to `None`
+	5. `kubectl get pods`
+	7. `sudo config feature owner kube`
+		- Should output error that this feature does has `remote_state` set to `None`
 
-Local to kube without master reachable, kube version exists
-	1. Sudo config kube disable = true OR false (by default)
-	2. Sudo config kube server IP <correct VIP> OR <incorrect VIP> 
-	3. Docker ps
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> OR <incorrect VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be true OR false if only <incorrect VIP> was set in step 2 
-		d. Connected should be True or False if <incorrect VIP> was set in step 2
-	5. Show features
-		a. Feature currently in local mode
-		b. Remote_state shows pending (manifest was deployed previously when master was reachable)
-	6. Sudo config feature owner kube
-		a. Output warning that server is disabled if disabled. If not, output warning that server is not reachable. Check VIP connection.
-		b. Label request should go to transient DB 
-	7. Docker ps
-		a. Local container continues to run until master is reachable, label is created, and kubelet can spin up the new container
+- Mode Transition 3) local to kube without master reachable, kube version exists
+	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
+	2. `show kube server`
+		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
+		- `insecure` should be True
+		- `disable` should be True iff master was disabled in step 1
+        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
+		- `connected` should be True
+	3. `docker ps`
+	4. `show features`
+		- Should observe feature currently in local mode
+		- Should observe `remote_state` set to `pending` (manifest was deployed previously when master was reachable)
+	6. `sudo config feature owner kube`
+		- Should output warning that server is disabled if disabled. If not disabled, should output warning that VIP is invalid
+		- Label request should go to transient DB 
+	7. `docker ps`
+		- Local container continues to run until master is reachable, label is created, and kubelet can spin up the new container
 		
-Local to kube without master reachable, kube version does not exist
-	1. Sudo config kube disable = true OR false (by default)
-	2. Sudo config kube server IP <correct VIP> OR <incorrect VIP> 
-	3. Docker ps
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> OR <incorrect VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be true OR false if only <incorrect VIP> was set in step 2 
-		d. Connected should be True or False if <incorrect VIP> was set in step 2
-	5. Show features
-		a. Feature currently in local mode
-		b. Remote_state shows None
-	6. Sudo config feature owner kube
-		a. Output warning that master is disabled (or incorrect VIP, check VIP connection), and there is no valid kube version. Check connectivity and availability of kube image
-	7. Docker ps
+- Mode Transition 4) local to kube without master reachable, kube version does not exist
+	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
+	2. `show kube server`
+		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
+		- `insecure` should be True
+		- `disable` should be True iff master was disabled in step 1
+        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
+		- `connected` should be True
+	3. `show features`
+		- Feature currently in local mode
+		- Remote_state shows None
+	4. `sudo config feature owner kube`
+		- Should output warning that master is disabled if master is disabled. If not disabled, should output warning that VIP is incorrect. And there is no valid kube version. 
+	5. `docker ps`
 		a. Local container continues to run
-	
 
-Kube to local with master reachable
-	1. Sudo config kube disable = false (by default)
-	2. Sudo config kube server IP <correct VIP>
-	3. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
-	4. Show features
-		a. Feature currently in kube
-		b. Remote_state set to running
-	5. Docker ps
-		a. K8s container running
-	6. Kubectl get nodes --show-labels
-	7. Sudo config feature owner local
-	8. Kubectl get nodes --show-labels
-		a. Labels for this node removed
-	9. Docker ps
-		a. K8s container stopped
-		b. Local container running
-	10. Show features
-		a. Feature currently in local
+- Mode Transitions 5) kube to local with master reachable
+	1. `sudo config kube disable off` (by default)
+	2. `sudo config kube server ip <correct VIP>`
+	3. `show kube server`
+        - `IP` should be set to <correct VIP> from step 2
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	4. `show features`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	5. `docker ps`
+		- Should observe k8s container running
+	6. `kubectl get nodes --show-labels`
+	7. `sudo config feature owner local`
+	8. `kubectl get nodes --show-labels`
+		- Should observe _enabled label for this node removed
+	9. `docker ps`
+		- Should observe k8s container stopped
+		- Should observe local container running
+	10. `show features`
+		- Should observe feature currently in local mode
 
-
-Kube to local without master reachable 
-	1. Sudo config kube disable = true OR false (by default)
-	2. Sudo config kube server IP <correct VIP> OR <incorrect VIP> 
-	3. Docker ps
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> OR <incorrect VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be true OR false if only <incorrect VIP> was set in step 2 
-		d. Connected should be True or False if <incorrect VIP> was set in step 2
-	5. Show features
-		a. Feature currently in kube mode
-		b. Remote_state set to Running
-	6. Sudo config feature owner local
-		a. Output warning that server is disabled if disabled. If not, output warning that server is not reachable. Check VIP connection.
-		b. Label removal request should go to transient DB 
-	7. Docker ps
-		a. Should show local container running
-	8. Show features
-		a. Feature should be local mode
-	9. When master is reachable, label removal request will go through and kube container should not come up again
+- Mode Transitions 6) kube to local without master reachable 
+	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
+	2. `show kube server`
+		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
+		- `insecure` should be True
+		- `disable` should be True iff master was disabled in step 1
+        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
+		- `connected` should be True
+	3. `show features`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	4. `sudo config feature owner local`
+		- Should output warning that server is disabled if disabled. If not disabled, should output warning that VIP is invalid
+		- Label request should go to transient DB 
+	5. `docker ps`
+		- Should observe local container running
+	6. `show features`
+		- Should observe feature in local mode
+	7. When master is reachable, label removal request should go through and kube container should not come up again
 		
 Kube to Kube considered in MANIFEST DEPLOYMENT section
 
@@ -479,114 +495,92 @@ Also consider master starts as unreachable, then changes to reachable
 
 ### Test Cases - SONiC Reboot
 
-REBOOT SONiC
+These test cases ensure that kube and local features behave as expected across a switch reboot. 
 
-Server reachable persistent across reboot and following transition to unreachable (consider both incorrect VIP and disabled server)
-	1. Sudo config kube disable = false (by default)
-	2. Sudo config kube server IP <correct VIP>
-	3. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be false
-		d. Connected should be True
+- SONiC Reboot 1) kube mode feature, server reachable persistent across reboot and following transition to unreachable (consider both incorrect VIP and disabled server)
+	1. `sudo config kube disable off` (by default)
+	2. `sudo config kube server ip <correct VIP>`
+	3. `show kube server`
+        - `IP` should be set to <correct VIP> from step 2
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	4. `show features`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	5. reboot
+	6. `kubectl get nodes`
+		- API Server should be reachable from DUT
+	7. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
+	8. `show kube server`
+		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
+		- `insecure` should be True
+		- `disable` should be True iff master was disabled in step 1
+        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
+		- `connected` should be True
+	9. `kubectl get nodes`
+		- Should output warning that server is disabled if disabled. If not, output warning that VIP is invalid.
+	10. `docker ps`
+		- Should still show kube feature containers running
+	
+
+- SONiC Reboot 2) kube mode feature, server unreachable (consider both incorrect VIP and disabled server) persistent across reboot and following transition to reachable
+	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
+	2. `show kube server`
+		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
+		- `insecure` should be True
+		- `disable` should be True iff master was disabled in step 1
+        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
+		- `connected` should be True
+	3. `docker ps`
 	4.  reboot
-	5. Kubectl get nodes
-		a. API Server should be reachable
-	6. Sudo config kube disable = true AND/OR sudo config kube server <incorrect VIP>
-	7. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 2 OR <incorrect VIP> from step 6, where applicable
-		b. Insecure should be True
-		c. Disable should be true OR False if only <incorrect VIP> was set in step 6
-		d. Connected should be True OR False if <incorrect VIP> was set in step 6
-	8. Kubectl get nodes
-		a. Output warning that server is disabled if disabled. If not, output warning that server is not reachable. Check VIP connection
-	9. Docker ps
-		a. Should still show kube feature containers running
+	5. `kubectl get nodes`
+		- API Server should be unreachable
+	6. `sudo config kube disable off` AND/OR sudo `config kube server <correct VIP>` as necessary to make master reachable
+	7. `show kube server`
+        - `IP` should be set to <correct VIP> 
+		- `insecure` should be True
+		- `disable` should be False
+        - `server_reachability` should be True
+		- `connected` should be True
+	8. `kubectl get nodes`
+		- API Server should be reachable
+	9. `docker ps`
+		- All kube managed containers running in step 3 should still be working, relevant features may have changed from local to kube mode once server became reachable
 	
 
-Server unreachable (consider both incorrect VIP and disabled server) persistent across reboot and following transition to reachable
-	1. Sudo config kube disable = true OR false (by default)
-	2. Sudo config kube server IP <correct VIP> OR <incorrect VIP> 
-	3. Docker ps
-	4. Show kube server
-		a. Server VIP should be set to <correct VIP> OR <incorrect VIP> from step 2
-		b. Insecure should be True
-		c. Disable should be true OR false if only <incorrect VIP> was set in step 2 
-		d. Connected should be True or False if <incorrect VIP> was set in step 2
-	5.  reboot
-	6. Kubectl get nodes
-		a. API Server should be unreachable
-	7. Sudo config kube disable = false AND/OR sudo config kube server <correct VIP>
-	8. Show kube server
-		a. Server VIP should be set to <correct VIP> from step 6 
-		b. Insecure should be True
-		c. Disable should False
-		d. Connected should be True
-	9. Kubectl get nodes
-		a. Server should now be connected
-	10. Docker ps
-		a. All kube managed containers running in step 3 should still be working, relevant features may have changed from local to kube mode once server became reachable
-	
+- SONiC Reboot 3) reboot SONiC while feature in kube mode, fallback to local set to true
+	1. `docker ps` or `show features`
+		- Should observe feature/container running local mode
+	2. `config feature owner kube`
+		- Local to kube transition
+	3. `docker ps`
+		- Should observe feature running kube mode
+	4. reboot
+		- Should bring in local version (fallback to local)
+		- Kube will connect
+		- Local to kube transition
+	5. `docker ps`
+		- Should observe feature running kube mode
 
-Reboot system while feature in kube mode, fallback to local set to true
-	1. Docker ps
-		a. Observe feature running local mode
-	2. Config feature owner kube
-		a. Local to kube transition
-	3. Docker ps
-		a. Observe feature running kube mode
-	4. Reboot
-		a. Should bring in local version (fallback to local)
-		b. Kube will connect
-		c. Local to kube transition
-	5. Docker ps
-		a. Observe feature running kube mode
-
-Reboot system while feature in kube mode, fallback to local set to false
-	1. Docker ps
-		a. Observe feature running local mode
-	2. Config feature owner kube
-		a. Local to kube transition
-	3. Docker ps
-		a. Observe feature running kube mode
-	4. Reboot
-		a. Kube will connect
-	5. Docker ps
-		a. Observe feature running kube mode
-
+- SONiC Reboot 4) reboot SONiC while feature in kube mode, fallback to local set to false
+	1. `docker ps`
+		- Should observe feature running local mode
+	2. `config feature owner kube`
+		- Local to kube transition
+	3. `docker ps`
+		- Should observe feature running kube mode
+	4. reboot
+		- Kube will connect
+	5. `docker ps`
+		- Should observe feature running kube mode
 
 
 
 ### Test Cases - HA Master Functionality
-When master transitions from unreachable to reachable: 
 
-Process transient DB data
-	1) Relevant container could be running in either kube or local mode (depending on if container was killed)
-	2) Start with 1 of 3 masters up
-	3) Check master connection status
-	4) Add 1 or 2 masters up
-	5) Check master connection status
-	6) Send requests from transientDB to API server
-After step 1, make sure master shows unconnected status
-After step 3, make sure master shows connected status
-After step 5- make sure when applicable, container transitions from local to kube mode (conditions listed in `when master reachable` section)
-After step 5- make sure all label addition and removal requests are appropriately processed 
-After step 5- make sure all join and remove requests are appropriately processed
-
-When master transitions from reachable to unreachable:
-
-Continue running existing kube-managed containers as usual
-	1) Start with 2 or 3 of 3 masters up
-	2) Docker ps
-	3) Check master connection status
-	4) Leave 0 or 1 master up
-	5) Check master connection status
-	6) Wait 
-	7) Docker ps
-After step 1, make sure master shows connected status
-After step 5, make sure master shows unconnected status
-After step 7, make sure kube-managed container is still running
-
+When master transitions between reachable and unreachable: transient DB label processing
 
 
 ### Test Cases - Miscellaneous
