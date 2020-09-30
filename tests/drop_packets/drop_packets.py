@@ -635,7 +635,7 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, duthost, setup, tx_du
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"), ("v1", "membership_report"),
 ("v2", "membership_report"), ("v3", "membership_report"), ("v2", "leave_group")])
-def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
+def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, fanouthost, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Create an IGMP non-routable packets.
     """
