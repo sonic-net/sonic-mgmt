@@ -20,13 +20,17 @@
       - [Test Objective](#test-objective-2)
       - [Test Configuration](#test-configuration-2)
       - [Test Steps](#test-steps-2)
+    - [Test Case #4 - GLOBAL PAUSE (IEEE 802.3x link level Flow Control)](#test-case-4---global-pause-ieee-8023x-link-level-flow-control)
+      - [Test Objective](#test-objective-3)
+      - [Test Configuration](#test-configuration-3)
+      - [Test Steps](#test-steps-3)
   
  Revision of the Document
 
 | Rev |     Date       |       Author         | Change Description               |
 |:---:|:---------------|:---------------------|:-----------------------------------|
-| 0.1 |        Aug-28-2020     | Wei Bai, Microsoft<br>                           Suvendu Mozumdar, Keysight     | Initial version of test plan <br> More test in subsequent version                 |
-|
+| 0.1 |        Aug-28-2020     | Wei Bai, Microsoft<br>                Suvendu Mozumdar, Keysight     | Initial version of test plan <br> More test in subsequent version |
+| 0.2 |        Sep-10-2020     | Wei Bai, Microsoft<br>               Suvendu Mozumdar, Keysight     | Inclusion of test case - 802.3x GLOBAL PAUSE |
 
 ## Overview
 
@@ -150,7 +154,7 @@ properly.
 
 #### Test Configuration
 
-- On SONiC DDevice Under Test (DUT) configure a single lossless priority value Pi. (0 \<= i \<= 7).
+- On SONiC Device Under Test (DUT) configure a single lossless priority value Pi. (0 \<= i \<= 7).
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
         the Keysight Rx port with lossless priority (DSCP value == Pi).
@@ -159,7 +163,7 @@ properly.
         port to the Keysight Rx port with lossy priorities (DSCP value
         != Pi). Traffic should be configured with 50% of line rate.
   3. PFC PAUSE storm: Persistent PFC pause frames from the Keysight
-        Rx port to the Keysight Tx port. The priorities of PFC pause
+        Rx port to the connected DUT port. The priorities of PFC pause
         frames should be same as that of 'Test data traffic'. And the
         inter-frame transmission interval should be smaller than
         per-frame pause duration.
@@ -198,7 +202,7 @@ properly.
         port to the Keysight Rx port with lossy priorities (DSCP value
         != Pi, Pm). Traffic should be configured with 50% line rate.
     3. PFC PAUSE storm: Persistent PFC pause frames from the Keysight
-        Rx port to the Keysight Tx port. The priorities of PFC pause
+        Rx port to the connected DUT port. The priorities of PFC pause
         frames should be same as that of 'Test data traffic'. And the
         inter-frame transmission interval should be smaller than
         per-frame pause duration.
@@ -228,7 +232,7 @@ Verify Device Under Test (DUT) processes the PFC PAUSE frame with lossy prioriti
 #### Test Configuration
 
 - On SONiC Device Under Test (DUT) configure a single lossless priority value Pi (0 \<= i \<=
-    7).
+7).
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to
         the Keysight Rx port with the lossy priorities (DSCP value !=
@@ -237,7 +241,7 @@ Verify Device Under Test (DUT) processes the PFC PAUSE frame with lossy prioriti
         port to the Keysight Rx port with the lossless priority (DSCP
         value == Pi). Traffic should be configured with 50% line rate.
   3. PFC PAUSE storm: Persistent PFC pause frames from the Keysight
-        Rx port to the Keysight Tx port. The priorities of PFC pause
+        Rx port to the connected DUT port. The priorities of PFC pause
         frames should be same as that of 'Test data traffic'. And the
         inter-frame transmission interval should be smaller than
         per-frame pause duration.
@@ -251,3 +255,26 @@ Verify Device Under Test (DUT) processes the PFC PAUSE frame with lossy prioriti
    * Keysight Rx port should receive all the 'Background data traffic' as well as 'Test data traffic'. There should not be any loss observed.
 5. Stop the PFC PAUSE storm.
 6. Repeat the test with a different lossless priority value (!=Pi).
+   
+### Test Case #4 - GLOBAL PAUSE (IEEE 802.3x link level Flow Control)
+
+<b>Note</b> : 802.3x link level Flow Control is different than IEEE 802.1Qbb PFC (Priority-based Flow Control)
+
+#### Test Objective
+Verify Device Under Test (DUT) processes the GLOBAL PAUSE frame.
+
+#### Test Configuration
+- On SONiC Device Under Test (DUT) configure lossless priority of required values Pi ( e.g., 3 and 4. )
+- Configure following traffic items on the Keysight device:
+  1. Test data traffic: A traffic item from the Keysight Tx port to Rx port. The traffic item uses all the 64 DSCP values (0-63). PFC is enabled at all the 8 priorities of Tx port. The traffic demand is 100% line rate.
+  2. GLOBAL PAUSE storm: Persistent Global pause frames from the Keysight Rx port to the connected DUT port. And the inter-frame transmission interval should be smaller than per-frame pause duration.
+   
+#### Test Steps
+
+1. Start GLOBAL PAUSE storm.
+2. After a fixed duration (eg. 1 sec), start the Test data traffic.
+3. Keep the Test data traffic running for a fixed duration (eg 5 sec) and then stop the traffic item.
+4. Stop the GLOBAL PAUSE storm.
+5. Verify the following:
+   * Keysight Rx port should receive all the 'Test data traffic'. There should not be any loss observed. Throughput should be close to link capacity.
+   
