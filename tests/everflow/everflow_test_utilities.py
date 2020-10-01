@@ -595,18 +595,16 @@ class BaseEverflowTest(object):
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
-        logging.info("mirror session configuration: %s", mirror_output["stdout"])
+        logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
 
-        pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
-                      "Test mirror session {} not found".format(mirror_session["session_name"]))
+        matching_session = list(filter(lambda line: line.startswith(mirror_session["session_name"]),
+                                       mirror_output["stdout_lines"]))
+        pytest_assert(matching_session, "Test mirror session {} not found".format(mirror_session["session_name"]))
+        logging.info("Found mirror session:\n%s", matching_session[0])
 
-        pytest_assert(len(mirror_output["stdout_lines"]) == 3,
-                      "Unexpected number of mirror sesssions:\n{}".format(mirror_output["stdout"]))
-
-        monitor_intf = mirror_output["stdout_lines"][2].split()[-1:][0]
-
-        pytest_assert(monitor_intf in setup["port_index_map"],
+        monitor_port = matching_session[0].split()[-1]
+        pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
-        logging.info("selected monitor interface %s (port=%s)", monitor_intf, setup["port_index_map"][monitor_intf])
+        logging.info("Selected monitor port %s (index=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
-        return setup["port_index_map"][monitor_intf]
+        return setup["port_index_map"][monitor_port]
