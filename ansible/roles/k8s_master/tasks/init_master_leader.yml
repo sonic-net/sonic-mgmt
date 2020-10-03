@@ -7,19 +7,18 @@
 
 - name: Wait for HAProxy service to be ready
   wait_for:
-    port: 80
+    port: {{ k8s_port }}
     host: "{{ haproxy_ip }}"
     connect_timeout: 3
     delay: 3
     timeout: 300
 
 - name: Initializing Kubernetes cluster
-  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:80 --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns --ignore-preflight-errors=NumCPU
+  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns --ignore-preflight-errors=NumCPU
   register: output
 
 - name: Store logs and generated token for future reference
   local_action: copy content={{ output.stdout }} dest="./token"
-
 
 - name: Get join command for other master nodes
   shell: kubeadm token create --print-join-command
@@ -48,3 +47,7 @@
     dest: /home/ubuntu/.kube/config
     remote_src: yes
     owner: ubuntu
+
+- name: Enable download of admin.conf from VIP
+  copy: 
+    src: /etc/kubernetes/admin.conf

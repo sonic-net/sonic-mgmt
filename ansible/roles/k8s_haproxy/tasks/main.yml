@@ -20,3 +20,61 @@
 - name: Restart HAProxy
   become: yes
   service: name=haproxy state=restarted
+
+- name: Allow necessary ports for ufw
+  become: yes
+  community.general.ufw:
+    rule: allow
+    port: '{{ item }}'
+  with_items: 
+    - '{{  http_port }}'
+    - '{{ ssl_port }}'
+    - '{{ ssh_port }}'
+
+- name: Enable ufw
+  become: yes
+  community.general.ufw:
+    state: enabled
+    policy: deny
+
+- name: Install Apache
+  apt: name=apache2 update_cache=yes state=latest
+
+- name: Create document root
+  file:
+    path: "/var/www/html"
+    state: directory
+    mode: 777
+
+- name: Create SSL certificate root
+  file:
+    path: "/etc/apache2/ssl"
+    state: directory
+    become: yes
+
+- name: Set up certificates for Apache SSL
+  openssl_certificate:
+    path: /etc/apache2/ssl/apache.crt
+    privatekey_path: /etc/apache2/ssl/apache.key
+
+- name: Set up Apache SSL
+    template:
+      src: "default-ssl.conf.j2"
+      dest: "/etc/apache2/sites-available/default-ssl.conf"
+
+- name: Enable Apaache SSL
+  shell: |
+    sudo a2enmod ssl
+    sudo a2ensite default-ssl.conf
+    
+- name: Reload Apache
+  become: yes
+  service:
+    name: apache2
+    state: reloaded
+
+- name: Restart Apache
+  become: yes
+  service:
+    name: apache2
+    state: restarted
