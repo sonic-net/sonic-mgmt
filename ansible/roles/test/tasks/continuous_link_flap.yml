@@ -54,13 +54,14 @@
       delegate_to: localhost
       tags: always
 
-    - debug: msg="{{ device_conn }}"
+    - name: Get up interface facts
+      set_fact: up_ports="{{minigraph_ports | list}}"
 
     - name: include continuous_link_flap_helper.yml
       include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ up_ports }}"
 
     - debug: msg="Second Iteration flap all interfaces one by one on DUT"
 
@@ -73,7 +74,7 @@
       include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ up_ports }}"
 
     - debug: msg="Third Iteration flap all interfaces one by one on DUT"
 
@@ -86,7 +87,7 @@
       include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ up_ports }}"
 
     - debug: msg="First Iteration flap all interfaces one by one on Peer Device"
 
