@@ -1,3 +1,4 @@
+#This is a dummy flannel config file to  simulate flannel so that node status shows as "Ready"
 {
   "name": "cbr0",
   "cniVersion": "0.3.1",

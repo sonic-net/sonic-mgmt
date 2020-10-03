@@ -1,13 +1,14 @@
 - name: Get IP Address for HAProxy Machine
   set_fact: 
     haproxy_ip="{{ hostvars[item].ansible_ens2.ipv4.address }}"
+    haproxy_node="{{ hostvars[item].inventory_hostname }}"
   when: hostvars[item].haproxy is defined
   with_items: 
   - "{{ groups['k8s_vms' + msetnumber + '_' + servernumber] }}"
 
 - name: Wait for HAProxy service to be ready
   wait_for:
-    port: {{ k8s_port }}
+    port: "{{ k8s_port }}"
     host: "{{ haproxy_ip }}"
     connect_timeout: 3
     delay: 3
@@ -47,7 +48,33 @@
     dest: /home/ubuntu/.kube/config
     remote_src: yes
     owner: ubuntu
+ 
+    #- name: Helper for HAProxy to have copy of admin.conf
+    # become: yes
+    #local_action:
+    #module: copy
+    #src: /etc/kubernetes/admin.conf
+    #dest: ./admin.conf
 
-- name: Enable download of admin.conf from VIP
-  copy: 
+    #- name: Copy admin.conf to enable download of file from VIP
+    #delegate_to: "{{ haproxy_ip }}"
+    #become: yes
+    #copy:
+    #src: ./admin.conf
+    #dest: /var/www/html/admin.conf
+    #mode: 777
+
+- name: Helper for HAProxy to have copy of admin.conf
+  become: yes
+  fetch:
     src: /etc/kubernetes/admin.conf
+    dest: /tmp/helper/admin.conf
+    flat: yes
+
+- name: Copy admin.conf file into HAPRoxy node to enable worker node join from VIP
+  delegate_to: "{{ haproxy_node }}"
+  become: yes
+  copy:
+    src: /tmp/helper/admin.conf
+    dest: /var/www/html/admin.conf
+    mode: 777 
