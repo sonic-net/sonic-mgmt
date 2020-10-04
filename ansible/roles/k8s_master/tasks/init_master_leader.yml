@@ -15,7 +15,7 @@
     timeout: 300
 
 - name: Initializing Kubernetes cluster
-  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns --ignore-preflight-errors=NumCPU
+  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy
   register: output
 
 - name: Store logs and generated token for future reference
@@ -49,21 +49,6 @@
     remote_src: yes
     owner: ubuntu
  
-    #- name: Helper for HAProxy to have copy of admin.conf
-    # become: yes
-    #local_action:
-    #module: copy
-    #src: /etc/kubernetes/admin.conf
-    #dest: ./admin.conf
-
-    #- name: Copy admin.conf to enable download of file from VIP
-    #delegate_to: "{{ haproxy_ip }}"
-    #become: yes
-    #copy:
-    #src: ./admin.conf
-    #dest: /var/www/html/admin.conf
-    #mode: 777
-
 - name: Helper for HAProxy to have copy of admin.conf
   become: yes
   fetch:
@@ -77,4 +62,4 @@
   copy:
     src: /tmp/helper/admin.conf
     dest: /var/www/html/admin.conf
-    mode: 777 
+    mode: '777'

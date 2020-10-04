@@ -46,7 +46,7 @@
   file:
     path: "/var/www/html"
     state: directory
-    mode: 777
+    mode: '777'
 
 - name: Create SSL certificate root directory
   become: yes
