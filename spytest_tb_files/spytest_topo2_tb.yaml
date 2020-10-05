@@ -15,13 +15,13 @@ configs:
 devices:
     SD1:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.202, port: 22},{protocol: telnet, ip: 172.26.228.158, port: 15421}
+        access: {protocol: ssh, ip: 192.168.122.146, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD2:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.178, port: 22},{protocol: telnet, ip: 172.26.228.158, port: 10553}
+        access: {protocol: ssh, ip: 192.168.122.178, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
