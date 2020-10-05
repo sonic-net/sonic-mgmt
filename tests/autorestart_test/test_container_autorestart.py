@@ -117,7 +117,7 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
     # Get the exit code of 'kill' command
     exit_code = kill_cmd_result["rc"]
-    if exit_code !=  0:
+    if exit_code != 0:
         pytest.fail("Failed to stop program '{}' before test".format(program_name))
 
     logger.info("Program '{}' in container '{}' was stopped successfully"
@@ -203,7 +203,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
 
 
-def test_containers_autorestart(duthost):
+def test_containers_autorestart(duthost, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
@@ -214,7 +214,8 @@ def test_containers_autorestart(duthost):
 
     for container_name in container_autorestart_states.keys():
         # Skip testing the database container or containers/services which are disabled
-        if container_name in disabled_containers or container_name == "database":
+        if (container_name in disabled_containers or container_name == "database"
+                or (container_name == "radv" and tbinfo["topo"]["name"] == "t1")):
             logger.warning("Skip testing the container '{}'".format(container_name))
             continue
 
