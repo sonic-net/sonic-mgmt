@@ -1,0 +1,15 @@
+[2020-09-29 20:00:01]: Started process.  Command line: 
+[2020-09-29 20:00:01]:      port number: 57793
+[2020-09-29 20:00:01]:    timeout value: 120
+[2020-09-29 20:00:01]:       log option: log
+[2020-09-29 20:00:01]: results dir path: /home/sonic/pevenkat/sonic-test/sonic-mgmt/spytest
+[2020-09-29 20:00:01]:    log file name: spytest.hltlog
+[2020-09-29 20:00:01]: Working directory is now: /home/sonic/pevenkat/sonic-test/sonic-mgmt/spytest
+[2020-09-29 20:00:01]: Sourcing initialization file "stcinit.srv".
+[2020-09-29 20:00:01]: Connecting to port 57793 on 127.0.0.1.
+[2020-09-29 20:00:01]: Creating server socket.
+[2020-09-29 20:00:01]: Generated port number: 44408
+[2020-09-29 20:00:01]: Setting up timeout check.
+[2020-09-29 20:00:01]: Waiting for client connection.
+[2020-09-29 20:00:01]: Client connection from 127.0.0.1 port 58188.
+[2020-09-29 20:00:01]: Executing: <package require SpirentHltApi>

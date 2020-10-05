@@ -107,6 +107,7 @@ def test_ft_arp_entry_link_failure():
         st.warn("Ping failed.")
 
     # Verify dynamic arp entries
+    import pdb; pdb.set_trace()
     st.log("Verifying the arp entries on the DUT.")
     if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t1d1_ip_addr, dut1)

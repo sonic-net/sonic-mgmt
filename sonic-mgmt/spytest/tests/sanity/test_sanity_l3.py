@@ -1,5 +1,4 @@
 import pytest
-
 from spytest import st, tgapi, SpyTestDict
 
 import apis.routing.ip as ipfeature
@@ -134,6 +133,22 @@ def test_l3_fwding():
     st.show(dut1, "show ipv6 interfaces")
     st.show(dut1, "show ip route")
 
+    if basic_obj.is_vsonic_device(vars.D1):
+        st.wait(15)
+        ipfeature.ping(dut1, data.d2t1_ip_addr, timeout=7)
+        ipfeature.ping(dut1, data.d2d1_ip_addr, timeout=7)
+    else:
+        ipfeature.ping(dut1, data.d2t1_ip_addr)
+        ipfeature.ping(dut1, data.d2d1_ip_addr)
+
+    if basic_obj.is_vsonic_device(vars.D2):
+        st.wait(15)
+        ping_result = ipfeature.ping(dut2, data.d1t1_ip_addr, timeout=7)
+        ping_result = ipfeature.ping(dut2, data.d1d2_ip_addr, timeout=7)
+    else:
+        ping_result = ipfeature.ping(dut2, data.d1t1_ip_addr)
+        ping_result = ipfeature.ping(dut2, data.d1d2_ip_addr)
+
     # L3 traffic streams
     (tg1, tg2, tg_ph_1, tg_ph_2) = get_handles()
 
@@ -180,7 +195,6 @@ def test_l3_fwding():
     total_tg2_rx = stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts']
     st.log("Tgen Sent Packets on D1T1P1: {} and Received Packets on D2T1P1: {}".format(total_tg1_tx, total_tg2_rx))
     st.log("Tgen Sent Packets on D2T1P1: {} and Received Packets on D1T1P1: {}".format(total_tg2_tx, total_tg1_rx))
-
     if (int(total_tg1_tx) == 0) | (int(total_tg2_tx) == 0):
         st.log("Traffic Validation Failed")
         st.report_fail("operation_failed")
@@ -212,7 +226,7 @@ def test_l3_fwding():
         result2 = ipfeature.ping(dut1, data.d2t1_ip_addr_v6,'ipv6')
 
     if (abs(int(p1_rcvd)-int(p2_txmt)) > data.counters_threshold) | (p1_rcvd == '0') | (p2_txmt == '0') | (not result1) | (not result2):
-        st.report_fail("operation_failed")
+        st.report_fail("Data counters threshold not met or recv, transmit counters are 0, p1_rcvd: {}, p2_txmt: {} - operation_failed".format(p1_rcvd,p2_txmt))
     else:
         st.report_pass("operation_successful")
 

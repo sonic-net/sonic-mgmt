@@ -1,0 +1,2 @@
+#sanity/test_sanity_l3.py::test_l3_fwding
+routing/BGP/test_bgp.py::test_ft_bgp_peer_traffic_check

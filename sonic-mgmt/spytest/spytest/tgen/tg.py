@@ -634,9 +634,10 @@ class TGStc(TGBase):
         intf_speed_list = port_details_all['intf_speed'].split()
         for intf_speed,port,port_handle in zip(intf_speed_list, self.tg_port_list, port_handle_list):
             if intf_speed == '100000':
-                logger.info('disabling FEC as spirent port {} is of 100G'.format(port))
-                self.tg_interface_config(port_handle=port_handle, \
-                                         mode="modify",forward_error_correct="false")
+               pass
+                #logger.info('disabling FEC as spirent port {} is of 100G'.format(port))
+                #self.tg_interface_config(port_handle=port_handle, \
+                #                         mode="modify",forward_error_correct="false")
         return None
 
     def trgen_adjust_mismatch_params(self, fname, **kwargs):
@@ -1175,9 +1176,10 @@ class TGIxia(TGBase):
             if res[self.tg_port_handle[port]]['aggregate']['tx']['line_speed'] == '100GE':
                 ports_100g.append(self.tg_port_handle[port])
         if ports_100g != []:
-            logger.info('Disabling FEC for 100G ports: {}'.format(ports_100g))
-            res=get_ixiangpf().interface_config(port_handle=ports_100g, mode="modify", autonegotiation=0, ieee_media_defaults=0, enable_rs_fec=0)
-            logger.info(res)
+            pass
+            #logger.info('Disabling FEC for 100G ports: {}'.format(ports_100g))
+            #res=get_ixiangpf().interface_config(port_handle=ports_100g, mode="modify", autonegotiation=0, ieee_media_defaults=0, enable_rs_fec=0)
+            #logger.info(res)
         # Initial setting for ARP/ND.
         h1=get_ixiangpf().topology_config(port_handle=self.tg_port_handle[self.tg_port_list[0]], mode='config')
         logger.info(h1)

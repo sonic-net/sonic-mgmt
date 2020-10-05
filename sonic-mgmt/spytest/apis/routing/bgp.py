@@ -495,15 +495,15 @@ def show_bgp_ipv6_summary_vtysh(dut,vrf='default', cli_type="vtysh"):
     """
     if cli_type == "vtysh":
         if vrf == 'default':
-            command = "show bgp ipv6 summary"
+            command = "show ipv6 bgp summary"
         else:
-            command = "show bgp vrf {} ipv6 summary".format(vrf)
+            command = "show ipv6 bgp vrf {} summary".format(vrf)
         return st.show(dut, command, type='vtysh')
     elif cli_type == "klish":
         if vrf == 'default':
             command = "show ip bgp summary"
         else:
-            command = "show ip bgp vrf {} ipv6 summary".format(vrf)
+            command = "show ip bgp vrf {} summary".format(vrf)
         return st.show(dut, command, type=cli_type)
     else:
         st.log("UNSUPPORTED CLI TYPE")
@@ -516,7 +516,7 @@ def show_bgp_ipv4_summary(dut):
     :param dut:
     :return:
     """
-    command = "show bgp ipv4 summary"
+    command = "show ip bgp summary"
     return st.show(dut, command)
 
 
@@ -526,7 +526,7 @@ def show_bgp_ipv6_summary(dut):
     :param dut:
     :return:
     """
-    command = "show bgp ipv6 summary"
+    command = "show ipv6 bgp summary"
     return st.show(dut, command)
 
 
@@ -560,7 +560,7 @@ def show_bgp_neighbor(dut, neighbor_ip):
     :param neighbor_ip:
     :return:
     """
-    command = "show bgp neighbor {}".format(neighbor_ip)
+    command = "show ip bgp neighbor {}".format(neighbor_ip)
     return st.show(dut, command)
 
 
@@ -590,9 +590,9 @@ def show_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip=None,vrf='default'):
     :return:
     """
     if vrf == 'default':
-        command = "show bgp ipv6 neighbors"
+        command = "show ipv6 bgp neighbors"
     else:
-        command = "show bgp vrf {} ipv6 neighbors".format(vrf)
+        command = "show ipv6 bgp vrf {} neighbors".format(vrf)
     if neighbor_ip:
         command += " {}".format(neighbor_ip)
     return st.show(dut, command, type='vtysh')
@@ -1451,7 +1451,8 @@ def verify_bgp_summary(dut, family='ipv4', shell="sonic", **kwargs):
             cmd = "show bgp vrf {} {} summary".format(vrf,family.lower())
             output = st.show(dut,cmd)
         else:
-            cmd = "show bgp {} summary".format(family.lower())
+            #cmd = "show ip bgp {} summary".format(family.lower())
+            cmd = "show ip bgp summary"
             output = st.show(dut,cmd)
 
     if shell in ["vtysh", "klish"]:
@@ -1575,7 +1576,7 @@ def verify_bgp_neighbor_by_property(dut, neighbor_ip, property, value, address_f
     :param address_family:
     :return:
     """
-    command = "show bgp {} neighbor {} | grep {}".format(address_family, neighbor_ip, property)
+    command = "show ip bgp neighbor {} | grep {}".format(neighbor_ip, property)
     neighbor_details = st.config(dut, command)
     match = neighbor_details.find(value)
     if match < 1:
@@ -2085,7 +2086,7 @@ def show_ip_bgp_route(dut, family='ipv4'):
     :param dut:
     :return:
     """
-    command = "show bgp {}".format(family)
+    command = "show ip bgp route"
     return st.show(dut, command, type='vtysh')
 
 def fetch_ip_bgp_route(dut, family='ipv4', match=None, select=None):
@@ -2162,7 +2163,7 @@ def show_bgp_ipvx_prefix(dut, prefix, masklen, family='ipv4'):
     """
 
     entries = dict()
-    command = "show bgp {} {}/{}".format(family, prefix, masklen)
+    command = "show ip bgp {}/{}".format(prefix, masklen)
     entries = st.show(dut, command, type='vtysh')
     st.log(entries)
     return entries
@@ -2182,7 +2183,7 @@ def show_bgp_ip_prefix(dut, ip_prefix, family='ipv4'):
     if family != 'ipv4' and family != 'ipv6' :
         return {}
 
-    command = "show bgp {} {}".format(family, ip_prefix)
+    command = "show ip bgp {}".format(ip_prefix)
     entries = st.show(dut, command, type='vtysh')
     return entries
 
