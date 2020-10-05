@@ -20,8 +20,8 @@ L3_COL_KEY = RX_ERR
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
 
-LOG_EXPECT_PORT_ADMIN_DOWN_RE = ".*Configure {} admin status to down.*"
-LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
+LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
+LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ def setup(duthost, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthost, setup, fanouthosts):
+def rif_port_down(duthost, setup, fanouthosts, loganalyzer):
     """Shut RIF interface and return neighbor IP address attached to this interface.
 
     The RIF member is shut from the fanout side so that the ARP entry remains in
@@ -169,13 +169,18 @@ def rif_port_down(duthost, setup, fanouthosts):
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, rif_member_iface)
 
-    fanout_neighbor.shutdown(fanout_intf)
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
+    with loganalyzer as _:
+        fanout_neighbor.shutdown(fanout_intf)
+
     time.sleep(1)
 
     yield ip_dst
 
-    fanout_neighbor.no_shutdown(fanout_intf)
-    time.sleep(wait_after_ports_up)
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+    with loganalyzer as _:
+        fanout_neighbor.no_shutdown(fanout_intf)
+        time.sleep(wait_after_ports_up)
 
 
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
