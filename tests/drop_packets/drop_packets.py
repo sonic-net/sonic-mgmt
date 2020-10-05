@@ -3,10 +3,14 @@ import os
 import importlib
 import netaddr
 import pytest
+import time
 
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -16,8 +20,8 @@ L3_COL_KEY = RX_ERR
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
 
-LOG_EXPECT_PORT_ADMIN_DOWN_RE = ".*Configure {} admin status to down.*"
-LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
+LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
+LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
 
 logger = logging.getLogger(__name__)
 
@@ -142,39 +146,40 @@ def setup(duthost, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthost, setup, loganalyzer):
-    """ Disable RIF interface and return neighbor IP address attached to this interface """
+def rif_port_down(duthost, setup, fanouthosts, loganalyzer):
+    """Shut RIF interface and return neighbor IP address attached to this interface.
+
+    The RIF member is shut from the fanout side so that the ARP entry remains in
+    place on the DUT."""
     wait_after_ports_up = 30
 
     if not setup["rif_members"]:
         pytest.skip("RIF interface is absent")
     rif_member_iface = setup["rif_members"].keys()[0]
 
-    try:
-        vm_name = setup["mg_facts"]["minigraph_neighbors"][rif_member_iface]["name"]
-    except KeyError as err:
-        pytest.fail("Didn't found RIF interface in 'minigraph_neighbors'. {}".format(str(err)))
+    vm_name = setup["mg_facts"]["minigraph_neighbors"][rif_member_iface].get("name", None)
+    pytest_assert(vm_name, 'Neighbor not found for RIF member "{}"'.format(rif_member_iface))
 
     ip_dst = None
     for item in setup["mg_facts"]["minigraph_bgp"]:
-        if item["name"] == vm_name:
-            if netaddr.valid_ipv4(item["addr"]):
-                ip_dst = item["addr"]
-                break
-    else:
-        pytest.fail("Unable to find neighbor in 'minigraph_bgp' list")
+        if item["name"] == vm_name and netaddr.valid_ipv4(item["addr"]):
+            ip_dst = item["addr"]
+            break
+    pytest_assert(ip_dst, 'Unable to find IP address for neighbor "{}"'.format(vm_name))
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_ADMIN_DOWN_RE.format(rif_member_iface)]
-    with loganalyzer as analyzer:
-        duthost.command("config interface shutdown {}".format(rif_member_iface))
+    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, rif_member_iface)
+
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
+    with loganalyzer as _:
+        fanout_neighbor.shutdown(fanout_intf)
 
     time.sleep(1)
 
     yield ip_dst
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_ADMIN_UP_RE.format(rif_member_iface)]
-    with loganalyzer as analyzer:
-        duthost.command("config interface startup {}".format(rif_member_iface))
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+    with loganalyzer as _:
+        fanout_neighbor.no_shutdown(fanout_intf)
         time.sleep(wait_after_ports_up)
 
 
