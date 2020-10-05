@@ -5,6 +5,7 @@
     - [PFC Storm Detection](#pfc-storm-detection)
     - [PFC Storm Mitigation](#pfc-storm-mitigation)
     - [PFC Storm Restoration](#pfc-storm-restoration)
+    - [PFC Polling Interval](#pfc-polling-interval)
     - [1.1.1 Scope](#111-scope)
     - [1.1.2 Testbed](#112-testbed)
       - [1.1.2.1 Topology 1](#1121-topology-1)
@@ -55,9 +56,13 @@ When forward action is selected, following actions need to be implemented:
 
 The watchdog should continue count the PFC frames received on the queue. If there is no PFC frame received over T1 period. Then, re-enable the PFC on the queue and stop dropping packets if the previous mitigation was drop. T1 is port level parameter. T1 should be on the scale of hundred milliseconds.
 
+### PFC Polling Interval 
+
+PFC Polling interval is the the frequency at which queues should be checked for congestion or recovery detection. By default, polling interval is calculated internally or it considers the value configured through CLI.
+
 ### 1.1.1 Scope
 
-The test cases depicted in this document aim to do functional testing of ECN behavior of SONiC DUT (Device Under Test) as per RED (Random Early Detection) algorithm.
+The test cases depicted in this document aim to do functional testing of PFC watchdog behavior of SONiC DUT (Device Under Test).
 
 ### 1.1.2 Testbed
 #### 1.1.2.1 Topology 1
@@ -78,7 +83,7 @@ The test cases depicted in this document aim to do functional testing of ECN beh
 ## 1.2 Setup configuration
 
 ### 1.2.1 DUT Configuration
-•PFC watchdog must be enabled in the DUT.
+•PFC watchdog and PFC must be enabled in the DUT by default.
 
 
 ### 1.2.2 Keysight configuration
@@ -101,9 +106,9 @@ Refer to Topology 1.1.2.1 for the test topology.
 #### 1.3.1.3 Test Configuration
 
 - On SONiC DUT configure the following:
-  1. Enable watchdog with default storm detection time (400ms) and restoration time (2sec).
+  1. Enable watchdog with default storm detection time (400ms) and restoration time (2sec). Please note that different switches have different detection times and restoration times, e.g., 200ms and 400ms.  
   2. Configure a single lossless priority value Pi (0 <= i <= 7).
-  3. To minimize configuration complexity, it is recommended that the SONiC DUT be configured as either Top of Rack (ToR) or Tier 0 (T0) switch with three VLAN interfaces.
+  3. To minimize configuration complexity, it is recommended that the SONiC DUT be configured as either Top of Rack (ToR) / Tier 0 (T0) switch with three VLAN interfaces.
 
 - Configure following traffic items on the Keysight device:
   1. Traffic 1<->2 : Bi-directional traffic between Keysight port 1 and port 2, with DSCP value mapped to lossless priority Pi configured in the DUT. Traffic Tx rate should be configured as 50% of line rate.
@@ -129,7 +134,7 @@ Refer to the time diagram below to understand the work flow of the test case:
 5. Verify the following:
    * PFC watchdog is triggered on the corresponding lossless priorities at DUT interface et3. 
    * 'Traffic 1<->2' must not experience any packet loss in both directions. Its throughput should be close to 50% of the line rate.
-   * For 'Traffic 2<->3', between **_T<sub>startPause</sub>_** and **_T<sub>stopPause</sub>_** , there should be almost 100% packet loss in both directions. 
+   * For 'Traffic 2<->3', between **_T<sub>startPause</sub>_** and **_T<sub>stopPause</sub>_** , there should be some packet loss in both directions. 
    * After **_T<sub>stopPause</sub>_** , the traffic throughput should gradually increase and become 50% of line rate in both directions. 
    * There should not be any traffic loss after PFC storm restoration time has elapsed.
 
@@ -178,7 +183,7 @@ Refer to the time diagram below to understand the work flow of the test case:
 5. Verify the following:
    * PFC watchdog is triggered on the corresponding lossless priorities at DUT interface et3. 
    * 'Traffic 1<->2' must not experience any packet loss in both directions. Its throughput should be close to 50% of the line rate.
-   * For 'Traffic 2<->3' and 'Traffic 1<->3', between **_T<sub>startPause</sub>_** and **_T<sub>stopPause</sub>_** , there should be almost 100% packet loss in both directions. 
+   * For 'Traffic 2<->3' and 'Traffic 1<->3', between **_T<sub>startPause</sub>_** and **_T<sub>stopPause</sub>_** , there should be some packet loss in both directions. 
    * After **_T<sub>stopPause</sub>_** , the traffic throughput should gradually increase and become 50% of line rate in both directions for both the traffic items.
    * There should not be any traffic loss after PFC storm restoration time has elapsed.
 6. Repeat the test for other lossless priorities.
