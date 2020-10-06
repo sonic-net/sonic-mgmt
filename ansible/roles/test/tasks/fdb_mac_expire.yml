@@ -113,3 +113,16 @@
     - name: Clear FDB table
       shell: sonic-clear fdb all
 
+  always:
+    - name: set fdb value to default "600"
+      replace:
+        dest: switch.json
+        regexp: '"fdb_aging_time": ".*"'
+        replace: '"fdb_aging_time": "600"'
+      become: true
+
+    - name: copy current switch.json from host to docker
+      shell: docker cp switch.json swss:/etc/swss/config.d/switch.json
+
+    - name: run swssconfig switch.json command in container swss
+      shell: docker exec swss bash -c "swssconfig /etc/swss/config.d/switch.json"
