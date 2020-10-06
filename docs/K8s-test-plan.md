@@ -8,7 +8,7 @@
     - [SONiC Worker Node Join](#test-cases---sonic-worker-node-join)
     - [SONiC Worker Node Reset](#test-cases---sonic-worker-node-reset)
     - [Manifest Deployment](#test-cases---manifest-deployment-from-master)
-    - [Transition between Kube and Local Mode](#test-cases---transition-between-kube-and-local-mode)
+    - [Transition between Kube Mode and Local Mode](#test-cases---transition-between-kube-and-local-mode)
     - [SONiC Reboot](#test-cases---sonic-reboot)
     - [High Availability Master Functionality](#test-cases---ha-master-functionality)
     - [Miscellaneous](#test-cases---miscellaneous)
@@ -36,6 +36,7 @@ To set up the high availability Kubernetes master, follow the instructions [here
 These test cases ensure SONiC worker node is able to properly join cluster managed by Kubernetes master under various configurations.
 
 - Join SONiC 1) master correct VIP set from minigraph
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should respond
 	1. `show kube server` upon bootup after services stabilized
@@ -47,6 +48,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 		- Should show newly joined SONiC DUT with `Ready` status
 
 - Join SONiC 2) master incorrect VIP set from minigraph
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should respond
 	1. `show kube server` upon bootup after services stabilized
@@ -58,6 +60,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 		- No new SONiC DUT reflected
 
 - Join SONiC 3) master correct VIP set using CLI commands
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should respond
 	1. `sudo config kube server disable off` enables master (default configuration)
@@ -71,6 +74,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 		- `connected` should be True
 
 - Join SONiC 4) master incorrect VIP set using CLI commands
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should respond
 	1. `sudo config kube server disable off` enables master (default configuration)
@@ -84,6 +88,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 		- `connected` should be False
 
 - Join SONiC 5) rejoin master by disabling and enabling kube server
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should respond
 	1. `sudo config kube server disable off` enables master (default configuration)
@@ -115,6 +120,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 	    - Expect same kube mode containers running as after step 5
 
 - Join SONiC 6) connect to new valid master VIP
+
 	0. `ping` original set of HAProxy and 3 backend master servers
 	    - All should respond
 	1. Follow steps from Test Case Join SONiC 3 to start with joined SONiC DUT
@@ -130,6 +136,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 		- `connected` should be True
 
 - Join SONiC 7) connect to new invalid master VIP
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should respond
 	1. Follow steps from Test Case Join SONiC 3 to start with joined SONiC DUT
@@ -143,6 +150,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 
 
 - Join SONiC 8) connect to unreachable master server
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should respond
 	1. `sudo config kube server disable off` enables master (default configuration)
@@ -165,6 +173,7 @@ These test cases ensure SONiC worker node is able to properly join cluster manag
 		- `connected` should be True 
 
 - Join SONiC 9) connect to HA master server when just one backend server is down
+
 	0. `ping` HAProxy and 3 backend master servers
 	    - All should be respond
 	1. `sudo config kube server disable off` enables master (default configuration)
@@ -188,22 +197,24 @@ TODO: insecure transfer cases
 These test cases ensure SONiC worker node is able to properly remove itself from cluster managed by Kubernetes master under various configurations.
 
 - Reset SONiC 1) master reachable after successful join
-	1. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-    2. `sudo config kube server disable on`
-	3. `kubectl get nodes` on master
+
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+    1. `sudo config kube server disable on`
+	2. `kubectl get nodes` on master
 		- Should reflect SONiC DUT removed from cluster
-	4. `show kube server`
+	3. `show kube server`
     	- `IP` should be set to <correct VIP> from Test Case Join SONiC 3
 		- `insecure` should be True
 		- `disable` should be True
 		- `connected` should be False
 
 - Reset SONiC 2) master unreachable after successful join
-    1. Follow steps from Test Case SONiC 3 to properly join SONiC DUT
-	2. `sudo virsh shutdown <backend master servers 1 and 2>`
-	3. `ping` HAProxy and 3 backend master servers
+
+    0. Follow steps from Test Case SONiC 3 to properly join SONiC DUT
+	1. `sudo virsh shutdown <backend master servers 1 and 2>`
+	2. `ping` HAProxy and 3 backend master servers
 	    - Only HAProxy and one backend master should respond
-	4. `sudo config kube server disable on`
+	3. `sudo config kube server disable on`
         - Should warn that master is unreachable, so reset request was not processed
 
 
@@ -215,6 +226,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
 
 
 - Manifest Deployment from Master 1) kube feature v1 to kube feature v2, master reachable, incorrect image URL for v2, ACR reachable (this is also tested in test case 2, can be removed)
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -238,6 +250,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
         - Should observe new pod that corresponds to new container
 
 - Manifest Deployment from Master 2) kube feature v1 to kube feature v2, master reachable, incorrect image URL for v2, ACR unreachable
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -267,6 +280,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
         - Should observe new pod that corresponds to new container
 
 - Manifest Deployment from Master 3) kube feature v1 to kube feature v2, master reachable, correct image URL for v2, ACR reachable
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -285,6 +299,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
         - Should observe new pod that corresponds to new container v2
 
 - Manifest Deployment from Master 4) kube feature v1 to kube feature v2, master reachable, correct image URL for v2, ACR unreachable
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -307,6 +322,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
         - Should observe new pod that corresponds to new container v2
 
 - Manifest Deployment from Master 5) kube feature v1 to kube feature v2, when master starts as not reachable when manifest is deployed: 
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -334,6 +350,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
 
 
 - Manifest Deployment from Master 6) kube feature v1 to kube feature v2, when master starts as reachable and changes to unreachable in middle of manifest deployment: 
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -350,6 +367,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
 		- Should see v1 or v2 depending on if v2 request reached kubelet before master became unreachable
 
 - Manifest Deployment from Master 7) kube feature v2 to kube feature v1, under all conditions
+
 	0. Follow any of the Manifest Deployment from Master Test Cases above to reach running kube feature v2
 	1. Apply manifest v1 for `{feature-name}`
 	2. `docker ps`
@@ -358,6 +376,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
 	    - Should show `{feature-name}` owner status is kube and running v2
 
 - Manifest Deployment from Master 7) kube feature v2 to kube feature v2, under all conditions
+
 	0. Follow any of the Manifest Deployment from Master Test Cases above to reach running kube feature v2
 	1. Apply manifest v2 for `{feature-name}`
 	2. `docker ps`
@@ -371,6 +390,7 @@ These test cases ensure manifest applications from Kubernetes master are properl
 These test cases ensure transitions between kube mode and local mode for a SONiC feature happen as expected.
 
 - Mode Transition 1) local to kube with master reachable
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `show feature status {feature-name}`
 		- Should show current owner is local
@@ -386,6 +406,7 @@ These test cases ensure transitions between kube mode and local mode for a SONiC
         - Should observe new pod that corresponds to new container v2
 
 - Mode Transition 2) local to kube without master reachable
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `show feature status {feature-name}`
 		- Should show current owner is local
@@ -411,6 +432,7 @@ These test cases ensure transitions between kube mode and local mode for a SONiC
         - Should observe new pod that corresponds to new container v2
 
 - Mode Transitions 5) kube to local with master reachable
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -427,6 +449,7 @@ These test cases ensure transitions between kube mode and local mode for a SONiC
 		- Should show docker container current owner is local
 
 - Mode Transitions 6) kube to local without master reachable 
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -456,6 +479,7 @@ These test cases ensure transitions between kube mode and local mode for a SONiC
 These test cases ensure that kube and local features behave as expected across a switch reboot. 
 
 - SONiC Reboot 1) kube mode feature, fallback to local, server reachable persistent across reboot
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -483,6 +507,7 @@ These test cases ensure that kube and local features behave as expected across a
 	
 
 - SONiC Reboot 2) kube mode feature, fallback to local, server unreachable persistent across reboot
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -519,6 +544,7 @@ These test cases ensure that kube and local features behave as expected across a
 		- Should observe `remote_state` set to `Running`
 
 - SONiC Reboot 3) kube mode feature, no fallback to local, server reachable persistent across reboot
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
@@ -545,6 +571,7 @@ These test cases ensure that kube and local features behave as expected across a
 		- Labels present output should be the same as step 6
 
 - SONiC Reboot 4) kube mode feature, no fallback to local, server unreachable persistent across reboot
+
 	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
 	1. `sudo config feature owner {feature-name} kube`
 	2. `show feature config {feature-name}`
