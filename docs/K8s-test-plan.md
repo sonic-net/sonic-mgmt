@@ -16,11 +16,11 @@
 
 ## Overview
 
- SONiC features can run in either kube mode or local mode. SONiC features (dockers) running in kube mode are managed by the connected Kubernetes master. From the master, we can deploy upgrades to SONiC features running in kube mode- without the SONiC reimaging required for changes to features in local mode. Features have the ability to switch between kube and local mode. For more background on Kubernetes features in SONiC and kube vs local mode, refer to [this document](https://github.com/renukamanavalan/SONiC/blob/kube_systemd/doc/kubernetes/Kuberenetes-support.md). 
+ SONiC features can run in either kube mode or local mode. SONiC features (dockers) running in kube mode are managed by the connected Kubernetes master. From the master, we can deploy upgrades to SONiC features running in kube mode with minimal downtime. Features have the ability to switch between kube mode and local mode. For more background on Kubernetes features in SONiC and kube mode vs local mode, refer to [this document](https://github.com/renukamanavalan/SONiC/blob/kube_systemd/doc/kubernetes/Kubernetes-support.md). 
 
 ### Scope
 
-This test plan aims to ensure proper Kubernetes management of SONiC features running in kube mode, and seamless transition of a SONiC feature between kube and local mode.
+This test plan aims to ensure proper Kubernetes management of SONiC features running in kube mode, and seamless transition of a SONiC feature between kube mode and local mode.
 
 ### Testbed
 
@@ -35,560 +35,559 @@ To set up the high availability Kubernetes master, follow the instructions [here
 
 These test cases ensure SONiC worker node is able to properly join cluster managed by Kubernetes master under various configurations.
 
-- Join SONiC 1) master correct VIP set from minigraph, master enabled
-	1. `sudo config kube server disable off` enables master (default configuration)
-	2. `sudo config kube join`
-	3. `kubectl get nodes` on master
-		- Should show SONiC DUT with `Ready` status
-	4. `show kube server`
-		- `IP` should be set to correct VIP from minigraph
+- Join SONiC 1) master correct VIP set from minigraph
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	1. `show kube server` upon bootup after services stabilized
+		- `ip` in config and state should be set to correct VIP from minigraph
 		- `insecure` should be True
 		- `disable` should be False
-        - `server_reachability` should be True
         - `connected` should be True
+	2. `kubectl get nodes` on master
+		- Should show newly joined SONiC DUT with `Ready` status
 
-- Join SONiC 2) master incorrect VIP set from minigraph, master enabled
-	1. `sudo config kube server disable off` enables master (default configuration)
-	2. `sudo config kube join`
-		- Should output warning that VIP is incorrect
-	3. `show kube server`
-		- `IP` should be set to incorrect VIP from minigraph
+- Join SONiC 2) master incorrect VIP set from minigraph
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	1. `show kube server` upon bootup after services stabilized
+		- `ip` in config should be set to incorrect VIP from minigraph
 		- `insecure` should be True
 		- `disable` should be False
-        - `server_reachability` should be False
         - `connected` should be False
+	2. `kubectl get nodes` on master
+		- No new SONiC DUT reflected
 
-- Join SONiC 3) master correct VIP set using CLI commands, master enabled
+- Join SONiC 3) master correct VIP set using CLI commands
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should respond
 	1. `sudo config kube server disable off` enables master (default configuration)
 	2. `sudo config kube server ip <correct VIP>`
-	3. `show kube server`
-		- `IP` should be set to <correct VIP> from step 2
+	3. `kubectl get nodes` on master
+	    - Should show newly joined SONiC DUT with `Ready` status
+	4. `show kube server`
+		- `ip` in config and state should be set to <correct VIP> from step 2
 		- `insecure` should be True
 		- `disable` should be False
-        - `server_reachability` should be True
 		- `connected` should be True
-	4. `sudo config kube join`
-	5. `kubectl get nodes` on master
-        - Should show SONiC DUT with `Ready` status
 
-- Join SONiC 4) master incorrect VIP set using CLI commands, master enabled
+- Join SONiC 4) master incorrect VIP set using CLI commands
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should respond
 	1. `sudo config kube server disable off` enables master (default configuration)
 	2. `sudo config kube server ip <incorrect VIP>`
-	3. `sudo config kube join`
-        - Should output warning that VIP is incorrect
+	3. `kubectl get nodes`
+	   - No new SONiC DUT reflected
 	4. `show kube server`
-		- `IP` should be set to <incorrect VIP> from step 2
+		- `ip` in config should be set to <incorrect VIP> from step 2
 		- `insecure` should be True
 		- `disable` should be False
-        - `server_reachability` should be False
 		- `connected` should be False
 
-- Join SONiC 5) master disabled
-	1. `sudo config kube server disable on`
-	2. `sudo config kube server ip <(in)correct VIP>`
-    3. `sudo config kube join`
-        - Should output warning that master is disabled, join request not processed
-	3. `show kube server`
-		- `IP` should be set to <(in)correct VIP> from step 2
+- Join SONiC 5) rejoin master by disabling and enabling kube server
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	1. `sudo config kube server disable off` enables master (default configuration)
+	2. `sudo config kube server ip <correct VIP>`
+	3. `kubectl get nodes` on master
+	    - Should show newly joined SONiC DUT with `Ready` status
+	4. `show kube server`
+		- `ip` in config and state should be set to <correct VIP> from step 2
+		- `insecure` should be True
+		- `disable` should be False
+		- `connected` should be True
+	5. `docker ps` and `show feature status`
+	6. `sudo config kube server disable on` disables master
+	7. `kubectl get nodes` on master
+	8. `docker ps` and `show feature status`
+	    - Kube mode containers from step 5 should now be running in local mode
+	9. `show kube server`
+		- `ip` in config and state should be set to <correct VIP> from step 2
 		- `insecure` should be True
 		- `disable` should be True
-        - `server_reachability` should be False iff incorrect VIP was used in step 2
 		- `connected` should be False
+	10. `sudo config kube server disable off` enables master
+	11. `show kube server`
+		- `ip` in config and state should be set to <correct VIP> from step 2
+		- `insecure` should be True
+		- `disable` should be False
+		- `connected` should be True
+	12. `docker ps` and `show feature status`
+	    - Expect same kube mode containers running as after step 5
 
-- Join SONiC 6) join when SONiC DUT is already connected
+- Join SONiC 6) connect to new valid master VIP
+	0. `ping` original set of HAProxy and 3 backend master servers
+	    - All should respond
+	1. Follow steps from Test Case Join SONiC 3 to start with joined SONiC DUT
+	2. `ping` second set of HAProxy and backend master servers
+	    - All should respond
+	3. `sudo config kube server ip <correct VIP 2>`
+	4. `kubectl get nodes` on master 2
+	   - Should show newly joined SONiC DUT with `Ready` status
+	4. `show kube server`
+		- `ip` in config and state should be set to <correct VIP 2> from step 3
+		- `insecure` should be True
+		- `disable` should be False
+		- `connected` should be True
 
-- Join SONiC 7) join, cancel join request before finished, then join again
+- Join SONiC 7) connect to new invalid master VIP
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	1. Follow steps from Test Case Join SONiC 3 to start with joined SONiC DUT
+	2. `sudo config kube server ip <incorrect VIP 2>`
+	3. `show kube server`
+	   - `ip` in config and state should be set to <incorrect vip 2> from step 2
+	   - `insecure` should be True
+	   - `disable` should be False
+	   - `connected` should be False
+	4. `kubectl get nodes` on original master should no longer show SONiC DUT with `Ready` status
 
-- Join SONiC 8) join, cancel join request before finished, then reset
 
-- Join SONiC 9) join, change master VIP to an (in)valid master VIP, then join
+- Join SONiC 8) connect to unreachable master server
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	1. `sudo config kube server disable off` enables master (default configuration)
+	2. `sudo virsh shutdown <backend master servers 1 and 2>`
+	3. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	4. `sudo config kube server ip <correct VIP>`
+	5. `show kube server` 
+		- `ip` in config and state should be set to <correct VIP> from step 4
+		- `insecure` should be True
+		- `disable` should be False
+		- `connected` should be False 
+	6. `sudo virsh start <backend master servers 1 and 2>`
+	7. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	5. `show kube server` 
+		- `ip` in config and state should be set to <correct VIP> from step 4
+		- `insecure` should be True
+		- `disable` should be False
+		- `connected` should be True 
 
-- Join SONiC 10) In all cases when Insecure is off, output warning that Secure transfer is not yet enabled
+- Join SONiC 9) connect to HA master server when just one backend server is down
+	0. `ping` HAProxy and 3 backend master servers
+	    - All should be respond
+	1. `sudo config kube server disable off` enables master (default configuration)
+	2. `sudo virsh shutdown <backend master server 1>`
+	3. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and two backend masters should respond
+	2. `sudo config kube server ip <correct VIP>`
+	3. `kubectl get nodes` on master
+	    - Should show newly joined SONiC DUT with `Ready` status
+	4. `show kube server`
+		- `ip` in config and state should be set to <correct VIP> from step 2
+		- `insecure` should be True
+		- `disable` should be False
+		- `connected` should be True
+
+TODO: insecure transfer cases
 
 
 ### Test Cases - SONiC Worker Node Reset
 
 These test cases ensure SONiC worker node is able to properly remove itself from cluster managed by Kubernetes master under various configurations.
 
-- Reset SONiC 1) master correct VIP set from minigraph, master enabled
-	1. `show kube server`
-    	- `IP` should be set to <correct VIP> from minigraph
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	2. `kubectl get nodes` on master
-        - Should show SONiC DUT with `Ready` status
-    3. `sudo config kube reset`
-	4. `kubectl get nodes` on master
-		- Should reflect SONiC DUT removed from cluster
-	5. `show kube server`
-    	- `IP` should be set to <correct VIP> from minigraph
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be False
-
-- Reset SONiC 2) master incorrect VIP set from minigraph, master enabled (DUT previously joined with correct VIP set)
-	1. `show kube server`
-    	- `IP` should be set to <incorrect VIP> from minigraph
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be False
-		- `connected` should be True
-	2. `kubectl get nodes` on master
-        - Should show SONiC DUT with `Ready` status
-    3. `sudo config kube reset`
-        - Should output warning that VIP is incorrect
-	4. `kubectl get nodes` on master
-		- Should still show SONiC DUT with `Ready` status
-
-- Reset SONiC 3) master correct VIP set using CLI commands, master enabled
-	1. `show kube server`
-    	- `IP` should be set to <correct VIP> from CLI command- same VIP used to join DUT
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	2. `kubectl get nodes` on master
-        - Should show SONiC DUT with `Ready` status
-    2. `sudo config kube reset`
+- Reset SONiC 1) master reachable after successful join
+	1. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+    2. `sudo config kube server disable on`
 	3. `kubectl get nodes` on master
 		- Should reflect SONiC DUT removed from cluster
 	4. `show kube server`
-    	- `IP` should be set to <correct VIP> from minigraph
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be False
-
-- Reset SONiC 4) master incorrect VIP set using CLI command (after DUT joined using correct VIP), master enabled
-    1. `sudo config kube server ip <incorrect VIP>`
-    2. `show kube server` 
-    	- `IP` should be set to <incorrect VIP> from step 1
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be False
-		- `connected` should be True
-	3. `kubectl get nodes` on master
-        - Should show SONiC DUT with `Ready` status
-    4. `sudo config kube reset`
-        - Should output warning that VIP is incorrect
-	5. `kubectl get nodes` on master
-		- Should still show SONiC DUT with `Ready` status
-
-- Reset SONiC 5) master valid VIP, but different than the valid VIP used to join cluster (2+ HA masters available)
-    1. `sudo config kube server ip <valid VIP 2>` where valid VIP 2 is the VIP of an available HA master, but different than the master used by DUT to join the cluster
-    2. `show kube server` 
-    	- `IP` should be set to <valid VIP 2> from step 1
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	3. `kubectl get nodes` on master
-        - Should show SONiC DUT with `Ready` status
-    4. `sudo config kube reset`
-        - Should output warning that this is not the valid VIP of the relevant master
-	5. `kubectl get nodes` on master
-		- Should still show SONiC DUT with `Ready` status
-
-- Reset SONiC 6) master disabled- after valid joining of DUT
-	1. `sudo config kube server disable on`
-	2. `sudo config kube server ip <(in)correct VIP>`
-	3. `show kube server`
-		- `IP` should be set to <(in)correct VIP> from step 2
+    	- `IP` should be set to <correct VIP> from Test Case Join SONiC 3
 		- `insecure` should be True
 		- `disable` should be True
-        - `server_reachability` should be False iff incorrect IP was used in step 2
-		- `connected` should be True
-    4. `sudo config kube reset`
-        - Should output warning that master is disabled, reset request not processed
-    5. `sudo config kube server disable off`
-    6. `sudo config kube server ip <(in)correct VIP>`
-    7. `show kube server`
-    	- `IP` should be set to <(in)correct VIP> from step 6
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be False iff incorrect VIP was used in step 6
-		- `connected` should be True
-    8. `sudo config kube reset`
-        - Should output warning that VIP is incorrect iff incorrect VIP was used in step 6
-    9. `kubectl get nodes` on master
-        - Should show DUT properly removed from cluster iff correct VIP was used in step 6
+		- `connected` should be False
 
-- Reset SONiC 7) reset with correct VIP, reset again with correct VIP, master enabled throughout
+- Reset SONiC 2) master unreachable after successful join
+    1. Follow steps from Test Case SONiC 3 to properly join SONiC DUT
+	2. `sudo virsh shutdown <backend master servers 1 and 2>`
+	3. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	4. `sudo config kube server disable on`
+        - Should warn that master is unreachable, so reset request was not processed
 
-- Reset SONiC 8) reset with correct VIP, then change to incorrect VIP and reset again, master enabled throughout
 
-- Reset SONiC 9) reset with correct VIP, cancel reset request in middle, then resubmit reset request, master enabled throughout
-
-- Reset SONiC 10) reset with incorrect VIP, cancel reset request in middle, change to correct VIP, then resubmit reset request, master enabled throughout
-
-- Reset SONiC 11) In all cases when Insecure is off, output warning that Secure transfer is not yet enabled
+config feature owner kube, disable, then enable
 
 ### Test Cases - Manifest Deployment from Master
 
-These test cases ensure manifest applications from Kubernetes master are properly processed by SONiC DUT worker nodes. "Master reachable" implies master is enabled, and configured VIP is correct and valid. 
-
-- Manifest Deployment from Master 1) kube mode feature, master reachable, update manifest deployment with incorrect image URL, ACR reachable
-	1. `config feature owner kube`
-	2. `sudo config kube disable off` (by default)
-	3. `sudo config kube server ip <correct VIP>`
-	4. `show kube server`
-    	- `IP` should be set to <correct VIP> from step 3
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	5. `show features`
-	6. `docker ps`
-		- Should see k8s container for feature running in kube mode
-	7. From master: deploy manifest with wrong URL
-		- Should output warning that image does not exist at URL
-	8. `docker ps`
-		- Should observe same k8s container from step 6 running in kube mode
-	9. Fix manifest URL
-	10. From master: reapply manifest
-	11. `docker ps`
-		- Should observe new k8s container with newer image version, feature running in kube mode
-	12. `kubectl get pods`
-        - Should observe new pod that corresponds to new container
-
-- Manifest Deployment from Master 2) kube mode feature, master reachable, update manifest deployment with incorrect image URL, ACR unreachable
-	1. `config feature owner kube`
-	2. `sudo config kube disable off` (by default)
-	3. `sudo config kube server ip <correct VIP>`
-	4. `show kube server`
-    	- `IP` should be set to <correct VIP> from step 3
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	5. `show features`
-	6. `docker ps`
-		- Should see k8s container for feature running
-	7. Remove proxy to simulate unreachable ACR
-	8. From master: deploy manifest with incorrect URL
-		- Should output warning that cannot reach ACR
-	9. Add proxy to reach ACR
-	10. Proceed prior test from step 9
-
-- Manifest Deployment from Master 3) kube mode feature, master reachable, update manifest deployment with correct image URL, ACR reachable
-	1. `config feature owner kube`
-	2. `sudo config kube disable off` (by default)
-	3. `sudo config kube server ip <correct VIP>`
-	4. `show kube server`
-    	- `IP` should be set to <correct VIP> from step 3
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	5. `show features`
-	6. `docker ps`
-		- Should observe feature running in kube mode
-	7. From master: Deploy manifest with correct URL
-	8. `docker ps`
-		- Should observe new k8s container with newer image version, feature running in kube mode
-	9. `kubectl get pods`
-        - Should observe new pod that corresponds to new container
-
-- Manifest Deployment from Master 4) kube mode feature, master reachable, update manifest deployment with correct image URL, ACR unreachable
-	1. `config feature owner kube`
-	2. `sudo config kube disable off` (by default)
-	3. `sudo config kube server ip <correct VIP>`
-	4. `show kube server`
-    	- `IP` should be set to <correct VIP> from step 3
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	5. `show features`
-	6. `docker ps`
-		- Should see k8s container for feature running in kube mode
-	7. Remove proxy to simulate unreachable ACR
-	8. From master: deploy manifest with correct URL
-		- Output warning that cannot reach ACR
-	9. Add proxy to simulate reachable ACR
-	10. Repeat prior test from step 7
-
-- Manifest Deployment from Master 5) kube mode, when master starts as not reachable when manifest is deployed: 
-	1. `config feature owner kube`
-	2. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
-	3. `show kube server`
-		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 2. Otherwise, it should be the previously set <correct VIP>
-		- `insecure` should be True
-		- `disable` should be True iff master was disabled in step 2
-        - `server_reachability` should be False iff <incorrect VIP> was set in step 2. Else, should be True
-		- `connected` should be True
-	4. From master: `kubectl get pods`
-	5. From master: apply manifest
-	6. From master: `kubectl get pods`
-		- Should observe the same pods that were output in step 4
-	7. Make master reachable, fixing either VIP or enabling master connection as necessary
-	8. `kubectl get pods` or `docker ps`
-		- Should observe correct pods/containers from most recent manifest deployment that originally did not go through due to unreachable master
-
-- Manifest Deployment from Master 6) kube mode, when master starts as reachable and changes to unreachable in middle of manifest deployment: 
-	1. `config feature owner kube`
-	2. `sudo config kube disable off` (by default)
-	3. `sudo config kube server ip <correct VIP>`
-	4. `show kube server`
-    	- `IP` should be set to <correct VIP> from step 3
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	5. From master: `kubectl get pods`
-	6. From master: apply manifest
-	7. Before deployment in DUT, make master unreachable (disable and/or set incorrect VIP)
-	8. Wait
-	9. `docker ps`
-		- Check if updated manifest image container was created
-		- If it was:
-			- `kubectl get pods` at master would not reflect new pod until after master is made reachable again
-			- `kubectl get pods` on SONiC will not work, as there is no connection to master
-	10. Make master reachable (set correct VIP or enable master as necessary)
-    11. `docker ps`
-    12. `kubectl get pods`
-         - Should observe new pod that corresponds to new k8s feature from udpated manifest
+These test cases ensure manifest applications from Kubernetes master are properly processed by SONiC DUT worker nodes. 
 
 
-To kube with higher, same, and lower image version
-
-Deploy manifest,
-Remove DUT
-Deploy manifest
-Join DUT
-
-All of the above conditions with new manifest as well (not just updating preexisting manifest)
-
-### Test Cases - Transition between Kube and Local Mode
-
-These test cases ensure transitions betbetween kube and local mode for a SONiC feature happen as expected when the master is reachable and unreachable. 
-
-- Mode Transition 1) local to kube with master reachable, kube version exists
-	1. `sudo config kube disable off` (by default)
-	2. `sudo config kube server ip <correct VIP>`
-	3. `show kube server`
-        - `IP` should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	4. `show features`
-		- Should observe feature currently in `local` mode
-		- Should observe `remote_state` set to `None`
-	5. `kubectl get pods`
-	6. Deploy manifest successfully (test case 3 from MANIFEST DEPLOYMENT)
-	7. `show features`
-		- Should observe `remote_state` set to `pending`
-	8. `kubectl get nodes --show-labels`
-	9. `kubectl get pods`
-	10. `sudo config feature owner kube`
-	11. `kubectl get nodes --show-labels`
-		- Should observe newly created label
-	12. `kubectl get pods`
-		- Should observe new pod come up for nearly set kube feature
-	13. `Docker ps`
-		- Should observe local feature container killed
-		- Should observe new kube feature container created
-
-- Mode Transition 2) local to kube with master reachable, kube version does not exist
-	1. `sudo config kube disable off` (by default)
-	2. `sudo config kube server ip <correct VIP>`
-	3. `show kube server`
-        - `IP` should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	4. `show features`
-		- Should observe feature currently in `local` mode
-		- Should observe `remote_state` set to `None`
-	5. `kubectl get pods`
-	7. `sudo config feature owner kube`
-		- Should output error that this feature does has `remote_state` set to `None`
-
-- Mode Transition 3) local to kube without master reachable, kube version exists
-	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
-	2. `show kube server`
-		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
-		- `insecure` should be True
-		- `disable` should be True iff master was disabled in step 1
-        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
-		- `connected` should be True
-	3. `docker ps`
-	4. `show features`
-		- Should observe feature currently in local mode
-		- Should observe `remote_state` set to `pending` (manifest was deployed previously when master was reachable)
-	6. `sudo config feature owner kube`
-		- Should output warning that server is disabled if disabled. If not disabled, should output warning that VIP is invalid
-		- Label request should go to transient DB 
+- Manifest Deployment from Master 1) kube feature v1 to kube feature v2, master reachable, incorrect image URL for v2, ACR reachable (this is also tested in test case 2, can be removed)
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  From master: Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `show feature status {feature-name}`
+	    - Should show `{feature-name}` owner status is kube and running v1
+	6. From master: Apply manifest v2 for `{feature-name}` with wrong URL
 	7. `docker ps`
-		- Local container continues to run until master is reachable, label is created, and kubelet can spin up the new container
-		
-- Mode Transition 4) local to kube without master reachable, kube version does not exist
-	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
-	2. `show kube server`
-		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
-		- `insecure` should be True
-		- `disable` should be True iff master was disabled in step 1
-        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
-		- `connected` should be True
-	3. `show features`
-		- Feature currently in local mode
-		- Remote_state shows None
-	4. `sudo config feature owner kube`
-		- Should output warning that master is disabled if master is disabled. If not disabled, should output warning that VIP is incorrect. And there is no valid kube version. 
+		- Should observe same k8s container from step 4 running v1
+	8. `show feature status {feature-name}`
+	    - Should show `{feature-name}` owner status is kube and running v1
+	9. From master: reapply manifest v2 for `{feature-name}` with correct URL
+	10. `docker ps`
+		- Should observe new k8s container v2 for `{feature-name}`
+	11. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+	12. `kubectl get pods` on master
+        - Should observe new pod that corresponds to new container
+
+- Manifest Deployment from Master 2) kube feature v1 to kube feature v2, master reachable, incorrect image URL for v2, ACR unreachable
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  From master: Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `show feature status {feature-name}`
+	    - Should show `{feature-name}` owner status is kube and running v1
+	6. Delete secret to simulate unreachable ACR
+	7. From master: Apply manifest v2 for `{feature-name}` with incorrect URL
+	8. `docker ps`
+		- Should observe same k8s container from step 4 running in kube mode
+	9. `show feature status {feature-name}`
+	    - Should show `{feature-name}` owner status is kube and running v1
+	10. Create secret to simulate reachable ACR
+	11. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	12. `show feature status {feature-name}`
+	    - Should show `{feature-name}` owner status is kube and running v1
+	13. From master: reapply manifest v2 for `{feature-name}` with correct URL
+	14. `docker ps`
+		- Should observe new k8s container v2 for `{feature-name}`
+	15. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+	16. `kubectl get pods` on master
+        - Should observe new pod that corresponds to new container
+
+- Manifest Deployment from Master 3) kube feature v1 to kube feature v2, master reachable, correct image URL for v2, ACR reachable
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `show feature status {feature-name}`
+	    - Should show `{feature-name}` owner status is kube and running v1
+	6. From master: Apply manifest v2 for `{feature-name}` with correct URL
+	7. `docker ps`
+		- Should observe new k8s container v2 for `{feature-name}`
+	8. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+	9. `kubectl get pods` on master
+        - Should observe new pod that corresponds to new container v2
+
+- Manifest Deployment from Master 4) kube feature v1 to kube feature v2, master reachable, correct image URL for v2, ACR unreachable
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. Delete secret to simulate unreachable ACR
+	6. From master: Apply manifest v2 for `{feature-name}` with correct URL
+	7. `docker ps`
+		- Should observe same k8s container from step 4 running v1
+	8. `show feature status {feature-name}`
+	    - Should show `{feature-name}` owner status is kube and running v1
+	9. Create secret to simulate reachable ACR
+	10. `docker ps`
+		- Should observe new k8s container v2 for `{feature-name}`
+	11. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+	12. `kubectl get pods` on master
+        - Should observe new pod that corresponds to new container v2
+
+- Manifest Deployment from Master 5) kube feature v1 to kube feature v2, when master starts as not reachable when manifest is deployed: 
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `sudo virsh shutdown <backend master servers 1 and 2>`
+	6. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	7. From master: Apply manifest v2 for `{feature-name}` hangs
+	8. `docker ps`
+	    - Should observe same k8s container from step 4 running v1
+	9. `show feature status {feature-name}`
+	   - Should show `{feature-name}` owner status is kube and running v1
+	10. `sudo virsh start <backend master servers 1 and 2>`
+	11. `ping` HAProxy and 3 backend masters
+	    - All should respond
+	12. `docker ps`
+		- Should observe new k8s container v2 for `{feature-name}`
+	13. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+	14. `kubectl get pods` on master
+        - Should observe new pod that corresponds to new container v2
+
+
+- Manifest Deployment from Master 6) kube feature v1 to kube feature v2, when master starts as reachable and changes to unreachable in middle of manifest deployment: 
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. From master: Apply manifest v2 for `{feature-name}` with correct URL
+	6. `sudo virsh shutdown <backend master servers 1 and 2>`
+	7. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	8. Check if v2 request reached kubelet before master became unreachable
+	9. `docker ps`
+		- Should see v1 or v2 depending on if v2 request reached kubelet before master became unreachable
+
+- Manifest Deployment from Master 7) kube feature v2 to kube feature v1, under all conditions
+	0. Follow any of the Manifest Deployment from Master Test Cases above to reach running kube feature v2
+	1. Apply manifest v1 for `{feature-name}`
+	2. `docker ps`
+		- Should show k8s container v2 for `{feature-name}` and no v1
+	3. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+
+- Manifest Deployment from Master 7) kube feature v2 to kube feature v2, under all conditions
+	0. Follow any of the Manifest Deployment from Master Test Cases above to reach running kube feature v2
+	1. Apply manifest v2 for `{feature-name}`
+	2. `docker ps`
+		- Should show one k8s container v2 for `{feature-name}` 
+	3. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+
+
+### Test Cases - Transition between Kube Mode and Local Mode
+
+These test cases ensure transitions between kube mode and local mode for a SONiC feature happen as expected.
+
+- Mode Transition 1) local to kube with master reachable
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `show feature status {feature-name}`
+		- Should show current owner is local
+	2. `sudo config feature owner {feature-name} kube`
+	3. `show feature config {feature-name}`
+		- Should show config owner is kube 
+	4. From master: Apply manifest for v2 `{feature-name}`
 	5. `docker ps`
-		a. Local container continues to run
+		- Should observe new k8s container v2 for `{feature-name}`
+	6. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+	7. `kubectl get pods` on master
+        - Should observe new pod that corresponds to new container v2
+
+- Mode Transition 2) local to kube without master reachable
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `show feature status {feature-name}`
+		- Should show current owner is local
+	2. `sudo config feature owner {feature-name} kube`
+	3. `show feature config {feature-name}`
+		- Should show config owner is kube 
+	4. `sudo virsh shutdown <backend master servers 1 and 2>`
+	5. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	6. From master: Apply manifest v2 for `{feature-name}` hangs
+	7. `show feature status {feature-name}`
+		- Should show current owner is local
+	8. `docker ps`
+		- Should show local container running
+	9. `sudo virsh start <backend master servers 1 and 2>`
+	10. `ping` HAProxy and 3 backend masters
+	    - All should respond
+	11. `docker ps`
+		- Should observe new k8s container v2 for `{feature-name}`
+	12. `show feature status {feature-name}` 
+	    - Should show `{feature-name}` owner status is kube and running v2
+	13. `kubectl get pods` on master
+        - Should observe new pod that corresponds to new container v2
 
 - Mode Transitions 5) kube to local with master reachable
-	1. `sudo config kube disable off` (by default)
-	2. `sudo config kube server ip <correct VIP>`
-	3. `show kube server`
-        - `IP` should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	4. `show features`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	5. `docker ps`
-		- Should observe k8s container running
-	6. `kubectl get nodes --show-labels`
-	7. `sudo config feature owner local`
-	8. `kubectl get nodes --show-labels`
-		- Should observe _enabled label for this node removed
-	9. `docker ps`
-		- Should observe k8s container stopped
-		- Should observe local container running
-	10. `show features`
-		- Should observe feature currently in local mode
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `sudo config feature owner {feature-name} local`
+	6. `show feature config {feature-name}`
+		- Should show feature config owner is local
+	7. `docker ps`
+		- Should show docker container running in local mode, k8s container from step 4 terminated
+	8. `show feature status {feature-name}`
+		- Should show docker container current owner is local
 
 - Mode Transitions 6) kube to local without master reachable 
-	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
-	2. `show kube server`
-		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
-		- `insecure` should be True
-		- `disable` should be True iff master was disabled in step 1
-        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
-		- `connected` should be True
-	3. `show features`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	4. `sudo config feature owner local`
-		- Should output warning that server is disabled if disabled. If not disabled, should output warning that VIP is invalid
-		- Label request should go to transient DB 
-	5. `docker ps`
-		- Should observe local container running
-	6. `show features`
-		- Should observe feature in local mode
-	7. When master is reachable, label removal request should go through and kube container should not come up again
-		
-Kube to Kube considered in MANIFEST DEPLOYMENT section
-
-Also consider master starts as reachable, then changes to unreachable
-Also consider master starts as unreachable, then changes to reachable
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `sudo virsh shutdown <backend master servers 1 and 2>`
+	6. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	7. `sudo config feature owner {feature-name} local`
+	8. `show feature config {feature-name}`
+		- Should show feature config owner is local
+	9. `docker ps`
+		- Should show docker container running in local mode, k8s container from step 4 terminated
+	10. `show feature status {feature-name}`
+		- Should show docker container current owner is local
+	11. Ensure transient DB is properly populated
+	12. `sudo virsh start <backend master servers 1 and 2>`
+	13. `ping` HAProxy and 3 backend masters
+	    - All should respond
+	14. Ensure `{feature-name}_enabled` label is removed
 
 
 ### Test Cases - SONiC Reboot
 
 These test cases ensure that kube and local features behave as expected across a switch reboot. 
 
-- SONiC Reboot 1) kube mode feature, server reachable persistent across reboot and following transition to unreachable (consider both incorrect VIP and disabled server)
-	1. `sudo config kube disable off` (by default)
-	2. `sudo config kube server ip <correct VIP>`
-	3. `show kube server`
-        - `IP` should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	4. `show features`
+- SONiC Reboot 1) kube mode feature, fallback to local, server reachable persistent across reboot
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `show feature status {feature-name}`
 		- Should observe feature currently in kube mode
 		- Should observe `remote_state` set to `Running`
-	5. reboot
-	6. `kubectl get nodes`
-		- API Server should be reachable from DUT
-	7. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
-	8. `show kube server`
-		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
-		- `insecure` should be True
-		- `disable` should be True iff master was disabled in step 1
-        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
-		- `connected` should be True
-	9. `kubectl get nodes`
-		- Should output warning that server is disabled if disabled. If not, output warning that VIP is invalid.
-	10. `docker ps`
-		- Should still show kube feature containers running
+	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Take note of labels present
+	7. `sudo reboot`
+	8. `docker ps` 
+		- Should show `{feature-name}` running in local mode before kubelet service starts
+	9. `show feature status {feature-name}`
+		- Should show `{feature-name}` as current owner local
+	10. After kubelet service starts, `docker ps`
+		- Should show `{feature-name}` running in kube mode 
+	11. `show feature status {feature-name}`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	12. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Labels present output should be the same as step 6
 	
 
-- SONiC Reboot 2) kube mode feature, server unreachable (consider both incorrect VIP and disabled server) persistent across reboot and following transition to reachable
-	1. `sudo config kube disable on` AND/OR `sudo config kube server <incorrect VIP>`
-	2. `show kube server`
-		- `IP` should be set to <incorrect VIP> iff <incorrect VIP> was set in step 1. Otherwise, it should be the previously set <correct VIP>
-		- `insecure` should be True
-		- `disable` should be True iff master was disabled in step 1
-        - `server_reachability` should be False iff <incorrect VIP> was set in step 1. Else, should be True
-		- `connected` should be True
-	3. `docker ps`
-	4.  reboot
-	5. `kubectl get nodes`
-		- API Server should be unreachable
-	6. `sudo config kube disable off` AND/OR sudo `config kube server <correct VIP>` as necessary to make master reachable
-	7. `show kube server`
-        - `IP` should be set to <correct VIP> 
-		- `insecure` should be True
-		- `disable` should be False
-        - `server_reachability` should be True
-		- `connected` should be True
-	8. `kubectl get nodes`
-		- API Server should be reachable
-	9. `docker ps`
-		- All kube managed containers running in step 3 should still be working, relevant features may have changed from local to kube mode once server became reachable
-	
+- SONiC Reboot 2) kube mode feature, fallback to local, server unreachable persistent across reboot
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `show feature status {feature-name}`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Take note of labels present
+	7. `sudo virsh shutdown <backend master servers 1 and 2>`
+	8. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	9. `sudo reboot`
+	10. `docker ps` 
+		- Should show `{feature-name}` running in local mode before kubelet service starts
+	11. `show feature status {feature-name}`
+		- Should show `{feature-name}` as current owner local
+	12. After kubelet service starts, `docker ps`
+		- Should show `{feature-name}` running in local mode 
+	13. `show feature status {feature-name}`
+		- Should show `{feature-name}` as current owner local
+	14. `sudo virsh start <backend master servers 1 and 2>`
+	15. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	16. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Labels present output should be the same as step 6
+	15. `docker ps`
+		- Should show `{feature-name}` running in kube mode 
+	16. `show feature status {feature-name}`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
 
-- SONiC Reboot 3) reboot SONiC while feature in kube mode, fallback to local set to true
-	1. `docker ps` or `show features`
-		- Should observe feature/container running local mode
-	2. `config feature owner kube`
-		- Local to kube transition
-	3. `docker ps`
-		- Should observe feature running kube mode
-	4. reboot
-		- Should bring in local version (fallback to local)
-		- Kube will connect
-		- Local to kube transition
-	5. `docker ps`
-		- Should observe feature running kube mode
+- SONiC Reboot 3) kube mode feature, no fallback to local, server reachable persistent across reboot
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `show feature status {feature-name}`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Take note of labels present
+	7. `sudo reboot`
+	8. `docker ps` 
+		- Should show no `{feature-name}` container running
+	9. `show feature status {feature-name}`
+		- Should show `{feature-name}` as current owner None
+	10. After kubelet service starts, `docker ps`
+		- Should show `{feature-name}` running in kube mode 
+	11. `show feature status {feature-name}`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	12. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Labels present output should be the same as step 6
 
-- SONiC Reboot 4) reboot SONiC while feature in kube mode, fallback to local set to false
-	1. `docker ps`
-		- Should observe feature running local mode
-	2. `config feature owner kube`
-		- Local to kube transition
-	3. `docker ps`
-		- Should observe feature running kube mode
-	4. reboot
-		- Kube will connect
-	5. `docker ps`
-		- Should observe feature running kube mode
-
-
-
-### Test Cases - HA Master Functionality
-
-When master transitions between reachable and unreachable: transient DB label processing
+- SONiC Reboot 4) kube mode feature, no fallback to local, server unreachable persistent across reboot
+	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
+	1. `sudo config feature owner {feature-name} kube`
+	2. `show feature config {feature-name}`
+	   - Should show `{feature-name}` in kube mode
+	3.  Apply manifest v1 for `{feature-name}`
+	4. `docker ps`
+		- Should show k8s container v1 for `{feature-name}` 
+	5. `show feature status {feature-name}`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
+	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Take note of labels present
+	7. `sudo virsh shutdown <backend master servers 1 and 2>`
+	8. `ping` HAProxy and 3 backend master servers
+	    - Only HAProxy and one backend master should respond
+	9. `sudo reboot`
+	10. `docker ps` 
+		- Should show no `{feature-name}` container running
+	11. `show feature status {feature-name}`
+		- Should show `{feature-name}` as current owner None
+	12. After kubelet service starts, `docker ps`
+		- Should show no `{feature-name}` container running
+	13. `sudo virsh start <backend master servers 1 and 2>`
+	14. `ping` HAProxy and 3 backend master servers
+	    - All should respond
+	15. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
+		- Labels present output should be the same as step 6
+	16. After kubelet service starts, `docker ps`
+		- Should show `{feature-name}` running in kube mode 
+	17. `show feature status {feature-name}`
+		- Should observe feature currently in kube mode
+		- Should observe `remote_state` set to `Running`
 
 
 ### Test Cases - Miscellaneous
 
 Systemctl start/stop/restart works as today for both local and kube modes
 
-When node joins, make sure the proper manufacturer labels and others are set (included in manifest deployment test)
-
-SONiC HW labels present when SONiC join
+Ensure SONiC DUT additional labels are present (OS_VERSION, etc)
 
 Deployment of new feature not already part of SONiC switch
+
+Warm Reboot
+
+Multi ASiC
+
