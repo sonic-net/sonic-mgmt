@@ -8,14 +8,14 @@
     - [SONiC Worker Node Join](#test-cases---sonic-worker-node-join)
     - [SONiC Worker Node Reset](#test-cases---sonic-worker-node-reset)
     - [Manifest Deployment](#test-cases---manifest-deployment-from-master)
-    - [Transition between Kube Mode and Local Mode](#test-cases---transition-between-kube-and-local-mode)
+    - [Transition between Kube Mode and Local Mode](#test-cases---transition-between-kube-mode-and-local-mode)
     - [SONiC Reboot](#test-cases---sonic-reboot)
-    - [High Availability Master Functionality](#test-cases---ha-master-functionality)
     - [Miscellaneous](#test-cases---miscellaneous)
 
 
-## Overview
+# Overview
 
+ ### Background
  SONiC features can run in either kube mode or local mode. SONiC features (dockers) running in kube mode are managed by the connected Kubernetes master. From the master, we can deploy upgrades to SONiC features running in kube mode with minimal downtime. Features have the ability to switch between kube mode and local mode. For more background on Kubernetes features in SONiC and kube mode vs local mode, refer to [this document](https://github.com/renukamanavalan/SONiC/blob/kube_systemd/doc/kubernetes/Kubernetes-support.md). 
 
 ### Scope
@@ -29,9 +29,154 @@ Kubernetes tests require a Kubernetes master reachable from the SONiC DUT. In or
 
 To set up the high availability Kubernetes master, follow the instructions [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.k8s.Setup.md#how-to-setup-high-availability-kubernetes-master).
 
-## Test Cases
+# Test Cases
 
-### Test Case - SONiC Worker Node Join
+## Test Scenario: Join/Reset
+
+### TC_JOIN_1: Join Master once Available
+#### Test Objective
+Verify Device Under Test (DUT) joins high availability master once the VIP and Kubernetes API Server become available
+#### Test Configuration
+- Kube server configured with correct VIP and disable = False
+- All features running in local mode, with some having set_owner as kube
+- HA Proxy server down and backend master servers up but not running API service
+- Running config == saved config_db.json
+#### Test Steps
+1. Start HAProxy machine
+   - VIP is available but VIP::port is not available, as backend master servers are not running Kubernetes API Server
+   - **Expect:** No change in kube server status, not connected
+2. Start API service in backend master servers with no manifests applied
+   - VIP::port and VIP should both be available
+   - **Expect:** kube server status shows connected
+3. Stop API Service
+   - Logs should show kubelet trying to reconnect
+   - **Expect:** No change in kube server status, connected
+4. Shutdown HAProxy
+   - Logs should show kubelet trying to reconnect
+   - **Expect:** No change in kube server status, connected
+5. Bring back HAProxy and API service
+   - Logs should show kubelet has established connection
+   - **Expect:** No change in kube server status, connected 
+
+### TC_JOIN_2: Test Disable Flag
+#### Test Objective
+Verify Device Under Test (DUT) responds appropriately to kube server disable flag by joining when disable == false and leaving master when disable == true
+#### Test Configuration
+- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Server status shows Connected 
+#### Test Steps
+1. Set disable flag = true
+   - **Expect:** Kube server status updates to disconnected
+2. Set disable flag = false
+   - Logs should reflect kubelet reestablishing connection
+   - **Expect:** Kube server status updates to connected
+
+### TC_JOIN_3: Config Reload with No Config Change
+#### Test Objective
+Verify Device Under Test (DUT) appropriately remains joined to master upon config reload
+#### Test Configuration
+- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Server status shows Connected
+#### Test Steps
+1. Do config reload
+   - **Expect:** Kube server status remains connected
+
+### TC_JOIN_4: Config Reload Toggle Disable to True
+#### Test Objective
+Verify Device Under Test (DUT) appropriately disconnects upon config reload with disable toggled to true
+#### Test Configuration
+- Pick up from step 2 of [TC_JOIN_2](#tcjoin2-test-disable-flag)
+- Server status shows Connected
+#### Test Steps
+1. Do config reload
+
+### TC_JOIN_5: Config Reload Toggle Disable to False
+#### Test Objective
+Verify Device Under Test (DUT) appropriately disconnects upon config reload with disable toggled to true
+#### Test Configuration
+- Pick up from step 1 of [TC_JOIN_2](#tcjoin2-test-disable-flag)
+- Server status shows Disconnected
+#### Test Steps
+1. Do config reload
+
+### TC_JOIN_6: Reboot/Warm-reboot/Fast-reboot
+#### Test Objective
+Verify Device Under Test (DUT) appropriately joins master upon reboot
+#### Test Configuration
+- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Server status shows Connected
+#### Test Steps
+1. Do reboot
+   - **Expect:** After 4 minutes, expect kube server status to show Connected
+2. Repeat this test for all 3 kinds of reboots
+
+## Test Scenario: Local Mode to Kube Mode Transition
+
+### TC_LOCAL_KUBE_1: Switch Between Local Mode and Kube Mode
+#### Test Objective
+Verify Device Under Test (DUT) properly transitions between local mode and kube mode when kube mode manifest is properly applied
+#### Test Configuration
+- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- SNMP current_owner = local, set_owner=kube, remote_state=none
+#### Test Steps
+1. Deploy manifest with valid URL
+   - local SNMP container should terminate
+   - k8s SNMP container from remote image should run
+   - **Expect:** current_owner becomes kube
+2. Set desired owner to local (set_owner = local)
+   - k8s SNMP container from remote image should terminate
+   - local SNMP container should run
+   - **Expect:** current_owner becomes local
+3. Set desired owner to kube (set_owner = kube)
+   - local SNMP container should terminate
+   - k8s SNMP container from remote image should run
+   - **Expect:** current_owner becomes kube
+
+### TC_LOCAL_KUBE_2: Make VIP Unreachable 
+#### Test Objective
+Verify Device Under Test (DUT) transitions from local mode to kube mode as expected when VIP is unreachable after successful local to kube mode transition
+#### Test Configuration
+- Pick up from step 1 of TC_LOCAL_KUBE_1
+- SNMP current_owner=kube, set_owner=kube, remote_state=running
+#### Test Steps
+1. Shut down HAProxy machine
+2. SNMP current_owner, set_owner, and remote_state should remain as described in Test Configuration
+3. Start HAProxy machine
+4. No change in SNMP status or configuration
+
+### TC_LOCAL_KUBE_3: Daemonset Deleted
+#### Test Objective
+Verify Device Under Test (DUT) properly responds to accidental deletion of daemonset
+#### Test Configuration
+- Pick up from step 1 of TC_LOCAL_KUBE_1
+- SNMP current_owner=kube, set_owner=kube, remote_state=running
+#### Test Steps
+1. Delete SNMP kube feature daemonset
+   - SNMP k8s container should stop running
+   - **Expect:** Remote State becomes stopped
+2. Readd daemonset
+   - SNMP 
+
+## Test Scenario: Kube Mode to Kube Mode Transition
+
+## Test Scenario: Kube Mode to Local Mode Transition
+
+## Test Scenario: Unreachable Master
+
+### TC_UN_MASTER_1: Kube Mode Feature, Unreachable VIP
+#### Test Objective
+Verify Device Under Test (DUT) kube mode features continue running in kube even when VIP is unreachable
+#### Test Configuration
+- Pick up from step 1 of TC_LOCAL_KUBE_1
+- SNMP current_owner = kube, set_owner=kube, remote_state=running
+#### Test Steps
+1. Shut down HAProxy machine
+2. SNMP current_owner, set_owner, and remote_state should remain as described in Test Configuration
+3. Start HAProxy machine
+4. No change in SNMP status or configuration
+
+
+### Test Cases - SONiC Worker Node Join
 
 These test cases ensure SONiC worker node is able to properly join cluster managed by Kubernetes master under various configurations.
 
@@ -604,6 +749,10 @@ These test cases ensure that kube and local features behave as expected across a
 	17. `show feature status {feature-name}`
 		- Should observe feature currently in kube mode
 		- Should observe `remote_state` set to `Running`
+
+SONiC Reboot 5) Master reachable and then uncreachable upon startup
+
+SONiC Reboot 6) Master unreachable and then reachable upon startup
 
 
 ### Test Cases - Miscellaneous
