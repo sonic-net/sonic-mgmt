@@ -116,7 +116,7 @@ class TestBGPCommon:
                                                         prefix='121.1.1.0', as_path='as_seq:1')
         bgp_ctrl = tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
         st.log("Check for route count in neighbour, before update delay timer configuration")
-        bgp_summary_spine_before_timer = bgpapi.show_bgp_ipv4_summary(topo.dut_list[1])
+        bgp_summary_spine_before_timer = bgpapi.show_bgp_ipv4_summary_vtysh(topo.dut_list[1])
         rib_entries_before_update_timer = bgp_summary_spine_before_timer[0]['ribentries']
         st.log('RIB entries before update delay configuration : {}'.format(rib_entries_before_update_timer))
         st.log("Configure Update delay timer on one of the Leaf router")
@@ -126,7 +126,7 @@ class TestBGPCommon:
         if not utils.poll_wait(bgplib.l3tc_vrfipv4v6_address_leafspine_bgp_check, 20, config_type='ipv4'):
             st.error("Neighbour is failed to Establish between Spine - Leaf after clear ip bgp")
             tc_fail_flag = 1
-        bgp_summary_spine_before_timer = bgpapi.show_bgp_ipv4_summary(topo.dut_list[1])
+        bgp_summary_spine_before_timer = bgpapi.show_bgp_ipv4_summary_vtysh(topo.dut_list[1])
         rib_entries_before_update_timer = bgp_summary_spine_before_timer[0]['ribentries']
         st.log('RIB entries before update delay timer expiry : {}'.format(rib_entries_before_update_timer))
         if int(rib_entries_before_update_timer) >= 100:
@@ -135,7 +135,7 @@ class TestBGPCommon:
 
         # Sleep for update delay timer and the check the route count in neighbour
         st.wait(60)
-        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv4_summary(topo.dut_list[1])
+        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv4_summary_vtysh(topo.dut_list[1])
         rib_entries_after_update_timer = bgp_summary_spine_after_update_timer[0]['ribentries']
         st.log('RIB Entries after update delay timer expiry : {}'.format(rib_entries_after_update_timer))
         if int(rib_entries_after_update_timer) < 100:
@@ -193,7 +193,7 @@ class TestBGPCommon:
                                            config='add', cli_type=bgp_cli_type)
 
         # Verify bgp neighbors
-        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv4', neighbor=info['D1D2P1_ipv4'], state='Established')
+        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv4', shell='vtysh', neighbor=info['D1D2P1_ipv4'], state='Established')
         if not result:
             bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv4')
 
@@ -226,7 +226,7 @@ class TestBGPCommon:
         TG_D2 = 'D2'
 
         # Verify bgp neighbors between leaf and Tg
-        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv4', neighbor=info['T1D2P1_ipv4'], state='Established')
+        result = bgpapi.verify_bgp_summary(leaf_name, shell='vtysh', family='ipv4', neighbor=info['T1D2P1_ipv4'], state='Established')
 
         if not result:
             bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv4')
@@ -286,7 +286,7 @@ class TestBGPCommon:
         TG_D2 = 'D2'
 
         # Verify bgp neighbors between leaf and Tg
-        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv4', neighbor=info['T1D2P1_ipv4'], state='Established')
+        result = bgpapi.verify_bgp_summary(leaf_name, shell='vtysh', family='ipv4', neighbor=info['T1D2P1_ipv4'], state='Established')
 
         if not result:
             bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv4')
@@ -358,7 +358,7 @@ class TestBGPCommon:
         st.log("BGPCTRL: "+str(bgp_ctrl))
         # Verified at neighbor.
         # Verify bgp neighbors between leaf and Tg
-        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv6', neighbor=info['T1D2P1_ipv6'], state='Established')
+        result = bgpapi.verify_bgp_summary(leaf_name, shell='vtysh', family='ipv6', neighbor=info['T1D2P1_ipv6'], state='Established')
 
         if not result:
             bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv6')
@@ -418,7 +418,7 @@ class TestBGPCommon:
         TG_D2 = 'D2'
 
         # Verify bgp neighbors between leaf and Tg
-        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, leaf_name, family='ipv4', neighbor=info['T1D2P1_ipv4'],
+        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, leaf_name, shell='vtysh', family='ipv4', neighbor=info['T1D2P1_ipv4'],
                                state='Established'):
             bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv4')
             st.error("Neighbour is failed to Establish between Leaf - TG")
@@ -546,7 +546,7 @@ class TestBGPRif(TestBGPCommon):
             st.report_fail('test_case_failed')
 
         # Verify bgp session on interface
-        if not utils.poll_wait(bgpapi.verify_bgp_summary, 130, leaf_name, family='ipv6', neighbor=info['D2D1P1'],
+        if not utils.poll_wait(bgpapi.verify_bgp_summary, 130, leaf_name, shell='vtysh', family='ipv6', neighbor=info['D2D1P1'],
                                state='Established'):
             # show neighbors for debug in case of failure and Clear all config
             utils.exec_all(True, [[bgpapi.show_bgp_ipv6_neighbor_vtysh, leaf_name], [bgpapi.show_bgp_ipv6_neighbor_vtysh, spine_name]])
@@ -633,7 +633,7 @@ class TestBGPRif(TestBGPCommon):
         bgpapi.create_bgp_neighbor_use_peergroup(spine_name, info['D1_as'], 'spine_leaf', leaf_ipv4, cli_type=bgp_cli_type)
 
         # Verify bgp neighbors
-        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv4', neighbor='*'+spine_ipv4, state='Established')
+        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv4', shell='vtysh', neighbor='*'+spine_ipv4, state='Established')
         if not result:
             bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv4')
         # Clear applied configs
@@ -688,7 +688,7 @@ class TestBGPRif(TestBGPCommon):
         bgpapi.create_bgp_neighbor_use_peergroup(spine_name, info['D1_as'], 'spine_leaf6', leaf_ipv6, family='ipv6', cli_type=bgp_cli_type)
 
         # Verify dynamic bgp neighbors
-        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv6', neighbor='*'+spine_ipv6, state='Established')
+        result = bgpapi.verify_bgp_summary(leaf_name, family='ipv6', shell='vtysh', neighbor='*'+spine_ipv6, state='Established')
         if not result:
             bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv6')
         # Clear applied configs
@@ -749,7 +749,7 @@ class TestBGPRif(TestBGPCommon):
             bgpapi.config_bgp_listen(leaf_name, info['D2_as'], listen_range, 24, 'leaf_spine', 0,cli_type=bgp_cli_type)
             bgpapi.create_bgp_neighbor_use_peergroup(spine_name, info['D1_as'], 'spine_leaf', leaf_ipaddr)
             # Verify dynamic bgp neighbors
-            result = result & (bgpapi.verify_bgp_summary(leaf_name, family='ipv4', neighbor='*'+spine_ipaddr,
+            result = result & (bgpapi.verify_bgp_summary(leaf_name, shell='vtysh', family='ipv4', neighbor='*'+spine_ipaddr,
                                                          state='Established'))
             if not result:
                 bgplib.show_bgp_neighbors([leaf_name, spine_name], af='ipv4')
@@ -1726,7 +1726,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
         # clear bgp neighbors before checking for neighbor state again.
         bgpapi.clear_ip_bgp_vtysh(dut=self.local_topo['dut1'], value="*")
         bgpapi.clear_ip_bgp_vtysh(dut=self.local_topo['dut2'], value="*")
-        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, self.local_topo['dut1'], family='ipv4',
+        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, self.local_topo['dut1'], shell='vtysh', family='ipv4',
                                neighbor=self.local_topo['dut2_addr_ipv4'], state='Established'):
             bgplib.show_bgp_neighbors([self.local_topo['dut1'], self.local_topo['dut2']], af='ipv4')
             st.error("BGP Neighbor failed to Establish between DUT1 and DUT2")
@@ -1770,7 +1770,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
         bgpapi.clear_ip_bgp_vtysh(dut=self.local_topo['dut1'], value="*")
         bgpapi.clear_ip_bgp_vtysh(dut=self.local_topo['dut2'], value="*")
 
-        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, self.local_topo['dut1'], family='ipv4',
+        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, self.local_topo['dut1'], shell='vtysh', family='ipv4',
                                neighbor=self.local_topo['dut2_addr_ipv4'], state='Established'):
             bgplib.show_bgp_neighbors([self.local_topo['dut1'], self.local_topo['dut2']], af='ipv4')
             st.error("BGP Neighbor failed to Establish between DUT1 and DUT2")
@@ -1784,7 +1784,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
         st.vtysh(self.local_topo['dut1'], "copy running-config startup-config")
         st.reboot(self.local_topo['dut1'], 'fast')
         st.wait(3)
-        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, self.local_topo['dut1'], family='ipv4',
+        if not utils.poll_wait(bgpapi.verify_bgp_summary, 30, self.local_topo['dut1'], shell='vtysh', family='ipv4',
                                neighbor=self.local_topo['dut2_addr_ipv4'], state='Established'):
             bgplib.show_bgp_neighbors([self.local_topo['dut1'], self.local_topo['dut2']], af='ipv4')
             st.error("BGP Neighbor failed to Establish between DUT1 and DUT2")
@@ -1829,7 +1829,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
             st.log("{} - Neighbor {} is failed to Establish".format(topo.dut_list[0],
                                                                     self.local_topo['dut2_addr_ipv6']))
             result = False
-        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv6_summary(topo.dut_list[1])
+        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv6_summary_vtysh(topo.dut_list[1])
         rib_entries_after_update_timer = bgp_summary_spine_after_update_timer[0]['ribentries']
         st.log('RIB Entries after update delay timer expiry : {}'.format(rib_entries_after_update_timer))
         if int(rib_entries_after_update_timer) < 500:
@@ -1888,7 +1888,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
             st.log("{} - Neighbor {} is failed to Establish".format(topo.dut_list[0],
                                                                     self.local_topo['dut2_addr_ipv6']))
             result = False
-        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv6_summary(topo.dut_list[0])
+        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv6_summary_vtysh(topo.dut_list[0])
         rib_entries_after_update_timer = bgp_summary_spine_after_update_timer[0]['ribentries']
         st.log('RIB Entries after update delay timer expiry : {}'.format(rib_entries_after_update_timer))
         if int(rib_entries_after_update_timer) < 1000:
@@ -1937,7 +1937,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
             st.log("{} - Neighbor {} is failed to Establish".format(topo.dut_list[0],
                                                                     self.local_topo['dut2_addr_ipv6']))
             result = False
-        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv6_summary(topo.dut_list[0])
+        bgp_summary_spine_after_update_timer = bgpapi.show_bgp_ipv6_summary_vtysh(topo.dut_list[0])
         rib_entries_after_update_timer = bgp_summary_spine_after_update_timer[0]['ribentries']
         st.log('RIB Entries after reboot : {}'.format(rib_entries_after_update_timer))
         # without BGP helper, after reboot, no routes sent by DUT2 will be seen in dut1.
