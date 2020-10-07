@@ -2,7 +2,7 @@ import time
 import pytest
 
 from abstract_open_traffic_generator.result import FlowRequest, CaptureRequest
-from abstract_open_traffic_generator.control import FlowTransmit, PortCapture
+from abstract_open_traffic_generator.control import *
 from abstract_open_traffic_generator.port import Capture
 
 from tests.common.helpers.assertions import pytest_assert
@@ -53,40 +53,33 @@ def test_ecn_marking_at_ecress(api,
 
     for base_config in ecn_marking_at_ecress:
         rx_port=base_config.ports[1]
-        rx_port.capture=Capture(choice=[], enable=True, format='pcapng')
+        rx_port.capture = Capture(choice=[], enable=True, format='pcapng')
 
         # create the configuration
-        api.set_config(base_config)
+        api.set_state(State(ConfigState(config=base_config, state='set')))
 
         # start capture
-        api.set_port_capture(PortCapture(port_names=[rx_port.name]))
+        api.set_state(State(PortCaptureState(port_names=[rx_port.name], state='start')))
 
         # start all flows
-        api.set_flow_transmit(FlowTransmit(state='start'))
+        api.set_state(State(FlowTransmitState(state='start')))
 
         exp_dur = start_delay + traffic_duration
         logger.info("Traffic is running for %s seconds" %(traffic_duration))
         time.sleep(exp_dur)
 
         # stop all flows
-        api.set_flow_transmit(FlowTransmit(state='stop'))
+        api.set_state(State(FlowTransmitState(state='stop')))
 
         pcap_bytes = api.get_capture_results(CaptureRequest(port_name=rx_port.name))
 
         # Get statistics
-        test_stat = api.get_flow_results(FlowRequest())
-
-        for rows in test_stat['rows'] :
-            tx_frame_index = test_stat['columns'].index('frames_tx')
-            rx_frame_index = test_stat['columns'].index('frames_rx')
-            caption_index = test_stat['columns'].index('name')   
-            if ((rows[caption_index] == 'Test Data') or
-                (rows[caption_index] == 'Background Data')):
-                tx_frames = float(rows[tx_frame_index])
-                rx_frames = float(rows[rx_frame_index])
-                if ((tx_frames != rx_frames) or (rx_frames == 0)) :
-                    pytest_assert(False,
-                        "Not all %s reached Rx End" %(rows[caption_index]))
+        stat_captions =['Test Data']
+        for row in api.get_flow_results(FlowRequest(flow_names=stat_captions)):
+            if (row['name'] == 'Test Data') :
+                if ((row['frames_rx'] == 0) or (row['frames_tx'] != row['frames_rx'])):
+                     pytest_assert(False,
+                         "Not all %s reached Rx End" %(rows[caption_index]))
 
         # write the pcap bytes to a local file
         with open('%s.pcap' % rx_port.name, 'wb') as fid:
