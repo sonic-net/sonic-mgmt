@@ -1,0 +1,72 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    SD1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.137, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    SD2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.103, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    SD3:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.104, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    SD4:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.105, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+topology:
+    SD1:
+        interfaces:
+            Ethernet0: {EndDevice: SD2, EndPort: Ethernet0, params: def_link}
+            Ethernet1: {EndDevice: SD2, EndPort: Ethernet1, params: def_link}
+            Ethernet2: {EndDevice: SD2, EndPort: Ethernet2, params: def_link}
+            Ethernet3: {EndDevice: SD2, EndPort: Ethernet3, params: def_link}
+            Ethernet4: {EndDevice: SD3, EndPort: Ethernet0, params: def_link}
+            Ethernet5: {EndDevice: SD3, EndPort: Ethernet1, params: def_link}
+            Ethernet6: {EndDevice: SD3, EndPort: Ethernet2, params: def_link}
+            Ethernet7: {EndDevice: SD3, EndPort: Ethernet3, params: def_link}
+            Ethernet8: {EndDevice: SD4, EndPort: Ethernet0, params: def_link}
+            Ethernet9: {EndDevice: SD4, EndPort: Ethernet1, params: def_link}
+            Ethernet10: {EndDevice: SD4, EndPort: Ethernet2, params: def_link}
+            Ethernet11: {EndDevice: SD4, EndPort: Ethernet3, params: def_link}
+    SD2:
+        interfaces:
+            Ethernet4: {EndDevice: SD3, EndPort: Ethernet4, params: def_link}
+            Ethernet5: {EndDevice: SD3, EndPort: Ethernet5, params: def_link}
+            Ethernet6: {EndDevice: SD3, EndPort: Ethernet6, params: def_link}
+            Ethernet7: {EndDevice: SD3, EndPort: Ethernet7, params: def_link}
+            Ethernet8: {EndDevice: SD4, EndPort: Ethernet4, params: def_link}
+            Ethernet9: {EndDevice: SD4, EndPort: Ethernet5, params: def_link}
+            Ethernet10: {EndDevice: SD4, EndPort: Ethernet6, params: def_link}
+            Ethernet11: {EndDevice: SD4, EndPort: Ethernet7, params: def_link}
+    SD3:
+        interfaces:
+            Ethernet8: {EndDevice: SD4, EndPort: Ethernet8, params: def_link}
+            Ethernet9: {EndDevice: SD4, EndPort: Ethernet9, params: def_link}
+            Ethernet10: {EndDevice: SD4, EndPort: Ethernet10, params: def_link}
+            Ethernet11: {EndDevice: SD4, EndPort: Ethernet11, params: def_link}
+
