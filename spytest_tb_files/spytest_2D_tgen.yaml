@@ -17,13 +17,13 @@ devices:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.162, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
-        credentials: {username: admin, password: YourPaSsWoRd, altpassword: cisco123}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD2:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.138, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
-        credentials: {username: admin, password: YourPaSsWoRd, altpassword: cisco123}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     stc-01:
         device_type: TGEN
