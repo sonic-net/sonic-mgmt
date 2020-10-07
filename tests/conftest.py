@@ -135,9 +135,9 @@ def pytest_addoption(parser):
     ########################
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
-    parser.addoption("--enable_container_autorestart", action="store_true", default=False,
-                     help="The autorestart of containers may hide errors in tests. \
-                         If still needed, enable autorestart of containers")
+    parser.addoption("--skip_fixture_disable_container_autorestart", action="store_true", default=False,
+                     help="The autorestart of containers will be disabled by default. \
+                         Set this option to skip fixture disable_container_autorestart")
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
@@ -433,7 +433,7 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
 
 @pytest.fixture(scope="module", autouse=True)
 def disable_container_autorestart(duthost, request):
-    if request.config.getoption("--enable_container_autorestart"):
+    if request.config.getoption("--skip_fixture_disable_container_autorestart"):
         yield
         return
     skip = False
