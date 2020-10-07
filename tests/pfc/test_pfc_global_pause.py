@@ -4,6 +4,8 @@ import pytest
 from abstract_open_traffic_generator.result import FlowRequest
 from abstract_open_traffic_generator.control import FlowTransmit
 
+from tests.common.helpers.assertions import pytest_assert
+
 from tests.common.reboot import logger
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts 
@@ -43,12 +45,26 @@ def test_pfc_global_pause(api,
                           port_bandwidth,
                           frame_size):
     """
+    This test case checks the behaviour of the SONiC DUT when it receives 
+    a PFC global pause frame.
                                 +-----------+
     [Keysight Chassis Tx Port]  |           | [Keysight Chassis Rx Port]
     --------------------------->| SONiC DUT |<---------------------------
-    Test Data Traffic +         |           |  PFC pause frame on 
-    Background Dada Traffic     +-----------+  "lossy" priorities.
-
+    Test Data Traffic +         |           |  Global pause frame 
+    Background Dada Traffic     +-----------+
+    1. Configure SONiC DUT with multipul lossless priorities. 
+    2. On SONiC DUT enable PFC on several lossless priorities e.g priority 
+       3 and 4.
+    3. On the Keysight chassis Tx port create two flows - a) 'Test Data Traffic'
+       and b) 'Background Data traffic'.
+    4. Configure 'Test Data Traffic' such that it contains traffic items
+       with all lossy priorities.
+    5. Configure 'Background Data Traffic' it contains traffic items with
+       all lossless priorities.
+    6. From Rx port send Global Pause frame.
+    7. When Pause Storm are running, Keysight Rx port is receiving
+       both 'Test Data Traffic' and 'Background Data traffic'.
+    8. Stop all flows.
     """
     duthost.shell('sudo pfcwd stop')
 
@@ -61,36 +77,39 @@ def test_pfc_global_pause(api,
         api.set_flow_transmit(FlowTransmit(state='start'))
 
         exp_dur = start_delay + traffic_duration
-        logger.info("Traffic is running for %s seconds" %(exp_dur))
+        logger.info("Traffic is running for %s seconds" %(traffic_duration))
         time.sleep(exp_dur)
 
-        # stop all flows
         api.set_flow_transmit(FlowTransmit(state='stop'))
 
         # Get statistics
         test_stat = api.get_flow_results(FlowRequest())
 
         for rows in test_stat['rows'] :
+
             tx_frame_index = test_stat['columns'].index('frames_tx')
             rx_frame_index = test_stat['columns'].index('frames_rx')
             caption_index = test_stat['columns'].index('name')   
             if ((rows[caption_index] == 'Test Data') or
                 (rows[caption_index] == 'Background Data')):
 
-                tx_frames = rows[tx_frame_index]
-                rx_frames = rows[rx_frame_index]
+                tx_frames = float(rows[tx_frame_index])
+                rx_frames = float(rows[rx_frame_index])
+
                 if ((tx_frames != rx_frames) or (rx_frames == 0)) :
                     pytest_assert(False,
                         "Not all %s reached Rx End" %(rows[caption_index]))
 
-                rx_bits = rx_frames * frame_size * 8.0
-                exp_rx_bits = port_bandwidth * traffic_duration * traffic_line_rate
-                tolerance_ratio = rx_bits / exp_rx_bits
+                rx_bytes = rx_frames * frame_size
+
+                line_rate = traffic_line_rate / 100.0
+                exp_rx_bytes = (port_bandwidth * line_rate * traffic_duration) / 8
+
+                tolerance_ratio = rx_bytes / exp_rx_bytes
 
                 if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                     (tolerance_ratio > 1)) :
-
-                    logger.error("tolerance_ratio = %s" %(tolerance_ratio))
                     pytest_assert(False,
                         "expected % of packets not received at the RX port")
+                 
 

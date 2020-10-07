@@ -27,8 +27,8 @@ from abstract_open_traffic_generator.device import\
 
 from abstract_open_traffic_generator.flow import\
     DeviceTxRx, TxRx, Flow, Header, Size, Rate,\
-    Duration, FixedSeconds, PortTxRx, PfcPause, Counter, Random,\
-    EthernetPause, Continuous
+    Duration, FixedPackets, PortTxRx, PfcPause, Counter, Random,\
+    EthernetPause, FixedSeconds, Continuous
 
 from abstract_open_traffic_generator.flow_ipv4 import\
     Priority, Dscp
@@ -48,16 +48,14 @@ def base_configs(testbed,
                  traffic_duration,
                  pause_line_rate,
                  traffic_line_rate,
-                 pause_frame_type,
                  frame_size,
+                 ecn_thresholds,
                  serializer) :
 
     for config in one_hundred_gbe :
 
-        delay = start_delay * 1000000000.0
 
-        bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
-        test_dscp_list = [str(x) for x in range(64) if x not in bg_dscp_list]
+        test_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
 
         tx = config.ports[0]
         rx = config.ports[1]
@@ -78,14 +76,12 @@ def base_configs(testbed,
         rx_gateway_ip = gw_addr
 
         test_flow_name = 'Test Data'
-        background_flow_name = 'Background Data'
 
         test_line_rate = traffic_line_rate
-        background_line_rate = traffic_line_rate
         pause_line_rate = pause_line_rate
 
-        pytest_assert(test_line_rate + background_line_rate <= 100,
-            "test_line_rate + background_line_rate should be less than 100")
+        pytest_assert(test_line_rate <= pause_line_rate,
+            "test_line_rate + should be less than pause_line_rate")
 
         ######################################################################
         # Create TX stack configuration
@@ -109,6 +105,7 @@ def base_configs(testbed,
                        gateway=Pattern(rx_gateway_ip),
                        ethernet=Ethernet(name='Rx Ethernet'))
 
+
         rx.devices.append(Device(name='Rx Device',
                                         device_count=1,
                                         choice=rx_ipv4))
@@ -121,8 +118,19 @@ def base_configs(testbed,
             rx_device_names=[rx.devices[0].name],
         )
 
-        test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
 
+        pytest_assert(ecn_thresholds < 1024 * 1024,
+            "keep the ECN thresholds less than 1MB")
+
+        test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list),
+                                  ecn=FieldPattern(Dscp.ECN_CAPABLE_TRANSPORT_1)))
+
+        # ecn_thresholds in bytes 
+        number_of_packets = int(2 * (ecn_thresholds / frame_size))
+        logger.info("Total number of packets to send = 2 * %s = %s"\
+            %(ecn_thresholds / frame_size, number_of_packets))
+   
+        delay = start_delay * 1000000000.0
         test_flow = Flow(
             name=test_flow_name,
             tx_rx=TxRx(data_endpoint),
@@ -132,70 +140,38 @@ def base_configs(testbed,
             ],
             size=Size(frame_size),
             rate=Rate('line', test_line_rate),
-            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay, delay_unit='nanoseconds'))
+            duration=Duration(FixedPackets(packets=number_of_packets, delay=delay, delay_unit='nanoseconds'))
         )
 
         config.flows.append(test_flow)
-        #######################################################################
-        # Traffic configuration Background data
-        #######################################################################
-        background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
-        background_flow = Flow(
-            name=background_flow_name,
-            tx_rx=TxRx(data_endpoint),
-            packet=[
-                Header(choice=EthernetHeader()),
-                Header(choice=Ipv4Header(priority=background_dscp))
-            ],
-            size=Size(frame_size),
-            rate=Rate('line', background_line_rate),
-            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay, delay_unit='nanoseconds'))
-        )
-        config.flows.append(background_flow)
 
         #######################################################################
         # Traffic configuration Pause
         #######################################################################
         pause_endpoint = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
-        if (pause_frame_type == 'priority') :
-            pause = Header(PfcPause(
-                dst=FieldPattern(choice='01:80:C2:00:00:01'),
-                src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
-                class_enable_vector=FieldPattern(choice='E7'),
-                pause_class_0=FieldPattern(choice='ffff'),
-                pause_class_1=FieldPattern(choice='ffff'),
-                pause_class_2=FieldPattern(choice='ffff'),
-                pause_class_3=FieldPattern(choice='0'),
-                pause_class_4=FieldPattern(choice='0'),
-                pause_class_5=FieldPattern(choice='ffff'),
-                pause_class_6=FieldPattern(choice='ffff'),
-                pause_class_7=FieldPattern(choice='ffff'),
-            ))
+        pause = Header(PfcPause(
+            dst=FieldPattern(choice='01:80:C2:00:00:01'),
+            src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
+            class_enable_vector=FieldPattern(choice='18'),
+            pause_class_0=FieldPattern(choice='0'),
+            pause_class_1=FieldPattern(choice='0'),
+            pause_class_2=FieldPattern(choice='0'),
+            pause_class_3=FieldPattern(choice='ffff'),
+            pause_class_4=FieldPattern(choice='ffff'),
+            pause_class_5=FieldPattern(choice='0'),
+            pause_class_6=FieldPattern(choice='0'),
+            pause_class_7=FieldPattern(choice='0'),
+        ))
 
-            pause_flow = Flow(
-                name='Pause Storm',
-                tx_rx=TxRx(pause_endpoint),
-                packet=[pause],
-                size=Size(64),
-                rate=Rate('line', value=100),
-                duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
-            )
-        elif (pause_frame_type == 'global') :
-            pause = Header(EthernetPause(
-                dst=FieldPattern(choice='01:80:C2:00:00:01'),
-                src=FieldPattern(choice='00:00:fa:ce:fa:ce')
-            ))
-
-            pause_flow = Flow(
-                name='Pause Storm',
-                tx_rx=TxRx(pause_endpoint),
-                packet=[pause],
-                size=Size(64),
-                rate=Rate('line', value=pause_line_rate),
-                duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
-            )
-        else :
-            pass   
+        pause_duration = start_delay + traffic_duration
+        pause_flow = Flow(
+            name='Pause Storm',
+            tx_rx=TxRx(pause_endpoint),
+            packet=[pause],
+            size=Size(64),
+            rate=Rate('line', value=100),
+            duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
+        )
 
         config.flows.append(pause_flow)
 
@@ -344,44 +320,46 @@ def one_hundred_gbe(testbed,
 
 
 @pytest.fixture
-def lossy_configs(testbed,
-                  conn_graph_facts,
-                  duthost,
-                  lossless_prio_dscp_map,
-                  one_hundred_gbe,
-                  start_delay,
-                  traffic_duration,
-                  pause_line_rate,
-                  traffic_line_rate,
-                  frame_size, 
-                  serializer) :
+def ecn_marking_at_ecress(testbed,
+                          conn_graph_facts,
+                          duthost,
+                          lossless_prio_dscp_map,
+                          one_hundred_gbe,
+                          start_delay,
+                          traffic_duration,
+                          pause_line_rate,
+                          traffic_line_rate,
+                          frame_size,
+                          ecn_thresholds,
+                          serializer) :
 
     return(base_configs(testbed=testbed,
                         conn_graph_facts=conn_graph_facts,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
-                        traffic_duration=traffic_duration,
                         start_delay=start_delay,
+                        traffic_duration=traffic_duration,
                         pause_line_rate=pause_line_rate,
                         traffic_line_rate=traffic_line_rate,
-                        pause_frame_type='priority',
                         frame_size=frame_size,
+                        ecn_thresholds=ecn_thresholds,
                         serializer=serializer))
 
 
 @pytest.fixture
-def global_pause(testbed,
-                 conn_graph_facts,
-                 duthost,
-                 lossless_prio_dscp_map,
-                 one_hundred_gbe,
-                 start_delay,
-                 traffic_duration,
-                 pause_line_rate,
-                 traffic_line_rate,
-                 frame_size,
-                 serializer) :
+def marking_accuracy(testbed,
+                     conn_graph_facts,
+                     duthost,
+                     lossless_prio_dscp_map,
+                     one_hundred_gbe,
+                     start_delay,
+                     traffic_duration,
+                     pause_line_rate,
+                     traffic_line_rate,
+                     frame_sizea,
+                     ecn_thresholds,
+                     serializer) :
 
     return(base_configs(testbed=testbed,
                         conn_graph_facts=conn_graph_facts,
@@ -392,7 +370,7 @@ def global_pause(testbed,
                         traffic_duration=traffic_duration,
                         pause_line_rate=pause_line_rate,
                         traffic_line_rate=traffic_line_rate,
-                        pause_frame_type='global',
                         frame_size=frame_size,
+                        ecn_thresholds=ecn_thresholds,
                         serializer=serializer))
 

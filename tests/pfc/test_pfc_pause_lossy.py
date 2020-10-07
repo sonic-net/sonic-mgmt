@@ -73,7 +73,6 @@ def test_pfc_pause_lossy_traffic(api,
     duthost.shell('sudo pfcwd stop')
 
     for base_config in lossy_configs:
-
         # create the configuration
         api.set_config(base_config)
 
@@ -89,28 +88,31 @@ def test_pfc_pause_lossy_traffic(api,
 
         # Get statistics
         test_stat = api.get_flow_results(FlowRequest())
-        logger.info(test_stat)
+
         for rows in test_stat['rows'] :
             tx_frame_index = test_stat['columns'].index('frames_tx')
             rx_frame_index = test_stat['columns'].index('frames_rx')
             caption_index = test_stat['columns'].index('name')   
             if ((rows[caption_index] == 'Test Data') or
                 (rows[caption_index] == 'Background Data')):
-                tx_frames = rows[tx_frame_index]
-                rx_frames = rows[rx_frame_index]
+
+                tx_frames = float(rows[tx_frame_index])
+                rx_frames = float(rows[rx_frame_index])
+
                 if ((tx_frames != rx_frames) or (rx_frames == 0)) :
                     pytest_assert(False,
                         "Not all %s reached Rx End" %(rows[caption_index]))
                 
-                rx_bits = rx_frames * frame_size * 8.0
-                exp_rx_bits = port_bandwidth * traffic_duration * traffic_line_rate
-                tolerance_ratio = rx_bits / exp_rx_bits
+                rx_bytes = rx_frames * frame_size
+
+                line_rate = traffic_line_rate / 100.0
+                exp_rx_bytes = (port_bandwidth * line_rate * traffic_duration) / 8
+
+                tolerance_ratio = rx_bytes / exp_rx_bytes
 
                 if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                     (tolerance_ratio > 1)) :
-
-                    logger.error("tolerance_ratio = %s" %(tolerance_ratio))
                     pytest_assert(False,
                         "expected % of packets not received at the RX port")
- 
+          
 
