@@ -5,25 +5,21 @@
     - [Scope](#scope)
     - [Testbed](#testbed)
   - [Test cases](#test-cases)
-    - [SONiC Worker Node Join](#test-cases---sonic-worker-node-join)
-    - [SONiC Worker Node Reset](#test-cases---sonic-worker-node-reset)
-    - [Manifest Deployment](#test-cases---manifest-deployment-from-master)
-    - [Transition between Kube Mode and Local Mode](#test-cases---transition-between-kube-mode-and-local-mode)
-    - [SONiC Reboot](#test-cases---sonic-reboot)
-    - [Miscellaneous](#test-cases---miscellaneous)
+    - [SONiC Worker Node Join/Reset](#test-scenario-joinreset)
+    - [Local Mode and Kube Mode Transitions, Manifest Application](#test-scenario-mode-transitions-feature-image-upgrades-with-reachable-master)
+    - [Unreachable Master](#test-scenario-unreachable-master)
+    - [SONiC Reboot](#test-scenario-reboot-when-master-is-reachable)
 
 
 # Overview
 
- ### Background
+### Background
  SONiC features can run in either kube mode or local mode. SONiC features (dockers) running in kube mode are managed by the connected Kubernetes master. From the master, we can deploy upgrades to SONiC features running in kube mode with minimal downtime. Features have the ability to switch between kube mode and local mode. For more background on Kubernetes features in SONiC and kube mode vs local mode, refer to [this document](https://github.com/renukamanavalan/SONiC/blob/kube_systemd/doc/kubernetes/Kubernetes-support.md). 
 
 ### Scope
-
 This test plan aims to ensure proper Kubernetes management of SONiC features running in kube mode, and seamless transition of a SONiC feature between kube mode and local mode.
 
 ### Testbed
-
 Kubernetes tests require a Kubernetes master reachable from the SONiC DUT. In order to connect each SONiC DUT to a High Availability Kubernetes master, we need to set up the following topology on a testbed server: 
 ![alt text](https://github.com/isabelmsft/k8s-ha-master-starlab/blob/master/k8s-testbed-linux.png)
 
@@ -62,7 +58,7 @@ Verify Device Under Test (DUT) joins high availability master once the VIP and K
 #### Test Objective
 Verify Device Under Test (DUT) responds appropriately to kube server disable flag by joining when disable == false and leaving master when disable == true
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - Server status shows Connected 
 #### Test Steps
 1. Set disable flag = true
@@ -75,7 +71,7 @@ Verify Device Under Test (DUT) responds appropriately to kube server disable fla
 #### Test Objective
 Verify Device Under Test (DUT) appropriately remains joined to master upon config reload
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - Server status shows Connected
 #### Test Steps
 1. Do config reload
@@ -85,7 +81,7 @@ Verify Device Under Test (DUT) appropriately remains joined to master upon confi
 #### Test Objective
 Verify Device Under Test (DUT) appropriately disconnects upon config reload toggling disable flag to true
 #### Test Configuration
-- Pick up from step 1 of [TC_JOIN_2](#tcjoin2-test-disable-flag)
+- Pick up from step 1 of [TC_JOIN_2](#tc_join_2-test-disable-flag)
 - Server status shows Disconnected
 - Disable flag is set to true (config not yet saved)
 #### Test Steps
@@ -99,7 +95,7 @@ Verify Device Under Test (DUT) appropriately disconnects upon config reload togg
 #### Test Objective
 Verify Device Under Test (DUT) appropriately disconnects upon config reload toggling disable flag to false
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - Server status shows Connected
 - Disable flag is set to false (config saved)
 #### Test Steps
@@ -115,7 +111,7 @@ Verify Device Under Test (DUT) appropriately disconnects upon config reload togg
 #### Test Objective
 Verify Device Under Test (DUT) properly transitions between local mode and kube mode when manifest is properly applied
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - SNMP current_owner=local, set_owner=kube, remote_state=none, container_version=1.0
 #### Test Steps
 1. Apply manifest for SNMP v1.1 with valid URL
@@ -135,7 +131,7 @@ Verify Device Under Test (DUT) properly transitions between local mode and kube 
 #### Test Objective
 Verify Device Under Test (DUT) running kube mode feature container v1.1 properly upgrades to kube mode feature v2.0 upon successful application of v2.0 manifest
 #### Test Configuration
-- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tc_local_kube_1-switch-between-local-mode-and-kube-mode)
 - SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Deploy SNMP v2.0 manifest with valid URL
@@ -153,7 +149,7 @@ Verify Device Under Test (DUT) running kube mode feature container v1.1 properly
 #### Test Objective
 Verify Device Under Test (DUT) local mode feature properly responds to set_owner=kube when kube mode feature fails to deploy properly (failed manifest application due to invalid URL)
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - SNMP current_owner=local, set_owner=kube, remote_state=none, container_version=1.0
 #### Test Steps
 1. Apply SNMP v1.1 manifest with invalid URL
@@ -172,7 +168,7 @@ Verify Device Under Test (DUT) local mode feature properly responds to set_owner
 #### Test Objective
 Verify Device Under Test (DUT) kube mode feature v1.1 properly responds to failed manifest application to upgrade kube mode feature to v2.0. 
 #### Test Configuration
-- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tc_local_kube_1-switch-between-local-mode-and-kube-mode)
 - SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Deploy manifest with invalid URL
@@ -192,7 +188,7 @@ Verify Device Under Test (DUT) kube mode feature v1.1 properly responds to faile
 #### Test Objective
 Verify Device Under Test (DUT) properly responds to the application of a manifest to recreate a daemonset that was accidentally deleted
 #### Test Configuration
-- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tc_local_kube_1-switch-between-local-mode-and-kube-mode)
 - SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Delete SNMP kube feature daemonset
@@ -208,7 +204,7 @@ Verify Device Under Test (DUT) properly responds to the application of a manifes
 #### Test Objective
 Verify Device Under Test (DUT) kube mode features continue running in kube mode even when VIP is unreachable
 #### Test Configuration
-- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tc_local_kube_1-switch-between-local-mode-and-kube-mode)
 - SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Shut down HAProxy machine
@@ -227,7 +223,7 @@ Verify Device Under Test (DUT) kube mode features continue running in kube mode 
 #### Test Objective
 Verify Device Under Test (DUT) kube mode feature properly transitions to local mode even when the Kubernetes master servers are down
 #### Test Configuration
-- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tc_local_kube_1-switch-between-local-mode-and-kube-mode)
 - SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Shut down two backend Kubernetes master servers
@@ -250,7 +246,7 @@ Verify Device Under Test (DUT) kube mode feature properly transitions to local m
 #### Test Objective
 Verify Device Under Test (DUT) appropriately processes offline request to transition feature from local mode to kube mode. The kube mode container should start running once the Kubernetes master API Server is up.  
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - SNMP current_owner=local, set_owner=kube, remote_state=none, container_version=1.0
 #### Test Steps
 1. Kill API Server processes on three backend Kubernetes master servers
@@ -275,7 +271,7 @@ Verify Device Under Test (DUT) appropriately processes offline request to transi
 #### Test Objective
 Verify Device Under Test (DUT) kube mode feature appropriately falls back to local mode upon reboot when the VIP is unreachable and fallback to local is set
 #### Test Configuration
-- Pick up from step 1 of [TC_NO_MASTER_1](#tcnomaster1-kube-mode-feature-running-unreachable-vip)
+- Pick up from step 1 of [TC_NO_MASTER_1](#tc_no_master_1-kube-mode-feature-running-unreachable-vip)
 - SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Turn on SNMP fallback to local (fallback_to_local=true) and save config
@@ -288,7 +284,7 @@ Verify Device Under Test (DUT) kube mode feature appropriately falls back to loc
 #### Test Objective
 Verify Device Under Test (DUT) kube mode feature appropriately fails to fall back to local mode upon reboot when the VIP is unreachable and fallback to local is not set
 #### Test Configuration
-- Pick up from step 1 of [TC_NO_MASTER_1](#tcnomaster1-kube-mode-feature-running-unreachable-vip)
+- Pick up from step 1 of [TC_NO_MASTER_1](#tc_no_master_1-kube-mode-feature-running-unreachable-vip)
 - SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Turn off SNMP fallback to local (fallback_to_local=false) and save config
@@ -303,7 +299,7 @@ Verify Device Under Test (DUT) kube mode feature appropriately fails to fall bac
 #### Test Objective
 Verify Device Under Test (DUT) appropriately joins master upon reboot and successfully starts kube mode feature when fallback to local is set. Feature should run in local mode, and then transition to kube mode once the kubelet service starts in DUT. 
 #### Test Configuration
-- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tc_local_kube_1-switch-between-local-mode-and-kube-mode)
 - Server status shows Connected, SNMP current_owner=kube, container_version=1.1
 #### Test Steps
 1. Turn on SNMP fallback to local (fallback_to_local=true) and save config
@@ -317,7 +313,7 @@ Verify Device Under Test (DUT) appropriately joins master upon reboot and succes
 #### Test Objective
 Verify Device Under Test (DUT) appropriately joins master upon reboot and successfully starts kube mode feature once kubelet service is up. Because fallback to local is not set, no feature container will run until the kubelet service is up. 
 #### Test Configuration
-- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tc_local_kube_1-switch-between-local-mode-and-kube-mode)
 - Server status shows Connected, SNMP current_owner=kube, container_version=1.1
 #### Test Steps
 1. Turn off SNMP fallback to local (fallback_to_local=false) and save config
