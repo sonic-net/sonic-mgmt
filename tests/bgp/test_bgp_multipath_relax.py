@@ -8,19 +8,19 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def get_t2_neigh(testbed):
+def get_t2_neigh(tbinfo):
     dut_t2_neigh = []
-    for vm in testbed['topo']['properties']['topology']['VMs'].keys():
+    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
         if 'T2' in vm:
             dut_t2_neigh.append(vm)
     return  dut_t2_neigh
 
-def get_t0_neigh(testbed, topo_config):
+def get_t0_neigh(tbinfo, topo_config):
     """
     get all t0 router names which has vips defined
     """
     dut_t0_neigh = []
-    for vm in testbed['topo']['properties']['topology']['VMs'].keys():
+    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
         if 'T0' in vm:
             if topo_config[vm].has_key('vips'):
                 dut_t0_neigh.append(vm)
@@ -49,7 +49,7 @@ def get_vips_prefix_paths(dut_t0_neigh, vips_prefix, topo_config):
             vips_asn.append(topo_config[neigh]['vips']['ipv4']['asn'])
     return vips_t0, vips_asn
 
-def get_bgp_v4_neighbors_from_minigraph(duthost, testbed):
+def get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
     # Find all V4 bgp neighbors from minigraph
@@ -60,20 +60,20 @@ def get_bgp_v4_neighbors_from_minigraph(duthost, testbed):
         bgp_v4nei[item['name']] = item['addr']
     return bgp_v4nei
 
-def test_bgp_multipath_relax(testbed, duthost):
+def test_bgp_multipath_relax(tbinfo, duthost):
 
-    logger.info("Starting test_bgp_multipath_relax on topology {}".format(testbed['topo']['name']))
-    topo_config = testbed['topo']['properties']['configuration']
+    logger.info("Starting test_bgp_multipath_relax on topology {}".format(tbinfo['topo']['name']))
+    topo_config = tbinfo['topo']['properties']['configuration']
 
-    bgp_v4nei = get_bgp_v4_neighbors_from_minigraph(duthost, testbed)
+    bgp_v4nei = get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo)
 
     logger.info("bgp_v4nei {}".format(bgp_v4nei))
 
     # get all t0 routers name which has vips defined
-    dut_t0_neigh = get_t0_neigh(testbed, topo_config)
+    dut_t0_neigh = get_t0_neigh(tbinfo, topo_config)
 
     # get t2 neighbors
-    dut_t2_neigh = get_t2_neigh(testbed)
+    dut_t2_neigh = get_t2_neigh(tbinfo)
 
     if not dut_t0_neigh:
         pytest.fail("Didn't find multipath t0's")

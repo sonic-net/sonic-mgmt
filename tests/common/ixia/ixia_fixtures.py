@@ -1,7 +1,7 @@
 from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
 """
 This module contains the necessary fixtures for running test cases with
-Ixia devices and IxNetwork. If more fixtures are required, they should be 
+Ixia devices and IxNetwork. If more fixtures are required, they should be
 included in this file.
 """
 
@@ -9,19 +9,19 @@ import pytest
 from ixnetwork_restpy import SessionAssistant
 
 @pytest.fixture(scope = "module")
-def ixia_api_serv_ip(testbed):
-    """ 
-    In an Ixia testbed, there is no PTF docker. 
-    Hence, we use ptf_ip field to store Ixia API server. 
+def ixia_api_serv_ip(tbinfo):
+    """
+    In an Ixia testbed, there is no PTF docker.
+    Hence, we use ptf_ip field to store Ixia API server.
     This fixture returns the IP address of the Ixia API server.
 
-    Args: 
-       testbed (pytest fixture): The testbed fixture.
+    Args:
+       tbinfo (pytest fixture): fixture provides information about testbed
 
     Returns:
         Ixia API server IP
     """
-    return testbed['ptf_ip']
+    return tbinfo['ptf_ip']
 
 
 @pytest.fixture(scope = "module")
@@ -31,7 +31,7 @@ def ixia_api_serv_user(duthost):
 
     Args:
         duthost (pytest fixture): The duthost fixture.
- 
+
     Returns:
         Ixia API server username.
     """
@@ -45,7 +45,7 @@ def ixia_api_serv_passwd(duthost):
 
     Args:
         duthost (pytest fixture): The duthost fixture.
- 
+
     Returns:
         Ixia API server password.
     """
@@ -59,7 +59,7 @@ def ixia_api_serv_port(duthost):
 
     Args:
         duthost (pytest fixture): The duthost fixture.
- 
+
     Returns:
         Ixia API server REST port.
     """
@@ -84,11 +84,11 @@ def ixia_api_serv_session_id(duthost):
 @pytest.fixture(scope = "module")
 def ixia_dev(duthost, fanouthosts):
     """
-    Returns the Ixia chassis IP. This fixture can return multiple IPs if 
+    Returns the Ixia chassis IP. This fixture can return multiple IPs if
     multiple Ixia chassis are present in the test topology.
 
     Args:
-        duthost (pytest fixture): The duthost fixture. 
+        duthost (pytest fixture): The duthost fixture.
         fanouthosts (pytest fixture): The fanouthosts fixture.
 
     Returns:
@@ -116,9 +116,9 @@ def ixia_api_server_session(
         ixia_api_serv_user (pytest fixture): ixia_api_serv_user fixture.
         ixia_api_serv_passwd (pytest fixture): ixia_api_serv_passwd fixture.
         ixia_api_serv_port (pytest fixture): ixia_api_serv_port fixture.
-        ixia_api_serv_session_id (pytest fixture): ixia_api_serv_session_id 
+        ixia_api_serv_session_id (pytest fixture): ixia_api_serv_session_id
             fixture.
-  
+
     Returns:
         IxNetwork Session
     """
@@ -136,7 +136,7 @@ def ixia_api_server_session(
                                    RestPort=ixia_api_serv_port)
     ixNetwork = session.Ixnetwork
     ixNetwork.NewConfig()
-    
+
     yield session
 
     ixNetwork.NewConfig()

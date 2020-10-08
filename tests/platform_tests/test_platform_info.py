@@ -91,7 +91,7 @@ def psu_test_setup_teardown(duthost):
     logging.info("Starting psu test teardown")
     sensord_running_status, sensord_pid = check_sensord_status(duthost)
     if not sensord_running_status:
-        ans_host.command("docker exec pmon supervisorctl restart lm-sensors")
+        duthost.command("docker exec pmon supervisorctl restart lm-sensors")
         time.sleep(3)
         sensord_running_status, sensord_pid = check_sensord_status(duthost)
         if sensord_running_status:
@@ -186,7 +186,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthost, psu_controller):
         pytest.skip("Some PSU are still down, skip rest of the testing in this case")
 
     assert len(psu_test_results.keys()) == psu_num, \
-        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, cmd_num_psu)
+        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus")
 
     logging.info("Start testing turn off/on PSUs")
     all_psu_status = psu_ctrl.get_psu_status()
@@ -403,30 +403,39 @@ def test_thermal_control_fan_status(duthost, mocker_factory):
         single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
         time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
 
+        _fan_log_supported = duthost.command('docker exec pmon grep -E "{}" /usr/bin/thermalctld'\
+                .format(LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE), module_ignore_errors=True)
+
         if single_fan_mocker.is_fan_removable():
             loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE]
+            if _fan_log_supported.is_failed:
+                loganalyzer.expect_regex.remove(LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE)
             with loganalyzer:
                 logging.info('Mocking an absence FAN...')
                 single_fan_mocker.mock_absence()
                 check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
             loganalyzer.expect_regex = [LOG_EXPECT_FAN_REMOVE_CLEAR_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE]
+            if _fan_log_supported.is_failed:
+                loganalyzer.expect_regex.remove(LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE)
             with loganalyzer:
                 logging.info('Make the absence FAN back to presence...')
                 single_fan_mocker.mock_presence()
                 check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
-        loganalyzer.expect_regex = [LOG_EXPECT_FAN_FAULT_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE]
-        with loganalyzer:
-            logging.info('Mocking a fault FAN...')
-            single_fan_mocker.mock_status(False)
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+        if not _fan_log_supported.is_failed:
+            loganalyzer.expect_regex = [LOG_EXPECT_FAN_FAULT_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE]
+            with loganalyzer:
+                logging.info('Mocking a fault FAN...')
+                single_fan_mocker.mock_status(False)
+                check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
-        loganalyzer.expect_regex = [LOG_EXPECT_FAN_FAULT_CLEAR_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE]
-        with loganalyzer:
-            logging.info('Mocking the fault FAN back to normal...')
-            single_fan_mocker.mock_status(True)
-            check_cli_output_with_mocker(dut, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+            loganalyzer.expect_regex = [LOG_EXPECT_FAN_FAULT_CLEAR_RE, LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE]
+            with loganalyzer:
+                logging.info('Mocking the fault FAN back to normal...')
+                single_fan_mocker.mock_status(True)
+
+            check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]
         with loganalyzer:

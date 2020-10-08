@@ -4,6 +4,7 @@ Helper script for checking status of sysfs.
 This script contains re-usable functions for checking status of hw-management related sysfs.
 """
 import logging
+from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 
 
@@ -11,10 +12,8 @@ def check_sysfs(dut):
     """
     @summary: Check various hw-management related sysfs under /var/run/hw-management
     """
-    dut_hwsku = dut.facts["hwsku"]
-    from tests.common.mellanox_data import SWITCH_MODELS
-    sku_info = SWITCH_MODELS[dut_hwsku]
-    sysfs_config = generate_sysfs_config(sku_info)
+    platform_data = get_platform_data(dut)
+    sysfs_config = generate_sysfs_config(platform_data)
     logging.info("Collect mellanox sysfs facts")
     sysfs_facts = dut.sysfs_facts(config=sysfs_config)['ansible_facts']
 
@@ -32,20 +31,20 @@ def check_sysfs(dut):
 
     logging.info("Check fan related sysfs")
     for fan_id, fan_info in sysfs_facts['fan_info'].items():
-        if SWITCH_MODELS[dut_hwsku]["fans"]["hot_swappable"]:
+        if platform_data["fans"]["hot_swappable"]:
             assert fan_info['status'] == '1', "Fan {} status {} is not 1".format(fan_id, fan_info['status'])
 
         assert fan_info['fault'] == '0', "Fan {} fault status {} is not 1".format(fan_id, fan_info['fault'])
 
     if not _is_fan_speed_in_range(sysfs_facts):
-        sysfs_fan_config = [generate_sysfs_fan_config(sku_info)]
+        sysfs_fan_config = [generate_sysfs_fan_config(platform_data)]
         assert wait_until(30, 5, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
 
     logging.info("Check CPU related sysfs")
     cpu_temp_high_counter = 0
     cpu_temp_list = []
     cpu_crit_temp_list = []
-    cpu_pack_count = sku_info["cpu_pack"]["number"]
+    cpu_pack_count = platform_data["cpu_pack"]["number"]
     if cpu_pack_count > 0:
         cpu_pack_temp = float(sysfs_facts['cpu_pack_info']['temp']) / 1000
         cpu_pack_max_temp = float(sysfs_facts['cpu_pack_info']['max_temp']) / 1000
@@ -74,7 +73,7 @@ def check_sysfs(dut):
         assert False, "At least {} of the CPU cores or pack is overheated".format(cpu_temp_high_counter)
 
     logging.info("Check PSU related sysfs")
-    if SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]:
+    if platform_data["psus"]["hot_swappable"]:
         for psu_id, psu_info in sysfs_facts['psu_info'].items():
             psu_status = int(psu_info["status"])
             if not psu_status:
@@ -122,10 +121,9 @@ def check_psu_sysfs(dut, psu_id, psu_state):
         assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" % \
                                                    (psu_exist, psu_exist_content["stdout"])
     else:
-        from tests.common.mellanox_data import SWITCH_MODELS
-        dut_hwsku = dut.facts["hwsku"]
-        hot_swappabe = SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]
-        if hot_swappabe:
+        platform_data = get_platform_data(dut)
+        hot_swappable = platform_data["psus"]["hot_swappable"]
+        if hot_swappable:
             psu_exist_content = dut.command("cat %s" % psu_exist)
             logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
             assert psu_exist_content["stdout"] == "1", "CLI returns %s while %s contains %s" % \
@@ -164,25 +162,26 @@ def _is_fan_speed_in_range(sysfs_facts):
             high_threshold = ((float(fan_speed_set) / 255) * fan_max_speed) * (1 + 0.5)
             return low_threshold < fan_speed_get < high_threshold
         except Exception as e:
-            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}'.format(
+            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}, exception={}'.format(
+                fan_info["speed_get"],
+                fan_info["speed_set"],
                 fan_info["min_speed"],
                 fan_info["max_speed"],
-                fan_info["speed_set"],
-                fan_info["speed_get"]
+                e
             )
 
 
-def generate_sysfs_config(sku_info):
+def generate_sysfs_config(platform_data):
     config = list()
     config.append(generate_sysfs_symbolink_config())
     config.append(generate_sysfs_asic_config())
-    if sku_info["cpu_pack"]["number"] > 0:
+    if platform_data["cpu_pack"]["number"] > 0:
         config.append(generate_sysfs_cpu_pack_config())
-    config.append(generate_sysfs_cpu_core_config(sku_info))
-    config.append(generate_sysfs_fan_config(sku_info))
-    if sku_info['psus']['hot_swappable']:
-        config.append(generate_sysfs_psu_config(sku_info))
-    config.append(generate_sysfs_sfp_config(sku_info))
+    config.append(generate_sysfs_cpu_core_config(platform_data))
+    config.append(generate_sysfs_fan_config(platform_data))
+    if platform_data['psus']['hot_swappable']:
+        config.append(generate_sysfs_psu_config(platform_data))
+    config.append(generate_sysfs_sfp_config(platform_data))
     return config
 
 
@@ -212,11 +211,11 @@ def generate_sysfs_asic_config():
     }
 
 
-def generate_sysfs_fan_config(sku_info):
+def generate_sysfs_fan_config(platform_data):
     fan_config = {
         'name': 'fan_info',
         'start': 1,
-        'count': sku_info['fans']['number'],
+        'count': platform_data['fans']['number'],
         'type': 'increment',
         'properties': [
             {
@@ -245,7 +244,7 @@ def generate_sysfs_fan_config(sku_info):
             }
         ]
     }
-    if not sku_info['fans']['hot_swappable']:
+    if not platform_data['fans']['hot_swappable']:
         fan_config['properties'] = fan_config['properties'][1:]
     return fan_config
 
@@ -271,11 +270,11 @@ def generate_sysfs_cpu_pack_config():
     }
 
 
-def generate_sysfs_cpu_core_config(sku_info):
+def generate_sysfs_cpu_core_config(platform_data):
     return {
         'name': 'cpu_core_info',
         'start': 0,
-        'count': sku_info['cpu_cores']['number'],
+        'count': platform_data['cpu_cores']['number'],
         'type': 'increment',
         'properties': [
             {
@@ -294,11 +293,11 @@ def generate_sysfs_cpu_core_config(sku_info):
     }
 
 
-def generate_sysfs_psu_config(sku_info):
+def generate_sysfs_psu_config(platform_data):
     return {
         'name': 'psu_info',
         'start': 1,
-        'count': sku_info['psus']['number'],
+        'count': platform_data['psus']['number'],
         'type': 'increment',
         'properties': [
             {
@@ -329,11 +328,11 @@ def generate_sysfs_psu_config(sku_info):
     }
 
 
-def generate_sysfs_sfp_config(sku_info):
+def generate_sysfs_sfp_config(platform_data):
     return {
         'name': 'sfp_info',
         'start': 1,
-        'count': sku_info['ports']['number'],
+        'count': platform_data['ports']['number'],
         'type': 'increment',
         'properties': [
             {

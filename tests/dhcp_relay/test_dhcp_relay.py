@@ -28,7 +28,7 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
 
 
 @pytest.fixture(scope="module")
-def dut_dhcp_relay_data(duthost, ptfhost, testbed):
+def dut_dhcp_relay_data(duthost, ptfhost):
     """ Fixture which returns a list of dictionaries where each dictionary contains
         data necessary to test one instance of a DHCP relay agent running on the DuT.
         This fixture is scoped to the module, as the data it gathers can be used by
@@ -249,7 +249,7 @@ def test_dhcp_relay_unicast_mac(duthost, ptfhost, dut_dhcp_relay_data, validate_
 def test_dhcp_relay_random_sport(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology with random source port (sport)
 
-       If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68). 
+       If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
        Verify that DHCP relay works with random high sport.
     """
     RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))

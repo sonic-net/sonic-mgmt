@@ -41,7 +41,7 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(localhost, duthost, request, fanouthosts, testbed):
+def sanity_check(localhost, duthost, request, fanouthosts, tbinfo):
     logger.info("Start pre-test sanity check")
 
     skip_sanity = False
@@ -82,7 +82,7 @@ def sanity_check(localhost, duthost, request, fanouthosts, testbed):
         check_items = _update_check_items(check_items, items_array, constants.SUPPORTED_CHECK_ITEMS)
 
     # ignore BGP check for particular topology type
-    if testbed['topo']['type'] == 'ptf' and 'bgp' in check_items:
+    if tbinfo['topo']['type'] == 'ptf' and 'bgp' in check_items:
         check_items.remove('bgp')
 
     logger.info("Sanity check settings: skip_sanity=%s, check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \
@@ -115,7 +115,9 @@ def sanity_check(localhost, duthost, request, fanouthosts, testbed):
         logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check after recovery results: !!!!!!!!!!!!!!!!\n%s" % \
                     json.dumps(new_check_results, indent=4))
         if any([result["failed"] for result in new_check_results]):
-            pytest.fail("Pre-test sanity check failed again after recovered by '%s'" % recover_method)
+            failed_items = json.dumps([result for result in new_check_results if result["failed"]], indent=4)
+            logger.error("Failed check items:\n{}".format(failed_items))
+            pytest.fail("Pre-test sanity check failed again after recovered by '{}' with failed items:\n{}".format(recover_method, failed_items))
             return
 
     logger.info("Done pre-test sanity check")
@@ -132,7 +134,9 @@ def sanity_check(localhost, duthost, request, fanouthosts, testbed):
     logger.info("!!!!!!!!!!!!!!!! Post-test sanity check results: !!!!!!!!!!!!!!!!\n%s" % \
                 json.dumps(post_check_results, indent=4))
     if any([result["failed"] for result in post_check_results]):
-        pytest.fail("Post-test sanity check failed")
+        failed_items = json.dumps([result for result in post_check_results if result["failed"]], indent=4)
+        logger.error("Failed check items:\n{}".format(failed_items))
+        pytest.fail("Post-test sanity check failed with failed items:\n{}".format(failed_items))
         return
 
     logger.info("Done post-test sanity check")

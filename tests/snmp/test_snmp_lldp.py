@@ -1,14 +1,9 @@
 import pytest
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.device_type('vs')
 ]
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_check_topo(testbed):
-    if testbed['topo']['type'] == 'ptf':
-        pytest.skip('Unsupported topology')
 
 @pytest.mark.bsl
 def test_snmp_lldp(duthost, localhost, creds):
