@@ -27,8 +27,8 @@ from abstract_open_traffic_generator.device import\
 
 from abstract_open_traffic_generator.flow import\
     DeviceTxRx, TxRx, Flow, Header, Size, Rate,\
-    Duration, Fixed, PortTxRx, PfcPause, Counter, Random,\
-    EthernetPause
+    Duration, FixedSeconds, PortTxRx, PfcPause, Counter, Random,\
+    EthernetPause, Continuous
 
 from abstract_open_traffic_generator.flow_ipv4 import\
     Priority, Dscp
@@ -45,6 +45,7 @@ def base_configs(testbed,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
                  start_delay,
+                 traffic_duration,
                  pause_line_rate,
                  traffic_line_rate,
                  pause_frame_type,
@@ -52,6 +53,8 @@ def base_configs(testbed,
                  serializer) :
 
     for config in one_hundred_gbe :
+
+        delay = start_delay * 1000000000.0
 
         bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
         test_dscp_list = [str(x) for x in range(64) if x not in bg_dscp_list]
@@ -106,7 +109,6 @@ def base_configs(testbed,
                        gateway=Pattern(rx_gateway_ip),
                        ethernet=Ethernet(name='Rx Ethernet'))
 
-
         rx.devices.append(Device(name='Rx Device',
                                         device_count=1,
                                         choice=rx_ipv4))
@@ -130,7 +132,7 @@ def base_configs(testbed,
             ],
             size=Size(frame_size),
             rate=Rate('line', test_line_rate),
-            duration=Duration(Fixed(packets=0, delay=start_delay, delay_unit='nanoseconds'))
+            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay, delay_unit='nanoseconds'))
         )
 
         config.flows.append(test_flow)
@@ -147,7 +149,7 @@ def base_configs(testbed,
             ],
             size=Size(frame_size),
             rate=Rate('line', background_line_rate),
-            duration=Duration(Fixed(packets=0, delay=start_delay, delay_unit='nanoseconds'))
+            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay, delay_unit='nanoseconds'))
         )
         config.flows.append(background_flow)
 
@@ -176,7 +178,7 @@ def base_configs(testbed,
                 packet=[pause],
                 size=Size(64),
                 rate=Rate('line', value=100),
-                duration=Duration(Fixed(packets=0, delay=0, delay_unit='nanoseconds'))
+                duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
             )
         elif (pause_frame_type == 'global') :
             pause = Header(EthernetPause(
@@ -190,7 +192,7 @@ def base_configs(testbed,
                 packet=[pause],
                 size=Size(64),
                 rate=Rate('line', value=pause_line_rate),
-                duration=Duration(Fixed(packets=0, delay=0, delay_unit='nanoseconds'))
+                duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
             )
         else :
             pass   
@@ -217,13 +219,11 @@ def bw_multiplier(request):
 
 @pytest.fixture
 def pause_line_rate(request):
-    pytest_assert(request <= 100, "pause line rate must be less than 100")
     return request
 
 
 @pytest.fixture
 def traffic_line_rate(request):
-    pytest_assert(request <= 100, "traffic line rate must be less than 100")
     return request
 
 
@@ -264,12 +264,14 @@ def port_bandwidth(testbed,
                    conn_graph_facts,
                    fanout_graph_facts,
                    bw_multiplier) :
+
    fanout_devices = IxiaFanoutManager(fanout_graph_facts)
    fanout_devices.get_fanout_device_details(device_number=0)
    device_conn = conn_graph_facts['device_conn']
    available_phy_port = fanout_devices.get_ports()
    reference_peer = available_phy_port[0]['peer_port']
    reference_speed = int(device_conn[reference_peer]['speed'])
+
    for intf in available_phy_port:
         peer_port = intf['peer_port']
         intf['speed'] = int(device_conn[peer_port]['speed'])
@@ -348,6 +350,7 @@ def lossy_configs(testbed,
                   lossless_prio_dscp_map,
                   one_hundred_gbe,
                   start_delay,
+                  traffic_duration,
                   pause_line_rate,
                   traffic_line_rate,
                   frame_size, 
@@ -358,11 +361,12 @@ def lossy_configs(testbed,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
+                        traffic_duration=traffic_duration,
                         start_delay=start_delay,
                         pause_line_rate=pause_line_rate,
                         traffic_line_rate=traffic_line_rate,
                         pause_frame_type='priority',
-                       frame_size=frame_size,
+                        frame_size=frame_size,
                         serializer=serializer))
 
 
@@ -373,6 +377,7 @@ def global_pause(testbed,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
                  start_delay,
+                 traffic_duration,
                  pause_line_rate,
                  traffic_line_rate,
                  frame_size,
@@ -383,6 +388,7 @@ def global_pause(testbed,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
+                        traffic_duration=traffic_duration,
                         start_delay=start_delay,
                         pause_line_rate=pause_line_rate,
                         traffic_line_rate=traffic_line_rate,
