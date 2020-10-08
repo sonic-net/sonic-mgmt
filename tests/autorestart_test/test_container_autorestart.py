@@ -215,7 +215,7 @@ def test_containers_autorestart(duthost, tbinfo):
     for container_name in container_autorestart_states.keys():
         # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
         if (container_name in disabled_containers or container_name == "database"
-                or (container_name == "radv" and tbinfo["topo"]["name"] == "t1")):
+                or (container_name == "radv" and tbinfo["topo"]["name"] in ["t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"])):
             logger.warning("Skip testing the container '{}'".format(container_name))
             continue
 
