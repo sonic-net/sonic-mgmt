@@ -33,7 +33,7 @@ To set up the high availability Kubernetes master, follow the instructions [here
 
 ## Test Scenario: Join/Reset
 
-### TC_JOIN_1: Join Master once Available
+### TC_JOIN_1: Join Master Once Available
 #### Test Objective
 Verify Device Under Test (DUT) joins high availability master once the VIP and Kubernetes API Server become available
 #### Test Configuration
@@ -81,689 +81,248 @@ Verify Device Under Test (DUT) appropriately remains joined to master upon confi
 1. Do config reload
    - **Expect:** Kube server status remains connected
 
-### TC_JOIN_4: Config Reload Toggle Disable to True
+### TC_JOIN_4: Config Reload Toggles Disable to True
 #### Test Objective
-Verify Device Under Test (DUT) appropriately disconnects upon config reload with disable toggled to true
-#### Test Configuration
-- Pick up from step 2 of [TC_JOIN_2](#tcjoin2-test-disable-flag)
-- Server status shows Connected
-#### Test Steps
-1. Do config reload
-
-### TC_JOIN_5: Config Reload Toggle Disable to False
-#### Test Objective
-Verify Device Under Test (DUT) appropriately disconnects upon config reload with disable toggled to true
+Verify Device Under Test (DUT) appropriately disconnects upon config reload toggling disable flag to true
 #### Test Configuration
 - Pick up from step 1 of [TC_JOIN_2](#tcjoin2-test-disable-flag)
 - Server status shows Disconnected
+- Disable flag is set to true (config not yet saved)
 #### Test Steps
-1. Do config reload
+1. Save config
+2. Set disable flag = false
+   - **Expect:** Server status shows connected 
+3. Do config reload
+   - **Expect:** Server status shows disconnected, disable flag = true
 
-### TC_JOIN_6: Reboot/Warm-reboot/Fast-reboot
+### TC_JOIN_5: Config Reload Toggles Disable to False
 #### Test Objective
-Verify Device Under Test (DUT) appropriately joins master upon reboot
+Verify Device Under Test (DUT) appropriately disconnects upon config reload toggling disable flag to false
 #### Test Configuration
 - Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
 - Server status shows Connected
+- Disable flag is set to false (config saved)
 #### Test Steps
-1. Do reboot
-   - **Expect:** After 4 minutes, expect kube server status to show Connected
-2. Repeat this test for all 3 kinds of reboots
+1. Set disable flag = true
+   - **Expect:** Server status shows disconnected
+2. Do config reload
+   - **Expect:** Server status shows connected, disable flag = false
 
-## Test Scenario: Local Mode to Kube Mode Transition
 
-### TC_LOCAL_KUBE_1: Switch Between Local Mode and Kube Mode
+## Test Scenario: Mode Transitions, Feature Image Upgrades with Reachable Master
+
+### TC_LOCAL_KUBE_1: Switch between Local Mode and Kube Mode
 #### Test Objective
-Verify Device Under Test (DUT) properly transitions between local mode and kube mode when kube mode manifest is properly applied
+Verify Device Under Test (DUT) properly transitions between local mode and kube mode when manifest is properly applied
 #### Test Configuration
 - Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
-- SNMP current_owner = local, set_owner=kube, remote_state=none
+- SNMP current_owner=local, set_owner=kube, remote_state=none, container_version=1.0
 #### Test Steps
-1. Deploy manifest with valid URL
-   - local SNMP container should terminate
-   - k8s SNMP container from remote image should run
-   - **Expect:** current_owner becomes kube
-2. Set desired owner to local (set_owner = local)
-   - k8s SNMP container from remote image should terminate
+1. Apply manifest for SNMP v1.1 with valid URL
+   - local SNMP container v1.0 should terminate
+   - k8s SNMP container v1.1 from remote image should run
+   - **Expect:** current_owner=kube, container_version=v1.1
+2. Set SNMP desired owner to local (set_owner=local)
+   - k8s SNMP container v1.1 from remote image should terminate
    - local SNMP container should run
-   - **Expect:** current_owner becomes local
-3. Set desired owner to kube (set_owner = kube)
-   - local SNMP container should terminate
-   - k8s SNMP container from remote image should run
-   - **Expect:** current_owner becomes kube
+   - **Expect:** current_owner=local, container_version=v1.0
+3. Set SNMP desired owner to kube (set_owner=kube)
+   - local SNMP container v1.0 should terminate
+   - k8s SNMP container v1.1 from remote image should run
+   - **Expect:** current_owner=kube, container_version=1.1
 
-### TC_LOCAL_KUBE_2: Make VIP Unreachable 
+### TC_LOCAL_KUBE_2: Upgrade Kube Feature v1.1 to Kube Feature v2.0 via Successful Manifest Application
 #### Test Objective
-Verify Device Under Test (DUT) transitions from local mode to kube mode as expected when VIP is unreachable after successful local to kube mode transition
+Verify Device Under Test (DUT) running kube mode feature container v1.1 properly upgrades to kube mode feature v2.0 upon successful application of v2.0 manifest
 #### Test Configuration
-- Pick up from step 1 of TC_LOCAL_KUBE_1
-- SNMP current_owner=kube, set_owner=kube, remote_state=running
+- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
-1. Shut down HAProxy machine
-2. SNMP current_owner, set_owner, and remote_state should remain as described in Test Configuration
-3. Start HAProxy machine
-4. No change in SNMP status or configuration
+1. Deploy SNMP v2.0 manifest with valid URL
+   - New k8s SNMP v2.0 container should start running
+   - SNMP container v1.1 will continue running until master disables v1.1
+   - **Expect:** container_version=v2.0
+2. Stop SNMP service
+   - k8s SNMP v2.0 container should stop running
+   - **Expect:** container_version=2.0, remote_state=stopped
+3. Start SNMP service
+   - k8s SNMP v2.0 container should start running
+   - **Expect:** container_version=2.0, remote_state=running
 
-### TC_LOCAL_KUBE_3: Daemonset Deleted
+### TC_LOCAL_KUBE_3: Local to Kube Feature with Failed Manifest Application
 #### Test Objective
-Verify Device Under Test (DUT) properly responds to accidental deletion of daemonset
+Verify Device Under Test (DUT) local mode feature properly responds to set_owner=kube when kube mode feature fails to deploy properly (failed manifest application due to invalid URL)
 #### Test Configuration
-- Pick up from step 1 of TC_LOCAL_KUBE_1
-- SNMP current_owner=kube, set_owner=kube, remote_state=running
+- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- SNMP current_owner=local, set_owner=kube, remote_state=none, container_version=1.0
+#### Test Steps
+1. Apply SNMP v1.1 manifest with invalid URL
+   - Local SNMP container should continue running
+   - **Expect:** current_owner=local, container_version=1.0
+2. Stop SNMP service
+   - **Expect:** current_owner=none, container_version=1.0
+3. Start SNMP service
+   - **Expect:** current_owner=local, container_version=1.0
+4. Fix manifest URL and reapply manifest
+   - Local container SNMP v1.0 container should stop
+   - k8s SNMP container v1.1 should start running 
+   - **Expect:** current_owner=kube, container_version=1.1, 
+
+### TC_LOCAL_KUBE_4: Upgrade Kube Feature v1.1 to Kube Feature v2.0 with Failed Manifest Application
+#### Test Objective
+Verify Device Under Test (DUT) kube mode feature v1.1 properly responds to failed manifest application to upgrade kube mode feature to v2.0. 
+#### Test Configuration
+- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
+#### Test Steps
+1. Deploy manifest with invalid URL
+   - SNMP k8s v1.1 container continues running
+2. Stop SNMP service
+   - SNMP k8s v1.1 container should stop running
+   - **Expect:** current_owner=none, container_version=1.1, remote_state=stopped
+3. Start SNMP service
+   - SNMP k8s v1.1 container should start running
+   - **Expect:** current_owner=kube, container_version=1.1, remote_state=running
+4. Fix manifest URL and reapply manifest
+   - SNMP k8s v1.1 container should stop running
+   - SNMP k8s v2.0 container should start running
+   - **Expect:** current_owner=kube, container_version=2.0, remote_state=running
+
+### TC_LOCAL_KUBE_5: Daemonset Deleted
+#### Test Objective
+Verify Device Under Test (DUT) properly responds to the application of a manifest to recreate a daemonset that was accidentally deleted
+#### Test Configuration
+- Pick up from step 3 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Delete SNMP kube feature daemonset
-   - SNMP k8s container should stop running
-   - **Expect:** Remote State becomes stopped
-2. Readd daemonset
-   - SNMP 
-
-## Test Scenario: Kube Mode to Kube Mode Transition
-
-## Test Scenario: Kube Mode to Local Mode Transition
+   - No SNMP container runs
+   - **Expect:** remote_state=stopped, container_version=1.1
+2. Reapply SNMP manifest to recreate daemonset
+   - SNMP k8s container should start running
+   - **Expect:** remote_state=running, container_version=1.1
 
 ## Test Scenario: Unreachable Master
 
-### TC_UN_MASTER_1: Kube Mode Feature, Unreachable VIP
+### TC_NO_MASTER_1: Kube Mode Feature Running, Unreachable VIP
 #### Test Objective
-Verify Device Under Test (DUT) kube mode features continue running in kube even when VIP is unreachable
+Verify Device Under Test (DUT) kube mode features continue running in kube mode even when VIP is unreachable
 #### Test Configuration
-- Pick up from step 1 of TC_LOCAL_KUBE_1
-- SNMP current_owner = kube, set_owner=kube, remote_state=running
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
 #### Test Steps
 1. Shut down HAProxy machine
-2. SNMP current_owner, set_owner, and remote_state should remain as described in Test Configuration
-3. Start HAProxy machine
-4. No change in SNMP status or configuration
-
-
-### Test Cases - SONiC Worker Node Join
-
-These test cases ensure SONiC worker node is able to properly join cluster managed by Kubernetes master under various configurations.
-
-- Join SONiC 1) master correct VIP set from minigraph
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	1. `show kube server` upon bootup after services stabilized
-		- `ip` in config and state should be set to correct VIP from minigraph
-		- `insecure` should be True
-		- `disable` should be False
-        - `connected` should be True
-	2. `kubectl get nodes` on master
-		- Should show newly joined SONiC DUT with `Ready` status
-
-- Join SONiC 2) master incorrect VIP set from minigraph
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	1. `show kube server` upon bootup after services stabilized
-		- `ip` in config should be set to incorrect VIP from minigraph
-		- `insecure` should be True
-		- `disable` should be False
-        - `connected` should be False
-	2. `kubectl get nodes` on master
-		- No new SONiC DUT reflected
-
-- Join SONiC 3) master correct VIP set using CLI commands
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	1. `sudo config kube server disable off` enables master (default configuration)
-	2. `sudo config kube server ip <correct VIP>`
-	3. `kubectl get nodes` on master
-	    - Should show newly joined SONiC DUT with `Ready` status
-	4. `show kube server`
-		- `ip` in config and state should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be True
-
-- Join SONiC 4) master incorrect VIP set using CLI commands
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	1. `sudo config kube server disable off` enables master (default configuration)
-	2. `sudo config kube server ip <incorrect VIP>`
-	3. `kubectl get nodes`
-	   - No new SONiC DUT reflected
-	4. `show kube server`
-		- `ip` in config should be set to <incorrect VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be False
-
-- Join SONiC 5) rejoin master by disabling and enabling kube server
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	1. `sudo config kube server disable off` enables master (default configuration)
-	2. `sudo config kube server ip <correct VIP>`
-	3. `kubectl get nodes` on master
-	    - Should show newly joined SONiC DUT with `Ready` status
-	4. `show kube server`
-		- `ip` in config and state should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be True
-	5. `docker ps` and `show feature status`
-	6. `sudo config kube server disable on` disables master
-	7. `kubectl get nodes` on master
-	8. `docker ps` and `show feature status`
-	    - Kube mode containers from step 5 should now be running in local mode
-	9. `show kube server`
-		- `ip` in config and state should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be True
-		- `connected` should be False
-	10. `sudo config kube server disable off` enables master
-	11. `show kube server`
-		- `ip` in config and state should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be True
-	12. `docker ps` and `show feature status`
-	    - Expect same kube mode containers running as after step 5
-
-- Join SONiC 6) connect to new valid master VIP
-
-	0. `ping` original set of HAProxy and 3 backend master servers
-	    - All should respond
-	1. Follow steps from Test Case Join SONiC 3 to start with joined SONiC DUT
-	2. `ping` second set of HAProxy and backend master servers
-	    - All should respond
-	3. `sudo config kube server ip <correct VIP 2>`
-	4. `kubectl get nodes` on master 2
-	   - Should show newly joined SONiC DUT with `Ready` status
-	4. `show kube server`
-		- `ip` in config and state should be set to <correct VIP 2> from step 3
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be True
-
-- Join SONiC 7) connect to new invalid master VIP
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	1. Follow steps from Test Case Join SONiC 3 to start with joined SONiC DUT
-	2. `sudo config kube server ip <incorrect VIP 2>`
-	3. `show kube server`
-	   - `ip` in config and state should be set to <incorrect vip 2> from step 2
-	   - `insecure` should be True
-	   - `disable` should be False
-	   - `connected` should be False
-	4. `kubectl get nodes` on original master should no longer show SONiC DUT with `Ready` status
-
-
-- Join SONiC 8) connect to unreachable master server
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	1. `sudo config kube server disable off` enables master (default configuration)
-	2. `sudo virsh shutdown <backend master servers 1 and 2>`
-	3. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	4. `sudo config kube server ip <correct VIP>`
-	5. `show kube server` 
-		- `ip` in config and state should be set to <correct VIP> from step 4
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be False 
-	6. `sudo virsh start <backend master servers 1 and 2>`
-	7. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	5. `show kube server` 
-		- `ip` in config and state should be set to <correct VIP> from step 4
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be True 
-
-- Join SONiC 9) connect to HA master server when just one backend server is down
-
-	0. `ping` HAProxy and 3 backend master servers
-	    - All should be respond
-	1. `sudo config kube server disable off` enables master (default configuration)
-	2. `sudo virsh shutdown <backend master server 1>`
-	3. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and two backend masters should respond
-	2. `sudo config kube server ip <correct VIP>`
-	3. `kubectl get nodes` on master
-	    - Should show newly joined SONiC DUT with `Ready` status
-	4. `show kube server`
-		- `ip` in config and state should be set to <correct VIP> from step 2
-		- `insecure` should be True
-		- `disable` should be False
-		- `connected` should be True
-
-TODO: insecure transfer cases
-
-
-### Test Cases - SONiC Worker Node Reset
-
-These test cases ensure SONiC worker node is able to properly remove itself from cluster managed by Kubernetes master under various configurations.
-
-- Reset SONiC 1) master reachable after successful join
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-    1. `sudo config kube server disable on`
-	2. `kubectl get nodes` on master
-		- Should reflect SONiC DUT removed from cluster
-	3. `show kube server`
-    	- `IP` should be set to <correct VIP> from Test Case Join SONiC 3
-		- `insecure` should be True
-		- `disable` should be True
-		- `connected` should be False
-
-- Reset SONiC 2) master unreachable after successful join
-
-    0. Follow steps from Test Case SONiC 3 to properly join SONiC DUT
-	1. `sudo virsh shutdown <backend master servers 1 and 2>`
-	2. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	3. `sudo config kube server disable on`
-        - Should warn that master is unreachable, so reset request was not processed
-
-
-config feature owner kube, disable, then enable
-
-### Test Cases - Manifest Deployment from Master
-
-These test cases ensure manifest applications from Kubernetes master are properly processed by SONiC DUT worker nodes. 
-
-
-- Manifest Deployment from Master 1) kube feature v1 to kube feature v2, master reachable, incorrect image URL for v2, ACR reachable (this is also tested in test case 2, can be removed)
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  From master: Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `show feature status {feature-name}`
-	    - Should show `{feature-name}` owner status is kube and running v1
-	6. From master: Apply manifest v2 for `{feature-name}` with wrong URL
-	7. `docker ps`
-		- Should observe same k8s container from step 4 running v1
-	8. `show feature status {feature-name}`
-	    - Should show `{feature-name}` owner status is kube and running v1
-	9. From master: reapply manifest v2 for `{feature-name}` with correct URL
-	10. `docker ps`
-		- Should observe new k8s container v2 for `{feature-name}`
-	11. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-	12. `kubectl get pods` on master
-        - Should observe new pod that corresponds to new container
-
-- Manifest Deployment from Master 2) kube feature v1 to kube feature v2, master reachable, incorrect image URL for v2, ACR unreachable
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  From master: Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `show feature status {feature-name}`
-	    - Should show `{feature-name}` owner status is kube and running v1
-	6. Delete secret to simulate unreachable ACR
-	7. From master: Apply manifest v2 for `{feature-name}` with incorrect URL
-	8. `docker ps`
-		- Should observe same k8s container from step 4 running in kube mode
-	9. `show feature status {feature-name}`
-	    - Should show `{feature-name}` owner status is kube and running v1
-	10. Create secret to simulate reachable ACR
-	11. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	12. `show feature status {feature-name}`
-	    - Should show `{feature-name}` owner status is kube and running v1
-	13. From master: reapply manifest v2 for `{feature-name}` with correct URL
-	14. `docker ps`
-		- Should observe new k8s container v2 for `{feature-name}`
-	15. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-	16. `kubectl get pods` on master
-        - Should observe new pod that corresponds to new container
-
-- Manifest Deployment from Master 3) kube feature v1 to kube feature v2, master reachable, correct image URL for v2, ACR reachable
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `show feature status {feature-name}`
-	    - Should show `{feature-name}` owner status is kube and running v1
-	6. From master: Apply manifest v2 for `{feature-name}` with correct URL
-	7. `docker ps`
-		- Should observe new k8s container v2 for `{feature-name}`
-	8. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-	9. `kubectl get pods` on master
-        - Should observe new pod that corresponds to new container v2
-
-- Manifest Deployment from Master 4) kube feature v1 to kube feature v2, master reachable, correct image URL for v2, ACR unreachable
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. Delete secret to simulate unreachable ACR
-	6. From master: Apply manifest v2 for `{feature-name}` with correct URL
-	7. `docker ps`
-		- Should observe same k8s container from step 4 running v1
-	8. `show feature status {feature-name}`
-	    - Should show `{feature-name}` owner status is kube and running v1
-	9. Create secret to simulate reachable ACR
-	10. `docker ps`
-		- Should observe new k8s container v2 for `{feature-name}`
-	11. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-	12. `kubectl get pods` on master
-        - Should observe new pod that corresponds to new container v2
-
-- Manifest Deployment from Master 5) kube feature v1 to kube feature v2, when master starts as not reachable when manifest is deployed: 
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `sudo virsh shutdown <backend master servers 1 and 2>`
-	6. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	7. From master: Apply manifest v2 for `{feature-name}` hangs
-	8. `docker ps`
-	    - Should observe same k8s container from step 4 running v1
-	9. `show feature status {feature-name}`
-	   - Should show `{feature-name}` owner status is kube and running v1
-	10. `sudo virsh start <backend master servers 1 and 2>`
-	11. `ping` HAProxy and 3 backend masters
-	    - All should respond
-	12. `docker ps`
-		- Should observe new k8s container v2 for `{feature-name}`
-	13. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-	14. `kubectl get pods` on master
-        - Should observe new pod that corresponds to new container v2
-
-
-- Manifest Deployment from Master 6) kube feature v1 to kube feature v2, when master starts as reachable and changes to unreachable in middle of manifest deployment: 
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. From master: Apply manifest v2 for `{feature-name}` with correct URL
-	6. `sudo virsh shutdown <backend master servers 1 and 2>`
-	7. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	8. Check if v2 request reached kubelet before master became unreachable
-	9. `docker ps`
-		- Should see v1 or v2 depending on if v2 request reached kubelet before master became unreachable
-
-- Manifest Deployment from Master 7) kube feature v2 to kube feature v1, under all conditions
-
-	0. Follow any of the Manifest Deployment from Master Test Cases above to reach running kube feature v2
-	1. Apply manifest v1 for `{feature-name}`
-	2. `docker ps`
-		- Should show k8s container v2 for `{feature-name}` and no v1
-	3. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-
-- Manifest Deployment from Master 7) kube feature v2 to kube feature v2, under all conditions
-
-	0. Follow any of the Manifest Deployment from Master Test Cases above to reach running kube feature v2
-	1. Apply manifest v2 for `{feature-name}`
-	2. `docker ps`
-		- Should show one k8s container v2 for `{feature-name}` 
-	3. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-
-
-### Test Cases - Transition between Kube Mode and Local Mode
-
-These test cases ensure transitions between kube mode and local mode for a SONiC feature happen as expected.
-
-- Mode Transition 1) local to kube with master reachable
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `show feature status {feature-name}`
-		- Should show current owner is local
-	2. `sudo config feature owner {feature-name} kube`
-	3. `show feature config {feature-name}`
-		- Should show config owner is kube 
-	4. From master: Apply manifest for v2 `{feature-name}`
-	5. `docker ps`
-		- Should observe new k8s container v2 for `{feature-name}`
-	6. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-	7. `kubectl get pods` on master
-        - Should observe new pod that corresponds to new container v2
-
-- Mode Transition 2) local to kube without master reachable
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `show feature status {feature-name}`
-		- Should show current owner is local
-	2. `sudo config feature owner {feature-name} kube`
-	3. `show feature config {feature-name}`
-		- Should show config owner is kube 
-	4. `sudo virsh shutdown <backend master servers 1 and 2>`
-	5. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	6. From master: Apply manifest v2 for `{feature-name}` hangs
-	7. `show feature status {feature-name}`
-		- Should show current owner is local
-	8. `docker ps`
-		- Should show local container running
-	9. `sudo virsh start <backend master servers 1 and 2>`
-	10. `ping` HAProxy and 3 backend masters
-	    - All should respond
-	11. `docker ps`
-		- Should observe new k8s container v2 for `{feature-name}`
-	12. `show feature status {feature-name}` 
-	    - Should show `{feature-name}` owner status is kube and running v2
-	13. `kubectl get pods` on master
-        - Should observe new pod that corresponds to new container v2
-
-- Mode Transitions 5) kube to local with master reachable
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `sudo config feature owner {feature-name} local`
-	6. `show feature config {feature-name}`
-		- Should show feature config owner is local
-	7. `docker ps`
-		- Should show docker container running in local mode, k8s container from step 4 terminated
-	8. `show feature status {feature-name}`
-		- Should show docker container current owner is local
-
-- Mode Transitions 6) kube to local without master reachable 
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `sudo virsh shutdown <backend master servers 1 and 2>`
-	6. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	7. `sudo config feature owner {feature-name} local`
-	8. `show feature config {feature-name}`
-		- Should show feature config owner is local
-	9. `docker ps`
-		- Should show docker container running in local mode, k8s container from step 4 terminated
-	10. `show feature status {feature-name}`
-		- Should show docker container current owner is local
-	11. Ensure transient DB is properly populated
-	12. `sudo virsh start <backend master servers 1 and 2>`
-	13. `ping` HAProxy and 3 backend masters
-	    - All should respond
-	14. Ensure `{feature-name}_enabled` label is removed
-
-
-### Test Cases - SONiC Reboot
-
-These test cases ensure that kube and local features behave as expected across a switch reboot. 
-
-- SONiC Reboot 1) kube mode feature, fallback to local, server reachable persistent across reboot
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Take note of labels present
-	7. `sudo reboot`
-	8. `docker ps` 
-		- Should show `{feature-name}` running in local mode before kubelet service starts
-	9. `show feature status {feature-name}`
-		- Should show `{feature-name}` as current owner local
-	10. After kubelet service starts, `docker ps`
-		- Should show `{feature-name}` running in kube mode 
-	11. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	12. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Labels present output should be the same as step 6
-	
-
-- SONiC Reboot 2) kube mode feature, fallback to local, server unreachable persistent across reboot
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Take note of labels present
-	7. `sudo virsh shutdown <backend master servers 1 and 2>`
-	8. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	9. `sudo reboot`
-	10. `docker ps` 
-		- Should show `{feature-name}` running in local mode before kubelet service starts
-	11. `show feature status {feature-name}`
-		- Should show `{feature-name}` as current owner local
-	12. After kubelet service starts, `docker ps`
-		- Should show `{feature-name}` running in local mode 
-	13. `show feature status {feature-name}`
-		- Should show `{feature-name}` as current owner local
-	14. `sudo virsh start <backend master servers 1 and 2>`
-	15. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	16. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Labels present output should be the same as step 6
-	15. `docker ps`
-		- Should show `{feature-name}` running in kube mode 
-	16. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-
-- SONiC Reboot 3) kube mode feature, no fallback to local, server reachable persistent across reboot
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Take note of labels present
-	7. `sudo reboot`
-	8. `docker ps` 
-		- Should show no `{feature-name}` container running
-	9. `show feature status {feature-name}`
-		- Should show `{feature-name}` as current owner None
-	10. After kubelet service starts, `docker ps`
-		- Should show `{feature-name}` running in kube mode 
-	11. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	12. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Labels present output should be the same as step 6
-
-- SONiC Reboot 4) kube mode feature, no fallback to local, server unreachable persistent across reboot
-
-	0. Follow steps from Test Case Join SONiC 3 to properly join SONiC DUT
-	1. `sudo config feature owner {feature-name} kube`
-	2. `show feature config {feature-name}`
-	   - Should show `{feature-name}` in kube mode
-	3.  Apply manifest v1 for `{feature-name}`
-	4. `docker ps`
-		- Should show k8s container v1 for `{feature-name}` 
-	5. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-	6. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Take note of labels present
-	7. `sudo virsh shutdown <backend master servers 1 and 2>`
-	8. `ping` HAProxy and 3 backend master servers
-	    - Only HAProxy and one backend master should respond
-	9. `sudo reboot`
-	10. `docker ps` 
-		- Should show no `{feature-name}` container running
-	11. `show feature status {feature-name}`
-		- Should show `{feature-name}` as current owner None
-	12. After kubelet service starts, `docker ps`
-		- Should show no `{feature-name}` container running
-	13. `sudo virsh start <backend master servers 1 and 2>`
-	14. `ping` HAProxy and 3 backend master servers
-	    - All should respond
-	15. From master: `kubectl get nodes --show-labels | grep <DUT-name> | cut -c54- | tr "," "\n"’`
-		- Labels present output should be the same as step 6
-	16. After kubelet service starts, `docker ps`
-		- Should show `{feature-name}` running in kube mode 
-	17. `show feature status {feature-name}`
-		- Should observe feature currently in kube mode
-		- Should observe `remote_state` set to `Running`
-
-SONiC Reboot 5) Master reachable and then uncreachable upon startup
-
-SONiC Reboot 6) Master unreachable and then reachable upon startup
-
-
-### Test Cases - Miscellaneous
-
-Systemctl start/stop/restart works as today for both local and kube modes
-
-Ensure SONiC DUT additional labels are present (OS_VERSION, etc)
-
-Deployment of new feature not already part of SONiC switch
-
-Warm Reboot
-
-Multi ASiC
-
+   - k8s SNMP v1.1 container should continue running
+   - **Expect:** current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
+2. Stop SNMP service
+   - k8s SNMP v1.1 container should stop running
+   - **Expect:** current_owner=none, set_owner=kube, remote_state=stopped, container_version=1.1
+3. Start SNMP service
+   - k8s SNMP v1.1 container should start running
+   - **Expect:** current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
+4. Start HAProxy machine
+5. SNMP container should remain running as before
+
+### TC_NO_MASTER_2: Kube Mode to Local Mode Feature Transition, Kubernetes Master Servers Down
+#### Test Objective
+Verify Device Under Test (DUT) kube mode feature properly transitions to local mode even when the Kubernetes master servers are down
+#### Test Configuration
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
+#### Test Steps
+1. Shut down two backend Kubernetes master servers
+2. Set SNMP desired owner to local
+   - Local SNMP v1.0 container should start running
+   - k8s SNMP v1.2 container will remain present until master is reachable
+   - **Expect:** current_owner=local, remote_state=stopped, container_version=1.0
+3. Stop SNMP service
+   - Local SNMP container should stop running
+   - **Expect:** current_owner=none, remote_state=stopped, container_version=1.0
+4. Start SNMP service
+   - Local SNMP container should start running
+   - **Expect:** current_owner=local, remote_state=stopped, container_version=1.0
+5. Start all backend Kubernetes master servers
+   - Local SNMP v1.0 container remains running
+   - k8s SNMP v2.0 container should be removed
+   - **Expect:** current_owner=local, remote_state=stopped, container_version=1.0
+
+### TC_NO_MASTER_3: Local Mode to Kube Mode Feature Transition, Kubernetes API Server Down
+#### Test Objective
+Verify Device Under Test (DUT) appropriately processes offline request to transition feature from local mode to kube mode. The kube mode container should start running once the Kubernetes master API Server is up.  
+#### Test Configuration
+- Pick up from step 2 of [TC_JOIN_1](#tcjoin1-join-master-once-available)
+- SNMP current_owner=local, set_owner=kube, remote_state=none, container_version=1.0
+#### Test Steps
+1. Kill API Server processes on three backend Kubernetes master servers
+2. Set SNMP desired owner to kube
+   - Local SNMP container v1.0 should continue running
+   - **Expect:** SNMP current_owner=local, set_owner=kube, remote_state=stopped, container_version=1.0
+3. Stop SNMP Service
+   - Local SNMP container v1.0 should stop running
+   - **Expect:** SNMP current_owner=none, set_owner=kube, remote_state=stopped, container_version=1.0
+4. Start SNMP Service
+   - Local SNMP container v1.0 should start running
+   - **Expect:** SNMP current_owner=local, set_owner=kube, remote_state=stopped, container_version=1.0
+5. Apply manifest for k8s SNMP v1.1 container
+   - This request should hang, as Kubernetes API Server is down 
+6. Start API Server processes on three backend Kubernetes master servers
+   - Manifest request from step 3 should go through
+   - Local SNMP v1.0 container should stop running
+   - k8s SNMP v1.1 container should start running
+   - **Expect:** SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
+
+### TC_NO_MASTER_4: Kube Feature Following Reboot When VIP is Unreachable, Fallback to Local
+#### Test Objective
+Verify Device Under Test (DUT) kube mode feature appropriately falls back to local mode upon reboot when the VIP is unreachable and fallback to local is set
+#### Test Configuration
+- Pick up from step 1 of [TC_NO_MASTER_1](#tcnomaster1-kube-mode-feature-running-unreachable-vip)
+- SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
+#### Test Steps
+1. Turn on SNMP fallback to local (fallback_to_local=true) and save config
+   - **Expect:** SNMP current_owner=kube, set_owner=kube, fallback_to_local=true, remote_state=running, container_version=1.1
+2. Reboot
+   - **Expect:** After complete startup, SNMP current_owner=local, set_owner=kube, fallback_to_local=true, remote_state=none, container_version=1.0
+3. Repeat this test for all 3 kinds of reboots
+
+### TC_NO_MASTER_5: Kube Feature Following Reboot when VIP is Unreachable, No Fallback to Local
+#### Test Objective
+Verify Device Under Test (DUT) kube mode feature appropriately fails to fall back to local mode upon reboot when the VIP is unreachable and fallback to local is not set
+#### Test Configuration
+- Pick up from step 1 of [TC_NO_MASTER_1](#tcnomaster1-kube-mode-feature-running-unreachable-vip)
+- SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
+#### Test Steps
+1. Turn off SNMP fallback to local (fallback_to_local=false) and save config
+   - **Expect:** SNMP current_owner=kube, set_owner=kube, fallback_to_local=false, remote_state=running, container_version=1.1
+2. Reboot
+   - **Expect:** After complete startup, SNMP current_owner=none, set_owner=kube, fallback_to_local=false, remote_state=none
+3. Repeat this test for all 3 kinds of reboots
+
+## Test Scenario: Reboot when Master is Reachable
+
+### TC_REBOOT_1: Kube Feature Following Reboot, Fallback to Local
+#### Test Objective
+Verify Device Under Test (DUT) appropriately joins master upon reboot and successfully starts kube mode feature when fallback to local is set. Feature should run in local mode, and then transition to kube mode once the kubelet service starts in DUT. 
+#### Test Configuration
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Server status shows Connected, SNMP current_owner=kube, container_version=1.1
+#### Test Steps
+1. Turn on SNMP fallback to local (fallback_to_local=true) and save config
+   - **Expect:** SNMP current_owner=kube, set_owner=kube, fallback_to_local=true, remote_state=running, container_version=1.1
+2. Do reboot
+   - **Expect:** Before kubelet comes up, SNMP is running in local mode
+   - **Expect:** After kubelet and statedb_watcherd services come up, current_owner=kube, container_version=1.1
+3. Repeat this test for all 3 kinds of reboots
+
+### TC_REBOOT_2: Kube Feature Following Reboot, No Fallback to Local
+#### Test Objective
+Verify Device Under Test (DUT) appropriately joins master upon reboot and successfully starts kube mode feature once kubelet service is up. Because fallback to local is not set, no feature container will run until the kubelet service is up. 
+#### Test Configuration
+- Pick up from step 1 of [TC_LOCAL_KUBE_1](#tclocalkube1-switch-between-local-mode-and-kube-mode)
+- Server status shows Connected, SNMP current_owner=kube, container_version=1.1
+#### Test Steps
+1. Turn off SNMP fallback to local (fallback_to_local=false) and save config
+   - **Expect:** SNMP current_owner=kube, set_owner=kube, fallback_to_local=false, remote_state=running, container_version=1.1
+2. Do reboot
+   - **Expect:** Before kubelet comes up, no SNMP container runs
+   - **Expect:** After kubelet and statedb_watcherd services come up, current_owner=kube, container_version=1.1
+3. Repeat this test for all 3 kinds of reboots
