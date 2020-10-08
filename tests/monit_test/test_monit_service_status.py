@@ -22,7 +22,5 @@ def test_monit_service_status(duthost):
     status_line = monit_service_status_info["stdout_lines"][0].strip()
     if "active" in status_line:
         logger.info("Monit service is running.")
-    elif "inactive" in status_line:
-        pytest.fail("Monit service is in 'dead' state and is not running.")
-    elif "failed" in status_line:
-        pytest.fail("Monit service is in 'failed' state and is not running.")
+    else:
+        pytest.fail("Monit is not running.")
