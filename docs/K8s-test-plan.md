@@ -262,7 +262,7 @@ Verify Device Under Test (DUT) appropriately processes offline request to transi
 5. Apply manifest for k8s SNMP v1.1 container
    - This request should hang, as Kubernetes API Server is down 
 6. Start API Server processes on three backend Kubernetes master servers
-   - Manifest request from step 3 should go through
+   - Manifest request from step 5 should go through
    - Local SNMP v1.0 container should stop running
    - k8s SNMP v1.1 container should start running
    - **Expect:** SNMP current_owner=kube, set_owner=kube, remote_state=running, container_version=1.1
