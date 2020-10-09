@@ -26,6 +26,9 @@ FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 USE_INNER_HASHING = False
 NUM_FLOWS = 1000
 
+SUPPORTED_TOPO = ['t0']
+SUPPORTED_PLATFORMS = ['mellanox']
+
 logger = logging.getLogger(__name__)
 
 def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
@@ -306,8 +309,10 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
 
 def test_fg_ecmp(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost):
-    if testbed['topo']['name'] != 't0':
+    if testbed['topo']['name'] not in SUPPORTED_TOPO:
         pytest.skip("Unsupported topology")
+    if duthost.facts["asic_type"] not in SUPPORTED_PLATFORMS:
+        pytest.skip("Unsupported platform")
 
     host_facts  = duthost.setup()['ansible_facts']
     mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
