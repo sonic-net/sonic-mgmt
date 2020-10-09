@@ -39,8 +39,7 @@ from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.port import Options as PortOptions
 
 
-def base_configs(testbed,
-                 conn_graph_facts,
+def base_configs(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
@@ -50,6 +49,7 @@ def base_configs(testbed,
                  traffic_line_rate,
                  frame_size,
                  ecn_thresholds,
+                 number_of_packets,
                  serializer) :
 
     for config in one_hundred_gbe :
@@ -126,9 +126,8 @@ def base_configs(testbed,
                                   ecn=FieldPattern(Dscp.ECN_CAPABLE_TRANSPORT_1)))
 
         # ecn_thresholds in bytes 
-        number_of_packets = int(2 * (ecn_thresholds / frame_size))
-        logger.info("Total number of packets to send = 2 * %s = %s"\
-            %(ecn_thresholds / frame_size, number_of_packets))
+        #number_of_packets = int(2 * (ecn_thresholds / frame_size))
+        logger.info("Total number of packets to send = %s" %(number_of_packets))
    
         delay = start_delay * 1000000000.0
         test_flow = Flow(
@@ -207,6 +206,9 @@ def traffic_line_rate(request):
 def frame_size(request):
     return request
 
+@pytest.fixture
+def outstanding_packets(request):
+    return request
 
 @pytest.fixture(scope='session')
 def serializer(request):
@@ -236,8 +238,7 @@ def serializer(request):
 
 
 @pytest.fixture
-def port_bandwidth(testbed,
-                   conn_graph_facts,
+def port_bandwidth(conn_graph_facts,
                    fanout_graph_facts,
                    bw_multiplier) :
 
@@ -258,8 +259,7 @@ def port_bandwidth(testbed,
 
 
 @pytest.fixture
-def one_hundred_gbe(testbed,
-                    conn_graph_facts,
+def one_hundred_gbe(conn_graph_facts,
                     fanout_graph_facts,
                     serializer) :
 
@@ -320,8 +320,7 @@ def one_hundred_gbe(testbed,
 
 
 @pytest.fixture
-def ecn_marking_at_ecress(testbed,
-                          conn_graph_facts,
+def ecn_marking_at_ecress(conn_graph_facts,
                           duthost,
                           lossless_prio_dscp_map,
                           one_hundred_gbe,
@@ -333,8 +332,8 @@ def ecn_marking_at_ecress(testbed,
                           ecn_thresholds,
                           serializer) :
 
-    return(base_configs(testbed=testbed,
-                        conn_graph_facts=conn_graph_facts,
+    number_of_packets = int(2 * (ecn_thresholds / frame_size))
+    return(base_configs(conn_graph_facts=conn_graph_facts,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
@@ -344,12 +343,12 @@ def ecn_marking_at_ecress(testbed,
                         traffic_line_rate=traffic_line_rate,
                         frame_size=frame_size,
                         ecn_thresholds=ecn_thresholds,
+                        number_of_packets=number_of_packets,
                         serializer=serializer))
 
 
 @pytest.fixture
-def marking_accuracy(testbed,
-                     conn_graph_facts,
+def marking_accuracy(conn_graph_facts,
                      duthost,
                      lossless_prio_dscp_map,
                      one_hundred_gbe,
@@ -357,12 +356,13 @@ def marking_accuracy(testbed,
                      traffic_duration,
                      pause_line_rate,
                      traffic_line_rate,
-                     frame_sizea,
+                     frame_size,
                      ecn_thresholds,
+                     outstanding_packets,
                      serializer) :
 
-    return(base_configs(testbed=testbed,
-                        conn_graph_facts=conn_graph_facts,
+    number_of_packets = int(4 * (ecn_thresholds / frame_size) + outstanding_packets)
+    return(base_configs(conn_graph_facts=conn_graph_facts,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
@@ -372,5 +372,6 @@ def marking_accuracy(testbed,
                         traffic_line_rate=traffic_line_rate,
                         frame_size=frame_size,
                         ecn_thresholds=ecn_thresholds,
+                        number_of_packets=number_of_packets,
                         serializer=serializer))
 

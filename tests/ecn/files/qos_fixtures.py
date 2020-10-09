@@ -52,19 +52,3 @@ def lossless_prio_dscp_map(duthost):
      
     return result
 
-
-@pytest.fixture
-def ecn_thresholds(request):
-    return request
-
-def set_ecn_thresold(duthost, thresold) :
-     profile_name = 'AZURE_LOSSLESS' 
-     duthost.shell('sudo pfcwd stop')    
-     from tests.common.reboot import logger
-     config_facts = duthost.config_facts(host=duthost.hostname,
-                                         source="persistent")['ansible_facts']
-     logger.info('--------------------------------------------')
-     logger.info(config_facts)
-     logger.info('--------------------------------------------')
-     return 1 
-    

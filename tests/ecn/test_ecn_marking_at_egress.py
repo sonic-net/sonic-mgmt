@@ -18,16 +18,17 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
 from files.configs.ecn import ecn_marking_at_ecress, one_hundred_gbe, serializer
 from files.configs.ecn import start_delay, traffic_duration, pause_line_rate,\
     traffic_line_rate, port_bandwidth, bw_multiplier, frame_size
+
 from files.qos_fixtures import lossless_prio_dscp_map, ecn_thresholds
 
 START_DELAY = [2]
 TRAFFIC_DURATION = [3]
 PAUSE_LINE_RATE = [100]
-TRAFFIC_LINE_RATE = [50]
+TRAFFIC_LINE_RATE = [100]
 BW_MULTIPLIER = [1000000]
 FRAME_SIZE = [1024]
-TOLERANCE_THRESHOLD = .97
-ECN_THRESHOLD = [1024*10]
+TOLERANCE_THRESHOLD = .50
+ECN_THRESHOLD = [1024*100]
 
 @pytest.mark.parametrize('start_delay', START_DELAY)
 @pytest.mark.parametrize('traffic_duration', TRAFFIC_DURATION)
@@ -78,8 +79,8 @@ def test_ecn_marking_at_ecress(api,
         for row in api.get_flow_results(FlowRequest(flow_names=stat_captions)):
             if (row['name'] == 'Test Data') :
                 if ((row['frames_rx'] == 0) or (row['frames_tx'] != row['frames_rx'])):
-                     pytest_assert(False,
-                         "Not all %s reached Rx End" %(rows[caption_index]))
+                     logger.error("Tx = %s Rx = %s" % (row['frames_tx'], row['frames_rx']))
+                     pytest_assert(False, "Not all %s reached Rx End")
 
         # write the pcap bytes to a local file
         with open('%s.pcap' % rx_port.name, 'wb') as fid:
@@ -88,24 +89,12 @@ def test_ecn_marking_at_ecress(api,
         from scapy.all import rdpcap
         reader = rdpcap('%s.pcap' % rx_port.name)
 
-        packet_marked_conjestion = 0
-        total_ip_packets_received = 0  
-        for r in reader:
-            if r.haslayer('IP') :
-                total_ip_packets_received +=1 
-                x = r['IP'].getfieldval('tos')
-                if (x & 3) == 3 :
-                    packet_marked_conjestion += 1
+        ip_packet = filter(lambda x : x.haslayer('IP'), reader)
 
-        logger.info("Total IP packets received = %s" %(total_ip_packets_received))
-        logger.info("Total number of IP packets ECN marked = %s" %(packet_marked_conjestion))
-
-        conjestion_ratio = float(packet_marked_conjestion)/total_ip_packets_received
-        logger.info("The tolerance ratio = %s" %(conjestion_ratio))
-
-        if ((conjestion_ratio < TOLERANCE_THRESHOLD) or
-            (conjestion_ratio > 1)):
+        if ((ip_packet[0]['IP'].getfieldval('tos') & 3 != 3) or
+            (ip_packet[-1]['IP'].getfieldval('tos') & 3 != 2)) :
+            p = [x['IP'].getfieldval('tos') for x in ip_packet]
+            logger.error("dumping dscp-ECN field %s" %(p))
             pytest_assert(False, 
-                "Expected number of packets are not ECN conjestion marked")
-        
+                "1st should be ECN marked & last packet should be ECN marked")   
 
