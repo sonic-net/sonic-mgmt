@@ -44,7 +44,7 @@ def gather_facts(request, duthost):
 
 
 @pytest.mark.usefixtures("gather_facts")
-class TestFanDrawerFansApi(PlatformApiTestBase):
+class TestPsuFans(PlatformApiTestBase):
 
     num_psus = None
     chassis_facts = None
