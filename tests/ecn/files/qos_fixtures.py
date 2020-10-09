@@ -52,3 +52,9 @@ def lossless_prio_dscp_map(duthost):
      
     return result
 
+
+@pytest.fixture
+def ecn_thresholds(request):
+    return request
+
+    
