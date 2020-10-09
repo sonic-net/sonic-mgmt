@@ -14,10 +14,10 @@ import jinja2
 import ipaddr as ipaddress
 
 from collections import defaultdict
+from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,9 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
-                  'tests.common.plugins.log_section_start')
+                  'tests.common.plugins.log_section_start',
+                  'tests.common.plugins.custom_fixtures',
+                  'tests.vxlan')
 
 
 class TestbedInfo(object):
@@ -97,6 +99,9 @@ def pytest_addoption(parser):
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int, help="number of vrf to be tested (1-997)")
 
+    # qos_sai options
+    parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
+
     ############################
     # pfc_asym options         #
     ############################
@@ -130,7 +135,9 @@ def pytest_addoption(parser):
     ########################
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
-
+    parser.addoption("--skip_fixture_disable_container_autorestart", action="store_true", default=False,
+                     help="The autorestart of containers will be disabled by default. \
+                         Set this option to skip fixture disable_container_autorestart")
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
@@ -182,7 +189,7 @@ def config_logging(request):
 
 
 @pytest.fixture(scope="session")
-def testbed(request):
+def tbinfo(request):
     """
     Create and return testbed information
     """
@@ -191,20 +198,20 @@ def testbed(request):
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
 
-    tbinfo = TestbedInfo(tbfile)
-    return tbinfo.testbed_topo[tbname]
+    testbedinfo = TestbedInfo(tbfile)
+    return testbedinfo.testbed_topo[tbname]
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(ansible_adhoc, testbed):
+def fixture_duthosts(ansible_adhoc, tbinfo):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
         Source of the various device objects. It is
         mandatory argument for the class constructors.
-    @param testbed: Ansible framework testbed information
+    @param tbinfo: fixture provides information about testbed.
     """
-    return [SonicHost(ansible_adhoc, dut) for dut in testbed["duts"]]
+    return [SonicHost(ansible_adhoc, dut) for dut in tbinfo["duts"]]
 
 
 @pytest.fixture(scope="session")
@@ -240,9 +247,9 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, testbed, duthost):
-    if "ptf" in testbed:
-        return PTFHost(ansible_adhoc, testbed["ptf"])
+def ptfhost(ansible_adhoc, tbinfo, duthost):
+    if "ptf" in tbinfo:
+        return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
@@ -251,21 +258,21 @@ def ptfhost(ansible_adhoc, testbed, duthost):
 
 
 @pytest.fixture(scope="module")
-def nbrhosts(ansible_adhoc, testbed, creds):
+def nbrhosts(ansible_adhoc, tbinfo, creds):
     """
     Shortcut fixture for getting VM host
     """
 
-    vm_base = int(testbed['vm_base'][2:])
+    vm_base = int(tbinfo['vm_base'][2:])
     devices = {}
-    for k, v in testbed['topo']['properties']['topology']['VMs'].items():
+    for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         devices[k] = {'host': EosHost(ansible_adhoc,
                                       "VM%04d" % (vm_base + v['vm_offset']),
                                       creds['eos_login'],
                                       creds['eos_password'],
                                       shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                                       shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                      'conf': testbed['topo']['properties']['configuration'][k]}
+                      'conf': tbinfo['topo']['properties']['configuration'][k]}
     return devices
 
 @pytest.fixture(scope="module")
@@ -274,29 +281,37 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     Shortcut fixture for getting Fanout hosts
     """
 
-    dev_conn     = conn_graph_facts['device_conn'] if 'device_conn' in conn_graph_facts else {}
+    dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
     try:
         for dut_port in dev_conn.keys():
-            fanout_rec  = dev_conn[dut_port]
+            fanout_rec = dev_conn[dut_port]
             fanout_host = fanout_rec['peerdevice']
             fanout_port = fanout_rec['peerport']
+
             if fanout_host in fanout_hosts.keys():
-                fanout  = fanout_hosts[fanout_host]
+                fanout = fanout_hosts[fanout_host]
             else:
-                host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_host).vars
-                os_type = 'eos' if 'os' not in host_vars else host_vars['os']
+                host_vars = ansible_adhoc().options[
+                    'inventory_manager'].get_host(fanout_host).vars
+                os_type = host_vars.get('os', 'eos')
+                admin_user = creds['fanout_admin_user']
+                admin_password = creds['fanout_admin_password']
+                # `fanout_network_user` and `fanout_network_password` are for
+                # accessing the non-shell CLI of fanout.
+                # Ansible will use this set of credentail for establishing
+                # `network_cli` connection with device when applicable.
+                network_user = creds.get('fanout_network_user', admin_user)
+                network_password = creds.get('fanout_network_password',
+                                             admin_password)
+                shell_user = creds.get('fanout_shell_user', admin_user)
+                shell_password = creds.get('fanout_shell_pass', admin_password)
+                if os_type == 'sonic':
+                    shell_user = creds['fanout_sonic_user']
+                    shell_password = creds['fanout_sonic_password']
 
-                # `fanout_network_user` and `fanout_network_password` are for accessing the non-shell CLI of fanout
-                # Ansible will use this set of credentail for establishing `network_cli` connection with device
-                # when applicable.
-                network_user = creds['fanout_network_user'] if 'fanout_network_user' in creds else creds['fanout_admin_user']
-                network_password = creds['fanout_network_password'] if 'fanout_network_password' in creds else creds['fanout_admin_password']
-                shell_user = creds['fanout_shell_user'] if 'fanout_shell_user' in creds else creds['fanout_admin_user']
-                shell_password = creds['fanout_shell_password'] if 'fanout_shell_password' in creds else creds['fanout_admin_password']
-
-                fanout  = FanoutHost(ansible_adhoc,
+                fanout = FanoutHost(ansible_adhoc,
                                     os_type,
                                     fanout_host,
                                     'FanoutLeaf',
@@ -399,27 +414,51 @@ def collect_techsupport(request, duthost):
 
         logging.info("########### Collected tech support for test {} ###########".format(testname))
 
-__report_metadata_added = False
-
-@pytest.fixture(scope="module", autouse=True)
-def tag_test_report(request, pytestconfig, testbed, duthost, record_testsuite_property):
+@pytest.fixture(scope="session", autouse=True)
+def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
     if not request.config.getoption("--junit-xml"):
         return
 
-    # NOTE: This is a gnarly hack to deal with the fact that we only want to add this
-    # metadata to the test report once per session. Since the duthost fixture has
-    # module scope we can't give this fixture session scope.
-    global __report_metadata_added
-    if not __report_metadata_added:
-        # Test run information
-        record_testsuite_property("topology", testbed['topo']['name'])
-        record_testsuite_property("markers", pytestconfig.getoption("-m"))
+    # Test run information
+    record_testsuite_property("topology", tbinfo["topo"]["name"])
+    record_testsuite_property("testbed", tbinfo["conf-name"])
+    record_testsuite_property("timestamp", datetime.utcnow())
 
-        # Device information
-        record_testsuite_property("host", duthost.hostname)
-        record_testsuite_property("asic", duthost.facts["asic_type"])
-        record_testsuite_property("platform", duthost.facts["platform"])
-        record_testsuite_property("hwsku", duthost.facts["hwsku"])
-        record_testsuite_property("os_version", duthost.os_version)
+    # Device information
+    record_testsuite_property("host", duthost.hostname)
+    record_testsuite_property("asic", duthost.facts["asic_type"])
+    record_testsuite_property("platform", duthost.facts["platform"])
+    record_testsuite_property("hwsku", duthost.facts["hwsku"])
+    record_testsuite_property("os_version", duthost.os_version)
 
-        __report_metadata_added = True
+@pytest.fixture(scope="module", autouse=True)
+def disable_container_autorestart(duthost, request):
+    if request.config.getoption("--skip_fixture_disable_container_autorestart"):
+        yield
+        return
+    skip = False
+    for m in request.node.iter_markers():
+        if m.name == "enable_container_autorestart":
+            skip = True
+            break
+    if skip:
+        yield
+        return
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    # Disable autorestart for all containers
+    logging.info("Disable container autorestart")
+    cmd_disable = "config feature autorestart {} disabled"
+    cmds_disable = []
+    for name, state in container_autorestart_states.items():
+        if state == "enabled":
+            cmds_disable.append(cmd_disable.format(name))
+    duthost.shell_cmds(cmds=cmds_disable)
+    yield
+    # Recover autorestart states
+    logging.info("Recover container autorestart")
+    cmd_enable = "config feature autorestart {} enabled"
+    cmds_enable = []
+    for name, state in container_autorestart_states.items():
+        if state == "enabled":
+            cmds_enable.append(cmd_enable.format(name))
+    duthost.shell_cmds(cmds=cmds_enable)

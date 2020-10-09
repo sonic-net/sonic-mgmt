@@ -16,6 +16,9 @@ def test_bgp_facts(duthost):
         assert v['state'] == 'established'
         # Verify locat ASNs in bgp sessions
         assert v['local AS'] == mg_facts['minigraph_bgp_asn']
+        # Check bgpmon functionality by validate STATE DB contains this neighbor as well
+        state_fact = duthost.shell('sonic-db-cli STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'.format(k), module_ignore_errors=False)['stdout_lines']
+        assert state_fact[0] == "Established"
 
     for v in mg_facts['minigraph_bgp']:
         # Compare the bgp neighbors name with minigraph bgp neigbhors name

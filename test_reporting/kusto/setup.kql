@@ -1,0 +1,87 @@
+# Kusto script to setup a Kusto database for storing test results
+#
+# See https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats
+# for details about how Kusto maps JSON test results to tabular formats.
+
+###############################################################################
+# TOP-LEVEL DATABASE CONFIGURATION                                            #
+# 1. Retain data for 1 year                                                   #
+# 2. Authorize an AAD client to push data to Kusto                            #
+###############################################################################
+.alter-merge database SonicTestData policy retention softdelete = 365d
+
+# See: https://docs.microsoft.com/en-us/azure/data-explorer/provision-azure-ad-app
+.add database <DB Name> ingestors ('aadapp=<AAD Client ID>;<domain>') '<Service Name>'
+
+###############################################################################
+# TESTCASE TABLE SETUP                                                        #
+# 1. Create a RawTestCases table to feed data into TestCases                  #
+# 2. Create a function to expand the data from RawTestCases                   #
+# 3. Create a TestCases table                                                 #
+# 4. Setup a policy to automatically ingest data from RawTestCases            #
+###############################################################################
+.create table RawTestCases (Cases: dynamic)
+
+# See: https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats#ingest-json-records-containing-arrays
+.create table RawTestCases ingestion json mapping 'RawCaseMappingV1' '[{"column":"Cases","Properties":{"path":"$"}}]'
+
+# Retain records for 1 day to aid with debugging
+.alter-merge table RawTestCases policy retention softdelete = 1d recoverability = disabled
+
+.create function ExpandTestCases() {
+    RawTestCases
+    | mv-expand cases = Cases.cases
+    | project
+        Feature = tostring(cases["feature"]),
+        TestCase = tostring(cases["name"]),
+        ModulePath = tostring(cases["classname"]),
+        FilePath = tostring(cases["file"]),
+        StartLine = toint(cases["line"]),
+        Runtime = todouble(cases["time"]),
+        Result = tostring(cases["result"]),
+        ReportId = tostring(cases["id"]),
+	    Error = tobool(cases["error"])
+}
+
+.create table TestCases (Feature: string, TestCase: string, ModulePath: string,
+                         FilePath: string, StartLine: int, Runtime: double, Result: string,
+                         ReportId: string, Error: bool)
+
+.alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
+
+###############################################################################
+# SUMMARY TABLE SETUP                                                         #
+# 1. Create a TestReportSummary table to store test summaries                 #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportSummary (ReportId: string, TotalCasesRun: int, Failures: int,
+                                 Errors: int, Skipped: int, TotalRuntime: double)
+
+.create table TestReportSummary ingestion json mapping 'FlatSummaryMappingV1' '[{"column":"ReportId","Properties":{"path":"$.id"}},
+                                                                                {"column":"TotalCasesRun","Properties":{"path":"$.tests"}},
+                                                                                {"column":"Failures","Properties":{"path":"$.failures"}},
+                                                                                {"column":"Errors","Properties":{"path":"$.errors"}},
+                                                                                {"column":"Skipped","Properties":{"path":"$.skipped"}},
+                                                                                {"column":"TotalRuntime","Properties":{"path":"$.time"}}]'
+
+###############################################################################
+# METADATA TABLE SETUP                                                        #
+# 1. Create a TestReportMetadata table to store test metadata                 #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportMetadata (Timestamp: datetime, AsicType: string,
+                                  HardwareSku: string, OSVersion: string,
+                                  Platform: string, Topology: string,
+                                  TrackingId: string, ReportId: string,
+                                  TestbedName: string, UploadTimestamp: datetime)
+
+.create table TestReportMetadata ingestion json mapping 'FlatMetadataMappingV1' '[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},
+                                                                                  {"column":"AsicType","Properties":{"path":"$.asic"}},
+                                                                                  {"column":"HardwareSku","Properties":{"path":"$.hwsku"}},
+                                                                                  {"column":"OSVersion","Properties":{"path":"$.os_version"}},
+                                                                                  {"column":"Platform","Properties":{"path":"$.platform"}},
+                                                                                  {"column":"Topology","Properties":{"path":"$.topology"}},
+                                                                                  {"column":"TrackingId","Properties":{"path":"$.tracking_id"}},
+                                                                                  {"column":"ReportId","Properties":{"path":"$.id"}},
+                                                                                  {"column":"TestbedName","Properties":{"path":"$.testbed"}},
+                                                                                  {"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'

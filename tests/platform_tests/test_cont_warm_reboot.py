@@ -42,7 +42,7 @@ def handle_test_error(health_check):
             logging.error("Health check {} failed with unknown error: {}".format(health_check.__name__, str(err)))
             self.test_report[health_check.__name__] = "Unkown error"
             self.sub_test_result = False
-            return            
+            return
         # set result to pass
         self.test_report[health_check.__name__] = True
     return _wrapper
@@ -86,7 +86,7 @@ class ContinuousReboot:
         self.fast_reboot_count = 0
         self.fast_reboot_pass = 0
         self.fast_reboot_fail = 0
-        
+
 
     def reboot_and_check(self):
         """
@@ -335,7 +335,7 @@ class ContinuousReboot:
             '/tmp/syslog',
             '/tmp/sairedis.rec',
             '/tmp/swss.rec']
-        
+
         if self.sub_test_result is True:
             test_dir = os.path.join(self.log_dir, "pass", str(self.reboot_count))
         else:
@@ -353,6 +353,8 @@ class ContinuousReboot:
         with open(report_file, "w") as report_file:
             json.dump(test_report, report_file, indent=4)
 
+        pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".\
+            format(self.test_failures, self.reboot_count))
 
     def wait_until_uptime(self):
         logging.info("Wait until DUT uptime reaches {}s".format(self.continuous_reboot_delay))
@@ -410,7 +412,7 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
-def test_continuous_reboot(request, duthost, ptfhost, localhost, conn_graph_facts, testbed, creds):
+def test_continuous_reboot(request, duthost, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -432,7 +434,7 @@ def test_continuous_reboot(request, duthost, ptfhost, localhost, conn_graph_fact
         Status of BGP neighbors - should be established
     """
     continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
-    continuous_reboot.start_continuous_reboot(request, duthost, ptfhost, localhost, testbed, creds)
+    continuous_reboot.start_continuous_reboot(request, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()
 
 class ContinuousRebootError(Exception):

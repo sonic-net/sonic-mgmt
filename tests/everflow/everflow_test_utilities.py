@@ -1,9 +1,12 @@
 """Utilities for testing the Everflow feature in SONiC."""
+import os
 import logging
 import random
+import time
 import ipaddr
 import binascii
 import pytest
+import yaml
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -12,22 +15,37 @@ from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 
+# TODO: Add suport for CONFIGLET mode
+CONFIG_MODE_CLI = "cli"
+CONFIG_MODE_CONFIGLET = "configlet"
+
+TEMPLATE_DIR = "everflow/templates"
+EVERFLOW_RULE_CREATE_TEMPLATE = "acl-erspan.json.j2"
+
+FILE_DIR = "everflow/files"
+EVERFLOW_V4_RULES = "ipv4_test_rules.yaml"
+EVERFLOW_DSCP_RULES = "dscp_test_rules.yaml"
+
+DUT_RUN_DIR = "/tmp/everflow"
+EVERFLOW_RULE_CREATE_FILE = "acl-erspan.json"
+EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
+
 
 @pytest.fixture(scope="module")
-def setup_info(duthost, testbed):
+def setup_info(duthost, tbinfo):
     """
     Gather all required test information.
 
     Args:
         duthost: DUT fixture
-        testbed: testbed fixture
+        tbinfo: tbinfo fixture
 
     Returns:
         dict: Required test information
 
     """
     # TODO: Support all T1 and T0 topos in these tests.
-    if testbed["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
+    if tbinfo["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
         pytest.skip("Unsupported topology")
 
     tor_ports = []
@@ -149,7 +167,11 @@ def setup_info(duthost, testbed):
 
     add_route(duthost, "30.0.0.1/24", peer_ip)
 
+    duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
+
     yield setup_information
+
+    duthost.command("rm -rf {}".format(DUT_RUN_DIR))
 
     remove_route(duthost, "30.0.0.1/24", peer_ip)
 
@@ -206,6 +228,16 @@ def get_neighbor_info(duthost, dest_port, resolved=True):
     return peer_ip, duthost.shell("ip neigh show {} | awk -F\" \" \"{{print $5}}\"".format(peer_ip))["stdout"]
 
 
+# TODO: This can probably be moved to a shared location in a later PR.
+def load_acl_rules_config(table_name, rules_file):
+    with open(rules_file, "r") as f:
+        acl_rules = yaml.safe_load(f)
+
+    rules_config = {"acl_table_name": table_name, "rules": acl_rules}
+
+    return rules_config
+
+
 class BaseEverflowTest(object):
     """
     Base class for setting up a set of Everflow tests.
@@ -216,8 +248,20 @@ class BaseEverflowTest(object):
 
     OUTER_HEADER_SIZE = 38
 
+    @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
+    def config_method(self, request):
+        """Get the configuration method for this set of test cases.
+
+        There are multiple ways to configure Everflow on a SONiC device,
+        so we need to verify that Everflow functions properly for each method.
+
+        Returns:
+            The configuration method to use.
+        """
+        return request.param
+
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, duthost):
+    def setup_mirror_session(self, duthost, config_method):
         """
         Set up a mirror session for Everflow.
 
@@ -229,20 +273,14 @@ class BaseEverflowTest(object):
         """
         session_info = self._mirror_session_info("test_session_1", duthost.facts["asic_type"])
 
-        duthost.command("config mirror_session add {} {} {} {} {} {}"
-                        .format(session_info["session_name"],
-                                session_info["session_src_ip"],
-                                session_info["session_dst_ip"],
-                                session_info["session_dscp"],
-                                session_info["session_ttl"],
-                                session_info["session_gre"]))
+        self.apply_mirror_config(duthost, session_info, config_method)
 
         yield session_info
 
-        duthost.command("config mirror_session remove {}".format(session_info["session_name"]))
+        self.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, duthost):
+    def policer_mirror_session(self, duthost, config_method):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -252,29 +290,67 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        policer = "TEST_POLICER"
 
         # Create a policer that allows 100 packets/sec through
-        duthost.command("redis-cli -n 4 hmset \"POLICER|TEST_POLICER\" meter_type packets \
-                         mode sr_tcm cir 100 cbs 100 red_packet_action drop")
+        self.apply_policer_config(duthost, policer, config_method)
 
         # Create a mirror session with the TEST_POLICER attached
         session_info = self._mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
-        duthost.command("config mirror_session add {} {} {} {} {} {} --policer TEST_POLICER"
+        self.apply_mirror_config(duthost, session_info, config_method, policer=policer)
+
+        yield session_info
+
+        # Clean up mirror session and policer
+        self.remove_mirror_config(duthost, session_info["session_name"], config_method)
+        self.remove_policer_config(duthost, policer, config_method)
+
+    def apply_mirror_config(self, duthost, session_info, config_method, policer=None):
+        if config_method == CONFIG_MODE_CLI:
+            command = "config mirror_session add {} {} {} {} {} {}" \
                         .format(session_info["session_name"],
                                 session_info["session_src_ip"],
                                 session_info["session_dst_ip"],
                                 session_info["session_dscp"],
                                 session_info["session_ttl"],
-                                session_info["session_gre"]))
+                                session_info["session_gre"])
 
-        yield session_info
+            if policer:
+                command += " --policer {}".format(policer)
 
-        # Clean up mirror session and policer
-        duthost.command("config mirror_session remove {}".format(session_info["session_name"]))
-        duthost.command("redis-cli -n 4 del \"POLICER|TEST_POLICER\"")
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
 
-    @abstractmethod
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session):
+        duthost.command(command)
+
+    def remove_mirror_config(self, duthost, session_name, config_method):
+        if config_method == CONFIG_MODE_CLI:
+            command = "config mirror_session remove {}".format(session_name)
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
+
+        duthost.command(command)
+
+    def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
+        if config_method == CONFIG_MODE_CLI:
+            command = ("redis-cli -n 4 hmset \"POLICER|{}\" "
+                       "meter_type packets mode sr_tcm cir {} cbs {} "
+                       "red_packet_action drop").format(policer_name, rate_limit, rate_limit)
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
+
+        duthost.command(command)
+
+    def remove_policer_config(self, duthost, policer_name, config_method):
+        if config_method == CONFIG_MODE_CLI:
+            command = "redis-cli -n 4 del \"POLICER|{}\"".format(policer_name)
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
+
+        duthost.command(command)
+
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_acl_table(self, duthost, setup_info, setup_mirror_session, config_method):
         """
         Configure the ACL table for this set of test cases.
 
@@ -283,7 +359,88 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
-        pass
+        if not setup_info[self.acl_stage()][self.mirror_type()]:
+            pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
+                        .format(self.acl_stage(), self.mirror_type()))
+
+        table_name = "EVERFLOW" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESS"
+
+        # NOTE: We currently assume that the ingress MIRROR tables already exist.
+        if self.acl_stage() == "egress":
+            self.apply_acl_table_config(duthost, table_name, "MIRROR", config_method)
+
+        self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
+
+        yield
+
+        self.remove_acl_rule_config(duthost, table_name, config_method)
+
+        if self.acl_stage() == "egress":
+            self.remove_acl_table_config(duthost, "EVERFLOW_EGRESS", config_method)
+
+    def apply_acl_table_config(self, duthost, table_name, table_type, config_method):
+        if config_method == CONFIG_MODE_CLI:
+            command = "config acl add table {} {}".format(table_name, table_type)
+
+            # NOTE: Until the repo branches, we're only applying the flag
+            # on egress tables to preserve backwards compatibility.
+            if self.acl_stage() == "egress":
+                command += " --stage {}".format(self.acl_stage())
+
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
+
+        duthost.command(command)
+
+    def remove_acl_table_config(self, duthost, table_name, config_method):
+        if config_method == CONFIG_MODE_CLI:
+            command = "config acl remove table {}".format(table_name)
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
+
+        duthost.command(command)
+
+    def apply_acl_rule_config(
+            self,
+            duthost,
+            table_name,
+            session_name,
+            config_method,
+            rules=EVERFLOW_V4_RULES
+    ):
+        rules_config = load_acl_rules_config(table_name, os.path.join(FILE_DIR, rules))
+        duthost.host.options["variable_manager"].extra_vars.update(rules_config)
+
+        if config_method == CONFIG_MODE_CLI:
+            duthost.template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE),
+                             dest=os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE))
+
+            command = "acl-loader update full {} --table_name {} --session_name {}" \
+                      .format(os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE),
+                              table_name,
+                              session_name)
+
+            # NOTE: Until the repo branches, we're only applying the flag
+            # on egress mirroring to preserve backwards compatibility.
+            if self.mirror_type() == "egress":
+                command += " --mirror_stage {}".format(self.mirror_type())
+
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
+
+        duthost.command(command)
+        time.sleep(2)
+
+    def remove_acl_rule_config(self, duthost, table_name, config_method):
+        if config_method == CONFIG_MODE_CLI:
+            duthost.copy(src=os.path.join(FILE_DIR, EVERFLOW_RULE_DELETE_FILE),
+                         dest=DUT_RUN_DIR)
+            command = "acl-loader update full {} --table_name {}" \
+                .format(os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_DELETE_FILE), table_name)
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
+
+        duthost.command(command)
 
     @abstractmethod
     def mirror_type(self):
@@ -438,18 +595,16 @@ class BaseEverflowTest(object):
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
-        logging.info("mirror session configuration: %s", mirror_output["stdout"])
+        logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
 
-        pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
-                      "Test mirror session {} not found".format(mirror_session["session_name"]))
+        matching_session = list(filter(lambda line: line.startswith(mirror_session["session_name"]),
+                                       mirror_output["stdout_lines"]))
+        pytest_assert(matching_session, "Test mirror session {} not found".format(mirror_session["session_name"]))
+        logging.info("Found mirror session:\n%s", matching_session[0])
 
-        pytest_assert(len(mirror_output["stdout_lines"]) == 3,
-                      "Unexpected number of mirror sesssions:\n{}".format(mirror_output["stdout"]))
-
-        monitor_intf = mirror_output["stdout_lines"][2].split()[-1:][0]
-
-        pytest_assert(monitor_intf in setup["port_index_map"],
+        monitor_port = matching_session[0].split()[-1]
+        pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
-        logging.info("selected monitor interface %s (port=%s)", monitor_intf, setup["port_index_map"][monitor_intf])
+        logging.info("Selected monitor port %s (index=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
-        return setup["port_index_map"][monitor_intf]
+        return setup["port_index_map"][monitor_port]
