@@ -40,7 +40,7 @@ def cleanup_dut(duthost):
             'neigh': '55:54:00:ad:48:98',
             'family': 'IPv4'
         },
-        'OP': 'SET'
+        'OP': 'DEL'
     }]
     duthost.copy(content=json.dumps(neighbor, indent=4), dest='NEIGH_JSON')
     duthost.shell('docker cp {} swss:/'.format(NEIGH_JSON))
