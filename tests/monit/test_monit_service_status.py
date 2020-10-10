@@ -17,7 +17,7 @@ def test_monit_service_status(duthost):
     @summary: Test the running status of Monit service by analyzing the command
               output of "sudo systemctl status monit.service | grep Active".
     """
-    monit_service_status_info = duthost.shell("sudo monit status", module_ignore_erros=True)
+    monit_service_status_info = duthost.shell("sudo monit status", module_ignore_errors=True)
 
     exit_code = monit_service_status_info["rc"]
     if exit_code == 0:
