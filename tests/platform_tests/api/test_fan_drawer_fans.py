@@ -94,7 +94,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
                 if self.expect(name is not None, "Unable to retrieve fan drawer {} fan {} name".format(j, i)):
                     self.expect(isinstance(name, STRING_TYPE), "fan drawer {} fan {} name appears incorrect".format(j, i))
-                    self.compare_value_with_platform_facts(self, 'name', name, j, i)
+                    self.compare_value_with_platform_facts('name', name, j, i)
 
         self.assert_expectations()
 
