@@ -5,6 +5,8 @@ import logging
 
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -12,15 +14,8 @@ pytestmark = [
 ]
 
 
-def test_monit_service_status(duthost):
-    """
-    @summary: Test the running status of Monit service by analyzing the command
-              output of "sudo systemctl status monit.service | grep Active".
-    """
-    monit_service_status_info = duthost.shell("sudo monit status", module_ignore_errors=True)
+def test_monit_status(duthost):
+    monit_status_result = duthost.shell("sudo monit status", module_ignore_errors=True)
 
-    exit_code = monit_service_status_info["rc"]
-    if exit_code == 0:
-        logger.info("Monit service is running.")
-    else:
-        pytest.fail("Monit service is not running.")
+    exit_code = monit_status_result["rc"]
+    pytest_assert(exit_code == 0, "Monit is either not running or not configured correctly")
