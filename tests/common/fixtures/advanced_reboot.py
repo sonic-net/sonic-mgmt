@@ -385,7 +385,9 @@ class AdvancedReboot:
 
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
+        count = 0
         for rebootOper in self.rebootData['sadList']:
+            count += 1
             try:
                 result = self.__runPtfRunner(rebootOper)
             finally:
@@ -394,7 +396,7 @@ class AdvancedReboot:
                 self.__clearArpAndFdbTables()
             if not result:
                 return result
-            if len(self.rebootData['sadList']) > 1:
+            if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
         return result
 
