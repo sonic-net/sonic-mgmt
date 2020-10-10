@@ -1,3 +1,4 @@
+import logging
 import pytest
 import yaml
 
@@ -5,6 +6,8 @@ from os import path
 from vnet_utils import combine_dicts, safe_open_template
 
 from vnet_constants import *
+
+logger = logging.getLogger(__name__)
 
 def pytest_addoption(parser):
     """
@@ -14,7 +17,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--num_vnet",
         action="store",
-        default=None,
+        default=8,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
@@ -22,7 +25,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--num_routes",
         action="store",
-        default=None,
+        default=16000,
         type=int,
         help="number of routes for VNET VxLAN test"
     )
@@ -30,9 +33,17 @@ def pytest_addoption(parser):
     parser.addoption(
         "--num_endpoints",
         action="store",
-        default=None,
+        default=4000,
         type=int,
         help="number of endpoints for VNET VxLAN"
+    )
+
+    parser.addoption(
+        "--num_intf_per_vnet",
+        action="store",
+        default=1,
+        type=int,
+        help="number of VLAN interfaces per VNET"
     )
 
     parser.addoption(
@@ -93,6 +104,7 @@ def vnet_test_params(request):
     params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
     params[APPLY_NEW_CONFIG_KEY] = not request.config.option.skip_apply_config
+    params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
     return params
 
 @pytest.fixture(scope="module")
@@ -122,6 +134,11 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
     Returns:
         A dictionary containing the generated vnet configuration information
     """
+
+    num_rifs = vnet_test_params[NUM_INTF_PER_VNET_KEY] * scaled_vnet_params[NUM_VNET_KEY]
+
+    if num_rifs > 128:
+        logger.warning("Total number of configured interfaces will be greater than 128. This is not a supported test scenario")
 
     combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
     return yaml.safe_load(safe_open_template(path.join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
