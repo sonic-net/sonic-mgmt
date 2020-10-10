@@ -55,7 +55,7 @@ class TestPsuFans(PlatformApiTestBase):
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, platform_api_conn):
-        if self.num_fans is None:
+        if self.num_psus is None:
             try:
                 self.num_psus = chassis.get_num_psus(platform_api_conn)
             except:
@@ -228,7 +228,7 @@ class TestPsuFans(PlatformApiTestBase):
             target_speed = random.randint(1, 100)
 
             for i in range(num_fans):
-                spped = psu_fan.get_speed(platform_api_conn, j, i)
+                speed = psu_fan.get_speed(platform_api_conn, j, i)
                 speed_tol = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
 
                 speed_set = psu_fan.set_speed(platform_api_conn, j, i, target_speed)
