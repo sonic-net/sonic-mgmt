@@ -21,6 +21,23 @@ def setup_keepalive_and_hold_timer(duthost, nbrhosts):
 
     yield
 
+
+def check_results(results):
+    """Helper function for checking results of parallel run.
+
+    Args:
+        results (Proxy to shared dict): Results of parallel run, indexed by node name.
+    """
+    failed_results = {}
+    for node_name, node_results in results.items():
+        failed_node_results = [res for res in node_results if res['failed']]
+        if len(failed_node_results) > 0:
+            failed_results[node_name] = failed_node_results
+    if failed_results:
+        logger.error('failed_results => {}'.format(json.dumps(failed_results, indent=2)))
+        pt_assert(False, 'Some processes for updating nbr hosts configuration returned failed results')
+
+
 @pytest.fixture(scope='module')
 def setup_bgp_graceful_restart(duthost, nbrhosts):
 
@@ -61,14 +78,7 @@ def setup_bgp_graceful_restart(duthost, nbrhosts):
 
     results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
 
-    failed_results = {}
-    for node_name, node_results in results.items():
-        failed_node_results = [res for res in node_results if res['failed']]
-        if len(failed_node_results) > 0:
-            failed_results[node_name] = failed_node_results
-    if failed_results:
-        logger.error('failed_results => {}'.format(json.dumps(failed_results, indent=2)))
-        pt_assert(False, 'Some processes for configuring nbr hosts returned failed results')
+    check_results(results)
 
     logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
     if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
@@ -109,14 +119,7 @@ def setup_bgp_graceful_restart(duthost, nbrhosts):
 
     results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
 
-    failed_results = {}
-    for node_name, node_results in results.items():
-        failed_node_results = [res for res in node_results if res['failed']]
-        if len(failed_node_results) > 0:
-            failed_results[node_name] = failed_node_results
-    if failed_results:
-        logger.error('failed_results => {}'.format(json.dumps(failed_results, indent=2)))
-        pt_assert(False, 'Some processes for restoring nbr hosts returned failed results')
+    check_results(results)
 
     if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         pytest.fail("not all bgp sessions are up after disable graceful restart")
