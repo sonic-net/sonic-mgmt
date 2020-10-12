@@ -1,11 +1,12 @@
 import pytest
 import json
-import logging
 from datetime import datetime
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
-logger = logging.getLogger(__name__)
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
 
 ROUTE_JSON = 'route.json'
 ROUTE_TIMEOUT = 20 # Time limit for applying route changes
