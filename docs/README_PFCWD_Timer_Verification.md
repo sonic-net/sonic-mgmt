@@ -9,11 +9,11 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
 ```
 **_Fig. 2: Topology 2_**
 
-### Test Case #4 - PFC Watchdog behavior on MMU change
+### Test Case #3 - PFC Watchdog timer behavior
 
 #### Test Objective
 
-This test aims to verify changes in MMU settings of the DUT do not impact the current state of PFCWD and its functionality.
+This test aims to verify the PFC watchdog behavior considering the different timers explicitely.
 
 #### Test Configuration
 
@@ -40,12 +40,11 @@ Let’s use **_T<sub>detect</sub>_** , **_T<sub>restore</sub>_** , and **_T<sub>
 
 1. At time 0, start PFC PAUSE storm for **_T<sub>storm</sub>_** duration.
 2. At time **_T<sub>restore</sub>_**/2, start data traffic 1. The duration of data traffic 1 is also **_T<sub>storm</sub>_**.
-3. At time **_T<sub>restore</sub>_**/2 + **_T<sub>storm</sub>_**/2, change alpha.
-4. At time **_T<sub>storm</sub>_** , stop PFC pause storm.
-5. At time **_T<sub>restore</sub>_**/2 + **_T<sub>storm</sub>_** , stop data traffic 1.
-6. At time **_T<sub>storm</sub>_** + **_T<sub>poll</sub>_** + **_T<sub>restore</sub>_** , start data traffic 2.
-7. At time **_T<sub>storm</sub>_** + **_T<sub>poll</sub>_** + **_T<sub>restore</sub>_** + 1, stop data traffic 2.
-8. Verify the following:
+3. At time **_T<sub>storm</sub>_** , stop PFC pause storm.
+4. At time **_T<sub>restore</sub>_**/2 + **_T<sub>storm</sub>_** , stop data traffic 1.
+5. At time **_T<sub>storm</sub>_** + **_T<sub>poll</sub>_** + **_T<sub>restore</sub>_** , start data traffic 2.
+6. At time **_T<sub>storm</sub>_** + **_T<sub>poll</sub>_** + **_T<sub>restore</sub>_** + 1, stop data traffic 2.
+7. Verify the following:
    *    If **_T<sub>storm</sub>_** > (**_T<sub>detect</sub>_** + **_T<sub>poll</sub>_**)
         *    PFC watchdog is triggered on the corresponding lossless priorities at interface et2.
         *    All the packets of data traffic 1 are dropped.
@@ -55,5 +54,5 @@ Let’s use **_T<sub>detect</sub>_** , **_T<sub>restore</sub>_** , and **_T<sub>
         *    All the packets of data traffic 1 are received.
         *    All the packets of data traffic 2 are received. The throughput of traffic 2 is close to 100% of line rate.
 
-9. Repeat the test with different lossless priorities.
-10. Repeat the test with all lossless priorities simultaneously.
+8. Repeat the test with different lossless priorities.
+9.  Repeat the test with all lossless priorities simultaneously.
