@@ -15,7 +15,7 @@
     timeout: 300
 
 - name: Initializing Kubernetes cluster
-  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy
+  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns
   register: output
 
 - name: Store logs and generated token for future reference
