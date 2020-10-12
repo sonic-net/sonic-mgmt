@@ -8,8 +8,11 @@
   when: ptf_imagename is defined and ptf_imagename == "docker-keysight-api-server"
 
 - block:
-  - name: Set front panel/mgmt port for dut
-    include_tasks: set_dut_port.yml
+  - name: Get duts ports
+    include_tasks: get_dut_port.yml
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -18,23 +21,21 @@
       topo: "{{ topology }}"
       vm_names: "{{ VM_hosts }}"
       vm_base: "{{ VM_base }}"
-      dut_fp_ports: "{{ dut_fp_ports }}"
-      dut_mgmt_port: "{{ dut_mgmt_port }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
-      is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
     become: yes
 
   - include_tasks: remove_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
-  - name: Remove vlan port for vlan tunnel
-    vlan_port:
-      external_port: "{{ external_port }}"
-      vlan_ids: "{{ device_vlan_list }}"
-      is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
-      cmd: "remove"
-    become: yes
+  - name: Remove duts ports
+    include_tasks: remove_dut_port.yml
     when: external_port is defined
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
 
   - name: Remove ptf docker container ptf_{{ vm_set_name }}
     docker_container:
@@ -45,7 +46,7 @@
   when: container_type == "PTF"
 
 
-- block: 
+- block:
   - name: Remove Keysight API Server container
     docker_container:
       name: apiserver

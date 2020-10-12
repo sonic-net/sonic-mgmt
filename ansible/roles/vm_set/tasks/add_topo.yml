@@ -75,17 +75,21 @@
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
     become: yes
 
-  - name: Set front panel/mgmt port for dut
-    include_tasks: set_dut_port.yml
+  - name: Get dut ports
+    include_tasks: get_dut_port.yml
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
 
-  - name: Setup vlan port for vlan tunnel
-    vlan_port:
-      external_port: "{{ external_port }}"
-      vlan_ids: "{{ device_vlan_list }}"
-      is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
-      cmd: "create"
-    become: yes
+  - name: Create vlan ports for dut
+    include_tasks: create_dut_port.yml
     when: external_port is defined
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
+
+  - debug: msg="{{ duts_fp_ports }}"
+  - debug: msg="{{ duts_mgmt_port }}"
 
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
@@ -103,11 +107,11 @@
       ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
       ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
       mgmt_bridge: "{{ mgmt_bridge }}"
-      dut_fp_ports: "{{ dut_fp_ports }}"
-      dut_mgmt_port: "{{ dut_mgmt_port }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
-      is_multi_duts: "{{ dut_name is defined and dut_name.split(',')|length > 1 }}"
     become: yes
 
   - name: Send arp ping packet to gw for flusing the ARP table
