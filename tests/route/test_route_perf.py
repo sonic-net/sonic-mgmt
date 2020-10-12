@@ -53,11 +53,6 @@ def exec_routes(duthost, num_routes, op):
     # Generate json file for routes
     generate_route_file(duthost, prefixes, op)
 
-    def _check_num_routes(expected_num_routes):
-        # Check the number of routes in ASIC_DB
-        num_routes = int(duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\' | wc -l'.format(ROUTE_TABLE_NAME))['stdout'])
-        return num_routes == expected_num_routes
-
     # Copy route file to swss container
     duthost.shell('docker cp {} swss:/'.format(ROUTE_JSON))
     
@@ -77,6 +72,10 @@ def exec_routes(duthost, num_routes, op):
     duthost.shell('docker exec -i swss swssconfig /{}'.format(ROUTE_JSON))
 
     # Wait until the routes set/del applys to ASIC_DB
+    def _check_num_routes(expected_num_routes):
+        # Check the number of routes in ASIC_DB
+        num_routes = int(duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\' | wc -l'.format(ROUTE_TABLE_NAME))['stdout'])
+        return num_routes == expected_num_routes
     if not wait_until(ROUTE_TIMEOUT, 0.1, _check_num_routes, expected_num_routes):
         pytest.fail('failed to add routes within time limit')
 
@@ -108,11 +107,11 @@ def test_perf_add_remove_routes(duthost):
 
     # Add routes
     time_set = exec_routes(duthost, num_routes, 'SET')
-    print("Time to set %d routes is %.2f seconds. " % (num_routes, time_set))
+    print('Time to set %d routes is %.2f seconds.' % (num_routes, time_set))
 
     # Remove routes
     time_del = exec_routes(duthost, num_routes, 'DEL')
-    print("Time to del %d routes is %.2f seconds. " % (num_routes, time_del))
+    print('Time to del %d routes is %.2f seconds.' % (num_routes, time_del))
 
     # Cleanup DUT
     cleanup_dut(duthost)
