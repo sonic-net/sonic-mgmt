@@ -1,8 +1,6 @@
 import pytest
-import ipaddress
 import json
 import logging
-import time
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -10,49 +8,26 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 ROUTE_JSON = 'route.json'
-NEIGH_JSON = 'neigh.json'
 ROUTE_TIMEOUT = 20 # Time limit for applying route changes
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 def prepare_dut(duthost):
     # Set up interface
-    duthost.shell('sudo sonic-cfggen -a \'{\"INTERFACE\":{\"Ethernet72\":{\"NULL\":\"NULL\"}}}\' --write-to-db')
-    duthost.shell('sudo sonic-cfggen -a \'{\"INTERFACE\":{\"Ethernet72|10.1.0.54/31\":{\"NULL\":\"NULL\"}}}\' --write-to-db')
+    duthost.shell('sudo config interface ip add Ethernet72 10.1.0.54/31')
     
     # Set up neighbor
-    neighbor = [{
-        'NEIGH_TABLE:Ethernet72:10.1.0.37': {
-            'neigh': '55:54:00:ad:48:98',
-            'family': 'IPv4'
-        },
-        'OP': 'SET'
-    }]
-    duthost.copy(content=json.dumps(neighbor, indent=4), dest=NEIGH_JSON)
-    duthost.shell('docker cp {} swss:/'.format(NEIGH_JSON))
-    duthost.shell('docker exec -i swss swssconfig /{}'.format(NEIGH_JSON))
-
-    time.sleep(5)
+    duthost.shell('sudo ip neigh add 10.1.0.37 lladdr 55:54:00:ad:48:98 dev Ethernet72')
 
 def cleanup_dut(duthost):
     # Delete neighbor
-    neighbor = [{
-        'NEIGH_TABLE:Ethernet72:10.1.0.37': {
-            'neigh': '55:54:00:ad:48:98',
-            'family': 'IPv4'
-        },
-        'OP': 'DEL'
-    }]
-    duthost.copy(content=json.dumps(neighbor, indent=4), dest='NEIGH_JSON')
-    duthost.shell('docker cp {} swss:/'.format(NEIGH_JSON))
-    duthost.shell('docker exec -i swss swssconfig /{}'.format(NEIGH_JSON))
+    duthost.shell('sudo ip neigh del 10.1.0.37 dev Ethernet72')
 
     # remove files
     duthost.shell('rm {}'.format(ROUTE_JSON))
-    duthost.shell('rm {}'.format(NEIGH_JSON))
     duthost.shell('docker exec -i swss rm {}'.format(ROUTE_JSON))
-    duthost.shell('docker exec -i swss rm {}'.format(NEIGH_JSON))
 
-    time.sleep(5)
+    # remove interface
+    duthost.shell('sudo config interface ip remove Ethernet72 10.1.0.54/31')
 
 def generate_route_file(duthost, prefixes, op):
     route_data = []
