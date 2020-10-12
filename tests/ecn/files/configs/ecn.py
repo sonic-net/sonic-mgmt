@@ -119,9 +119,6 @@ def base_configs(conn_graph_facts,
         )
 
 
-        pytest_assert(ecn_thresholds < 1024 * 1024,
-            "keep the ECN thresholds less than 1MB")
-
         test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list),
                                   ecn=FieldPattern(Dscp.ECN_CAPABLE_TRANSPORT_1)))
 
@@ -361,7 +358,8 @@ def marking_accuracy(conn_graph_facts,
                      outstanding_packets,
                      serializer) :
 
-    number_of_packets = int(4 * (ecn_thresholds / frame_size) + outstanding_packets)
+    number_of_packets = int((ecn_thresholds / frame_size) + outstanding_packets)
+    logger.info("number_of_packets = %s " %(number_of_packets))
     return(base_configs(conn_graph_facts=conn_graph_facts,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
