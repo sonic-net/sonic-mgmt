@@ -1,8 +1,8 @@
   <PngDec>
     <DeviceInterfaceLinks>
 {% for index in range(vms_number) %}
-{% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs']|sort %}
-{% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes']|sort %}
+{% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
+{% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
 {% for if_index in range(vm_intfs | length) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -13,7 +13,7 @@
       </DeviceLinkBase>
 {% endfor %}
 {% endfor %}
-{% if vm_topo_config['host_interfaces'] | length > 0 %}
+{% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
 {% for host_index in range(vlan_intfs | length) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>

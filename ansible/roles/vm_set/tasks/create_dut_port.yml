@@ -1,0 +1,9 @@
+- name: Setup vlan port for vlan tunnel
+  vlan_port:
+    external_port: "{{ external_port }}"
+    vlan_ids: "{{ device_vlan_map_list[dut_name] }}"
+    cmd: "create"
+  become: yes
+
+- set_fact:
+    duts_fp_ports: "{{ duts_fp_ports|default({}) | combine( { dut_name: dut_fp_ports } ) }}"
