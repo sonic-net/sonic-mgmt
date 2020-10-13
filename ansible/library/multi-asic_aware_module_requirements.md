@@ -1,59 +1,73 @@
 # Requirements for designing a customized ansible module to support multi-ASIC
 
-PR https://github.com/Azure/SONiC/pull/644 introduced the HLD to support multi ASIC. In the future, multi DUT or Chassis will be supported by SONiC as well. Some of the customized ansible modules need to be updated to support testing of the upcoming new architectures. This document tries to propose some requirements for designing customized ansible modules that need to deal with multi-ASIC. The idea is to have a clean and easy to use interface for calling these ansible modules in scripts testing multi DUT and multi ASIC system. Meanwhile, the ansible modules need to maintain backward compatibility for single DUT and single ASIC testing.
+PR https://github.com/Azure/SONiC/pull/644 introduced the HLD to support multi ASIC. In the future, multi DUT or Chassis will be supported by SONiC as well. Some of the customized ansible modules need to be updated to support testing of the upcoming new architectures. This document tries to propose some requirements for designing customized ansible modules that need to deal with multi-ASIC. The target is to have a clean and easy to use interface for calling these ansible modules in scripts testing multi DUT and multi ASIC system. Meanwhile, the ansible modules need to maintain backward compatibility for single DUT and single ASIC testing.
 
 ## Requirements
 
-* The module must take optional argument for specifying ASIC index.
-* The module must not take argument for specifying the number of ASICs the host has. Instead the module must figure out by itself whether the current host supports multi ASIC and how many ASICs it has.
-* When ASIC index is supplied, return a single result. Do not return a list of results.
-* When ASIC index is not supplied, the module should find out whether multiple ASICs is supported by the current host.
-  * If the host supports multiple ASICs, then the module should find out the number of ASICs, do its job for each of the ASICs and return the results in a list. Each item in the list is the result of one ASIC.
-  * If the host does not support multiple ASICs, return a single result. Do not return a list of results. This is for backward compatibility.
+To support multi-ASIC SONiC testing, some of the customized ansible modules need to be updated to support ASIC/namespace. Based on the design of `MultiAsicSonicHost` and `SonicAsic`, the ASIC/namespace aware modules must follow below requirements:
+* The module must take optional argument for specifying ASIC index or namespace.
+* When ASIC index or namespace is specified, return the the `ansible_facts` of the specified ASIC/namespace.
+* When ASIC index is not specified, return the `ansible_facts` for the global ASIC/namespace, do not return `ansible_facts` for ASIC 0.
+
+Why not return a list of results for all ASICs when ASIC index or namespace is not specified? There are 2 reasons:
+* Ansible requires that the returned `ansible_facts` must be a dictionary. It cannot be a list.
+* For multi-ASIC SONiC, there is global namespace. It makes more sense to return result of the global namespace. The object holding the list of ASICs can take care of getting results for all ASICs.
+* Just return result of the global ASIC/namespace can maintain backward compatibility for single ASIC SONiC device.
+
+Why not return result for ASIC0 when ASIC/namespace is not specified?
+* For multi-ASIC SONiC, the global namespace is not equivalent to namespace of ASIC 0.
+
+There is no strict require of argument name for specifying ASIC index or namespace. The argument name can be like: `instance_id`, `asic_index`, `namespace_id`,etc. Which argument to be use should be taken care of by methods in new class for ASIC/namespace specific operations. More details will be covered in upcoming design documents to support multi-DUT and multi-ASIC testing.
 
 ## Possible interfaces for calling the modules
 
 This section tries to add some dummy examples for how to call the multi ASCI aware ansible modules in test scripts. Assume:
 * module `foo` is a multi ASIC aware customized ansible module
-* fixture `duthost` is an instance representing single host with single ASIC
-* fixture `duthost_multi_asic` is an instance representing single host with multi ASIC
+* module `xyz` is a none-multi-ASIC aware ansible module
+* fixture `duthost` is an instance representing single host with single or multiple ASIC. It should be an instance of new class like `MultiAsicSonicHost`. This new class delegates all none-multi-ASIC related calls to the existing `SonicHost` class.
 * fixture `duthosts` is an instance representing a testbed with multi DUTs or a Chassis. The `duthosts` have attributes like:
   * `duthosts.nodes`: A list of all the hosts in the testbed.
   * `duthosts.frontend_nodes`: A list of all the frontend hosts in the testbed.
 
-### Call the module for single host supports single ASIC
+### Call ordinary ansible module on single host
 
 ```
-duthost.foo()  # No behavior change, for backward compatibility
+duthost.xyz()  # No behavior change, for backward compatibility
 ```
 
-### Call the module for single host supports multi ASICs
+### Call ASIC/namespace aware module on single host
 
 ```
-duthost_multi_asic.foo()  # Run `foo` for each of the asic. return results in a list
+duthost.foo()  # Run `foo` for the global ASIC/namespace.
 
-duthost_multi_asic.foo(asic_index=0)  # Run `foo` for asic_index=0, and return a single result.
+duthost.foo(asic_index=0)  # Run `foo` for asic_index=0, and return a single result.
 
-duthost_multi_asic.foo(asic_index=1)  # Run `foo` for asic_index=0, and return a single result.
-```
-
-### Call the module for multiple hosts support single ASIC
-
-```
-# Run `foo` for each of the frontend node. Return results in a dict: {'node1': foo_result, 'node2': foo_result}
-{node.hostname: node.foo() for node in duthosts.frontend_nodes}
+duthost.foo(asic_index="all")  # Run `foo` for all ASICs, and return a list of results.
 ```
 
 ### Call the module for multiple hosts support multiple ASICs
 
 ```
-# Run `foo` for each of the frontend node and each of the ASIC. Return results in a dict like:
-#     {'node1': [asic0_foo_result, asic1_foo_result], 'node2': [asic0_foo_result, asic1_foo_result]}
+# Run `foo` for global ASIC/namespace for each of the frontend nodes. Return results in a dict like:
+#     {'node1': global_foo_result, 'node2': global_foo_result}
+duthosts.foo()
+
+# Equivalent to
 {node.hostname: node.foo() for node in duthosts.frontend_nodes}
 
-# Run `foo` for asic_index=0 for each of the frontend node. Return results in a dict like:
+# Run `foo` for asic_index=0 for each of the frontend nodes. Return results in a dict like:
 #     {'node1': asic0_foo_result, 'node2': asic0_foo_result}
+duthosts.foo(asic_index=0)
+
+# Equivalent to
 {node.hostname: node.foo(asic_index=0) for node in duthosts.frontend_nodes}
+
+# Run `foo` for all ASICs on all frontend nodes. Return results in a dict like:
+#     {'node1': [asic0_foo_result, asic1_foo_result, ...], 'node2': [asic0_foo_result, asic1_foo_result, ...]}
+duthosts.foo(asic_index="all")
+
+# Equivalent to
+{node.hostname: node.foo(asic_index="all") for node in duthosts.frontend_nodes}
 
 ```
 
