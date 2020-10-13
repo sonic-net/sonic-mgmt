@@ -1,16 +1,16 @@
 # SONiC Kubernetes Design
 
-This document describes the design to test Kubernetes features in SONiC. 
+This document describes the testbed design for Kubernetes features in SONiC and provides instructions to set up the high availability Kubernetes master.
 
 ## Background
 
 Each SONiC DUT is a worker node managed by a High Availability Kubernetes master. The High Availability Kubernetes master is composed of three master node machines and one load balancer machine.
 
-By connecting each SONiC DUT to HA Kubernetes master, containers running in SONiC can be managed by the Kubernetes master. SONiC containers managed by the Kubernetes master are termed to be running in "Kubernetes mode" as opposed to the original "Local mode." 
+By connecting each SONiC DUT to HA Kubernetes master, containers running in SONiC can be managed by the Kubernetes master. SONiC containers managed by the Kubernetes master are termed to be running in "kube mode" as opposed to the original "local mode." 
 
-In Kubernetes mode, SONiC container properties are based on specifications defined in the associated Kubernetes manifest. A Kubernetes manifest is a file in the Kubernetes master that defines the Kubernetes object and container configurations. In our case, we use Kubernetes Daemonset objects. The Kubernetes Daemonset object ensures that each worker node is running exactly one container of the image specified in the Daemonset manifest file.  
+In local mode, the SONiC feature container runs based on the image tagged `feature_name:latest` in the local image store; this feature runs independent of the Kubernetes master. In kube mode, SONiC container properties are based on specifications defined in the associated Kubernetes manifest. A Kubernetes manifest is a file in the Kubernetes master that defines the Kubernetes object and container configurations, including a URL from which to source the feature image. In our case, we use Kubernetes Daemonset objects. The Kubernetes Daemonset object ensures that each worker node is running exactly one container of the image specified in the Daemonset manifest file. 
 
-For example, in order to run SNMP and Telemetry containers in Kubernetes mode, we must have two manifests that define two Kubernetes Daemonset objects- one for each container running in "Kubernetes mode." 
+For example, in order to run SNMP and Telemetry containers in kube mode, we must have two manifests that define two Kubernetes Daemonset objects- one for each container/feature running in kube mode.
 
 The following is a snippet of the Telemetry Daemonset manifest file that specifies the Kubernetes object type and container image:
 
@@ -117,10 +117,10 @@ k8s_server_19:
 `./testbed-cli.sh -m k8s-ubuntu create-master k8s_server_19 ~/.password` 
   - OPTIONAL: We offer the functionality to run multiple master sets on one server. 
     - Each master set is one HA Kubernetes master composed of 4 Linux KVMs. 
-    - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. `msetnumber` is 1 by default. 
-
-
-9. Join Kubernetes-enabled SONiC DUT to cluster (kube_join function to be written).
+    - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. Specifically, make sure that the IPS are set in the correct group `k8s_vms{msetnumber}_{servernumber}` and the `children` are properly updated for `k8s_server_{servernumber}` at the bottom of the inventory file. `msetnumber` is 1 by default. 
+9. Join Kubernetes-enabled SONiC DUT to master by configuring VIP and enabling the Kubernetes server/master connection. Kubernetes server is enabled by default
+    - `sudo config kube server ip <VIP>`
+    - `sudo config kube server disable off` (default configuration)
 
 
 #### To remove a HA Kubernetes master:
@@ -131,19 +131,16 @@ k8s_server_19:
 ## Testing Scope
 
 This setup allows us to test the following: 
-- Successful deployment of SONiC containers via manifests defined in master
-- Expected container behavior after the container is intentionally or unintentionally stopped
-- Switching between Local and Kubernetes management mode for a given container
-  - Addition and removal of SONiC DUT labels
-- Proper management of Kubernetes features through DUT reboots, unreachable master
+- Joining and removing/resetting of SONiC DUT from Kubernetes master
+- Upgrades of kube mode feature images via Kubernetes manifests
+- SONiC feature transition between kube mode and local mode
+- Proper management of kube mode features before and after SONiC reboots
 
 During each of the following states:
-- When all master servers are up and running
-- When one master server is down
-- When two master servers are down
-- When all master servers are down
-
-Down: shut off, disconnected, or in the middle of reboot
+- When master VIP is reachable
+- When master VIP is unrechable
+- When Kubernetes API server is available
+- When Kubernetes API server unavailable
 
 In this setup, we do not consider load balancer performance. For Kubernetes feature testing purposes, HAProxy is configured to perform vanilla round-robin load balancing on available master servers.
 
