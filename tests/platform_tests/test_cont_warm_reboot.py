@@ -100,6 +100,7 @@ class ContinuousReboot:
         # Wait until uptime reaches allowed value
         self.wait_until_uptime()
         # Perform additional post-reboot health-check
+        self.verify_no_coredumps()
         self.verify_image()
         self.check_services()
         self.check_reboot_type()
@@ -208,6 +209,12 @@ class ContinuousReboot:
             if self.advancedReboot.binaryVersion != self.current_image:
                 raise ContinuousRebootError("Image installation failed.\
                     Expected: {}. Found: {}".format(self.advancedReboot.binaryVersion, self.current_image))
+
+    @handle_test_error
+    def verify_no_coredumps(self):
+        coredumps_count = self.duthost.shell('ls /var/core/ | wc -l')['stdout']
+        if int(coredumps_count) > 0:
+            raise ContinuousRebootError("Core dumps found. Expected: 0 Found: {}".format(coredumps_count))
 
 
     def check_test_params(self):
