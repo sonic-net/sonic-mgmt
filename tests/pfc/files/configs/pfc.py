@@ -1,6 +1,4 @@
-import time
 import pytest
-import sys
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import logger
@@ -15,7 +13,6 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, \
 ###############################################################################
 
 from abstract_open_traffic_generator.port import Port
-from abstract_open_traffic_generator.result import PortRequest
 from abstract_open_traffic_generator.config import Options
 from abstract_open_traffic_generator.config import Config
 
@@ -23,12 +20,11 @@ from abstract_open_traffic_generator.layer1 import\
     Layer1, OneHundredGbe, FlowControl, Ieee8021qbb
 
 from abstract_open_traffic_generator.device import\
-     Device, Ethernet, Vlan, Ipv4, Pattern
+     Device, Ethernet, Ipv4, Pattern
 
 from abstract_open_traffic_generator.flow import\
     DeviceTxRx, TxRx, Flow, Header, Size, Rate,\
-    Duration, FixedSeconds, PortTxRx, PfcPause, Counter, Random,\
-    EthernetPause, Continuous
+    Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
 
 from abstract_open_traffic_generator.flow_ipv4 import\
     Priority, Dscp
@@ -69,7 +65,6 @@ def base_configs(testbed,
         vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
 
         gw_addr = vlan_subnet.split('/')[0]
-        interface_ip_addr = vlan_ip_addrs[0]
 
         tx_port_ip = vlan_ip_addrs[1]
         rx_port_ip = vlan_ip_addrs[0]
@@ -82,7 +77,6 @@ def base_configs(testbed,
 
         test_line_rate = traffic_line_rate
         background_line_rate = traffic_line_rate
-        pause_line_rate = pause_line_rate
 
         pytest_assert(test_line_rate + background_line_rate <= 100,
             "test_line_rate + background_line_rate should be less than 100")
@@ -250,7 +244,6 @@ def serializer(request):
             return '\n[%s] %s: %s\n' % (self.test_name, obj.__class__.__name__, yaml_str)
 
         def obj(self, json_string):
-            a_dict = json.loads(json_string)
             return json.loads(json_string, object_hook=self._object_hook)
 
         def _object_hook(self, converted_dict):
@@ -289,7 +282,6 @@ def one_hundred_gbe(testbed,
 
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
     fanout_devices.get_fanout_device_details(device_number=0)
-    device_conn = conn_graph_facts['device_conn']
 
     # The number of ports should be at least two for this test
     available_phy_port = fanout_devices.get_ports()
