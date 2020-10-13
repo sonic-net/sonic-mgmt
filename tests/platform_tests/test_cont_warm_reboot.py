@@ -279,6 +279,9 @@ class ContinuousReboot:
             if "disabled" in issu_capability:
                 pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
+        self.verify_no_coredumps()
+        pytest_assert(self.sub_test_result, "Continuous reboot test failed. DUT contains core files")
+
         input_data = {
             'install_list': self.image_list, # this list can be modified at runtime to enable testing different images
             'location': self.image_location,
