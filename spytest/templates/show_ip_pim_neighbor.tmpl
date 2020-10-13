@@ -1,0 +1,23 @@
+###############################################################
+#sonic# show ip pim neighbor 
+#Interface         Neighbor    Uptime  Holdtime  DR Pri
+#Ethernet24       10.10.10.2  00:00:07  00:01:37       1
+#
+#sonic# show ip pim vrf all  neighbor 
+#VRF: default
+#Interface         Neighbor    Uptime  Holdtime  DR Pri
+#Ethernet24       10.10.10.2  00:17:29  00:01:15       1
+#VRF: RED
+#Interface         Neighbor    Uptime  Holdtime  DR Pri
+#Ethernet26       10.10.10.2  00:17:29  00:01:15       1
+###############################################################
+Value Required interface (\w+)
+Value neighbor ([\w\.]+)
+Value uptime ([\d\:]+)
+Value holdtime ([\d\:]+)
+Value dr_priority (\d+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${interface}\s*${neighbor}\s*${uptime}\s*${holdtime}\s*${dr_priority}$$ -> Record

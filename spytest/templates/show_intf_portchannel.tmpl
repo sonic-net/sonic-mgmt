@@ -1,0 +1,44 @@
+Value channel_number (\d+)
+Value state (up|down)
+Value protocol_state (up|down)
+Value mode (LACP|NONE)
+Value fallback (Enabled|Disabled)
+Value mtu (\d+)
+Value ip_mtu (\d+)
+Value min_links (\d+)
+Value LACP_mode (active|inactive)
+Value priority (\d+)
+Value pc_mac_address (..:..:..:..:..:..)
+Value members (.*)
+Value is_selected (True|False)
+Value actor_port (\d+)
+Value actor_mac (..:..:..:..:..:..)
+Value partner_port (\d+)
+Value partner_mac (..:..:..:..:..:..)
+Value pkts (\d+)
+Value octets (\d+)
+Value multicasts (\d+)
+Value broadcasts (\d+)
+Value unicasts (\d+)
+Value errors (\d+)
+Value discards (\d+)
+
+Start
+  ^\s*PortChannel\s*${channel_number}\s+is\s+${state},\s+line\s+protocol\s+is\s+${protocol_state},\s+mode\s+${mode}\s*$$
+  ^\s*Fallback:\s+${fallback}\s*$$
+  ^\s*MTU\s+${mtu}\s+bytes,\s+IP\s+MTU\s+${ip_mtu}\s+bytes\s*$$
+  ^\s*Minimum\s+number\s+of\s+links\s+to\s+bring\s+PortChannel\s+up\s+is\s+${min_links}\s*$$
+  ^\s*LACP\s+mode\s+${LACP_mode},\s+interval\s+slow,\s+priority\s+${priority},\s+address\s+${pc_mac_address}\s*$$
+  ^\s*Members\s+in\s+this\s+channel:\s+${members}\s*$$
+  ^\s*selected\s+${is_selected}\s*$$
+  ^\s*LACP\s+Actor\s+port\s+${actor_port}\s+address\s+${actor_mac}\s+key\s+\d+\s*$$
+  ^\s*LACP\s+Partner\s+port\s+${partner_port}\s+address\s+${partner_mac}\s+key\s+\d+\s*$$ -> Record
+  ^\s*\S+\s+statistics: -> counters
+
+counters
+  ^\s+${pkts}\s+packets,\s+${octets}\s+octets\s*$$
+  ^\s+${multicasts}\s+Multicasts,\s+${broadcasts}\s+Broadcasts,\s+${unicasts}\s+Unicasts\s*$$
+  ^\s+${errors}\s+error,\s+${discards}\s+discarded\s*$$ -> Record
+
+
+

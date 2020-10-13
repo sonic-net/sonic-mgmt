@@ -63,8 +63,13 @@
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       delegate_to: localhost
 
+    - name: Set default dut index
+      set_fact:
+        dut_index: 0
+      when: dut_index is not defined
+
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
-      when: testbed_facts['dut'] != inventory_hostname
+      when: testbed_facts['duts'][dut_index] != inventory_hostname
 
     - name: set testbed_type
       set_fact:

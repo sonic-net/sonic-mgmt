@@ -1,0 +1,20 @@
+Value vrf ([A-Za-z]+|[A-Za-z]+-[A-Za-z]+)
+Value src_ip (\d+.\d+.\d+.\d+)
+Value grp_ip (\d+.\d+.\d+.\d+)
+Value IIF (\S+)
+Value OIF (\S+)
+Value total_ipmc_entries (\d+)
+Value ipmc_gid (\S+)
+Value ref_cnt (\d+)
+Value ipmc_grp_mem (\S+)
+Value total_ipmc_groups (\d+)
+Value total_rpf_groups (\d+)
+
+Start
+  ^\s*VRF name\s+"${vrf}" -> Record
+  ^\s*${src_ip}\s+${grp_ip}\s+${IIF}\s+${OIF} -> Record
+  ^\s*Total number of IPMC entries\s+\S+\s+${total_ipmc_entries} -> Record
+  ^\s*${ipmc_gid}\s+${ref_cnt}\s+${ipmc_grp_mem} -> Record
+  ^\s*Total number of IPMC groups\s+\S+\s+${total_ipmc_groups} -> Record
+  ^\s*Total number of RPF groups\s+\S+\s+${total_rpf_groups} -> Record
+

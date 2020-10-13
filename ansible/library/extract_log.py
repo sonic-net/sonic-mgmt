@@ -94,7 +94,8 @@ def extract_lines(directory, filename, target_string):
         # been '\x00's in front of the log entry timestamp which
         # messes up with the comparator.
         # Prehandle lines to remove these sub-strings
-        result = [(filename, line.replace('\x00', '')) for line in file if target_string in line and 'nsible' not in line]
+        dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
+        result = [(filename, dt, line.replace('\x00', '')) for line in file if target_string in line and 'nsible' not in line]
 
     return result
 
@@ -108,7 +109,7 @@ def extract_number(s):
         return int(ns[0])
 
 
-def convert_date(s):
+def convert_date(fct, s):
     dt = None
     re_result = re.findall(r'^\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', s)
     # Workaround for pytest-ansible
@@ -116,11 +117,17 @@ def convert_date(s):
     locale.setlocale(locale.LC_ALL, (None, None))
 
     if len(re_result) > 0:
-        str_date = re_result[0]
+        str_date = '{:04d} '.format(fct.year) + re_result[0]
         try:
-            dt = datetime.datetime.strptime(str_date, '%b %d %X.%f')
+            dt = datetime.datetime.strptime(str_date, '%Y %b %d %X.%f')
         except ValueError:
-            dt = datetime.datetime.strptime(str_date, '%b %d %X')
+            dt = datetime.datetime.strptime(str_date, '%Y %b %d %X')
+        # Handle the wrap around of year (Dec 31 to Jan 1)
+        # Generally, last metadata change time should be larger than generated log message timestamp
+        # but we still perform some wrap around test to avoid the race condition
+        # 183 is the number of days in half year, just a reasonable choice
+        if (dt - fct).days > 183:
+            dt.replace(year = dt.year - 1)
     else:
         re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
         str_date = re_result[0]
@@ -134,8 +141,8 @@ def comparator(l, r):
     nl = extract_number(l[0])
     nr = extract_number(r[0])
     if nl == nr:
-        dl = convert_date(l[1])
-        dr = convert_date(r[1])
+        dl = convert_date(l[1], l[2])
+        dr = convert_date(r[1], r[2])
         if dl == dr:
             return 0
         elif dl < dr:
@@ -223,7 +230,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_filename):
 
 def extract_log(directory, prefixname, target_string, target_filename):
     filenames = list_files(directory, prefixname)
-    file_with_latest_line, latest_line = extract_latest_line_with_string(directory, filenames, target_string)
+    file_with_latest_line, file_create_time, latest_line = extract_latest_line_with_string(directory, filenames, target_string)
     files_to_copy = calculate_files_to_copy(filenames, file_with_latest_line)
     combine_logs_and_save(directory, files_to_copy, latest_line, target_filename)
 

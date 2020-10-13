@@ -1,0 +1,27 @@
+Value Filldown NETWORK ([.:\dabcdefABCDEF]+\/\d+)
+Value NEXT_HOP ([.:\dabcdefABCDEF]+)
+Value METRIC (\S{1,6})
+Value LOCAL_PREF (\S{0,6})
+Value WEIGHT (\S{1,6})
+Value AS_PATH (.*?)
+Value VERSION (\d+)
+Value ROUTER_ID (\S{0,19})
+Value STATUS_CODE ([sdhirSR*>=#]*)
+Value INTERNAL (i?)
+
+
+Start
+  ^BGP table version is ${VERSION}, local router ID is ${ROUTER_ID}\s*$$
+  ^\s+Network\s+Next Hop\s+Metric\s+LocPrf\s+Weight\s+Path -> Bgp_table
+  ^Status codes:.*$$ -> Continue
+  ^\s+i internal.*$$ -> Continue
+  ^Origin codes:.*$$ -> Continue
+
+Bgp_table
+  ^${STATUS_CODE}\s{1,16}${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s*$$ -> Continue
+  ^\s{20}\s+${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
+  ^${STATUS_CODE}\s{1,16}${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s{1,18}${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
+  ^${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NEXT_HOP}\s+${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
+  ^${STATUS_CODE}\s+${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s+\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
+
+EOF

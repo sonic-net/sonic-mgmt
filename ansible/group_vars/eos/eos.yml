@@ -2,3 +2,5 @@
 snmp_rocommunity: strcommunity
 snmp_location: str
 bgp_gr_timer: 700
+
+ceos_image_mount_dir: /data/ceos

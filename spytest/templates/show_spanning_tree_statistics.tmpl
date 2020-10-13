@@ -1,0 +1,15 @@
+Value Filldown st_vid (\d+)
+Value Filldown st_inst (\d+)
+Value st_portno (\S+)
+Value st_bpdutx (\d+)
+Value st_bpdurx (\d+)
+Value st_tcntx (\d+)
+Value st_tcnrx (\d+)
+
+Start
+  ^VLAN\s+${st_vid}\s+-\s+STP\s+instance\s+${st_inst}$$
+  ^(-+\s*)*$$
+  ^PortNum\s+BPDU\s+Tx\s+BPDU\s+Rx\s+TCN\s+Tx\s+TCN\s+Rx$$
+  ^${st_portno}\s+${st_bpdutx}\s+${st_bpdurx}\s+${st_tcntx}\s+${st_tcnrx}\s*$$ -> Record
+
+EOF

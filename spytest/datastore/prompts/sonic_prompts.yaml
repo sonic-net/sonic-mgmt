@@ -1,0 +1,218 @@
+##########################################################################
+# Note:
+#    Use only single quotes for enclosing the regular expression patterns.
+##########################################################################
+
+##########################################################################
+# PATTERNS:
+#    Mapping different prompt patterns to a name(same as in modes)
+##########################################################################
+patterns:
+    login_prompt: '\S+\s+login:\s*$'
+    onie_prompt: '\s*ONIE:/ #\s*$'
+    onie_resque_prompt: '\s+Please press Enter to activate this console.\s*$'
+    # =====================================================================
+    # Generic Patterns
+    # =====================================================================
+    normal-user: 'admin@(sonic|{}):.*[#|\$]\s*$'
+    root-user: 'root@(sonic|{}):.*[#|\$]\s*$'
+    # =====================================================================
+    # VTYSH Patterns
+    # =====================================================================
+    vtysh-user: '(sonic|{})#'
+    vtysh-config: '(sonic|{})\(config\)#'
+    vtysh-intf-config: '(sonic|{})\(config-if\)#'
+    vtysh-bfd-config: '(sonic|{})\(config-bfd\)#'
+    vtysh-bfd-peer-config: '(sonic|{})\(config-bfd-peer\)#'
+    vtysh-key-chain-config: '(sonic|{})\(config-keychain\)#'
+    vtysh-key-chain-Identifier-config: '(sonic|{})\(config-keychain-key\)#'
+    vtysh-line-vty-config: '(sonic|{})\(config-line\)#'
+    vtysh-l2vpn-config: '(sonic|{})\(config-l2vpn\)#'
+    vtysh-nhgroup-config: '(sonic|{})\(config-nh-group\)#'
+    vtysh-pbr-map-config: '(sonic|{})\(config-pbr-map\)#'
+    vtysh-pseudowire-config: '(sonic|{})\(config-pw\)#'
+    vtysh-route-map-config: '(sonic|{})\(config-route-map\)#'
+    vtysh-router-config: '(sonic|{})\(config-router\)#'
+    vtysh-router-af-config: '(sonic|{})\(config-router-af\)#'
+    vtysh-vrf-config: '(sonic|{})\(config-vrf\)#'
+    vtysh-any-config: '(sonic|{})\(config[^)]*\)#'
+    # =====================================================================
+    # LLDP Patterns
+    # =====================================================================
+    lldp-user: '\[lldpcli\]\s*#\s*$'
+    # =====================================================================
+    # MGMT-CLI Patterns
+    # =====================================================================
+    mgmt-user: '--sonic-mgmt--#'
+    mgmt-config: '--sonic-mgmt--\(config\)#'
+    mgmt-intf-config: '--sonic-mgmt--\(conf-if-Ethernet.*\)#'
+    mgmt-ipv4-acl-config: '--sonic-mgmt--\(config-ipv4-acl\)#'
+    mgmt-mirror-session-config: '--sonic-mgmt--\(config-mirror-.*\)#'
+    mgmt-vlan-config: '--sonic-mgmt--\(conf-if-Vlan.*\)#'
+    mgmt-lag-config: '--sonic-mgmt--\(conf-if-po.*\)#'
+    mgmt-management-config: '--sonic-mgmt--\(conf-if-eth.*\)#'
+
+    mgmt-evpn-view: '--sonic-mgmt--\(conf-if-evpn\)#'
+    mgmt-vxlan-view: '--sonic-mgmt--\(conf-if-Vxlan-.*\)#'
+
+    mgmt-tam-view: '--sonic-mgmt--\(config-tam\)#'
+    mgmt-tam-int-ifa-view: '--sonic-mgmt--\(config-tam-int-ifa\)#'
+    mgmt-tam-int-ifa-ts-view: '--sonic-mgmt--\(config-int-ifa-ts\)#'
+    mgmt-tam-drop-monitor-view: '--sonic-mgmt--\(config-drop-monitor\)#'
+
+    mgmt-nat-view: '--sonic-mgmt--\(config-nat\)#'
+    mgmt-mclag-view: '--sonic-mgmt--\(config-mclag-domain-.*\)#'
+    mgmt-lo-view: '--sonic-mgmt--\(conf-if-lo.*\)#'
+
+    mgmt-bfd-view: '--sonic-mgmt--\(conf-bfd\)#'
+    mgmt-bfd-peer-view: '--sonic-mgmt--\(conf-bfd-peer\)#'
+
+    mgmt-route-map-view: '--sonic-mgmt--\(config-route-map\)#'
+
+    mgmt-link-state-track-view: '--sonic-mgmt--\(config-link-track\)#'
+
+    mgmt-router-bgp-view: '--sonic-mgmt--\(config-router-bgp\)#'
+    mgmt-router-bgp-af-view: '--sonic-mgmt--\(config-router-bgp-af\)#'
+    mgmt-router-bgp-nbr-view: '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
+    mgmt-router-bgp-nbr-af-view: '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-template-view: '--sonic-mgmt--\(config-router-bgp-pg\)#'
+    mgmt-router-bgp-template-af-view: '--sonic-mgmt--\(config-router-bgp-pg-af\)#'
+    mgmt-router-bgp-l2vpn-vni-view: '--sonic-mgmt--\(config-router-bgp-af-vni\)#'
+    mgmt-router-bgp-vrf-view: '--sonic-mgmt--\(config-router-bgp-.*-vrf\)#'
+
+    mgmt-any-config: '--sonic-mgmt--\((config|conf[ig]*-[^)]*)\)#'
+
+##########################################################################
+# MODES:
+#    Mapping of commands to enter and exit from a parent mode
+#    Commands may be static or dynamic. If a command needs a value,
+#    keep a place holder and provide the names for them in required_args.
+##########################################################################
+modes:
+    # =====================================================================
+    # Generic modes
+    # =====================================================================
+    normal-user: ['', '', '']
+    root-user: ['normal-user', 'sudo su', 'exit']
+    # =====================================================================
+    # VTYSH modes
+    # =====================================================================
+    vtysh-user: ['normal-user', 'sudo vtysh', 'exit']
+    vtysh-config: ['vtysh-user', 'configure terminal', 'exit']
+    vtysh-intf-config: ['vtysh-config', 'interface {}', 'exit']
+    vtysh-bfd-config: ['vtysh-config', 'bfd', 'exit']
+    vtysh-bfd-peer-config: ['vtysh-bfd-config', 'peer {}', 'exit']
+    vtysh-key-chain-config: ['vtysh-config', 'key chain {}', 'exit']
+    vtysh-key-chain-Identifier-config: ['vtysh-key-chain-config', 'key {}', 'exit']
+    vtysh-line-vty-config: ['vtysh-config', 'line vty', 'exit']
+    vtysh-l2vpn-config: ['vtysh-config', 'l2vpn {} type vpls', 'exit']
+    vtysh-nhgroup-config: ['vtysh-config', 'nexthop-group {}', 'exit']
+    vtysh-pbr-map-config: ['vtysh-config', 'pbr-map {} seq {}', 'exit']
+    vtysh-pseudowire-config: ['vtysh-config', 'pseudowire {}', 'exit']
+    vtysh-route-map-config: ['vtysh-config', 'route-map {} {} {}', 'exit']
+    vtysh-router-config: ['vtysh-config', 'router {} {}', 'exit']
+    vtysh-router-af-config: ['vtysh-router-config', 'address-family {} {}', 'exit']
+    vtysh-vrf-config: ['vtysh-config', 'vrf {}', 'exit']
+    vtysh-any-config: ['vtysh-user', '', 'end']
+    # =====================================================================
+    # LLDP modes
+    # =====================================================================
+    lldp-user: ['normal-user', 'docker exec -it lldp lldpcli', 'exit']
+    # =====================================================================
+    # MGMT-CLI modes
+    # =====================================================================
+    mgmt-user: ['normal-user', 'sonic-cli prompt=--sonic-mgmt--', 'exit']
+    mgmt-config: ['mgmt-user', 'configure terminal', 'exit']
+    mgmt-intf-config: ['mgmt-config', 'interface {}', 'exit']
+    mgmt-ipv4-acl-config: ['mgmt-config', 'ip access-list {}', 'exit']
+    mgmt-mirror-session-config: ['mgmt-config', 'mirror-session {}', 'exit']
+    mgmt-vlan-config: ['mgmt-config', 'interface Vlan {}', 'exit']
+    mgmt-lag-config: ['mgmt-config', 'interface PortChannel {}', 'exit']
+    mgmt-management-config: ['mgmt-config', 'interface Management {}', 'exit']
+
+    mgmt-evpn-view: ['mgmt-config', 'evpn {}', 'exit']
+    mgmt-vxlan-view: ['mgmt-config', 'interface Vxlan {}', 'exit']
+
+    mgmt-tam-view: ['mgmt-config', 'tam', 'exit']
+    mgmt-tam-int-ifa-view: ['mgmt-tam-view', 'int-ifa', 'exit']
+    mgmt-tam-int-ifa-ts-view: ['mgmt-tam-view', 'int-ifa-ts', 'exit']
+    mgmt-tam-drop-monitor-view: ['mgmt-tam-view', 'drop-monitor', 'exit']
+
+    mgmt-nat-view: ['mgmt-config', 'nat', 'exit']
+    mgmt-mclag-view: ['mgmt-config', 'mclag domain {}', 'exit']
+    mgmt-lo-view: ['mgmt-config', 'interface Loopback {}', 'exit']
+
+    mgmt-bfd-view: ['mgmt-config', 'bfd', 'exit']
+    mgmt-bfd-peer-view: ['mgmt-bfd-view', 'peer {}', 'exit']
+
+    mgmt-route-map-view: ['mgmt-config', 'route-map {} {} {}', 'exit']
+
+    mgmt-link-state-track-view: ['mgmt-config', 'link state track {}', 'exit']
+
+    mgmt-router-bgp-view: ['mgmt-config', 'router bgp {} vrf {}', 'exit']
+    mgmt-router-bgp-af-view: ['mgmt-router-bgp-view', 'address-family {} {}', 'exit']
+    mgmt-router-bgp-nbr-view: ['mgmt-router-bgp-view', 'neighbor {}', 'exit']
+    mgmt-router-bgp-nbr-af-view: ['mgmt-router-bgp-nbr-view', 'address-family {} {}', 'exit']
+    mgmt-router-bgp-template-view: ['mgmt-router-bgp-view', 'peer-group {}', 'exit']
+    mgmt-router-bgp-template-af-view: ['mgmt-router-bgp-template-view', 'address-family {} {}', 'exit']
+    mgmt-router-bgp-l2vpn-vni-view: ['mgmt-router-bgp-af-view', 'vni {}', 'exit']
+
+    mgmt-any-config: ['mgmt-user', '', 'end']
+
+##########################################################################
+# REQUIRED_ARGS:
+#    To enter a mode, some times, we may need a mandatory value,
+#    to provide along with the command.
+##########################################################################
+required_args:
+    vtysh-intf-config: ['interface']
+    vtysh-bfd-peer-config: ['peer_ip']
+    vtysh-key-chain-config: ['key_chain']
+    vtysh-key-chain-Identifier-config: ['key_id']
+    vtysh-l2vpn-config: ['l2vpn_name']
+    vtysh-nhgroup-config: ['group_name']
+    vtysh-pbr-map-config: ['map_name', 'seq_id']
+    vtysh-pseudowire-config: ['interface']
+    vtysh-route-map-config: ['tag_name', 'action', 'seq_num']
+    vtysh-router-config: ['router', 'instance']
+    vtysh-router-af-config: ['addr_family', 'modifier']
+    vtysh-vrf-config: ['vrf_name']
+
+    mgmt-intf-config: ['interface']
+    mgmt-ipv4-acl-config: ['aclname']
+    mgmt-vlan-config: ['vlan']
+    mgmt-lag-config: ['portchannel']
+    mgmt-management-config: ['management']
+    mgmt-mirror-session-config: ['session_name']
+
+    mgmt-evpn-view: ['evpnname']
+    mgmt-vxlan-view: ['vxlan']
+
+    mgmt-mclag-view: ['domain_id']
+    mgmt-lo-view: ['loopback_id']
+
+    mgmt-bfd-peer-view: ['peer_ip']
+
+    mgmt-route-map-view: ['map_name', 'action', 'seq_num']
+
+    mgmt-link-state-track-view: ['track_name']
+
+    mgmt-router-bgp-view: ['bgp_instance', 'bgp_vrf_name']
+    mgmt-router-bgp-af-view: ['af_type', 'af_family']
+    mgmt-router-bgp-nbr-view: ['ip_address']
+    mgmt-router-bgp-nbr-af-view: ['nbr_af_type', 'nbr_af_family']
+    mgmt-router-bgp-template-view: ['group_name']
+    mgmt-router-bgp-template-af-view: ['tpl_af_type', 'tpl_af_family']
+    mgmt-router-bgp-l2vpn-vni-view: ['vxlan_id']
+
+##########################################################################
+# SUDO_INCLUDE_PROMPTS:
+#    Prompts where config commands should be executed with SUDO.
+##########################################################################
+sudo_include_prompts: ['normal-user']
+
+##########################################################################
+# do_exclude_prompts:
+#    Prompts where show commands should be not be executed with DO.
+##########################################################################
+do_exclude_prompts: ['normal-user', 'vtysh-user', 'mgmt-user', 'root-user']

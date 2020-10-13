@@ -1,0 +1,10 @@
+Value VLAN (\d+)
+Value MACADDRESS (..:..:..:..:..:..)
+Value TYPE (\S+)
+Value PORT (\S+)
+Value DEST_IP (\d+\.\d+\.\d+\.\d+)
+
+Start
+  ^\s*${VLAN}\s+${MACADDRESS}\s+${TYPE}\s+VxLAN\sDIP:\s${DEST_IP}\s*$$ -> Record
+  ^\s*${VLAN}\s+${MACADDRESS}\s+${TYPE}\s+${PORT}\s*$$ -> Record
+  ^$$

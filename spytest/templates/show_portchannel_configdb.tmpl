@@ -1,0 +1,8 @@
+Value admin_status (\S+)
+Value static (\S+)
+Value mtu (\d+)
+
+Start
+  ^\s*2\)\s*\"${admin_status}\"\s*$$
+  ^\s*4\)\s*\"${static}\"\s*$$
+  ^\s*6\)\s*\"${mtu}\"\s*$$ -> Record

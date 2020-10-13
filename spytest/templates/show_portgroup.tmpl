@@ -1,0 +1,6 @@
+Value portgroup (\d+)
+Value ports (Ethernet\d+-\d+)
+Value valid_speeds ((\d+,?)+)
+
+Start
+  ^\s*${portgroup}\s+${ports}\s+${valid_speeds}\s*$$ -> Record

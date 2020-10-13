@@ -1,0 +1,34 @@
+Value mode (\w+)
+Value domain_profile ([0-9A-Za-z._]+)
+Value network_transport (\w+\s+\w+)
+Value domain_number (\d+)
+Value clock_id (\w+\.\w+\.\w+)
+Value priority1 (\d+)
+Value priority2 (\d+)
+Value two_step (\w+)
+Value slave_only (\w+)
+Value number_ports (\d+)
+Value clock_class (\d+)
+Value clock_accuracy (\d+)
+Value ofst_log_var (\d+)
+Value mean_path_delay (\d+)
+Value steps_removed (\d+)
+Value offset_from_master ([0-9\-]+)
+
+Start
+  ^\s*Mode\s+${mode}\s*$$
+  ^\s*Domain\s+Profile\s+${domain_profile}\s*$$
+  ^\s*Network\s+Transport\s+${network_transport}\s*$$
+  ^\s*Domain\s+Number\s+${domain_number}\s*$$
+  ^\s*Clock\s+Identity\s+${clock_id}\s*$$
+  ^\s*Priority1\s+${priority1}\s*$$
+  ^\s*Priority2\s+${priority2}\s*$$
+  ^\s*Two\s+Step\s+${two_step}\s*$$
+  ^\s*Slave\s+Only\s+${slave_only}\s*$$
+  ^\s*Number\s+Ports\s+${number_ports}\s*$$
+  ^\s*Clock\s+Class\s+${clock_class}\s*$$
+  ^\s*Clock\s+Accuracy\s+${clock_accuracy}\s*$$
+  ^\s*Ofst\s+Scaled\s+Log\s+Var\s+${ofst_log_var}\s*$$
+  ^\s*Mean\s+Path\s+Delay\s+${mean_path_delay}\s*$$
+  ^\s*Steps\s+Removed\s+${steps_removed}\s*$$
+  ^\s*Offset\s+from\s+master\s+${offset_from_master}\s*$$ -> Record

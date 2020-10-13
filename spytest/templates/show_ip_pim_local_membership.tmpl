@@ -1,0 +1,16 @@
+###############################################################
+#sonic# show ip pim local-membership 
+#Interface  Address          Source           Group            Membership
+#Ethernet46  10.1.1.2         10.2.1.20        232.0.0.20       INCLUDE 
+#
+###############################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value membership (\w+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${interface}\s*${address}\s*${source}\s*${group}\s*${membership}$$ -> Record

@@ -1,0 +1,17 @@
+################################################
+#UDLD Global Information
+#  Admin State:                UDLD enabled
+#  Mode:                       Aggressive
+#  UDLD message time:          1 secs
+#  UDLD multiplier:            3
+###############################################
+Value udld_admin_state (\w+) 
+Value udld_mode (\w+)
+Value udld_message_time (\d+)
+Value udld_multiplier (\d+)
+
+Start
+  ^\s*Admin\s*State\s*:\s*UDLD\s*${udld_admin_state}$$
+  ^\s*Mode\s*:\s*${udld_mode}$$
+  ^\s*UDLD\s*Message\s*Time\s*:\s*${udld_message_time}\s+seconds$$
+  ^\s*UDLD\s*Multiplier\s*:\s*${udld_multiplier}$$ -> Record

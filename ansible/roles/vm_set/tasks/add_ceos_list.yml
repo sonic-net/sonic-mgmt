@@ -1,0 +1,90 @@
+- name: Create VMs network
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+
+- name: Check if cEOS image exists or not
+  docker_image_info:
+    name:
+      - "{{ ceos_image_orig }}"
+  become: yes
+  register: ceos_stat
+
+- name: Fail if cEOS image does not exist and downloading is not enabled
+  fail: msg="Please ensure that cEOS docker image {{ ceos_image_orig }} is imported locally in test server"
+  when: (ceos_stat.images | length == 0) and skip_ceos_image_downloading
+
+- include_vars: vars/azure_storage.yml
+
+- name: Download cEOS image
+  become: yes
+  get_url:
+    url: "{{ vm_images_url }}/{{ ceos_image_filename }}?{{ ceosimage_saskey }}"
+    dest: "{{ root_path }}/images/{{ ceos_image_filename }}"
+    timeout: 1800
+  when: (ceos_stat.images | length == 0) and not skip_ceos_image_downloading
+
+- name: Import cEOS image
+  become: yes
+  shell: "docker import {{ root_path }}/images/{{ ceos_image_filename }} {{ ceos_image_orig }}"
+  when: (ceos_stat.images | length == 0) and not skip_ceos_image_downloading
+
+- name: create directory for build ceos image
+  become: yes
+  file:
+    path: "/tmp/ceosimage"
+    state: directory
+
+- name: copy the ceos image template
+  become: yes
+  template: src=ceos_dockerfile.j2 dest=/tmp/ceosimage/Dockerfile mode=0644
+
+- name: Build the ceos image with increase inotify limit
+  become: yes
+  docker_image:
+    name: "{{ ceos_image }}"
+    build:
+      path: "/tmp/ceosimage"
+      pull: no
+    source: build
+
+- name: Create net base containers
+  become: yes
+  docker_container:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    image: debian:jessie
+    pull: yes
+    state: started
+    restart: no
+    tty: yes
+    network_mode: none
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+  async: 300
+  poll: 0
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+  register: async_create_results
+
+- name: Wait for creation of net base containers
+  become: yes
+  async_status:
+    jid: "{{ async_create_result_item.ansible_job_id }}"
+  loop: "{{ async_create_results.results }}"
+  loop_control:
+    loop_var: async_create_result_item
+  register: async_create_poll_results
+  until: async_create_poll_results.finished
+  retries: 10
+  delay: 30
+
+- include_tasks: add_ceos_network.yml
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name

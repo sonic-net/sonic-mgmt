@@ -1,0 +1,222 @@
+##IP
+ip_created: IP created successfully
+ping_success: Ping operation is successful
+arp_create_fail : Failed to create arp entry for ip address {}
+ip_routing_int_create_fail : IPv4 Routing interface {} creation failed.
+ip6_routing_int_create_fail : IPv6 Routing interface {} creation failed.
+ip_routing_int_delete_fail : IPv4 Routing interface {} deletion failed.
+ip6_routing_int_delete_fail : IPv6 Routing interface {} deletion failed.
+ip_static_route_create_fail : IPv4 Static Route {} creation failed.
+ip6_static_route_create_fail : IPv6 Static Route {} creation failed.
+ip_traffic_fail : IP traffic has failed.
+route_table_not_cleared_by_withdraw_from_tg : Route table is not cleared by withdrawing of routes on TG
+route_table_not_updated_by_advertise_from_tg : Route table is not updated after advertising of routes on TG
+ingress_traffic_rate_not_matching_with_egress_rate : Rate of traffic ingressing is not matching with rate of traffic egressing from the DUT
+egress_traffic_rate_not_zero : Rate of traffic egressing from the DUT is not Zero.
+ip6_link_local_addr_auto_generation_failed : IPv6 Link Local address auto generation failed
+ip6_ping_fail_over_link_local_addr : Ipv6 Ping over Link Local address is failed.
+ip6_traffic_over_link_local_nh_fail : IPv6 traffic forwarding via link local address as next hop is failed.
+ip6_traffic_over_link_local_nh_fail_vrf : IPv6 traffic forwarding via link local address as next hop is failed in non default VRF.
+ip6_traffic_over_link_local_nh_fail_manual : IPv6 traffic forwarding via manual configured link local address as next hop is failed
+ip6_disable_link_local_failed: Disabling of IPV6 link local address on {} failed.
+
+##BGP
+bgp_router_created: BGP Router created successfully
+bgp_ip_peer_establish_fail : Failed to Establish BGP IPv4 peer {}
+bgp_ip6_peer_establish_fail : Failed to Establish BGP IPv6 peer {}
+bgp_aggregation_pass : BGP prefix {} aggregated 
+bgp_aggregation_fail : Could not aggregate BGP prefix {}  
+bgp_route_info : bgp route {} info {}
+traffic_verification_failed_during_warm_reboot: traffic loss observed during warm reboot
+BGP_established_over_portchannel_after_reboot: BGP established over portchannel after reboot
+BGP_failed_to_establish_over_portchannel_after_reboot: BGP failed to establish over portchannel after reboot
+BGP_unnumbered_neighbor_establish_status: BGP unnumbered neighbor {} to establish
+BGP_unnumbered_neighbor_route_learn_status: Learning of IPV4 route over IPV6 in BGP unnumbered neighbor is {}.
+
+
+##OSPF
+ospf_topology_config_fail: OSPF base topology config failed {}
+ospf_topology_ipv4_config_fail: failed to configure OSPF link IPv4 addresses {}
+ospf_topology_vlan_config_fail: failed to configure OSPF vlan links {}
+ospf_topology_portchannel_config_fail: failed to configure OSPF portchannel links {}
+ospf_topology_need_fail: OSPF topology requiremnt failed {}
+ospf_router_config_fail: OSPF router config failed for {}
+ospf_router_mode_config_fail: OSPF router mode config failed for {}
+ospf_interface_mode_config_fail: OSPF interface mode config failed for {}
+ospf_route_validation_fail: OSPF validation failed  for {}
+ospf_session_test_fail: OSPF session test failed {}
+ospf_session_test_pass: OSPF session test passed {}
+ospf_traffic_test_fail: Failed to forward the traffic based on the routes advertised by the OSPF protocol
+
+
+##ARP
+ARP_entry_dynamic_entry_fail: arp table is not updated with {} entry in {}
+ARP_dynamic_entry_removal_fail: arp {} unable to remove dynamic arp entry when routing interface {} is down
+static_arp_create_fail: failed to create static arp in {}
+static_arp_delete_fail: failed to delete static arp in {}
+arp_ageout_time_config_fail: failed to configure arp ageout time {}
+ARP_dynamic_entry_removal_due_to_ageout_fail: dynamic arp entry {} is still present after ageout time
+ARP_scale_fail: Failed to create {} ARP entries
+ARP_dynamic_entry_clear_arp_fail: arp table {} is not cleared in {}
+
+##ND
+ND_entry_count_fail: ND table is not updated with {} entries
+NDP_entry_dynamic_entry_fail: NDP table not updated with the entry {}
+
+##Ping
+ping_fail: ping got failed to IP address {} from {}
+ping_fail_from_DUT_to_DUt : ping fail from dut{} to dut{}
+traceroute_fail_from_DUT_to_DUT : Traceroute fail from dut{} to dut{}
+v6_traceroute_fail_from_DUT_to_DUT : IPv6 Traceroute fail from dut{} to dut{}
+v6_ping_fail_from_DUT_to_DUT : IPv6 ping fail from dut{} to dut{}
+
+##NAT
+static_nat_translation_entry_create_fail : Static NAT translation entry creation failed for local ip {} and global ip {}
+static_nat_translation_entry_del_fail : Static NAT translation entry deletion failed for local ip {} and global ip {}
+snat_translation_failed_in_packet : NAT translation failed in packet, source ip {} not translated to {}
+dnat_translation_fail_in_packet : NAT translation failed in packet, destination ip {} not translated to {}
+dynamic_snat_translation_entry_create_fail : dynamic SNAT translation entry creation failed for local sip {} and outside sip {}
+dynamic_dnat_translation_entry_create_fail : dynamic DNAT translation entry creation failed for outside dip {} and inside dip {}
+pool_del_fail : Dynamic pool {} deletion failed
+pool_del_success : Dynamic pool {} deletion successful
+nat_translation_happening_for_acl_do_not_nat_match_packets : NAT Translation happening for ACL do-not-nat rule matching packets
+nat_translation_happening_in_no_nat_case : NAT translation happening for packets, even in case of no nat translation
+nat_translation_table_not_cleared : NAT transalation table is not cleared successfully
+nat_translation_table_entry_deleted_incorrectly : NAT transalation table is deleted incorrectly
+tc_passed : The operation is successful
+natmgrd_failed_to_recv : Natmgrd failed to receive {} config from {}
+TC_NAT_APP_10_failed: Translation_entry_create Failed {} {} {} TC- NAT-APP-10 FAILED
+TC_NAT_APP_11_failed: Traffic translation Failed {} {} {} NAT-APP-11 Failed
+dnat_translation_failed: Traffic translation Failed. DNAT Translation Failed {}
+TC_NAT_APP_Failed : NAT TC {} Failed
+pool_config_fail : Dynamic pool {} {} fail
+orchagent_failed_to_recv : Orchaagent failed to receive  {} config from {}
+natsyncd_failed_to_recv : Natsyncd failed to receive SNAT create notification
+failed_global_config: Failed to configure {}
+failed_to_configure_zone: Failed to configure zone {}
+dynamic_nat_successful : Dynamic NAT translation is successful
+dynamic_nat_fail : Dynamic NAT translation failed
+twicenat_translation_failed_in_packet: NAT translation is failing for eithe Source or Destination ip address in case of twicenat
+nat_translation_global_timeout_verified: NAT Global timeout successfully verified
+nat_translation_successful_after_reboot: NAT translation successful after reboot
+nat_translation_successful_after_config_reload: NAT translation successful after config save and reload
+dynamic_nat_scaling_failed: Failed to learn max supported dynamic nat entries
+ping_fail_across_nat_zone: ping failed across nat zones
+traceroute_over_nat_failed : Traceroute over NAT translation failed 
+traceroute_over_nat_translation_successful : Traceroute is successful over a NAT translation
+nat_warm_reboot_failed: Warm boot failed in NAT
+dynamic_napt_entry_exists_after_docker_restart: Dynamic NAPT entry is not cleared during nat docker restart
+static_nat_entry_not_restored_after_docker_restart: Static NAT entry not restored after docker restart
+NAT_unsupported_platform : NAT is not supported on this platform {}
+
+## Error Handling
+fib_failure_route_fail : Route {} failed in Fib Failure state.
+container_not_running: "Error response from daemon: Container is not running"
+failed_to_create_bcm_route: Failed to created BCM route with af {}, ip {}.
+failed_to_create_bcm_nbr: Failed to created BCM neighbour with af {}, ip {}.
+
+
+#BFD
+single_bfd_peer : In {} BFD peer parameters incorrect for {}
+bfd_peer_params : In {} one or more BFD peer parameters is incorrect
+bgp_bfd_params : In {} BGP BFD neighbor params failed for {}
+bfd_fail_tc : BGP BFD failed over {} port for {}
+bfd_fail_tcid : BFD test case id {} failed for mode {} version {} 
+bfd_pass_tcid : BFD test case id {} passed for mode {} version {}
+bfd_convergence_time : Traffic Convergence with BFD failed
+bfd_counters_fail: BFD counters verification failed for {}
+bfd_fail_reason: Failed {}
+bgp_down_reason: In {} BGP down reason incorrect for {}
+bgp_neighbor_not_form_error: BGP Neighbor {} formation did not happen
+bfd_neighbor_ping_test_error: Ping test to {} failed before BFD neighbor formation
+bfd_peer_success: BFD peer {} is successfully up
+bfd_peer_error: BFD peer {} is not up
+bfd_neighbor_not_form_error: BFD Neighbor {} formation did not happen
+bfd_neighbor_port_shutnoshut_error: BFD neighborship {} is not available after port shut/noshut
+bfd_neighbor_up_error: BFD neighborship {} is available even though ports are down
+
+#VRF
+vrf_config : Vrf {} config failed on dut {}
+vrf_bind : Interface {} not bound to vrf {}
+bgp_vrf : VRF BGP {} down on dut {}
+vrf_traffic_fail : In vrf {} traffic failed
+vrf_ping : Ping failed from vrf {} to vrf {}
+v6_vrf_ping : IPv6 Ping failed from vrf {} to vrf {}
+vrf_traceroute : Traceroute failed from vrf {} to vrf {}
+v6_vrf_traceroute : IPv6 Traceroute failed from vrf {} to vrf {}
+v4_vrf_routes : IPv4 routes not present in Vrf {} on dut {}
+v6_vrf_routes : IPv6 routes not presnt in Vrf {} on {}
+v4_vrf_traffic : IPv4 traffic failed in vrf {}
+v6_vrf_traffic : IPv6 traffic failed in vrf {}
+vrf_basic_tc_passed : VRF Lite Basic Test Case passed
+bgp_vrf_tc_passed : VRF Lite BGP Test Case passed
+sag_basic_tc_passed : SAG Basic Test Case passed
+
+#NDP
+ndp_entries_clearing_failed: ndp entries clearing failed
+ndp_dynamic_entry_fail: ndp table is not updated with the dynamic entry
+static_ndp_create_fail: failed to create static ndp entry
+ndp_entry_ip6_link_local_create_fail : NDP table not updated for IPv6 Link Local address
+ndp_table_clear_fail : NDP table is not cleared successfully
+
+#L3 DHCP Relay
+IP_Helper_address_config_failed : IP Helper address config failed on Relay agent dut {}
+IP_address_assignment_failed: IP address assignment failed on client dut {}
+IPv6_address_assignment_failed: IPv6 address assignment failed on client dut {}
+client_got_ip_with_invalid_ip_helper_address: client got ip with invalid ip helper address {}
+client_got_ip_without_proper_connectivity_to_server: client got ip without proper connectivity to server
+fast_reboot_failed: fast reboot failed in relay agent with dhcp relay config
+docker_restart_failed: Docker Restart failed in relay agent with dhcp relay config
+client_failed_to_renew_ip_address: client failed to renew ip address before lease time
+packets_relayed_from_server_to_client_statistics_not_incremented: packets relayed from server to client statistics not incremented
+packets_relayed_from_client_to_server_statistics_not_incremented: packets relayed from client to server statistics not incremented
+able_to_config_invalid_ip_address_as_IP_Helper_address: able to config invalid ip address as IP Helper address
+dhcp_relay_functionality_tc_status: DHCP {} Relay Test Case {} in for {}
+dhcp_relay_vrf_functionality_tc_status: DHCP {} Relay Test Case {} in vrf {} for {}
+failed_to_clear_relay_statistics: Failed to clear relay statistics on interface {}
+dhcp_relay_addr_config_fail : DHCP Relay address config failed on interface {} for {}
+dhcp_relay_link_select_src_intf_status_default_vrf : Validation of DHCP relay agent link-select functionality on the {} based routing interface with source interface as {} interface is {} in default VRF.
+dhcp_relay_link_select_shut_no_shut_src_intf_status_default_vrf : Validation of DHCP relay agent link-select functionality after shut no shut on the {} based routing interface with source interface as {} interface is {} in default VRF.
+dhcp_relay_link_select_src_intf_status_default_vrf_vlan_member_add_remove : Validation of DHCP relay agent link-select functionality on the {} based routing interface with source interface as {} interface is {} in default VRF after vlan member is removed and re added.
+dhcp_relay_link_select_src_intf_update_status: Verification of source interface option update for DHCP RELAY Agent {}
+client_rcvd_ip_address: Client recevied IP address {}
+dhcp_relay_link_select_src_intf_ip_addr_change_status: Verification the DHCP relay agent link-select functionality in default VRF after removing and re-adding the ip address on the Source interface is {}
+dhcp_relay_link_select_src_intf_ip_shut_no_shut_status: Verification the DHCP relay agent link-select functionality in default VRF after shut no shut on the source interface is {}
+dhcp_relay_stats_verification_status: DHCP relay statistics verification {}
+dhcp_relay_link_select_default_vrf_with_diff_boot_status: Verification the DHCP relay agent link-select functionality in default VRF after {} is {}.
+dhcp_relay_link_select_ipv6_link_local_status: Verification the DHCP relay agent link-select functionality in default VRF with DHCP server rechability via IPv6 link local address is {}
+DHCP_relay_link_select_max_hop_count_status: Verification of max hop count configuration with DHCP relay configuration is {}.
+dhcp_relay_verification_rest_klish_status_default_vrf : DHCP{} Relay functionality verification in default VRF through {} is {}.
+
+
+#MCAST
+PIM_neighborship_failed : PIM neighborship between {} and {} not established
+Mroute_vtysh_failed : Mroute source {} group {} output {} not shown in vtysh
+Mroute_appdb_failed : Mroute source {} group {} output {} {} in app-db
+Intf_mcast_failed : Interface multicast mode not enabled on {}
+IGMP_join_failed : IGMP join entry with output {} not in vtysh
+PIM_join_failed : PIM join entry with output {} not in vtysh
+counters_mismatch : Counters not matched for {} interface {}
+drop_counters_mismatch : Drop counters not matched for {} interface {}
+Mroute_bcmcmd_failed : Could not find  Mroute source {} group {} in hardware
+Mroute_appdb_update_failed : Mroute source {} group {} oif update failed
+
+
+# IP helper
+Failed_to_relay_all_default_protocol : Test failed. Test result, stream wise - {}
+All_UDP_pkts_relayed_to_server : Test case passed, all streams are relayed from clients to servers. Test result - {}
+Dhcp_non_udp_exclude_port_packets_relay_success : Test case Passed - {} broadcast packets are not forwarded
+Dhcp_non_udp_exclude_port_packets_relay_msg : Test cases, DHCP/non-UDP/DNS with TTL=1/UDP packet with custom port {} in exclude list {}. Test result {}
+Unreachable_helper_IP_or_non_existing_VRF_of_helper_IP : Test cases failed. Test result of each test - {}
+Failed_to_relay_UDP_packets_after_restart : Test case failed. Failed to relay UDP packets after {}
+Pkts_to_relay_UDP_packets_after_restart : Test case passed. UDP broadcast packet realyed to server after {}
+Failed_to_relay_pkts_to_helper_ip : Failed to relay packets to helper address {}, test result, server wise {}
+IP_config_verification_failed_on_interfaces : Test case failed. Reason - verification of IP config on interfaces {} failed
+UDP_forwarding_status_verification_failed : Test case failed. Reason - UDP forwarding status verification failed
+IP_helper_config_verification_failed : Test case failed. Reason - IP helper config verification failed on interfaces {}
+Packet_not_relayed_to_Unreachable_helper_IP : Test case passed. Packets not relayed to unreachable helper IP
+Packet_not_relayed_to_non_exist_VRF_helper_ip : Test case passed. packets not relayed to non existing VRF of helper IP
+All_configured_servers_received_packets : Test case passed. All configured helper IP addresses on interface received packets - {}
+IP_helper_service_is_not_up : Test case failed, IP helper is not up
+Vrf_Config_verification_failed : VRF config verification failed
+IP_helper_test_case_msg_status : Test case {} {}

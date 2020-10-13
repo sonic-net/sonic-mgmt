@@ -40,6 +40,7 @@
         uri=qemu:///system
   when: vm_name in respin_vms
   become: yes
+  ignore_errors: true
 
 - name: Start vm {{ vm_name }}
   virt: name={{ vm_name }}

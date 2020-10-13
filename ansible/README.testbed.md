@@ -2,6 +2,7 @@
     
 - [Overview](doc/README.testbed.Overview.md)
 - [Setup](doc/README.testbed.Setup.md)
+  - [Virtual Switch Testbed Setup](doc/README.testbed.VsSetup.md)
 - [Topology](doc/README.testbed.Topology.md)
 - [Configuration](doc/README.testbed.Config.md)
 - [Minigraph](doc/README.testbed.Minigraph.md)

@@ -1,0 +1,7 @@
+path_classifiers:
+  test:
+    exclude: "/" # We want to analyze all our test code.
+extraction:
+  python:
+    python_setup:
+      version: "2"

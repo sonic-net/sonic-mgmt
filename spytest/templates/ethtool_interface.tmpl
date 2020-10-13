@@ -1,0 +1,37 @@
+Value INTERFACE (\S+)
+Value SUPPORTED_PORTS (\S+)
+Value SUPPORTED_LINK_MODES (\S+)
+Value SUPPORTED_PAUSE_FRAME (\S+)
+Value SUPPORTED_AUTO_NEGOTIATION (\S+)
+Value ADVERTISED_PORTS (\S+)
+Value ADVERTISED_LINK_MODES (\S+)
+Value ADVERTISED_PAUSE_FRAME (\S+)
+Value ADVERTISED_AUTO_NEGOTIATION (\S+)
+Value SPEED (\S+)
+Value DUPLEX (\S+)
+Value PORT (\S+)
+Value PHYAD (\S+)
+Value TRANSCEIVER (\S+)
+Value AUTO_NEGOTIATION (\S+)
+Value MDIX (\S+)
+
+
+Start
+  ^Settings\s+for\s+${INTERFACE}\:
+  ^\s*Supported\s+ports\:\s+${SUPPORTED_PORTS}$$
+  ^\s*Supported\s+link\s+modes\:\s+${SUPPORTED_LINK_MODES}$$
+  ^\s*Supported\s+pause\s+frame\s+use\:\s+${SUPPORTED_PAUSE_FRAME}$$
+  ^\s*Supported\s+auto\-negotiation\:\s+${SUPPORTED_LINK_MODES}$$
+  ^\s*Advertised\s+ports\:\s+${ADVERTISED_PORTS}$$
+  ^\s*Advertised\s+link\s+modes\:\s+${ADVERTISED_LINK_MODES}$$
+  ^\s*Advertised\s+pause\s+frame\s+use\:\s+${ADVERTISED_PAUSE_FRAME}$$
+  ^\s*Advertised\s+auto\-negotiation\:\s+${ADVERTISED_AUTO_NEGOTIATION}$$
+  ^\s*Speed\:\s+${SPEED}$$
+  ^\s*Port\:\s+${PORT}$$
+  ^\s*Duplex\:\s+${DUPLEX}$$
+  ^\s*PHYAD\:\s+${PHYAD}$$
+  ^\s*Transceiver\:\s+${TRANSCEIVER}$$
+  ^\s*Auto\-negotiation\:\s+${AUTO_NEGOTIATION}$$
+  ^\s*MDI\-X\:\s+${MDIX}$$ -> Record
+
+EOF

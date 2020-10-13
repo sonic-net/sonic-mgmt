@@ -8,6 +8,11 @@
     session_gre: "0x6558"
     session_queue: "0"
 
+- name: Set Barefoot GRE protocol type
+  set_fact:
+    session_gre: "0x22EB"
+  when: sonic_hwsku in barefoot_hwskus
+
 - name: Set Mellanox GRE protocol type
   set_fact:
     session_gre: "0x8949"

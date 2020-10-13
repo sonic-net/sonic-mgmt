@@ -1,0 +1,14 @@
+Value Unit (\d+)
+Value Intf (\d+)
+Value Vrf (\d+)
+Value Group (\d+)
+Value Vlan (\d+)
+Value mac (\w+:\w+:\w+:\w+:\w+:\w+)
+Value mtu (\d+)
+Value ttl (\d+)
+Value tunnel (\d+)
+Value InnerVlan (\d+)
+Value NatId (\d+)
+
+Start
+  ^\s*${Unit}\s+${Intf}\s+${Vrf}\s+${Group}\s+${Vlan}\s+${mac}\s+${mtu}\s+${ttl}\s+${tunnel}\s+${InnerVlan}\s+${NatId}\s*$$ -> Record

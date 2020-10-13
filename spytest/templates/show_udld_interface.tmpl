@@ -1,0 +1,47 @@
+#show udld interface Ethernet1 
+#UDLD information for Ethernet1
+#  UDLD Admin State:                  Enabled
+#  Mode:                              Aggressive
+#  Status:                            Bidirectional
+#  Local device id:                   3c2c.992d.8201
+#  Local port id :                    Ethernet1 
+#  Local device name:                 Sonic
+#  Message time:                      1
+#  Timeout interval:                  3
+#  	Neighbor Entry 1
+#  	----------------------------------------------------------------------------------------
+#  	Neighbor device id:         3c2c.992d.8235 
+#  	Neighbor port id:           Ethernet0 
+#  	Neighbor device name:       Sonic
+#  	Neighbor message time:      1           
+#  	Neighbor timeout interval:  3
+###################################################################################
+Value udld_admin_state (\w+)
+Value udld_mode (\w+)
+Value udld_status (\w+)
+Value local_device_id (\w\w\w\w.\w\w\w\w.\w\w\w\w)
+Value local_port (\w+)
+Value local_device_name (\w+)
+Value local_udld_message_time (\d+)
+Value local_udld_multiplier (\d+)
+Value neighbor_device_id (\w\w\w\w.\w\w\w\w.\w\w\w\w)
+Value neighbor_port (\w+)
+Value neighbor_device_name (\w+)
+Value neighbor_udld_message_time (\d+)
+Value neighbor_udld_multiplier (\d+)
+
+Start
+  ^\s*UDLD\s*Admin\s*State\s*:\s*${udld_admin_state}\s*$$
+  ^\s*Mode\s*:\s*${udld_mode}\s*$$
+  ^\s*Status\s*:\s*${udld_status}\s*$$
+  ^\s*Local\s*Device\s*Id\s*:\s*${local_device_id}\s*$$
+  ^\s*Local\s*Port\s*Id\s*:\s*${local_port}\s*$$
+  ^\s*Local\s*Device\s*Name\s*:\s*${local_device_name}\s*$$
+  ^\s*Message\s*Time\s*:\s*${local_udld_message_time}\s*seconds\s*$$
+  ^\s*Timeout\s*Interval\s*:\s*${local_udld_multiplier}\s*seconds\s*$$
+  ^\s*Neighbor\s*Device\s*Id\s*:\s*${neighbor_device_id}\s*$$
+  ^\s*Neighbor\s*Port\s*Id\s*:\s*${neighbor_port}\s*$$
+  ^\s*Neighbor\s*Device\s*Name\s*:\s*${neighbor_device_name}\s*$$
+  ^\s*Neighbor\s*Message\s*Time\s*:\s*${neighbor_udld_message_time}\s*seconds\s*$$
+  ^\s*Neighbor\s*Timeout\s*Interval\s*:\s*${neighbor_udld_multiplier}\s*seconds$$ -> Record
+

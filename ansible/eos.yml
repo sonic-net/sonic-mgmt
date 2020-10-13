@@ -4,4 +4,4 @@
 - hosts: eos
   gather_facts: no
   roles:
-  - role: eos
+    - role: eos

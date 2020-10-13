@@ -1,0 +1,28 @@
+Value Name (\S+)
+Value Status ([a-z]+)
+Value SRC_IP (\d+.\d+.\d+.\d+)
+Value DST_IP (\d+.\d+.\d+.\d+)
+Value GRE_TYPE (\S+)
+Value DSCP (\d{1,4})
+Value TTL (\d{1,4})
+Value Queue (\d{1,2})
+Value Policer (\S+)
+Value Monitor_port (\S+)
+Value erspan_src_port (\S+)
+Value erspan_direction (rx|tx|both)
+Value span_name (\S+)
+Value span_status ([a-z]+)
+Value destination_port (\S+)
+Value source_port (\S+)
+Value direction (rx|tx|both)
+
+Start
+  ^\s*${Name}\s*${Status}\s*${SRC_IP}\s*${DST_IP}\s*${GRE_TYPE}\s*${DSCP}\s*${TTL}\s*${Queue}\s*${Policer}\s*${Monitor_port}\s*${erspan_src_port}\s*${erspan_direction}\s*$$
+  ^\s*${Name}\s+${Status}\s+${SRC_IP}\s+${DST_IP}\s+${GRE_TYPE}\s+${DSCP}\s+${TTL}\s+${Queue}\s*${Monitor_port}\s*$$
+  ^\s*${Name}\s+${Status}\s+${SRC_IP}\s+${DST_IP}\s+${GRE_TYPE}\s+${DSCP}\s+${TTL}\s+${Queue}\s*$$
+  ^\s*${Name}\s+${Status}\s+${SRC_IP}\s+${DST_IP}\s+${GRE_TYPE}\s+${DSCP}\s+${TTL}\s*$$
+  ^\s*${Name}\s+${Status}\s+${SRC_IP}\s+${DST_IP}\s+${GRE_TYPE}\s+${DSCP}\s*$$
+  ^\s*${Name}\s+${Status}\s+${SRC_IP}\s+${DST_IP}\s*$$
+  ^\s*${span_name}\s+${span_status}\s+${destination_port}\s+${source_port}\s+${direction}\s*$$
+  ^\s*${span_name}\s+${span_status}\s+${destination_port}\s+${direction}\s*$$
+  ^\s*${span_name}\s+${span_status}\s+${destination_port}\s*$$

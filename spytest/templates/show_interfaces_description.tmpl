@@ -1,0 +1,11 @@
+Value Interface (\S+)
+Value Oper (\S+)
+Value Admin (\S+)
+Value Alias (\S+)
+Value Description (\S+)
+
+Start
+  ^\s*Interface\s+Oper\s+Admin\s+Alias\s+Description\s*$$
+  ^(-+\s*)*$$
+  ^\s*${Interface}\s+${Oper}\s+${Admin}\s+${Alias}\s+${Description}\s*$$ -> Record
+  ^$$

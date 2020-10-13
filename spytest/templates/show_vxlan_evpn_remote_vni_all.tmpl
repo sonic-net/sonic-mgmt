@@ -1,0 +1,10 @@
+Value VLAN (\S+)
+Value RVTEP (\d+\.\d+\.\d+\.\d)
+Value VNI (\d+)
+Value Fillup TOTAL_COUNT (\S+)
+
+Start
+  ^\|\s+${VLAN}\s+\|\s+${RVTEP}\s+\|\s+${VNI}\s+ -> Record
+  ^\s*${VLAN}\s+${RVTEP}\s+${VNI}\s* -> Record
+  ^\Total count :\s+${TOTAL_COUNT}
+

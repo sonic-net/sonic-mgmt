@@ -1,0 +1,11 @@
+Value Name (\S+)
+Value Type (\S+)
+Value Binding (\S+)
+Value Description (\S+)
+
+Start
+  ^\s*Name\s+Type\s+Binding\s+Description\s*$$
+  ^(-+\s*)*$$
+  ^\s*${Name}\s+${Type}\s+${Binding}\s+${Description}\s*$$ -> Record
+  ^\s*\s+${Binding}\s*$$ -> Record
+  ^$$

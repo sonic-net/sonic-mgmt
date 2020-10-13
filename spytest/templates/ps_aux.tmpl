@@ -1,0 +1,14 @@
+Value user (\S+)
+Value pid (\d+)
+Value cpu (\S+)
+Value mem (\S+)
+Value vsz (\d+)
+Value rss (\d+)
+Value tty (\S+)
+Value stat (\S+)
+Value start (\S+)
+Value time (\S+)
+Value command ([\S+\s*]*)
+
+Start
+  ^\s*${user}\s+${pid}\s+${cpu}\s+${mem}\s+${vsz}\s+${rss}\s+${tty}\s+${stat}\s+${start}\s+${time}\s+${command}\s*$$ -> Record

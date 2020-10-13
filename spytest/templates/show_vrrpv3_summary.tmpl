@@ -1,0 +1,18 @@
+####################################################################
+#Interface_Name  VRID   State             VIP  Cfg_Prio  Curr_Prio
+#      Vlan2901    50  Backup         2001::10        195        196
+#      Vlan2902    83  Master         Fe80::100       197        197
+#      Vlan2903    12  Backup         3001::18         8          8
+#      Vlan2904    86  Backup         4001::99        19         19
+####################################################################
+Value interface (\w+)
+Value vrid (\d+)
+Value state (\w+)
+Value vip ([\w:]+)
+Value config_prio (\d+)
+Value current_prio (\d+)
+
+Start
+  ^\s*${interface}\s*${vrid}\s*${state}\s*${vip}\s*${config_prio}\s*${current_prio}$$ -> Record
+
+

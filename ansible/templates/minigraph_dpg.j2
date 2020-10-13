@@ -32,9 +32,9 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>FC00:2::32/64</b:IPPrefix>
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>FC00:2::32/64</a:PrefixStr>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
@@ -101,6 +101,15 @@
           <AttachTo>{{ vlan }}</AttachTo>
           <Prefix>{{ vlan_param['prefix'] }}</Prefix>
         </IPInterface>
+{% endfor %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+{%   if 'prefix_v6' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['prefix_v6'] }}</Prefix>
+        </IPInterface>
+{%   endif %}
 {% endfor %}
 {% endif %}
       </IPInterfaces>

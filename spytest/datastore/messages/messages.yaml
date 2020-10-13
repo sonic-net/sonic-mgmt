@@ -1,0 +1,14 @@
+common: !include common.yaml
+tgen: !include tgen.yaml
+routing: !include routing.yaml
+testbed: !include testbed.yaml
+qos: !include qos.yaml
+system: !include system.yaml
+switching: !include switching.yaml
+security: !include security.yaml
+gearbox: !include gearbox.yaml
+ut_snmp: !include ut_snmp.yaml
+
+
+messages:
+  default: [common, tgen, routing, testbed, qos, system, switching, security, gearbox, ut_snmp]

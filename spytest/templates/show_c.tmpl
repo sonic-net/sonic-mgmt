@@ -1,0 +1,10 @@
+Value KEY (\S+|\S+\(\d+\)\.\S+)
+Value VALUE (\S+)
+Value DIFF (\S+)
+Value TIME (\S+|\s*)
+
+Start
+  ^\s*${KEY}\s+:\s+${VALUE}\s+${DIFF}\s+${TIME}\s*$$ -> Record
+  ^\s*${KEY}\s+:\s+${VALUE}\s+${DIFF}\s*$$ -> Record
+
+EOF

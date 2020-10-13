@@ -220,7 +220,7 @@
       <VlanInterfaces>
         <VlanInterface>
           <Name>Vlan1000</Name>
-           <AttachTo>fortyGigE1/1/7;fortyGigE1/1/8;fortyGigE1/1/9;fortyGigE1/1/10;fortyGigE1/1/11;fortyGigE1/1/12;fortyGigE1/1/13;fortyGigE1/1/14;fortyGigE1/1/15;fortyGigE1/1/16;fortyGigE1/2/7;fortyGigE1/2/8;fortyGigE1/2/9;fortyGigE1/2/10;fortyGigE1/2/11;fortyGigE1/2/12;fortyGigE1/2/13;fortyGigE1/2/14;fortyGigE1/2/15;fortyGigE1/2/16;fortyGigE1/3/1;fortyGigE1/3/5;fortyGigE1/3/6;fortyGigE1/3/7;fortyGigE1/3/8;fortyGigE1/3/9;fortyGigE1/3/10;fortyGigE1/3/11;fortyGigE1/4/1;fortyGigE1/4/5;fortyGigE1/4/6;fortyGigE1/4/7;fortyGigE1/4/8;fortyGigE1/4/9;fortyGigE1/4/10;fortyGigE1/4/11</AttachTo>
+          <AttachTo>fortyGigE1/1/7;fortyGigE1/1/8;fortyGigE1/1/9;fortyGigE1/1/10;fortyGigE1/1/11;fortyGigE1/1/12;fortyGigE1/1/13;fortyGigE1/1/14;fortyGigE1/1/15;fortyGigE1/1/16;fortyGigE1/2/7;fortyGigE1/2/8;fortyGigE1/2/9;fortyGigE1/2/10;fortyGigE1/2/11;fortyGigE1/2/12;fortyGigE1/2/13;fortyGigE1/2/14;fortyGigE1/2/15;fortyGigE1/2/16;fortyGigE1/3/1;fortyGigE1/3/5;fortyGigE1/3/6;fortyGigE1/3/7;fortyGigE1/3/8;fortyGigE1/3/9;fortyGigE1/3/10;fortyGigE1/3/11;fortyGigE1/4/1;fortyGigE1/4/5;fortyGigE1/4/6;fortyGigE1/4/7;fortyGigE1/4/8;fortyGigE1/4/9;fortyGigE1/4/10;fortyGigE1/4/11</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
           <Type i:nil="true"/>
@@ -289,7 +289,12 @@
           <InAcl>Everflow</InAcl>
           <Type>Everflow</Type>
         </AclInterface>
-          <AclInterface>
+        <AclInterface>
+          <AttachTo>ERSPANV6</AttachTo>
+          <InAcl>EverflowV6</InAcl>
+          <Type>EverflowV6</Type>
+        </AclInterface>
+        <AclInterface>
           <AttachTo>VTY_LINE</AttachTo>
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
@@ -1492,9 +1497,9 @@
       </EthernetInterfaces>
       <FlowControl>true</FlowControl>
       <Height>0</Height>
-      <HwSku>Force10-S6100</HwSku> 
+      <HwSku>Force10-S6100</HwSku>
       <ManagementInterfaces/>
-    </DeviceInfo> 
+    </DeviceInfo>
   </DeviceInfos>
   <MetadataDeclaration>
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">

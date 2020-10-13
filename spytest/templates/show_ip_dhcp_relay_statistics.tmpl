@@ -1,0 +1,61 @@
+Value Packets_relayed_from_client_to_server (\S+)
+Value Packets_relayed_from_server_to_client (\S+)
+Value Errors_sending_packets_to_clients (\S+)
+Value Errors_sending_packets_to_servers (\S+)
+Value Packets_dropped_with_bogus_GIADDR (\S+)
+Value Packets_dropped_due_to_bad_relay_info (\S+)
+Value Packets_dropped_due_to_missing_relay_info (\S+)
+Value Packets_dropped_due_to_invalid_hdr_length (\S+)
+Value Packets_dropped_on_interface_with_no_IP (\S+)
+Value Replies_dropped_on_downstream_interface (\S+)
+Value Requests_dropped_on_upstream_interface (\S+)
+Value Packets_dropped_due_to_invalid_drop_opcode (\S+)
+Value Packets_dropped_due_to_invalid_options (\S+)
+Value Packets_dropped_on_exceeding_the_max_hop_count (\S+)
+Value Total_number_of_DHCPV4_packets_dropped (\S+)
+Value BOOTP_packets_received_from_client (\S+)
+Value DHCPv4_DISCOVER_packets_received_from_client (\S+)
+Value DHCPv4_REQUEST_packets_received_from_client (\S+)
+Value DHCPv4_INFORM_packets_received_from_client (\S+)
+Value DHCPv4_RELEASE_packets_received_from_client (\S+)
+Value DHCPv4_DECLINE_packets_received_from_client (\S+)
+Value DHCPv4_OFFER_packets_received_from_server (\S+)
+Value DHCPv4_ACK_packets_received_from_server (\S+)
+Value DHCPv4_NACK_packets_received_from_server (\S+)
+Value DHCPv4_OFFER_packets_relayed_to_client (\S+)
+Value DHCPv4_ACK_packets_relayed_to_client (\S+)
+Value DHCPv4_NACK_packets_relayed_to_client (\S+)
+Value relay_interface (\S+)
+
+
+Start
+  ^\s*Relay\s+Interface:\s+${relay_interface}
+  ^\s*Packets\s+relayed\s+from\s+client\s+to\s+server\:+\s+${Packets_relayed_from_client_to_server}$$
+  ^\s*Packets\s+relayed\s+from\s+server\s+to\s+client\:+\s+${Packets_relayed_from_server_to_client}$$
+  ^\s*Errors\s+(sending|relaying)\s+packets\s+(to|from)\s+clients\:+\s+${Errors_sending_packets_to_clients}$$
+  ^\s*Errors\s+(sending|relaying)\s+packets\s+(to|from)\s+servers\:+\s+${Errors_sending_packets_to_servers}$$
+  ^\s*Packets\s+dropped\s+with\s+bogus\s+GIADDR\:+\s+${Packets_dropped_with_bogus_GIADDR}$$
+  ^\s*Packets\s+dropped\s+due\s+to\s+bad\s+relay\s+info\:+\s+${Packets_dropped_due_to_bad_relay_info}$$
+  ^\s*Packets\s+dropped\s+due\s+to\s+missing\s+relay\s+info\:+\s+${Packets_dropped_due_to_missing_relay_info}$$
+  ^\s*Packets\s+dropped\s+due\s+to\s+invalid\s+hdr\s+length\:+\s+${Packets_dropped_due_to_invalid_hdr_length}$$
+  ^\s*Packets\s+dropped\s+on\s+interface\s+with\s+no\s+IP\:+\s+${Packets_dropped_on_interface_with_no_IP}$$
+  ^\s*Replies\s+dropped\s+on\s+downstream\s+interface\:+\s+${Replies_dropped_on_downstream_interface}$$
+  ^\s*Requests\s+dropped\s+on\s+upstream\s+interface\:+\s+${Requests_dropped_on_upstream_interface}$$
+  ^\s*Packets\s+dropped\s+due\s+to\s+invalid\s+opcode:\s+${Packets_dropped_due_to_invalid_drop_opcode}$$
+  ^\s*Packets\s+dropped\s+due\s+to\s+invalid\s+options:\s+${Packets_dropped_due_to_invalid_options}$$
+  ^\s*Packets\s+dropped\s+on\s+exceeding\s+the\s+max\s+hop\s+count:\s+${Packets_dropped_on_exceeding_the_max_hop_count}$$
+  ^\s*Total\s+number\s+of\s+DHCPv4\s+packets\s+dropped:\s+${Total_number_of_DHCPV4_packets_dropped}$$
+  ^\s*BOOTP\s+packets\s+received\s+from\s+client:\s+${BOOTP_packets_received_from_client}$$
+  ^\s*DHCPv4\s+DISCOVER\s+packets\s+received\s+from\s+client:\s+${DHCPv4_DISCOVER_packets_received_from_client}$$
+  ^\s*DHCPv4\s+REQUEST\s+packets\s+received\s+from\s+client:\s+${DHCPv4_REQUEST_packets_received_from_client}$$
+  ^\s*DHCPv4\s+INFORM\s+packets\s+received\s+from\s+client:\s+${DHCPv4_INFORM_packets_received_from_client}$$
+  ^\s*DHCPv4\s+RELEASE\s+packets\s+received\s+from\s+client:\s+${DHCPv4_RELEASE_packets_received_from_client}$$
+  ^\s*DHCPv4\s+DECLINE\s+packets\s+received\s+from\s+client:\s+${DHCPv4_DECLINE_packets_received_from_client}$$
+  ^\s*DHCPv4\s+OFFER\s+packets\s+received\s+from\s+server:\s+${DHCPv4_OFFER_packets_received_from_server}$$
+  ^\s*DHCPv4\s+ACK\s+packets\s+received\s+from\s+server:\s+${DHCPv4_ACK_packets_received_from_server}$$
+  ^\s*DHCPv4\s+NACK\s+packets\s+received\s+from\s+server:\s+${DHCPv4_NACK_packets_received_from_server}$$
+  ^\s*DHCPv4\s+OFFER\s+packets\s+relayed\s+to\s+client:\s+${DHCPv4_OFFER_packets_relayed_to_client}$$
+  ^\s*DHCPv4\s+ACK\s+packets\s+relayed\s+to\s+client:\s+${DHCPv4_ACK_packets_relayed_to_client}$$
+  ^\s*DHCPv4\s+NACK\s+packets\s+relayed\s+to\s+client:\s+${DHCPv4_NACK_packets_relayed_to_client}$$ -> Record
+
+EOF

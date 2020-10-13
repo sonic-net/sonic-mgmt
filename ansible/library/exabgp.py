@@ -64,6 +64,10 @@ http_api_py = '''\
 from flask import Flask, request
 import sys
 
+#Disable banner msg from app.run, or the output might be caught by exabgp and run as command
+cli = sys.modules['flask.cli']
+cli.show_server_banner = lambda *x: None
+
 app = Flask(__name__)
 
 # Setup a command route to listen for prefix advertisements
@@ -153,7 +157,7 @@ def restart_exabgp(module, name):
 
     for count in range(0, 60):
         time.sleep(1)
-        ret = get_exabgp_status(module, name)
+        status = get_exabgp_status(module, name)
         if u'RUNNING' == status:
             break
     assert u'RUNNING' == status
@@ -179,11 +183,11 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
                     group_updates=group_updates)
     with open("/etc/exabgp/%s.conf" % name, 'w') as out_file:
         out_file.write(data)
- 
+
 def remove_exabgp_conf(name):
     try:
         os.remove("/etc/exabgp/%s.conf" % name)
-    except e:
+    except Exception:
         pass
 
 
@@ -196,7 +200,7 @@ def setup_exabgp_supervisord_conf(name):
 def remove_exabgp_supervisord_conf(name):
     try:
         os.remove("/etc/supervisor/conf.d/exabgp-%s.conf" % name)
-    except e:
+    except Exception:
         pass
 
 def setup_exabgp_processor():

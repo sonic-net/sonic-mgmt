@@ -1,0 +1,62 @@
+####################################################
+#sonic# show ip pim neighbor detail
+#VRF: default
+#Interface : Ethernet24
+#Neighbor  : 10.10.10.2
+#    Uptime                         : 00:02:41
+#    Holdtime                       : 00:01:33
+#    DR Priority                    : 1
+#    Generation ID                  : 1e3e7da5
+#    Override Interval (msec)       : 2500
+#    Propagation Delay (msec)       : 500
+#    Hello Option - Address List    : yes
+#    Hello Option - DR Priority     : yes
+#    Hello Option - Generation ID   : yes
+#    Hello Option - Holdtime        : yes
+#    Hello Option - LAN Prune Delay : yes
+#    Hello Option - T-bit           : no
+#    BFD: Type: single hop
+#      Detect Multiplier: 3, Min Rx interval: 300, Min Tx interval: 300
+#      Status: Up, Last update: 0:00:00:05
+#####################################################
+Value vrf (\w+)
+Value Required interface (\w+)
+Value neighbor ([\w\.]+)
+Value uptime ([\d\:]+)
+Value holdtime ([\d\:]+)
+Value dr_priority (\d+)
+Value gen_id (.*)
+Value override_interval (\d+)
+Value propogation_delay (\d+)
+Value hello_addr_list (\w+)
+Value hello_dr_priority (\w+)
+Value hello_gen_id (\w+)
+Value hello_holdtime (\w+)
+Value hello_lan_prune_delay (\w+)
+Value hello_t_bit (\w+)
+Value bfd_type ([\w\s]+)
+Value bfd_multiplier (\d+)
+Value bfd_rx (\d+)
+Value bfd_tx (\d+)
+Value bfd_status (\w+)
+Value bfd_last_update ([\w\:]+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*Interface\s*:\s*${interface}$$
+  ^\s*Neighbor\s*:\s*${neighbor}$$
+  ^\s*Uptime\s*:\s*${uptime}$$
+  ^\s*Holdtime\s*:\s*${holdtime}$$
+  ^\s*DR\s*Priority\s*:\s*${dr_priority}$$
+  ^\s*Generation\s*ID\s*:\s*${gen_id}$$
+  ^\s*Override\s*Interval\s*\(msec\)\s*:\s*${override_interval}$$
+  ^\s*Propagation\s*Delay\s*\(msec\)\s*:\s*${propogation_delay}$$
+  ^\s*Hello\s*Option\s*\-\s*Address\s*List\s*:\s*${hello_addr_list}$$
+  ^\s*Hello\s*Option\s*\-\s*DR\s*Priority\s*:\s*${hello_dr_priority}$$
+  ^\s*Hello\s*Option\s*\-\s*Generation\s*ID\s*:\s*${hello_gen_id}$$
+  ^\s*Hello\s*Option\s*\-\s*Holdtime\s*:\s*${hello_holdtime}$$
+  ^\s*Hello\s*Option\s*\-\s*LAN\s*Prune\s*Delay\s*:\s*${hello_lan_prune_delay}$$
+  ^\s*Hello\s*Option\s*\-\s*T\-bit\s*:\s*${hello_t_bit}$$
+  ^\s*BFD:\s*Type:\s*${bfd_type}$$
+  ^\s*Detect\s*Multiplier:\s*${bfd_multiplier},\s*Min\s*Rx\s*interval:\s*${bfd_rx},\s*Min\s*Tx\s*interval:\s*${bfd_tx}$$
+  ^\s*Status:\s*${bfd_status},\s*Last\s*update:\s*${bfd_last_update}$$ -> Record

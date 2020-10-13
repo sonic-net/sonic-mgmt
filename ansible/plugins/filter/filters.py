@@ -8,6 +8,7 @@ class FilterModule(object):
       'filter_by_prefix': filter_by_prefix,
       'filter_vm_targets': filter_vm_targets,
       'extract_hostname': extract_hostname,
+      'first_n_elements': first_n_elements,
     }
 
 def extract_by_prefix(values, prefix):
@@ -55,6 +56,26 @@ def filter_by_prefix(values, prefix):
 
     return filter(lambda x: x.startswith(prefix), values)
 
+def first_n_elements(values, num):
+    """
+    This function return first n elements of a list. If the list length is less than n, then return the whole list
+    """
+    if values is None:
+      raise errors.AnsibleFilterError('Values is not provided')
+
+    if num is None:
+      raise errors.AnsibleFilterError('num is not provided')
+
+    if not isinstance(values, list):
+      raise errors.AnsibleFilterError('Wrong type for values')
+
+    if not isinstance(num, str) and not isinstance(num, unicode):
+      raise errors.AnsibleFilterError("Wrong type for the num {}".format(type(num)))
+
+    if len(values) <= int(num):
+        return values
+
+    return values[0:int(num)]
 
 def filter_vm_targets(values, topology, vm_base):
     """
@@ -85,6 +106,8 @@ def filter_vm_targets(values, topology, vm_base):
     result = []
     base = values.index(vm_base)
     for hostname, attr in topology.iteritems():
+      if base + attr['vm_offset'] >= len(values):
+        continue
       result.append(values[base + attr['vm_offset']])
 
     return result
@@ -124,6 +147,8 @@ def extract_hostname(values, topology, vm_base, inventory_hostname):
     hash = {}
     base = values.index(vm_base)
     for hostname, attr in topology.iteritems():
+      if base + attr['vm_offset'] >= len(values):
+        continue
       if inventory_hostname == values[base + attr['vm_offset']]:
         return hostname
 

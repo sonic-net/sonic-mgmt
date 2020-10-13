@@ -1,0 +1,11 @@
+##COMMON
+
+
+## GEARSYNCD
+docker_not_found: Docker {} not found
+daemon_not_found: Daemon {} not found
+record_not_found: Record {} not found
+key_found: Key {} found with {} data.
+key_not_found: Key {} not found with {} data.
+
+

@@ -1,0 +1,232 @@
+##Vlan
+vlan_create_fail : failed to create vlan {}
+vlan_name_fail : failed to get vlan {} name
+vlan_untagged_member_fail : failed to add untagged member {} to vlan {}
+vlan_tagged_member_fail : failed to add tagged member {} to vlan {}
+unknown_vlan_untagged_member_add_fail : failed to add untagged member {} to unknown vlan {}
+vlan_delete_fail : VLAN {} delete failed
+vlan_no_free_id: failed to find free vlan id
+portchannel_member_add_success: port channel member(s) addition is successful
+portchannel_member_add_failed: port channel member(s) addition is failed
+portchannel_member_del_success: port channel member(s) deletion is successful
+portchannel_member_del_failed: port channel member(s) deletion is failed
+vlan_l2_forwarding_tagged_success: Verified L2 forwarding with tagged traffic is successful
+vlan_l2_forwarding_untagged_success: Verified L2 forwarding with untagged traffic is successful
+verify_100_plus_vlan_forwarding_with_bum: Verified 100+ VLAN forwarding with BUM traffic is successful
+max_vlan_creation_failed: Failed to create max vlans
+max_vlan_config_retain_failed_after_save_reload: failed to retain max vlan config after save and reload
+vlan_deletion_successfull_albiet_having_member: vlan {} is deleted albiet it has memebers in it
+vlan_deletion_failed_albiet_having_nomember: vlan is not deleted albiet it has no memebers in it
+vlan_member_deletion_failed: vlan member {} deletion is failed
+vlan_member_delete_failed: VLAN {} member {} delete failed
+vlan_config_clear_failed: Clearing VLAN configuraiton failed.
+vlan_config_clear_success: Clearing VLAN configuraiton is successful.
+vlan_member_delete_fail: Failed to delete port-{} from vlan-{}
+vlan_member_verification_failed: Vlan member {} in vlan id {} verification failed
+vlan_forwarding_with_bum_success: Verified VLAN forwarding with BUM traffic is successful
+verify_vlan_tagged_member_fail: Port-{} is not added to VLAN-{} in DUT-{} as a tagged member
+Mac_Address_value_not_matching: MAC Address values are not matching
+vlan_not_removed_after_cold_boot: VLAN-{} is not removed from DUT-{} after cold boot
+vlan_config_verification_failed: VLAN {} config verification failed.
+vlan_config_member_add_Fail: Vlan Member addition is failed
+vlan_scaling: Vlan scaling '{}'
+mac_scaling: mac scaling '{}'
+max_vlan_config_retain_after_save_fast_warm_reboot : max vlan config is retained after fast and warm reboot
+
+##portchannel
+portchannel_member_state_failed : PortChannel member state verification failed with expected state
+portchannel_create_failed : Portchannel {} on {} creation failed
+portchannel_create_successful : Portchannel {} on {} creation successful
+portchannel_member_verification_failed: Portchannel {} on {} with member {} verification failed
+portchannel_state_fail: Portchannel {} on {} state {} verification failed.
+portchannel_member_state_fail: Portchannel {} on {} with member {} state {} verification failed.
+portchannel_count_verification_fail: PortChannel count verification failed {} with {}
+portchannel_creation_deletion_multiple_pass: Verified that multiple creation / deletion of multiple portchannels.
+portchannel_random_link_flap: Verified random link flap in port channel.
+portchannel_l2_forwarding_success: Verified basic L2 forwarding with 100 MAC address learned on portchannel is success
+portchannel_member_en_dis_success: Successfully verified the traffic hashing when we enable and disable the memberport
+portchannel_with_members_deletion_should_not_successful: Portchannel {} having members {} configured should not get deleted.
+portchannel_verification_failed : Portchannel {} on {} verification failed
+portchannel_deletion_failed: PortChannel {} deletion failed.
+portchannel_not_found: PortChannel {} not found.
+portchannel_config_clear_failed: Clearing Portchannel configuration failed.
+portchannel_config_clear_success: Clearing Portchannel configuration is successful.
+add_members_to_portchannel_failed: Failed to add port-{} as member to Port-Channel-{} in DUT-{}
+traffic_hashed: Traffic is hashed in DUT-{}
+traffic_not_hashed: Traffic not hashed in DUT-{}
+PortChannel_came_up_with_ip_address: PortChannel {} came up with ip address
+portchannel_verification_db_failed : Portchannel {} on {} verification failed in {}
+portchannel_member_verification_db_failed: Portchannel {} on {} member verification failed in {}
+portchannel_functionality_during_warmreboot: successfully verified portchannel functionality during warmreboot
+portchannel_functionality_after_save_and_reboot: successfully verified portchannel functionality after save and reboot
+portchannel_functionality_after_save_and_fastreboot: successfully verified portchannel functionality after fast reboot
+portchannel_l3_forwarding_success: successfully verified L3 traffic on {} in {}
+portchannel_l3_vlan_routing_success: Successfully verified L3 vlan routing on {}
+portchannel_state_with_atlease_one_link: successfully verified {} state with atleast one link is up
+add_member_ports_to_other_portchannel: should not add memberport to other portchannel
+portchannel_state_with_partner_dut: successfully verified {} state when portchannel is not configured in partner
+Enable_disable_portchannel_with_mtu: Successfully enable and disable {} with mtu value
+portchannel_delete_with_ip_configured_vlan: successfully verified that user should not able to delete {} with ip configured vlan {}
+portchannel_delete_with_ip_configured_portchannel: Successfully verified that user should not able to delete ip assigned portchannel
+portchannel_members_with_different_speeds: Successfully verified that user shoud not add member ports with different speeds to portchannel
+portchannel_fallback_configuration: Successfully verified that fallback should not configured on static portchannel
+portchannel_fallback_configuration_fail: fallback should not configured on static portchannel
+portchannel_with_max_members: Successfully verified the maximum members per portchannel
+max_portchannels_per_system: Successfully verified the maximum portchannels per system
+portchannel_conversion_from_dynamic_to_static_fail: portchannel conversion from dynamic to static is not successful on {}
+portchannel_conversion_from_dynamic_to_static_success: portchannel conversion from dynamic to static is successful on {}
+lacp_fallback_validation_success: Successfully validated LACP Fallback functionality {}
+failed_to_generate_lacp_graceful_restart_log_in_syslog: Failed to generate LACP graceful restart log in syslog
+verify_lacp_graceful_restart_success: Successfully verified LACP graceful restart with {}
+
+##FDB
+mac_addr_get_fail: fail to get mac address of {}
+mac_failed_to_learn_in_vlan: MAC {} failed to learn in vlan {}
+mac_failed_to_learn_in_Particular_vlan: Failed to learn  MAC Adresses in vlan {}
+mac_address_verification_fail: Learned MAC address verification failed
+mac_address_not_clear: Fail to clear Mac Addresses from FDB
+max_mac_not_create: Fail to create Max Mac Addresses
+mac_not_create: Fail to create Mac Addresses
+mac_unknown_entries: Unknown MAC entries are available
+mac_not_static : Configured Mac address is not a staic entry
+mac_failed_to_learn_on_firt_port: Dut failed to learn mac address on first port
+mac_failed_to_learn_on_second_port: Dut failed to learn mac address on second port
+mac_aging_time_failed_config : Failed to configure Mac aging time
+failed_clear_mac_learned_on_port: Dut failed to clear mac address learnt on {} port after mac move.
+failed_to_learn_mac_after_move: Dut failed to learn mac address after mac move.
+failed_to_clear_mac_after_ageout: Mac Address is not cleared after ageout
+mac_second_port: Second port Entries are not available
+mac_seond_vlan: Second vlan id Entries are not available
+mac_learning_fail: Failed to learn MAC address-{} on Port-{} of vlan-{} in DUT-{}
+failed_to_learn_mac_in_l2_show: failed to learn mac address-{} in vlan {} in "l2 show" command in DUT-{}
+
+#PVST
+invalid_data_for_root_bridge_per_vlan: Invalid data provided to check the root bridge per vlan.
+expected_dut_not_root: Expected DUT {} is not root for {} instance
+observed_more_than_1_root_bridge: Observed more than 1 root bridge per {} instance.
+interface_not_found_in_expected_list: Interface not found in expected list
+unexpected_interface_state_for_root: Observed that interface state is {} for root bridge
+root_bridge_interface_verification_failed: Root bridge interface state verification failed.
+pvst_output_not_found: PVST output not found on {} for {} instance.
+stp_output_not_found: STP output not found on {} for {} instance.
+no_forwarding_links_highest_mac: Observed no forwarding links on highest mac DUT {}
+expected_blocking_links_not_found: Expected number of blocking links not found on {}
+eeprom_data_not_found: EEPROM data not found for {}
+no_blocking_interfaces_found_on_any: No blocking interfaces found on any of the devices {}
+highest_mac_address_not_found: Highest MAC Address DUT not found
+other_non_root_dut_data_not_found: OTHER NON ROOT DUT data not found
+dut_mac_address_not_found: DUT MAC ADDERSS DATA NOT FOUND
+pvst_module_data_check_failed: PVST module data check is failed
+pvst_module_config_data_not_found: PVST module config data not found
+feature_module_data_check_failed: module data check is failed for {}
+feature_module_config_data_not_found: module config data not found for {}
+tg_object_not_found: Tg object is not found
+exception: exception {} is occured
+
+# IGMP Snooping
+igmp_snooping_verification_successful_for_igmpv2 : IGMP v2 hosts joins are successful and mcast data forwarded to hosts joined ports.
+igmp_snooping_verification_fail_for_igmpv2 : IGMP v2 hosts joins failed to learn and mcast data not forwarded to hosts.
+igmp_snooping_verification_successful_for_igmpv1 : IGMP v1 hosts joins are successful and mcast data forwarded to hosts joined ports.
+igmp_snooping_verification_fail_for_igmpv1 : IGMP v1 hosts joins failed to learn and mcast data not forwarded to hosts.
+igmp_snooping_static_mroute_verification_success : IGMP snooping static mrouter addition is successful and traffic also forwarded to mrouter port.
+igmp_snooping_static_mroute_verification_fail : IGMP snooping static mrouter addition failed or traffic not forwarded to mrouter port.
+igmp_snooping_static_group_verification_success : IGMP snooping static group verification is successful and traffic also forwarded to the static group entry.
+igmp_snooping_static_group_verification_fail : IGMP snooping static group verification failed or traffic not forwarded to the static group entry.
+igmp_snooping_verification_successful_for_igmpv3 : IGMP v3 hosts joins with specific source ip addr are successful and mcast data with that specific source forwarded to hosts joined ports.
+igmp_snooping_verification_fail_for_igmpv3 : IGMP v3 hosts joins with specific source ip addr failed to learn and mcast data  with that specific source not forwarded to hosts.
+igmp_snooping_verification_successful_for_igmp_pc : IGMP v2 hosts joins on port channel interface successful and mcast data forwarded to hosts joined ports.
+igmp_snooping_verification_fail_for_igmp_pc : IGMP v2 hosts joins on port channel interface failed and mcast data forwarded to hosts joined ports.
+igmp_snooping_verification_fail_for_vlan_change: IGMP entries are failed to delete or learn after change in vlan association.
+igmp_snooping_verification_successful_for_vlan_change: IGMP entries are successfully deleted and learned after change in vlan association.
+igmp_snooping_verification_fail_disable_enable: IGMP entries are failed to delete or learn after disable and enable igmp snooping.
+igmp_snooping_verification_successful_disable_enable: IGMP entries are successfully deleted and learned after disable and enable igmp snooping.
+igmp_snooping_verification_successful_group_query : IGMP Group specific Query generated successfully when a Leave message is received.
+igmp_snooping_verification_fail_group_query : IGMP Group specific Query not generated when a Leave message is received.
+igmp_snoop_max_entry_status: "{} : To Create MAX IGMP entries."
+igmp_snooping_verification_fail_lmqt : IGMP Snooping Last Member Query interval verification failed.
+igmp_snooping_verification_successful_lmqt : IGMP Snooping Last Member Query interval verification successful.
+igmp_snooping_verification_pim_mrouter_status: On receiving the PIM helo message,{} to update port  as mrouter port in IGMP snooping DUT.
+igmp_snooping_verification_v2_report_in_v3: On receiving the IGMPv2 join for same group, switch {} in updating the source address learned via IGMPv3 join for the same group.
+igmp_snooping_verification_v3_report_w_zero_src_addr: IGMP Snooping switch {} in learning the IGMPv3 join received with 0.0.0.0 as source address.
+igmp_snooping_verification_fast_leave : IGMP Snooping fast-leave validation {}.
+igmp_snooping_verification_multi_host : IGMP Snooping switch {} in learning/removing multiple hosts from different ports in same vlan.
+igmp_snooping_verification_query_interval : IGMP Snooping switch {} in sending the Queries as per configured interval.
+igmp_snooping_verification_query_max_response_time : IGMP Snooping switch {} in sending the Queries with configured max response time.
+igmp_snooping_verification_query_del_join : IGMP Snooping Querier {} in deleting the join entry after the group membership timer expires as per configured query interval
+igmp_snooping_verification_save_reboot : IGMP Snooping verification {} after save reboot.
+igmp_snooping_verification_max_vlan : Enabling IGMP Snooping on max supported vlans is {}.
+igmp_snooping_verification_shut_no_shut: After shut no shut on the interface IGMP hosts joins learning is {}.
+igmp_snooping_verification_warm_boot: IGMP snooping verification with warm boot is {}.
+igmp_snooping_verification_rest: IGMP snooping REST operation is {}.
+igmp_snooping_verification_gnmi: IGMP snooping gNMI operation is {}.
+
+
+#MCLAG
+mclag_state_verification_failed: MCLAG state verification FAILED with {}
+mclag_intf_verification_failed: MCLAG interface verification FAILED with {}
+mclag_igmp_snooping_sync_to_mclag_peer_successful: "{} snooping entries sync to MCLAG peer is successful."
+mclag_igmp_snooping_sync_to_mclag_peer_unsuccessful: "{} snooping entries sync to MCLAG peer is unsuccessful."
+mclag_igmp_snooping_entry_check_mclag_down_case_successful: "{} snooping entries check when MCLAG goes down is successful."
+mclag_igmp_snooping_entry_check_mclag_down_case_unsuccessful: "{} snooping entries check when MCLAG goes down is unsuccessful."
+mclag_igmp_snooping_entry_check_mclag_up_case_successful: "{} snooping entries check when MCLAG comes up is successful."
+mclag_igmp_snooping_entry_check_mclag_up_case_unsuccessful: "{} snooping entries check when MCLAG comes up is unsuccessful."
+mclag_igmp_snooping_entry_check_split_brain_case_successful: "{} snooping entries check in split brain scenario is successful."
+mclag_igmp_snooping_entry_check_split_brain_case_unsuccessful: "{} snooping entries check in split brain scenario is unsuccessful."
+
+#UDLD PVST
+UDLD_PVST_Normal_message_and_multiplier_timers_Failed: UDLD PVST Normal message and multiplier timers Failed
+UDLD_PVST_Normal _message_and_multiplier_timers_Passed: UDLD PVST Normal  message and multiplier timers Passed
+UDLD_PVST_Aggressive_message_and_multiplier_timers_Failed: UDLD PVST Aggressive message and multiplier timers Failed
+UDLD_PVST_Aggressive_message_and_multiplier_timers_Passed: UDLD PVST Aggressive  message and multiplier timers Passed
+UDLD_PVST_Aggressive_and_Normal_mode_Failed: UDLD PVST Aggressive and Normal mode Failed
+UDLD_PVST_Aggressive_and_Normal_mode_Passed: UDLD PVST Aggressive and Normal mode Passed
+UDLD_PVST_Convergence_Failed: UDLD PVST Convergence Failed
+UDLD_PVST_Convergence_Passed: UDLD PVST Convergence Passed
+UDLD_PVST_Normal_Config_Reload_Failed: UDLD PVST Normal Config Reload Failed
+UDLD_PVST_Normal_Config_Reload_Passed: UDLD PVST Normal Config Reload Passed
+UDLD_PVST_Aggressive_Config_Reload_Failed: UDLD PVST Aggressive Config Reload Failed
+UDLD_PVST_Aggressive_Config_Reload_Passed: UDLD PVST Aggressive Config Reload Passed
+UDLD_PVST_Normal_Fast_Reboot_Failed: UDLD PVST Normal Fast Reboot Failed
+UDLD_PVST_Normal_Fast_Reboot_Passed: UDLD PVST Normal Fast Reboot Passed
+UDLD_PVST_Aggressive_Fast_Reboot_Failed: UDLD PVST Aggressive Fast Reboot Failed
+UDLD_PVST_Aggressive_Fast_Reboot_Passed: UDLD PVST Aggressive Fast Reboot Passed
+UDLD_PVST_Normal_Cold_Reboot_Failed: UDLD PVST Normal Cold Reboot Failed
+UDLD_PVST_Normal_Cold_Reboot_Passed: UDLD PVST Normal Cold Reboot Passed
+UDLD_PVST_Aggressive_Cold_Reboot_Failed: UDLD PVST Aggressive Cold Reboot Failed
+UDLD_PVST_Aggressive_Cold_Reboot_Passed: UDLD PVST Aggressive Cold Reboot Passed
+UDLD_PVST_Normal_Docker_Restart_Failed: UDLD PVST Normal Docker Restart Failed
+UDLD_PVST_Normal_Docker_Restart_Passed: UDLD PVST Normal Docker Restart Passed
+UDLD_PVST_Aggressive_Docker_Restart_Failed: UDLD PVST Aggressive Docker Restart Failed
+UDLD_PVST_Aggressive_Docker_Restart_Passed: UDLD PVST Aggressive Docker Restart Passed
+
+#UDLD RPVST
+UDLD_RPVST_Normal_message_and_multiplier_timers_Failed: UDLD RPVST Normal message and multiplier timers Failed
+UDLD_RPVST_Normal _message_and_multiplier_timers_Passed: UDLD RPVST Normal  message and multiplier timers Passed
+UDLD_RPVST_Aggressive_message_and_multiplier_timers_Failed: UDLD RPVST Aggressive message and multiplier timers Failed
+UDLD_RPVST_Aggressive_message_and_multiplier_timers_Passed: UDLD RPVST Aggressive  message and multiplier timers Passed
+UDLD_RPVST_Aggressive_and_Normal_mode_Failed: UDLD RPVST Aggressive and Normal mode Failed
+UDLD_RPVST_Aggressive_and_Normal_mode_Passed: UDLD RPVST Aggressive and Normal mode Passed
+UDLD_RPVST_Convergence_Failed: UDLD RPVST Convergence Failed
+UDLD_RPVST_Convergence_Passed: UDLD RPVST Convergence Passed
+UDLD_RPVST_Normal_Config_Reload_Failed: UDLD RPVST Normal Config Reload Failed
+UDLD_RPVST_Normal_Config_Reload_Passed: UDLD RPVST Normal Config Reload Passed
+UDLD_RPVST_Aggressive_Config_Reload_Failed: UDLD RPVST Aggressive Config Reload Failed
+UDLD_RPVST_Aggressive_Config_Reload_Passed: UDLD RPVST Aggressive Config Reload Passed
+UDLD_RPVST_Normal_Fast_Reboot_Failed: UDLD RPVST Normal Fast Reboot Failed
+UDLD_RPVST_Normal_Fast_Reboot_Passed: UDLD RPVST Normal Fast Reboot Passed
+UDLD_RPVST_Aggressive_Fast_Reboot_Failed: UDLD RPVST Aggressive Fast Reboot Failed
+UDLD_RPVST_Aggressive_Fast_Reboot_Passed: UDLD RPVST Aggressive Fast Reboot Passed
+UDLD_RPVST_Normal_Cold_Reboot_Failed: UDLD RPVST Normal Cold Reboot Failed
+UDLD_RPVST_Normal_Cold_Reboot_Passed: UDLD RPVST Normal Cold Reboot Passed
+UDLD_RPVST_Aggressive_Cold_Reboot_Failed: UDLD RPVST Aggressive Cold Reboot Failed
+UDLD_RPVST_Aggressive_Cold_Reboot_Passed: UDLD RPVST Aggressive Cold Reboot Passed
+UDLD_RPVST_Normal_Docker_Restart_Failed: UDLD RPVST Normal Docker Restart Failed
+UDLD_RPVST_Normal_Docker_Restart_Passed: UDLD RPVST Normal Docker Restart Passed
+UDLD_RPVST_Aggressive_Docker_Restart_Failed: UDLD RPVST Aggressive Docker Restart Failed
+UDLD_RPVST_Aggressive_Docker_Restart_Passed: UDLD RPVST Aggressive Docker Restart Passed
+
+#UDLD TX/RX LOOPs
+UDLD_TX_RX_loop_Normal_Failed: UDLD TX/RX loop Normal Failed
+UDLD_TX_RX_loop_Normal_Passed: UDLD TX/RX loop Normal Passed
+UDLD_TX_RX_loop_Aggressive_Failed: UDLD TX/RX loop Aggressive Failed
+UDLD_TX_RX_loop_Aggressive_Passed: UDLD TX/RX loop Aggressive Passed

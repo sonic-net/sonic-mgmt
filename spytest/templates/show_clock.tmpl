@@ -1,0 +1,11 @@
+Value Day (\w+)
+Value Month (\w+)
+Value MonthDay (\d+)
+Value Hours (\d+)
+Value Minutes (\d+)
+Value Seconds (\d+)
+Value Timezone (\S+)
+Value Year (\d+)
+
+Start
+  ^${Day}\s+${Month}\s+${MonthDay}\s+${Hours}:${Minutes}:${Seconds}\s+${Timezone}\s+${Year}$$ -> Record

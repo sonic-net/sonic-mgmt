@@ -1,0 +1,16 @@
+Value packets_received (\d+)
+Value packets_relayed (\d+)
+Value packets_dropped (\d+)
+Value invalid_ttl_packets (\d+)
+Value all_ones_broadcast_packets_received (\d+)
+Value net_directed_broadcast_packets_received (\d+)
+
+
+
+Start
+  ^\s*Packets\s+received\s+:\s+${packets_received}\s*$$ 
+  ^\s*Packets\s+relayed\s+:\s+${packets_relayed}\s*$$ 
+  ^\s*Packets\s+dropped\s+:\s+${packets_dropped}\s*$$ 
+  ^\s*Invalid\s+TTL\s+packets\s+:\s+${invalid_ttl_packets}\s*$$ 
+  ^\s*All\s+ones\s+broadcast\s+packets\s+received\s+:\s+${all_ones_broadcast_packets_received}\s*$$ 
+  ^\s*Net\s+directed\s+broadcast\s+packets\s+received\s+:\s+${net_directed_broadcast_packets_received}\s*$$ 

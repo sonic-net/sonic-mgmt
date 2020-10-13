@@ -1,0 +1,8 @@
+Value VRF (\S+)
+Value VNI (\d+)
+Value Fillup TOTAL_COUNT (\S+)
+
+Start
+  ^\|\s+${VRF}\s+\|\s+${VNI}\s+\| -> Record
+  ^\s*${VRF}\s+${VNI}\s* -> Record
+  ^\Total count :\s+${TOTAL_COUNT}

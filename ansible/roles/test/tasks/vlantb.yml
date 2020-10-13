@@ -1,17 +1,5 @@
-#-----------------------------------------
-# Apply Vlan configuration
-#-----------------------------------------
-- name: Vlan test setup on testbed
-  include_tasks: vlan_configure.yml
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: vlan/test_vlan.py
 
-#-----------------------------------------
-# Run Vlan test
-#-----------------------------------------
-- name: Vlan test run on testbed
-  include_tasks: vlan_test.yml
-
-#-----------------------------------------
-# Clean up Vlan configuration
-#-----------------------------------------
-- name: Clean up Vlan test configuration on the testbed
-  include_tasks: vlan_cleanup.yml

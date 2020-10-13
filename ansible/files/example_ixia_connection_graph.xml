@@ -1,0 +1,24 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+      <Device Hostname="example-ixia-1" HwSku="IXIA-tester" Type="DevIxiaChassis"/>
+      <Device Hostname="example-s6100-dut-1" HwSku="Dell-S6100" Type="DevSonic"/>
+      <Device Hostname="example-ixia-api-serv-1" HwSku="IXIA-tester" Type="DevIxiaApiServ"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="example-ixia-1" EndPort="Card1/Port1" StartDevice="example-s6100-dut-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="example-ixia-1" EndPort="Card1/Port2" StartDevice="example-s6100-dut-1" StartPort="Ethernet1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="example-ixia-1" EndPort="Card1/Port3" StartDevice="example-s6100-dut-1" StartPort="Ethernet2"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+    <DevicesL3Info Hostname="example-ixia-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.0.0.20/32"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="example-ixia-1">
+      <InterfaceVlan mode="Access" portname="Card1/Port1" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port2" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port3" vlanids=""/>
+    </DevicesL2Info>
+  </DataPlaneGraph>
+</LabConnectionGraph>

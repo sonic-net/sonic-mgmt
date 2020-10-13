@@ -1,0 +1,7 @@
+Value psu (\w+)
+Value status (OK|NOT\s{1}OK)
+
+Start
+  ^${psu}\s+${status}\s*$$ -> Record
+
+EOF

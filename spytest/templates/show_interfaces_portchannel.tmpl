@@ -1,0 +1,11 @@
+Value No (\d+)
+Value TeamDev (\S+)
+Value Protocol (\S+)
+Value Ports (\S+[\S ]+)
+
+Start
+  ^Flags:.*$$ -> Continue
+  ^-+\s*$$ -> Continue
+  ^\s*${No}\s+${TeamDev}\s+${Protocol}\s+${Ports}+\s*$$ -> Record
+
+

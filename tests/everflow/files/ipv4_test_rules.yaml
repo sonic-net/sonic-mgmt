@@ -1,0 +1,41 @@
+- qualifiers:
+    ip:
+      source-ip-address: "20.0.0.10/32"
+
+- qualifiers:
+    ip:
+      destination-ip-address: "30.0.0.10/32"
+
+- qualifiers:
+    transport:
+      source-port: "4661"
+
+- qualifiers:
+    transport:
+      destination-port: "4661"
+
+- qualifiers:
+    l2:
+      ethertype: "4660"
+
+- qualifiers:
+    ip:
+      protocol: 126
+
+- qualifiers:
+    transport:
+      tcp-flags:
+        - "TCP_SYN"
+        - "TCP_ACK"
+
+- qualifiers:
+    transport:
+      source-port: "4672..4681"
+
+- qualifiers:
+    transport:
+      destination-port: "4672..4681"
+
+- qualifiers:
+    ip:
+      dscp: 51

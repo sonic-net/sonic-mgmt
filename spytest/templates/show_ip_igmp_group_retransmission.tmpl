@@ -1,0 +1,14 @@
+#########################################################
+#sonic# show ip igmp groups retransmissions 
+#Interface Address         Group           RetTimer Counter RetSrcs
+#Ethernet46 20.20.20.1      231.1.1.1       --:--          0       0
+########################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value group ([\w\.]+)
+Value ret_timer ([\d\:\-]*)
+Value counter (\d+)
+Value ret_sources (\d+)
+
+Start
+  ^\s*${interface}\s*${address}\s*${group}\s*${ret_timer}\s*${counter}\s*${ret_sources}$$ -> Record

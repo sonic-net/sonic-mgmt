@@ -48,3 +48,23 @@ Goal is to use one VM set against different DUTs
 Feature: The VMs configuration will NOT be updated while switching from one topo to another (faster).
 
 TODO: check topo field when renumbering between topologies
+
+# Deploy Ixia IxNetwork API server
+```
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
+example-ixia,vms6-1,t0-64,docker-keysight-api-server,example-ixia-ptf-1,10.0.0.30/32,,server_1,,example-s6100-dut-1,Test with Keysight API Server
+```
+- To add a new testbed “example-ixia”:
+  - ./testbed-cli add-topo example-ixia ~/.password
+
+- To remove a Keysight API server docker container
+  - ./testbed-cli remove-topo example-ixia ~/.password
+
+Note that it's mandatory to name the image "docker-keysight-api-server", as that triggers the Ixia IxNetwork API server deployment.
+Much like the PTF docker image, this image will be pulled from the configured docker registry.
+
+Also, topologies with the Keysight API server will not be using any VMs.
+
+The most recent IxNetwork API Server docker image can be found [here](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.00_Update-3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2).
+See also the [Ixia software download](https://support.ixiacom.com/public/support-overview/product-support/downloads-updates/versions/68) page for any newer versions.
+

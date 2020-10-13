@@ -1,0 +1,12 @@
+Value IfName (Loopback\S+)
+Value IfVrf (\S+)
+
+Start
+  ^(-+\s*)*$$
+  ^\s*Name\s+VRF\s*$$ -> Data
+
+Data
+  ^(-+\s*)*$$
+  ^\s*${IfName}\s+${IfVrf}\s*$$ -> Record
+  ^\s*${IfName}\s*$$ -> Record
+  ^.*$$

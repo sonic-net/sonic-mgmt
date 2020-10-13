@@ -1,0 +1,18 @@
+Value Filldown VRFNAME (\S+)
+Value interface (\S+)
+Value hello_rx (\S+)
+Value hello_tx (\S+)
+Value dbd_rx (\S+)
+Value dbd_tx (\S+)
+Value lsr_rx (\S+)
+Value lsr_tx (\S+)
+Value lsu_rx (\S+)
+Value lsu_tx (\S+)
+Value lsa_rx (\S+)
+Value lsa_tx (\S+)
+
+Start
+  ^VRF Name:\s+${VRFNAME}\s*$$
+  ^${interface}\s*${hello_rx}/${hello_tx}\s*${dbd_rx}/${dbd_tx}\s*${lsr_rx}/${lsr_tx}\s*${lsu_rx}/${lsu_tx}\s*${lsa_rx}/${lsa_tx}\s*$$ -> Record
+
+EOF

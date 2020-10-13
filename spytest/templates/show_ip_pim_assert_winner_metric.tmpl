@@ -1,0 +1,19 @@
+###############################################################
+#sonic# show ip pim assert-winner-metric 
+#Interface Address         Source          Group           RPT Pref Metric Address        
+#Ethernet46 10.1.1.2        10.2.1.20       232.0.0.20      yes INFI INFI   * 
+#
+###############################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value source ([\w\.]+)
+Value group ([\w\.]+)
+Value rpt (\w+)
+Value pref (\w+)
+Value metric (\w+)
+Value address2 ([\w\.\*]+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${interface}\s*${address}\s*${source}\s*${group}\s*${rpt}\s*${pref}\s*${metric}\s*${address2}$$ -> Record

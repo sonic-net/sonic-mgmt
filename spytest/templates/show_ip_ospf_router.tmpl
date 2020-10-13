@@ -1,0 +1,58 @@
+Value Filldown VRFNAME (\S+)
+Value Filldown ROUTERID (\S+)
+Value Filldown TOS (\S+)
+Value Filldown TOSLIST (\S+)
+Value Filldown RFC (\S+)
+Value Filldown RFC1583 (\S+)
+Value Filldown OPAQCAPABILITY (\S+)
+Value Filldown MMTMR (\S+)
+Value Filldown MMTYPE (\S+)
+Value Filldown SPFDELAY (\d+)
+Value Filldown SPFMINHOLD (\d+)
+Value Filldown SPFMAXHOLD (\d+)
+Value Filldown SPFHOLDMULTIPLIER (\d+)
+Value Filldown SPFLASTEXEC (\S+)
+Value Filldown SPFLASTDURATION (\S+)
+Value Filldown SPFRUNCOUNT (\d+)
+Value Filldown SPFTMRSTATE (\S+)
+Value Filldown LSAMININTERVAL (\d+)
+Value Filldown LSAMINARRIVAL (\d+)
+Value Filldown LSAMAXINTERVAL (\d+)
+Value Filldown WRITEMULTIPLIER (\d+)
+Value Filldown REFRESHTIMER (\d+)
+Value Filldown EXTLSACOUNT (\d+)
+Value Filldown EXTLSACHKSUM (\S+)
+Value Filldown OPQLSACOUNT (\d+)
+Value Filldown ADJLOGGED (\S+)
+Value Filldown OPQLSACHKSUM (\S+)
+Value AREACOUNT (\d+)
+
+Start
+  ^VRF Name:\s+${VRFNAME}\s*$$ 
+  ^\s*OSPF Routing Process, Router ID:\s*${ROUTERID}\s*$$
+  ^\s*Supports only\s+${TOS}\s+TOS (${TOSLIST}) routes\s*$$
+  ^\s*This implementation conforms to\s+${RFC}\s*$$
+  ^\s*RFC1583Compatibility flag is\s+${RFC1583}\s*$$
+  ^\s*OpaqueCapability flag is\s+${OPAQCAPABILITY}\s*$$
+  ^\s*Stub router advertisement is configured\s*$$
+  ^\s*Enabled for\s*${MMTMR}s prior to full\s*${MMTYPE}\s*$$
+  ^\s*Enabled for\s*${MMTMR}s after\s*${MMTYPE}\s*$$
+  ^\s*${MMTYPE}istratively activated \(${MMTMR}\)\s*$$
+  ^\s*Initial SPF scheduling delay\s+${SPFDELAY}\s+millisec\(s\)\s*$$
+  ^\s*Minimum hold time between consecutive SPFs\s+${SPFMINHOLD}\s+millisec\(s\)\s*$$
+  ^\s*Maximum hold time between consecutive SPFs\s+${SPFMAXHOLD}\s+millisec\(s\)\s*$$
+  ^\s*Hold time multiplier is currently\s+${SPFHOLDMULTIPLIER}\s*$$
+  ^\s*SPF algorithm last executed\s+${SPFLASTEXEC}s ago\s*$$
+  ^\s*Last SPF duration\s+${SPFLASTDURATION}\s+usecs\s*$$
+  ^\s*SPF algorithm has not been run\s*$$
+  ^\s*SPF timer is\s+${SPFTMRSTATE}\s*$$
+  ^\s*LSA minimum interval\s+${LSAMININTERVAL}\s+msecs\s*$$
+  ^\s*LSA minimum arrival\s+${LSAMINARRIVAL}\s+msecs\s*$$
+  ^\s*Write Multiplier set to\s+${WRITEMULTIPLIER}\s*$$
+  ^\s*Refresh timer\s+${REFRESHTIMER}\s+secs\s*$$
+  ^\s*Number of external LSA\s+${EXTLSACOUNT}\. Checksum Sum 0x${EXTLSACHKSUM}\s*$$
+  ^\s*Number of opaque AS LSA\s+${OPQLSACOUNT}\. Checksum Sum 0x${OPQLSACHKSUM}\s*$$
+  ^\s*Adjacency changes are\s+${ADJLOGGED}\s*$$
+  ^\s*Number of areas attached to this router:\s+${AREACOUNT}\s*$$ -> Record
+
+EOF

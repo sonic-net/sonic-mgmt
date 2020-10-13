@@ -1,0 +1,15 @@
+#################################################################################
+#admin@sonic:~$ show interfaces portchannel PortChannel3 fallback
+#Port Channel                :  PortChannel3
+#Fallback Configured Value   :  Enabled
+#Fallback Operational Status :  Disabled
+#admin@sonic:~$
+#################################################################################
+Value port_channel_name (\w+)
+Value fallback_config (\w+)
+Value fallback_oper_status (\w+)
+
+Start
+  ^\s*Port\s*Channel\s*:\s*${port_channel_name}$$
+  ^\s*Fallback\s*Configured\s*Value\s*:\s*${fallback_config}$$
+  ^\s*Fallback\s*Operational\s*Status\s*:\s*${fallback_oper_status}$$ -> Record

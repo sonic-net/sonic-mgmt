@@ -1,0 +1,15 @@
+Value Name (\S+)
+Value VID (\d+)
+Value Member (\S+)
+Value Mode (\S+)
+
+Start
+  ^Name\s+VID\s+Member\s+Mode -> TYPE1
+  ^Name\s+VID -> TYPE2
+
+TYPE1
+  ^${Name}\s+${VID}\s+${Member}\s+${Mode} -> Record
+  ^${Name}\s+${VID} -> Record
+
+TYPE2
+  ^${Name}\s+${VID} -> Record

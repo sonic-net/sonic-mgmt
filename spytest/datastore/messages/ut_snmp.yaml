@@ -1,0 +1,34 @@
+##COMMON
+
+
+## SNMP UT
+ut_snmp_init_pass : UT SNMP initialization passed
+ut_snmp_init_fail : UT SNMP initialization failed
+ut_snmp_strings_pass : UT SNMP strings passed
+ut_snmp_strings_fail : UT SNMP strings failed
+ut_snmp_community_pass : UT SNMP community passed
+ut_snmp_community_fail : UT SNMP community failed
+ut_snmp_group_pass : UT SNMP group passed
+ut_snmp_group_fail : UT SNMP group failed
+ut_snmp_host_v2_pass : UT SNMP host v2 passed
+ut_snmp_host_v2_fail : UT SNMP host v2 failed
+ut_snmp_host_v3_pass : UT SNMP host v3 passed
+ut_snmp_host_v3_fail : UT SNMP host v3 failed
+ut_snmp_user_pass : UT SNMP user passed
+ut_snmp_user_fail : UT SNMP user failed
+ut_snmp_view_pass : UT SNMP view passed
+ut_snmp_view_fail : UT SNMP view failed
+ut_snmp_pid_snmpd_pass : UT SNMP snmpd pid check passed
+ut_snmp_pid_snmpd_fail : UT SNMP snmpd pid check failed
+ut_snmp_md5_snmpd_conf_pass : UT SNMP /etc/snmp/snmpd.conf md5sum check passed
+ut_snmp_md5_snmpd_conf_fail : UT SNMP /etc/snmp/snmpd.conf md5sum check failed
+ut_snmp_client_pass : UT SNMP client passed
+ut_snmp_client_fail : UT SNMP client failed
+ut_snmp_engineid_pass : UT SNMP agentaddress v2c passed
+ut_snmp_engineid_fail : UT SNMP agentaddress v2c failed
+ut_snmp_agentaddress_ipv4_pass : UT SNMP agent address ipv4 passed
+ut_snmp_agentaddress_ipv4_fail : UT SNMP agent address ipv4 failed
+ut_snmp_agentaddress_ipv6_pass : UT SNMP agent address ipv6 passed
+ut_snmp_agentaddress_ipv6_fail : UT SNMP agent address ipv6 failed
+ut_snmp_trap_v2c_pass : UT SNMP trap v2c passed
+ut_snmp_trap_v2c_fail : UT SNMP trap v2c failed

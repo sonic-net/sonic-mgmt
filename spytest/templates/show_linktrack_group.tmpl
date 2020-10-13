@@ -1,0 +1,15 @@
+Value Filldown name (\S+)
+Value Filldown description (\S+)
+Value Filldown timeout (\d+)
+Value Filldown direction (\S+)
+Value interface (\w+)
+Value direction_state (\S+)
+
+Start
+  ^\s*Name:\s*${name}
+  ^\s*Description:\s*${description}
+  ^\s*Timeout:\s*${timeout}\s*seconds
+  ^\s*${direction}:\s*
+  ^\s*${interface}\s\(${direction_state}\) -> Record
+
+EOF

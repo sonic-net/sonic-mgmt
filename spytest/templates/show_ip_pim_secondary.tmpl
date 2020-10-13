@@ -1,0 +1,16 @@
+##################################################
+#sonic# show ip pim secondary 
+#Interface Address         Neighbor        Secondary     
+#Ethernet24 20.20.20.3    10.10.10.2     10.10.11.2
+##################################################
+Value interface (\w+)
+Value address ([\d\.]+)
+Value neighbor ([\d\.]+)
+Value secondary ([\d\.]+)
+Value vrf (\w+)
+
+Start
+  ^\s*VRF:\s*${vrf}$$
+  ^\s*${interface}\s*${address}\s*${neighbor}\s*${secondary}$$ -> Record
+
+EOF

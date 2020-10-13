@@ -53,8 +53,9 @@ class VNET(BaseTest):
     def readMacs(self):
         addrs = {}
         for intf in os.listdir('/sys/class/net'):
-            with open('/sys/class/net/%s/address' % intf) as fp:
-                addrs[intf] = fp.read().strip()
+            if os.path.isdir('/sys/class/net/%s' % intf):
+                with open('/sys/class/net/%s/address' % intf) as fp:
+                    addrs[intf] = fp.read().strip()
 
         return addrs
 
@@ -120,6 +121,21 @@ class VNET(BaseTest):
             peer_tests.append(peer_test)
 
         return peer_tests
+
+    def getRifTests(self, test):
+        neighbor_rifs = self.serv_info[test['name']]
+        rif_tests = []
+
+        for rif in neighbor_rifs:
+            if rif['vlan_id'] != test['vlan']:
+                new_test = {}
+                new_test['src'] = rif['ip']
+                new_test['port'] = rif['port']
+                new_test['vlan'] = rif['vlan_id']
+
+                rif_tests.append(new_test)
+
+        return rif_tests
 
     def addTest(self, graph, name, entry):
         test = {}
@@ -208,8 +224,13 @@ class VNET(BaseTest):
         for idx, data in enumerate(graph['vnet_interfaces']):
             if data['vnet'] not in self.serv_info:
                 self.serv_info[data['vnet']] = []
+                ports = self.acc_ports[idx % acc_ports_size]
+            elif self.serv_info[data['vnet']]:
+                # Specify the port when there are multiple RIFs per VNET
+                # We want all RIFs in one VNET to use the same port/interface
+                # If we have already seen a RIF from this VNET, use the port of the previously seen RIF for consistency
+                ports = self.serv_info[data['vnet']][0].get('port', ports)
             serv_info = {}
-            ports = self.acc_ports[idx % acc_ports_size]
             for nbr in graph['vnet_neighbors']:
                 if nbr['ifname'] == data['ifname']:
                     if 'Vlan' in data['ifname']:
@@ -470,8 +491,10 @@ class VNET(BaseTest):
                 tagged = False
 
             peer_tests = self.getPeerTest(test)
+            rif_tests = self.getRifTests(test)
+            serv_tests = rif_tests + peer_tests
 
-            for serv in peer_tests:
+            for serv in serv_tests:
                 print "  Testing Serv2Serv "
                 pkt = simple_tcp_packet(
                     pktlen=pkt_len,
@@ -502,6 +525,9 @@ class VNET(BaseTest):
                 send_packet(self, test['port'], str(pkt))
 
                 log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + serv['src']
+                logging.info(log_str)
+
+                log_str = "Expecting packet on " + str("eth%d" % serv['port']) + " from " + test['src']
                 logging.info(log_str)
 
                 if not self.routes_removed:

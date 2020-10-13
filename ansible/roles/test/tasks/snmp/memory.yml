@@ -1,0 +1,123 @@
+##########################################################################
+# Test SNMP Memory Utilization
+#
+#  - Check the difference percentage of Total Memory between SNMP and shell is 0
+#  - Check the difference percentage of Total Free Memory between SNMP and shell small than 5% when:
+#    * Check free memory before stress test
+#    * Check free memory in stress test
+#    * Check free memory after stress test
+#  - Tester can modify the value of tolerance and min_memory_size for different platforms by Ansible extra variable
+#    * Default value of tolerance is 0.05(5%)
+#    * Default value of min_memory_size is 512000(512M)
+#
+# Requires:  Ansible v2.0.0.2-1
+#
+# Usage:
+#
+#  ansible-playbook test_sonic.yml -i inventory --limit switch2 --become --tags snmp_memory -e "tolerance=0.05" -e "min_memory_size=512000"
+#
+# Author:
+#
+#  Kenie Liu(okanchou9) mailto:kenie7@gmail.com
+##########################################################################
+
+- block:
+    - name: Check tolerance is set or not. Default is 0.05(5%)
+      set_fact: tolerance=0.05
+      when: tolerance is not defined
+
+    - name: Check min_memory_size is set or not. Default is 512000(512M)
+      set_fact: min_memory_size=512000
+      when: min_memory_size is not defined
+
+    - name: Copy Memory stress script to the switch
+      copy: src={{ item.src }} dest={{ item.dest }}
+      with_items:
+        - { src: 'roles/test/tasks/snmp/memory.py', dest: '/tmp/memory.py' }
+
+    - name: Gathering basic snmp facts about the device
+      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+      connection: local
+
+    - name: Check total memory via shell
+      shell: grep MemTotal /proc/meminfo | awk '{print $2}'
+      register: shell_total_memory
+      become: yes
+
+    - name: 'Validating SNMP total memory matches shell "/proc/meminfo" result'
+      assert:
+        that: "{{ (ansible_sysTotalMemery|int - shell_total_memory.stdout|int)|abs }} == 0"
+
+    - name: Check total free memory via shell
+      shell: grep MemFree /proc/meminfo | awk '{print $2}'
+      register: shell_total_free_memory
+      become: yes
+
+    - name: Validating SNMP total free memory matches shell result before stress test
+      assert:
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= {{ tolerance|float }}"
+
+    - set_fact: test_momory="{{ ((ansible_sysTotalFreeMemery - min_memory_size|int) / 1024)|int }}"
+
+    - debug: msg="Memory stress test will skip since system total free momory({{ ansible_sysTotalFreeMemery }}) is less than min_memory_size({{ min_memory_size }})"
+      when: test_momory|int <= 0
+
+    - name: Start memory stress generation
+      shell: python /tmp/memory.py {{ test_momory }} &
+      become: yes
+      when: test_momory|int > 0
+
+    - name: Wait for memory stress to reflect in SNMP
+      pause: seconds=20
+      when: test_momory|int > 0
+
+    - name: Gathering basic snmp facts about the device
+      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+      connection: local
+      when: test_momory|int > 0
+
+    - name: Check total free memory via shell
+      shell: grep MemFree /proc/meminfo | awk '{print $2}'
+      register: shell_total_free_memory
+      become: yes
+      when: test_momory|int > 0
+
+    - name: Validating SNMP total free memory matches shell result in stress test
+      assert:
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= {{ tolerance|float }}"
+      when: test_momory|int > 0
+
+    - name: Stop memory stress generation
+      shell: killall python /tmp/memory.py
+      become: yes
+      ignore_errors: true
+      when: test_momory|int > 0
+
+    - name: Wait for memory recovery to reflect in SNMP
+      pause: seconds=20
+      when: test_momory|int > 0
+
+    - name: Gathering basic snmp facts about the device
+      snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+      connection: local
+      when: test_momory|int > 0
+
+    - name: Check total free memory via shell
+      shell: grep MemFree /proc/meminfo | awk '{print $2}'
+      register: shell_total_free_memory
+      become: yes
+      when: test_momory|int > 0
+
+    - name: Validating SNMP total free memory matches shell result after stress test
+      assert:
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= {{ tolerance|float }}"
+      when: test_momory|int > 0
+
+  always:
+    - name: Stop memory stress generation
+      shell: killall python /tmp/memory.py
+      become: yes
+      ignore_errors: true
+
+    - name: Remove stress test file from DUT
+      file: path="/tmp/memory.py" state=absent

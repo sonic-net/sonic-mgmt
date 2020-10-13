@@ -1,0 +1,77 @@
+Value community (\w+)
+Value group (\w+)
+Value grp_name (\w+)
+Value grp_model (\w+)
+Value grp_security (\S+|\s*)
+Value grp_read_view (\w+|\s*)
+Value grp_write_view (\w+|\s*)
+Value grp_notify_view (\w+|\s*)
+Value view_name (\w+)
+Value view_oid (\w+)
+Value view_type (\w+)
+Value user_name (\S+|\s*)
+Value usr_grp_name (\w+)
+Value usr_authentication (\w+)
+Value usr_privacy (\S+)
+Value target_address (\S+)
+Value target_port (\d+)
+Value target_type (\w+)
+Value target_community_user (\S+)
+Value target_version_security (\S+)
+Value target_timeout (\d+)
+Value target_retries (\d+)
+Value system_name (\w+)
+Value traps (\w+)
+Value location (\w+)
+Value engine_id (\w+)
+Value contact (\w+)
+Value agent_ip_address (\d+\.\d+\.\d+\.\d+)
+Value agent_udp_port (\d+)
+Value agent_interface (\w+)
+
+
+Start
+  ^\s*Community\s+Name\s+Group\s+Name\s*$$ -> COMMUNITY
+  ^\s*Group\s+Name\s+Model:\s+Security\s+Read\s+View\s+Write\s+View\s+Notify\s+View\s*$$ -> GROUPS
+  ^\s*View\s+Name\s+OID\s+Tree\s+Type\s*$$ -> VIEWS
+  ^\s*User\s+Name\s+Group\s+Name\s+Auth\w*\s+Privacy\s*$$ -> USERS
+  ^\s*Target\s+Address\s+Port\s+Type\s+Community\s+Ver\w*\s+T\-Out\s+Retries\s*$$ -> HOST
+  ^\s*Target\s+Address\s+Type\s+Community\s+Ver\w*\s+T\-Out\s+Retries\s*$$ -> HOST
+  ^\s*Target\s+Address\s+Port\s+Type\s+User\s*Name\s+Security\s+T\-Out\s+Retries\s*$$ -> HOST
+  ^\s*Target\s+Address\s+Type\s+User\s*Name\s+Security\s+T\-Out\s+Retries\s*$$ -> HOST
+  ^\s*System\s+Name\s*:\s+${system_name}\s*$$ -> SERVER
+  ^\s*Location\s*:\s+${location}\s*$$ -> SERVER
+  ^\s*Contact\s*:\s+${contact}\s*$$ -> SERVER
+  ^\s*EngineID\s*:\s+${engine_id}\s*$$ -> SERVER
+
+COMMUNITY
+  ^\s*${community}\s+${group}\s*$$ -> Record
+
+GROUPS
+  ^\s*${grp_name}\s+${grp_model}\s*:\s+${grp_security}\s+${grp_read_view}\s+${grp_write_view}\s+${grp_notify_view}\s*$$ -> Record
+
+VIEWS
+  ^\s*${view_name}\s+${view_oid}\s+${view_type}\s*$$ -> Record
+
+USERS
+  ^\s*${user_name}\s+${usr_grp_name}\s+${usr_authentication}\s+${usr_privacy}\s*$$ -> Record
+
+HOST
+  ^\s*${target_address}\s+${target_port}\s+${target_type}\s+${target_community_user}\s+${target_version_security}\s+${target_timeout}\s+${target_retries}\s*$$ -> Record
+  ^\s*${target_address}\s+${target_type}\s+${target_community_user}\s+${target_version_security}\s+${target_timeout}\s+${target_retries}\s*$$ -> Record
+  ^\s*${target_address}\s+${target_port}\s+${target_type}\s+${target_timeout}\s+${target_retries}\s*$$ -> Record
+  ^\s*${target_address}\s+${target_type}\s+${target_timeout}\s+${target_retries}\s*$$ -> Record
+
+SERVER
+  ^\s*System\s+Name\s*:\s+${system_name}\s*$$
+  ^\s*Traps\s*:\s+${traps}\s*$$
+  ^\s*Location\s*:\s+${location}\s*$$
+  ^\s*EngineID\s*:\s+${engine_id}\s*$$
+  ^\s*Contact\s*:\s+${contact}\s*$$
+  ^$$ -> Record
+  ^\s*Agent\s+Addresses: -> Continue
+  ^\s*IP\s*Address\s+UDP\s*Port\s+Interface\s* -> Continue
+  ^\s*(-*)\s*$$ -> Continue
+  ^\s*${agent_ip_address}\s+${agent_udp_port}\s+${agent_interface}\s*$$ -> Record
+  ^\s*${agent_ip_address}\s+${agent_udp_port}\s*$$ -> Record
+  ^\s*${agent_ip_address}\s*$$ -> Record

@@ -64,6 +64,9 @@ class Arista(object):
         self.do_cmd('enable')
         self.do_cmd('terminal length 0')
 
+        version_output = self.do_cmd('show version')
+        self.veos_version = self.parse_version(version_output)
+
         return self.shell
 
     def get_arista_prompt(self, first_prompt):
@@ -124,12 +127,10 @@ class Arista(object):
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
-            bgp_route_v4_output = self.do_cmd('show ip route bgp | json')
-            v4_routing_ok = self.parse_bgp_route(bgp_route_v4_output, self.v4_routes)
+            v4_routing_ok, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
             info['bgp_route_v4'] = v4_routing_ok
 
-            bgp_route_v6_output = self.do_cmd("show ipv6 route bgp | json")
-            v6_routing_ok = self.parse_bgp_route(bgp_route_v6_output, self.v6_routes)
+            v6_routing_ok, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
             info["bgp_route_v6"] = v6_routing_ok
 
             portchannel_output = self.do_cmd("show interfaces po1 | json")
@@ -350,6 +351,18 @@ class Arista(object):
 
         return set(expects) == prefixes
 
+    def check_bgp_route(self, expects, ipv6=False):
+        cmd = 'show ip route {} | json'
+        if ipv6:
+            cmd = 'show ipv6 route {} | json'
+
+        ok = True
+        for prefix in set(expects):
+            output = self.do_cmd(cmd.format(prefix))
+            ok &= self.parse_bgp_route(output, [prefix])
+
+        return ok, output
+
     def get_bgp_info(self):
         # Retreive BGP info (peer addr, AS) for the dut and neighbor
         neigh_bgp = {}
@@ -373,7 +386,16 @@ class Arista(object):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
         self.do_cmd('router bgp %s' % asn)
-        self.do_cmd('%s' % state[is_up])
+        if self.veos_version < 4.20:
+            self.do_cmd('%s' % state[is_up])
+        else:
+            if is_up == True:
+                self.do_cmd('%s' % state[is_up])
+            else:
+                # shutdown BGP will pop confirm message, the message is 
+                # "You are attempting to shutdown BGP. Are you sure you want to shutdown? [confirm]"
+                self.do_cmd('%s' % state[is_up], prompt = '[confirm]')
+                self.do_cmd('y')
         self.do_cmd('exit')
         self.do_cmd('exit')
 
@@ -525,3 +547,10 @@ class Arista(object):
 
         # Note: the first item is a placeholder
         return 0, change_count
+
+    def parse_version(self, output):
+        version = 0
+        for line in output.split('\n'):
+            if ('Software image version: ' in line):
+                version = float(re.search('([1-9]{1}\d*)(\.\d{0,2})', line).group())
+        return version

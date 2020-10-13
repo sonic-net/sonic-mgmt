@@ -1,0 +1,17 @@
+##################################################################
+#sonic# show ip igmp groups 
+#Interface Address         Group           Mode Timer    Srcs V Uptime  
+#Ethernet46 20.20.20.1      231.1.1.1       INCL --:--:--    1 3 00:00:05
+#sonic#
+#################################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value group ([\w\.]+)
+Value mode (\w+|\-+)
+Value timer ([\d\:\-]*)
+Value source_count (\d+)
+Value version (\w+)
+Value uptime ([\d\:]+)
+
+Start
+  ^\s*${interface}\s*${address}\s*${group}\s*${mode}\s*${timer}\s*${source_count}\s*${version}\s*${uptime}$$ -> Record

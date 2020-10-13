@@ -154,11 +154,9 @@ From the leaf-fanout to the server, make sure to define:
 ### docker_registry section:
 **USAGE**: /vars/docker_registry.yml
 
-The docker registry container 3 pieces of information:
+The docker registry container below information:
 
 1. docker_registry_host 
-2. docker_registry_username
-3. docker_registry_password
 
 If you already have this information set up, you can choose to leave this section blank and the script will skip this section.
 

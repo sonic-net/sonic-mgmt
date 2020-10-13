@@ -1,0 +1,21 @@
+Value Global_Auth_type (\S+\s*\(\S+\)|\S+)
+Value Global_Timeout (\d+\s*\(\S+\)|\d+)
+Value Global_Passkey (\S+\s*\(\S+\)|\S+)
+Value Address (\S+)
+Value Priority (\d+)
+Value TCP_Port (\d+)
+Value Auth_type (\S+)
+Value Passkey (\S+)
+Value Timeout (\d+)
+
+Start
+  ^TACPLUS\s+global\s+auth_type\s+${Global_Auth_type}\s*$$
+  ^TACPLUS\s+global\s+timeout\s+${Global_Timeout}\s*$$
+  ^TACPLUS\s+global\s+passkey\s+${Global_Passkey}\s*$$
+  ^TACPLUS_SERVER\s+address\s+${Address}\s*$$ 
+  ^\s*priority\s+${Priority}\s*$$ 
+  ^\s*tcp_port\s+${TCP_Port}\s*$$ 
+  ^\s*auth_type\s+${Auth_type}\s*$$
+  ^\s*timeout\s+${Timeout}\s*$$
+  ^\s*passkey\s+${Passkey}\s*$$
+  ^$$ -> Record

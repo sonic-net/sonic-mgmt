@@ -1,0 +1,18 @@
+Value vlan (\d+)
+Value mrouter_interface (.*)
+Value querier (\S+)
+Value igmp_operation_mode (\S+)
+Value fast_leave (\S+)
+Value query_max_response_time (\d+)
+Value last_member_query_interval (\d+)
+Value query_interval (\d+)
+
+Start
+  ^\s*Vlan ID:\s+${vlan}
+  ^\s*Multicast\s+Router\s+ports:\s+${mrouter_interface}
+  ^\s*Querier\s+-\s+${querier}
+  ^\s*IGMP\s+Operation\s+mode:\s+${igmp_operation_mode}
+  ^\s*Is Fast-Leave\s+Enabled\s+:\s+${fast_leave}
+  ^\s*Max\s+Response\s+time\s+=\s+${query_max_response_time}
+  ^\s*Last\s+Member\s+Query\s+Interval\s+=\s+${last_member_query_interval}
+  ^\s*Query\s+interval\s+=\s+${query_interval}

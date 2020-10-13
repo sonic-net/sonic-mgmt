@@ -1,0 +1,28 @@
+Value State (\S+)
+Value Polling_Interval (\S+)
+Value Collectors_Cnt (\d+)
+Value Collector_Name (\S+)
+Value Collector_IP (\S+)
+Value Collector_Port (\d+)
+Value Agent_ID (\S+)
+
+
+Start
+  ^\s*sFlow\s+Global\s+Information: -> CLICK
+  ^\s*Global\s+sFlow\s+Information -> KLISH
+
+CLICK
+  ^\s*sFlow\s+Admin\s+State:\s+${State}\s*$$ -> Record
+  ^\s*(sFlow|SFlow)\s+Polling\s+Interval:\s+${Polling_Interval}\s*$$ -> Record
+  ^\s*(sFlow|SFlow)\s+AgentID:\s+${Agent_ID}\s*$$ -> Record
+  ^\s*$$
+  ^\s*${Collectors_Cnt}\s+Collectors\s+configured:\s*$$ -> Record
+  ^\s*Name:\s*${Collector_Name}\s*IP\s*addr:\s*${Collector_IP}\s*UDP\s*port:\s*${Collector_Port}\s*$$ -> Record
+
+KLISH
+  ^\s*admin\s+state:\s+${State}\s*$$ -> Record
+  ^\s*polling-interval:\s+${Polling_Interval}\s*$$ -> Record
+  ^\s*agent-id:\s+${Agent_ID}\s*$$ -> Record
+  ^\s*configured\s+collectors:\s+${Collectors_Cnt}\s*$$ -> Record
+  ^\s*${Collector_Name}\s+${Collector_IP}\s+${Collector_Port}\s*$$ -> Record
+

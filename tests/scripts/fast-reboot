@@ -1,0 +1,562 @@
+#!/bin/bash -e
+
+REBOOT_USER=$(logname)
+REBOOT_TIME=$(date)
+REBOOT_CAUSE_FILE="/host/reboot-cause/reboot-cause.txt"
+WARM_DIR=/host/warmboot
+REDIS_FILE=dump.rdb
+REBOOT_SCRIPT_NAME=$(basename $0)
+REBOOT_TYPE="${REBOOT_SCRIPT_NAME}"
+VERBOSE=no
+FORCE=no
+STRICT=no
+REBOOT_METHOD="/sbin/kexec -e"
+ASSISTANT_IP_LIST=""
+ASSISTANT_SCRIPT="/usr/local/bin/neighbor_advertiser"
+
+# To maintain backward-compatibility with 201911 branch, when sonic-utilities
+# was intalled as a Debian package, not a Python wheel.
+# TODO: Remove this check once no longer necessary
+if [[ ! -f ${ASSISTANT_SCRIPT} ]]; then
+    ASSISTANT_SCRIPT="/usr/bin/neighbor_advertiser"
+fi
+
+# Require 100M available on the hard drive for warm reboot temp files,
+# Size is in 1K blocks:
+MIN_HD_SPACE_NEEDED=100000
+
+EXIT_SUCCESS=0
+EXIT_FAILURE=1
+EXIT_NOT_SUPPORTED=2
+EXIT_FILE_SYSTEM_FULL=3
+EXIT_NEXT_IMAGE_NOT_EXISTS=4
+EXIT_ORCHAGENT_SHUTDOWN=10
+EXIT_SYNCD_SHUTDOWN=11
+EXIT_FAST_REBOOT_DUMP_FAILURE=12
+EXIT_NO_CONTROL_PLANE_ASSISTANT=20
+
+function error()
+{
+    echo $@ >&2
+}
+
+function debug()
+{
+    if [[ x"${VERBOSE}" == x"yes" ]]; then
+        echo `date` $@
+    fi
+    logger "$@"
+}
+
+function showHelpAndExit()
+{
+    echo "Usage: ${REBOOT_SCRIPT_NAME} [options]"
+    echo "    -h,-? : get this help"
+    echo "    -v    : turn on verbose"
+    echo "    -f    : force execution"
+    echo "    -r    : reboot with /sbin/reboot"
+    echo "    -k    : reboot with /sbin/kexec -e [default]"
+    echo "    -x    : execute script with -x flag"
+    echo "    -c    : specify control plane assistant IP list"
+    echo "    -s    : strict mode: do not proceed without:"
+    echo "            - control plane assistant IP list."
+
+    exit "${EXIT_SUCCESS}"
+}
+
+function parseOptions()
+{
+    while getopts "vfh?rkxc:s" opt; do
+        case ${opt} in
+            h|\? )
+                showHelpAndExit
+                ;;
+            v )
+                VERBOSE=yes
+                ;;
+            f )
+                FORCE=yes
+                ;;
+            r )
+                REBOOT_METHOD="/sbin/reboot"
+                ;;
+            k )
+                REBOOT_METHOD="/sbin/kexec -e"
+                ;;
+            x )
+                set -x
+                ;;
+            c )
+                ASSISTANT_IP_LIST=${OPTARG}
+                ;;
+            s )
+                STRICT=yes
+                ;;
+        esac
+    done
+}
+
+function clear_fast_boot()
+{
+    debug "${REBOOT_TYPE} failure ($?) cleanup ..."
+
+    /sbin/kexec -u || /bin/true
+
+    teardown_control_plane_assistant
+}
+
+function clear_warm_boot()
+{
+    clear_fast_boot
+
+    result=`timeout 10s config warm_restart disable; if [[ $? == 124 ]]; then echo timeout; else echo "code ($?)"; fi` || /bin/true
+    debug "Cancel warm-reboot: ${result}"
+
+    TIMESTAMP=`date +%Y%m%d-%H%M%S`
+    if [[ -f ${WARM_DIR}/${REDIS_FILE} ]]; then
+        mv -f ${WARM_DIR}/${REDIS_FILE} ${WARM_DIR}/${REDIS_FILE}.${TIMESTAMP} || /bin/true
+    fi
+}
+
+function init_warm_reboot_states()
+{
+    # If the current running instanace was booted up with warm reboot. Then
+    # the current DB contents will likely mark warm reboot is done.
+    # Clear these states so that the next boot up image won't get confused.
+    if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
+        redis-cli -n 6 eval "
+            for _, key in ipairs(redis.call('keys', 'WARM_RESTART_TABLE|*')) do
+                redis.call('hdel', key, 'state')
+            end
+        " 0 >/dev/null
+    fi
+}
+
+function initialize_pre_shutdown()
+{
+    debug "Initialize pre-shutdown ..."
+    TABLE="WARM_RESTART_TABLE|warm-shutdown"
+    RESTORE_COUNT=`/usr/bin/redis-cli -n 6 hget "${TABLE}" restore_count`
+    if [[ -z "$RESTORE_COUNT" ]]; then
+        /usr/bin/redis-cli -n 6 hset "${TABLE}" "restore_count" "0" > /dev/null
+    fi
+    /usr/bin/redis-cli -n 6 hset "${TABLE}" "state" "requesting" > /dev/null
+}
+
+function request_pre_shutdown()
+{
+    debug "Requesting pre-shutdown ..."
+    /usr/bin/docker exec -i syncd /usr/bin/syncd_request_shutdown --pre &> /dev/null || {
+        error "Failed to request pre-shutdown"
+    }
+}
+
+function wait_for_pre_shutdown_complete_or_fail()
+{
+    debug "Waiting for pre-shutdown ..."
+    TABLE="WARM_RESTART_TABLE|warm-shutdown"
+    STATE="requesting"
+    declare -i waitcount
+    declare -i retrycount
+    waitcount=0
+    retrycount=0
+    # Wait up to 60 seconds for pre-shutdown to complete
+    while [[ ${waitcount} -lt 600 ]]; do
+        # timeout doesn't work with -i option of "docker exec". Therefore we have
+        # to invoke docker exec directly below.
+        STATE=`timeout 5s docker exec database redis-cli -n 6 hget "${TABLE}" state; if [[ $? == 124 ]]; then echo "timed out"; fi`
+
+        if [[ x"${STATE}" == x"timed out" ]]; then
+            waitcount+=50
+            retrycount+=1
+            debug "Timed out getting pre-shutdown state (${waitcount}) retry count ${retrycount} ..."
+            if [[ retrycount -gt 2 ]]; then
+                break
+            fi
+        elif [[ x"${STATE}" != x"requesting" ]]; then
+            break
+        else
+            sleep 0.1
+            waitcount+=1
+        fi
+    done
+
+    if [[ x"${STATE}" != x"pre-shutdown-succeeded" ]]; then
+        debug "Syncd pre-shutdown failed: ${STATE} ..."
+    else
+        debug "Pre-shutdown succeeded ..."
+    fi
+}
+
+function backup_database()
+{
+    debug "Backing up database ..."
+    # Dump redis content to a file 'dump.rdb' in warmboot directory
+    mkdir -p $WARM_DIR
+    # Delete keys in stateDB except FDB_TABLE|*, MIRROR_SESSION_TABLE|*, WARM_RESTART_ENABLE_TABLE|*
+    redis-cli -n 6 eval "
+        for _, k in ipairs(redis.call('keys', '*')) do
+            if not string.match(k, 'FDB_TABLE|') and not string.match(k, 'WARM_RESTART_TABLE|') \
+                                          and not string.match(k, 'MIRROR_SESSION_TABLE|') \
+                                          and not string.match(k, 'WARM_RESTART_ENABLE_TABLE|') then
+                redis.call('del', k)
+            end
+        end
+    " 0 > /dev/null
+    redis-cli save > /dev/null
+    docker cp database:/var/lib/redis/$REDIS_FILE $WARM_DIR
+    docker exec -i database rm /var/lib/redis/$REDIS_FILE
+}
+
+function setup_control_plane_assistant()
+{
+    if [[ -n "${ASSISTANT_IP_LIST}" && -x ${ASSISTANT_SCRIPT} ]]; then
+        debug "Setting up control plane assistant: ${ASSISTANT_IP_LIST} ..."
+        ${ASSISTANT_SCRIPT} -s ${ASSISTANT_IP_LIST} -m set
+    elif [[ X"${STRICT}" == X"yes" ]]; then
+        debug "Strict mode: fail due to lack of control plane assistant ..."
+        exit ${EXIT_NO_CONTROL_PLANE_ASSISTANT}
+    fi
+}
+
+function teardown_control_plane_assistant()
+{
+    if [[ -n "${ASSISTANT_IP_LIST}" && -x ${ASSISTANT_SCRIPT} ]]; then
+        debug "Tearing down control plane assistant: ${ASSISTANT_IP_LIST} ..."
+        ${ASSISTANT_SCRIPT} -s ${ASSISTANT_IP_LIST} -m reset
+    fi
+}
+
+function setup_reboot_variables()
+{
+    # Kernel and initrd image
+    CURRENT_SONIC_IMAGE=$(sonic_installer list | grep "Current: " | cut -d ' ' -f 2)
+    NEXT_SONIC_IMAGE=$(sonic_installer list | grep "Next: " | cut -d ' ' -f 2)
+    IMAGE_PATH="/host/image-${NEXT_SONIC_IMAGE#SONiC-OS-}"
+    if grep -q aboot_platform= /host/machine.conf; then
+        KERNEL_IMAGE="$(ls $IMAGE_PATH/boot/vmlinuz-*)"
+        BOOT_OPTIONS="$(cat "$IMAGE_PATH/kernel-cmdline" | tr '\n' ' ') SONIC_BOOT_TYPE=${BOOT_TYPE_ARG}"
+    elif grep -q onie_platform= /host/machine.conf; then
+        KERNEL_OPTIONS=$(cat /host/grub/grub.cfg | sed "/$NEXT_SONIC_IMAGE'/,/}/"'!'"g" | grep linux)
+        KERNEL_IMAGE="/host$(echo $KERNEL_OPTIONS | cut -d ' ' -f 2)"
+        BOOT_OPTIONS="$(echo $KERNEL_OPTIONS | sed -e 's/\s*linux\s*/BOOT_IMAGE=/') SONIC_BOOT_TYPE=${BOOT_TYPE_ARG}"
+    else
+        error "Unknown bootloader. ${REBOOT_TYPE} is not supported."
+        exit "${EXIT_NOT_SUPPORTED}"
+    fi
+    INITRD=$(echo $KERNEL_IMAGE | sed 's/vmlinuz/initrd.img/g')
+}
+
+function reboot_pre_check()
+{
+    # Make sure that the file system is normal: read-write able
+    filename="/host/test-`date +%Y%m%d-%H%M%S`"
+    if [[ ! -f ${filename} ]]; then
+        touch ${filename}
+    fi
+    rm ${filename}
+
+    # Make sure /host has enough space for warm reboot temp files
+    avail=$(df -k /host | tail -1 | awk '{ print $4 }')
+    if [[ ${avail} -lt ${MIN_HD_SPACE_NEEDED} ]]; then
+        debug "/host has ${avail}K bytes available, not enough for warm reboot."
+        exit ${EXIT_FILE_SYSTEM_FULL}
+    fi
+
+    # Make sure that the next image exists
+    if [[ ! -d ${IMAGE_PATH} ]]; then
+        debug "Next image ${NEXT_SONIC_IMAGE} doesn't exist ..."
+        exit ${EXIT_NEXT_IMAGE_NOT_EXISTS}
+    fi
+    
+    # Make sure ASIC configuration has not changed between images
+    ASIC_CONFIG_CHECK_SCRIPT="/usr/local/bin/asic_config_check"
+
+    # To maintain backward-compatibility with 201911 branch, when sonic-utilities
+    # was intalled as a Debian package, not a Python wheel.
+    # TODO: Remove this check once no longer necessary
+    if [[ ! -f ${ASIC_CONFIG_CHECK_SCRIPT} ]]; then
+        ASIC_CONFIG_CHECK_SCRIPT="/usr/bin/asic_config_check"
+    fi
+
+    ASIC_CONFIG_CHECK_SUCCESS=0
+    if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
+        ASIC_CONFIG_CHECK_EXIT_CODE=0
+        ${ASIC_CONFIG_CHECK_SCRIPT} || ASIC_CONFIG_CHECK_EXIT_CODE=$?
+
+        if [[ "${ASIC_CONFIG_CHECK_EXIT_CODE}" != "${ASIC_CONFIG_CHECK_SUCCESS}" ]]; then
+            if [[ x"${FORCE}" == x"yes" ]]; then
+                debug "Ignoring ASIC config checksum failure..."
+            else
+                error "ASIC config may have changed: errno=${ASIC_CONFIG_CHECK_EXIT_CODE}"
+                exit "${EXIT_FAILURE}"
+            fi
+        fi
+    fi
+}
+
+function unload_kernel()
+{
+    # Unload the previously loaded kernel if any loaded
+    if [[ "$(cat /sys/kernel/kexec_loaded)" -eq 1 ]]; then
+        /sbin/kexec -u
+    fi
+}
+
+# main starts here
+parseOptions $@
+
+# Check root privileges
+if [[ "$EUID" -ne 0 ]]
+then
+    echo "This command must be run as root" >&2
+    exit "${EXIT_FAILURE}"
+fi
+
+sonic_asic_type=$(sonic-cfggen -y /etc/sonic/sonic_version.yml -v asic_type)
+
+# Check reboot type supported
+BOOT_TYPE_ARG="cold"
+case "$REBOOT_TYPE" in
+    "fast-reboot")
+        BOOT_TYPE_ARG=$REBOOT_TYPE
+        trap clear_fast_boot EXIT HUP INT QUIT TERM KILL ABRT ALRM
+        ;;
+    "warm-reboot")
+        if [[ "$sonic_asic_type" == "mellanox" ]]; then
+            REBOOT_TYPE="fastfast-reboot"
+            BOOT_TYPE_ARG="fastfast"
+            # source mlnx-ffb.sh file with
+            # functions to check ISSU upgrade possibility
+            source mlnx-ffb.sh
+        else
+            BOOT_TYPE_ARG="warm"
+        fi
+        trap clear_warm_boot EXIT HUP INT QUIT TERM KILL ABRT ALRM
+        config warm_restart enable system
+        ;;
+    *)
+        error "Not supported reboot type: $REBOOT_TYPE"
+        exit "${EXIT_NOT_SUPPORTED}"
+        ;;
+esac
+
+# Stopping all SLB neighbors if they're presented
+if [[ "$REBOOT_TYPE" = "fast-reboot" ]]; then
+    debug "Stopping all SLB neighbors if they are presented"
+    PASSIVE_BGP_NEIGHBORS=$(sonic-cfggen -d -v "BGP_PEER_RANGE | list")
+    case "$PASSIVE_BGP_NEIGHBORS" in
+        *BGPSLBPassive*)
+        ASN=$(sonic-cfggen -d -v "DEVICE_METADATA['localhost']['bgp_asn']")
+        vtysh -c "configure terminal" -c "router bgp ${ASN}" -c "neighbor BGPSLBPassive shutdown"
+        sleep 30 # wait for 30 seconds - BGP RouteAdv default timer
+        ;;
+    *)
+        ;;
+    esac
+fi
+
+unload_kernel
+
+setup_reboot_variables
+
+reboot_pre_check
+
+# Install new FW for mellanox platforms before control plane goes down
+# So on boot switch will not spend time to upgrade FW increasing the CP downtime
+if [[ "$sonic_asic_type" == "mellanox" ]]; then
+    MLNX_EXIT_SUCCESS=0
+    MLNX_EXIT_FW_ERROR=100
+    MLNX_EXIT_FFB_FAILURE=101
+
+    MLNX_FW_UPGRADE_SCRIPT="/usr/bin/mlnx-fw-upgrade.sh"
+
+
+    if [[ "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
+        check_ffb || {
+            error "Warm reboot is not supported"
+            exit "${MLNX_EXIT_FFB_FAILURE}"
+        }
+    fi
+
+    debug "Prepare MLNX ASIC to ${REBOOT_TYPE}: install new FW if required"
+
+    ${MLNX_FW_UPGRADE_SCRIPT} --upgrade
+    MLNX_EXIT_CODE="$?"
+    if [[ "${MLNX_EXIT_CODE}" != "${MLNX_EXIT_SUCCESS}" ]]; then
+        error "Failed to burn MLNX FW: errno=${MLNX_EXIT_CODE}"
+        exit "${MLNX_EXIT_FW_ERROR}"
+    fi
+fi
+
+# Load kernel into the memory
+/sbin/kexec -l "$KERNEL_IMAGE" --initrd="$INITRD" --append="$BOOT_OPTIONS"
+
+if [[ "$REBOOT_TYPE" = "fast-reboot" ]]; then
+    # Dump the ARP and FDB tables to files also as default routes for both IPv4 and IPv6
+    # into /host/fast-reboot
+    mkdir -p /host/fast-reboot
+    FAST_REBOOT_DUMP_RC=0
+    fast-reboot-dump.py -t /host/fast-reboot || FAST_REBOOT_DUMP_RC=$?
+    if [[ FAST_REBOOT_DUMP_RC -ne 0 ]]; then
+        error "Failed to run fast-reboot-dump.py. Exit code: $FAST_REBOOT_DUMP_RC"
+        unload_kernel
+        exit "${EXIT_FAST_REBOOT_DUMP_FAILURE}"
+    fi
+fi
+
+init_warm_reboot_states
+
+setup_control_plane_assistant
+
+if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
+    # Freeze orchagent for warm restart
+    # Ask orchagent_restart_check to try freeze 5 times with interval of 2 seconds,
+    # it is possible that the orchagent is in transient state and no opportunity to be freezed
+    # Note: assume that 2*5 seconds is enough for orchagent to process the request and respone freeze or not
+    debug "Pausing orchagent ..."
+    docker exec -i swss /usr/bin/orchagent_restart_check -w 2000 -r 5 > /dev/null || RESTARTCHECK_RC=$?
+    if [[ RESTARTCHECK_RC -ne 0 ]]; then
+        error "RESTARTCHECK failed"
+        if [[ x"${FORCE}" == x"yes" ]]; then
+            debug "Ignoring orchagent pausing failure ..."
+        else
+            exit "${EXIT_ORCHAGENT_SHUTDOWN}"
+        fi
+    fi
+fi
+
+# We are fully committed to reboot from this point on becasue critical
+# service will go down and we cannot recover from it.
+set +e
+
+# Kill radv before stopping BGP service to prevent annoucing our departure.
+debug "Stopping radv ..."
+docker kill radv &>/dev/null || [ $? == 1 ]
+systemctl stop radv
+
+# Kill bgpd to start the bgp graceful restart procedure
+debug "Stopping bgp ..."
+docker exec -i bgp pkill -9 zebra
+docker exec -i bgp pkill -9 bgpd || [ $? == 1 ]
+debug "Stopped  bgp ..."
+
+# Kill lldp, otherwise it sends informotion about reboot.
+# We call `docker kill lldp` to ensure the container stops as quickly as possible,
+# then immediately call `systemctl stop lldp` to prevent the service from
+# restarting the container automatically.
+docker kill lldp &> /dev/null || debug "Docker lldp is not running ($?) ..."
+systemctl stop lldp
+
+if [[ "$REBOOT_TYPE" = "fast-reboot" ]]; then
+    debug "Stopping teamd ..."
+    docker kill teamd &> /dev/null || debug "Docker teamd is not running ($?) ..."
+    systemctl stop teamd
+    debug "Stopped teamd ..."
+fi
+
+# Kill swss Docker container
+# We call `docker kill swss` to ensure the container stops as quickly as possible,
+# then immediately call `systemctl stop swss` to prevent the service from
+# restarting the container automatically.
+docker kill swss &> /dev/null || debug "Docker swss is not running ($?) ..."
+
+# Pre-shutdown syncd
+if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
+    initialize_pre_shutdown
+
+    request_pre_shutdown
+
+    wait_for_pre_shutdown_complete_or_fail
+
+    # Warm reboot: dump state to host disk
+    if [[ "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
+        redis-cli -n 1 FLUSHDB > /dev/null
+        redis-cli -n 2 FLUSHDB > /dev/null
+        redis-cli -n 5 FLUSHDB > /dev/null
+    fi
+
+    # TODO: backup_database preserves FDB_TABLE
+    # need to cleanup as well for fastfast boot case
+    backup_database
+fi
+
+# Stop teamd gracefully
+if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
+    debug "Stopping teamd ..."
+    # Send USR1 signal to all teamd instances to stop them
+    # It will prepare teamd for warm-reboot
+    # Note: We must send USR1 signal before syncd, because it will send the last packet through CPU port
+    docker exec -i teamd pkill -USR1 teamd > /dev/null || [ $? == 1 ]
+    debug "Stopped  teamd ..."
+fi
+
+debug "Stopping syncd ..."
+if [[ ${CURRENT_SONIC_IMAGE} =~ "20180330" && "$sonic_asic_type" = 'broadcom' ]]; then
+    debug "Stopping syncd on ${CURRENT_SONIC_IMAGE} ..."
+
+    # Gracefully stop syncd
+    docker exec -i syncd /usr/bin/syncd_request_shutdown --cold > /dev/null
+
+    # Check that syncd was stopped
+    while docker top syncd | grep -q /usr/bin/syncd
+    do
+          sleep 0.1
+    done
+else
+    systemctl stop syncd || debug "Ignore stopping syncd service error $?"
+fi
+debug "Stopped  syncd ..."
+
+# Kill other containers to make the reboot faster
+# We call `docker kill ...` to ensure the container stops as quickly as possible,
+# then immediately call `systemctl stop ...` to prevent the service from
+# restarting the container automatically.
+debug "Stopping all remaining containers ..."
+for CONTAINER_NAME in $(docker ps --format '{{.Names}}'); do
+    CONTAINER_STOP_RC=0
+    docker kill $CONTAINER_NAME &> /dev/null || CONTAINER_STOP_RC=$?
+    systemctl stop $CONTAINER_NAME || debug "Ignore stopping $CONTAINER_NAME error $?"
+    if [[ CONTAINER_STOP_RC -ne 0 ]]; then
+        debug "Failed killing container $CONTAINER_NAME RC $CONTAINER_STOP_RC ."
+    fi
+done
+debug "Stopped all remaining containers ..."
+
+# Stop the docker container engine. Otherwise we will have a broken docker storage
+systemctl stop docker.service || debug "Ignore stopping docker service error $?"
+
+# Stop kernel modules for Nephos platform
+if [[ "$sonic_asic_type" = 'nephos' ]];
+then
+  systemctl stop nps-modules-`uname -r`.service || debug "Ignore stopping nps service error $?"
+fi
+
+# Update the reboot cause file to reflect that user issued this script
+# Upon next boot, the contents of this file will be used to determine the
+# cause of the previous reboot
+echo "User issued '${REBOOT_SCRIPT_NAME}' command [User: ${REBOOT_USER}, Time: ${REBOOT_TIME}]" > ${REBOOT_CAUSE_FILE}
+
+# Wait until all buffers synced with disk
+sync
+sleep 1
+sync
+
+# sync the current system time to CMOS
+if [ -x /sbin/hwclock ]; then
+    /sbin/hwclock -w || /bin/true
+fi
+
+# Enable Watchdog Timer
+if [[ -x /usr/bin/watchdog ]]; then
+    debug "Enabling Watchdog before ${REBOOT_TYPE}"
+    /usr/bin/watchdog -e
+fi
+
+# Reboot: explicity call Linux native reboot under sbin
+debug "Rebooting with ${REBOOT_METHOD} to ${NEXT_SONIC_IMAGE} ..."
+exec ${REBOOT_METHOD}
+
+# Should never reach here
+error "${REBOOT_TYPE} failed!"
+exit "${EXIT_FAILURE}"

@@ -1,0 +1,33 @@
+Value port (Ethernet\d+)
+Value eeprom_status (SFP\s+EEPROM\s+detected|SFP\s+EEPROM\s+Not\s+detected)
+Value connector (.*)
+Value encoding (\S+)
+Value extended_identifier (.*)
+Value rate_select (.*)
+Value identifier (.*)
+Value length (\d+)
+Value nominal_bit_rate (\d+)
+Value vendor_date (\d{4}\-\d{2}\-\d{2})
+Value vendor_name (\S+|\S+\s*\S+|\S+\s*\S+\s*|S+)
+Value vendor_oui (\S+)
+Value vendor_pn (\S+)
+Value vendor_rev (\w{1,3})
+Value vendor_sn (\w+)
+Value bit_rate_speed (\S+)
+
+Start
+  ^\s*${port}:\s+${eeprom_status}\s*$$
+  ^\s*Connector:\s+${connector}\s*$$
+  ^\s*Encoding:\s+${encoding}\s*$$
+  ^\s*Extended Identifier:\s+${extended_identifier}\s*$$
+  ^\s*Extended RateSelect Compliance:\s+${rate_select}\s*$$
+  ^\s*Identifier:\s+${identifier}\s*$$
+  ^\s*Length\s+Cable\s+Assembly\(m\)\s*:\s+${length}\s*$$
+  ^\s*Nominal\s+Bit\s+Rate\(${bit_rate_speed}\)\s*:\s+${nominal_bit_rate}\s*$$
+  ^\s*Vendor\s+Date\s+Code\(.*\)\s*:\s+${vendor_date}\s*$$
+  ^\s*Vendor\s+Name:\s+${vendor_name}\s*$$
+  ^\s*Vendor\s+OUI:\s+${vendor_oui}\s*$$
+  ^\s*Vendor\s+PN:\s+${vendor_pn}\s*$$
+  ^\s*Vendor\s+Rev:\s+${vendor_rev}\s*$$
+  ^\s*Vendor\s+SN:\s+${vendor_sn}\s*$$ -> Record
+

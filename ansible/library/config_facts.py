@@ -118,8 +118,13 @@ def main():
     m_args = module.params
     try:
         config = {}
+        
         if m_args["source"] == "persistent":
-            with open(PERSISTENT_CONFIG_PATH, "r") as f:
+            if 'filename' in m_args and m_args['filename'] is not None:
+                cfg_file_path = "%s" % m_args['filename']
+            else:
+                cfg_file_path = PERSISTENT_CONFIG_PATH
+            with open(cfg_file_path, "r") as f:
                 config = json.load(f)
         elif m_args["source"] == "running":    
             config = get_running_config(module)

@@ -1,0 +1,122 @@
+ACCTON_AS7712_32X : &AS7712 accton-as7712-32x
+ACCTON_AS7816_64X : &AS7816 accton-as7816-64x
+ACCTON-AS9716-32D : &AS9716 accton-as9716-32d
+DELTA_AG9032V1 : &AG9032 delta-ag9032v1
+QUANTA_IX1B_32X : &IX1B quanta-ix1b-32x
+ACCTON_AS5712_54X : &AS5712 accton-as5712-54x
+ACCTON_AS7326_56X : &AS7326 accton-as7326-56x
+QUANTA_IX8_56X : &IX8 quanta-ix8-56x
+QUANTA_IX9_32X : &IX9 quanta-ix9-32x
+DELLEMC_Z9332F_O32 : &Z9332f_O32 dellemc-z9332f-o32
+ACCTON_AS7726_32X : &AS7726 accton-as7726-32x
+QUANTA-IX4-64X : &IX4 quanta-ix4-64x
+DELLEMC-S5232F-C32 : &S5232f_C32 dellemc-s5232f-c32
+DELLEMC-S5232F-P-100G : &S5232f_P_100G dellemc-s5232f-p-100g
+DELLEMC-S5232F-P-10G : &S5232f_P_10G dellemc-s5232f-p-10g
+DELLEMC-S5232F-P-25G : &S5232f_P_25G dellemc-s5232f-p-25g
+DELLEMC-S5248F-P-25G: &S5248f_P_25G dellemc-s5248f-p-25g
+DELLEMC-S5296F-P-25G: &S5296f_P_25G dellemc-s5296f-p-25g
+QUANTA-IX9-C64O16: &IX9_C64O16 quanta-ix9-c64o16
+DELLEMC-N3248TE: &N3248TE dellemc-n3248te
+TH_PLATFORMS :
+  - *AS7712
+  - *AG9032
+  - *IX1B
+TH2_PLATFORMS :
+  - *AS7816
+  - *IX4
+TD2_PLATFORMS :
+  - *AS5712
+TD3_PLATFORMS :
+  - *AS7326
+  - *IX8
+  - *AS7726
+  - *S5232f_C32
+  - *S5232f_P_100G
+  - *S5232f_P_10G
+  - *S5232f_P_25G
+  - *S5248f_P_25G
+  - *S5296f_P_25G
+  - *N3248TE
+TH3_PLATFORMS :
+  - *IX9
+  - *IX9_C64O16
+  - *Z9332f_O32
+  - *AS9716
+MAX_MAC_ENTRIES : 1024
+MAX_IPV4_ROUTES_SUPPORTED: '32768'
+MAX_IPV6_ROUTES_SUPPORTED: '24576'
+COPP_CIR_LLDP : 6000
+COPP_CIR_LACP : 6000
+COPP_CIR_DHCP : 6000
+COPP_CIR_NDP  : 6000
+COPP_CIR_BGP  : 10000
+COPP_CIR_ARP  : 6000
+COPP_CIR_IGMP  : 6000
+COPP_CIR_SFLOW  : 600
+THRESHOLD_FEATURE_PG_HEADROOM_UN_SUPPORTED_PLATFORMS :
+  - *AS7326
+  - *IX8
+  - *AS5712
+  - *AS7726
+  - *S5232f_C32
+  - *S5232f_P_100G
+  - *S5232f_P_10G
+  - *S5232f_P_25G
+  - *IX9
+  - *Z9332f_O32
+WARM_REBOOT_SUPPORTED_PLATFORMS :
+  - *AS7816
+  - *IX4
+  - *IX1B
+  - *AS7712
+  - *AG9032
+  - *AS7326
+  - *IX8
+  - *AS5712
+  - *AS7726
+  - *S5232f_C32
+  - *S5232f_P_100G
+  - *S5232f_P_10G
+  - *S5232f_P_25G
+  - *IX9
+  - *Z9332f_O32
+  - *AS9716
+  - *S5248f_P_25G
+  - *S5296f_P_25G
+  - *N3248TE
+MAX_IPV4_ROUTES_FOR_ERROR_HANDLING: '128000'
+MAX_IPV6_ROUTES_FOR_ERROR_HANDLING: '128000'
+BUILD_GENERIC: Generic
+BUILD_BROADCOM_CLOUD_BASE: Broadcom Cloud Base
+BUILD_BROADCOM_CLOUD_ADVANCED:
+  - 'Broadcom Cloud Advanced'
+  - 'Cloud Advanced SONiC OS - Powered by Broadcom'
+BUILD_BROADCOM_ENTERPRISE_ADVANCED:
+  - 'Enterprise Advanced SONiC OS - Powered by Broadcom'
+NOS_NAME:
+  - 'SONiC-OS'
+PRODUCT_PACKAGING_OPTIONS:
+  - 'Cloud_Base'
+  - 'Cloud_Base-dbg'
+  - 'Cloud_Base-dbg-cov'
+  - 'Cloud_Advanced'
+  - 'Cloud_Advanced-dbg'
+  - 'Cloud_Advanced-dbg-cov'
+  - 'Generic'
+  - 'Generic-dbg'
+  - 'Generic-dbg-cov'
+  - 'Enterprise_Base'
+  - 'Enterprise_Base-dbg'
+  - 'Enterprise_Base-dbg-cov'
+  - 'Enterprise_Advanced'
+  - 'Enterprise_Advanced-dbg'
+  - 'Enterprise_Advanced-dbg-cov'
+  - ''
+PDDF_SUPPORTED_PLATFORMS:
+  - *AS7712
+PDDF_BMC_SUPPORTED_PLATFORMS:
+  - *IX8
+MAX_SUPPORTED_VLANS: '4094'
+MAX_VLAN_ID: '4094'
+MAX_DROP_MONITOR_FLOWS: '253'

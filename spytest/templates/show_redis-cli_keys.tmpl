@@ -1,0 +1,10 @@
+Value TABLE (\w+)
+Value PROT (\w+)
+Value IP (\d+.\d+.\d+.\d+)
+Value PORT (\d+)
+Value Route (\S+)
+
+Start
+  ^\s*\s*\d+\S+\s*"${TABLE}:${PROT}:${IP}:${PORT} -> Record
+  ^\s*\s*\d+\S+\s*"${TABLE}:${Route} -> Record
+  ^\s*\s*\d+\S+\s*"${TABLE}:${IP} -> Record

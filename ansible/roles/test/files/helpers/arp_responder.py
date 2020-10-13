@@ -44,7 +44,7 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = scapy2.conf.L2listen(iface=self.iface)
+        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp')
 
     def handler(self):
         return self.socket
@@ -71,7 +71,7 @@ class Poller(object):
         self.responder = responder
         self.mapping = {}
         for interface in interfaces:
-            self.mapping[interface.handler()] = interface 
+            self.mapping[interface.handler()] = interface
 
     def poll(self):
         handlers = self.mapping.keys()
@@ -110,7 +110,7 @@ class ARPResponder(object):
         interface.send(arp_reply)
 
         return
-        
+
     def extract_arp_info(self, data):
         # remote_mac, remote_ip, request_ip, op_type
         rem_ip_start = 28

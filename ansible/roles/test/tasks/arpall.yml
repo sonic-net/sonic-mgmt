@@ -30,7 +30,7 @@
       with_dict: "{{ minigraph_portchannels }}"
 
     - name: move interface {{ intf1 }} out of {{ po1 }}
-      shell: teamdctl {{ po1 }} port remove {{ intf1 }}
+      shell: config portchannel member del {{ po1 }} {{ intf1 }}
       become: yes
       when: po1 is defined
 
@@ -46,7 +46,7 @@
       with_dict: "{{ minigraph_portchannels }}"
 
     - name: move {{ intf2 }} out of {{ po2 }}
-      shell: teamdctl {{ po2 }} port remove {{ intf2 }}
+      shell: config portchannel member del {{ po2 }} {{ intf2 }}
       become: yes
       when: po2 is defined
 

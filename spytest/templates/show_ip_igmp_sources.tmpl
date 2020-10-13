@@ -1,0 +1,16 @@
+#######################################################
+#sonic# show ip igmp sources 
+#Interface Address         Group           Source          Timer Fwd Uptime  
+#Ethernet46 20.20.20.1      231.1.1.1       10.10.10.2      04:01   Y 00:00:19
+#sonic# 
+######################################################
+Value interface (\w+)
+Value address ([\w\.]+)
+Value source ([\w\.]+|\*)
+Value group ([\w\.]+)
+Value timer ([\d\:\-]+)
+Value fwd (\w+)
+Value uptime ([\d\:]+)
+
+Start
+  ^\s*${interface}\s*${address}\s*${group}\s*${source}\s*${timer}\s*${fwd}\s*${uptime}$$ -> Record

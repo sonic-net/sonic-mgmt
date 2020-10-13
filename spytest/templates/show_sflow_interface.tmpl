@@ -1,0 +1,15 @@
+Value Interface (\S+)
+Value Admin_Status (\S+)
+Value Sampling_Rate (\d+)
+
+Start
+  ^\s*\|\s+Interface\s+\|\s+Admin\s+State\s+\|\s+Sampling\s+Rate\s+\| -> CLICK
+  ^\s*Interface\s+Admin\s+State\s+Sampling\s+Rate -> KLISH
+  ^\s*${Interface}\s*${Admin_Status}\s*${Sampling_Rate}\s*$$ -> Record
+
+
+CLICK
+  ^\s*\|\s*${Interface}\s*\|\s*${Admin_Status}\s*\|\s*${Sampling_Rate}\s*\|\s*$$ -> Record
+
+KLISH
+  ^\s*${Interface}\s*${Admin_Status}\s*${Sampling_Rate}\s*$$ -> Record

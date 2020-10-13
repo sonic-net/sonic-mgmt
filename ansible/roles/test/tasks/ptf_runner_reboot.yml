@@ -51,7 +51,8 @@
         ptf_qlen: 1000
         ptf_test_params:
         - verbose=False
-        - dut_username=\"{{ ansible_ssh_user }}\"
+        - dut_username=\"{{ sonicadmin_user }}\"
+        - dut_password=\"{{ sonicadmin_password }}\"
         - dut_hostname=\"{{ ansible_host }}\"
         - reboot_limit_in_seconds={{ reboot_limit }}
         - reboot_type=\"{{ reboot_type }}\"
@@ -60,7 +61,7 @@
         - ports_file=\"/tmp/ports.json\"
         - dut_mac='{{ dut_mac }}'
         - dut_vlan_ip='192.168.0.1'
-        - default_ip_range='192.168.0.0/16'
+        - default_ip_range='192.168.100.0/18'
         - vlan_ip_range='{{ vlan_ip_range }}'
         - lo_v6_prefix='{{ lo_v6_prefix }}'
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"

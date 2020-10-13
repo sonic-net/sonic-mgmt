@@ -1,6 +1,21 @@
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
+{% if vm_type is defined and vm_type == "ceos" %}
+{% set mgmt_if_index = 0 %}
+{% else %}
+{% set mgmt_if_index = 1 %}
+{% endif %}
 no schedule tech-support
+!
+{% if vm_type is defined and vm_type == "ceos" %}
+agent LicenseManager shutdown
+agent PowerFuse shutdown
+agent PowerManager shutdown
+agent Thermostat shutdown
+agent LedPolicy shutdown
+agent StandbyCpld shutdown
+agent Bfd shutdown
+{% endif %}
 !
 hostname {{ hostname }}
 !
@@ -16,7 +31,7 @@ username admin privilege 15 role network-admin secret 0 123456
 clock timezone UTC
 !
 lldp run
-lldp management-address Management1
+lldp management-address Management{{ mgmt_if_index }}
 lldp management-address vrf MGMT
 !
 snmp-server community {{ snmp_rocommunity }} ro
@@ -32,9 +47,13 @@ ip route vrf MGMT 0.0.0.0/0 {{ vm_mgmt_gw }}
 ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
 {% endif %}
 !
-interface Management 1
+interface Management {{ mgmt_if_index }}
  description TO LAB MGMT SWITCH
+{% if vm_type is defined and vm_type == "ceos" %}
+ vrf MGMT
+{% else %}
  vrf forwarding MGMT
+{% endif %}
  ip address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
  no shutdown
 !

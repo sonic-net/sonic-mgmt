@@ -1,0 +1,92 @@
+test_case_passed: Test case Passed.
+test_case_failed: Test case Failed.
+test_case_failure_message: .{}.
+show_system_status_not_ready: "show system status is not ready in time"
+test_execution_skipped: Test case execution is skipped {}
+test_case_not_executed: Test case Not Executed.
+test_case_not_executeds: Test case Not Executed(s).
+test_case_not_executed_s_service: Test case Not Executed(s) - Required service parameters is not defined - {}.
+test_case_result_with_count: Test cases Passed {} failed {}.
+test_case_unsupported: Test case Unsupported.
+msg: '{}'
+operation_successful : The operation is successful
+operation_failed : The operation is failed
+operation_failed_msg : The operation is failed {}
+invalid_value: The given value {} for {} is invalid
+cmds_apply_ok : commands apply successful
+exception_file_line: Exception in file {} at line {}
+exception_name_file_line: Exception {} in file {} at line {}
+command_failed_recovered_using_ctrlc: Command '{}' failed to give prompt, recovered using CTRL+C
+simultaneous_commands: Commands should not be executed on same device simultaneously
+min_topology_fail: Minimum Topology Check Failed {}
+pertest_topology_fail: Per Test Topology Check Failed {}
+depedent_test_failed: Prerequisite test function {} Failed
+build_upgrade_success: Successfully upgraded the DUT(s)
+build_upgrade_failure: Failed to upgrade the DUTS(s)
+build_reboot_success: Successfully rebooted the DUT(s)
+ssh_connection_failed: SSH connection to provided host {} not successful.
+file_transfer_failed: File {} transfer failed.
+certificate_generation_failed: Certificate generation failed
+error_string_not_found: Error {} not found in log file {}
+service_not_running: Service {} not running
+service_running_not_expected: Service {} running, which is not expected
+scp_file_transfer_failed: SCP file transfer failed from {} to {}
+content_not_found: Search content not found
+service_missing_in_sonic_services: Service {} not found in sonic_services.yaml
+service_not_stopped: Service {} not stopped
+service_not_started: Service {} not started
+test_case_max_timeout: Testcase max time reached. Exiting.
+module_init_max_timeout: Module initialization max time reached. Exiting.
+operation_max_timeout: Operation {} taking unexpectedly long time. Exiting.
+console_hang_observed: Console hang observed. Exiting.
+entry_not_found: Entry not found
+invalid_traffic_stats: Invalid traffic statistics
+pfc_counters_not_initialized: PFC counters are not initialized even after {} seconds
+exception_observed: Exception observed - {}
+empty_values_observed: Observed empty values for some fields
+error_string_found: Error {} found in log file {}
+counters_are_not_initilaized: DUT counters are not initialized
+module_not_supported: Module not supported on {}
+
+## TOPOLOGY
+dut_not_found: DUT list not found.
+topology_not_matching: Topology not matching, required {} dut, having {} duts.
+links_not_matching: Links between {} are not matching the requirement of {}
+no_data_found: Data not found.
+minimum_links_not_matching: Minimum links of {} not found between DUTs
+mismatch_minimun_tg_links: Mismatch in minimum TG links, required {} but observed {} on {}
+platform_check_fail: Expected platform not found.Found platform {}
+
+## CFG
+base_config_failed: base configuration failed
+base_config_verification_failed: base configuration verification failed
+module_config_failed: module configuration failed. {}
+module_config_verification_failed: module configuration verification failed
+pretest_config_failed: pre-test configuration failed
+
+config_cmd_error: config command '{}' failed
+critical_syncd_exited: Process syncd exited unxepectedly
+critical_orchagent_exited: Process orchagent exited unxepectedly
+critical_vlanmgrd_exited: Process vlanmgrd exited unxepectedly
+critical_terminated_by_sigabrt: terminated by SIGABRT
+critical_core_dumped: core dumped
+critical_swss_service_failed: Job for swss.service failed.
+critical_err_syncd: processEvent, failed to execute api
+
+test_case_id_passed: testcase {} Passed
+test_case_id_failed: testcase {} Failed
+
+system_not_ready: System not ready
+
+uicli_pass: Successfully verified CLI tests in '{}'. Commands passed '{}' and failed '{}'.
+uicli_fail: Failed to verify CLI tests in '{}'. Commands passed '{}' and failed '{}'.
+uicli_tc_status: KLISH '{}' '{}'
+
+uirest_pass: Successfully verified REST tests in '{}'. Rest calls passed '{}' and failed '{}'.
+uirest_fail: Failed to verify REST tests in '{}'. Rest calls passed '{}' and failed '{}'.
+uirest_tc_status: REST '{}' '{}'
+
+uignmi_pass: Successfully verified GNMI tests in '{}'. GNMI calls passed '{}' and failed '{}'.
+uignmi_fail: Failed to verify GNMI tests in '{}'. GNMI calls passed '{}' and failed '{}'.
+uignmi_tc_status: GNMI '{}' '{}'
+

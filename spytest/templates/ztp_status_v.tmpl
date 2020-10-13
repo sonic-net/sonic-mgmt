@@ -1,0 +1,20 @@
+Value FileName (\d+-\S+)
+Value FileStatus (\S+)
+Value FileTimeStamp (\S+\s+\S+\s*\S+)
+Value FileExitCode (\d+)
+Value FileError (\S+\s+\S+)
+Value IgnoreResult (\S+)
+
+
+Start
+  ^\s*-+\s* -> Plugin_Details
+
+Plugin_Details
+  ^\s*${FileName}\s*
+  ^\s*-+\s*
+  ^\s*Status\s*:\s*${FileStatus}\s*$$
+  ^\s*Timestamp\s*:\s*${FileTimeStamp}\s*$$
+  ^\s*Exit\s+Code\s*:\s*${FileExitCode}\s*$$
+  ^\s*Error\s*:\s*${FileError}\s*$$
+  ^\s*Ignore\s+Result\s*:\s*${IgnoreResult}\s*$$ -> Record
+  ^\s*$$

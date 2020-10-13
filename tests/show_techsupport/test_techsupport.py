@@ -1,13 +1,17 @@
 import pytest
 import os
 import pprint
-from loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 import time
 from random import randint
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 from log_messages import *
 import logging
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 SUCCESS_CODE = 0
 DEFAULT_LOOP_RANGE = 10
@@ -132,13 +136,22 @@ def acl(duthost, acl_setup):
 # MIRRORING PART #
 
 @pytest.fixture(scope='function')
-def neighbor_ip(duthost, testbed):
+def neighbor_ip(duthost, tbinfo):
     # ptf-32 topo is not supported in mirroring
-    if testbed['topo']['name'] == 'ptf32':
+    if tbinfo['topo']['name'] == 'ptf32':
         pytest.skip('Unsupported Topology')
-
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    dst_ip = mg_facts["minigraph_portchannel_interfaces"][0]['peer_addr']
+    dst_ip = None
+    if mg_facts["minigraph_portchannel_interfaces"]:
+        dst_ip = mg_facts["minigraph_portchannel_interfaces"][0]['peer_addr']
+    else:
+        peer_addr_list = [(item['peer_addr']) for item in mg_facts["minigraph_interfaces"] if 'peer_addr' in item]
+        if peer_addr_list:
+            dst_ip = peer_addr_list[0]
+
+    if dst_ip is None:
+        pytest.skip("No neighbor ip available. Skipping test.")
+
     yield str(dst_ip)
 
 
@@ -173,7 +186,6 @@ def mirroring(duthost, neighbor_ip, mirror_setup, gre_version):
     :param mirror_setup: mirror_setup fixture
     :param mirror_config: mirror_config fixture
     """
-
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
@@ -240,14 +252,13 @@ def execute_command(duthost, since):
     if stdout['rc'] == SUCCESS_CODE:
         pytest.tar_stdout = stdout['stdout']
     return stdout['rc'] == SUCCESS_CODE
-        
 
-def test_techsupport(request, config, duthost, testbed):
+
+def test_techsupport(request, config, duthost):
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
     :param duthost: DUT host
-    :param testbed: testbed
     """
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
@@ -257,8 +268,8 @@ def test_techsupport(request, config, duthost, testbed):
 
     for i in range(loop_range):
         logger.debug("Running show techsupport ... ")
-        wait_until(300, 20, execute_command, duthost, since)
-        tar_file = [i for i in pytest.tar_stdout.split('\n') if i != ''][-1]
+        wait_until(300, 20, execute_command, duthost, str(since))
+        tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
         stdout = duthost.command("rm -rf {}".format(tar_file))
         logger.debug("Sleeping for {} seconds".format(loop_delay))
         time.sleep(loop_delay)

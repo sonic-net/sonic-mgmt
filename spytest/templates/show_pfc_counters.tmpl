@@ -1,0 +1,20 @@
+Value Port (\S+)
+Value Filldown Port_Mode (Port Tx|Port Rx)
+Value PFC0 (\d+(,\d+)+|\d+)
+Value PFC1 (\d+(,\d+)+|\d+)
+Value PFC2 (\d+(,\d+)+|\d+)
+Value PFC3 (\d+(,\d+)+|\d+)
+Value PFC4 (\d+(,\d+)+|\d+)
+Value PFC5 (\d+(,\d+)+|\d+)
+Value PFC6 (\d+(,\d+)+|\d+)
+Value PFC7 (\d+(,\d+)+|\d+)
+
+
+Start
+  ^Last cached.*$$
+  ^\s*${Port_Mode}\s+PFC0\s+PFC1\s+PFC2\s+PFC3\s+PFC4\s+PFC5\s+PFC6\s+PFC7\s*$$
+  ^(-+\s*)*$$
+  ^\s*${Port}\s+${PFC0}\s+${PFC1}\s+${PFC2}\s+${PFC3}\s+${PFC4}\s+${PFC5}\s+${PFC6}\s+${PFC7}\s*$$ -> Record
+  ^$$
+
+EOF

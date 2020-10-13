@@ -1,0 +1,16 @@
+Value psu_name (\S+)
+Value psu_status (.*)
+Value Voltage (\d+\.\d+)
+Value current (\d+\.\d+)
+Value power (\d+\.\d+)
+Value fan_name (\S+)
+Value fan_speed (\d+)
+
+
+Start
+  ^${psu_name}\s+is\s+${psu_status}\s*$$
+  ^Output\s+Voltage:\s+${Voltage}\s*mv\s*$$
+  ^Output\s+Current:\s+${current}\s*ma\s*$$
+  ^Output\s+Power:\s+${power}\s*mw\s*$$
+  ^${fan_name}\s+Speed:\s+${fan_speed}\s*rpm\s*$$ -> Record
+  ^$$

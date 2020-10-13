@@ -1,0 +1,11 @@
+Value VLAN (\S+)
+Value MAC (([0-9a-f]{2}[:]){5}[0-9a-f]{2})
+Value RVTEP (\d+\.\d+\.\d+\.\d)
+Value VNI (\d+)
+Value TYPE (\w+)
+Value Fillup TOTAL_COUNT (\S+)
+
+Start
+  ^\|\s+${VLAN}\s+\|\s+${MAC}\s+\|\s+${RVTEP}\s+\|\s+${VNI}\s+\|\s+${TYPE}\s+ -> Record
+  ^\s*${VLAN}\s+${MAC}\s+${TYPE}\s+${RVTEP}\s+${VNI}\s* -> Record
+  ^\Total count :\s+${TOTAL_COUNT}

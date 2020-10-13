@@ -1,0 +1,10 @@
+Value nat_type (\S+)
+Value protocol (\S+)
+Value global_ip (\d+.\d+.\d+.\d+)
+Value global_port (\d+|---)
+Value local_ip (\d+.\d+.\d+.\d+)
+Value local_port (\d+|---)
+Value twice_nat_id (\d+|---)
+
+Start
+  ^\s*${nat_type}\s+${protocol}\s+${global_ip}\s+${global_port}\s+${local_ip}\s+${local_port}\s+${twice_nat_id}\s*$$ -> Record

@@ -1,0 +1,37 @@
+####################################################
+#admin@sonic:~$ mclagdctl dump state -i 10
+#The MCLAG's keepalive is: ERROR
+#MCLAG info sync is: incomplete
+#Domain id: 10
+#Local Ip: 10.10.10.1
+#Peer Ip: 10.10.10.2
+#Peer Link Interface: Ethernet1
+#Keepalive time: 10
+#sesssion Timeout : 30
+#Peer Link Mac: 3c:2c:99:a7:0a:a0
+#Role: Active
+#MCLAG Interface: PortChannel002,PortChannel001
+#####################################################
+Value session_status (\w+)
+Value domain_id (\d+)
+Value local_ip (\d+\.\d+\.\d+\.\d+)
+Value peer_ip (\d+\.\d+\.\d+\.\d+)
+Value peer_link_inf (\w+)
+Value keepalive_timer (\d+)
+Value session_timer (\d+)
+Value peer_link_mac (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)
+Value node_role (\w+)
+Value mclag_intfs ([\w+\,]+\w+)
+
+Start
+  ^\s*The\s*MCLAG\'s\s*keepalive\s*is\s*:\s*${session_status}$$
+  ^\s*Domain\s*id\s*:\s*${domain_id}$$
+  ^\s*Local\s*Ip\s*:\s*${local_ip}$$
+  ^\s*Peer\s*Ip\s*:\s*${peer_ip}$$
+  ^\s*Peer\s*Link\s*Interface\s*:\s*${peer_link_inf}$$
+  ^\s*Keepalive\s*time\s*:\s*${keepalive_timer}$$
+  ^\s*sesssion\s*Timeout\s*:\s*${session_timer}$$
+  ^\s*Peer\s*Link\s*Mac\s*:\s*${peer_link_mac}$$
+  ^\s*Role\s*:\s*${node_role}$$
+  ^\s*MCLAG\s*Interface\s*:\s*${mclag_intfs}$$ -> Record
+

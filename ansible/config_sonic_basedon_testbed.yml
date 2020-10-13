@@ -20,6 +20,7 @@
 # -e topo=t0                 - the name of topology to generate minigraph file
 # -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
 #                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
+# -e vm_file=veos            - the virtual machine file name
 # -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
 # -e save=True               - if save the newly generated minigraph to the targent DUT as starup-config, default is false if not defined
 #
@@ -40,12 +41,17 @@
         testbed_file: testbed.csv
       when: testbed_file is not defined
 
+    - name: Set default dut index
+      set_fact:
+        dut_index: 0
+      when: dut_index is not defined
+
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       delegate_to: localhost
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
-      when: testbed_facts['dut'] != inventory_hostname
+      when: testbed_facts['duts'][dut_index] != inventory_hostname
 
     - name: set testbed_type
       set_fact:
@@ -60,12 +66,17 @@
   - topo_facts: topo={{ topo }}
     delegate_to: localhost
 
+  - name: set default vm file path
+    set_fact:
+      vm_file: veos
+    when: vm_file is not defined
+
   - set_fact:
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
-    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }}
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
     delegate_to: localhost
     when: "VM_topo | bool"
 
@@ -112,6 +123,72 @@
     when: local_minigraph is defined and local_minigraph|bool == true
 
   - block:
+    - name: Init telemetry keys
+      set_fact:
+        server_key: ""
+        server_cer: ""
+        dsmsroot_key: ""
+        dsmsroot_cer: ""
+        dir_path: ""
+
+    - name: read server key
+      set_fact:
+        server_key: "{{ telemetry_certs['server_key'] }}"
+      when: telemetry_certs['server_key'] is defined
+
+    - name: read server cer
+      set_fact:
+        server_cer: "{{ telemetry_certs['server_cer'] }}"
+      when: telemetry_certs['server_cer'] is defined
+
+    - name: read dsmsroot key
+      set_fact:
+        dsmsroot_key: "{{ telemetry_certs['dsmsroot_key'] }}"
+      when: telemetry_certs['dsmsroot_key'] is defined
+
+    - name: read dsmsroot cer
+      set_fact:
+        dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
+      when: telemetry_certs['dsmsroot_cer'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path: "{{ telemetry_certs['dir_path'] }}"
+      when: telemetry_certs['dir_path'] is defined
+
+    - name: Create telemetry directory
+      file:
+        path: "{{ dir_path }}"
+        state: directory
+        mode: '0755'
+      become: true
+
+    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer    
+    - name: Generate server cert using openssl.
+      command: openssl req \
+          -x509 \
+          -sha256 \
+          -nodes \
+          -newkey rsa:2048 \
+          -keyout "{{ server_key }}"
+          -subj "/CN=ndastreamingservertest"
+          -out "{{ server_cer }}" 
+      become: true
+
+    # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
+    # {{ dsms_key }}/ dsmsroot.key need to be copied and renamed as streamingtelemetryclient.key
+    - name: Generate dsmsroot cert using openssl.
+      command: openssl req \
+          -x509 \
+          -sha256 \
+          -nodes \
+          -newkey rsa:2048 \
+          -keyout "{{ dsmsroot_key }}"
+          -subj "/CN=ndastreamingclienttest"
+          -out "{{ dsmsroot_cer }}"
+      become: true
+
+  - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
@@ -129,14 +206,62 @@
         delegate_to: localhost
 
       - name: debug print stat_result
-        debug: 
-            msg: Stat result is {{ stat_result }}
+        debug:
+          msg: Stat result is {{ stat_result }}
 
       - name: Copy corresponding configlet files if exist
         copy: src=vars/configlet/{{ topo }}/
               dest=/etc/sonic/
         become: true
         when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - name: Init account key and proxy
+        set_fact:
+            core_key: ""
+            core_proxy: ""
+
+      - name: Test if core_analyzer.rc.json exists
+        stat:
+            path: /etc/sonic/core_analyzer.rc.json
+        register: rc_stat
+
+      - name: read account key
+        set_fact:
+            core_key: "{{ corefile_uploader['azure_sonic_core_storage']['account_key'] }}"
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
+
+      - name: read https proxy
+        set_fact:
+            core_proxy: "{{ corefile_uploader['env']['https_proxy'] }}"
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['env']['https_proxy'] is defined
+
+      - name: Put secret in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '(^.*)account_key'
+            line: '\1account_key": "{{ core_key }}",'
+            backrefs: yes
+        become: true
+        when: core_key != ""
+
+      - name: Put https-proxy in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '(^.*)https_proxy'
+            line: '\1https_proxy": "{{ core_proxy }}"'
+            backrefs: yes
+        become: true
+        when: core_proxy != ""
+
+      - name: enable core uploader service
+        become: true
+        command: systemctl enable core_uploader.service
+        when: core_key != ""
+
+      - name: start core uploader service
+        become: true
+        command: systemctl start core_uploader.service
+        when: core_key != ""
 
       - name: Replace snmp community string
         lineinfile:
@@ -176,7 +301,7 @@
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
-        shell: bash -c "/etc/sonic/apply_clet.sh"
+        shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - name: execute cli "config save -y" to save current minigraph as startup-config

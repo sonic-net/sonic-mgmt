@@ -1,3 +1,11 @@
+- name: Load topo variables
+  include_vars: "vars/topo_{{ topo }}.yml"
+  when: topo is defined
+
+- name: Filter VMs for specified topology
+  set_fact: VM_hosts={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+  when: topology['VMs'] is defined and VM_base is defined
+
 - name: Create directory for vm images and vm disks
   file: path={{ item }} state=directory mode=0755
   with_items:
@@ -65,6 +73,9 @@
     backplane_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"
 
+- set_fact:
+    kickstart_failed_vms: []
+
 - name: Kickstart VMs
   include_tasks: kickstart_vm.yml
   vars:
@@ -78,3 +89,11 @@
     mgmt_tap:  "{{ vm_name }}-m"
     backplane_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"
+
+- block:
+    - name: Log all kickstart failed VMs
+      debug: msg="{{ kickstart_failed_vms }}"
+
+    - name: Fail if kickstart any VM failed
+      fail: msg="Please run start-vms again with -e 'respin_vms=["VMXXX"]' to retry the failed VMs"
+  when: kickstart_failed_vms | length > 0

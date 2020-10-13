@@ -1,0 +1,29 @@
+{
+    "info_types": [
+        {
+            "type": "fan_info"
+        },
+        {
+            "type": "psu_info"
+        },
+        {
+            "type": "chassis_info"
+        }
+    ],
+    "policies": [
+        {
+            "name": "any PSU absence",
+            "conditions": [
+                {
+                    "type": "fan.any.absence"
+                }
+            ],
+            "actions": [
+                {
+                    "type": "fan.all.set_speed",
+                    "speed": "-1"
+                }
+            ]
+        }
+    ]
+}

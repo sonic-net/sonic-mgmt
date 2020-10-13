@@ -1,0 +1,8 @@
+Value name (\S+)
+Value enable (\S+)
+Value timer_name (\S+)
+Value timer_duration (\d+|NULL)
+
+
+Start
+  ^\s*${name}\s+${enable}\s+${timer_name}\s+${timer_duration}\s*$$ -> Record

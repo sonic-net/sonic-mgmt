@@ -1,0 +1,119 @@
+- set_fact:
+   run_dir: /home/admin
+   bgp_plain_template: bgp_plain.j2
+   bgp_no_export_template: bgp_no_export.j2
+
+- set_fact:
+   bgp_templates: 
+    - "{{ bgp_plain_template }}"
+    - "{{ bgp_no_export_template }}"
+
+- name: Copy bgp config templates onto switch
+  copy: src=roles/test/templates/{{ item }} dest={{ run_dir }}
+  with_items:
+    - "{{ bgp_templates }}"
+
+- name: Copy templates into bgp docker
+  command: docker cp {{ run_dir }}/{{ item }} bgp:/home
+  with_items:
+    - "{{ bgp_templates }}"
+
+- name: Generate bgp_gen.sh files 
+  template: src=roles/test/templates/bgp_conf_gen.j2 dest={{ run_dir }}/{{ item.file_name }}
+  with_items:
+    - {file_name: 'bgp_plain.sh', bgp_template_name: 'bgp_plain.j2', bgp_conf_name: 'bgp_plain.conf'}
+    - {file_name: 'bgp_no_export.sh', bgp_template_name: 'bgp_no_export.j2', bgp_conf_name: 'bgp_no_export.conf'}
+
+- name: Generate bgp configs 
+  shell: sh {{ run_dir }}/{{ item.file_name }}
+  with_items:
+    - {file_name: 'bgp_plain.sh'}
+    - {file_name: 'bgp_no_export.sh'}
+
+- name: Backup the bgp config
+  command: docker exec -i bgp cp /etc/quagga/bgpd.conf /etc/quagga/bgpd_backup.conf 
+
+- name: Get vm information
+  testbed_vm_info: base_vm={{ vm }} topo={{ testbed_type }}
+  connection: local
+
+- set_fact:
+    vm_mgmt: "{{ neighbor_eosvm_mgmt['ARISTA01T0'] }}"
+    vm_login: "{{ switch_login['Arista'] }}"
+
+- set_fact:
+    bgp_bounce_vm_template: bgp_bounce_vm.j2
+
+- name: Apply bgp plain config    
+  command: docker cp bgp_plain.conf bgp:/etc/quagga/bgpd.conf
+ 
+- name: Restart bgpd 
+  command: docker exec -i bgp supervisorctl restart bgpd
+
+- name: Wait for bgpd to come up
+  pause:
+    minutes: 2
+
+- name: Take action on one of the ToR VM
+  action: apswitch template="{{ bgp_bounce_vm_template }}"
+  args:
+    host: "{{ vm_mgmt }}"
+    login: "{{ vm_login }}"
+  connection: switch
+  register: no_export_output
+
+- set_fact:
+    no_export_route_num: "{{ no_export_output.stdout.split('\n')[1] | replace ('\r', '') | int }}"
+
+# If no export routes, the default output of the command has 8 lines as following.
+# BGP routing table information for VRF default
+# Router identifier 100.1.0.17, local AS number 64001
+# Route status codes: s - suppressed, * -  valid, > - active, # - not installed, E - ECMP head, e - ECMP
+#                     S - Stale, c - Contributing to ECMP,  b - backup
+#                     Origin codes: i - IGP, e - EGP, ? - incomplete
+#                     AS Path Attributes: Or-ID - Originator ID, C-LST -  Cluster List, LL Nexthop - Link Local Nexthop
+#
+#                             Network             Next Hop          Metric  LocPref Weight Path
+- name: Verify no routes has no_export attribute.
+  assert: {that: "{{ no_export_route_num }} == 8 "}
+
+# To test the case when adding no_export community on DUT
+- name: Apply bgp plain config    
+  command: docker cp bgp_no_export.conf bgp:/etc/quagga/bgpd.conf
+ 
+- name: Restart bgpd 
+  command: docker exec -i bgp supervisorctl restart bgpd
+
+- name: Wait for bgpd to come up
+  pause:
+    minutes: 2
+
+- name: Take action on one of the ToR VM
+  action: apswitch template="{{ bgp_bounce_vm_template }}"
+  args:
+    host: "{{ vm_mgmt }}"
+    login: "{{ vm_login }}"
+  connection: switch
+  register: no_export_output
+
+- set_fact:
+    no_export_route_num: "{{ no_export_output.stdout.split('\n')[1] | replace ('\r', '') | int }}"
+
+# If no export routes, the default output of the command has 8 lines as following.
+# BGP routing table information for VRF default
+# Router identifier 100.1.0.17, local AS number 64001
+# Route status codes: s - suppressed, * -  valid, > - active, # - not installed, E - ECMP head, e - ECMP
+#                     S - Stale, c - Contributing to ECMP,  b - backup
+#                     Origin codes: i - IGP, e - EGP, ? - incomplete
+#                     AS Path Attributes: Or-ID - Originator ID, C-LST -  Cluster List, LL Nexthop - Link Local Nexthop
+#
+#                             Network             Next Hop          Metric  LocPref Weight Path
+- name: Verify the routes received on T0 are no-export.
+  assert: {that: "{{ no_export_route_num }} > 8 "}
+
+# Restore the orginal bgp configuration on DUT
+- name: Change bgp conf to bgp_no_export config
+  command: docker exec -i bgp cp /etc/quagga/bgpd_backup.conf /etc/quagga/bgpd.conf 
+
+- name: Restart bgpd 
+  command: docker exec -i bgp supervisorctl restart bgpd

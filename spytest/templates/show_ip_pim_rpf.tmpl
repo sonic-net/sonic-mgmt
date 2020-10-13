@@ -1,0 +1,40 @@
+###############################################################
+#sonic# show ip pim rpf   
+#RPF Cache Refresh Delay:    50 msecs
+#RPF Cache Refresh Timer:    0 msecs
+#RPF Cache Refresh Requests: 3
+#RPF Cache Refresh Events:   3
+#RPF Cache Refresh Last:     18:41:25
+#Nexthop Lookups:            1
+#Nexthop Lookups Avoided:    0
+#
+#Source          Group           RpfIface RpfAddress      RibNextHop      Metric Pref
+#10.2.1.20       232.0.0.20      Ethernet47 10.2.1.20       10.2.1.20            0    0
+#
+###############################################################
+Value Filldown cache_ref_delay (\d+)
+Value Filldown cache_ref_timer (\d+)
+Value Filldown cache_ref_reqs (\d+)
+Value Filldown cache_ref_events (\d+)
+Value Filldown cache_ref_last ([\d\:]+)
+Value Filldown nexthop_lookup (\d+)
+Value Filldown nexthop_lookup_avoid (\d+)
+Value source ([\d\.]+)
+Value group ([\d\.]+)
+Value rpfiface (\w+)
+Value rpfaddress ([\d\.]+)
+Value ribnexthop ([\d\.]+)
+Value metric ([\-\d]*)
+Value pref ([\-\d]*)
+
+Start
+  ^\s*RPF Cache Refresh Delay:\s*${cache_ref_delay}\s*msecs$$
+  ^\s*RPF Cache Refresh Timer:\s*${cache_ref_timer}\s*msecs$$
+  ^\s*RPF Cache Refresh Requests:\s*${cache_ref_reqs}$$
+  ^\s*RPF Cache Refresh Events:\s*${cache_ref_events}$$
+  ^\s*RPF Cache Refresh Last:\s*${cache_ref_last}$$
+  ^\s*Nexthop Lookups:\s*${nexthop_lookup}$$
+  ^\s*Nexthop\s*Lookups\s*Avoided:\s*${nexthop_lookup_avoid}$$
+  ^\s*${source}\s*${group}\s*\<*${rpfiface}\>*\s*${rpfaddress}\s*${ribnexthop}\s*${metric}\s*${pref} -> Record
+
+EOF

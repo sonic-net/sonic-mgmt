@@ -19,6 +19,7 @@ EXCLUDE_IPV4_PREFIXES = [
 EXCLUDE_IPV6_PREFIXES = [
         '::/128',               # Unspecified           RFC 4291
         '::1/128',              # Loopback              RFC 4291
+        'fe80::/10',            # Link local            RFC 4291
         'ff00::/8'              # Multicast             RFC 4291
         ]
 
@@ -70,6 +71,13 @@ class Fib():
             return self._ipv4_lpm_dict[str(ip)]
         elif ip.version is 6:
             return self._ipv6_lpm_dict[str(ip)]
+
+    def __contains__(self, ip):
+        ip_obj = ip_address(unicode(ip))
+        if ip_obj.version == 4:
+            return self._ipv4_lpm_dict.contains(ip)
+        elif ip_obj.version == 6:
+            return self._ipv6_lpm_dict.contains(ip)
 
     def ipv4_ranges(self):
         return self._ipv4_lpm_dict.ranges()

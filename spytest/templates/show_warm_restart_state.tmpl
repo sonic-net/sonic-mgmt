@@ -1,0 +1,7 @@
+Value name (\S+)
+Value restore_count (\d+)
+Value state (\S+)
+
+Start
+  ^\s*${name}\s+${restore_count}\s+${state}\s*$$ -> Record
+  ^\s*${name}\s+${restore_count}\s*$$ -> Record

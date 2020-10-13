@@ -1,0 +1,18 @@
+Value cur_utc_offset_valid (\S+)
+Value cur_utc_offset (\d+)
+Value leap59 (\S+)
+Value leap61 (\S+)
+Value time_traceable (\S+)
+Value freq_traceable (\S+)
+Value ptp_timescale (\S+)
+
+Start
+  ^\s*Curr\s+UTC\s+Offset\s+Vld\s+${cur_utc_offset_valid}\s*$$
+  ^\s*Curr\s+UTC\s+Offset\s+${cur_utc_offset}\s*$$
+  ^\s*Leap59\s+${leap59}\s*$$
+  ^\s*Leap61\s+${leap61}\s*$$
+  ^\s*Time\s+Traceable\s+${time_traceable}\s*$$
+  ^\s*Freq\s+Traceable\s+${freq_traceable}\s*$$
+  ^\s*PTP\s+Timescale\s+${ptp_timescale}\s*$$ -> Record
+
+EOF

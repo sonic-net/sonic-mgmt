@@ -1,0 +1,15 @@
+Value mvrfstate (\w+)
+Value mvrf_interface (\S+)
+Value intf_state (\S+,\S+,\S+,\S+)
+Value vrf_val (\S+)
+
+Start
+  ^\s*ManagementVRF\s+:\s+${mvrfstate}\s*$$ -> Record
+  ^\s*Management\s*VRF\s+interfaces\s+in\s+Linux: -> MVRF
+
+MVRF
+  ^\s*\d+:\s+${mvrf_interface}:\s+<${intf_state}>\s+.*\s*$$ -> Record
+  ^\s*vrf\s+table\s+${vrf_val}\s+\w+\s+\w+(\s+\w+\s+\d+\s*)*$$ -> Record
+
+
+

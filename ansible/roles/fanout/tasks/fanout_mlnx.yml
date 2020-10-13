@@ -6,12 +6,6 @@
 ### specified in this playbook, you would need to come up with your own fanout switch deployment
 ### playbook
 ################################################################################################
-  # Gather minigraph facts
-- name: Gathering lab graph facts about the device
-  conn_graph_facts: host={{ inventory_hostname }}
-  connection: local
-  tags: always
-
 - name: prepare fanout switch admin login info
   set_fact: ansible_ssh_user={{ fanout_mlnx_user }} ansible_ssh_pass={{ fanout_mlnx_password }} peer_hwsku={{device_info['HwSku']}}
   tags: always

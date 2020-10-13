@@ -1,0 +1,15 @@
+Value prot (\S+)
+Value src_ip (\d+.\d+.\d+.\d+)
+Value dst_ip (\d+.\d+.\d+.\d+)
+Value src_port (\d+)
+Value dst_port (\d+)
+Value trns_src_ip (\d+.\d+.\d+.\d+)
+Value trns_dst_ip (\d+.\d+.\d+.\d+)
+Value trns_src_port (\d+)
+Value trns_dst_port (\d+)
+Value status (\S+)
+
+Start
+  ^\s*${prot}\s+\d+\s+\d+\s+\S+\s+src=${src_ip}\s+dst=${dst_ip}\s+sport=${src_port}\s+dport=${dst_port}\s+src=${trns_src_ip}\s+dst=${trns_dst_ip}\s+sport=${trns_src_port}\s+dport=${trns_dst_port}\s+${status} -> Record
+  ^\s*${prot}\s+\d+\s+\d+\s+src=${src_ip}\s+dst=${dst_ip}\s+sport=${src_port}\s+dport=${dst_port}\s+src=${trns_src_ip}\s+dst=${trns_dst_ip}\s+sport=${trns_src_port}\s+dport=${trns_dst_port}\s+${status} -> Record
+

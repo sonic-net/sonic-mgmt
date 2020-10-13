@@ -81,11 +81,6 @@
   become: yes
   when: "'PortChannel' in route_output.stdout"
 
-- name: Update supervisor configuration
-  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
-  vars:
-    supervisor_host: "{{ ptf_host }}"
-
 - name: Copy tests to the PTF container
   copy: src=roles/test/files/ptftests dest=/root
   delegate_to: "{{ ptf_host }}"
@@ -103,6 +98,17 @@
 - name: Render DUT parameters to json file for the test
   template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
   delegate_to: "{{ ptf_host }}"
+
+- name: Generate pem and key files for ssl
+  command: openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes -subj "/C=10/ST=Test/L=Test/O=Test/OU=Test/CN=test.com"
+  args:
+    chdir: /opt
+  delegate_to: "{{ ptf_host }}"
+
+- name: Update supervisor configuration
+  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  vars:
+    supervisor_host: "{{ ptf_host }}"
 
 - name: Dump debug info. DUT ip
   debug: var=ansible_eth0.ipv4.address

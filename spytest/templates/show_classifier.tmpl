@@ -1,0 +1,38 @@
+Value class_name ([\w\S]+)
+Value policy_name (\w+?)
+Value acl_name (\S+)
+Value desc_name (\w+)
+Value match_type (\S+)
+Value priority_val (\d+)
+Value field_value (\d+)
+Value src_port_val (\d+)
+Value dst_port_val (\d+)
+Value src_ip_val (\S+)
+Value dst_ip_val (\S+)
+Value src_mac_val (\S+)
+Value dst_mac_val (\S+)
+Value src_ipv6_val (\S+)
+Value dst_ipv6_val (\S+)
+Value tcp_flags_type (\S+.*)
+Value ip_protocol_val (\d+)
+
+
+Start
+  ^Classifier ${class_name} match-type ${match_type}\s*$$
+  ^Description:.*$$
+  ^\s*${desc_name}*$$
+  ^Match:.*$$
+  ^\s*match acl\s+${acl_name}\s*$$
+  ^\s*ether-type ${field_value}\s*$$
+  ^\s*ip-protocol ${ip_protocol_val}\s*$$
+  ^\s*src-port ${src_port_val}\s*$$
+  ^\s*dst-port ${dst_port_val}\s*$$
+  ^\s*src-ip ${src_ip_val}\s*$$
+  ^\s*dst-ip ${dst_ip_val}\s*$$
+  ^\s*src-ipv6 ${src_ipv6_val}\s*$$
+  ^\s*dst-ipv6 ${dst_ipv6_val}\s*$$
+  ^\s*src-mac ${src_mac_val}\s*$$
+  ^\s*dst-mac ${dst_mac_val}\s*$$
+  ^\s*tcp-flags ${tcp_flags_type}*$$
+  ^Referenced in flows:.*$$
+  ^\s*policy\s+${policy_name} at priority ${priority_val}\s*$$ -> Record

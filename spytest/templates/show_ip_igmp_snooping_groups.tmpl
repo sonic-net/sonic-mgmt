@@ -1,0 +1,14 @@
+Value Filldown vlan (\d+)
+Value source_address (\*|\S+)
+Value group_address (\S+)
+Value outgoing_ports (.*)
+Value Fillup number_of_entries (\d+)
+
+Start
+  ^\s*Vlan\s*ID\s*:\s*${vlan}
+  ^(-+\s*)*$$
+  ^\s*\d+\s*\(${source_address}\s*,\s*${group_address}\s*\)
+  ^\s*Outgoing\s*Ports:\s*${outgoing_ports} -> Record
+  ^\s*Total number of entries:\s*${number_of_entries} -> Record
+
+EOF

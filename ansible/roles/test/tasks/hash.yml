@@ -1,18 +1,4 @@
-#
-- include_tasks: shared-fib.yml
-
-- name: "Start hash test"
-  include_tasks: ptf_runner.yml
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
-    ptf_test_name: Hash test
-    ptf_test_dir: ptftests
-    ptf_test_path: hash_test.HashTest
-    ptf_platform: remote
-    ptf_platform_dir: ptftests
-    ptf_test_params:
-      - testbed_type='{{testbed_type}}'
-      - fib_info='/root/fib_info.txt'
-      - router_mac='{{ansible_Ethernet0['macaddress']}}'
-      - ipv4={{ipv4}}
-      - ipv6={{ipv6}}
-    ptf_extra_options: "--relax --debug info --log-file /tmp/hash_test.HashTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"
+    test_node: fib/test_fib.py::test_hash

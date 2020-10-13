@@ -21,6 +21,12 @@ radius_servers: []
 
 tacacs_servers: ['10.0.0.9', '10.0.0.8']
 
+tacacs_passkey: testing123
+tacacs_rw_user: test_rwuser
+tacacs_rw_user_passwd: '123456'
+tacacs_ro_user: test_rouser
+tacacs_ro_user_passwd: '123456'
+
 # tacacs grous
 tacacs_group: 'testlab'
 

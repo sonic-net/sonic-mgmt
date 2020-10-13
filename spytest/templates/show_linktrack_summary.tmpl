@@ -1,0 +1,9 @@
+Value name (\S+)
+Value description (\S+)
+Value timeout (\d+)
+
+Start
+  ^\s*Name:\s*${name}
+  ^\s*Description:\s*${description}
+  ^\s*Timeout:\s*${timeout}\s*seconds
+

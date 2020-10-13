@@ -1,0 +1,53 @@
+ansible_ssh_user: admin
+ansible_connection: multi_passwd_ssh
+ansible_altpassword: YourPaSsWoRd
+
+sonic_version: "v2"
+
+broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X", "Celestica-DX010-C32", "Seastone-DX010", "Celestica-E1031-T48S4"]
+
+broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S']
+broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', "Seastone-DX010" ]
+broadcom_th2_hwskus: ['Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
+
+mellanox_spc1_hwskus: [ 'ACS-MSN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010', 'Mellanox-SN2700', 'Mellanox-SN2700-D48C8' ]
+mellanox_spc2_hwskus: [ 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8' ]
+mellanox_spc3_hwskus: [ 'ACS-MSN4700' ]
+mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus }}"
+
+cavium_hwskus: [ "AS7512", "XP-SIM" ]
+
+barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport" ]
+
+marvell_hwskus: [ "et6448m" ]
+
+## Note:
+## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
+## need to merge dictionaries, and convert them to list
+## Ref:
+## 1. http://stackoverflow.com/questions/9254178/is-there-yaml-syntax-for-sharing-part-of-a-list-or-map
+## 2. https://groups.google.com/forum/#!msg/ansible-project/M-FNUK9Wz98/gH63Ka4hDAAJ
+
+sswsyncd_docker_volumes_dict:
+  "/etc/ssw/:/etc/ssw/:ro":
+  "/etc/sonic/:/etc/sonic/:ro":
+  "/etc/network/interfaces:/etc/network/interfaces:ro":
+  "/var/run/docker-syncd:/var/run/sswsyncd":
+
+sswsyncd_docker_volumes: "{{ sswsyncd_docker_volumes_dict.keys() }}"
+
+syncd_docker_volumes_dict:
+  "/host/machine.conf:/etc/machine.conf":
+  "/var/run/docker-syncd:/var/run/sswsyncd":
+  "/etc/sonic/:/etc/sonic/:ro":
+
+syncd_docker_volumes: "{{ syncd_docker_volumes_dict.keys() }}"
+
+orchagent_docker_volumes_dict:
+  "/etc/ssw/:/etc/ssw/:ro":
+  "/etc/sonic/:/etc/sonic/:ro":
+  "/etc/network/interfaces:/etc/network/interfaces:ro":
+  "/etc/network/interfaces.d/:/etc/network/interfaces.d/:ro":
+  "/host/machine.conf:/host/machine.conf":
+
+orchagent_docker_volumes: "{{ orchagent_docker_volumes_dict.keys() }}"

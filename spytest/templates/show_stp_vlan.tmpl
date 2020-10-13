@@ -1,0 +1,26 @@
+Value bridge_id (\S+)
+Value max_age (\d+)
+Value hello_time (\d+)
+Value forward_delay (\d+)
+Value root_bridge_id (\S+)
+Value root_path_cost (\d+)
+Value desig_bridge_id (\S+)
+Value root_port (\S+)
+Value root_max_age (\d+)
+Value root_hello_time (\d+)
+Value root_forward_delay (\d+)
+Value stp_instance (\d+)
+
+Start
+  ^\s*2\)\s*"${bridge_id}"\s*$$
+  ^\s*4\)\s*"${max_age}"\s*$$
+  ^\s*6\)\s*"${hello_time}"\s*$$
+  ^\s*8\)\s*"${forward_delay}"\s*$$
+  ^\s*10\)\s*"${root_bridge_id}"\s*$$
+  ^\s*12\)\s*"${root_path_cost}"\s*$$
+  ^\s*14\)\s*"${desig_bridge_id}"\s*$$
+  ^\s*16\)\s*"${root_port}"\s*$$
+  ^\s*18\)\s*"${root_max_age}"\s*$$
+  ^\s*20\)\s*"${root_hello_time}"\s*$$
+  ^\s*22\)\s*"${root_forward_delay}"\s*$$
+  ^\s*24\)\s*"${stp_instance}"\s*$$ -> Record

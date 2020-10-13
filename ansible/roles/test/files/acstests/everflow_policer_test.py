@@ -208,6 +208,10 @@ class EverflowPolicerTest(BaseTest):
             import binascii
             payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
 
+        if self.asic_type in ["barefoot"]:
+            import binascii
+            payload = binascii.unhexlify("0"*24) + str(payload) # Add the padding
+
         exp_pkt = testutils.simple_gre_packet(
                 eth_src = self.router_mac,
                 ip_src = self.session_src_ip,
@@ -220,6 +224,8 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["mellanox"]:
             exp_pkt['GRE'].proto = 0x8949 # Mellanox specific
+        elif self.asic_type in ["barefoot"]:
+            exp_pkt['GRE'].proto = 0x22eb # Barefoot specific
         else:
             exp_pkt['GRE'].proto = 0x88be
 
@@ -230,10 +236,12 @@ class EverflowPolicerTest(BaseTest):
         masked_exp_pkt.set_do_not_care(38*8, len(payload)*8)  # don't match payload, payload will be matched by match_payload(pkt)
 
         def match_payload(pkt):
-            pkt = scapy.Ether(pkt).load
             if self.asic_type in ["mellanox"]:
+                pkt = scapy.Ether(pkt).load
                 pkt = pkt[22:] # Mask the Mellanox specific inner header
-            pkt = scapy.Ether(pkt)
+                pkt = scapy.Ether(pkt)
+            else:
+                pkt = scapy.Ether(pkt)[scapy.GRE].payload
 
             return dataplane.match_exp_pkt(payload_mask, pkt)
 
