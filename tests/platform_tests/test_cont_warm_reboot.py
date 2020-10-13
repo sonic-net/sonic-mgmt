@@ -86,6 +86,7 @@ class ContinuousReboot:
         self.fast_reboot_count = 0
         self.fast_reboot_pass = 0
         self.fast_reboot_fail = 0
+        self.pre_existing_cores = 0
 
 
     def reboot_and_check(self):
@@ -210,11 +211,13 @@ class ContinuousReboot:
                 raise ContinuousRebootError("Image installation failed.\
                     Expected: {}. Found: {}".format(self.advancedReboot.binaryVersion, self.current_image))
 
+
     @handle_test_error
     def verify_no_coredumps(self):
         coredumps_count = self.duthost.shell('ls /var/core/ | wc -l')['stdout']
-        if int(coredumps_count) > 0:
-            raise ContinuousRebootError("Core dumps found. Expected: 0 Found: {}".format(coredumps_count))
+        if int(coredumps_count) > int(self.pre_existing_cores):
+            raise ContinuousRebootError("Core dumps found. Expected: {} Found: {}".format(self.pre_existing_cores,\
+                coredumps_count))
 
 
     def check_test_params(self):
@@ -270,6 +273,9 @@ class ContinuousReboot:
             self.is_new_image = True
             logging.info("Image to be installed on DUT - {}".format(image_path))
         self.advancedReboot.imageInstall()
+        if self.advancedReboot.newImage:
+            # The image upgrade will delete all the preexisting cores
+            self.pre_existing_cores = 0
 
 
     def test_set_up(self):
@@ -279,8 +285,8 @@ class ContinuousReboot:
             if "disabled" in issu_capability:
                 pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
-        self.verify_no_coredumps()
-        pytest_assert(self.sub_test_result, "Continuous reboot test failed. DUT contains core files")
+        self.pre_existing_cores = self.duthost.shell('ls /var/core/ | wc -l')['stdout']
+        logging.info("Found {} preexisting core files inside /var/core/".format(self.pre_existing_cores))
 
         input_data = {
             'install_list': self.image_list, # this list can be modified at runtime to enable testing different images
@@ -365,6 +371,7 @@ class ContinuousReboot:
 
         pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".\
             format(self.test_failures, self.reboot_count))
+
 
     def wait_until_uptime(self):
         logging.info("Wait until DUT uptime reaches {}s".format(self.continuous_reboot_delay))
