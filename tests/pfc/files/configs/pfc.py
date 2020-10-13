@@ -35,8 +35,7 @@ from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.port import Options as PortOptions
 
 
-def base_configs(testbed,
-                 conn_graph_facts,
+def base_configs(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
@@ -253,8 +252,7 @@ def serializer(request):
 
 
 @pytest.fixture
-def port_bandwidth(testbed,
-                   conn_graph_facts,
+def port_bandwidth(conn_graph_facts,
                    fanout_graph_facts,
                    bw_multiplier) :
 
@@ -275,8 +273,7 @@ def port_bandwidth(testbed,
 
 
 @pytest.fixture
-def one_hundred_gbe(testbed,
-                    conn_graph_facts,
+def one_hundred_gbe(conn_graph_facts,
                     fanout_graph_facts,
                     serializer) :
 
@@ -336,8 +333,7 @@ def one_hundred_gbe(testbed,
 
 
 @pytest.fixture
-def lossy_configs(testbed,
-                  conn_graph_facts,
+def lossy_configs(conn_graph_facts,
                   duthost,
                   lossless_prio_dscp_map,
                   one_hundred_gbe,
@@ -348,8 +344,7 @@ def lossy_configs(testbed,
                   frame_size, 
                   serializer) :
 
-    return(base_configs(testbed=testbed,
-                        conn_graph_facts=conn_graph_facts,
+    return(base_configs(conn_graph_facts=conn_graph_facts,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
@@ -363,8 +358,7 @@ def lossy_configs(testbed,
 
 
 @pytest.fixture
-def global_pause(testbed,
-                 conn_graph_facts,
+def global_pause(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
@@ -375,8 +369,7 @@ def global_pause(testbed,
                  frame_size,
                  serializer) :
 
-    return(base_configs(testbed=testbed,
-                        conn_graph_facts=conn_graph_facts,
+    return(base_configs(conn_graph_facts=conn_graph_facts,
                         duthost=duthost,
                         lossless_prio_dscp_map=lossless_prio_dscp_map,
                         one_hundred_gbe=one_hundred_gbe,
