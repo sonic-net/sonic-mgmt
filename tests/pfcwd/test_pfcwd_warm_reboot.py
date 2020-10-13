@@ -95,32 +95,32 @@ class SetupPfcwdFunc(object):
         self.resolve_arp(vlan)
 
     def setup_port_params(self, port, idx):
-         """
-         Gather all the parameters needed for storm generation and ptf test based off the DUT port
+        """
+        Gather all the parameters needed for storm generation and ptf test based off the DUT port
 
-         Args:
-             port(string) : DUT port
-         """
-         self.pfc_wd = dict()
-         self.pfc_wd['queue_indices'] = [4]
-         if (self.seed % 2) != 0:
-             self.pfc_wd['queue_indices'].append(3)
-         self.pfc_wd['test_pkt_count'] = 100
-         self.pfc_wd['frames_number'] = 10000000000000
-         self.peer_device = self.ports[port]['peer_device']
-         self.pfc_wd['test_port'] = port
-         self.pfc_wd['rx_port'] = self.ports[port]['rx_port']
-         self.pfc_wd['test_neighbor_addr'] = self.ports[port]['test_neighbor_addr']
-         self.pfc_wd['rx_neighbor_addr'] = self.ports[port]['rx_neighbor_addr']
-         self.pfc_wd['test_port_id'] = self.ports[port]['test_port_id']
-         self.pfc_wd['rx_port_id'] = self.ports[port]['rx_port_id']
-         self.pfc_wd['port_type'] = self.ports[port]['test_port_type']
-         self.pfc_wd['test_port_ids'] = list()
-         if self.pfc_wd['port_type'] == "portchannel":
-             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
-         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
-             self.pfc_wd['test_port_ids'] = [self.pfc_wd['test_port_id']]
-         self.pfc_wd['fake_storm'] = False if not idx else self.fake_storm
+        Args:
+            port(string) : DUT port
+        """
+        self.pfc_wd = dict()
+        self.pfc_wd['queue_indices'] = [4]
+        if (self.seed % 2) != 0:
+            self.pfc_wd['queue_indices'].append(3)
+        self.pfc_wd['test_pkt_count'] = 100
+        self.pfc_wd['frames_number'] = 10000000000000
+        self.peer_device = self.ports[port]['peer_device']
+        self.pfc_wd['test_port'] = port
+        self.pfc_wd['rx_port'] = self.ports[port]['rx_port']
+        self.pfc_wd['test_neighbor_addr'] = self.ports[port]['test_neighbor_addr']
+        self.pfc_wd['rx_neighbor_addr'] = self.ports[port]['rx_neighbor_addr']
+        self.pfc_wd['test_port_id'] = self.ports[port]['test_port_id']
+        self.pfc_wd['rx_port_id'] = self.ports[port]['rx_port_id']
+        self.pfc_wd['port_type'] = self.ports[port]['test_port_type']
+        self.pfc_wd['test_port_ids'] = list()
+        if self.pfc_wd['port_type'] == "portchannel":
+            self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
+        elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
+            self.pfc_wd['test_port_ids'] = [self.pfc_wd['test_port_id']]
+        self.pfc_wd['fake_storm'] = False if not idx else self.fake_storm
 
     def resolve_arp(self, vlan):
         """
@@ -460,29 +460,29 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
             bitmask = (1 << ACTIONS[test_action])
             for p_idx, port in enumerate(self.ports):
-                 logger.info("")
-                 logger.info("--- Testing on {} ---".format(port))
-                 self.setup_test_params(port, setup_info['vlan'], p_idx)
-                 for q_idx, queue in enumerate(self.pfc_wd['queue_indices']):
-                     if not t_idx or storm_deferred:
-                         if not q_idx:
-                             self.storm_handle[port] = dict()
-                         self.storm_handle[port][queue] = None
+                logger.info("")
+                logger.info("--- Testing on {} ---".format(port))
+                self.setup_test_params(port, setup_info['vlan'], p_idx)
+                for q_idx, queue in enumerate(self.pfc_wd['queue_indices']):
+                    if not t_idx or storm_deferred:
+                        if not q_idx:
+                            self.storm_handle[port] = dict()
+                        self.storm_handle[port][queue] = None
 
-                         # setup the defer parameters if the storm is deferred currently
-                         if (bitmask & 4):
-                             self.storm_defer_setup()
+                        # setup the defer parameters if the storm is deferred currently
+                        if (bitmask & 4):
+                            self.storm_defer_setup()
 
-                         if not self.pfc_wd['fake_storm']:
-                             self.storm_setup(port, queue, storm_defer=(bitmask & 4))
-                         else:
-                             self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
+                        if not self.pfc_wd['fake_storm']:
+                            self.storm_setup(port, queue, storm_defer=(bitmask & 4))
+                        else:
+                            self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
 
-                     self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_eth0']['macaddress'], self.pfc_wd, queue)
-                     self.run_test(port, queue, detect=(bitmask & 1),
-                                   storm_start=not t_idx or storm_deferred or storm_restored,
-                                   first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),
-                                   storm_defer=(bitmask & 4))
+                    self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_eth0']['macaddress'], self.pfc_wd, queue)
+                    self.run_test(port, queue, detect=(bitmask & 1),
+                                  storm_start=not t_idx or storm_deferred or storm_restored,
+                                  first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),
+                                  storm_defer=(bitmask & 4))
 
     @pytest.fixture(params=['no_storm', 'storm', 'async_storm'])
     def testcase_action(self, request):
