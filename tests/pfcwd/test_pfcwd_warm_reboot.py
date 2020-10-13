@@ -3,14 +3,17 @@ import logging
 import os
 import pytest
 import random
-import threading
 import time
+import traceback
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
+from tests.common.reboot import DUT_ACTIVE
+from tests.common.utilities import InterruptableThread
+from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -342,10 +345,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
         logger.info("Verify if PFC storm is restored on port {}".format(port))
         self.loganalyzer.analyze(marker)
 
-    def defer_fake_storm(self, port, queue):
-        time.sleep(self.pfc_wd['storm_start_defer'])
+    def defer_fake_storm(self, port, queue, start_defer, stop_defer):
+        time.sleep(start_defer)
+        DUT_ACTIVE.wait()
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
-        time.sleep(self.pfc_wd['storm_stop_defer'])
+        time.sleep(stop_defer)
+        DUT_ACTIVE.wait()
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def run_test(self, port, queue, detect=True, storm_start=True, first_detect_after_wb=False,
@@ -368,9 +373,13 @@ class TestPfcwdWb(SetupPfcwdFunc):
                 self.storm_handle[port][queue].start_storm()
                 self.storm_handle[port][queue].stop_storm()
             else:
-                thread = threading.Thread(target=self.defer_fake_storm, args=(port, queue,))
+                thread = InterruptableThread(
+                    target=self.defer_fake_storm,
+                    args=(port, queue, self.pfc_wd['storm_start_defer'],
+                          self.pfc_wd['storm_stop_defer']))
                 thread.daemon = True
                 thread.start()
+                self.storm_threads.append(thread)
             return
 
         if detect:
@@ -390,6 +399,16 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield
 
+        # stop all threads that might stuck in wait
+        DUT_ACTIVE.set()
+        for thread in self.storm_threads:
+            thread_exception = thread.join(timeout=0.1,
+                                           suppress_exception=True)
+            if thread_exception:
+                logger.debug("Exception in thread %r:", thread)
+                logger.debug(
+                    "".join(traceback.format_exception(*thread_exception))
+                    )
         self.stop_all_storm()
         time.sleep(5)
         logger.info("--- Stop PFC WD ---")
@@ -442,6 +461,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.max_wait = 0
         self.fake_storm = request.config.getoption("--fake-storm")
         self.oid_map = dict()
+        self.storm_threads = []
 
         for t_idx, test_action in enumerate(testcase_actions):
             if 'warm-reboot' in test_action:
@@ -455,7 +475,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
             storm_deferred = bitmask and (bitmask & 4)
             if storm_deferred:
                 logger.info("Wait for all the deferred storms to start and stop ...")
-                time.sleep(self.max_wait)
+                join_all(self.storm_threads, self.max_wait)
+                self.storm_threads = []
                 self.storm_handle = dict()
 
             bitmask = (1 << ACTIONS[test_action])
