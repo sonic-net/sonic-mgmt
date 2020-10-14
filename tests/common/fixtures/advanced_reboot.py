@@ -256,6 +256,7 @@ class AdvancedReboot:
         Download and install new image to DUT
         '''
         if self.newSonicImage is None:
+            self.newImage = False
             return
 
         self.currentImage = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
@@ -270,7 +271,12 @@ class AdvancedReboot:
         logger.info('Cleanup sonic images that is not current and/or next')
         if self.cleanupOldSonicImages:
             self.duthost.shell('sonic_installer cleanup -y')
+        if self.binaryVersion == self.currentImage:
+            logger.info("Skipping image installation: new SONiC image is installed and set to current")
+            self.newImage = False
+            return
 
+        self.newImage = True
         logger.info('Installing new SONiC image')
         self.duthost.shell('sonic_installer install -y {0}'.format(tempfile))
 
