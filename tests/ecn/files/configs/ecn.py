@@ -38,6 +38,13 @@ from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
 from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.port import Options as PortOptions
 
+def calculate_priority_vector(v) :
+    s = 0
+    for i in range(8)  :
+        if v[i] != '0' :
+           s += 2**(7 - i)
+           print(i)
+    return "%x"%(s)
 
 def base_configs(conn_graph_facts,
                  duthost,
@@ -53,7 +60,6 @@ def base_configs(conn_graph_facts,
                  serializer) :
 
     for config in one_hundred_gbe :
-
 
         test_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
 
@@ -145,18 +151,22 @@ def base_configs(conn_graph_facts,
         # Traffic configuration Pause
         #######################################################################
         pause_endpoint = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
+        # test_dscp_list = lossless priority
+        p = ['0' if str(x) in test_dscp_list else 'ffff' for x in range(8)]
+        v = calculate_priority_vector(p)
+
         pause = Header(PfcPause(
             dst=FieldPattern(choice='01:80:C2:00:00:01'),
             src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
-            class_enable_vector=FieldPattern(choice='18'),
-            pause_class_0=FieldPattern(choice='0'),
-            pause_class_1=FieldPattern(choice='0'),
-            pause_class_2=FieldPattern(choice='0'),
-            pause_class_3=FieldPattern(choice='ffff'),
-            pause_class_4=FieldPattern(choice='ffff'),
-            pause_class_5=FieldPattern(choice='0'),
-            pause_class_6=FieldPattern(choice='0'),
-            pause_class_7=FieldPattern(choice='0'),
+            class_enable_vector=FieldPattern(choice=v),
+            pause_class_0=FieldPattern(choice=p[0]),
+            pause_class_1=FieldPattern(choice=p[1]),
+            pause_class_2=FieldPattern(choice=p[2]),
+            pause_class_3=FieldPattern(choice=p[3]),
+            pause_class_4=FieldPattern(choice=p[4]),
+            pause_class_5=FieldPattern(choice=p[5]),
+            pause_class_6=FieldPattern(choice=p[6]),
+            pause_class_7=FieldPattern(choice=p[7]),
         ))
 
         pause_duration = start_delay + traffic_duration
