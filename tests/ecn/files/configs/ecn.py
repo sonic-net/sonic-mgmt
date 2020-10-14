@@ -46,6 +46,14 @@ def calculate_priority_vector(v) :
            print(i)
     return "%x"%(s)
 
+
+def lossless_iteration_list (lst) :
+    retval = [[x] for x in lst]
+    if (len(lst) > 1):
+        retval.append(lst)
+    return retval
+
+
 def base_configs(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
@@ -340,18 +348,19 @@ def ecn_marking_at_ecress(conn_graph_facts,
                           serializer) :
 
     number_of_packets = int(2 * (ecn_thresholds / frame_size))
-    return(base_configs(conn_graph_facts=conn_graph_facts,
-                        duthost=duthost,
-                        lossless_prio_dscp_map=lossless_prio_dscp_map,
-                        one_hundred_gbe=one_hundred_gbe,
-                        start_delay=start_delay,
-                        traffic_duration=traffic_duration,
-                        pause_line_rate=pause_line_rate,
-                        traffic_line_rate=traffic_line_rate,
-                        frame_size=frame_size,
-                        ecn_thresholds=ecn_thresholds,
-                        number_of_packets=number_of_packets,
-                        serializer=serializer))
+    for p in lossless_iteration_list(lossless_prio_dscp_map) :
+        yield (base_configs(conn_graph_facts=conn_graph_facts,
+                            duthost=duthost,
+                            lossless_prio_dscp_map=lossless_prio_dscp_map,
+                            one_hundred_gbe=one_hundred_gbe,
+                            start_delay=start_delay,
+                            traffic_duration=traffic_duration,
+                            pause_line_rate=pause_line_rate,
+                            traffic_line_rate=traffic_line_rate,
+                            frame_size=frame_size,
+                            ecn_thresholds=ecn_thresholds,
+                            number_of_packets=number_of_packets,
+                            serializer=serializer))
 
 
 @pytest.fixture
@@ -369,17 +378,17 @@ def marking_accuracy(conn_graph_facts,
                      serializer) :
 
     number_of_packets = int((ecn_thresholds / frame_size) + outstanding_packets)
-    logger.info("number_of_packets = %s " %(number_of_packets))
-    return(base_configs(conn_graph_facts=conn_graph_facts,
-                        duthost=duthost,
-                        lossless_prio_dscp_map=lossless_prio_dscp_map,
-                        one_hundred_gbe=one_hundred_gbe,
-                        start_delay=start_delay,
-                        traffic_duration=traffic_duration,
-                        pause_line_rate=pause_line_rate,
-                        traffic_line_rate=traffic_line_rate,
-                        frame_size=frame_size,
-                        ecn_thresholds=ecn_thresholds,
-                        number_of_packets=number_of_packets,
-                        serializer=serializer))
+    for p in lossless_iteration_list(lossless_prio_dscp_map) :
+        yield (base_configs(conn_graph_facts=conn_graph_facts,
+                            duthost=duthost,
+                            lossless_prio_dscp_map=lossless_prio_dscp_map,
+                            one_hundred_gbe=one_hundred_gbe,
+                            start_delay=start_delay,
+                            traffic_duration=traffic_duration,
+                            pause_line_rate=pause_line_rate,
+                            traffic_line_rate=traffic_line_rate,
+                            frame_size=frame_size,
+                            ecn_thresholds=ecn_thresholds,
+                            number_of_packets=number_of_packets,
+                            serializer=serializer))
 
