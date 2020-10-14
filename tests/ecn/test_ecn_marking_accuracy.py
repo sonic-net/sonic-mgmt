@@ -22,7 +22,7 @@ from files.configs.ecn import start_delay, traffic_duration, pause_line_rate,\
 
 from files.qos_fixtures import lossless_prio_dscp_map, ecn_thresholds
 
-ECN_PMAX = 0.5/100
+ECN_PMAX = 5.0/100
 ECN_MIN_PKT = 500
 ECN_MAX_PKT = ECN_MIN_PKT * 4
 START_DELAY = [2]
@@ -36,8 +36,8 @@ OUTSTANDING_PACKETS = [10]
 ITERATION_COUNT = 10
 
 # This calculation is TBD
-EXPECTED_MIN_MARKRD_PACKETS = 1.0 * ITERATION_COUNT
-EXPECTED_MAX_MARKRD_PACKETS = (OUTSTANDING_PACKETS[0] + (ECN_MAX_PKT - ECN_MAX_PKT) * ECN_PMAX) * ITERATION_COUNT
+EXPECTED_MIN_MARKRD_PACKETS = OUTSTANDING_PACKETS[0]
+EXPECTED_MAX_MARKRD_PACKETS = OUTSTANDING_PACKETS[0] + (ECN_MAX_PKT - ECN_MAX_PKT) * ECN_PMAX
 
 @pytest.mark.parametrize('start_delay', START_DELAY)
 @pytest.mark.parametrize('traffic_duration', TRAFFIC_DURATION)
@@ -64,7 +64,7 @@ def test_ecn_marking_at_ecress(api,
     duthost.shell('sudo ecnconfig -p AZURE_LOSSLESS -gmin %s' %(ecn_thresholds/4))
 
     for base_config in marking_accuracy:
-        marked_packet = 0
+        packet_marked_stats = [] 
         for i in range(ITERATION_COUNT):
             rx_port=base_config.ports[1]
             rx_port.capture = Capture(choice=[], enable=True, format='pcapng')
@@ -104,16 +104,36 @@ def test_ecn_marking_at_ecress(api,
 
             ip_packet = filter(lambda x : x.haslayer('IP'), reader)
 
-            if (ip_packet[0]['IP'].getfieldval('tos') & 3 != 3):
-                marked_packet += 1
+            marked_packet = 0
+            # check OUTSTANDING_PACKETS must be marked
+            for cntr in range(OUTSTANDING_PACKETS[0]): 
+                # last 3 bits of tos must be b'11' i.e 3   
+                if (ip_packet[cntr]['IP'].getfieldval('tos') & 3 == 3):
+                    marked_packet += 1
+                else:
+                    pytest_assert(False, "First %s packets must be ECN marked"\
+                       %(OUTSTANDING_PACKETS[0])) 
 
-            logger.info("on iteration = %s outstanding packets = %s total marked packet = %s"\
+            # check rest of the packets if they are marked
+            for cntr in range(OUTSTANDING_PACKETS[0],ECN_MAX_PKT):
+                # last 3 bits of tos must be b'11' i.e 3   
+                if (ip_packet[cntr]['IP'].getfieldval('tos') & 3 == 3):
+                    marked_packet += 1
+
+            # count total number of marked packets
+            if ((marked_packet <= EXPECTED_MIN_MARKRD_PACKETS) and
+                (marked_packet > EXPECTED_MAX_MARKRD_PACKETS)):
+                pytest_assert(False,
+                    "Expected nummer of matched ECN packets not found")
+            else:
+                packet_marked_stats.append(marked_packet)      
+
+            logger.info("iteration = %s outstanding packets = %s marked = %s"\
                 %(i + 1, outstanding_packets, marked_packet))
 
         # end iteration
-        if ((marked_packet < EXPECTED_MIN_MARKRD_PACKETS) and
-            (marked_packet > EXPECTED_MAX_MARKRD_PACKETS)) :
-             pytest_assert(False,
-                 "Expected nummer of matched ECN packets not found")
-
+        logger.info("Iteration\tpacket marked")
+        logger.info("---------\t-------------")
+        for i in range(ITERATION_COUNT):
+            logger.info("%s\t\t%s" %(i,  packet_marked_stats[i]))  
 
