@@ -107,7 +107,7 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             serial = module.get_serial(platform_api_conn, i)
-            if self.expect(serial is not None, "Unable to retrieve module {} serial number".format(i)):
+            if self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "Module {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
@@ -136,25 +136,6 @@ class TestModuleApi(PlatformApiTestBase):
             if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
                 continue
             self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
-        self.assert_expectations()
-
-    def test_get_serial_number(self, duthost, localhost, platform_api_conn):
-        if self.num_modules == 0:
-            pytest.skip("No modules found on device")
-
-        # Ensure the serial number of each module is sane
-        # Note: It appears that when retrieving some variable-length fields,
-        # the value is padded with trailing '\x00' bytes because the field
-        # length is longer than the actual value, so we strip those bytes
-        # here before comparing. We may want to change the EEPROM parsing
-        # logic to ensure that trailing '\x00' bytes are removed when retreiving
-        # a variable-length value.
-        # TODO: Add expected serial number of each module to inventory file and compare against it
-        for i in range(self.num_modules):
-            serial = module.get_serial_number(platform_api_conn, i).rstrip('\x00')
-            if not self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
-                continue
-            self.expect(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
         self.assert_expectations()
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
