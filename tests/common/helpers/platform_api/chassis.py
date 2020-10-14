@@ -52,10 +52,6 @@ def get_base_mac(conn):
     return chassis_api(conn, 'get_base_mac')
 
 
-def get_serial_number(conn):
-    return chassis_api(conn, 'get_serial_number')
-
-
 def get_system_eeprom_info(conn):
     return chassis_api(conn, 'get_system_eeprom_info')
 

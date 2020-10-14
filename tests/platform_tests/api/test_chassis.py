@@ -146,19 +146,6 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
         self.compare_value_with_device_facts('base_mac', base_mac, False)
 
-    def test_get_serial_number(self, duthost, localhost, platform_api_conn):
-        # Ensure the serial number is sane
-        # Note: It appears that when retrieving some variable-length fields,
-        # the value is padded with trailing '\x00' bytes because the field
-        # length is longer than the actual value, so we strip those bytes
-        # here before comparing. We may want to change the EEPROM parsing
-        # logic to ensure that trailing '\x00' bytes are removed when retreiving
-        # a variable-length value.
-        serial = chassis.get_serial_number(platform_api_conn).rstrip('\x00')
-        pytest_assert(serial is not None, "Failed to retrieve serial number")
-        pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
-        self.compare_value_with_device_facts('serial', serial)
-
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
         '''
