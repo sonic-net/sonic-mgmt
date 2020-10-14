@@ -42,6 +42,12 @@ def calculate_priority_vector(v) :
            print(i)
     return "%x"%(s)
 
+def lossless_iteration_list (lst) :
+    retval = [[x] for x in lst]
+    if (len(lst) > 1):
+        retval.append(lst)
+    return retval
+
 def base_configs(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
@@ -352,17 +358,18 @@ def lossy_configs(conn_graph_facts,
                   frame_size, 
                   serializer) :
 
-    return(base_configs(conn_graph_facts=conn_graph_facts,
-                        duthost=duthost,
-                        lossless_prio_dscp_map=lossless_prio_dscp_map,
-                        one_hundred_gbe=one_hundred_gbe,
-                        traffic_duration=traffic_duration,
-                        start_delay=start_delay,
-                        pause_line_rate=pause_line_rate,
-                        traffic_line_rate=traffic_line_rate,
-                        pause_frame_type='priority',
-                        frame_size=frame_size,
-                        serializer=serializer))
+    for p in lossless_iteration_list(lossless_prio_dscp_map) :
+        yield (base_configs(conn_graph_facts=conn_graph_facts,
+                            duthost=duthost,
+                            lossless_prio_dscp_map = p,
+                            one_hundred_gbe=one_hundred_gbe,
+                            traffic_duration=traffic_duration,
+                            start_delay=start_delay,
+                            pause_line_rate=pause_line_rate,
+                            traffic_line_rate=traffic_line_rate,
+                            pause_frame_type='priority',
+                            frame_size=frame_size,
+                            serializer=serializer))
 
 
 @pytest.fixture
@@ -377,15 +384,16 @@ def global_pause(conn_graph_facts,
                  frame_size,
                  serializer) :
 
-    return(base_configs(conn_graph_facts=conn_graph_facts,
-                        duthost=duthost,
-                        lossless_prio_dscp_map=lossless_prio_dscp_map,
-                        one_hundred_gbe=one_hundred_gbe,
-                        traffic_duration=traffic_duration,
-                        start_delay=start_delay,
-                        pause_line_rate=pause_line_rate,
-                        traffic_line_rate=traffic_line_rate,
-                        pause_frame_type='global',
-                        frame_size=frame_size,
-                        serializer=serializer))
+    for p in lossless_iteration_list(lossless_prio_dscp_map) :
+        yield (base_configs(conn_graph_facts=conn_graph_facts,
+                            duthost=duthost,
+                            lossless_prio_dscp_map=p,
+                            one_hundred_gbe=one_hundred_gbe,
+                            traffic_duration=traffic_duration,
+                            start_delay=start_delay,
+                            pause_line_rate=pause_line_rate,
+                            traffic_line_rate=traffic_line_rate,
+                            pause_frame_type='global',
+                            frame_size=frame_size,
+                            serializer=serializer))
 
