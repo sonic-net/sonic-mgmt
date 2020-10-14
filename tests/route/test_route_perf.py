@@ -76,17 +76,17 @@ def exec_routes(duthost, num_routes, op):
         # Check the number of routes in ASIC_DB
         num_routes = int(duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\' | wc -l'.format(ROUTE_TABLE_NAME))['stdout'])
         return num_routes == expected_num_routes
-    if not wait_until(ROUTE_TIMEOUT, 0.1, _check_num_routes, expected_num_routes):
+    if not wait_until(ROUTE_TIMEOUT, 0.5, _check_num_routes, expected_num_routes):
         pytest.fail('failed to add routes within time limit')
 
     # Record time when all routes show up in ASIC_DB
     end_time = datetime.now()
 
     # Check route entries are correct
-    asic_route_lines = duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\''.format(ROUTE_TABLE_NAME))['stdout_lines']
+    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\''.format(ROUTE_TABLE_NAME))['stdout_lines']
     asic_prefixes = []
-    for line in asic_route_lines:
-        json_obj = line[len(ROUTE_TABLE_NAME) + 1 : ]
+    for key in asic_route_keys:
+        json_obj = key[len(ROUTE_TABLE_NAME) + 1 : ]
         asic_prefixes.append(json.loads(json_obj)['dest'])
     if op == 'SET':
         assert all(prefix in asic_prefixes for prefix in prefixes)
