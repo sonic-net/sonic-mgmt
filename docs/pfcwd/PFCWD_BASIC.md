@@ -67,7 +67,7 @@ In this experiment, we need to create three traffic items:
   
 - Data traffic 2: Data packets from IXIA port 1 to IXIA port 2. The traffic demand is 100% line rate. The trafffic is *also* mapped to the lossless priority i (e.g., 3 or 4) at the switch. To this end, packets should be marked with the correct DSCP value (e.g., DSCP 3 for priority 3). *Data traffic 2 and 1 have different time durations and start delays.* 
 
-- PFC pause storm: Persistent PFC pause frames from the IXIA port 2 to et2 of DUT having same priority (e.g., 3) as data traffic. The inter-frame transmission interval should be smaller than per-frame pause duration.
+- PFC pause storm: Persistent PFC pause frames from the IXIA port 2 to et2 of DUT having same priority (e.g., 3) as data traffic. To fully block the switch queue, the inter-frame transmission interval should be smaller than per-frame pause duration.
 
 This experiment needs the following steps. We need to repeat these steps for each lossless priority individually and all the lossless priorities simultaneously. Let’s use $T_{detect}$, $T_{restore}$, and $T_{poll}$ to denote the detection time, restoration time, and polling interval of PFC watchdog.  
 
