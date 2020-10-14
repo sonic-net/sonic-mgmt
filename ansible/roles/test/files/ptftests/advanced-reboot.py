@@ -155,6 +155,7 @@ class ReloadTest(BaseTest):
         self.check_param('vnet', False, required = False)
         self.check_param('vnet_pkts', None, required = False)
         self.check_param('target_version', '', required = False)
+        self.check_param('kvm_test', True, required = False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -497,6 +498,10 @@ class ReloadTest(BaseTest):
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
 
+        self.kvm_test = self.test_params['kvm_test']
+        if self.kvm_test:
+            self.log("This test is for KVM platform")
+
         # get VM info
         if isinstance(self.test_params['arista_vms'], list):
             arista_vms = self.test_params['arista_vms']
@@ -752,6 +757,8 @@ class ReloadTest(BaseTest):
         self.reboot_start = None
         self.no_routing_start = None
         self.no_routing_stop = None
+        self.no_control_start = None
+        self.no_control_stop = None
         self.no_cp_replies = None
         self.upper_replies = []
         self.routing_always = False
@@ -788,12 +795,15 @@ class ReloadTest(BaseTest):
             self.do_inboot_oper()
         self.reboot_start = datetime.datetime.now()
         self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
+        self.no_control_start = self.cpu_state.get_state_time('down')
+        self.log("control plane down starts %s" % str(self.no_control_start))
 
     def handle_fast_reboot_health_check(self):
-        self.log("Check that device is still forwarding data plane traffic")
-        self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
-        self.check_alive()
-        self.fails['dut'].clear()
+        if not self.kvm_test: # The data plane is expected to go down with control plane in KVM tests
+            self.log("Check that device is still forwarding data plane traffic")
+            self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
+            self.check_alive()
+            self.fails['dut'].clear()
 
         self.log("Wait until control plane up")
         port_up_signal = multiprocessing.Event()
@@ -841,6 +851,11 @@ class ReloadTest(BaseTest):
 
         self.save_sniffed_packets()
 
+        self.log("Wait until control plane up")
+        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up)
+        self.no_control_stop = self.cpu_state.get_state_time('up')
+        self.log("Control plane down stops %s" % str(self.no_control_stop))
+
         examine_start = datetime.datetime.now()
         self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
         self.examine_flow()
@@ -854,6 +869,41 @@ class ReloadTest(BaseTest):
         else:
             self.no_routing_start = self.reboot_start
             self.no_routing_stop  = self.reboot_start
+
+    def handle_warm_reboot_health_check_kvm(self):
+        self.log("Wait until data plane stops")
+        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop)
+
+        self.log("Wait until control plane up")
+        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up)
+        self.no_control_stop = self.cpu_state.get_state_time('up')
+        self.log("Control plane down stops %s" % str(self.no_control_stop))
+
+        try:
+            async_cpu_up.get(timeout=self.task_timeout)
+        except TimeoutError as e:
+            self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+            self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
+            raise
+
+        try:
+            self.no_routing_start, self.upper_replies = async_forward_stop.get(timeout=self.task_timeout)
+            self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(self.no_routing_start))
+        except TimeoutError:
+            self.log("Data plane never stop")
+            self.routing_always = True
+            self.upper_replies = [self.nr_vl_pkts]
+
+        if self.no_routing_start is not None:
+            self.no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
+                    self.task_timeout,
+                    "DUT hasn't started to work for %d seconds" % self.task_timeout)
+        else:
+            self.no_routing_stop = datetime.datetime.min
+            self.no_routing_start = datetime.datetime.min
+
+        # Stop watching DUT
+        self.watching = False
 
     def handle_post_reboot_health_check(self):
         # wait until all bgp session are established
@@ -942,6 +992,7 @@ class ReloadTest(BaseTest):
 
         if self.no_routing_stop:
             self.log("Longest downtime period was %s" % str(self.no_routing_stop - self.no_routing_start))
+            self.log("Control plane downtime period was %s" % str(self.no_control_stop - self.no_control_start))
             reboot_time = "0:00:00" if self.routing_always else str(self.no_routing_stop - self.reboot_start)
             self.log("Reboot time was %s" % reboot_time)
             self.log("Expected downtime is less then %s" % self.limit)
@@ -1421,9 +1472,8 @@ class ReloadTest(BaseTest):
             if state == 'up':
                 if not uptime:
                     uptime = self.asic_state.get_state_time(state)
-            else:
-                if uptime:
-                    raise Exception("Data plane stopped working")
+            elif uptime:
+                raise Exception("Data plane stopped working")
             time.sleep(2)
 
         # wait, until FDB entries are populated
