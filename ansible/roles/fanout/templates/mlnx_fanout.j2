@@ -75,7 +75,8 @@ interface ethernet {{ qsfp_split_4[i] }} module-type qsfp-split-4 force
 {% endfor %}
 
 {% for i in range(1, port_speed|length) %}
-interface ethernet {{ eth_ports[i] }} speed {{ port_speed[i] }} no-autoneg force
+interface ethernet {{ eth_ports[i] }} speed {{ port_speed[i] }} force
+fae interface ethernet {{ eth_ports[i] }} speed {{ port_speed[i] }} no-autoneg
 {% endfor %}
 
 {% for i in range(1, eth_ports|length) %}
