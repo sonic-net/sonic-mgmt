@@ -13,18 +13,21 @@ function usage
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] config-vm <topo-name> <vm-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
-  echo
+  echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>" 
+  echo 
   echo "Options:"
-  echo "    -t <tbfile> : testbed CSV file name (default: 'testbed.csv')"
-  echo "    -m <vmfile> : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype> : vm type (veos|ceos) (default: 'veos')"
-  echo "    -n <vm_num> : vm num (default: 0)"
+  echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
+  echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos) (default: 'veos')"
+  echo "    -n <vm_num>     : vm num (default: 0)"
+  echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo
   echo "Positional Arguments:"
   echo "    <server-name>         : Hostname of server on which to start VMs"
   echo "    <vault-password-file> : Path to file containing Ansible Vault password"
   echo "    <topo-name>           : Name of the target topology"
   echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
+  echo "    <k8s-server-name>     : Server identifier in form k8s_server_{id}, corresponds to k8s-ubuntu inventory group name"
   echo
   echo "To start all VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
@@ -52,6 +55,8 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
+  echo "To create Kubernetes master on a server: $0 -m k8s-ubuntu create-master 'k8s-server-name'  ~/.password"
+  echo "To destroy Kubernetes master on a server: $0 -m k8s-ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo
   echo "You should define your topology in testbed CSV file"
   echo
@@ -321,12 +326,50 @@ function config_vm
   echo Done
 }
 
+function start_k8s_vms
+{
+  server=$1
+  servernumber="${server#*"k8s_server_"}"
+  passwd=$2
+  shift
+  shift
+
+  echo "Starting Kubernetes VMs on server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_k8s_VMs.yml --vault-password-file="${passwd}" -e k8s="true" -l "${server}" $@
+}
+
+function setup_k8s_vms
+{
+  server=$1
+  servernumber="${server#*"k8s_server_"}"
+  passwd=$2
+
+  echo "Setting up Kubernetes VMs on server '${server}'"
+ 
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_setup_k8s_master.yml -e servernumber="${servernumber}" -e k8s="true" -e msetnumber="${msetnumber}"
+}
+
+function stop_k8s_vms
+{
+  server=$1
+  servernumber="${server#*"k8s_server_"}"
+  passwd=$2
+  shift
+  shift
+  
+  echo "Stopping Kubernetes VMs on server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_k8s_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e k8s="true" $@
+}
+
 vmfile=veos
 tbfile=testbed.csv
 vm_type=veos
 vm_num=0
+msetnumber=1
 
-while getopts "t:m:k:n:" OPTION; do
+while getopts "t:m:k:n:s:" OPTION; do
     case $OPTION in
     t)
         tbfile=$OPTARG
@@ -339,6 +382,9 @@ while getopts "t:m:k:n:" OPTION; do
         ;;
     n)
         vm_num=$OPTARG
+        ;;
+    s)
+        msetnumber=$OPTARG
         ;;
     *)
         usage
@@ -385,6 +431,11 @@ case "${subcmd}" in
                ;;
   test-mg)     test_minigraph $@
                ;;
+  create-master) start_k8s_vms $@
+                 setup_k8s_vms $@
+               ;;
+  destroy-master) stop_k8s_vms $@
+               ;; 
   *)           usage
                ;;
 esac

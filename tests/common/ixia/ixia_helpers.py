@@ -530,3 +530,328 @@ def create_ip_traffic_item (
     # Enable tracking.
     traffic_item.Tracking.find().TrackBy = ['trackingenabled0']
     return traffic_item
+
+
+def create_ipv4_traffic(session,
+                        name,
+                        source,
+                        destination,
+                        pkt_size=64,
+                        pkt_count=None,
+                        duration=None,
+                        rate_percent=100,
+                        start_delay=0,
+                        dscp_list=None,
+                        lossless_prio_list=None,
+                        ecn_capable=False):
+    """
+    Create an IPv4 traffic item on IxNetwork.
+
+    Args:
+        session (obj): IxNetwork session object.
+        name (str): Name of traffic item
+        source (obj list): Source endpoints - list of IxNetwork vport objects.
+        destination (obj list): Destination endpoints - list of IxNetwork 
+            vport objects.
+        pkt_size (int): Packet size.
+        pkt_count (int): Packet count.
+        duration (int): Traffic duration in second (positive integer only!)
+        rate_percent (int): Percentage of line rate.
+        start_delay (int): Start delay in second.
+        dscp_list(int list): List of DSCPs.
+        lossless_prio_list (int list): List of lossless priorities.
+        ecn_capable (bool): If packets can get ECN marked.
+
+    Returns:
+        The created traffic item or None in case of error.
+    """
+    ixnetwork = session.Ixnetwork
+
+    traffic_item = ixnetwork.Traffic.TrafficItem.add(Name=name, 
+                                                     BiDirectional=False, 
+                                                     TrafficType='ipv4')
+
+    traffic_item.EndpointSet.add(Sources=source, Destinations=destination)
+
+    traffic_config  = traffic_item.ConfigElement.find()[0]
+
+    # Todo: add sending rate support
+    traffic_config.FrameRate.update(Type='percentLineRate', Rate=rate_percent)
+    traffic_config.FrameRateDistribution.PortDistribution = 'splitRateEvenly'
+    traffic_config.FrameSize.FixedSize = pkt_size
+
+    if pkt_count is not None and duration is not None:
+        logger.error('You can only specify either pkt_count or duration')
+        return None
+
+    if pkt_count is not None:
+        traffic_config.TransmissionControl.update(Type='fixedFrameCount', 
+                                                  FrameCount=pkt_count)
+    elif duration is not None:
+        if type(duration) != int or duration <= 0:
+            logger.error('Invalid duration value {} (positive integer only)'.
+                format(duration))
+
+            return None
+        else:
+            traffic_config.TransmissionControl.update(
+                Type='fixedDuration', 
+                Duration=duration)
+    else:
+        traffic_config.TransmissionControl.update(Type='continuous')
+
+    if start_delay > 0:
+        traffic_config.TransmissionControl.update(
+            StartDelayUnits='nanoseconds',
+            StartDelay=start_delay*(10**6))
+
+    if dscp_list is not None and len(dscp_list) > 0:
+        phb_field = traffic_item.ConfigElement.find().Stack.find('IPv4').Field.\
+            find(DisplayName='Default PHB')
+
+        phb_field.ActiveFieldChoice = True
+        phb_field.ValueType = 'valueList'
+        phb_field.ValueList = dscp_list
+
+    # Set ECN bits to 10 (ECN capable).
+    if ecn_capable:
+        phb_field = traffic_item.ConfigElement.find().Stack.find('IPv4').\
+            Field.find(FieldTypeId='ipv4.header.priority.ds.phb.defaultPHB.unused')
+
+        phb_field.ActiveFieldChoice = True
+        phb_field.ValueType = 'singleValue'
+        phb_field.SingleValue = 2
+
+    if lossless_prio_list is not None and len(lossless_prio_list) > 0:
+        eth_stack = traffic_item.ConfigElement.find()[0].Stack.find(
+            DisplayName='Ethernet II')
+
+        pfc_queue = eth_stack.Field.find(DisplayName='PFC Queue')
+        pfc_queue.ValueType = 'valueList'
+        pfc_queue.ValueList = lossless_prio_list
+
+    traffic_item.Tracking.find()[0].TrackBy = ['flowGroup0']
+
+    # Push ConfigElement settings down to HighLevelStream resources.
+    traffic_item.Generate()
+
+    return traffic_item
+
+
+def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None, 
+                         duration=None, start_delay=0, global_pause=False,
+                         pause_prio_list=[]):
+    """
+    Create a pause traffic item.
+
+    Args:
+        session (obj): IxNetwork session object.
+        name (str): Name of traffic item.
+        source (obj list): Source endpoints - list of IxNetwork vport objects.
+        pkt_per_sec (int): Packets per second.
+        pkt_count (int): Packet count.
+        duration (int): Traffic duration in second (positive integer only!).
+        start_delay (int): Start delay in second.
+        global_pause (bool): If the generated packets are global pause
+            (IEEE 802.3X PAUSE).
+        pause_prio_list: list of priorities to pause. Only valid when
+            global_pause is False.
+
+    Returns:
+        The created traffic item or None if any errors happen.
+    """
+    if pause_prio_list is not None:
+        for prio in pause_prio_list:
+            if prio < 0 or prio > 7:
+                logger.error('Invalid pause priorities {}'.
+                    format(pause_prio_list))
+                return None
+
+    ixnetwork = session.Ixnetwork
+    traffic_item = ixnetwork.Traffic.TrafficItem.add(Name=name, 
+                                                     BiDirectional=False, 
+                                                     TrafficType='raw')
+
+    # Since PFC packets will not be forwarded by the switch, so 
+    # destinations are actually not used. 
+    traffic_item.EndpointSet.add(Sources=source.Protocols.find(),
+                                 Destinations=source.Protocols.find())
+
+    traffic_config = traffic_item.ConfigElement.find()[0]
+    traffic_config.FrameRate.update(Type='framesPerSecond', Rate=pkt_per_sec)
+    traffic_config.FrameRateDistribution.PortDistribution = 'splitRateEvenly'
+    traffic_config.FrameSize.FixedSize = 64
+
+    if pkt_count is not None and duration is not None:
+        logger.error('You can only specify either pkt_count or duration')
+        return None
+
+    if pkt_count is not None:
+        traffic_config.TransmissionControl.update(
+            Type='fixedFrameCount', 
+            FrameCount=pkt_count)
+
+    elif duration is not None:
+        if type(duration) != int or duration <= 0:
+            logger.error('Invalid duration value {} (positive integer only)'.
+                format(duration))
+
+            return None
+        else:
+            traffic_config.TransmissionControl.update(
+                Type='fixedDuration', 
+                Duration=duration)
+
+    else:
+        traffic_config.TransmissionControl.update(Type='continuous')
+
+    if start_delay > 0:
+        traffic_config.TransmissionControl.update(
+            StartDelayUnits='nanoseconds',
+            StartDelay=start_delay*(10**9))
+
+    # Add PFC header
+    pfc_stack_obj = __create_pkt_hdr(
+        ixnetwork=ixnetwork,
+        traffic_item=traffic_item,
+        pkt_hdr_to_add='^PFC PAUSE \(802.1Qbb\)',
+        append_to_stack='Ethernet II')
+
+    # Construct global pause and PFC packets.
+    if global_pause:
+        __set_global_pause_fields(pfc_stack_obj)
+    else:
+        __set_pfc_fields(pfc_stack_obj, pause_prio_list)
+
+    # Remove Ethernet header.
+    traffic_item.ConfigElement.find()[0].Stack.\
+        find(DisplayName="Ethernet II").Remove()
+
+    traffic_item.Tracking.find()[0].TrackBy = ['flowGroup0']
+
+    # Push ConfigElement settings down to HighLevelStream resources.
+    traffic_item.Generate()
+
+    return traffic_item
+
+# This section defines helper function used in the module. These functions
+# should not be called from test script.
+# 1. __set_global_pause_fields 
+# 2. __set_eth_fields
+# 3. __set_pfc_fields
+# 4. __create_pkt_hdr
+
+def __set_global_pause_fields(pfc_stack_obj):
+    code = pfc_stack_obj.find(DisplayName='Control opcode')
+    code.ValueType = 'singleValue'
+    code.SingleValue = '1'
+
+    # This field is pause duration in global pause packet.
+    prio_enable_vector = pfc_stack_obj.find(DisplayName='priority_enable_vector')
+
+    prio_enable_vector.ValueType = 'singleValue'
+    prio_enable_vector.SingleValue = 'ffff'
+
+    # pad bytes
+    for i in range(8):
+        pause_duration = pfc_stack_obj.find(DisplayName='PFC Queue {}'.format(i))
+
+        pause_duration.ValueType = 'singleValue'
+        pause_duration.SingleValue = '0'
+
+
+def __set_eth_fields(eth_stack_obj, src_mac, dst_mac):
+    if src_mac is not None:
+        src_mac_field = eth_stack_obj.find(DisplayName='Source MAC Address')
+        src_mac_field.ValueType = 'singleValue'
+        src_mac_field.SingleValue = src_mac
+
+    if dst_mac is not None:
+        dst_mac_field = eth_stack_obj.find(DisplayName='Destination MAC Address')
+
+        dst_mac_field.ValueType = 'singleValue'
+        dst_mac_field.SingleValue = dst_mac
+
+
+def __set_ip_fields(ip_stack_obj, src_ip, dst_ip, dscp_list):
+    if src_ip is not None:
+        src_ip_field = ip_stack_obj.find(DisplayName='Source Address')
+        src_ip_field.ValueType = 'singleValue'
+        src_ip_field.SingleValue = src_ip
+
+    if dst_ip is not None:
+        dst_ip_field = ip_stack_obj.find(DisplayName='Destination Address')
+        dst_ip_field.ValueType = 'singleValue'
+        dst_ip_field.SingleValue = dst_ip
+
+    if dscp_list is not None and len(dscp_list) > 0:
+        phb_field = ip_stack_obj.find(DisplayName='Default PHB')
+        phb_field.ActiveFieldChoice = True
+        phb_field.ValueType = 'valueList'
+        phb_field.ValueList = dscp_list
+
+
+def __set_pfc_fields(pfc_stack_obj, pause_prio_list):
+    code = pfc_stack_obj.find(DisplayName='Control opcode')
+    code.ValueType = 'singleValue'
+    code.SingleValue = '101'
+
+    prio_enable_vector = pfc_stack_obj.find(DisplayName='priority_enable_vector')
+    prio_enable_vector.ValueType = 'singleValue'
+
+    val = 0
+    for prio in pause_prio_list:
+        val += (1 << prio)
+    prio_enable_vector.SingleValue = hex(val)
+
+    for i in range(8):
+        pause_duration = pfc_stack_obj.find(DisplayName='PFC Queue {}'.format(i))
+        pause_duration.ValueType = 'singleValue'
+
+        if i in pause_prio_list:
+            pause_duration.SingleValue = 'ffff'
+        else:
+            pause_duration.SingleValue = '0'
+
+
+def __create_pkt_hdr(ixnetwork, 
+                       traffic_item, 
+                       pkt_hdr_to_add,
+                       append_to_stack):
+    #Add new packet header in traffic item
+    config_element = traffic_item.ConfigElement.find()[0]
+
+    # Do the followings to add packet headers on the new traffic item
+
+    # Uncomment this to show a list of all the available protocol templates 
+    # to create (packet headers)
+    #for protocolHeader in ixNetwork.Traffic.ProtocolTemplate.find():
+    #    ixNetwork.info('Protocol header: -- {} --'.
+    #        format(protocolHeader.DisplayName))
+
+    # 1> Get the <new packet header> protocol template from the ProtocolTemplate 
+    #   list.
+    pkt_hdr_proto_template = \
+        ixnetwork.Traffic.ProtocolTemplate.find(DisplayName=pkt_hdr_to_add)
+    #ixNetwork.info('protocolTemplate: {}'.format(packetHeaderProtocolTemplate))
+
+    # 2> Append the <new packet header> object after the specified packet 
+    #   header stack.
+    append_to_stack_obj = config_element.Stack.find(
+        DisplayName=append_to_stack
+    )
+    #ixNetwork.info('appendToStackObj: {}'.format(appendToStackObj))
+    append_to_stack_obj.Append(Arg2=pkt_hdr_proto_template)
+
+    # 3> Get the new packet header stack to use it for appending an 
+    # IPv4 stack after it. Look for the packet header object and stack ID.
+    pkt_hdr_stack_obj = config_element.Stack.find(DisplayName=pkt_hdr_to_add)
+
+    # 4> In order to modify the fields, get the field object
+    pkt_hdr_field_obj = pkt_hdr_stack_obj.Field.find()
+    #ixNetwork.info('packetHeaderFieldObj: {}'.format(packetHeaderFieldObj))
+
+    # 5> Save the above configuration to the base config file.
+    #   ixNetwork.SaveConfig(Files('baseConfig.ixncfg', local_file=True))
+    return pkt_hdr_field_obj
+

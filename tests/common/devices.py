@@ -16,6 +16,9 @@ import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
+from ansible import constants
+from ansible.plugins.loader import connection_loader
+
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 
@@ -122,8 +125,33 @@ class SonicHost(AnsibleHostBase):
 
     _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
-    def __init__(self, ansible_adhoc, hostname):
+    def __init__(self, ansible_adhoc, hostname,
+                 shell_user=None, shell_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+
+        if shell_user and shell_passwd:
+            im = self.host.options['inventory_manager']
+            vm = self.host.options['variable_manager']
+            sonic_conn = vm.get_vars(
+                host=im.get_hosts(pattern='sonic')[0]
+                )['ansible_connection']
+            hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
+            # parse connection options and reset those options with
+            # passed credentials
+            connection_loader.get(sonic_conn, class_only=True)
+            user_def = constants.config.get_configuration_definition(
+                "remote_user", "connection", sonic_conn
+                )
+            pass_def = constants.config.get_configuration_definition(
+                "password", "connection", sonic_conn
+                )
+            for user_var in (_['name'] for _ in user_def['vars']):
+                if user_var in hostvars:
+                    vm.extra_vars.update({user_var: shell_user})
+            for pass_var in (_['name'] for _ in pass_def['vars']):
+                if pass_var in hostvars:
+                    vm.extra_vars.update({pass_var: shell_passwd})
+
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
 
@@ -268,6 +296,22 @@ class SonicHost(AnsibleHostBase):
                 result["hwsku"] = line.split(":")[1].strip()
             elif line.startswith("ASIC:"):
                 result["asic_type"] = line.split(":")[1].strip()
+
+        if result["platform"]:
+            platform_file_path = os.path.join("/usr/share/sonic/device", result["platform"], "platform.json")
+
+            try:
+                out = self.command("cat {}".format(platform_file_path))
+                platform_info = json.loads(out["stdout"])
+                for key, value in platform_info.iteritems():
+                    result[key] = value
+
+            except Exception:
+                # if platform.json does not exist, then it's not added currently for certain platforms
+                # eventually all the platforms should have the platform.json
+                logging.debug("platform.json is not available for this platform, "
+                              + "DUT facts will not contain complete platform information.")
+
         return result
 
     def _get_os_version(self):
@@ -332,6 +376,57 @@ class SonicHost(AnsibleHostBase):
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
 
+    def get_critical_group_and_process_lists(self, container_name):
+        """
+        @summary: Get critical group and process lists by parsing the
+                  critical_processes file in the specified container
+        @return: Two lists which include the critical groups and critical processes respectively
+        """
+        critical_group_list = []
+        critical_process_list = []
+        succeeded = True
+
+        file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
+                && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
+        for line in file_content["stdout_lines"]:
+            line_info = line.strip().split(':')
+            if len(line_info) != 2:
+                succeeded = False
+                break
+
+            identifier_key = line_info[0].strip()
+            identifier_value = line_info[1].strip()
+            if identifier_key == "group" and identifier_value:
+                critical_group_list.append(identifier_value)
+            elif identifier_key == "program" and identifier_value:
+                critical_process_list.append(identifier_value)
+            else:
+                succeeded = False
+                break
+
+        # For PMon container, since different daemons are enabled in different platforms, we need find common processes
+        # which are not only in the critical_processes file and also are configured to run on that platform.
+        if succeeded and container_name == "pmon":
+            expected_critical_group_list = []
+            expected_critical_process_list = []
+            process_list = self.shell("docker exec {} supervisorctl status".format(container_name))
+            for process_info in process_list["stdout_lines"]:
+                process_name = process_info.split()[0].strip()
+                process_status = process_info.split()[1].strip()
+                if ":" in process_name:
+                    group_name = process_name.split(":")[0]
+                    process_name = process_name.split(":")[1]
+                    if process_status == "RUNNING" and group_name in critical_group_list:
+                        expected_critical_group_list.append(process_name)
+                else:
+                    if process_status == "RUNNING" and process_name in critical_process_list:
+                        expected_critical_process_list.append(process_name)
+            
+            critical_group_list = expected_critical_group_list
+            critical_process_list = expected_critical_process_list
+
+        return critical_group_list, critical_process_list, succeeded
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -341,6 +436,7 @@ class SonicHost(AnsibleHostBase):
         result = {'status': True}
         result['exited_critical_process'] = []
         result['running_critical_process'] = []
+        critical_group_list = []
         critical_process_list = []
 
         # return false if the service is not started
@@ -349,12 +445,10 @@ class SonicHost(AnsibleHostBase):
             result['status'] = False
             return result
 
-        # get critical process list for the service
-        output = self.command("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] && cat /etc/supervisor/critical_processes'".format(service), module_ignore_errors=True)
-        for l in output['stdout'].split():
-            # If ':' exists, the second field is got. Otherwise the only field is got.
-            critical_process_list.append(l.split(':')[-1].rstrip())
-        if len(critical_process_list) == 0:
+        # get critical group and process lists for the service
+        critical_group_list, critical_process_list, succeeded = self.get_critical_group_and_process_lists(service)
+        if succeeded == False:
+            result['status'] = False
             return result
 
         # get process status for the service
@@ -364,11 +458,11 @@ class SonicHost(AnsibleHostBase):
         for l in output['stdout_lines']:
             (pname, status, info) = re.split("\s+", l, 2)
             if status != "RUNNING":
-                if pname in critical_process_list:
+                if pname in critical_group_list or pname in critical_process_list:
                     result['exited_critical_process'].append(pname)
                     result['status'] = False
             else:
-                if pname in critical_process_list:
+                if pname in critical_group_list or pname in critical_process_list:
                     result['running_critical_process'].append(pname)
 
         return result
@@ -705,7 +799,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
         return ret;
-        
+
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
@@ -750,8 +844,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         @param neighbor_ip: bgp neighbor IP
         """
         nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
-        if nbinfo['bgpState'].lower() == "Active".lower():
-            if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
+        if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Active".lower():
+            if 'bgpStateIs' in nbinfo and nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
 
@@ -767,6 +861,25 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 return iface_info["macaddress"]
 
         return None
+
+    def get_container_autorestart_states(self):
+        """
+        @summary: Get container names and their autorestart states by analyzing
+                  the command output of "show feature autorestart"
+        @return:  A dictionary where keys are the names of containers which have the
+                  autorestart feature implemented and values are the autorestart feature
+                  state for that container
+        """
+        container_autorestart_states = {}
+
+        show_cmd_output = self.shell("show feature autorestart")
+        for line in show_cmd_output["stdout_lines"]:
+            container_name = line.split()[0].strip()
+            container_state = line.split()[1].strip()
+            if container_state in ["enabled", "disabled"]:
+                container_autorestart_states[container_name] = container_state
+
+        return container_autorestart_states
 
     def get_feature_status(self):
         """
@@ -1183,7 +1296,7 @@ class IxiaHost (AnsibleHostBase):
             eval(cmd)
 
 
-class FanoutHost():
+class FanoutHost(object):
     """
     @summary: Class for Fanout switch
 
@@ -1197,7 +1310,9 @@ class FanoutHost():
         self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
-            self.host = SonicHost(ansible_adhoc, hostname)
+            self.host = SonicHost(ansible_adhoc, hostname,
+                                  shell_user=shell_user,
+                                  shell_passwd=shell_passwd)
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)

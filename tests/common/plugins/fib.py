@@ -94,8 +94,8 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     return routes
 
 
-def fib_t0(ptfhost, testbed, localhost, topology=None):
-    logger.info("use fib_t0 to setup routes for topo {}".format(testbed['topo']['name']))
+def fib_t0(ptfhost, tbinfo, localhost, topology=None):
+    logger.info("use fib_t0 to setup routes for topo {}".format(tbinfo['topo']['name']))
 
     podset_number = 200
     tor_number = 16
@@ -103,19 +103,19 @@ def fib_t0(ptfhost, testbed, localhost, topology=None):
     max_tor_subnet_number = 16
     tor_subnet_size = 128
 
-    common_config_topo = testbed['topo']['properties']['configuration_properties']['common']
+    common_config_topo = tbinfo['topo']['properties']['configuration_properties']['common']
     spine_asn = common_config_topo.get("spine_asn", 65534)
     leaf_asn_start = common_config_topo.get("leaf_asn_start", 64600)
     tor_asn_start = common_config_topo.get("tor_asn_start", 65500)
 
-    topo = testbed['topo']['properties']
-    ptf_hostname = testbed['ptf']
+    topo = tbinfo['topo']['properties']
+    ptf_hostname = tbinfo['ptf']
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
 
     local_ip = ipaddress.IPAddress("10.10.246.254")
     local_ipv6 = ipaddress.IPAddress("fc0a::ff")
-    for k, v in testbed['topo']['properties']['configuration'].items():
-        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
         peer_ip = ipaddress.IPNetwork(v['bp_interface']['ipv4'])
         peer_ipv6 = ipaddress.IPNetwork(v['bp_interface']['ipv6'])
         asn = int(v['bgp']['asn'])
@@ -140,8 +140,8 @@ def fib_t0(ptfhost, testbed, localhost, topology=None):
                        peer_asn  = asn, \
                        port = port6)
     # check if bgp http_api is ready
-    for k, v in testbed['topo']['properties']['configuration'].items():
-        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
 
         port = 5000 + vm_offset
         assert wait_tcp_connection(localhost, ptfip, port)
@@ -149,8 +149,8 @@ def fib_t0(ptfhost, testbed, localhost, topology=None):
         port6 = 6000 + vm_offset
         assert wait_tcp_connection(localhost, ptfip, port6)
 
-    for k, v in testbed['topo']['properties']['configuration'].items():
-        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
         port = 5000 + vm_offset
         port6 = 6000 + vm_offset
 
@@ -165,8 +165,8 @@ def fib_t0(ptfhost, testbed, localhost, topology=None):
         announce_routes(ptfip, port6, routes_v6)
 
 
-def fib_t1_lag(ptfhost, testbed, localhost):
-    logger.info("use fib_t1_lag to setup routes for topo {}".format(testbed['topo']['name']))
+def fib_t1_lag(ptfhost, tbinfo, localhost):
+    logger.info("use fib_t1_lag to setup routes for topo {}".format(tbinfo['topo']['name']))
 
     podset_number = 200
     tor_number = 16
@@ -177,15 +177,15 @@ def fib_t1_lag(ptfhost, testbed, localhost):
     leaf_asn_start  = 64600
     tor_asn_start   = 65500
 
-    topo = testbed['topo']['properties']
-    ptf_hostname = testbed['ptf']
+    topo = tbinfo['topo']['properties']
+    ptf_hostname = tbinfo['ptf']
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
 
     local_ip = ipaddress.IPAddress("10.10.246.254")
     local_ipv6 = ipaddress.IPAddress("fc0a::ff")
 
-    for k, v in testbed['topo']['properties']['configuration'].items():
-        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
         peer_ip = ipaddress.IPNetwork(v['bp_interface']['ipv4'])
         peer_ipv6 = ipaddress.IPNetwork(v['bp_interface']['ipv6'])
         asn = int(v['bgp']['asn'])
@@ -210,8 +210,8 @@ def fib_t1_lag(ptfhost, testbed, localhost):
                        peer_asn  = asn, \
                        port = port6)
     # Check if bgp http_api port is ready
-    for k, v in testbed['topo']['properties']['configuration'].items():
-        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
 
         port = 5000 + vm_offset
         assert wait_tcp_connection(localhost, ptfip, port)
@@ -219,9 +219,9 @@ def fib_t1_lag(ptfhost, testbed, localhost):
         port6 = 6000 + vm_offset
         assert wait_tcp_connection(localhost, ptfip, port6)
 
-    for k, v in testbed['topo']['properties']['configuration'].items():
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
 
-        vm_offset = testbed['topo']['properties']['topology']['VMs'][k]['vm_offset']
+        vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
         port = 5000 + vm_offset
         port6 = 6000 + vm_offset
 
@@ -248,12 +248,12 @@ def fib_t1_lag(ptfhost, testbed, localhost):
 
 
 @pytest.fixture(scope='module')
-def fib(ptfhost, testbed, localhost):
-    topology = testbed['topo']['name']
+def fib(ptfhost, tbinfo, localhost):
+    topology = tbinfo['topo']['name']
     logger.info("setup fib to topo {}".format(topology))
-    if testbed['topo']['type'] == "t0":
-        fib_t0(ptfhost, testbed, localhost, topology)
-    elif testbed['topo']['type'] == "t1":
-        fib_t1_lag(ptfhost, testbed, localhost)
+    if tbinfo['topo']['type'] == "t0":
+        fib_t0(ptfhost, tbinfo, localhost, topology)
+    elif tbinfo['topo']['type'] == "t1":
+        fib_t1_lag(ptfhost, tbinfo, localhost)
     else:
-        logger.error("unknonw topology {}".format(testbed['topo']['name']))
+        logger.error("unknown topology {}".format(tbinfo['topo']['name']))

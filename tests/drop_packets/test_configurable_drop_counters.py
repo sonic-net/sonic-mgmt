@@ -71,14 +71,14 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthost, mock_server
 
 
 @pytest.fixture(scope="module")
-def testbed_params(duthost, testbed):
+def testbed_params(duthost, tbinfo):
     """
     Gathers parameters about the testbed for the test cases to use.
 
     Returns: A Dictionary with the following information:
     """
-    if testbed["topo"]["type"] != "t0":
-        pytest.skip("Unsupported topology {}".format(testbed["topo"]["name"]))
+    if tbinfo["topo"]["type"] != "t0":
+        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
 
     minigraph_facts = \
         duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
@@ -230,7 +230,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost)
         a server within a VLAN under a T0.
 
     """
-    server_dst_port = random.choice(testbed_params["vlan_ports"])
+    server_dst_port = random.choice(arp_responder.keys())
     server_dst_addr = random.choice(arp_responder[server_dst_port].keys())
     server_dst_intf = testbed_params["physical_port_map"][server_dst_port]
     logging.info("Creating mock server with IP %s; dut port = %s, dut intf = %s",

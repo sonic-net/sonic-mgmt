@@ -21,7 +21,7 @@ def pytest_runtest_teardown(item, nextitem):
     restore_cmd = "bash -c \"sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_threshold_type percentage \
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_high_threshold {high} \
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_low_threshold {low}\""
-    if not item.rep_call.skipped:
+    if item.rep_setup.passed and not item.rep_call.skipped:
         # Restore CRM threshods
         if crm_threshold_name:
             crm_thresholds = item.funcargs["crm_thresholds"]
@@ -72,7 +72,7 @@ def crm_thresholds(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthost, testbed):
+def crm_interface(duthost):
     """ Return tuple of two DUT interfaces """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
 

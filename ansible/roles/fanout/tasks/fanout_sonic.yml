@@ -11,15 +11,10 @@
             dest=/etc/sonic/vlan.json
   become: yes
 
-- include_tasks: add_container_to_inventory.yml
-  vars:
-    container_name: swss
-
 - name: disable all copp rules
-  copy: content='[]'
-        dest=/etc/swss/config.d/00-copp.config.json
+  shell:
+    cmd: docker exec swss bash -c 'echo [] > /etc/swss/config.d/00-copp.config.json'
   become: yes
-  delegate_to: "{{ ansible_host }}_swss"
 
 - name: generate config_db.json
   shell: sonic-cfggen -H -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json

@@ -1,0 +1,14 @@
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('k8s_server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: kvm_hosts={{ groups[current_server] | filter_by_prefix('kvm') | sort}}
+
+- name: Remove VMs.
+  include_tasks: stop_k8s_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    vm_folder: "{{ k8s_root_path }}/{{ vm_name }}/"
+  with_items: "{{ kvm_hosts }}"
+
+

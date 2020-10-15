@@ -4,14 +4,9 @@ import pytest
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.device_type('vs')
 ]
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_check_topo(testbed):
-    if testbed['topo']['type'] == 'ptf':
-        pytest.skip('Unsupported topology')
 
 def test_lldp(duthost, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """

@@ -404,6 +404,54 @@ qos_params:
                 pkts_num_trig_ingr_drp: 7063
                 pkts_num_fill_egr_min: 8
                 cell_size: 208
+        50000_300m:
+            pkts_num_leak_out: 23
+            xoff_1:
+                dscp: 3
+                ecn: 1
+                pg: 3
+                pkts_num_trig_pfc: 6542
+                pkts_num_trig_ingr_drp: 7225
+            xoff_2:
+                dscp: 4
+                ecn: 1
+                pg: 4
+                pkts_num_trig_pfc: 6542
+                pkts_num_trig_ingr_drp: 7225
+            hdrm_pool_size:
+                dscps: [3, 4]
+                ecn: 1
+                pgs: [3, 4]
+                src_port_ids: [1, 2, 3, 4]
+                dst_port_id: 5
+                pgs_num: 8
+                pkts_num_trig_pfc: 1458
+                pkts_num_hdrm_full: 682
+                pkts_num_hdrm_partial: 267
+            wm_pg_headroom:
+                dscp: 3
+                ecn: 1
+                pg: 3
+                pkts_num_trig_pfc: 6542
+                pkts_num_trig_ingr_drp: 7225
+                cell_size: 208
+            wm_q_shared_lossless:
+                dscp: 3
+                ecn: 1
+                queue: 3
+                pkts_num_fill_min: 8
+                pkts_num_trig_ingr_drp: 7225
+                cell_size: 208
+            wm_buf_pool_lossless:
+                dscp: 3
+                ecn: 1
+                pg: 3
+                queue: 3
+                pkts_num_fill_ingr_min: 6
+                pkts_num_trig_pfc: 6542
+                pkts_num_trig_ingr_drp: 7225
+                pkts_num_fill_egr_min: 8
+                cell_size: 208
         100000_300m:
             pkts_num_leak_out: 36
             xoff_1:
@@ -464,13 +512,13 @@ qos_params:
             ecn: 1
             pg: 3
             pkts_num_trig_pfc: 6542
-            pkts_num_dismiss_pfc: 11
+            pkts_num_dismiss_pfc: 12
         xon_2:
             dscp: 4
             ecn: 1
             pg: 4
             pkts_num_trig_pfc: 6542
-            pkts_num_dismiss_pfc: 11
+            pkts_num_dismiss_pfc: 12
         ecn_1:
             dscp: 8
             ecn: 0

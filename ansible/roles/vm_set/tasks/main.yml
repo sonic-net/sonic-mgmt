@@ -1,4 +1,4 @@
-# This role creates a set of VM with veos
+# This role creates a set of VM with veos or Ubuntu for Kubernetes master
 # Input parameters for the role:
 # - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
@@ -156,19 +156,22 @@
       when: home_path is not defined
     - debug: msg="{{ home_path }}"
 
-- name: Ensure {{ root_path }} exists
-  file: path={{ root_path }} state=directory
+- name: Require veos VMs by default
+  set_fact:
+    veos_vm_required: true
 
-- name: Install cleanup script
-  template: src=cleanup.sh.j2
-            dest={{ root_path }}/cleanup.sh
+- name: veos VMs not needed when setting up Kubernetes master
+  set_fact:
+    veos_vm_required: false 
+  when: 
+    - k8s is defined
 
-- name: Copy vm_resumer.py to the {{ root_path }}
-  become: true
-  copy:
-    src: roles/vm_set/files/vm_resumer.py
-    dest: "{{ root_path }}"
-    mode: 0755
+- name: VMs not needed in case of Keysight API Server
+  set_fact:
+    veos_vm_required: false
+  when:
+    - ptf_imagename is defined
+    - ptf_imagename == "docker-keysight-api-server"
 
 - name: Retrieve a list of the defined VMs
   virt: command=list_vms
@@ -188,29 +191,58 @@
         uri=qemu:///system
         state=pause
   register: vm_list_paused
-  become: true
+  become: true  
 
-- name: Find current server group
-  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+- block:
+    - name: Ensure {{ root_path }} exists
+      file: path={{ root_path }} state=directory
 
-- name: Extract VM names from the inventory
-  set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
+    - name: Install cleanup script
+      template: src=cleanup.sh.j2
+                dest={{ root_path }}/cleanup.sh
 
-- name: Limit VM
-  set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
-  when: VM_num is defined and VM_num|int > 0
+    - name: Copy vm_resumer.py to the {{ root_path }}
+      become: true
+      copy:
+        src: roles/vm_set/files/vm_resumer.py
+        dest: "{{ root_path }}"
+        mode: 0755
 
-- name: Generate vm list of target VMs
-  set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
-  when: topology['VMs'] is defined
+    - name: Find current server group
+      set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
-- name: Stop VMs
-  include_tasks: stop.yml
-  when: action == 'stop'
+    - name: Extract VM names from the inventory
+      set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort}}
 
-- name: Start VMs
-  include_tasks: start.yml
-  when: action == 'start'
+    - name: Limit VM
+      set_fact: VM_hosts="{{ VM_hosts | first_n_elements(VM_num) }}"
+      when: VM_num is defined and VM_num|int > 0
+
+    - name: Generate vm list of target VMs
+      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+      when: topology['VMs'] is defined
+
+    - name: Stop VMs
+      include_tasks: stop.yml
+      when: action == 'stop'
+
+    - name: Start VMs
+      include_tasks: start.yml
+      when: action == 'start'
+
+    - name: Connect VMs
+      include_tasks: connect_vms.yml
+      when: action == 'connect_vms'
+
+    - name: Disconnect VMs
+      include_tasks: disconnect_vms.yml
+      when: action == 'disconnect_vms'
+
+    - name: Renumber topology
+      include_tasks: renumber_topo.yml
+      when: action == 'renumber_topo'
+
+  when: veos_vm_required is defined and veos_vm_required == True
 
 - name: Add topology
   include_tasks: add_topo.yml
@@ -220,17 +252,13 @@
   include_tasks: remove_topo.yml
   when: action == 'remove_topo'
 
-- name: Renumber topology
-  include_tasks: renumber_topo.yml
-  when: action == 'renumber_topo'
+- name: Stop Kubernetes VMs
+  include_tasks: stop_k8s.yml
+  when: action == 'stop_k8s'
 
-- name: Connect VMs
-  include_tasks: connect_vms.yml
-  when: action == 'connect_vms'
-
-- name: Disconnect VMs
-  include_tasks: disconnect_vms.yml
-  when: action == 'disconnect_vms'
+- name: Start Kubernetes VMs
+  include_tasks: start_k8s.yml
+  when: action == 'start_k8s'
 
 - block:
     - name: Start SONiC VM
