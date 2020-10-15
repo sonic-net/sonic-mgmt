@@ -1,5 +1,1 @@
-# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
-vms-kvm-t0,vms6-1,t0,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-01],Tests virtual switch vm
-vms-kvm-t0-64,vms6-1,t0-64,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-02],Tests virtual switch vm
-vms-kvm-t1-lag,vms6-2,t1-lag,docker-ptf,ptf-02,10.250.0.106/24,fec0::ffff:afa:6/64,server_1,VM0104,[vlab-03],Tests virtual switch vm
-vms-kvm-t0-2,vms6-3,t0,docker-ptf,ptf-03,10.250.0.108/24,fec0::ffff:afa:8/64,server_1,VM0104,[vlab-04],Tests virtual switch vm
+../ansible/vtestbed.csv

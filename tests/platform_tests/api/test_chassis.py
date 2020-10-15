@@ -16,6 +16,17 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+###################################################
+# TODO: Remove this after we transition to Python 3
+import sys
+if sys.version_info.major == 3:
+    STRING_TYPE = str
+else:
+    STRING_TYPE = basestring
+# END Remove this after we transition to Python 3
+###################################################
+
+
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
 
@@ -40,8 +51,55 @@ ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get platform facts from platform.json file
+    request.cls.chassis_facts = duthost.facts.get("chassis")
+
+    # Get host vars from inventory file
+    request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+
+
+@pytest.mark.usefixtures("gather_facts")
 class TestChassisApi(PlatformApiTestBase):
-    ''' Platform API test cases for the Chassis class'''
+    """Platform API test cases for the Chassis class"""
+
+    chassis_facts = None
+    duthost_vars = None
+
+    #
+    # Helper functions
+    #
+
+    def compare_value_with_platform_facts(self, key, value):
+        expected_value = None
+
+        if self.chassis_facts:
+            expected_value = self.chassis_facts.get(key)
+
+        pytest_assert(expected_value is not None,
+                      "Unable to get expected value for '{}' from platform.json file".format(key))
+
+        pytest_assert(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
+
+    def compare_value_with_device_facts(self, key, value, case_sensitive=True):
+        expected_value = None
+
+        if self.duthost_vars:
+            expected_value = self.duthost_vars.get(key)
+
+        pytest_assert(expected_value is not None,
+                      "Unable to get expected value for '{}' from inventory file".format(key))
+
+        if case_sensitive:
+            pytest_assert(value == expected_value,
+                          "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
+        else:
+            value_lower = value.lower()
+            expected_value_lower = expected_value.lower()
+            pytest_assert(value_lower == expected_value_lower,
+                          "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -50,7 +108,8 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_name(self, duthost, localhost, platform_api_conn):
         name = chassis.get_name(platform_api_conn)
         pytest_assert(name is not None, "Unable to retrieve chassis name")
-        pytest_assert(isinstance(name, str), "Chassis name appears incorrect")
+        pytest_assert(isinstance(name, STRING_TYPE), "Chassis name appears incorrect")
+        self.compare_value_with_platform_facts('name', name)
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
         presence = chassis.get_presence(platform_api_conn)
@@ -62,12 +121,14 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_model(self, duthost, localhost, platform_api_conn):
         model = chassis.get_model(platform_api_conn)
         pytest_assert(model is not None, "Unable to retrieve chassis model")
-        pytest_assert(isinstance(model, str), "Chassis model appears incorrect")
+        pytest_assert(isinstance(model, STRING_TYPE), "Chassis model appears incorrect")
+        self.compare_value_with_device_facts('model', model)
 
     def test_get_serial(self, duthost, localhost, platform_api_conn):
         serial = chassis.get_serial(platform_api_conn)
         pytest_assert(serial is not None, "Unable to retrieve chassis serial number")
-        pytest_assert(isinstance(serial, str), "Chassis serial number appears incorrect")
+        pytest_assert(isinstance(serial, STRING_TYPE), "Chassis serial number appears incorrect")
+        self.compare_value_with_device_facts('serial', serial)
 
     def test_get_status(self, duthost, localhost, platform_api_conn):
         status = chassis.get_status(platform_api_conn)
@@ -83,30 +144,7 @@ class TestChassisApi(PlatformApiTestBase):
         base_mac = chassis.get_base_mac(platform_api_conn)
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
-
-        if 'base_mac' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
-            expected_base_mac = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['base_mac']
-            pytest_assert(base_mac.lower() == expected_base_mac.lower(), "Base MAC address is incorrect")
-        else:
-            logger.warning('Inventory file does not contain base MAC address for {}'.format(duthost.hostname))
-
-    def test_get_serial_number(self, duthost, localhost, platform_api_conn):
-        # Ensure the serial number is sane
-        # Note: It appears that when retrieving some variable-length fields,
-        # the value is padded with trailing '\x00' bytes because the field
-        # length is longer than the actual value, so we strip those bytes
-        # here before comparing. We may want to change the EEPROM parsing
-        # logic to ensure that trailing '\x00' bytes are removed when retreiving
-        # a variable-length value.
-        serial = chassis.get_serial_number(platform_api_conn).rstrip('\x00')
-        pytest_assert(serial is not None, "Failed to retrieve serial number")
-        pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
-
-        if 'serial' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
-            expected_serial = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['serial']
-            pytest_assert(serial == expected_serial, "Serial number is incorrect")
-        else:
-            logger.warning('Inventory file does not contain serial number for {}'.format(duthost.hostname))
+        self.compare_value_with_device_facts('base_mac', base_mac, False)
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
@@ -160,11 +198,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(serial is not None, "Failed to retrieve serial number")
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
 
-        if 'syseeprom_info' in duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars:
-            expected_syseeprom_info_dict = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['syseeprom_info']
-            pytest_assert(syseeprom_info_dict == expected_syseeprom_info_dict, "System EEPROM info is incorrect")
-        else:
-            logger.warning('Inventory file does not contain system EEPROM info for {}'.format(duthost.hostname))
+        self.compare_value_with_device_facts('syseeprom_info', syseeprom_info_dict)
 
     def test_get_reboot_cause(self, duthost, localhost, platform_api_conn):
         # TODO: Compare return values to potential combinations
@@ -176,11 +210,16 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(isinstance(reboot_cause, list) and len(reboot_cause) == 2, "Reboot cause appears to be incorrect")
 
     def test_components(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of components and that the returned list is correct for this platform
         try:
             num_components = int(chassis.get_num_components(platform_api_conn))
         except:
             pytest.fail("num_components is not an integer")
+
+        if self.chassis_facts:
+            expected_num_components = len(self.chassis_facts.get('components'))
+            pytest_assert(num_components == expected_num_components,
+                          "Number of components ({}) does not match expected number ({})"
+                          .format(num_components, expected_num_components))
 
         component_list = chassis.get_all_components(platform_api_conn)
         pytest_assert(component_list is not None, "Failed to retrieve components")
@@ -192,7 +231,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_modules(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of modules and that the returned list is correct for this platform
         try:
             num_modules = int(chassis.get_num_modules(platform_api_conn))
         except:
@@ -208,11 +246,16 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_fans(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of fans and that the returned list is correct for this platform
         try:
             num_fans = int(chassis.get_num_fans(platform_api_conn))
         except:
             pytest.fail("num_fans is not an integer")
+
+        if self.chassis_facts:
+            expected_num_fans = len(self.chassis_facts.get('fans'))
+            pytest_assert(num_fans == expected_num_fans,
+                          "Number of fans ({}) does not match expected number ({})"
+                          .format(num_fans, expected_num_fans))
 
         fan_list = chassis.get_all_fans(platform_api_conn)
         pytest_assert(fan_list is not None, "Failed to retrieve fans")
@@ -224,11 +267,16 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_fan_drawers(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of fan drawers and that the returned list is correct for this platform
         try:
             num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
         except:
             pytest.fail("num_fan_drawers is not an integer")
+
+        if self.chassis_facts:
+            expected_num_fan_drawers = len(self.chassis_facts.get('fan_drawers'))
+            pytest_assert(num_fan_drawers == expected_num_fan_drawers,
+                          "Number of fan drawers ({}) does not match expected number ({})"
+                          .format(num_fan_drawers, expected_num_fan_drawers))
 
         fan_drawer_list = chassis.get_all_fan_drawers(platform_api_conn)
         pytest_assert(fan_drawer_list is not None, "Failed to retrieve fan drawers")
@@ -240,11 +288,16 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_psus(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of PSUs and that the returned list is correct for this platform
         try:
             num_psus = int(chassis.get_num_psus(platform_api_conn))
         except:
             pytest.fail("num_psus is not an integer")
+
+        if self.chassis_facts:
+            expected_num_psus = len(self.chassis_facts.get('psus'))
+            pytest_assert(num_psus == expected_num_psus,
+                          "Number of psus ({}) does not match expected number ({})"
+                          .format(num_psus, expected_num_psus))
 
         psu_list = chassis.get_all_psus(platform_api_conn)
         pytest_assert(psu_list is not None, "Failed to retrieve PSUs")
@@ -256,11 +309,16 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_thermals(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of thermals and that the returned list is correct for this platform
         try:
             num_thermals = int(chassis.get_num_thermals(platform_api_conn))
         except:
             pytest.fail("num_thermals is not an integer")
+
+        if self.chassis_facts:
+            expected_num_thermals = len(self.chassis_facts.get('thermals'))
+            pytest_assert(num_thermals == expected_num_thermals,
+                          "Number of thermals ({}) does not match expected number ({})"
+                          .format(num_thermals, expected_num_thermals))
 
         thermal_list = chassis.get_all_thermals(platform_api_conn)
         pytest_assert(thermal_list is not None, "Failed to retrieve thermals")
@@ -272,11 +330,16 @@ class TestChassisApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_sfps(self, duthost, localhost, platform_api_conn):
-        # TODO: Ensure the number of SFPs and that the returned list is correct for this platform
         try:
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
             pytest.fail("num_sfps is not an integer")
+
+        if self.chassis_facts:
+            expected_num_sfps = len(self.chassis_facts.get('sfps'))
+            pytest_assert(num_sfps == expected_num_sfps,
+                          "Number of sfps ({}) does not match expected number ({})"
+                          .format(num_sfps, expected_num_sfps))
 
         sfp_list = chassis.get_all_sfps(platform_api_conn)
         pytest_assert(sfp_list is not None, "Failed to retrieve SFPs")
@@ -303,7 +366,7 @@ class TestChassisApi(PlatformApiTestBase):
 
             color_actual = chassis.get_status_led(platform_api_conn)
             if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                if self.expect(isinstance(color_actual, str), "Status LED color appears incorrect"):
+                if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
                     self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
         self.assert_expectations()
 

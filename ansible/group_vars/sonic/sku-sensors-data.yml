@@ -2687,7 +2687,7 @@ sensors_checks:
       - dps1900-i2c-7-58/vout1/in2_crit_alarm
       - dps1900-i2c-7-58/vout1/in2_lcrit_alarm
       temp:
-      - coretemp-isa-0000/Physical id 0/temp1_crit_alarm
+      - coretemp-isa-0000/P[a-z]* id 0/temp1_crit_alarm
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
       - dps1900-i2c-6-58/PSU1 primary hotspot temp/temp1_alarm
@@ -2718,8 +2718,8 @@ sensors_checks:
       - - dps1900-i2c-7-58/iout1/curr2_input
         - dps1900-i2c-7-58/iout1/curr2_max
       temp:
-      - - coretemp-isa-0000/Physical id 0/temp1_input
-        - coretemp-isa-0000/Physical id 0/temp1_max
+      - - coretemp-isa-0000/P[a-z]* id 0/temp1_input
+        - coretemp-isa-0000/P[a-z]* id 0/temp1_max
       - - coretemp-isa-0000/Core 0/temp2_input
         - coretemp-isa-0000/Core 0/temp2_max
       - - coretemp-isa-0000/Core 1/temp3_input
@@ -2767,92 +2767,6 @@ sensors_checks:
       fan: []
       power: []
       temp: []
-    psu_skips: {}
-
-  x86_64-accton_wedge100bf_65x-r0:
-    alarms:
-      fan: []
-      power: []
-      temp: []
-
-    compares:
-      fan: []
-      power: []
-      temp:
-      - - tmp75-i2c-3-48/Outlet Middle Temp/temp1_input
-        - tmp75-i2c-3-48/Outlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-49/Inlet Middle Temp/temp1_input
-        - tmp75-i2c-3-49/Inlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-4a/Inlet Left Temp/temp1_input
-        - tmp75-i2c-3-4a/Inlet Left Temp/temp1_max
-      - - tmp75-i2c-3-4b/Switch Temp/temp1_input
-        - tmp75-i2c-3-4b/Switch Temp/temp1_max
-      - - tmp75-i2c-3-4c/Inlet Right Temp/temp1_input
-        - tmp75-i2c-3-4c/Inlet Right Temp/temp1_max
-      - - tmp75-i2c-8-48/Outlet Right Temp/temp1_input
-        - tmp75-i2c-8-48/Outlet Right Temp/temp1_max
-      - - tmp75-i2c-8-49/Outlet Left Temp/temp1_input
-        - tmp75-i2c-8-49/Outlet Left Temp/temp1_max
-
-    non_zero:
-      fan:
-      - fancpld-i2c-8-33/Fan 1 front/fan1_input
-      - fancpld-i2c-8-33/Fan 1 rear/fan2_input
-      - fancpld-i2c-8-33/Fan 2 front/fan3_input
-      - fancpld-i2c-8-33/Fan 2 rear/fan4_input
-      - fancpld-i2c-8-33/Fan 3 front/fan5_input
-      - fancpld-i2c-8-33/Fan 3 rear/fan6_input
-      - fancpld-i2c-8-33/Fan 4 front/fan7_input
-      - fancpld-i2c-8-33/Fan 4 rear/fan8_input
-      - fancpld-i2c-8-33/Fan 5 front/fan9_input
-      - fancpld-i2c-8-33/Fan 5 rear/fan10_input
-
-      power: []
-      temp: []
-
-    psu_skips: {}
-
-  x86_64-accton_wedge100bf_32x-r0:
-    alarms:
-      fan: []
-      power: []
-      temp: []
-
-    compares:
-      fan: []
-      power: []
-      temp:
-      - - tmp75-i2c-3-48/Outlet Middle Temp/temp1_input
-        - tmp75-i2c-3-48/Outlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-49/Inlet Middle Temp/temp1_input
-        - tmp75-i2c-3-49/Inlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-4a/Inlet Left Temp/temp1_input
-        - tmp75-i2c-3-4a/Inlet Left Temp/temp1_max
-      - - tmp75-i2c-3-4b/Switch Temp/temp1_input
-        - tmp75-i2c-3-4b/Switch Temp/temp1_max
-      - - tmp75-i2c-3-4c/Inlet Right Temp/temp1_input
-        - tmp75-i2c-3-4c/Inlet Right Temp/temp1_max
-      - - tmp75-i2c-8-48/Outlet Right Temp/temp1_input
-        - tmp75-i2c-8-48/Outlet Right Temp/temp1_max
-      - - tmp75-i2c-8-49/Outlet Left Temp/temp1_input
-        - tmp75-i2c-8-49/Outlet Left Temp/temp1_max
-
-    non_zero:
-      fan:
-      - fancpld-i2c-8-33/Fan 1 front/fan1_input
-      - fancpld-i2c-8-33/Fan 1 rear/fan2_input
-      - fancpld-i2c-8-33/Fan 2 front/fan3_input
-      - fancpld-i2c-8-33/Fan 2 rear/fan4_input
-      - fancpld-i2c-8-33/Fan 3 front/fan5_input
-      - fancpld-i2c-8-33/Fan 3 rear/fan6_input
-      - fancpld-i2c-8-33/Fan 4 front/fan7_input
-      - fancpld-i2c-8-33/Fan 4 rear/fan8_input
-      - fancpld-i2c-8-33/Fan 5 front/fan9_input
-      - fancpld-i2c-8-33/Fan 5 rear/fan10_input
-
-      power: []
-      temp: []
-
     psu_skips: {}
 
   x86_64-arista_7050_qx32s:

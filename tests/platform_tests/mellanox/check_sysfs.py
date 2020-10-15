@@ -4,6 +4,7 @@ Helper script for checking status of sysfs.
 This script contains re-usable functions for checking status of hw-management related sysfs.
 """
 import logging
+from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 
 
@@ -11,47 +12,46 @@ def check_sysfs(dut):
     """
     @summary: Check various hw-management related sysfs under /var/run/hw-management
     """
-    dut_hwsku = dut.facts["hwsku"]
-    from tests.common.mellanox_data import SWITCH_MODELS
-    sku_info = SWITCH_MODELS[dut_hwsku]
-    sysfs_config = generate_sysfs_config(sku_info)
+    platform_data = get_platform_data(dut)
+    sysfs_config = generate_sysfs_config(platform_data)
     logging.info("Collect mellanox sysfs facts")
     sysfs_facts = dut.sysfs_facts(config=sysfs_config)['ansible_facts']
 
     logging.info("Check broken symbolinks")
     broken_symbolinks = sysfs_facts['symbolink_info']['broken_links']
     assert len(broken_symbolinks) == 0, \
-        "Found some broken symbolinks: %s" % str(broken_symbolinks)
+        "Found some broken symbolinks: {}".format(str(broken_symbolinks))
 
     logging.info("Check ASIC related sysfs")
     try:
         asic_temp = float(sysfs_facts['asic_info']['temp']) / 1000
-        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: %s" % sysfs_facts['asic_info']['temp']
+        assert 0 < asic_temp < 105, "Abnormal ASIC temperature: {}".format(sysfs_facts['asic_info']['temp'])
     except Exception as e:
-        assert False, "Bad content in /var/run/hw-management/thermal/asic: %s" % repr(e)
+        assert False, "Bad content in /var/run/hw-management/thermal/asic: {}".format(repr(e))
 
     logging.info("Check fan related sysfs")
     for fan_id, fan_info in sysfs_facts['fan_info'].items():
-        if SWITCH_MODELS[dut_hwsku]["fans"]["hot_swappable"]:
+        if platform_data["fans"]["hot_swappable"]:
             assert fan_info['status'] == '1', "Fan {} status {} is not 1".format(fan_id, fan_info['status'])
 
         assert fan_info['fault'] == '0', "Fan {} fault status {} is not 1".format(fan_id, fan_info['fault'])
 
     if not _is_fan_speed_in_range(sysfs_facts):
-        sysfs_fan_config = [generate_sysfs_fan_config(sku_info)]
+        sysfs_fan_config = [generate_sysfs_fan_config(platform_data)]
         assert wait_until(30, 5, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
 
     logging.info("Check CPU related sysfs")
     cpu_temp_high_counter = 0
     cpu_temp_list = []
     cpu_crit_temp_list = []
-    cpu_pack_count = sku_info["cpu_pack"]["number"]
+    cpu_pack_count = platform_data["cpu_pack"]["number"]
     if cpu_pack_count > 0:
         cpu_pack_temp = float(sysfs_facts['cpu_pack_info']['temp']) / 1000
         cpu_pack_max_temp = float(sysfs_facts['cpu_pack_info']['max_temp']) / 1000
         cpu_pack_crit_temp = float(sysfs_facts['cpu_pack_info']['crit_temp']) / 1000
-        assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, %s, %s " \
-                                                        % (str(cpu_pack_max_temp), str(cpu_pack_crit_temp))
+        assert cpu_pack_max_temp <= cpu_pack_crit_temp, "Bad CPU pack max temp or critical temp, {}, {} ".format(
+                                                    str(cpu_pack_max_temp), 
+                                                    str(cpu_pack_crit_temp))
         if cpu_pack_temp >= cpu_pack_crit_temp:
             cpu_temp_high_counter += 1
         cpu_temp_list.append(cpu_pack_temp)
@@ -61,8 +61,10 @@ def check_sysfs(dut):
         cpu_core_temp = float(cpu_info["temp"]) / 1000
         cpu_core_max_temp = float(cpu_info["max_temp"]) / 1000
         cpu_core_crit_temp = float(cpu_info["crit_temp"]) / 1000
-        assert cpu_core_max_temp <= cpu_core_crit_temp, "Bad CPU core%d max temp or critical temp, %s, %s " \
-                                                        % (core_id, str(cpu_core_max_temp), str(cpu_core_crit_temp))
+        assert cpu_core_max_temp <= cpu_core_crit_temp, "Bad CPU core{} max temp or critical temp, {}, {} ".format(
+                                                    core_id, 
+                                                    str(cpu_core_max_temp), 
+                                                    str(cpu_core_crit_temp))
         if cpu_core_temp >= cpu_core_crit_temp:
             cpu_temp_high_counter += 1
         cpu_temp_list.append(cpu_core_temp)
@@ -74,25 +76,26 @@ def check_sysfs(dut):
         assert False, "At least {} of the CPU cores or pack is overheated".format(cpu_temp_high_counter)
 
     logging.info("Check PSU related sysfs")
-    if SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]:
+    if platform_data["psus"]["hot_swappable"]:
         for psu_id, psu_info in sysfs_facts['psu_info'].items():
+            psu_id = int(psu_id)
             psu_status = int(psu_info["status"])
             if not psu_status:
-                logging.info("PSU %d doesn't exist, skipped" % psu_id)
+                logging.info("PSU {} doesn't exist, skipped".format(psu_id))
                 continue
 
             psu_pwr_status = int(psu_info["pwr_status"])
             if not psu_pwr_status:
-                logging.info("PSU %d isn't power on, skipped" % psu_id)
+                logging.info("PSU {} isn't power on, skipped".format(psu_id))
                 continue
 
             psu_temp = float(psu_info["temp"]) / 1000
             psu_max_temp = float(psu_info["max_temp"]) / 1000
-            assert psu_temp < psu_max_temp, "PSU%d overheated, temp: %s" % (psu_id, str(psu_temp))
+            assert psu_temp < psu_max_temp, "PSU{} overheated, temp: {}".format(psu_id, str(psu_temp))
             assert psu_info["max_temp_alarm"] == '0', "PSU{} temp alarm set".format(psu_id)
             try:
                 psu_fan_speed = int(psu_info["fan_speed"])
-                assert psu_fan_speed > 1000, "Bad fan speed: %s" % str(psu_fan_speed)
+                assert psu_fan_speed > 1000, "Bad fan speed: {}".format(str(psu_fan_speed))
             except Exception as e:
                 assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["fan_speed"],
                                                                                          psu_id, e)
@@ -104,10 +107,10 @@ def check_sysfs(dut):
         sfp_temp_crit = float(sfp_info['crit_temp']) if sfp_info['crit_temp'] != '0' else 0
         sfp_temp_emergency = float(sfp_info['emergency_temp']) if sfp_info['emergency_temp'] != '0' else 0
         if sfp_temp_crit != 0:
-            assert sfp_temp < sfp_temp_crit, "SFP%d overheated, temp%s" % (sfp_id, str(sfp_temp))
+            assert sfp_temp < sfp_temp_crit, "SFP{} overheated, temp{}".format(sfp_id, str(sfp_temp))
             assert sfp_temp_crit < sfp_temp_emergency, "Wrong SFP critical temp or emergency temp, " \
-                                                       "critical temp: %s emergency temp: %s" \
-                                                       % (str(sfp_temp_crit), str(sfp_temp_emergency))
+                                                       "critical temp: {} emergency temp: {}".format(
+                                                           str(sfp_temp_crit), str(sfp_temp_emergency))
     logging.info("Finish checking sysfs")
 
 
@@ -115,28 +118,27 @@ def check_psu_sysfs(dut, psu_id, psu_state):
     """
     @summary: Check psu related sysfs under /var/run/hw-management/thermal against psu_state
     """
-    psu_exist = "/var/run/hw-management/thermal/psu%s_status" % psu_id
+    psu_exist = "/var/run/hw-management/thermal/psu{}_status".format(psu_id)
     if psu_state == "NOT PRESENT":
-        psu_exist_content = dut.command("cat %s" % psu_exist)
-        logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
-        assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while %s contains %s" % \
-                                                   (psu_exist, psu_exist_content["stdout"])
+        psu_exist_content = dut.command("cat {}".format(psu_exist))
+        logging.info("PSU state {} file {} read {}".format(psu_state, psu_exist, psu_exist_content["stdout"]))
+        assert psu_exist_content["stdout"] == "0", "CLI returns NOT PRESENT while {} contains {}".format(
+                                                   psu_exist, psu_exist_content["stdout"])
     else:
-        from tests.common.mellanox_data import SWITCH_MODELS
-        dut_hwsku = dut.facts["hwsku"]
-        hot_swappabe = SWITCH_MODELS[dut_hwsku]["psus"]["hot_swappable"]
-        if hot_swappabe:
-            psu_exist_content = dut.command("cat %s" % psu_exist)
-            logging.info("PSU state %s file %s read %s" % (psu_state, psu_exist, psu_exist_content["stdout"]))
-            assert psu_exist_content["stdout"] == "1", "CLI returns %s while %s contains %s" % \
-                                                       (psu_state, psu_exist, psu_exist_content["stdout"])
+        platform_data = get_platform_data(dut)
+        hot_swappable = platform_data["psus"]["hot_swappable"]
+        if hot_swappable:
+            psu_exist_content = dut.command("cat {}".format(psu_exist))
+            logging.info("PSU state {} file {} read {}".format(psu_state, psu_exist, psu_exist_content["stdout"]))
+            assert psu_exist_content["stdout"] == "1", "CLI returns {} while {} contains {}".format(
+                                                       psu_state, psu_exist, psu_exist_content["stdout"])
 
-        psu_pwr_state = "/var/run/hw-management/thermal/psu%s_pwr_status" % psu_id
-        psu_pwr_state_content = dut.command("cat %s" % psu_pwr_state)
-        logging.info("PSU state %s file %s read %s" % (psu_state, psu_pwr_state, psu_pwr_state_content["stdout"]))
+        psu_pwr_state = "/var/run/hw-management/thermal/psu{}_pwr_status".format(psu_id)
+        psu_pwr_state_content = dut.command("cat {}".format(psu_pwr_state))
+        logging.info("PSU state {} file {} read {}".format(psu_state, psu_pwr_state, psu_pwr_state_content["stdout"]))
         assert (psu_pwr_state_content["stdout"] == "1" and psu_state == "OK") \
                or (psu_pwr_state_content["stdout"] == "0" and psu_state == "NOT OK"), \
-            "sysfs content %s mismatches with psu_state %s" % (psu_pwr_state_content["stdout"], psu_state)
+            "sysfs content {} mismatches with psu_state {}".format(psu_pwr_state_content["stdout"], psu_state)
 
 
 def _check_fan_speed_in_range(dut, config):
@@ -164,25 +166,26 @@ def _is_fan_speed_in_range(sysfs_facts):
             high_threshold = ((float(fan_speed_set) / 255) * fan_max_speed) * (1 + 0.5)
             return low_threshold < fan_speed_get < high_threshold
         except Exception as e:
-            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}'.format(
+            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}, exception={}'.format(
+                fan_info["speed_get"],
+                fan_info["speed_set"],
                 fan_info["min_speed"],
                 fan_info["max_speed"],
-                fan_info["speed_set"],
-                fan_info["speed_get"]
+                e
             )
 
 
-def generate_sysfs_config(sku_info):
+def generate_sysfs_config(platform_data):
     config = list()
     config.append(generate_sysfs_symbolink_config())
     config.append(generate_sysfs_asic_config())
-    if sku_info["cpu_pack"]["number"] > 0:
+    if platform_data["cpu_pack"]["number"] > 0:
         config.append(generate_sysfs_cpu_pack_config())
-    config.append(generate_sysfs_cpu_core_config(sku_info))
-    config.append(generate_sysfs_fan_config(sku_info))
-    if sku_info['psus']['hot_swappable']:
-        config.append(generate_sysfs_psu_config(sku_info))
-    config.append(generate_sysfs_sfp_config(sku_info))
+    config.append(generate_sysfs_cpu_core_config(platform_data))
+    config.append(generate_sysfs_fan_config(platform_data))
+    if platform_data['psus']['hot_swappable']:
+        config.append(generate_sysfs_psu_config(platform_data))
+    config.append(generate_sysfs_sfp_config(platform_data))
     return config
 
 
@@ -212,11 +215,11 @@ def generate_sysfs_asic_config():
     }
 
 
-def generate_sysfs_fan_config(sku_info):
+def generate_sysfs_fan_config(platform_data):
     fan_config = {
         'name': 'fan_info',
         'start': 1,
-        'count': sku_info['fans']['number'],
+        'count': platform_data['fans']['number'],
         'type': 'increment',
         'properties': [
             {
@@ -245,7 +248,7 @@ def generate_sysfs_fan_config(sku_info):
             }
         ]
     }
-    if not sku_info['fans']['hot_swappable']:
+    if not platform_data['fans']['hot_swappable']:
         fan_config['properties'] = fan_config['properties'][1:]
     return fan_config
 
@@ -271,11 +274,11 @@ def generate_sysfs_cpu_pack_config():
     }
 
 
-def generate_sysfs_cpu_core_config(sku_info):
+def generate_sysfs_cpu_core_config(platform_data):
     return {
         'name': 'cpu_core_info',
         'start': 0,
-        'count': sku_info['cpu_cores']['number'],
+        'count': platform_data['cpu_cores']['number'],
         'type': 'increment',
         'properties': [
             {
@@ -294,11 +297,11 @@ def generate_sysfs_cpu_core_config(sku_info):
     }
 
 
-def generate_sysfs_psu_config(sku_info):
+def generate_sysfs_psu_config(platform_data):
     return {
         'name': 'psu_info',
         'start': 1,
-        'count': sku_info['psus']['number'],
+        'count': platform_data['psus']['number'],
         'type': 'increment',
         'properties': [
             {
@@ -329,11 +332,11 @@ def generate_sysfs_psu_config(sku_info):
     }
 
 
-def generate_sysfs_sfp_config(sku_info):
+def generate_sysfs_sfp_config(platform_data):
     return {
         'name': 'sfp_info',
         'start': 1,
-        'count': sku_info['ports']['number'],
+        'count': platform_data['ports']['number'],
         'type': 'increment',
         'properties': [
             {

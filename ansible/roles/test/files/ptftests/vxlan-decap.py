@@ -31,8 +31,6 @@ import subprocess
 import traceback
 import socket
 import struct
-from pprint import pprint
-from pprint import pformat
 from device_connection import DeviceConnection
 import re
 
@@ -91,6 +89,9 @@ class Vxlan(BaseTest):
         self.vxlan_enabled = False
         self.random_mac = '8c:01:02:03:04:05'
         self.nr = 1
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        log_file_name = "/tmp/vxlan_decap_test.{}.log".format(current_time)
+        self.log_fp = open(log_file_name, 'w')
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -102,11 +103,17 @@ class Vxlan(BaseTest):
 
         return stdout, stderr, return_code
 
+    def log(self, message):
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.log_fp.write("{} : {}\n".format(current_time, message))
+        self.log_fp.flush()
+
     def readMacs(self):
         addrs = {}
         for intf in os.listdir('/sys/class/net'):
-            with open('/sys/class/net/%s/address' % intf) as fp:
-                addrs[intf] = fp.read().strip()
+            if os.path.isdir('/sys/class/net/%s' % intf):
+                with open('/sys/class/net/%s/address' % intf) as fp:
+                    addrs[intf] = fp.read().strip()
 
         return addrs
 
@@ -293,10 +300,11 @@ class Vxlan(BaseTest):
 
     def tearDown(self):
         self.cmd(["supervisorctl", "stop", "arp_responder"])
+        self.log_fp.close()
         return
 
     def warmup(self):
-        print "Warming up"
+        self.log("Warming up")
         err = ''
         trace = ''
         ret = 0
@@ -306,6 +314,7 @@ class Vxlan(BaseTest):
                 self.RegularLAGtoVLAN(test, True)
                 #wait sometime for DUT to build FDB and ARP table
                 res = self.wait_dut(test, TIMEOUT)
+                self.log_dut_status()
                 self.assertTrue(res, "DUT is not ready after {} seconds".format(TIMEOUT))
 
         except Exception as e:
@@ -313,52 +322,69 @@ class Vxlan(BaseTest):
             trace = traceback.format_exc()
             ret = -1
         if ret != 0:
-            print "The warmup failed"
-            print
-            print "Error: %s" % err
-            print
-            print trace
+            self.log("The warmup failed")
+            self.log("Error: %s" % err)
+            self.log(trace)
         else:
-            print "Warmup successful\n"
+            self.log("Warmup successful")
         sys.stdout.flush()
         if ret != 0:
             raise AssertionError("Warmup failed")
 
+    def log_dut_status(self):
+        COMMAND = 'show arp'
+        stdout, stderr, return_code = self.dut_connection.execCommand(COMMAND)
+        self.log("ARP table on DUT \n{}".format(stdout))
+
+        COMMAND = 'fdbshow'
+        stdout, stderr, return_code = self.dut_connection.execCommand(COMMAND)
+        self.log("MAC table on DUT \n{}".format(stdout))
+
+        COMMAND = 'show vxlan tunnel'
+        stdout, stderr, return_code = self.dut_connection.execCommand(COMMAND)
+        self.log("vxlan config on DUT \n{}".format(stdout))
+
     def work_test(self):
-        print "Testing"
+        self.log("Testing")
         err = ''
         trace = ''
         ret = 0
         try:
             for test in self.tests:
-                print test['name']
+                self.log(test['name'])
 
                 res_f, out_f = self.RegularLAGtoVLAN(test)
-                print "  RegularLAGtoVLAN = ", res_f
-                self.assertTrue(res_f, "RegularLAGtoVLAN test failed:\n  %s\n\ntest:\n%s" % (out_f, pformat(test)))
+                self.log("RegularLAGtoVLAN = {} {}".format(res_f, out_f))
+                if not res_f:
+                    self.log_dut_status()
+                self.assertTrue(res_f, "RegularLAGtoVLAN test failed:\n  %s\n" % (out_f))
 
                 res_t, out_t = self.RegularVLANtoLAG(test)
-                print "  RegularVLANtoLAG = ", res_t
-                self.assertTrue(res_t, "RegularVLANtoLAG test failed:\n  %s\n\ntest:\n%s" % (out_t, pformat(test)))
+                self.log("RegularVLANtoLAG = {} {}".format(res_t, out_t))
+                if not res_t:
+                    self.log_dut_status()
+                self.assertTrue(res_t, "RegularVLANtoLAG test failed:\n  %s\n" % (out_t))
 
                 res_v, out_v = self.Vxlan(test)
-                print "  Vxlan            = ", res_v
+                self.log("Vxlan = {} {}".format(res_v, out_v))
                 if self.vxlan_enabled:
-                    self.assertTrue(res_v, "VxlanTest failed:\n  %s\n\ntest:\n%s"  % (out_v, pformat(test)))
+                    if not res_v:
+                        self.log_dut_status()
+                    self.assertTrue(res_v, "VxlanTest failed:\n  %s\n"  % (out_v))
                 else:
-                    self.assertFalse(res_v, "VxlanTest: vxlan works, but it must have been disabled!\n\ntest:%s" % pformat(test))
+                    if res_v:
+                        self.log_dut_status()
+                    self.assertFalse(res_v, "VxlanTest: vxlan works, but it must have been disabled!\n")
         except AssertionError as e:
             err = str(e)
             trace = traceback.format_exc()
             ret = -1
         if ret != 0:
-            print "The test failed"
-            print
-            print "Error: %s" % err
-            print
-            print trace
+            self.log("The test failed")
+            self.log("Error: {}".format(err))
+            self.log(trace)
         else:
-            print "The test was successful"
+            self.log("The test was successful")
         sys.stdout.flush()
         if ret != 0:
             raise AssertionError(err)

@@ -30,8 +30,17 @@ def get_graph_facts(duthost, localhost, hostnames):
     duthost - pytest fixture
     hostnames - can be either a single DUT or a list of multiple DUTs
     """
-    conn_graph_facts = dict()
     base_path = os.path.dirname(os.path.realpath(__file__))
+    lab_conn_graph_path = os.path.join(base_path, "../../../ansible/files/")
+
+    # BEGINING OF DEPRECATE WARNING:
+    #
+    # conn_graph_facts is able to look up the right graph according to
+    # the hostname(s) passed in from all graph file lists. Therefore the
+    # inv_mapping.yml solution is become redandunt. Please move on to
+    # populate ansible/files/graph_files.yml with all graph files.
+    # The next chunk of code will be deprecated in the future.
+
     # yaml file contains mapping from inventory file name to its corresponding graph file
     inv_mapping_file = os.path.join(base_path, "../../../ansible/group_vars/all/inv_mapping.yml")
     if os.path.exists(inv_mapping_file):
@@ -51,7 +60,7 @@ def get_graph_facts(duthost, localhost, hostnames):
             # For the first inventory file that has a mapping in inv_mapping.yml, return
             # its conn_graph_facts.
             if inv_map and inv_file in inv_map:
-                lab_conn_graph_file = os.path.join(base_path, "../../../ansible/files/{}".format(inv_map[inv_file]))
+                lab_conn_graph_file = os.path.join(lab_conn_graph_path, inv_map[inv_file])
                 kargs = {"filename": lab_conn_graph_file}
                 if isinstance(hostnames, six.string_types):
                     kargs["host"] = hostnames
@@ -60,4 +69,13 @@ def get_graph_facts(duthost, localhost, hostnames):
                 conn_graph_facts = localhost.conn_graph_facts(
                     **kargs)["ansible_facts"]
                 return conn_graph_facts
+    # END OF DEPRECATE WARNING: deprecate ends here.
+
+    kargs = {"filepath": lab_conn_graph_path}
+    if isinstance(hostnames, six.string_types):
+        kargs["host"] = hostnames
+    elif isinstance(hostnames, (list, tuple)):
+        kargs["hosts"] = hostnames
+    conn_graph_facts = localhost.conn_graph_facts(
+        **kargs)["ansible_facts"]
     return conn_graph_facts
