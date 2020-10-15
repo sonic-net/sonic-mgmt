@@ -1,18 +1,12 @@
 import pytest
-import ptf.testutils as testutils
-from collections import defaultdict
 from datetime import datetime
 
 import time
-import itertools
 import logging
-import pprint
 import ipaddress
 import json
-from jinja2 import Template
-from ptf.mask import Mask
-import ptf.packet as scapy
-from ptf_runner import ptf_runner
+from tests.ptf_runner import ptf_runner
+from tests.common import config_reload
 
 # Constants
 NUM_NHs = 8
@@ -152,7 +146,7 @@ def setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_p
     time.sleep(60)
     setup_neighbors(duthost, ptfhost, ip_to_port)
     create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports, prefix)
-    ptfhost.copy(src="ptftests/fg_ecmp_test.py", dest="/root/ptftests")
+    ptfhost.copy(src="ptftests", dest="/root")
     return port_list, ip_to_port, bank_0_port, bank_1_port
 
 
@@ -181,8 +175,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             "fg_ecmp_test.FgEcmpTest",
             platform_dir="ptftests",
             params={"test_case": 'create_flows',
-                    "exp_flow_count": exp_flow_count,
-                    "config_file": FG_ECMP_CFG},
+                "exp_flow_count": exp_flow_count,
+                "config_file": FG_ECMP_CFG},
             qlen=1000,
             log_file=log_file)
 
@@ -308,8 +302,12 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             log_file=log_file)
 
 
-def test_fg_ecmp(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost):
-    if testbed['topo']['name'] not in SUPPORTED_TOPO:
+def cleanup(duthost):
+    config_reload(duthost)
+
+
+def test_fg_ecmp(ansible_adhoc, tbinfo, ptfadapter, duthost, ptfhost):
+    if tbinfo['topo']['name'] not in SUPPORTED_TOPO:
         pytest.skip("Unsupported topology")
     if duthost.facts["asic_type"] not in SUPPORTED_PLATFORMS:
         pytest.skip("Unsupported platform")
@@ -330,3 +328,6 @@ def test_fg_ecmp(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost):
     # IPv6 test
     port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6, PREFIX_IPv6)
     fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6) 
+
+    # Cleanup all configuration to default after the test completes
+    cleanup(duthost)

@@ -10,8 +10,6 @@
 import ipaddress
 import logging
 import random
-import socket
-import sys
 import time
 import os
 import json
@@ -20,15 +18,11 @@ from ipaddress import ip_address, ip_network
 
 import ptf
 import ptf.packet as scapy
-import ptf.dataplane as dataplane
 
-from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 import ptf.testutils as testutils
 from ptf.testutils import *
-
-import lpm
 
 PERSIST_MAP = '/tmp/fg_ecmp_persist_map.json'
 
@@ -142,14 +136,12 @@ class FgEcmpTest(BaseTest):
                 base_ip = ipaddress.ip_address(u'20D0:A800:0:00::')
 
         # initialize all parameters
-        src_ip = base_ip
         if self.inner_hashing:
             dst_ip = '5.5.5.5'
         else:
             dst_ip = self.dst_ip
         src_port = 20000
         dst_port = 30000
-        in_port = self.net_ports[0]
 
         tuple_to_port_map ={}
         hit_count_map = {}
