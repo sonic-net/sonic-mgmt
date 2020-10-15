@@ -139,6 +139,7 @@ def pytest_addoption(parser):
                      help="The autorestart of containers will be disabled by default. \
                          Set this option to skip fixture disable_container_autorestart")
 
+
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """
