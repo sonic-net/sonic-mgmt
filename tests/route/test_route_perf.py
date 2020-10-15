@@ -8,8 +8,6 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-ROUTE_JSON = 'route.json'
-ROUTE_TIMEOUT = 20 # Time limit for applying route changes
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 def prepare_dut(duthost):
@@ -17,48 +15,47 @@ def prepare_dut(duthost):
     duthost.shell('sudo config interface ip add Ethernet72 10.1.0.54/31')
     
     # Set up neighbor
-    duthost.shell('sudo ip neigh add 10.1.0.37 lladdr 55:54:00:ad:48:98 dev Ethernet72')
+    duthost.shell('sudo ip neigh add 10.10.10.37 lladdr 55:54:00:ad:48:98 dev Ethernet72')
 
 def cleanup_dut(duthost):
     # Delete neighbor
-    duthost.shell('sudo ip neigh del 10.1.0.37 dev Ethernet72')
-
-    # remove files
-    duthost.shell('rm {}'.format(ROUTE_JSON))
-    duthost.shell('docker exec -i swss rm {}'.format(ROUTE_JSON))
+    duthost.shell('sudo ip neigh del 10.10.10.37 dev Ethernet72')
 
     # remove interface
     duthost.shell('sudo config interface ip remove Ethernet72 10.1.0.54/31')
 
-def generate_route_file(duthost, prefixes, op):
+def generate_route_file(duthost, prefixes, dir, op):
     route_data = []
     for prefix in prefixes:
         key = 'ROUTE_TABLE:' + prefix
         route = {}
         route['ifname'] = 'Ethernet72'
-        route['nexthop'] = '10.1.0.37'
+        route['nexthop'] = '10.10.10.37'
         route_command = {}
         route_command[key] = route
         route_command['OP'] = op
         route_data.append(route_command)
 
     # Copy json file to DUT
-    duthost.copy(content=json.dumps(route_data, indent=4), dest=ROUTE_JSON)
+    duthost.copy(content=json.dumps(route_data, indent=4), dest=dir)
 
 def exec_routes(duthost, num_routes, op):
     # generate ip prefixes of routes
     prefixes = ['%d.%d.%d.%d/%d' % (101 + int(idx_route / 256 ** 2), int(idx_route / 256) % 256, idx_route % 256, 0, 24)
                 for idx_route in range(num_routes)]
 
-    # Generate json file for routes
-    generate_route_file(duthost, prefixes, op)
+    # Create a tempfile for routes
+    route_file_dir = duthost.shell('mktemp')['stdout']
 
-    # Copy route file to swss container
-    duthost.shell('docker cp {} swss:/'.format(ROUTE_JSON))
-    
+    # Generate json file for routes
+    generate_route_file(duthost, prefixes, route_file_dir, op)
+
     # Check the number of routes in ASIC_DB
     start_num_route = int(duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\' | wc -l'.format(ROUTE_TABLE_NAME))['stdout'])
     
+    # Calculate timeout as a function of the number of routes
+    route_timeout = max(num_routes / 500, 1) # Allow at least 1 second even when there is a limited number of routes
+
     # Calculate expected number of route and record start time
     if op == 'SET':
         expected_num_routes = start_num_route + num_routes
@@ -69,14 +66,14 @@ def exec_routes(duthost, num_routes, op):
     start_time = datetime.now()
 
     # Apply routes with swssconfig
-    duthost.shell('docker exec -i swss swssconfig /{}'.format(ROUTE_JSON))
+    duthost.shell('docker exec -i swss swssconfig /dev/stdin < {}'.format(route_file_dir))
 
     # Wait until the routes set/del applys to ASIC_DB
     def _check_num_routes(expected_num_routes):
         # Check the number of routes in ASIC_DB
         num_routes = int(duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\' | wc -l'.format(ROUTE_TABLE_NAME))['stdout'])
         return num_routes == expected_num_routes
-    if not wait_until(ROUTE_TIMEOUT, 0.5, _check_num_routes, expected_num_routes):
+    if not wait_until(route_timeout, 0.5, _check_num_routes, expected_num_routes):
         pytest.fail('failed to add routes within time limit')
 
     # Record time when all routes show up in ASIC_DB
@@ -98,9 +95,9 @@ def exec_routes(duthost, num_routes, op):
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthost):
+def test_perf_add_remove_routes(duthost, request):
     # Number of routes for test
-    num_routes = 10000
+    num_routes = request.config.getoption("--num_routes")
 
     # Set up interface and interface for routes
     prepare_dut(duthost)
