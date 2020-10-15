@@ -84,7 +84,7 @@ Keysight ports are connected via SONiC switch as shown in the illustration above
 #### Test Steps
 Let’s use **_T<sub>detect</sub>_** , **_T<sub>restore</sub>_** , and **_T<sub>poll</sub>_** to denote the detection time, restoration time, and polling interval of PFC watchdog in sec. Refer to the time diagram below to understand the test steps.
 
-  ![](../image/PFCWD_Timer.png)
+  ![](../image/PFCWD_Timer.PNG)
 
 
 1. At time 0, start PFC PAUSE storm for **_T<sub>storm</sub>_** duration.
