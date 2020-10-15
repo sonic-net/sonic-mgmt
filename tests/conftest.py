@@ -135,19 +135,9 @@ def pytest_addoption(parser):
     ########################
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
-<<<<<<< HEAD
     parser.addoption("--skip_fixture_disable_container_autorestart", action="store_true", default=False,
                      help="The autorestart of containers will be disabled by default. \
                          Set this option to skip fixture disable_container_autorestart")
-=======
-
-    ###############################
-    #   test_route_perf options   #
-    ###############################
-    parser.addoption("--num_routes", action="store", default=10000, type=int,
-                     help="Number of routes for add/delete")
-
->>>>>>> Address review comments
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
