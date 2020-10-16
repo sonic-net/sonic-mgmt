@@ -660,7 +660,9 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 fan_index += 1
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
-                    fan_data.mock_speed(random.randint(0, 100))
+                    speed = random.randint(60, 100)
+                    fan_data.mock_speed(speed)
+                    fan_data.mock_target_speed(speed)
                     self.expected_data[fan_data.name] = [
                         drawer_data.name,
                         'N/A', # update this value later
@@ -831,7 +833,7 @@ class AbnormalFanMocker(SingleFanMocker):
     """
 
     # Speed tolerance value
-    SPEED_TOLERANCE = 20
+    SPEED_TOLERANCE = 50
 
     # Speed value
     TARGET_SPEED_VALUE = 60
@@ -951,7 +953,7 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN speed to faster than target speed and exceed speed tolerance.
         :return:
         """
-        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE + AbnormalFanMocker.SPEED_TOLERANCE + 5)
+        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE * (100 + AbnormalFanMocker.SPEED_TOLERANCE) / 100 + 10)
         self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'red'
 
@@ -960,7 +962,7 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN speed to slower than target speed and exceed speed tolerance.
         :return:
         """
-        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE - AbnormalFanMocker.SPEED_TOLERANCE - 5)
+        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE * (100 - AbnormalFanMocker.SPEED_TOLERANCE) / 100 - 10)
         self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'red'
 

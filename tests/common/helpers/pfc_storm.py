@@ -138,7 +138,7 @@ class PFCStorm(object):
             "ansible_eth0_ipv4_addr": self.ip_addr,
             "peer_hwsku": self.peer_info['hwsku']
             }
-        if self.peer_device_os in self._PFC_GEN_DIR:
+        if self.peer_device.os in self._PFC_GEN_DIR:
             self.extra_vars['pfc_gen_dir'] = \
                 self._PFC_GEN_DIR[self.peer_device.os]
         if getattr(self, "pfc_storm_defer_time", None):
@@ -174,9 +174,9 @@ class PFCStorm(object):
             with open(self.extra_vars['template_path']) as tmpl_fd:
                 tmpl = Template(tmpl_fd.read())
                 cmds = tmpl.render(**self.extra_vars).splitlines()
-            for cmd in (_.strip() for _ in cmds):
-                if cmd:
-                    self.peer_device.shell(cmd, module_ignore_errors=True)
+            cmds = (_.strip() for _ in cmds)
+            cmd = "; ".join(_ for _ in cmds if _)
+            self.peer_device.shell(cmd, module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules

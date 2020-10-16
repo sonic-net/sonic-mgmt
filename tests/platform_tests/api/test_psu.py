@@ -32,10 +32,18 @@ STATUS_LED_COLOR_AMBER = "amber"
 STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get platform facts from platform.json file
+    request.cls.chassis_facts = duthost.facts.get("chassis")
+
+
+@pytest.mark.usefixtures("gather_facts")
 class TestPsuApi(PlatformApiTestBase):
     ''' Platform API test cases for the PSU class'''
 
     num_psus = None
+    chassis_facts = None
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, platform_api_conn):
@@ -46,6 +54,23 @@ class TestPsuApi(PlatformApiTestBase):
                 pytest.fail("num_psus is not an integer")
 
     #
+    # Helper functions
+    #
+
+    def compare_value_with_platform_facts(self, key, value, psu_idx):
+        expected_value = None
+
+        if self.chassis_facts:
+            expected_psus = self.chassis_facts.get("psus")
+            if expected_psus:
+                expected_value = expected_psus[psu_idx].get(key)
+
+        if self.expect(expected_value is not None,
+                      "Unable to get expected value for '{}' from platform.json file for PSU {}".format(key, psu_idx)):
+            self.expect(value == expected_value,
+                      "'{}' value is incorrect. Got '{}', expected '{}' for PSU {}".format(key, value, expected_value, psu_idx))
+
+    #
     # Functions to test methods inherited from DeviceBase class
     #
 
@@ -54,6 +79,7 @@ class TestPsuApi(PlatformApiTestBase):
             name = psu.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve PSU {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "PSU {} name appears incorrect".format(i))
+                self.compare_value_with_platform_facts(self, 'name', name, i)
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
