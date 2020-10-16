@@ -55,7 +55,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, platform_api_conn):
-        if self.num_fans is None:
+        if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = chassis.get_num_fan_drawers(platform_api_conn)
             except:
@@ -94,7 +94,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
                 if self.expect(name is not None, "Unable to retrieve fan drawer {} fan {} name".format(j, i)):
                     self.expect(isinstance(name, STRING_TYPE), "fan drawer {} fan {} name appears incorrect".format(j, i))
-                    self.compare_value_with_platform_facts(self, 'name', name, j, i)
+                    self.compare_value_with_platform_facts('name', name, j, i)
 
         self.assert_expectations()
 
@@ -228,7 +228,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
             target_speed = random.randint(1, 100)
 
             for i in range(num_fans):
-                spped = fan_drawer_fan.get_speed(platform_api_conn, j, i)
+                speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 speed_tol = fan_drawer_fan.get_speed_tolerance(platform_api_conn, j, i)
 
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, target_speed)

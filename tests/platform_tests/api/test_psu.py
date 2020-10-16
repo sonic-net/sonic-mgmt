@@ -79,7 +79,7 @@ class TestPsuApi(PlatformApiTestBase):
             name = psu.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve PSU {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "PSU {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts(self, 'name', name, i)
+                self.compare_value_with_platform_facts('name', name, i)
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
