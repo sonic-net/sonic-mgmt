@@ -521,7 +521,7 @@ class TestVrfFib():
 
         for vrf in cfg_facts['VRF']:
 
-            bgp_summary_string = duthost.shell("show bgp vrf {} summary json".format(vrf))['stdout']
+            bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf {} summary json'".format(vrf))['stdout']
             bgp_summary = json.loads(bgp_summary_string)
 
             for info in bgp_summary.itervalues():
