@@ -61,8 +61,9 @@ class AnsibleHostBase(object):
             self.module = getattr(self.host, module_name)
 
             return self._run
-
-        return super(AnsibleHostBase, self).__getattr__(module_name)
+        raise AttributeError(
+            "'%s' object has no attribute '%s'" % (self.__class__, module_name)
+            )
 
     def _run(self, *module_args, **complex_args):
 
