@@ -63,6 +63,8 @@ fanout:
       ansible_host: 10.3.147.25
     str2-7260cx3-acs-fan-11:
       ansible_host: 10.3.147.23
+    str2-7260cx3-acs-fan-12:
+      ansible_host: 10.3.147.21
     str2-7260cx3-64-19:
       ansible_host: 10.3.146.150
     str2-7263CX3-azd-01:
@@ -138,6 +140,12 @@ sonic_arista:
       hwsku: Arista-7050CX3-32S-C32
     str2-7050cx3-acs-07:
       ansible_host: 10.3.147.24
+      hwsku: Arista-7050CX3-32S-C32
+    str2-7050cx3-acs-08:
+      ansible_host: 10.3.147.22
+      hwsku: Arista-7050CX3-32S-C32
+    str2-7050cx3-acs-09:
+      ansible_host: 10.3.147.20
       hwsku: Arista-7050CX3-32S-C32
     str2-a7060-spy-1:
       ansible_host: 10.3.146.241
