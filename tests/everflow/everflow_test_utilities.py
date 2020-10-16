@@ -165,6 +165,11 @@ def setup_info(duthost, tbinfo):
 
     peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3])
 
+    # Disable recursive route resolution as we have test case where we check
+    # if better unresolved route is there then it should be picked by Mirror state DB
+    # This change is triggeed by Sonic PR#https://github.com/Azure/sonic-buildimage/pull/5600
+    duthost.shell("vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"")
+
     add_route(duthost, "30.0.0.1/24", peer_ip)
 
     duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
@@ -174,6 +179,8 @@ def setup_info(duthost, tbinfo):
     duthost.command("rm -rf {}".format(DUT_RUN_DIR))
 
     remove_route(duthost, "30.0.0.1/24", peer_ip)
+
+    duthost.shell("vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"")
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
