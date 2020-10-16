@@ -159,7 +159,7 @@ duthosts.nodes["node1"]
 duthosts.frontend_nodes[1]
 duthosts.frontend_nodes["node1"]
 ```
-The `duthosts` should support indexing operation like returning specific duthost by index number of node's hostname.
+The `duthosts` should support indexing operations like returning specific duthost by index number or node's hostname.
 
 ### Flexible combinations
 With support of all the capabilities, it would be very flexible for the test scripts to run operations on any DUT or ASIC.
