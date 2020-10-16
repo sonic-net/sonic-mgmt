@@ -4,6 +4,7 @@ import json
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.parallel import parallel_run
+from tests.common.helpers.parallel import reset_ansible_local_tmp
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ def setup_bgp_graceful_restart(duthost, nbrhosts):
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
 
+    @reset_ansible_local_tmp
     def configure_nbr_gr(node=None, results=None):
         """Target function will be used by multiprocessing for configuring VM hosts.
 
@@ -89,6 +91,7 @@ def setup_bgp_graceful_restart(duthost, nbrhosts):
 
     yield
 
+    @reset_ansible_local_tmp
     def restore_nbr_gr(node=None, results=None):
         """Target function will be used by multiprocessing for restoring configuration for the VM hosts.
 
