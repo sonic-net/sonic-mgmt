@@ -22,8 +22,8 @@ def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict):
     return yaml.load(stream, OrderedLoader)
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
-    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
 ]
 
 logger = logging.getLogger(__name__)
