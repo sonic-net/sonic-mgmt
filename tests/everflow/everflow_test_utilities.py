@@ -166,7 +166,7 @@ def setup_info(duthost, tbinfo):
     peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3])
 
     # Disable recursive route resolution as we have test case where we check
-    # if better unresolved route is there then it should be picked by Mirror state DB
+    # if better unresolved route is there then it should not be picked by Mirror state DB
     # This change is triggeed by Sonic PR#https://github.com/Azure/sonic-buildimage/pull/5600
     duthost.shell("vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"")
 
