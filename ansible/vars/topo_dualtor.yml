@@ -56,6 +56,13 @@ topology:
         - "1.31@35"
       vm_offset: 3
   DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.32/32
+        - 10.1.0.33/32
+      ipv6:
+        - FC00:1::32/128
+        - FC00:1::33/128
     vlan_configs:
       default_vlan_config: one_vlan_a
       one_vlan_a:
