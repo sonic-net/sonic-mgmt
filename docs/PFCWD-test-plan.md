@@ -212,19 +212,19 @@ Refer to Topology 2 for the test topology
 - On SONiC DUT configure the following:
 1. Enable watchdog with default storm detection time and restoration time. Please note that different switches have different detection times and restoration times, e.g :  200ms and 400ms.
 2. Configure lossless priority Pi (0 <= i <= 7).
-3. To configure alpha value following commands are used:
- ```
-Get the profiles configured in the DUT: 
-        $ mmuconfig -l
-Configure alpha value:
-        $sudo mmuconfig -p [profile_name] -a [alpha_value]
-```
+
 - Configure following traffic items on the Keysight device:
   1. Data traffic 1: Data packets from KEYSIGHT Tx port to KEYSIGHT Rx port. To cause congestion at port 2, the traffic demand should be 100% line rate. To map traffic to lossless priorities at the switch, we should mark packets with the correct DSCP value (e.g., DSCP 3 for priority 3). 
   2. Data traffic 2: Data packets from KEYSIGHT Tx port to KEYSIGHT Rx port. To cause congestion at port 2, the traffic demand should be 100% line rate. To map traffic to lossless priorities at the switch, we should mark packets with the correct DSCP value (e.g., DSCP 3 for priority 3). It should be configured with a start delay of (**_T<sub>storm</sub>_** + **_T<sub>poll</sub>_** + **_T<sub>restore</sub>_**) and duration 1 sec.
   3. PFC pause storm: Persistent PFC pause frames from the KEYSIGHT Rx port to et2 of DUT having same priority (e.g., priority 3) as data traffic. The PFC frames should be able to pause the above lossless traffic. And the inter-frame transmission interval should be smaller than per-frame pause duration.
 
 #### 1.3.3.4 Test Steps
+
+
+![](image/PFCWD_Timer.PNG)
+
+Fig. 4: Test Work Flow 2
+
 Let’s use **_T<sub>detect</sub>_** , **_T<sub>restore</sub>_** , and **_T<sub>poll</sub>_** to denote the detection time, restoration time, and polling interval of PFC watchdog in sec. 
 
 1. At time 0, start PFC PAUSE storm for **_T<sub>storm</sub>_** duration.
