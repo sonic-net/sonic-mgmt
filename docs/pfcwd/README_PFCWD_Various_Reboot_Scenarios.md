@@ -62,17 +62,19 @@ To stop PF C watchdog
 ## Testbed Setup
 
 The testbed consists of two Keysight ports and a SONiC device under test (DUT) as follows. All the KEYSIGHT ports should have the same bandwidth capacity.
+
+
 ``` 
                             _________
                            |         |
 KEYSIGHT port 1 ------- et1|   DUT   |et2------ KEYSIGHT port 2
                            |_________|
-			                   et3
-			                    |
-			                    |
-		                 KEYSIGHT port 3
+                               et3
+                                |
+                                |
+                        KEYSIGHT port 3
+                        
 ```
-
 ## Experiment Steps
 
 1. Do a warm reboot of the SONiC switch:
