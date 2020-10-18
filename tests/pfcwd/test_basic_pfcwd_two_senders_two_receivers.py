@@ -188,18 +188,7 @@ def test_pfcwd_two_senders_two_receivers(api,
                     test_stat = api.get_flow_results(FlowRequest())
                     
                     for flow in test_stat:
-                        if flow['name'] in ['Traffic 1->2','Traffic 2->1']:
-                            tx_frame_rate = int(flow['frames_tx_rate'])
-                            rx_frame_rate = int(flow['frames_rx_rate'])
-                            tolerance = (tx_frame_rate * tolerance_percent)/100
-                            logger.info("\n{} after stopping Pause Storm Tx Frame Rate: {} Rx Frame Rate: {} \
-                                         \n{} after stopping Pause Storm Tx Frames: {} Rx Frames: {} Loss%: {}"
-                                        .format(flow['name'],tx_frame_rate,rx_frame_rate,flow['name'],
-                                                flow['frames_tx'],flow['frames_rx'],flow['loss']))
-                            if tx_frame_rate > (rx_frame_rate + tolerance):
-                                pytest_assert(False,
-                                              "Observing loss for %s after pause storm stopped which is not expected" %(flow['name']))
-                        elif flow['name'] in ['Traffic 2->3','Traffic 3->2']:
+                        if flow['name'] in ['Traffic 1->2','Traffic 2->1','Traffic 2->3','Traffic 3->2']:
                             tx_frame_rate = int(flow['frames_tx_rate'])
                             rx_frame_rate = int(flow['frames_rx_rate'])
                             tolerance = (tx_frame_rate * tolerance_percent)/100

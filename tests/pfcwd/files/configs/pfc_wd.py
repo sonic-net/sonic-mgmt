@@ -1,6 +1,4 @@
-import time
 import pytest
-import sys
 
 from tests.common.reboot import logger
 from tests.common.helpers.assertions import pytest_assert
@@ -14,7 +12,6 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, \
 ###############################################################################
 
 from abstract_open_traffic_generator.port import Port
-from abstract_open_traffic_generator.result import PortRequest
 from abstract_open_traffic_generator.config import Options
 from abstract_open_traffic_generator.config import Config
 
@@ -137,7 +134,7 @@ def ports_config(conn_graph_facts,
                     one_hundred_gbe_ports.append(port.name)
                 else:
                     pytest_assert(False,
-                                  "This test supports only 100gbe speed as of now, need to enhance the script based on requirement")
+                                  "This test supports only 100gbe speed as of now, need to enhance for other speeds")
 
                 ports.append(port)
             
@@ -152,20 +149,18 @@ def ports_config(conn_graph_facts,
                               pfc_class_7=7)
 
             flow_ctl = FlowControl(choice=pfc)
-
-            one_hundred_gbe = OneHundredGbe(link_training=True,
-                                            ieee_media_defaults=False,
-                                            auto_negotiate=False,
-                                            speed='one_hundred_gbps',
-                                            flow_control=flow_ctl,
-                                            rs_fec=True)
-
-            layer1 = Layer1(name='Layer1 settings',
-                            choice=one_hundred_gbe,
-                            port_names=one_hundred_gbe_ports)
+            
+            one_hundred_gbe = Layer1(name='100gbe settings',
+                                     port_names=one_hundred_gbe_ports,
+                                     choice=OneHundredGbe(link_training=True,
+                                                          ieee_media_defaults=False,
+                                                          auto_negotiate=False,
+                                                          rs_fec=True,
+                                                          flow_control=flow_ctl,
+                                                          speed='one_hundred_gbps'))
 
             config = Config(ports=ports,
-                            layer1=[layer1],
+                            layer1=[one_hundred_gbe],
                             options=Options(PortOptions(location_preemption=True)))
 
             return config
@@ -199,14 +194,16 @@ def pfcwd_configs(duthost,
 
         :param prio: dscp priority 3 or 4
         """
-
+        
         vlan_subnet = get_vlan_subnet(duthost) 
-        pytest_assert(vlan_subnet is not None,
-                      "Fail to get Vlan subnet information")
+        if vlan_subnet is None:
+            pytest_assert(False,
+                          "Fail to get Vlan subnet information")
 
         vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 3)
 
         gw_addr = vlan_subnet.split('/')[0]
+        network_prefix  = vlan_subnet.split('/')[1]
 
         device1_ip = vlan_ip_addrs[0]
         device2_ip = vlan_ip_addrs[1]
@@ -241,7 +238,7 @@ def pfcwd_configs(duthost,
                        device_count=1,
                        choice=Ipv4(name='Ipv4 1',
                                    address=Pattern(device1_ip),
-                                   prefix=Pattern('24'),
+                                   prefix=Pattern(network_prefix),
                                    gateway=Pattern(device1_gateway_ip),
                                    ethernet=Ethernet(name='Ethernet 1')
                                   )
@@ -254,7 +251,7 @@ def pfcwd_configs(duthost,
                        device_count=1,
                        choice=Ipv4(name='Ipv4 2',
                                    address=Pattern(device2_ip),
-                                   prefix=Pattern('24'),
+                                   prefix=Pattern(network_prefix),
                                    gateway=Pattern(device2_gateway_ip),
                                    ethernet=Ethernet(name='Ethernet 2')
                                   )
@@ -267,7 +264,7 @@ def pfcwd_configs(duthost,
                        device_count=1,
                        choice=Ipv4(name='Ipv4 3',
                                    address=Pattern(device3_ip),
-                                   prefix=Pattern('24'),
+                                   prefix=Pattern(network_prefix),
                                    gateway=Pattern(device3_gateway_ip),
                                    ethernet=Ethernet(name='Ethernet 3')
                                   )
