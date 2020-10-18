@@ -44,7 +44,7 @@
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
-            <Address>10.1.0.32</Address>
+            <Address>{{ lp_ipv4_addr }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -53,7 +53,7 @@
           </BGPPeer>
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
-            <Address>10.1.0.32</Address>
+            <Address>{{ lp_ipv4_addr }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
