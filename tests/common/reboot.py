@@ -1,3 +1,4 @@
+import threading
 import time
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
@@ -15,6 +16,10 @@ REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN  = "Unknown"
+
+# Event to signal DUT activeness
+DUT_ACTIVE = threading.Event()
+DUT_ACTIVE.set()
 
 '''
     command                : command to reboot the DUT
@@ -98,6 +103,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
         return reboot_helper(reboot_kwargs)
 
     dut_datetime = duthost.get_now_time()
+    DUT_ACTIVE.clear()
 
     if reboot_type != REBOOT_TYPE_POWEROFF:
         reboot_res = pool.apply_async(execute_reboot_command)
@@ -138,6 +144,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
 
     logger.info('waiting for switch to initialize')
     time.sleep(wait)
+    DUT_ACTIVE.set()
 
     if reboot_type == 'warm':
         logger.info('waiting for warmboot-finalizer service to finish')
