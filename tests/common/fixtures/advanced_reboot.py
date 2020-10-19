@@ -39,6 +39,11 @@ class AdvancedReboot:
             "Please set rebootType var."
         )
 
+        if duthost.facts['asic_type'] == 'vs':
+            self.kvm_test = True
+        else:
+            self.kvm_test = False
+
         self.request = request
         self.duthost = duthost
         self.ptfhost = ptfhost
@@ -71,6 +76,13 @@ class AdvancedReboot:
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
         self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
+
+        # Set default reboot limit if it is not given
+        if self.rebootLimit == None:
+            if self.kvm_test:
+                self.rebootLimit = 150 # Default reboot limit for kvm
+            else:
+                self.rebootLimit = 30 # Default reboot limit for physical devices
 
     def getHostMaxLen(self):
         '''
@@ -468,6 +480,7 @@ class AdvancedReboot:
                 "setup_fdb_before_test" : True,
                 "vnet" : self.vnet,
                 "vnet_pkts" : self.vnetPkts,
+                "kvm_test" : self.kvm_test,
             },
             log_file=u'/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors
