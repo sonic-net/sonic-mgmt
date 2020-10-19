@@ -943,6 +943,10 @@ class ReloadTest(BaseTest):
             if self.no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
 
+        if self.kvm_test and (self.no_control_stop - self.no_control_start) > datetime.timedelta(seconds=self.test_params['graceful_limit']):
+            self.fails['dut'].add("Control plane downtime period must be less then %s seconds. It was %s" \
+                    % (self.test_params['graceful_limit'], str(self.no_control_stop - self.no_control_start)))
+
     def handle_post_reboot_test_reports(self):
         # Stop watching DUT
         self.watching = False

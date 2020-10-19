@@ -110,10 +110,9 @@ class ARPResponder(object):
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
 
+        vlan_list = []
         if 'vlan' in self.ip_sets[interface.name()]:
             vlan_list = self.ip_sets[interface.name()]['vlan']
-        else:
-            vlan_list = [None]
 
         for vlan_id in vlan_list:
             arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
