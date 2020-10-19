@@ -61,7 +61,17 @@ CORRECTION_MISS_ALIGNS = [u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_OFFS
                           u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
                           u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE0.ipipe0',
                           u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0',
-                          u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0']
+                          u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE3.mmu_sed0',
+                          u'TCB_THRESHOLD_PROFILE_MAP_XPE1.mmu_xpe0', u'ING_VP_VLAN_MEMBERSHIP.ipipe0', u'ING_DNAT_ADDRESS_TYPE.ipipe0',
+                          u'L3_TUNNEL.ipipe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE2.mmu_sed0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE0.mmu_sed0',
+                          u'ING_SNAT.ipipe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sed0', u'MMU_THDM_DB_QUEUE_OFFSET_C_PIPE0.mmu_xpe0',
+                          u'TCB_THRESHOLD_PROFILE_MAP_XPE3.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP1_PIPE2.mmu_xpe0', u'EGR_VP_VLAN_MEMBERSHIP.epipe0',
+                          u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sed0', u'MMU_THDU_RESUME_PORT0_PIPE0.mmu_xpe0',
+                          u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sed0', u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0',
+                          u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_1_B.mmu_xpe0',
+                          u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sed0', u'TCB_THRESHOLD_PROFILE_MAP_XPE0.mmu_xpe0',
+                          u'MMU_MTRO_CONFIG_L0_MEM_PIPE1.mmu_sed0', u'INTFO_TC2PRI_MAPPING.mmu_glb0', u'TCB_THRESHOLD_PROFILE_MAP_XPE2.mmu_xpe0',
+                          u'MMU_THDM_DB_PORTSP_CONFIG_C_PIPE3.mmu_xpe0']
 
 # Stop trying if stall has been detected for so many consecutive iterations
 # Combined with the test duration below. If we don't make progress for so
@@ -225,7 +235,8 @@ class SerTest(object):
             self.mem_verification_pending = random.sample(self.test_candidates, batch_size)
         elif completeness == 'basic':
             batch_size = min(DEFAULT_BATCH_SIZE, len(self.test_candidates))
-            self.mem_verification_pending = random.sample(self.test_candidates, batch_size)
+            sample_size = min(batch_size * 6, len(self.test_candidates))
+            self.mem_verification_pending = random.sample(self.test_candidates, sample_size)
         else:
             batch_size = min(DEFAULT_BATCH_SIZE, len(self.test_candidates))
             # Still go through random to ramdomize the ordering
@@ -409,7 +420,7 @@ class SerTest(object):
                     self.mem_verification_pending.append(mem)
                 time.sleep(self.ser_injection_interval_sec)
 
-            count = 0
+            wait_start_time = time.time()
             while len(self.mem_verification_pending) > 0:
                 line = syslog_file.readline()
                 if line:
@@ -417,8 +428,9 @@ class SerTest(object):
                         self.verify_and_update_test_result(entry, line)
                 else:
                     time.sleep(self.syslog_poll_interval_sec)
-                    count += 1
-                    if count > self.test_time_sec / self.syslog_poll_interval_sec:
+                    current_time = time.time()
+                    elapsed_time = current_time - wait_start_time
+                    if elapsed_time > self.test_time_sec:
                         print("timed out waiting for ser correction...")
                         break
 
