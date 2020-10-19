@@ -1,6 +1,8 @@
 import datetime
 import logging
 import os
+import shutil
+import tempfile
 import signal
 from multiprocessing import Process, Manager
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -91,14 +93,13 @@ def reset_ansible_local_tmp(target):
         # Reset the ansible default local tmp directory for the current subprocess
         # Otherwise, multiple processes could share a same ansible default tmp directory and there could be conflicts
         from ansible import constants
-        import os, shutil, tempfile
         prefix = 'ansible-local-{}'.format(os.getpid())
         constants.DEFAULT_LOCAL_TMP = tempfile.mkdtemp(prefix=prefix)
-
-        target(*args, **kwargs)
-
-        # User of tempfile.mkdtemp need to take care of cleaning up.
-        shutil.rmtree(constants.DEFAULT_LOCAL_TMP)
+        try:
+            target(*args, **kwargs)
+        finally:
+            # User of tempfile.mkdtemp need to take care of cleaning up.
+            shutil.rmtree(constants.DEFAULT_LOCAL_TMP)
 
     wrapper.__name__ = target.__name__
 
