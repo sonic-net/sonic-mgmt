@@ -783,55 +783,94 @@ sensors_checks:
 
   x86_64-mlnx_msn2010-r0:
     alarms:
-      fan: []
+      fan:
+      - mlxsw-i2c-2-48/Chassis Fan 1/fan1_fault
+      - mlxsw-i2c-2-48/Chassis Fan 2/fan2_fault
+      - mlxsw-i2c-2-48/Chassis Fan 3/fan3_fault
+      - mlxsw-i2c-2-48/Chassis Fan 4/fan4_fault
       power:
-      - tps53679-i2c-5-70/vin1/in1_alarm
-      - tps53679-i2c-5-70/vin2/in2_alarm
-      - tps53679-i2c-5-70/vout1/in3_lcrit_alarm
-      - tps53679-i2c-5-70/vout1/in3_crit_alarm
-      - tps53679-i2c-5-70/vout2/in4_lcrit_alarm
-      - tps53679-i2c-5-70/vout2/in4_crit_alarm
-      - tps53679-i2c-5-70/iout1/curr1_max_alarm
-      - tps53679-i2c-5-70/iout1/curr1_crit_alarm
-      - tps53679-i2c-5-70/iout2/curr2_max_alarm
-      - tps53679-i2c-5-70/iout2/curr2_crit_alarm
-      - tps53679-i2c-5-71/vin1/in1_alarm
-      - tps53679-i2c-5-71/vin2/in2_alarm
-      - tps53679-i2c-5-71/vout1/in3_lcrit_alarm
-      - tps53679-i2c-5-71/vout1/in3_crit_alarm
-      - tps53679-i2c-5-71/vout2/in4_lcrit_alarm
-      - tps53679-i2c-5-71/vout2/in4_crit_alarm
-      - tps53679-i2c-5-71/iout1/curr1_max_alarm
-      - tps53679-i2c-5-71/iout1/curr1_crit_alarm
-      - tps53679-i2c-5-71/iout2/curr2_max_alarm
-      - tps53679-i2c-5-71/iout2/curr2_crit_alarm
+      - tps53679-i2c-5-70/PMIC-1 0.9V VCORE Curr (out)/curr1_crit_alarm
+      - tps53679-i2c-5-70/PMIC-1 0.9V VCORE Curr (out)/curr1_max_alarm
+
+      - tps53679-i2c-5-70/PMIC-1 1.2V Rail Curr (out)/curr2_crit_alarm
+      - tps53679-i2c-5-70/PMIC-1 1.2V Rail Curr (out)/curr2_max_alarm
+
+      - tps53679-i2c-5-70/PMIC-1 PSU 12V Rail (in1)/in1_alarm
+
+      - tps53679-i2c-5-70/PMIC-1 PSU 12V Rail (in2)/in2_alarm
+
+      - tps53679-i2c-5-70/PMIC-1 0.9V VCORE (out)/in3_crit_alarm
+      - tps53679-i2c-5-70/PMIC-1 0.9V VCORE (out)/in3_lcrit_alarm
+
+      - tps53679-i2c-5-70/PMIC-1 1.2V Rail (out)/in4_crit_alarm
+      - tps53679-i2c-5-70/PMIC-1 1.2V Rail (out)/in4_lcrit_alarm
+
+      - tps53679-i2c-5-71/PMIC-2 2.2V Rail Curr (out)/curr1_crit_alarm
+
+      - tps53679-i2c-5-71/PMIC-2 PSU 12V Rail (in1)/in1_alarm
+
+      - tps53679-i2c-5-71/PMIC-2 PSU 12V Rail (in2)/in2_alarm
+
+      - tps53679-i2c-5-71/PMIC-2 2.2V Rail (out)/in3_crit_alarm
+      - tps53679-i2c-5-71/PMIC-2 2.2V Rail (out)/in3_lcrit_alarm
       temp:
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
       - coretemp-isa-0000/Core 2/temp4_crit_alarm
       - coretemp-isa-0000/Core 3/temp5_crit_alarm
-      - tps53679-i2c-5-70/TPS Temp1/temp1_max_alarm
-      - tps53679-i2c-5-70/TPS Temp1/temp1_crit_alarm
-      - tps53679-i2c-5-70/TPS Temp2/temp2_max_alarm
-      - tps53679-i2c-5-70/TPS Temp2/temp2_crit_alarm
-      - tps53679-i2c-5-71/TPS Temp1/temp1_max_alarm
-      - tps53679-i2c-5-71/TPS Temp1/temp1_crit_alarm
-      - tps53679-i2c-5-71/TPS Temp2/temp2_max_alarm
-      - tps53679-i2c-5-71/TPS Temp2/temp2_crit_alarm
+
+      - mlxsw-i2c-2-48/front panel 001/temp2_fault
+      - mlxsw-i2c-2-48/front panel 002/temp3_fault
+      - mlxsw-i2c-2-48/front panel 003/temp4_fault
+      - mlxsw-i2c-2-48/front panel 004/temp5_fault
+      - mlxsw-i2c-2-48/front panel 005/temp6_fault
+      - mlxsw-i2c-2-48/front panel 006/temp7_fault
+      - mlxsw-i2c-2-48/front panel 007/temp8_fault
+      - mlxsw-i2c-2-48/front panel 008/temp9_fault
+      - mlxsw-i2c-2-48/front panel 009/temp10_fault
+      - mlxsw-i2c-2-48/front panel 010/temp11_fault
+      - mlxsw-i2c-2-48/front panel 011/temp12_fault
+      - mlxsw-i2c-2-48/front panel 012/temp13_fault
+      - mlxsw-i2c-2-48/front panel 013/temp14_fault
+      - mlxsw-i2c-2-48/front panel 014/temp15_fault
+      - mlxsw-i2c-2-48/front panel 015/temp16_fault
+      - mlxsw-i2c-2-48/front panel 016/temp17_fault
+      - mlxsw-i2c-2-48/front panel 017/temp18_fault
+      - mlxsw-i2c-2-48/front panel 018/temp19_fault
+      - mlxsw-i2c-2-48/front panel 019/temp20_fault
+      - mlxsw-i2c-2-48/front panel 020/temp21_fault
+      - mlxsw-i2c-2-48/front panel 021/temp22_fault
+      - mlxsw-i2c-2-48/front panel 022/temp23_fault
+
+      - tps53679-i2c-5-70/PMIC-1 Temp 1/temp1_crit_alarm
+      - tps53679-i2c-5-70/PMIC-1 Temp 1/temp1_max_alarm
+      - tps53679-i2c-5-70/PMIC-1 Temp 2/temp2_crit_alarm
+      - tps53679-i2c-5-70/PMIC-1 Temp 2/temp2_max_alarm
+
+      - tps53679-i2c-5-71/PMIC-2 Temp 1/temp1_crit_alarm
+      - tps53679-i2c-5-71/PMIC-2 Temp 1/temp1_max_alarm
+      - tps53679-i2c-5-71/PMIC-2 Temp 2/temp2_crit_alarm
+      - tps53679-i2c-5-71/PMIC-2 Temp 2/temp2_max_alarm
     compares:
-      fan: []
       power: []
       temp:
-      - - lm75-i2c-7-4a/Ambient Port Temp/temp1_input
-        - lm75-i2c-7-4a/Ambient Port Temp/temp1_max_hyst
-      - - lm75-i2c-7-4b/Ambient Port Temp/temp1_input
-        - lm75-i2c-7-4b/Ambient Port Temp/temp1_max_hyst
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_max
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_max
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_max
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_max
+
+      - - lm75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_input
+        - lm75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_max
+
+      - - lm75-i2c-7-4b/Ambient Fan Side Temp (air intake)/temp1_input
+        - lm75-i2c-7-4b/Ambient Fan Side Temp (air intake)/temp1_max
     non_zero:
       fan: []
-      power:
-      - tps53679-i2c-5-70/pout1/power1_input
-      - tps53679-i2c-5-70/pout2/power2_input
-      - tps53679-i2c-5-71/pout1/power1_input
+      power: []
       temp: []
     psu_skips: {}
 
