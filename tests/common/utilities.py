@@ -1,8 +1,12 @@
 """
 Utility functions can re-used in testing scripts.
 """
-import time
+import collections
 import logging
+import six
+import sys
+import threading
+import time
 
 
 def wait(seconds, msg=""):
@@ -51,6 +55,7 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
         logging.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
         return False
 
+
 def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30):
     """
     @summary: Wait until tcp connection is ready or timeout
@@ -68,3 +73,57 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
         logging.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (str(server_hostname), listening_port, timeout_s))
         return False
     return True
+
+
+class InterruptableThread(threading.Thread):
+    """Thread class that can be interrupted by Exception raised."""
+
+    def run(self):
+        """
+        @summary: Run the target function, call `start()` to start the thread
+                  instead of directly calling this one.
+        """
+        self._e = None
+        try:
+            threading.Thread.run(self)
+        except Exception:
+            self._e = sys.exc_info()
+
+    def join(self, timeout=None, suppress_exception=False):
+        """
+        @summary: Join the thread, if `target` raises an exception, reraise it.
+        @timeout: Wait timeout for `target` to finish.
+        @suppress_exception: Default False, reraise the exception raised in
+                             `target`. If True, return the exception instead of
+                             raising.
+        """
+        threading.Thread.join(self, timeout=timeout)
+        if self._e:
+            if suppress_exception:
+                return self._e
+            else:
+                six.reraise(*self._e)
+
+
+def join_all(threads, timeout):
+    """
+    @summary: Join a list of threads with a max wait timeout.
+    @param threads: a list of thread objects.
+    @param timeout: the maximum time to wait for the threads to finish.
+    """
+    curr_time = start_time = time.time()
+    end_time = start_time + timeout
+    threads = collections.deque(threads)
+    while curr_time <= end_time:
+        for _ in range(len(threads)):
+            thread = threads.popleft()
+            thread.join(timeout=0)
+            if thread.is_alive():
+                threads.append(thread)
+        if not threads:
+            break
+        time.sleep(0.1)
+        curr_time = time.time()
+    else:
+        raise RuntimeError("Timeout on waiting threads: %s" %
+                           [repr(thread) for thread in threads])
