@@ -91,7 +91,7 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     generate_route_file(duthost, prefixes, str_intf_nexthop, route_file_dir, op)
 
     # Check the number of routes in ASIC_DB
-    start_num_route = int(duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\' | wc -l'.format(ROUTE_TABLE_NAME))['stdout'])
+    start_num_route = int(duthost.shell('sonic-db-cli ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME))['stdout'])
     
     # Calculate timeout as a function of the number of routes
     route_timeout = max(len(prefixes) / 500, 1) # Allow at least 1 second even when there is a limited number of routes
@@ -111,7 +111,7 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     # Wait until the routes set/del applys to ASIC_DB
     def _check_num_routes(expected_num_routes):
         # Check the number of routes in ASIC_DB
-        num_routes = int(duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\' | wc -l'.format(ROUTE_TABLE_NAME))['stdout'])
+        num_routes = int(duthost.shell('sonic-db-cli ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME))['stdout'])
         return num_routes == expected_num_routes
     if not wait_until(route_timeout, 0.5, _check_num_routes, expected_num_routes):
         pytest.fail('failed to add routes within time limit')
@@ -120,7 +120,7 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     end_time = datetime.now()
 
     # Check route entries are correct
-    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB keys \'{}*\''.format(ROUTE_TABLE_NAME))['stdout_lines']
+    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME))['stdout_lines']
     asic_prefixes = []
     for key in asic_route_keys:
         json_obj = key[len(ROUTE_TABLE_NAME) + 1 : ]
