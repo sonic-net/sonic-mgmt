@@ -113,6 +113,7 @@ For multi-ASIC related operations on DUT host, the function or ansible module ca
 * No `asic_index`, perform operation just on the host (or default namespace). For example, just run command `"show ip bgp summary"`.
 * `asic_index` is a number, perform operation for the specific ASIC. For example, run command `"show ip bgp summary -n asic1"`.
 * `asic_index` is `"all"`, perform operation for each of the ASIC. For example, run commands: `"show ip bgp summary -n asic0"`, `"show ip bgp summary -n asic1"`, ...
+  * In case the DUT is a single ASIC pizza box, just perform the operation for on the host (or default namespace) and return the single result in a list.
 * Alternatively, code like `duthost.asics[1].foo()` should be equivalent to `duthost.foo(asic_index=1)`. In this case, argument `asic_index` is not required.
 
 The enhancement should support iterating through the `duthost.asics` list to perform operations on each ASIC instance.
@@ -212,6 +213,8 @@ class MultiAsicSonicHost(object):
                 return getattr(self.asics[asic_index], self.attr)(*module_args, **complex_args)
             elif type(asic_index) == str and asic_index.lower() == "all":
                 # All ASICs/namespaces
+                if self.sonichost.facts["num_asic"] == 1:
+                    return [getattr(self.sonichost, self.attr)(*module_args, **complex_args)]
                 return [getattr(asic, self.attr)(*module_args, **complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
@@ -238,7 +241,9 @@ In python, the special `__getattr__` method is called when getting an attribute 
 * If the attribute is a method of `SonicAsic`, then the code will return callable `MultiAsicSonicHost._run_on_acis`. The callable will be called with positional and keyword arguments. Method `_run_on_asics` firstly check if argument `asic_index` is in the keyword arguments.
   * If not, the code will just try to get the attribute from sonichost, run it with the arguments and return the result: `return getattr(self.sonichost, self.attr)(*module_args, **complex_args)`. The ansible module is executed for default ASIC/namespace in this case.
   * If `asic_index` is in the keyword arguments and is an integer, the code will try to call the method of `SonicAsic` on the ASIC instance specified by `asic_index` and return the result: `return getattr(self.asics[asic_index], self.attr)(*module_args, **complex_args)`.
-  * If `asic_index` is string and equals to `"all"`, run the method of `SonicAsic` on each of the ASICs and return the results in a list: `return [getattr(asic, self.attr)(*module_args, **complex_args) for asic in self.asics]`.
+  * If `asic_index` is string and equals to `"all"`, then check if the DUT is a single ASIC pizza box:
+    * In case the DUT is a single ASIC pizza box (self.sonichost.facts["num_asic"]==1), just get the attribute from sonichost, run it with the arguments and return the result in a list: `return [getattr(self.sonichost, self.attr)(*module_args, **complex_args)]`
+    * Otherwise the DUT is a multi-ASIC system, run the method of `SonicAsic` on each of the ASICs and return the results in a list: `return [getattr(asic, self.attr)(*module_args, **complex_args) for asic in self.asics]`.
 
 When run a method of `SonicAsic`, eventually `SonicAsic` needs to run some ansible modules on the SONiC host to perform ASIC/namespace related operations.
 
