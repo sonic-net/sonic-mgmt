@@ -14,6 +14,14 @@
 
 
 - hosts: sonic
+  pre_tasks:
+  - name: call action sync
+    action_sync: action="run-tests" topo={{ testbed_name }} dut={{ inventory_hostname }}  server={{ server }} test_name={{ testcase_name }}
+    connection: local
+    register: action_sync_result
+
+  - debug: msg="{{ action_sync_result }}"
+
   roles:
     - { role: test, scope: 'sonic' }
   force_handlers: true

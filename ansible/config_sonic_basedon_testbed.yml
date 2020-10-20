@@ -189,6 +189,13 @@
       become: true
 
   - block:
+      - name: call action sync
+        action_sync: action="deploy-mg" topo={{ testbed_name }} dut={{ dut }} server={{ server }}
+        connection: local
+        register: action_sync_result
+
+      - debug: msg="{{ action_sync_result }}"
+
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
