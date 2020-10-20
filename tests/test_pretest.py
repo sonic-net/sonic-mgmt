@@ -24,11 +24,11 @@ def test_cleanup_testbed(duthost, request, ptfhost):
     if ptfhost:
         ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
-def test_disable_container_autorestart(duthost, request):
+def test_disable_container_autorestart(duthost):
     command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
     if command_output['rc'] != 0:
         logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
-        logging.info("Skipping disable_container_autorestart fixture")
+        logging.info("Skipping disable_container_autorestart")
         return
     container_autorestart_states = duthost.get_container_autorestart_states()
     state_file_name = "/tmp/autorestart_state_{}.json".format(duthost.hostname)
