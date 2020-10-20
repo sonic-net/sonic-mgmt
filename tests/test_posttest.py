@@ -1,6 +1,8 @@
 import pytest
 import logging
 import os.path
+import os
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -30,3 +32,31 @@ def test_collect_techsupport(duthost):
         duthost.fetch(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     assert True
+
+def test_restore_container_autorestart(duthost, request):
+    command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
+    if command_output['rc'] != 0:
+        logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
+        logging.info("Skipping disable_container_autorestart fixture")
+        return
+
+    state_file_name = "/tmp/autorestart_state_{}.json".format(duthost.hostname)
+    if not os.path.exists(state_file_name):
+        return
+    stored_autorestart_states = {}
+    with open(state_file_name, "r") as f:
+        stored_autorestart_states = json.load(f)
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    # Recover autorestart states
+    logging.info("Recover container autorestart")
+    cmd_enable = "config feature autorestart {} enabled"
+    cmds_enable = []
+    for name, state in container_autorestart_states.items():
+        if state == "disabled" \
+                and stored_autorestart_states.has_key(name) \
+                and stored_autorestart_states[name] == "enabled":
+            cmds_enable.append(cmd_enable.format(name))
+    # Write into config_db
+    cmds_enable.append("config save -y")
+    duthost.shell_cmds(cmds=cmds_enable)
+    os.remove(state_file_name)

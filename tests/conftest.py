@@ -429,37 +429,4 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
 
-@pytest.fixture(scope="module", autouse=True)
-def disable_container_autorestart(duthost, request):
-    command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
-    if command_output['rc'] != 0:
-        logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
-        logging.info("Skipping disable_container_autorestart fixture")
-        yield
-        return
-    skip = False
-    for m in request.node.iter_markers():
-        if m.name == "enable_container_autorestart":
-            skip = True
-            break
-    if skip:
-        yield
-        return
-    container_autorestart_states = duthost.get_container_autorestart_states()
-    # Disable autorestart for all containers
-    logging.info("Disable container autorestart")
-    cmd_disable = "config feature autorestart {} disabled"
-    cmds_disable = []
-    for name, state in container_autorestart_states.items():
-        if state == "enabled":
-            cmds_disable.append(cmd_disable.format(name))
-    duthost.shell_cmds(cmds=cmds_disable)
-    yield
-    # Recover autorestart states
-    logging.info("Recover container autorestart")
-    cmd_enable = "config feature autorestart {} enabled"
-    cmds_enable = []
-    for name, state in container_autorestart_states.items():
-        if state == "enabled":
-            cmds_enable.append(cmd_enable.format(name))
-    duthost.shell_cmds(cmds=cmds_enable)
+
