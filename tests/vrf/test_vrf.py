@@ -736,12 +736,13 @@ class TestVrfLoopbackIntf():
             for ip in ips:
                 ptfhost.shell("ip netns exec {} ip route add {} nexthop via {} ".format(g_vars['vlan_peer_vrf2ns_map']['Vrf2'], ip, nexthop))
 
+        duthost.shell("sysctl -w net.ipv6.ip_nonlocal_bind=1")
         # -------- Testing ----------
         yield
 
         # -------- Teardown ----------
         # routes on ptf could be flushed when remove vrfs
-        pass
+        duthost.shell("sysctl -w net.ipv6.ip_nonlocal_bind=0")
 
     def test_ping_vrf1_loopback(self, ptfhost, duthost):
         for ver, ips in self.c_vars['lb0_ip_facts'].iteritems():
