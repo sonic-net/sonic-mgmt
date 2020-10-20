@@ -798,11 +798,10 @@ class ReloadTest(BaseTest):
             self.log("control plane down starts %s" % str(self.no_control_start))
 
     def handle_fast_reboot_health_check(self):
-        if not self.kvm_test: # The data plane is expected to go down with control plane in KVM tests
-            self.log("Check that device is still forwarding data plane traffic")
-            self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
-            self.check_alive()
-            self.fails['dut'].clear()
+        self.log("Check that device is still forwarding data plane traffic")
+        self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
+        self.check_alive()
+        self.fails['dut'].clear()
 
         self.log("Wait until control plane up")
         port_up_signal = multiprocessing.Event()
