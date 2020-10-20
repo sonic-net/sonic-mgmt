@@ -466,10 +466,21 @@ class QosSaiBase:
         if loganalyzer:
             ignoreRegex = [
                 ".*ERR monit.*'lldpd_monitor' process is not running",
+                ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.",
+
                 ".*ERR monit.*'lldp_syncd' process is not running",
+                ".*ERR monit.* 'lldp\|lldp_syncd' status failed.*-- 'python2 -m lldp_syncd' is not running.",
+
                 ".*ERR monit.*'bgpd' process is not running",
+                ".*ERR monit.* 'bgp\|bgpd' status failed.*-- '/usr/lib/frr/bgpd' is not running.",
+
                 ".*ERR monit.*'bgpcfgd' process is not running",
-                ".*ERR syncd#syncd:.*brcm_sai_set_switch_attribute:.*updating switch mac addr failed.*"
+                ".*ERR monit.* 'bgp\|bgpcfgd' status failed.*-- '/usr/bin/python /usr/local/bin/bgpcfgd' is not running.",
+
+                ".*ERR syncd#syncd:.*brcm_sai_set_switch_attribute:.*updating switch mac addr failed.*",
+
+                ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python /usr/local/bin/bgpmon' is not running",
+                ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
             ]
             loganalyzer.ignore_regex.extend(ignoreRegex)
 
