@@ -225,6 +225,7 @@ class BgpRoutes(object):
         regex_prefix_path_p1_from = re.compile('.* from .*\([0-9a-fA-F.:]+\)')
         regex_prefix_path_p2_origin = re.compile('\s+Origin')
         regex_prefix_path_p3_timestamp = re.compile('\s+Last update:')
+        regex_prefix_path_p3_community = re.compile('\s+Community:')
         cmd_err1 = 'Unknown command'
         cmd_err2 = 'Network not in table'
 
@@ -284,6 +285,8 @@ class BgpRoutes(object):
             elif state == PREFIX_PATH_TIMESTAMP:
                 if regex_prefix_path_p3_timestamp.match(line):
                     state = PREFIX_PATHS
+                elif regex_prefix_path_p3_community.match(line):
+                    continue
                 else:
                     state = ERR
             elif state == ERR:
