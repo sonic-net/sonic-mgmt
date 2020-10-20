@@ -136,7 +136,10 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
     ignoreRegex = [
         ".*ERR monit.*'lldpd_monitor' process is not running",
+        ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.",
+
         ".*ERR monit.*'lldp_syncd' process is not running",
+        ".*ERR monit.*'lldp\|lldp_syncd' status failed.*'python2 -m lldp_syncd' is not running.",
         ".*snmp#snmp-subagent.*",
     ]
     if loganalyzer:  # Skip if loganalyzer is disabled
