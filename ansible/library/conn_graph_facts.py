@@ -326,7 +326,6 @@ def main():
         device_port_vlans = []
         device_vlan_range = []
         device_vlan_list = []
-        device_vlan_map_list = {}
         for hostname in hostnames:
             dev = lab_graph.get_host_device_info(hostname)
             if dev is None:
@@ -338,7 +337,6 @@ def main():
             if host_vlan:
                 device_vlan_range.append(host_vlan["VlanRange"])
                 device_vlan_list.append(host_vlan["VlanList"])
-                device_vlan_map_list[hostname] = host_vlan["VlanList"]
             device_port_vlans.append(lab_graph.get_host_port_vlans(hostname))
         results = {k: v for k, v in locals().items()
                    if (k.startswith("device_") and v)}
@@ -346,7 +344,8 @@ def main():
         # flatten the lists for single host
         if m_args['hosts'] is None:
             results = {k: v[0] for k, v in results.items()}
-
+        results["device_vlan_map_list"] = dict(zip(hostnames,
+                                                   device_vlan_list))
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
         module.fail_json(msg="Can not find lab graph file under {}".format(LAB_GRAPHFILE_PATH))
