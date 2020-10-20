@@ -1,7 +1,63 @@
 #! /bin/bash
 
+function setup_local_image() {
+    tmpdir=`mktemp -d`
+
+    AKEY_FILE=$HOME/.ssh/authorized_keys
+    PRIVKEY_FILE=$HOME/.ssh/id_rsa_docker_sonic_mgmt
+    PUBKEY_FILE=$HOME/.ssh/id_rsa_docker_sonic_mgmt.pub
+
+    [ -f $PRIVKEY_FILE ] || ssh-keygen -t rsa -q -N "" -f $PRIVKEY_FILE
+
+    if [ -f $AKEY_FILE ]; then
+        PUBKEY=`cat $PUBKEY_FILE`
+        grep -q "$PUBKEY" $AKEY_FILE || cat $PUBKEY_FILE >> $AKEY_FILE
+    else
+        cat $PUBKEY_FILE > $AKEY_FILE
+    fi
+
+    cp $PRIVKEY_FILE $tmpdir/id_rsa
+
+    cat <<EOF > $tmpdir/Dockerfile.j2
+FROM {{ DOCKER_REGISTRY }}/{{ DOCKER_SONIC_MGMT }}
+
+RUN sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
+RUN sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
+
+RUN sudo sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
+
+RUN sudo usermod -aG sudo {{ USERNAME }}
+
+USER {{ USERNAME }}
+
+ADD --chown={{ USERNAME }} id_rsa /home/{{ USERNAME }}/.ssh/id_rsa
+
+ENV HOME=/home/{{ USERNAME }}
+WORKDIR $HOME
+
+EOF
+
+    cat <<EOF > $tmpdir/data.env
+DOCKER_SONIC_MGMT=$DOCKER_SONIC_MGMT
+DOCKER_REGISTRY=$DOCKER_REGISTRY
+GROUPID=$HOST_GROUP_ID
+USERID=$HOST_USER_ID
+GROUPNAME=$USER
+USERNAME=$USER
+EOF
+
+    j2 -o $tmpdir/Dockerfile $tmpdir/Dockerfile.j2 $tmpdir/data.env
+
+    echo "Build image $LOCAL_IMAGE_NAME from $tmpdir ..."
+
+    docker build -t $LOCAL_IMAGE_NAME $tmpdir
+
+    rm -rf $tmpdir
+}
+
 DOCKER_SONIC_MGMT="docker-sonic-mgmt"
-DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443/"
+DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
+LOCAL_IMAGE_NAME=docker-sonic-mgmt-$USER
 
 function show_help_and_exit() {
     echo "Usage $0 [options]"
@@ -21,36 +77,17 @@ function show_help_and_exit() {
     exit $1
 }
 
-function start_and_config_container() {
+function start_local_container() {
     echo "Creating container $CONTAINER_NAME"
     SCRIPT_DIR=`dirname $0`
     cd $SCRIPT_DIR
     PARENT_DIR=`pwd`/..
-    docker run --name $CONTAINER_NAME -v $PARENT_DIR:$LINK_DIR -d -t $IMAGE_ID bash > /dev/null
+    docker run --name $CONTAINER_NAME -v $PARENT_DIR:$LINK_DIR -d -t $LOCAL_IMAGE_NAME bash > /dev/null
 
     if [[ "$?" != 0 ]]; then
         echo "Container creation failed, exiting"
         exit 1
     fi
-
-    echo "Creating user $USER, group $USER, and setting UID and GID"
-    docker exec $CONTAINER_NAME id $USER > /dev/null 2> /dev/null
-    RET=`docker exec $CONTAINER_NAME echo $?`
-    if [[ "$RET" != 0 ]]; then
-        docker exec $CONTAINER_NAME sudo useradd $USER
-    fi
-
-    docker exec $CONTAINER_NAME grep -q "^$USER" /etc/group
-    RET=`docker exec $CONTAINER_NAME echo $?`
-    if [[ "$RET" != 0 ]]; then
-        docker exec $CONTAINER_NAME sudo groupadd $USER
-    fi
-
-    HOST_GROUP_ID=`id $USER | grep -o "gid=[0-9]*" | cut -d "=" -f 2`
-    HOST_USER_ID=`id $USER | grep -o "uid=[0-9]*" | cut -d "=" -f 2`
-
-    docker exec $CONTAINER_NAME sudo usermod -u $HOST_USER_ID $USER
-    docker exec $CONTAINER_NAME sudo groupmod -g $HOST_GROUP_ID $USER
 
     echo "Verifying UID and GID in container matches host"
     CONTAINER_USER_ID=`docker exec $CONTAINER_NAME sh -c "id $USER | grep -o \"uid=[0-9]*\" | cut -d \"=\" -f 2"`
@@ -65,19 +102,10 @@ function start_and_config_container() {
         echo "Group ID mismatch between host and container"
         exit 1
     fi
-
-    echo "Granting passwordless sudo privileges to $USER"
-    docker exec $CONTAINER_NAME sudo usermod -aG sudo $USER
-    # Be VERY careful modifying this line or you will break sudo functionality in your container
-    docker exec $CONTAINER_NAME sudo sed -i "$ a $USER ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
-
-    echo "Creating home directory for $USER"
-    docker exec $CONTAINER_NAME sudo mkdir -p /home/$USER
-    docker exec $CONTAINER_NAME sudo chown -R $USER /home/$USER
 }
 
 
-function validate_parameters() {
+function pull_sonic_mgmt_docker_image() {
     if ! docker info > /dev/null 2> /dev/null; then
         echo "Unable to access Docker daemon"
         echo "Hint: make sure $USER is a member of the docker group"
@@ -92,14 +120,14 @@ function validate_parameters() {
     if [[ -z ${IMAGE_ID} ]]; then
         if docker images --format "{{.Repository}}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID=$DOCKER_SONIC_MGMT
-        elif docker images --format "{{.Repository}}" | grep -q "^${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}$"; then
-            IMAGE_ID=${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}
-        elif echo "Pulling image from registry" && docker pull ${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}; then 
-            IMAGE_ID=${DOCKER_REGISTRY}${DOCKER_SONIC_MGMT}  
+        elif docker images --format "{{.Repository}}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}$"; then
+            IMAGE_ID=${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}
+        elif echo "Pulling image from registry" && docker pull ${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}; then
+            IMAGE_ID=${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}
         else
             echo "Unable to find a usable default image, please specify one manually"
             show_help_and_exit 1
-            
+
         fi
         echo "Using default image $IMAGE_ID"
     fi
@@ -136,6 +164,10 @@ while getopts "h?n:i:d:" opt; do
     esac
 done
 
-validate_parameters
-start_and_config_container
+HOST_GROUP_ID=`id $USER | grep -o "gid=[0-9]*" | cut -d "=" -f 2`
+HOST_USER_ID=`id $USER | grep -o "uid=[0-9]*" | cut -d "=" -f 2`
+
+pull_sonic_mgmt_docker_image
+setup_local_image
+start_local_container
 echo "Done!"
