@@ -381,3 +381,15 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_eeprom(self, duthost, localhost, platform_api_conn):
         eeprom = chassis.get_eeprom(platform_api_conn)
         pytest_assert(eeprom is not None, "Failed to retrieve system EEPROM")
+
+    def test_get_position_in_parent(self, platform_api_conn):
+        position = chassis.get_position_in_parent(platform_api_conn)
+        self.expect(position is not None, "Failed to perform get_position_in_parent")
+        self.expect(isinstance(position, int), "Position value must be an integer value")
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        replaceable = chassis.is_replaceable(platform_api_conn)
+        self.expect(replaceable is not None, "Failed to perform is_replaceable")
+        self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value")
+        self.assert_expectations()

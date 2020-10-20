@@ -200,3 +200,33 @@ class TestPsuApi(PlatformApiTestBase):
                         self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {}) from PSU {}".format(color, color_actual, psu_id))
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        for psu_id in range(self.num_psus):
+            position = psu.get_position_in_parent(platform_api_conn, psu_id)
+            self.expect(position is not None, "Failed to perform get_position_in_parent for psu id {}".format(psu_id))
+            self.expect(isinstance(position, int), "Position value must be an integer value for psu id {}".format(psu_id))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for psu_id in range(self.num_psus):
+            replaceable = psu.is_replaceable(platform_api_conn, psu_id)
+            self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id))
+            self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id [}".format(psu_id))
+        self.assert_expectations()
+
+    def test_thermals(self, platform_api_conn):
+        for psu_id in range(self.num_psus):
+            try:
+                num_thermals = int(psu.get_num_thermals(platform_api_conn, psu_id))
+            except:
+                pytest.fail("num_thermals is not an integer")
+
+            thermal_list = psu.get_all_thermals(platform_api_conn, psu_id)
+            pytest_assert(thermal_list is not None, "Failed to retrieve thermals")
+            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect")
+
+            for i in range(num_thermals):
+                thermal = psu.get_thermal(platform_api_conn, psu_id, i)
+                self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i))
+        self.assert_expectations()
+
