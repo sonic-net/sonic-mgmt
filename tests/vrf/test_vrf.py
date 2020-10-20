@@ -933,7 +933,7 @@ class TestVrfWarmReboot():
         assert wait_until(300, 20, check_interface_status, duthost, up_ports), \
                "All interfaces should be up!"
 
-    def test_vrf_system_warm_reboot(self, duthost, cfg_facts, partial_ptf_runner):
+    def test_vrf_system_warm_reboot(self, duthost, localhost, cfg_facts, partial_ptf_runner):
         exc_que = Queue.Queue()
         params = {
             'ptf_runner': partial_ptf_runner,
