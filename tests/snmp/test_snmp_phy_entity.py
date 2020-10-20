@@ -12,6 +12,7 @@ pytestmark = [
 
 STATE_DB = 6
 TABLE_NAME_SEPARATOR_VBAR = '|'
+FAN_MOCK_WAIT_TIME = 75
 
 # From RFC 2737, 1 means replaceable, 2 means not replaceable
 REPLACEABLE = 1
@@ -73,7 +74,10 @@ PSU_SENSOR_INFO = {
 }
 
 XCVR_SENSOR_OID_LIST = [SENSOR_TYPE_TEMP,
-                        SENSOR_TYPE_VOLTAGE,
+                        SENSOR_TYPE_PORT_TX_POWER + 1,
+                        SENSOR_TYPE_PORT_TX_POWER + 2,
+                        SENSOR_TYPE_PORT_TX_POWER + 3,
+                        SENSOR_TYPE_PORT_TX_POWER + 4,
                         SENSOR_TYPE_PORT_RX_POWER + 1,
                         SENSOR_TYPE_PORT_RX_POWER + 2,
                         SENSOR_TYPE_PORT_RX_POWER + 3,
@@ -82,10 +86,7 @@ XCVR_SENSOR_OID_LIST = [SENSOR_TYPE_TEMP,
                         SENSOR_TYPE_PORT_TX_BIAS + 2,
                         SENSOR_TYPE_PORT_TX_BIAS + 3,
                         SENSOR_TYPE_PORT_TX_BIAS + 4,
-                        SENSOR_TYPE_PORT_TX_POWER + 1,
-                        SENSOR_TYPE_PORT_TX_POWER + 2,
-                        SENSOR_TYPE_PORT_TX_POWER + 3,
-                        SENSOR_TYPE_PORT_TX_POWER + 4]
+                        SENSOR_TYPE_VOLTAGE]
 
 # Redis Constants
 CHASSIS_KEY = 'chassis 1'
@@ -470,6 +471,9 @@ def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_
     logging.info('Mock FAN absence...')
     single_fan_mocker.mock_absence()
 
+    logging.info('Wait {} seconds for thermalctld to update the fan information to DB'.format(FAN_MOCK_WAIT_TIME))
+    time.sleep(FAN_MOCK_WAIT_TIME)
+
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
     assert keys, 'Fan information not exists in DB'
     mib_info = get_entity_mib(duthost, localhost, creds)
@@ -482,6 +486,8 @@ def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         parent_name = entity_info['parent_name']
+        if 'PSU' in parent_name:
+            continue
         if parent_name == CHASSIS_KEY:
             parent_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         else:
