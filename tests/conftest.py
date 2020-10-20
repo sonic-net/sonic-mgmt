@@ -102,6 +102,9 @@ def pytest_addoption(parser):
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
 
+    parser.addoption("--write_syslog", action="store_true", default=False, help="Write each test module to DUT syslog as it's run. Default is disabled (False)")
+
+
     ############################
     # pfc_asym options         #
     ############################
@@ -463,3 +466,13 @@ def disable_container_autorestart(duthost, request):
         if state == "enabled":
             cmds_enable.append(cmd_enable.format(name))
     duthost.shell_cmds(cmds=cmds_enable)
+
+@pytest.fixture(scope="module", autouse=True)
+def write_test_module_to_syslog(duthost, request):
+    """Write the test case name to the DUT syslog"""
+
+    write_syslog = request.config.getoption("write_syslog")
+
+    if write_syslog:
+        log_msg = "-----BEGIN TEST MODULE {}-----".format(request.node.name)
+        duthost.syslogger(msg=log_msg) 
