@@ -5,6 +5,9 @@
   shell: PORTS="{{minigraph_ports.keys() | join(' ')}}"; for port in $PORTS; do config interface shutdown $port; done
   become: yes
 
+- name: wait 20 seconds for ports to down
+  pause: seconds=20
+
 - name: Get interface facts
   interface_facts: up_ports={{minigraph_ports}}
 
