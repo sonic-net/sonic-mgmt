@@ -345,7 +345,7 @@ def main():
 
         # flatten the lists for single host
         if m_args['hosts'] is None:
-            results = {k: v[0] for k, v in results.items()}
+            results = {k: v[0] if isinstance(v, list) else v for k, v in results.items()}
 
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
