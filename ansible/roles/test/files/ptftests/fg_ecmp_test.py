@@ -364,25 +364,34 @@ class FgEcmpTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, in_port)
         rand_int = random.randint(1, 254)
 
-        pkt = simple_tcp_packet(
-                            eth_dst=self.router_mac,
-                            eth_src=src_mac,
-                            ip_src=ip_src,
-                            ip_dst=ip_dst,
-                            tcp_sport=sport,
-                            tcp_dport=dport,
-                            ip_ttl=64)
         if self.inner_hashing:
+            pkt = simple_tcp_packet(
+                        eth_dst=self.router_mac,
+                        eth_src=src_mac,
+                        ip_src=ip_src,
+                        ip_dst=ip_dst,
+                        tcp_sport=sport,
+                        tcp_dport=dport,
+                        ip_ttl=64)
             pkt = simple_vxlanv6_packet(
-                    eth_dst=self.router_mac,
-                    eth_src=src_mac,
-                    ipv6_src='2:2:2::' + str(rand_int),
-                    ipv6_dst=self.dst_ip,
-                    udp_sport=rand_int,
-                    udp_dport=4789,
-                    vxlan_vni=rand_int,
-                    with_udp_chksum=False,
-                    inner_frame=pkt)
+                        eth_dst=self.router_mac,
+                        eth_src=src_mac,
+                        ipv6_src='2:2:2::' + str(rand_int),
+                        ipv6_dst=self.dst_ip,
+                        udp_sport=rand_int,
+                        udp_dport=4789,
+                        vxlan_vni=rand_int,
+                        with_udp_chksum=False,
+                        inner_frame=pkt)
+        else:
+            pkt = simple_tcpv6_packet(
+                        eth_dst=self.router_mac,
+                        eth_src=src_mac,
+                        ipv6_dst=ip_dst,
+                        ipv6_src=ip_src,
+                        tcp_sport=sport,
+                        tcp_dport=dport,
+                        ipv6_hlim=64)
 
         send_packet(self, in_port, pkt)
 
