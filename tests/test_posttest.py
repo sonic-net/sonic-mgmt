@@ -34,12 +34,6 @@ def test_collect_techsupport(duthost):
     assert True
 
 def test_restore_container_autorestart(duthost):
-    command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
-    if command_output['rc'] != 0:
-        logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
-        logging.info("Skipping disable_container_autorestart")
-        return
-
     state_file_name = "/tmp/autorestart_state_{}.json".format(duthost.hostname)
     if not os.path.exists(state_file_name):
         return
