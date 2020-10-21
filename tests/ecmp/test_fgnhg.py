@@ -8,6 +8,10 @@ import json
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+
 # Constants
 NUM_NHs = 8
 DEFAULT_VLAN_ID = 1000
@@ -32,13 +36,6 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
     ip_to_port = {}
     bank_0_port = []
     bank_1_port = []
-
-    # remove existing IPs from PTF host
-    ptfhost.script('scripts/remove_ip.sh')
-    # set unique MACs to PTF interfaces
-    ptfhost.script('scripts/change_mac.sh')
-    # reinitialize data plane due to above changes on PTF interfaces
-    ptfadapter.reinit()
 
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     print vlan_members
@@ -86,9 +83,9 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix)
 
     fgnhg_data['FG_NHG_MEMBER'] = {}
     for ip, port in ip_to_port.items():
-        bank = 0
+        bank = "0"
         if port in bank_1_port:
-            bank = 1
+            bank = "1"
         fgnhg_data['FG_NHG_MEMBER'][ip] = {
             "bank": bank,
             "FG_NHG": fgnhg_name
@@ -99,6 +96,7 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix)
         "FG_NHG": fgnhg_name
     }
 
+    logger.info("fgnhg entries programmed to DUT " + str(fgnhg_data))
     duthost.copy(content=json.dumps(fgnhg_data, indent=2), dest="/tmp/fgnhg.json")
     duthost.shell("sonic-cfggen -j /tmp/fgnhg.json --write-to-db")
 
@@ -121,6 +119,7 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
                 "family": "IPv6"
             }
 
+    logger.info("neigh entries programmed to DUT " + str(neigh_entries))
     duthost.copy(content=json.dumps(neigh_entries, indent=2), dest="/tmp/neigh.json")
     duthost.shell("sonic-cfggen -j /tmp/neigh.json --write-to-db")
 
@@ -137,6 +136,8 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
             "inner_hashing": USE_INNER_HASHING,
             "num_flows": NUM_FLOWS 
     }
+
+    logger.info("fg_ecmp config sent to PTF: " + str(fg_ecmp))
     ptfhost.copy(content=json.dumps(fg_ecmp, indent=2), dest=FG_ECMP_CFG)
 
 
@@ -146,7 +147,6 @@ def setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_p
     time.sleep(60)
     setup_neighbors(duthost, ptfhost, ip_to_port)
     create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports, prefix)
-    ptfhost.copy(src="ptftests", dest="/root")
     return port_list, ip_to_port, bank_0_port, bank_1_port
 
 
@@ -306,20 +306,32 @@ def cleanup(duthost):
     config_reload(duthost)
 
 
-def test_fg_ecmp(ansible_adhoc, tbinfo, ptfadapter, duthost, ptfhost):
+@pytest.fixture(scope="module")
+def common_setup_teardown(tbinfo, duthost):
     if tbinfo['topo']['name'] not in SUPPORTED_TOPO:
+        logger.warning("Unsupported topology, currently supports " + str(SUPPORTED_TOPO))
         pytest.skip("Unsupported topology")
     if duthost.facts["asic_type"] not in SUPPORTED_PLATFORMS:
+        logger.warning("Unsupported platform, currently supports " + str(SUPPORTED_PLATFORMS))
         pytest.skip("Unsupported platform")
 
-    host_facts  = duthost.setup()['ansible_facts']
-    mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    router_mac = host_facts['ansible_Ethernet0']['macaddress']
-    net_ports = []
-    for name, val in mg_facts['minigraph_portchannels'].items():
-        members = [mg_facts['minigraph_port_indices'][member] for member in val['members']]
-        net_ports.extend(members)
+    try:
+        host_facts  = duthost.setup()['ansible_facts']
+        mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+        router_mac = host_facts['ansible_Ethernet0']['macaddress']
+        net_ports = []
+        for name, val in mg_facts['minigraph_portchannels'].items():
+            members = [mg_facts['minigraph_port_indices'][member] for member in val['members']]
+            net_ports.extend(members)
+        yield duthost, cfg_facts, router_mac, net_ports 
+
+    finally:
+        cleanup(duthost)
+
+
+def test_fg_ecmp(common_setup_teardown, ptfadapter, ptfhost):
+    duthost, cfg_facts, router_mac, net_ports = common_setup_teardown
 
     # IPv4 test
     port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4, PREFIX_IPv4)
@@ -328,6 +340,3 @@ def test_fg_ecmp(ansible_adhoc, tbinfo, ptfadapter, duthost, ptfhost):
     # IPv6 test
     port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6, PREFIX_IPv6)
     fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6) 
-
-    # Cleanup all configuration to default after the test completes
-    cleanup(duthost)

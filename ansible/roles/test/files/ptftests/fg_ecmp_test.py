@@ -13,8 +13,7 @@ import random
 import time
 import os
 import json
-
-from ipaddress import ip_address, ip_network
+import ipaddress
 
 import ptf
 import ptf.packet as scapy
