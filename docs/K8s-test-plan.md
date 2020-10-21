@@ -6,10 +6,9 @@
     - [Testbed](#testbed)
   - [Test cases](#test-cases)
     - [SONiC Worker Node Join/Reset](#test-scenario-joinreset)
-    - [Local Mode and Kube Mode Transitions, Manifest Application](#test-scenario-mode-transitions-feature-image-upgrades-with-reachable-master)
+    - [Local Mode and Kube Mode Transitions, Manifest Application](#test-scenario-mode-transitions-for-feature-x-feature-image-upgrades-with-reachable-master)
     - [Unreachable Master](#test-scenario-unreachable-master)
     - [SONiC Reboot](#test-scenario-reboot-when-master-is-reachable)
-
 
 # Overview
 
