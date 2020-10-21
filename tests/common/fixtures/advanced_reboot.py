@@ -40,9 +40,11 @@ class AdvancedReboot:
         )
 
         if duthost.facts['asic_type'] == 'vs':
-            self.kvm_test = True
+            self.kvmTest = True
+            if 'kvmCompatible' not in kwargs or kwargs['kvmCompatible'] != True:
+                pytest.skip("Testcase not supported for kvm")
         else:
-            self.kvm_test = False
+            self.kvmTest = False
 
         self.request = request
         self.duthost = duthost
@@ -79,7 +81,7 @@ class AdvancedReboot:
 
         # Set default reboot limit if it is not given
         if self.rebootLimit == None:
-            if self.kvm_test:
+            if self.kvmTest:
                 self.rebootLimit = 150 # Default reboot limit for kvm
             else:
                 self.rebootLimit = 30 # Default reboot limit for physical devices
@@ -480,7 +482,7 @@ class AdvancedReboot:
                 "setup_fdb_before_test" : True,
                 "vnet" : self.vnet,
                 "vnet_pkts" : self.vnetPkts,
-                "kvm_test" : self.kvm_test,
+                "kvm_test" : self.kvmTest,
             },
             log_file=u'/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors

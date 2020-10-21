@@ -10,7 +10,6 @@ pytestmark = [
 ]
 
 @pytest.mark.usefixtures('get_advanced_reboot')
-@pytest.mark.device_type('vs')
 def test_fast_reboot(request, get_advanced_reboot):
     '''
     Fast reboot test case is run using advacned reboot test fixture
@@ -30,7 +29,7 @@ def test_warm_reboot(request, get_advanced_reboot):
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', kvmCompatible=True)
     advancedReboot.runRebootTestcase()
 
 @pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
