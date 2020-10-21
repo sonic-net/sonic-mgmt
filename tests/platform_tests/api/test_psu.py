@@ -111,6 +111,20 @@ class TestPsuApi(PlatformApiTestBase):
                 self.expect(isinstance(status, bool), "PSU {} status appears incorrect".format(i))
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        for psu_id in range(self.num_psus):
+            position = psu.get_position_in_parent(platform_api_conn, psu_id)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for psu id {}".format(psu_id)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for psu id {}".format(psu_id))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for psu_id in range(self.num_psus):
+            replaceable = psu.is_replaceable(platform_api_conn, psu_id)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id {}".format(psu_id))
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in PsuBase class
     #
@@ -198,20 +212,6 @@ class TestPsuApi(PlatformApiTestBase):
                 if self.expect(color_actual is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
                     if self.expect(isinstance(color_actual, STRING_TYPE), "PSU {} status LED color appears incorrect".format(psu_id)):
                         self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {}) from PSU {}".format(color, color_actual, psu_id))
-        self.assert_expectations()
-
-    def test_get_position_in_parent(self, platform_api_conn):
-        for psu_id in range(self.num_psus):
-            position = psu.get_position_in_parent(platform_api_conn, psu_id)
-            if self.expect(position is not None, "Failed to perform get_position_in_parent for psu id {}".format(psu_id)):
-                self.expect(isinstance(position, int), "Position value must be an integer value for psu id {}".format(psu_id))
-        self.assert_expectations()
-
-    def test_is_replaceable(self, platform_api_conn):
-        for psu_id in range(self.num_psus):
-            replaceable = psu.is_replaceable(platform_api_conn, psu_id)
-            if self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id)):
-                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id {}".format(psu_id))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):

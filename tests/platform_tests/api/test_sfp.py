@@ -177,6 +177,20 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(status, bool), "Transceiver {} status appears incorrect".format(i))
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_sfps):
+            position = sfp.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for sfp {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for sfp_id in range(self.num_sfps):
+            replaceable = sfp.is_replaceable(platform_api_conn, sfp_id)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(sfp_id)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp {}".format(sfp_id))
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in SfpBase class
     #
@@ -422,20 +436,6 @@ class TestSfpApi(PlatformApiTestBase):
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None, "Unable to retrieve transceiver {} power override data".format(i)):
                 self.expect(power_override is False, "Transceiver {} power override data is incorrect".format(i))
-        self.assert_expectations()
-
-    def test_get_position_in_parent(self, platform_api_conn):
-        for i in range(self.num_sfps):
-            position = sfp.get_position_in_parent(platform_api_conn, i)
-            if self.expect(position is not None, "Failed to perform get_position_in_parent for sfp {}".format(i)):
-                self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
-        self.assert_expectations()
-
-    def test_is_replaceable(self, platform_api_conn):
-        for sfp_id in range(self.num_sfps):
-            replaceable = sfp.is_replaceable(platform_api_conn, sfp_id)
-            if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(sfp_id)):
-                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp {}".format(sfp_id))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
