@@ -1,6 +1,8 @@
 import datetime
 import logging
 import os
+import shutil
+import tempfile
 import signal
 from multiprocessing import Process, Manager
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -77,3 +79,28 @@ def parallel_run(target, args, kwargs, nodes, timeout=None):
     logger.info('Completed running processes for target "{}" in {} seconds'.format(target.__name__, str(delta_time)))
 
     return results
+
+
+def reset_ansible_local_tmp(target):
+    """Decorator for resetting ansible default local tmp dir for parallel multiprocessing.Process
+
+    Args:
+        target (function): The function to be decorated.
+    """
+
+    def wrapper(*args, **kwargs):
+
+        # Reset the ansible default local tmp directory for the current subprocess
+        # Otherwise, multiple processes could share a same ansible default tmp directory and there could be conflicts
+        from ansible import constants
+        prefix = 'ansible-local-{}'.format(os.getpid())
+        constants.DEFAULT_LOCAL_TMP = tempfile.mkdtemp(prefix=prefix)
+        try:
+            target(*args, **kwargs)
+        finally:
+            # User of tempfile.mkdtemp need to take care of cleaning up.
+            shutil.rmtree(constants.DEFAULT_LOCAL_TMP)
+
+    wrapper.__name__ = target.__name__
+
+    return wrapper
