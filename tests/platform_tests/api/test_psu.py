@@ -203,22 +203,22 @@ class TestPsuApi(PlatformApiTestBase):
     def test_get_position_in_parent(self, platform_api_conn):
         for psu_id in range(self.num_psus):
             position = psu.get_position_in_parent(platform_api_conn, psu_id)
-            self.expect(position is not None, "Failed to perform get_position_in_parent for psu id {}".format(psu_id))
-            self.expect(isinstance(position, int), "Position value must be an integer value for psu id {}".format(psu_id))
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for psu id {}".format(psu_id)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for psu id {}".format(psu_id))
         self.assert_expectations()
 
     def test_is_replaceable(self, platform_api_conn):
         for psu_id in range(self.num_psus):
             replaceable = psu.is_replaceable(platform_api_conn, psu_id)
-            self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id))
-            self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id [}".format(psu_id))
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id [}".format(psu_id))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
         for psu_id in range(self.num_psus):
             try:
                 num_thermals = int(psu.get_num_thermals(platform_api_conn, psu_id))
-            except:
+            except Exception:
                 pytest.fail("num_thermals is not an integer")
 
             thermal_list = psu.get_all_thermals(platform_api_conn, psu_id)

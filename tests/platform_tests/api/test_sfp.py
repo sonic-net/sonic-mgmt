@@ -427,22 +427,22 @@ class TestSfpApi(PlatformApiTestBase):
     def test_get_position_in_parent(self, platform_api_conn):
         for i in range(self.num_sfps):
             position = sfp.get_position_in_parent(platform_api_conn, i)
-            self.expect(position is not None, "Failed to perform get_position_in_parent for sfp {}".format(i))
-            self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for sfp {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
         self.assert_expectations()
 
     def test_is_replaceable(self, platform_api_conn):
         for i in range(self.num_sfps):
             replaceable = sfp.is_replaceable(platform_api_conn, i)
-            self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(i))
-            self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp [}".format(i))
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(i)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp [}".format(i))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
         for i in range(self.num_sfps):
             try:
                 num_thermals = int(sfp.get_num_thermals(platform_api_conn, i))
-            except:
+            except Exception:
                 pytest.fail("num_thermals is not an integer")
 
             thermal_list = sfp.get_all_thermals(platform_api_conn, i)
