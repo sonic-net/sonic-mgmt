@@ -35,7 +35,7 @@ def generate_intf_neigh(num_neigh):
             'interface' : 'Ethernet%d' % (idx_neigh * 4 + 4),
             'ip' : '10.%d.0.1/24' % (idx_neigh + 1),
             'neighbor' : '10.%d.0.2' % (idx_neigh + 1),
-            'mac' : '55:54:00:ad:48:%0.2x' % idx_neigh
+            'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
         }
         intf_neighs.append(intf_neigh)
         if idx_neigh == 0:
@@ -56,7 +56,7 @@ def generate_intf_neigh_ipv6(num_neigh):
             'interface' : 'Ethernet%d' % (idx_neigh * 4),
             'ip' : '%x::1/64' % (0x2000 + idx_neigh),
             'neighbor' : '%x::2' % (0x2000 + idx_neigh),
-            'mac' : '55:54:00:ad:48:%0.2x' % idx_neigh
+            'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
         }
         intf_neighs.append(intf_neigh)
         if idx_neigh == 0:
