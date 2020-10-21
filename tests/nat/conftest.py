@@ -3,6 +3,7 @@ import copy
 import time
 
 import pytest
+import re
 
 from nat_helpers import SETUP_CONF
 from nat_helpers import DUT_TMP_DIR
@@ -134,30 +135,32 @@ def apply_global_nat_config(duthost):
     after test run cleanup artifacts on DUT
     :param duthost: DUT host object
     """
-    # Enable NAT
-    duthost.command("sudo config feature state nat enabled ")
+    # Set nat feature enabled, reload
+    duthost.command("sudo config feature state nat enabled")
     duthost.command("sudo config save -y")
     duthost.command("sudo config reload -y")
     time.sleep(180)
+    
+    # Set nat global values
+    duthost.command("sudo config nat feature enable")
+    duthost.command("sudo config nat set timeout {}".format(GLOBAL_NAT_TIMEOUT))
+    duthost.command("sudo config nat set tcp-timeout {}".format(GLOBAL_TCP_NAPT_TIMEOUT))
+    duthost.command("sudo config nat set udp-timeout {}".format(GLOBAL_UDP_NAPT_TIMEOUT))
+    
+    # Verify nat global values
+    output = duthost.command("show nat config globalvalues")
+    show_cmd_output = output['stdout'].strip()
+    admin_state = re.search(r"Admin Mode.+: (.+)", show_cmd_output).group(1)
+    timeout = re.search(r"Global Timeout.+: (\d+)", show_cmd_output).group(1)
+    tcp_timeout = re.search(r"TCP Timeout.+: (\d+)", show_cmd_output).group(1)
+    udp_timeout = re.search(r"UDP Timeout.+: (\d+)", show_cmd_output).group(1)
 
-    # Create temporary directory for NAT templates
-    duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
-    # Initialize variables for NAT global table
-    nat_table_vars = {
-        'nat_admin_mode': NAT_ADMIN_MODE,
-        'global_nat_timeout': GLOBAL_NAT_TIMEOUT,
-        'tcp_timeout': GLOBAL_TCP_NAPT_TIMEOUT,
-        'udp_timeout': GLOBAL_UDP_NAPT_TIMEOUT,
-    }
-    duthost.host.options['variable_manager'].extra_vars.update(nat_table_vars)
-    nat_global_config = 'nat_table_global_{}.json'.format(NAT_ADMIN_MODE)
-    nat_config_path = os.path.join(DUT_TMP_DIR, nat_global_config)
-    duthost.template(src=os.path.join(TEMPLATE_DIR, NAT_GLOBAL_TEMPLATE), dest=nat_config_path)
-    # Apply config file
-    duthost.command('sonic-cfggen -j {} --write-to-db'.format(nat_config_path))
+    assert admin_state == 'enabled', "NAT was not enabled"
+    assert int(timeout) == GLOBAL_NAT_TIMEOUT, "Global NAT timeout was not set to {}".format(GLOBAL_NAT_TIMEOUT)
+    assert int(tcp_timeout) == GLOBAL_TCP_NAPT_TIMEOUT, "Global TCP NAT timeout was not set to {}".format(GLOBAL_TCP_NAPT_TIMEOUT)
+    assert int(udp_timeout) == GLOBAL_UDP_NAPT_TIMEOUT, "Global UDP NAT timeout was not set to {}".format(GLOBAL_UDP_NAPT_TIMEOUT)
+
     yield
-    # Remove temporary folders
-    duthost.command('rm -rf {}'.format(DUT_TMP_DIR))
     # reload config on teardown
     config_reload(duthost, config_source='minigraph')
 
@@ -228,7 +231,7 @@ def enable_outer_interfaces(request, duthost, setup_test_env):
 @pytest.fixture()
 def enable_nat_feature(request, duthost):
     """
-    Enable nat feature 
+    Enable nat feature(NAT disable test)
     :param request: pytest request object
     :param duthost: DUT host object
     """

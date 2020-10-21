@@ -1,10 +1,4 @@
 {
-    "NAT_POOL": {
-        "{{ pool_name }}": {
-            "nat_ip": "{{ global_ip }}",
-            "nat_port": "{{ port_range }}"
-        }
-    },
 
     "ACL_TABLE": {
         "{{ acl_table_name }}": {
@@ -22,14 +16,8 @@
             "SRC_IP": "{{ rule.src_ip }}",
             "PACKET_ACTION": "{{ rule.action }}"
         }
-    },
+    }
 {% if not loop.last %}
 {% endif %}{% endfor %}
 
-    "NAT_BINDINGS": {
-        "{{ binding_name }}": {
-            "access_list": "{{ acl_table_name }}",
-            "nat_pool": "{{ pool_name }}"
-        }
-    }
 }
