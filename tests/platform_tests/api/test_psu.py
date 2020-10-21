@@ -211,7 +211,7 @@ class TestPsuApi(PlatformApiTestBase):
         for psu_id in range(self.num_psus):
             replaceable = psu.is_replaceable(platform_api_conn, psu_id)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id)):
-                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id [}".format(psu_id))
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id {}".format(psu_id))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
@@ -219,14 +219,14 @@ class TestPsuApi(PlatformApiTestBase):
             try:
                 num_thermals = int(psu.get_num_thermals(platform_api_conn, psu_id))
             except Exception:
-                pytest.fail("num_thermals is not an integer")
+                pytest.fail("PSU {}: num_thermals is not an integer".format(psu_id))
 
             thermal_list = psu.get_all_thermals(platform_api_conn, psu_id)
-            pytest_assert(thermal_list is not None, "Failed to retrieve thermals")
-            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect")
+            pytest_assert(thermal_list is not None, "Failed to retrieve thermals for psu {}".format(psu_id))
+            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect for psu {}".format(psu_id))
 
             for i in range(num_thermals):
                 thermal = psu.get_thermal(platform_api_conn, psu_id, i)
-                self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i))
+                self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect for psu {}".format(i, psu_id))
         self.assert_expectations()
 

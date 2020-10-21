@@ -432,24 +432,24 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_is_replaceable(self, platform_api_conn):
-        for i in range(self.num_sfps):
-            replaceable = sfp.is_replaceable(platform_api_conn, i)
-            if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(i)):
-                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp [}".format(i))
+        for sfp_id in range(self.num_sfps):
+            replaceable = sfp.is_replaceable(platform_api_conn, sfp_id)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(sfp_id)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp {}".format(sfp_id))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
-        for i in range(self.num_sfps):
+        for sfp_id in range(self.num_sfps):
             try:
-                num_thermals = int(sfp.get_num_thermals(platform_api_conn, i))
+                num_thermals = int(sfp.get_num_thermals(platform_api_conn, sfp_id))
             except Exception:
-                pytest.fail("num_thermals is not an integer")
+                pytest.fail("SFP {}: num_thermals is not an integer".format(sfp_id))
 
             thermal_list = sfp.get_all_thermals(platform_api_conn, i)
-            pytest_assert(thermal_list is not None, "Failed to retrieve thermals")
-            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect")
+            pytest_assert(thermal_list is not None, "Failed to retrieve thermals for sfp {}".format(sfp_id))
+            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect for sfp {}".format(sfp_id))
 
             for thermal_index in range(num_thermals):
                 thermal = sfp.get_thermal(platform_api_conn, i, thermal_index)
-                self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(thermal_index))
+                self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()

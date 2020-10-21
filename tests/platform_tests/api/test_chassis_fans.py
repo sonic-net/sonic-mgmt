@@ -233,5 +233,5 @@ class TestChassisFans(PlatformApiTestBase):
         for i in range(self.num_fans):
             replaceable = fan.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for fan {}".format(i)):
-                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for fan [}".format(i))
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for fan {}".format(i))
         self.assert_expectations()

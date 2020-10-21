@@ -218,5 +218,5 @@ class TestThermalApi(PlatformApiTestBase):
         for i in range(self.num_thermals):
             replaceable = thermal.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for thermal {}".format(i)):
-                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for thermal [}".format(i))
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for thermal {}".format(i))
         self.assert_expectations()
