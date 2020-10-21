@@ -137,6 +137,7 @@ def pytest_addoption(parser):
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
 
 
+
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """
