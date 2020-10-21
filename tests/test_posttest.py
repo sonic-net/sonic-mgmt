@@ -3,6 +3,7 @@ import logging
 import os.path
 import os
 import json
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -54,3 +55,22 @@ def test_restore_container_autorestart(duthost):
     cmds_enable.append("config save -y")
     duthost.shell_cmds(cmds=cmds_enable)
     os.remove(state_file_name)
+    # Wait 30 seconds for snmp reloading
+    time.sleep(30)
+
+def test_recover_rsyslog_rate_limit(duthost):
+    features_dict, succeed = duthost.get_feature_status()
+    if not succeed:
+        # Something unexpected happened.
+        # We don't want to fail here because it's an util
+        return
+    cmd_disable_rate_limit = r"docker exec -i {} sed -i 's/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' /etc/rsyslog.conf"
+    cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
+    for feature_name, state in features_dict.items():
+        if state == "disabled":
+            continue
+        cmds = []
+        cmds.append(cmd_disable_rate_limit.format(feature_name))
+        cmds.append(cmd_reload.format(feature_name))
+        duthost.shell_cmds(cmds=cmds)
+

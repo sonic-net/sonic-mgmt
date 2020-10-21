@@ -1,12 +1,14 @@
 import pytest
 import logging
 import json
+import time
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.pretest,
-    pytest.mark.topology('util')
+    pytest.mark.topology('util'),
+    pytest.mark.disable_loganalyzer
 ]
 
 def test_cleanup_testbed(duthost, request, ptfhost):
@@ -45,5 +47,22 @@ def test_disable_container_autorestart(duthost):
     # Write into config_db
     cmds_disable.append("config save -y")
     duthost.shell_cmds(cmds=cmds_disable)
+    # Wait 30 seconds for snmp reloading
+    time.sleep(30)
 
+def test_disable_rsyslog_rate_limit(duthost):
+    features_dict, succeed = duthost.get_feature_status()
+    if not succeed:
+        # Something unexpected happened.
+        # We don't want to fail here because it's an util
+        return
+    cmd_disable_rate_limit = r"docker exec -i {} sed -i 's/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' /etc/rsyslog.conf"
+    cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
+    for feature_name, state in features_dict.items():
+        if state == "disabled":
+            continue
+        cmds = []
+        cmds.append(cmd_disable_rate_limit.format(feature_name))
+        cmds.append(cmd_reload.format(feature_name))
+        duthost.shell_cmds(cmds=cmds)
 
