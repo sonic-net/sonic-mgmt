@@ -46,27 +46,22 @@ Each DUT has the following key statuses relevant to Kubernetes:
 #### Test Objective
 Verify Device Under Test (DUT) joins high availability master once the VIP and Kubernetes API Server running on backend master servers become available.
 #### Test Configuration
-- Kube server configured with correct VIP and `disable=false`
 - All features running in local mode, with some having `set_owner=kube`
-- VIP unreachable, master backend servers are up but not running the Kubernetes API Server
 - Running config = saved config_db.json
 - No manifests applied
-#### Test Steps
-1. Make VIP reachable
+- VIP configured
+- Kube server disabled
+#### Test Steps 
+1. Make VIP unreachable
+2. Stop API service in backend master servers
+3. Enable kube server
+   - **Expect:** No change in kube server status, `connected=false`
+4. Make VIP reachable
    - VIP becomes reachable but VIP::port is not available, as backend master servers are not running Kubernetes API Server
    - **Expect:** No change in kube server status, `connected=false`
-2. Start API service in backend master servers
+5. Start API service in backend master servers
    - VIP::port and VIP should both be available
    - **Expect:** kube server status shows `connected=true`
-3. Stop API Service
-   - Logs should show kubelet trying to reconnect
-   - **Expect:** No change in kube server status, `connected=true`
-4. Make VIP unreachable
-   - Logs should show kubelet trying to reconnect
-   - **Expect:** No change in kube server status, `connected=true`
-5. Make VIP reachable and start API Server
-   - Logs should show kubelet has established connection
-   - **Expect:** No change in kube server status, `connected=true`
 
 ### TC_JOIN_2: Test Disable Flag
 #### Test Objective
