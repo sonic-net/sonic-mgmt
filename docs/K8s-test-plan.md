@@ -50,16 +50,16 @@ Verify Device Under Test (DUT) joins high availability master once the VIP and K
 - Running config = saved config_db.json
 - No manifests applied
 - VIP configured
-- Kube server disabled
 #### Test Steps 
-1. Make VIP unreachable
-2. Stop API service in backend master servers
-3. Enable kube server
+1. Disable kube server
+2. Make VIP unreachable
+3. Stop API service in backend master servers
+4. Enable kube server
    - **Expect:** No change in kube server status, `connected=false`
-4. Make VIP reachable
+5. Make VIP reachable
    - VIP becomes reachable but VIP::port is not available, as backend master servers are not running Kubernetes API Server
    - **Expect:** No change in kube server status, `connected=false`
-5. Start API service in backend master servers
+6. Start API service in backend master servers
    - VIP::port and VIP should both be available
    - **Expect:** kube server status shows `connected=true`
 
