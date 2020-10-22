@@ -43,6 +43,13 @@ def get_status(conn, index):
     return sfp_api(conn, index, 'get_status')
 
 
+def get_position_in_parent(conn, index):
+    return sfp_api(conn, index, 'get_position_in_parent')
+
+
+def is_replaceable(conn, index):
+    return sfp_api(conn, index, 'is_replaceable')
+
 #
 # Methods defined in SfpBase class
 #
@@ -128,14 +135,6 @@ def set_lpmode(conn, index, lpmode):
 
 def set_power_override(conn, index, power_override, power_set):
     return sfp_api(conn, index, 'set_power_override', [power_override, power_set])
-
-
-def get_position_in_parent(conn, index):
-    return sfp_api(conn, index, 'get_position_in_parent')
-
-
-def is_replaceable(conn, index):
-    return sfp_api(conn, index, 'is_replaceable')
 
 
 def get_num_thermals(conn, index):

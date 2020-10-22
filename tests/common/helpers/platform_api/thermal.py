@@ -40,6 +40,14 @@ def get_serial(conn, index):
 def get_status(conn, index):
     return thermal_api(conn, index, 'get_status')
 
+
+def get_position_in_parent(conn, index):
+    return thermal_api(conn, index, 'get_position_in_parent')
+
+
+def is_replaceable(conn, index):
+    return thermal_api(conn, index, 'is_replaceable')
+
 #
 # Methods defined in thermalBase class
 #
@@ -71,11 +79,3 @@ def get_high_critical_threshold(conn, index):
 
 def get_low_critical_threshold(conn, index):
     return thermal_api(conn, index, 'get_low_critical_threshold')
-
-
-def get_position_in_parent(conn, index):
-    return thermal_api(conn, index, 'get_position_in_parent')
-
-
-def is_replaceable(conn, index):
-    return thermal_api(conn, index, 'is_replaceable')
