@@ -15,7 +15,6 @@ pytestmark = [
 class TestPortToggle(object):
     """
     TestPortToggle class for testing port toggle
-
     """
 
     def test_port_toggle(self, duthost, bring_up_dut_interfaces):
