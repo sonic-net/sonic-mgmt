@@ -128,7 +128,7 @@ class TestContLinkFlap(object):
         # Wait for 15 more secs.
         time.sleep(15)
 
-        # Orchagent CPU should consume < orch_cpu_threshold% at last.
+        # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
         for _ in range(30):
             orch_cpu = duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
