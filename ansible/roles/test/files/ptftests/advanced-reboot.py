@@ -1473,8 +1473,9 @@ class ReloadTest(BaseTest):
             if state == 'up':
                 if not uptime:
                     uptime = self.asic_state.get_state_time(state)
-            elif uptime:
-                raise Exception("Data plane stopped working")
+            else:
+                if uptime:
+                    raise Exception("Data plane stopped working")
             time.sleep(2)
 
         # wait, until FDB entries are populated
