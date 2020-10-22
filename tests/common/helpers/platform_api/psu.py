@@ -43,6 +43,13 @@ def get_status(conn, index):
     return psu_api(conn, index, 'get_status')
 
 
+def get_position_in_parent(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_position_in_parent')
+
+
+def is_replaceable(conn, psu_id):
+    return psu_api(conn, psu_id, 'is_replaceable')
+
 #
 # Methods defined in PsuBase class
 #
@@ -99,3 +106,14 @@ def get_voltage_high_threshold(conn, psu_id):
 def get_voltage_low_threshold(conn, psu_id):
     return psu_api(conn, psu_id, 'get_voltage_low_threshold')
 
+
+def get_num_thermals(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_num_thermals')
+
+
+def get_all_thermals(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_all_thermals')
+
+
+def get_thermal(conn, psu_id, index):
+    return psu_api(conn, psu_id, 'get_thermal', [index])

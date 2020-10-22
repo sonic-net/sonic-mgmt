@@ -118,6 +118,20 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_thermals):
+            position = thermal.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for thermal {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for thermal {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for i in range(self.num_thermals):
+            replaceable = thermal.is_replaceable(platform_api_conn, i)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for thermal {}".format(i)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for thermal {}".format(i))
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in ThermalBase class
     #

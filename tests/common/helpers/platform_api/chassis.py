@@ -41,6 +41,13 @@ def get_status(conn):
     return chassis_api(conn, 'get_status')
 
 
+def get_position_in_parent(conn):
+    return chassis_api(conn, 'get_position_in_parent')
+
+
+def is_replaceable(conn):
+    return chassis_api(conn, 'is_replaceable')
+
 #
 # Methods defined in ChassisBase class
 #
