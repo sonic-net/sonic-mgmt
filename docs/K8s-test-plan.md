@@ -70,7 +70,7 @@ Verify Device Under Test (DUT) joins high availability master once the VIP and K
 #### Test Objective
 Verify Device Under Test (DUT) responds appropriately to kube server `disable` flag by joining master when `disable=false` and resetting from master when `disable=true`.
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
+- Pick up from step 5 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - Kube server status shows `connected=true` 
 - No manifests applied
 #### Test Steps
@@ -84,7 +84,7 @@ Verify Device Under Test (DUT) responds appropriately to kube server `disable` f
 #### Test Objective
 Verify Device Under Test (DUT) appropriately remains joined to master upon config reload. In config, disable is saved as false.
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
+- Pick up from step 5 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - Kube server status shows `connected=true` 
 - No manifests applied
 #### Test Steps
@@ -111,7 +111,7 @@ Verify Device Under Test (DUT) appropriately disconnects upon config reload togg
 #### Test Objective
 Verify Device Under Test (DUT) appropriately disconnects upon config reload toggling disable flag to false. Disable was set to true without being saved prior to config reload. 
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
+- Pick up from step 5 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - Kube server status shows `connected=true` 
 - Disable flag is set to false (config saved)
 - No manifests applied
@@ -128,7 +128,7 @@ Verify Device Under Test (DUT) appropriately disconnects upon config reload togg
 #### Test Objective
 Verify Device Under Test (DUT) properly transitions between local mode and kube mode when manifest is properly applied.
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
+- Pick up from step 5 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - {feature x} `current_owner=local`, `set_owner=kube`, `remote_state=none`, `container_version=1.0.0`
 #### Test Steps
 1. Apply manifest for {feature x} v1.1.1 with valid URL
@@ -166,7 +166,7 @@ Verify Device Under Test (DUT) running kube mode feature container v1.1.1 proper
 #### Test Objective
 Verify Device Under Test (DUT) local mode feature properly responds to `set_owner=kube` when kube mode feature fails to deploy properly (failed manifest application due to invalid URL). Local mode container should keep running until kube mode feature is successfully deployed.
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
+- Pick up from step 5 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - {feature x} `current_owner=local`, `set_owner=kube`, `remote_state=none`, `container_version=1.0.0`
 #### Test Steps
 1. Apply {feature x} v1.1.1 manifest with invalid URL
@@ -263,7 +263,7 @@ Verify Device Under Test (DUT) kube mode feature properly transitions to local m
 #### Test Objective
 Verify Device Under Test (DUT) appropriately processes offline request to transition feature from local mode to kube mode. The kube mode container should start running once the VIP is reachable.  
 #### Test Configuration
-- Pick up from step 2 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
+- Pick up from step 5 of [TC_JOIN_1](#tc_join_1-join-master-once-available)
 - {feature x} `current_owner=local`, `set_owner=kube`, `remote_state=none`, `container_version=1.0.0`
 #### Test Steps
 1. Make VIP unreachable
