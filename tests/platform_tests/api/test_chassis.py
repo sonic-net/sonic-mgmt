@@ -135,6 +135,18 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(status is not None, "Unable to retrieve chassis status")
         pytest_assert(isinstance(status, bool), "Chassis status appears incorrect")
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        position = chassis.get_position_in_parent(platform_api_conn)
+        if self.expect(position is not None, "Failed to perform get_position_in_parent"):
+            self.expect(isinstance(position, int), "Position value must be an integer value")
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        replaceable = chassis.is_replaceable(platform_api_conn)
+        if self.expect(replaceable is not None, "Failed to perform is_replaceable"):
+            self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value")
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in ChassisBase class
     #
