@@ -83,7 +83,7 @@ class AdvancedReboot:
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
 
         # Set default reboot limit if it is not given
-        if self.rebootLimit == None:
+        if self.rebootLimit is None:
             if self.kvmTest:
                 self.rebootLimit = 150 # Default reboot limit for kvm
             else:
