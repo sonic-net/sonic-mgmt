@@ -126,7 +126,7 @@ class ReloadTest(BaseTest):
         self.sad_handle = None
         self.process_id = str(os.getpid())
         self.test_params = testutils.test_params_get()
-        self.check_param('kvm_test', False, required = False)
+        self.check_param('kvm_test', False, required=False)
         self.check_param('verbose', False, required=False)
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
@@ -147,15 +147,15 @@ class ReloadTest(BaseTest):
         self.check_param('min_bgp_gr_timeout', 15, required=False)
         self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
-        self.check_param('preboot_files', None, required = False)
-        self.check_param('preboot_oper', None, required = False) # preboot sad path to inject before warm-reboot
-        self.check_param('inboot_oper', None, required = False) # sad path to inject during warm-reboot
-        self.check_param('nexthop_ips', [], required = False) # nexthops for the routes that will be added during warm-reboot
-        self.check_param('allow_vlan_flooding', False, required = False)
-        self.check_param('sniff_time_incr', 60, required = False)
-        self.check_param('vnet', False, required = False)
-        self.check_param('vnet_pkts', None, required = False)
-        self.check_param('target_version', '', required = False)
+        self.check_param('preboot_files', None, required=False)
+        self.check_param('preboot_oper', None, required=False) # preboot sad path to inject before warm-reboot
+        self.check_param('inboot_oper', None, required=False) # sad path to inject during warm-reboot
+        self.check_param('nexthop_ips', [], required=False) # nexthops for the routes that will be added during warm-reboot
+        self.check_param('allow_vlan_flooding', False, required=False)
+        self.check_param('sniff_time_incr', 60, required=False)
+        self.check_param('vnet', False, required=False)
+        self.check_param('vnet_pkts', None, required=False)
+        self.check_param('target_version', '', required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
