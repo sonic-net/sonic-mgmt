@@ -508,6 +508,125 @@ sensors_checks:
       temp: []
     psu_skips: {}
 
+  x86_64-m3000-r0:
+    alarms:
+      fan:
+      - adt7462-i2c-1-58/Fan1-1/fan1_alarm
+      - adt7462-i2c-1-58/Fan1-2/fan2_alarm
+      - adt7462-i2c-1-58/Fan2-1/fan3_alarm
+      - adt7462-i2c-1-58/Fan2-2/fan4_alarm
+      - adt7462-i2c-1-58/Fan3-1/fan5_alarm
+      - adt7462-i2c-1-58/Fan3-2/fan6_alarm
+      - adt7462-i2c-1-58/Fan4-1/fan7_alarm
+      - adt7462-i2c-1-58/Fan4-2/fan8_alarm
+      - tps40422-i2c-5-09/temp1/temp1_crit_alarm
+      power:
+      - lm25066-i2c-1-15/iin/curr1_max_alarm
+      - lm25066-i2c-1-15/vin/in1_max_alarm
+      - tps40422-i2c-5-09/vout1/in1_alarm
+      - tps40422-i2c-5-09/vout2/in2_alarm
+      - tps40422-i2c-5-09/iout1/curr1_crit_alarm
+      - tps40422-i2c-5-09/iout2/curr2_alarm
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 0/temp3_crit_alarm
+      - adt7462-i2c-1-58/Front-Middle (D1)/temp2_alarm
+      - adt7462-i2c-1-58/Front-Left (D2)/temp3_alarm
+      - adt7462-i2c-1-58/Back (D3)/temp4_alarm
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - acpitz-virtual-0/temp1/temp1_input
+        - acpitz-virtual-0/temp1/temp1_crit
+      - - acpitz-virtual-0/temp2/temp2_input
+        - acpitz-virtual-0/temp2/temp2_crit
+    non_zero:
+      fan:
+      - adt7462-i2c-1-58/Fan1-1/fan1_input
+      - adt7462-i2c-1-58/Fan1-2/fan2_input
+      - adt7462-i2c-1-58/Fan2-1/fan3_input
+      - adt7462-i2c-1-58/Fan2-2/fan4_input
+      - adt7462-i2c-1-58/Fan3-1/fan5_input
+      - adt7462-i2c-1-58/Fan3-2/fan6_input
+      - adt7462-i2c-1-58/Fan4-1/fan7_input
+      - adt7462-i2c-1-58/Fan4-2/fan8_input
+      power: []
+      temp: []
+    psu_skips: {}
+
+  x86_64-m3000-r1:
+    alarms:
+      fan:
+      - adt7462-i2c-1-58/Fan1-1/fan1_alarm
+      - adt7462-i2c-1-58/Fan1-2/fan2_alarm
+      - adt7462-i2c-1-58/Fan2-1/fan3_alarm
+      - adt7462-i2c-1-58/Fan2-2/fan4_alarm
+      - adt7462-i2c-1-58/Fan3-1/fan5_alarm
+      - adt7462-i2c-1-58/Fan3-2/fan6_alarm
+      - adt7462-i2c-1-58/Fan4-1/fan7_alarm
+      - adt7462-i2c-1-58/Fan4-2/fan8_alarm
+      power:
+      - lm25066-i2c-1-15/iin/curr1_max_alarm
+      - lm25066-i2c-1-15/vin/in1_max_alarm
+      - tps40422-i2c-5-09/vout1/in1_alarm
+      - tps40422-i2c-5-09/vout2/in2_alarm
+      - tps40422-i2c-5-09/iout1/curr1_crit_alarm
+      - tps40422-i2c-5-09/iout2/curr2_alarm
+      temp:
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - adt7462-i2c-1-58/Front-Middle (D1)/temp2_alarm
+      - adt7462-i2c-1-58/Front-Left (D2)/temp3_alarm
+      - adt7462-i2c-1-58/Back (D3)/temp4_alarm
+      - lm25066-i2c-1-15/temp1/temp1_max_alarm
+      - tps40422-i2c-5-09/temp1/temp1_crit_alarm
+      - cisco_n2200-i2c-7-5b/Inlet Temperature/temp1_crit_alarm
+      - cisco_n2200-i2c-7-5b/Output heatsink Temperature/temp2_crit_alarm
+      - cisco_n2200-i2c-7-5b/Outlet Temperature/temp3_crit_alarm
+      - cisco_n2200-i2c-8-5b/Inlet Temperature/temp1_crit_alarm
+      - cisco_n2200-i2c-8-5b/Output heatsink Temperature/temp2_crit_alarm
+      - cisco_n2200-i2c-8-5b/Outlet Temperature/temp3_crit_alarm
+    compares:
+      fan: []
+      power:
+      - - lm25066-i2c-1-15/vin/in1_input
+        - lm25066-i2c-1-15/vin/in1_max
+      - - lm25066-i2c-1-15/iin/curr1_input
+        - lm25066-i2c-1-15/iin/curr1_max
+      temp:
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - lm25066-i2c-1-15/temp1/temp1_input
+        - lm25066-i2c-1-15/temp1/temp1_crit
+      - - cisco_n2200-i2c-7-5b/Inlet Temperature/temp1_input
+        - cisco_n2200-i2c-7-5b/Inlet Temperature/temp1_crit
+      - - cisco_n2200-i2c-7-5b/Output heatsink Temperature/temp2_input
+        - cisco_n2200-i2c-7-5b/Output heatsink Temperature/temp2_crit
+      - - cisco_n2200-i2c-7-5b/Outlet Temperature/temp3_input
+        - cisco_n2200-i2c-7-5b/Outlet Temperature/temp3_crit
+      - - cisco_n2200-i2c-8-5b/Inlet Temperature/temp1_input
+        - cisco_n2200-i2c-8-5b/Inlet Temperature/temp1_crit
+      - - cisco_n2200-i2c-8-5b/Output heatsink Temperature/temp2_input
+        - cisco_n2200-i2c-8-5b/Output heatsink Temperature/temp2_crit
+      - - cisco_n2200-i2c-8-5b/Outlet Temperature/temp3_input
+        - cisco_n2200-i2c-8-5b/Outlet Temperature/temp3_crit
+    non_zero:
+      fan:
+      - adt7462-i2c-1-58/Fan1-1/fan1_input
+      - adt7462-i2c-1-58/Fan1-2/fan2_input
+      - adt7462-i2c-1-58/Fan2-1/fan3_input
+      - adt7462-i2c-1-58/Fan2-2/fan4_input
+      - adt7462-i2c-1-58/Fan3-1/fan5_input
+      - adt7462-i2c-1-58/Fan3-2/fan6_input
+      - adt7462-i2c-1-58/Fan4-1/fan7_input
+      - adt7462-i2c-1-58/Fan4-2/fan8_input
+      power: []
+      temp: []
+    psu_skips: {}
+
   x86_64-mlnx_msn2740-r0:
     alarms:
       fan:
