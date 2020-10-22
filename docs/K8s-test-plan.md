@@ -52,8 +52,11 @@ Verify Device Under Test (DUT) joins high availability master once the VIP and K
 - VIP configured
 #### Test Steps 
 1. Disable kube server
+   - **Expect:** kube server status shows `connected=false`
 2. Make VIP unreachable
+   - **Expect:** No change in kube server status, `connected=false`
 3. Stop API service in backend master servers
+   - **Expect:** No change in kube server status, `connected=false`
 4. Enable kube server
    - **Expect:** No change in kube server status, `connected=false`
 5. Make VIP reachable
