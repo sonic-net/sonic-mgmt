@@ -55,22 +55,24 @@ def test_restore_container_autorestart(duthost):
     cmds_enable.append("config save -y")
     duthost.shell_cmds(cmds=cmds_enable)
     os.remove(state_file_name)
-    # Wait 30 seconds for snmp reloading
-    time.sleep(30)
+    # Wait sometime for snmp reloading
+    SNMP_RELOADING_TIME = 30
+    time.sleep(SNMP_RELOADING_TIME)
 
 def test_recover_rsyslog_rate_limit(duthost):
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.
         # We don't want to fail here because it's an util
+        logging.warn("Failed to retrieve feature status")
         return
-    cmd_disable_rate_limit = r"docker exec -i {} sed -i 's/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' /etc/rsyslog.conf"
+    cmd_enable_rate_limit = r"docker exec -i {} sed -i 's/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' /etc/rsyslog.conf"
     cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
     for feature_name, state in features_dict.items():
         if state == "disabled":
             continue
         cmds = []
-        cmds.append(cmd_disable_rate_limit.format(feature_name))
+        cmds.append(cmd_enable_rate_limit.format(feature_name))
         cmds.append(cmd_reload.format(feature_name))
         duthost.shell_cmds(cmds=cmds)
 
