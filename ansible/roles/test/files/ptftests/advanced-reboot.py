@@ -885,6 +885,7 @@ class ReloadTest(BaseTest):
             self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
             raise
 
+        # Wait until data plane up if it stopped
         if self.no_routing_start is not None:
             self.no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
                     self.task_timeout,

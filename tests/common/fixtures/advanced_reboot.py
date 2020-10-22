@@ -41,6 +41,7 @@ class AdvancedReboot:
 
         if duthost.facts['asic_type'] == 'vs':
             self.kvmTest = True
+            # skip testcase if it is not marked as kvm compatible
             if 'kvmCompatible' not in kwargs or kwargs['kvmCompatible'] != True:
                 pytest.skip("Testcase not supported for kvm")
         else:
