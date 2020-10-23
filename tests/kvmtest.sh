@@ -57,6 +57,7 @@ cacl/test_cacl_function.py \
 dhcp_relay/test_dhcp_relay.py \
 ntp/test_ntp.py \
 pc/test_po_cleanup.py \
+platform_tests/test_advanced_reboot.py \
 route/test_default_route.py \
 snmp/test_snmp_cpu.py \
 snmp/test_snmp_interfaces.py \
