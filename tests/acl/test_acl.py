@@ -27,7 +27,7 @@ pytestmark = [
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-DUT_TMP_DIR = "/tmp/acl"
+DUT_TMP_DIR = "acl_test_dir"  # Keep it under home dir so it persists through reboot
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 
