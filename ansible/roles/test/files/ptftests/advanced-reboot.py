@@ -793,9 +793,6 @@ class ReloadTest(BaseTest):
             self.do_inboot_oper()
         self.reboot_start = datetime.datetime.now()
         self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
-        if self.kvm_test:
-            self.no_control_start = self.cpu_state.get_state_time('down')
-            self.log("control plane down starts %s" % str(self.no_control_start))
 
     def handle_fast_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
@@ -878,8 +875,8 @@ class ReloadTest(BaseTest):
 
         try:
             async_cpu_up.get(timeout=self.task_timeout)
-            self.no_control_stop = self.cpu_state.get_state_time('up')
-            self.log("Control plane down stops %s" % str(self.no_control_stop))
+            no_control_stop = self.cpu_state.get_state_time('up')
+            self.log("Control plane down stops %s" % str(no_control_stop))
         except TimeoutError as e:
             self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
             self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
@@ -896,6 +893,30 @@ class ReloadTest(BaseTest):
 
         # Stop watching DUT
         self.watching = False
+
+    def handle_post_reboot_health_check_kvm(self):
+        # wait until all bgp session are established
+        self.log("Wait until bgp routing is up on all devices")
+        for _, q in self.ssh_jobs:
+            q.put('quit')
+
+        def wait_for_ssh_threads():
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+                time.sleep(self.TIMEOUT)
+
+            for thr, _ in self.ssh_jobs:
+                thr.join()
+
+        self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
+
+        self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
+        self.log("")
+
+        if self.no_routing_stop - self.no_routing_start > self.limit:
+            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
+                    % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
+        if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
+            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
 
     def handle_post_reboot_health_check(self):
         # wait until all bgp session are established
@@ -938,14 +959,10 @@ class ReloadTest(BaseTest):
                 # verify there are no interface flaps after warm boot
                 self.neigh_lag_status_check()
 
-        if self.reboot_type == 'fast-reboot' and not self.kvm_test:
+        if self.reboot_type == 'fast-reboot':
             self.no_cp_replies = self.extract_no_cpu_replies(self.upper_replies)
             if self.no_cp_replies < 0.95 * self.nr_vl_pkts:
                 self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
-
-        if self.kvm_test and (self.no_control_stop - self.no_control_start) > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-            self.fails['dut'].add("Control plane downtime period must be less then %s seconds. It was %s" \
-                    % (self.test_params['graceful_limit'], str(self.no_control_stop - self.no_control_start)))
 
     def handle_post_reboot_test_reports(self):
         # Stop watching DUT
@@ -988,8 +1005,6 @@ class ReloadTest(BaseTest):
 
         if self.no_routing_stop:
             self.log("Longest downtime period was %s" % str(self.no_routing_stop - self.no_routing_start))
-            if self.kvm_test:
-                self.log("Control plane downtime period was %s" % str(self.no_control_stop - self.no_control_start))
             reboot_time = "0:00:00" if self.routing_always else str(self.no_routing_stop - self.reboot_start)
             self.log("Reboot time was %s" % reboot_time)
             self.log("Expected downtime is less then %s" % self.limit)
@@ -1041,13 +1056,13 @@ class ReloadTest(BaseTest):
             self.wait_until_reboot()
             if self.kvm_test:
                 self.handle_advanced_reboot_health_check_kvm()
+                self.handle_post_reboot_health_check_kvm()
             else:
                 if self.reboot_type == 'fast-reboot':
                     self.handle_fast_reboot_health_check()
                 if 'warm-reboot' in self.reboot_type:
                     self.handle_warm_reboot_health_check()
-
-            self.handle_post_reboot_health_check()
+                self.handle_post_reboot_health_check()
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
