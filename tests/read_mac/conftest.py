@@ -11,6 +11,7 @@ def pytest_addoption(parser):
         action="store",
         type=int,
         help="Number of image installing iterations",
+        required=True,
     )
 
     parser.addoption(
@@ -18,6 +19,7 @@ def pytest_addoption(parser):
         action='store',
         type=str,
         help='1st image to download and install',
+        required=True,
     )
 
     parser.addoption(
@@ -25,6 +27,7 @@ def pytest_addoption(parser):
         action='store',
         type=str,
         help='2nd image to download and install',
+        required=True,
     )
 
     parser.addoption(

@@ -7,12 +7,13 @@ from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from datetime import datetime
-
+from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
-BINARY_FILE_ON_LOCALHOST = "/tmp/update_image.bin"
-BINARY_FILE_ON_DUTHOST = "/tmp/mellanox.bin"
+BINARY_FILE_ON_LOCALHOST_1 = "/tmp/sonic_image_on_localhost_1.bin"
+BINARY_FILE_ON_LOCALHOST_2 = "/tmp/sonic_image_on_localhost_2.bin"
+BINARY_FILE_ON_DUTHOST = "/tmp/sonic_image_on_duthost.bin"
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -23,7 +24,8 @@ def cleanup_read_mac(duthost, localhost):
     yield
     logger.info('Remove temporary images')
     duthost.shell("rm -rf {}".format(BINARY_FILE_ON_DUTHOST))
-    localhost.shell("rm -rf {}".format(BINARY_FILE_ON_LOCALHOST))
+    localhost.shell("rm -rf {}".format(BINARY_FILE_ON_LOCALHOST_1))
+    localhost.shell("rm -rf {}".format(BINARY_FILE_ON_LOCALHOST_2))
 
     backup_minigraph_exist = duthost.stat(path = "/etc/sonic/minigraph.xml.backup")["stat"]["exists"]
     if backup_minigraph_exist:
@@ -34,26 +36,29 @@ def cleanup_read_mac(duthost, localhost):
 
 class ReadMACMetadata():
     def __init__(self, request):
+        image1 = request.config.getoption("--image1")
+        image2 = request.config.getoption("--image2")
         self.iteration = request.config.getoption("--iteration")
-        self.image1 = request.config.getoption("--image1")
-        self.image2 = request.config.getoption("--image2")
         self.minigraph1 = request.config.getoption("--minigraph1")
         self.minigraph2 = request.config.getoption("--minigraph2")
 
-        if not self.image1:
-            pytest.fail("Please specify --image1")
-        if not self.image2:
-            pytest.fail("Please specify --image2")
-        if not self.iteration or self.iteration < 1: 
+        if self.iteration < 1:
             pytest.fail("Please specify --iteration in correct range")
 
         self.request = request
         duthost = request.getfixturevalue('duthost')
+        localhost = self.request.getfixturevalue('localhost')
 
         minigraph_exist = duthost.stat(path = "/etc/sonic/minigraph.xml")["stat"]["exists"]
         if (self.minigraph1 is not None or self.minigraph2 is not None) and minigraph_exist:
             logger.info("Store current minigraph for debug purpose")
             duthost.shell("cp /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.backup")
+
+        logger.info("Download SONiC image1:  {}".format(image1))
+        localhost.get_url(url=image1, dest=BINARY_FILE_ON_LOCALHOST_1)
+
+        logger.info("Download SONiC image2:  {}".format(image2))
+        localhost.get_url(url=image2, dest=BINARY_FILE_ON_LOCALHOST_2)
 
     def run_test_in_reinstall_loop(self):
         logger.info("Verify MAC in image reinstall loop")
@@ -61,17 +66,9 @@ class ReadMACMetadata():
         localhost = self.request.getfixturevalue('localhost')
 
         for counter in range(1, self.iteration + 1):
-            current_minigraph = None
-
-            if counter % 2 == 1:
-                current_image = self.image1
-                current_minigraph = self.minigraph1
-            else:
-                current_image = self.image2
-                current_minigraph = self.minigraph2
+            current_minigraph = self.minigraph1 if counter % 2 == 1 else self.minigraph2
 
             logger.info("Iteration #{}".format(counter))
-            logger.info("Current image: {}, temporary minigraph: {}".format(current_image, current_minigraph))
             if current_minigraph:
                 logger.info("Copy specified minigraph {} to the /etc/sonic folder".format(current_minigraph))
                 duthost.copy(src=current_minigraph, dest="/etc/sonic/minigraph.xml")
@@ -80,8 +77,11 @@ class ReadMACMetadata():
             loganalyzer.match_regex = [ ".*can't parse mac address 'None'*" ]
 
             with loganalyzer:
-                self.deploy_image_to_duthost(duthost, localhost , current_image)
-                self.reboot_dut(localhost, duthost)
+                self.deploy_image_to_duthost(duthost, counter)
+                reboot(duthost, localhost, wait=120)
+                logger.info("Wait until system is stable")
+                pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
+
 
             if current_minigraph:
                 logger.info("Execute cli 'config load_minigraph -y' to apply new minigraph")
@@ -90,32 +90,17 @@ class ReadMACMetadata():
 
             logger.info("Remove old (not current) sonic image")
             duthost.reduce_and_add_sonic_images(disk_used_pcent = 1)
-
             self.check_mtu_and_interfaces(duthost)
 
-    def deploy_image_to_duthost(self, duthost, localhost, current_image):
-        logger.info("Download SONiC image {}".format(current_image))
-        localhost.get_url(url=current_image, dest=BINARY_FILE_ON_LOCALHOST)
-
+    def deploy_image_to_duthost(self, duthost, counter):
         logger.info("Upload SONiC image to device")
-        duthost.copy(src=BINARY_FILE_ON_LOCALHOST, dest=BINARY_FILE_ON_DUTHOST)
+        if counter % 2 == 1:
+            duthost.copy(src=BINARY_FILE_ON_LOCALHOST_1, dest=BINARY_FILE_ON_DUTHOST)
+        else:
+            duthost.copy(src=BINARY_FILE_ON_LOCALHOST_2, dest=BINARY_FILE_ON_DUTHOST)
 
         logger.info("Installing new SONiC image")
         duthost.shell("sonic_installer install -y {}".format(BINARY_FILE_ON_DUTHOST))
-
-    def reboot_dut(self, localhost, duthost):
-        hostname = duthost.hostname
-        logger.info("Execute task: reboot {}".format(hostname))
-        duthost.command("sudo reboot", module_ignore_errors=True, module_async=True)
-        logger.info("Wait for {} to go down".format(hostname))
-        result = localhost.wait_for(host=hostname, port=22, state='stopped', timeout=180, module_ignore_errors=True)
-        if 'msg' in result.keys() and 'Timeout' in result['msg']:
-            pytest.fail(result['msg'])
-
-        logger.info("Wait for {} to come back".format(hostname))
-        localhost.wait_for(host=hostname, port=22, state='started', delay=10, timeout=300)
-        logger.info("Wait until system is stable")
-        pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
 
     def check_mtu_and_interfaces(self, duthost):
         logger.info("Verify that MAC address fits template XX:XX:XX:XX:XX:XX")
