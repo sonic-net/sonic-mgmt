@@ -860,6 +860,52 @@ class ReloadTest(BaseTest):
             self.no_routing_start = self.reboot_start
             self.no_routing_stop  = self.reboot_start
 
+    def handle_post_reboot_health_check(self):
+        # wait until all bgp session are established
+        self.log("Wait until bgp routing is up on all devices")
+        for _, q in self.ssh_jobs:
+            q.put('quit')
+
+        def wait_for_ssh_threads():
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+                time.sleep(self.TIMEOUT)
+
+            for thr, _ in self.ssh_jobs:
+                thr.join()
+
+        self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
+
+        self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
+        self.log("")
+
+        if self.no_routing_stop - self.no_routing_start > self.limit:
+            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
+                    % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
+        if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
+            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
+
+        if self.reboot_type == 'warm-reboot':
+            if self.total_disrupt_time > self.limit.total_seconds():
+                self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
+                    % (str(self.limit), str(self.total_disrupt_time)))
+
+            # after the data plane is up, check for routing changes
+            if self.test_params['inboot_oper'] and self.sad_handle:
+                self.check_inboot_sad_status()
+
+            # postboot check for all preboot operations
+            if self.test_params['preboot_oper'] and self.sad_handle:
+                self.check_postboot_sad_status()
+
+            else:
+                # verify there are no interface flaps after warm boot
+                self.neigh_lag_status_check()
+
+        if self.reboot_type == 'fast-reboot':
+            self.no_cp_replies = self.extract_no_cpu_replies(self.upper_replies)
+            if self.no_cp_replies < 0.95 * self.nr_vl_pkts:
+                self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
+
     def handle_advanced_reboot_health_check_kvm(self):
         self.log("Wait until data plane stops")
         async_forward_stop = self.pool.apply_async(self.check_forwarding_stop)
@@ -917,52 +963,6 @@ class ReloadTest(BaseTest):
                     % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
         if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
             self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
-
-    def handle_post_reboot_health_check(self):
-        # wait until all bgp session are established
-        self.log("Wait until bgp routing is up on all devices")
-        for _, q in self.ssh_jobs:
-            q.put('quit')
-
-        def wait_for_ssh_threads(signal):
-            while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
-                time.sleep(self.TIMEOUT)
-
-            for thr, _ in self.ssh_jobs:
-                thr.join()
-
-        self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
-
-        self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
-        self.log("")
-
-        if self.no_routing_stop - self.no_routing_start > self.limit:
-            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
-                    % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
-        if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
-
-        if 'warm-reboot' in self.reboot_type:
-            if self.total_disrupt_time > self.limit.total_seconds():
-                self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
-                    % (str(self.limit), str(self.total_disrupt_time)))
-
-            # after the data plane is up, check for routing changes
-            if self.test_params['inboot_oper'] and self.sad_handle:
-                self.check_inboot_sad_status()
-
-            # postboot check for all preboot operations
-            if self.test_params['preboot_oper'] and self.sad_handle:
-                self.check_postboot_sad_status()
-
-            else:
-                # verify there are no interface flaps after warm boot
-                self.neigh_lag_status_check()
-
-        if self.reboot_type == 'fast-reboot':
-            self.no_cp_replies = self.extract_no_cpu_replies(self.upper_replies)
-            if self.no_cp_replies < 0.95 * self.nr_vl_pkts:
-                self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
 
     def handle_post_reboot_test_reports(self):
         # Stop watching DUT
