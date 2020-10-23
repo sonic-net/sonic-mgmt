@@ -21,8 +21,8 @@ ssh_data = SpyTestDict()
 
 def initialize_variables():
     ssh_data.clear()
-    ssh_data.usr_default = 'admin'
-    ssh_data.pwd_default = ['YourPaSsWoRd', 'broadcom']
+    ssh_data.usr_default = 'cisco'
+    ssh_data.pwd_default = ['cisco123', 'YourPaSsWoRd']
     ssh_data.pwd_final = ''
     ssh_data.usr_non_default = random_username(random.randint(5, 31))
     ssh_data.pwd_non_default = random_password(random.randint(6, 12))
@@ -57,7 +57,6 @@ def ssh_module_hooks(request):
 
     yield
     config_ip_address(oper='remove')
-    acl_obj.delete_acl_table(vars.D1)
     disable_sshv6(vars.D1)
     snmp_config(config='remove')
 
@@ -322,7 +321,8 @@ def test_ft_ssh_add_user_verify():
     else:
         st.report_tc_pass("test_ft_controlplane_acl_service_snmp", "snmp_output_failed", "with control plane ACL service SNMP after reboot")
 
-    acl_obj.delete_acl_table(vars.D1)
+    for table in acl_data.acl_json_config_control_plane['ACL_TABLE']:
+        acl_obj.delete_acl_table(vars.D1, acl_table_name=table)
 
     if acl_sshv4 or acl_sshv6 or acl_snmp:
         st.generate_tech_support(vars.D1, "controlplane_acl_services_after_reboot")
