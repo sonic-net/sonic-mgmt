@@ -560,7 +560,7 @@ SWITCH_MODELS = {
             }
         }
     },
-    "ACS-MSN4410": {
+    "x86_64-mlnx_msn4410-r0": {
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
