@@ -217,9 +217,9 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
         if phy_intf in tested_physical_ports:
             logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
             continue
-        type = duthost.command('redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" type'.format(intf))["stdout"]
+        sfp_type = duthost.command('redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" type'.format(intf))["stdout"]
         power_class = duthost.command('redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" ext_identifier'.format(intf))["stdout"]
-        if not "QSFP" in type or "Power Class 1" in power_class:
+        if not "QSFP" in sfp_type or "Power Class 1" in power_class:
             logging.info("skip testing port {} which doesn't support LPM".format(intf))
             not_supporting_lpm_physical_ports.add(phy_intf)
             continue
