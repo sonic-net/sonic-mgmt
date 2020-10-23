@@ -46,7 +46,7 @@
   file:
     path: "/var/www/html"
     state: directory
-    mode: '777'
+    mode: '755'
 
 - name: Create SSL certificate root directory
   become: yes
@@ -76,7 +76,7 @@
     src: "default-ssl.conf.j2"
     dest: "/etc/apache2/sites-available/default-ssl.conf"
 
-- name: Enable Apaache SSL
+- name: Enable Apache SSL
   shell: |
     sudo a2enmod ssl
     sudo a2ensite default-ssl.conf

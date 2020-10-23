@@ -14,8 +14,12 @@
     delay: 3
     timeout: 300
 
+- name: Set kubeadm init options
+  set_fact:
+    kubeadm_init_options="--apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns"
+
 - name: Initializing Kubernetes cluster
-  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns
+  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs {{ kubeadm_init_options }}
   register: output
 
 - name: Store logs and generated token for future reference
@@ -62,4 +66,4 @@
   copy:
     src: /tmp/helper/admin.conf
     dest: /var/www/html/admin.conf
-    mode: '777'
+    mode: '755'
