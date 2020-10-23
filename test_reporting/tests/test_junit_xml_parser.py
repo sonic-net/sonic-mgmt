@@ -46,6 +46,7 @@ EXPECTED_JSON_OUTPUT = {
             {
                 "classname": "acl.test_acl",
                 "result": "error",
+                "summary": "test machine broke",
                 "file": "acl/test_acl.py",
                 "line": "257",
                 "name": "test_acl",
@@ -58,6 +59,7 @@ EXPECTED_JSON_OUTPUT = {
                 "line": "369",
                 "name": "test_acl_2",
                 "result": "skipped",
+                "summary": "test machine skipped",
                 "time": "0.0",
                 "error": False
             }
@@ -70,11 +72,13 @@ EXPECTED_JSON_OUTPUT = {
                 "name": "test_bgp_fact",
                 "time": "109.472",
                 "result": "success",
+                "summary": "",
                 "error": False
             },
             {
                 "classname": "bgp.test_bgp",
                 "result": "failure",
+                "summary": "test machine go brr",
                 "file": "bgp/test_bgp.py",
                 "line": "248",
                 "name": "test_bgp_speaker",
@@ -193,9 +197,6 @@ def test_invalid_junit_xml_metadata_errors(token, replacement, message):
     [
         ("classname", "hehe", ".* not found in test case .*"),
         ('name="test_acl"', "", '.* not found in test case "Name Not Found"'),
-        ('message="test machine go brr"', "", "no message found for failure .*"),
-        ('message="test machine broke"', "", "no message found for error .*"),
-        ('message="test machine skipped"', "", "no message found for skip .*"),
     ],
 )
 def test_invalid_junit_xml_test_case_errors(token, replacement, message):

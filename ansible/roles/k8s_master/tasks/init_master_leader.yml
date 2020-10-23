@@ -1,0 +1,50 @@
+- name: Get IP Address for HAProxy Machine
+  set_fact: 
+    haproxy_ip="{{ hostvars[item].ansible_ens2.ipv4.address }}"
+  when: hostvars[item].haproxy is defined
+  with_items: 
+  - "{{ groups['k8s_vms' + msetnumber + '_' + servernumber] }}"
+
+- name: Wait for HAProxy service to be ready
+  wait_for:
+    port: 80
+    host: "{{ haproxy_ip }}"
+    connect_timeout: 3
+    delay: 3
+    timeout: 300
+
+- name: Initializing Kubernetes cluster
+  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:80 --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns --ignore-preflight-errors=NumCPU
+  register: output
+
+- name: Store logs and generated token for future reference
+  local_action: copy content={{ output.stdout }} dest="./token"
+
+
+- name: Get join command for other master nodes
+  shell: kubeadm token create --print-join-command
+  register: join_command
+
+- name: Get certificate-key for other master nodes
+  shell: kubeadm init phase upload-certs --upload-certs
+  register: certs
+
+- name: Store join command in register for use by other master nodes
+  add_host: 
+    name: "master_host"
+    master_join_command: "{{ join_command.stdout_lines[-1] }} --certificate-key {{ certs.stdout_lines[-1] }}"
+
+- name: Create .kube directory
+  become: yes
+  become_user: ubuntu
+  file:
+    path: $HOME/.kube
+    state: directory
+    mode: 0755
+
+- name: Copy admin.conf to user's kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ubuntu/.kube/config
+    remote_src: yes
+    owner: ubuntu

@@ -95,7 +95,7 @@ def get_vlan_untag_ports(config_facts):
     return vlan_untag_ports
 
 
-def get_router_interface_ports(config_facts, testbed):
+def get_router_interface_ports(config_facts, tbinfo):
     """
     get all physical ports associated with router interface (physical router interface, port channel router interface and vlan router interface)
     """
@@ -108,7 +108,7 @@ def get_router_interface_ports(config_facts, testbed):
         for po_name in portchannels_name:
             for port_name in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
                 portchannels_member_ports.append(port_name)
-    if 't0' in testbed['topo']['name']:
+    if 't0' in tbinfo['topo']['name']:
         vlan_untag_ports = get_vlan_untag_ports(config_facts)
 
     router_interface_ports = ports + portchannels_member_ports + vlan_untag_ports
@@ -117,7 +117,7 @@ def get_router_interface_ports(config_facts, testbed):
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
+def test_basic_fib(tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
@@ -129,7 +129,7 @@ def test_basic_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, bui
         test_balancing = True
 
     logging.info("run ptf test")
-    testbed_type = testbed['topo']['name']
+    testbed_type = tbinfo['topo']['name']
     router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
     log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -150,7 +150,7 @@ def test_basic_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, bui
 
 
 @pytest.fixture(scope="module")
-def setup_hash(testbed, duthost, config_facts):
+def setup_hash(tbinfo, duthost, config_facts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     setup_info = {}
@@ -175,11 +175,11 @@ def setup_hash(testbed, duthost, config_facts):
             hash_keys.remove('ingress-port')
     setup_info['hash_keys'] = hash_keys
 
-    setup_info['testbed_type'] = testbed['topo']['name']
+    setup_info['testbed_type'] = tbinfo['topo']['name']
     setup_info['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
     vlan_untag_ports = get_vlan_untag_ports(config_facts)
-    in_ports_name = get_router_interface_ports(config_facts, testbed)
+    in_ports_name = get_router_interface_ports(config_facts, tbinfo)
     setup_info['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
 
     # add some vlan for hash_key vlan-id test

@@ -1,0 +1,19 @@
+---
+# This playbook configures and initializes 3 Kubernetes master backend VMs and 1 HAProxy VM to form 1 HA Kubernetes master set 
+#
+- hosts: k8s_vms{{ msetnumber }}_{{ servernumber }}
+  gather_facts: no
+  pre_tasks:
+    - name: Wait for connection to become reachable- try ping if fail
+      block:  # This block/rescue segment is a workaround for occasional HOST UNREACHABLE error on last KVM to be configured 
+        - name: Try wait for connection module
+          wait_for_connection:
+            timeout: 100
+      rescue:
+        - ping:
+    - name: Gathering facts
+      setup:
+   
+  roles:
+    - { role: k8s_haproxy, when: haproxy is defined}
+    - { role: k8s_master, when: master is defined}

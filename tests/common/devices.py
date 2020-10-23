@@ -61,8 +61,9 @@ class AnsibleHostBase(object):
             self.module = getattr(self.host, module_name)
 
             return self._run
-
-        return super(AnsibleHostBase, self).__getattr__(module_name)
+        raise AttributeError(
+            "'%s' object has no attribute '%s'" % (self.__class__, module_name)
+            )
 
     def _run(self, *module_args, **complex_args):
 
@@ -403,6 +404,27 @@ class SonicHost(AnsibleHostBase):
             else:
                 succeeded = False
                 break
+
+        # For PMon container, since different daemons are enabled in different platforms, we need find common processes
+        # which are not only in the critical_processes file and also are configured to run on that platform.
+        if succeeded and container_name == "pmon":
+            expected_critical_group_list = []
+            expected_critical_process_list = []
+            process_list = self.shell("docker exec {} supervisorctl status".format(container_name))
+            for process_info in process_list["stdout_lines"]:
+                process_name = process_info.split()[0].strip()
+                process_status = process_info.split()[1].strip()
+                if ":" in process_name:
+                    group_name = process_name.split(":")[0]
+                    process_name = process_name.split(":")[1]
+                    if process_status == "RUNNING" and group_name in critical_group_list:
+                        expected_critical_group_list.append(process_name)
+                else:
+                    if process_status == "RUNNING" and process_name in critical_process_list:
+                        expected_critical_process_list.append(process_name)
+            
+            critical_group_list = expected_critical_group_list
+            critical_process_list = expected_critical_process_list
 
         return critical_group_list, critical_process_list, succeeded
 
@@ -778,7 +800,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
         return ret;
-        
+
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
@@ -823,8 +845,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         @param neighbor_ip: bgp neighbor IP
         """
         nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
-        if nbinfo['bgpState'].lower() == "Active".lower():
-            if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
+        if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Active".lower():
+            if 'bgpStateIs' in nbinfo and nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
 
@@ -1280,7 +1302,7 @@ class IxiaHost (AnsibleHostBase):
             eval(cmd)
 
 
-class FanoutHost():
+class FanoutHost(object):
     """
     @summary: Class for Fanout switch
 
