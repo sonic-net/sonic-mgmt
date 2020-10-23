@@ -41,6 +41,7 @@ sonic_sn2700_40:
   hosts:
     str-msn2700-01:
       ansible_host: 10.251.0.188
+      model: MSN2700-CS2FO
       serial: MT1234X56789
       base_mac: 24:8a:07:12:34:56
       syseeprom_info:
