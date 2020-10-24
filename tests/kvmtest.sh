@@ -50,6 +50,7 @@ tests="\
 monit/test_monit_status.py \
 test_interfaces.py \
 bgp/test_bgp_fact.py \
+autorestart/test_container_autorestart.py \
 bgp/test_bgp_gr_helper.py \
 bgp/test_bgp_speaker.py \
 cacl/test_cacl_application.py \
