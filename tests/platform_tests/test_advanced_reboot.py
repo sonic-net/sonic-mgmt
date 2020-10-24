@@ -5,6 +5,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 
 pytestmark = [
+    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0')
 ]
