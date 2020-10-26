@@ -76,8 +76,8 @@ def test_set_psu_fan_speed(duthost, mocker_factory):
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, 10, operator.eq), \
         'Current cooling state is {}'.format(get_cooling_cur_state(duthost))
 
-    logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_CHECK_INTERVAL))
-    time.sleep(THERMAL_CONTROL_TEST_CHECK_INTERVAL)
+    logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_WAIT_TIME))
+    time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
     psu_max_speed = get_psu_max_speed(duthost)
     logging.info('Max PSU fan speed is {}'.format(psu_max_speed))
     for index in range(psu_num):
