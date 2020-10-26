@@ -34,15 +34,21 @@ STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
 
+@pytest.fixture(scope="class")
+def gather_facts(request, duthost):
+    # Get platform facts from platform.json file
+    request.cls.chassis_facts = duthost.facts.get("chassis")
+
+
+@pytest.mark.usefixtures("gather_facts")
 class TestFanDrawerApi(PlatformApiTestBase):
 
     num_fan_drawers = None
-    fan_drawer_truth = None
+    chassis_facts = None
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
-
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, duthost, platform_api_conn):
         if self.num_fan_drawers is None:
@@ -51,13 +57,22 @@ class TestFanDrawerApi(PlatformApiTestBase):
             except:
                 pytest.fail("num_fan_drawers is not an integer")
 
-        chassis_truth = duthost.facts.get('chassis', None)
-        if chassis_truth:
-            self.fan_drawer_truth = chassis_truth.get('fan_drawers', None)
-            if not self.fan_drawer_truth:
-                logger.warning("Unable to get fan_drawer_truth from platform.json, test results will not be comprehensive")
-        else:
-            logger.warning("Unable to get chassis_truth from platform.json, test results will not be comprehensive")
+    #
+    # Helper functions
+    #
+
+    def compare_value_with_platform_facts(self, key, value, fan_drawer_idx):
+        expected_value = None
+
+        if self.chassis_facts:
+            expected_fan_drawers = self.chassis_facts.get("fan_drawers")
+            if expected_fan_drawers:
+                expected_value = expected_fan_drawers[fan_drawer_idx].get(key)
+
+        if self.expect(expected_value is not None,
+                       "Unable to get expected value for '{}' from platform.json file for fan drawer {}".format(key, fan_drawer_idx)):
+            self.expect(value == expected_value,
+                        "'{}' value is incorrect. Got '{}', expected '{}' for fan drawer {}".format(key, value, expected_value, fan_drawer_idx))
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -68,8 +83,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Fan_drawer {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Fan_drawer {} name appears incorrect".format(i))
-                if self.fan_drawer_truth:
-                    self.expect(name == self.fan_drawer_truth[i]['name'], "Fan_drawer {} name does not match, expected name {}".format(i, self.fan_drawer_truth[i]['name']))
+                self.compare_value_with_platform_facts('name', name, i)
 
         self.assert_expectations()
 
@@ -110,6 +124,20 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_fan_drawers):
+            position = fan_drawer.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for fan drawer {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for fan drawer {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for i in range(self.num_fan_drawers):
+            replaceable = fan_drawer.is_replaceable(platform_api_conn, i)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for fan drawer {}".format(i)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for fan drawer {}".format(i))
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in Fan_drawerBase class
     #
@@ -119,8 +147,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, i)
             if self.expect(num_fans is not None, "Unable to retrieve fan_drawer {} number of fans".format(i)):
                 self.expect(isinstance(num_fans, int), "fan drawer {} number of fans appear to be incorrect".format(i))
-                if self.fan_drawer_truth:
-                    self.expect(name == self.fan_drawer_truth[i]['num_fans'], "Fan_drawer {} num_fans does not match, expected num_fans {}".format(i, self.fan_drawer_truth[i]['num_fans']))
+                self.compare_value_with_platform_facts('num_fans', name, i)
         self.assert_expectations()
 
     def test_get_all_fans(self, duthost, localhost, platform_api_conn):

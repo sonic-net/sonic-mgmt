@@ -22,7 +22,6 @@ else:
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
@@ -175,6 +174,20 @@ class TestSfpApi(PlatformApiTestBase):
             status = sfp.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve transceiver {} status".format(i)):
                 self.expect(isinstance(status, bool), "Transceiver {} status appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_sfps):
+            position = sfp.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for sfp {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for sfp_id in range(self.num_sfps):
+            replaceable = sfp.is_replaceable(platform_api_conn, sfp_id)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(sfp_id)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp {}".format(sfp_id))
         self.assert_expectations()
 
     #
@@ -422,4 +435,20 @@ class TestSfpApi(PlatformApiTestBase):
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None, "Unable to retrieve transceiver {} power override data".format(i)):
                 self.expect(power_override is False, "Transceiver {} power override data is incorrect".format(i))
+        self.assert_expectations()
+
+    def test_thermals(self, platform_api_conn):
+        for sfp_id in range(self.num_sfps):
+            try:
+                num_thermals = int(sfp.get_num_thermals(platform_api_conn, sfp_id))
+            except Exception:
+                pytest.fail("SFP {}: num_thermals is not an integer".format(sfp_id))
+
+            thermal_list = sfp.get_all_thermals(platform_api_conn, i)
+            pytest_assert(thermal_list is not None, "Failed to retrieve thermals for sfp {}".format(sfp_id))
+            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect for sfp {}".format(sfp_id))
+
+            for thermal_index in range(num_thermals):
+                thermal = sfp.get_thermal(platform_api_conn, i, thermal_index)
+                self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()

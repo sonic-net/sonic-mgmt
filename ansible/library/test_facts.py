@@ -131,6 +131,7 @@ class ParseTestbedTopoinfo():
                     line['ptf_netmask_v6'] = str(ptfaddress.netmask)
 
                 line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
+                line['duts_map'] = {dut:line['duts'].index(dut) for dut in line['duts']}
                 del line['dut']
 
                 self.testbed_topo[line['conf-name']] = line
