@@ -47,6 +47,7 @@ mkdir -p logs
 # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
 tgname=1vlan
 tests="\
+platform_tests/test_advanced_reboot.py \
 monit/test_monit_status.py \
 test_interfaces.py \
 bgp/test_bgp_fact.py \
@@ -56,8 +57,6 @@ cacl/test_cacl_application.py \
 cacl/test_cacl_function.py \
 dhcp_relay/test_dhcp_relay.py \
 ntp/test_ntp.py \
-pc/test_po_cleanup.py \
-platform_tests/test_advanced_reboot.py \
 route/test_default_route.py \
 snmp/test_snmp_cpu.py \
 snmp/test_snmp_interfaces.py \
