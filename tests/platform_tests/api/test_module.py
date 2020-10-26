@@ -121,6 +121,26 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(status, bool), "Module {} status appears incorrect".format(i))
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, duthost, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            position = module.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Unable to retrieve module {} position".format(i)):
+                self.expect(isinstance(position, int), "Module {} position appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, duthost, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            replaceable = module.is_replaceable(platform_api_conn, i)
+            if self.expect(replaceable is not None, "Unable to retrieve module {} replaceable".format(i)):
+                self.expect(isinstance(replaceable, bool), "Module {} replaceable appears incorrect".format(i))
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in ModuleBase class
     #

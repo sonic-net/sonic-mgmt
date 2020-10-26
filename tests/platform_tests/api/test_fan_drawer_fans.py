@@ -153,6 +153,32 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, duthost, localhost, platform_api_conn):
+
+        for j in range(self.num_fan_drawers):
+            num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
+
+            for i in range(num_fans):
+                position = fan_drawer_fan.get_position_in_parent(platform_api_conn, j, i)
+
+                if self.expect(position is not None, "Unable to retrieve drawer {} fan {} position".format(j, i)):
+                    self.expect(isinstance(position, int), "Fan drawer {} fan {} position appears incorrect".format(j, i))
+
+        self.assert_expectations()
+
+    def test_is_replaceable(self, duthost, localhost, platform_api_conn):
+
+        for j in range(self.num_fan_drawers):
+            num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
+
+            for i in range(num_fans):
+                replaceable = fan_drawer_fan.is_replaceable(platform_api_conn, j, i)
+
+                if self.expect(replaceable is not None, "Unable to retrieve drawer {} fan {} replaceable".format(j, i)):
+                    self.expect(isinstance(replaceable, bool), "Fan drawer {} fan {} replaceable appears incorrect".format(j, i))
+
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in FanBase class
     #
