@@ -1301,6 +1301,122 @@ class IxiaHost (AnsibleHostBase):
         if (self.os == 'ixia') :
             eval(cmd)
 
+import copy
+
+class SonicAsic(object):
+
+    def __init__(self, sonichost, asic_index):
+        self.sonichost = sonichost
+        self.asic_index = asic_index
+
+    # Wrapper for ASIC/namespace aware modules
+    def bgp_facts(self, *module_args, **complex_args):
+        complex_args['instance_id'] = self.asic_index
+        return self.sonichost.bgp_facts(*module_args, **complex_args)
+
+
+class MultiAsicSonicHost(object):
+
+    def __init__(self, ansible_adhoc, hostname):
+        self.sonichost = SonicHost(ansible_adhoc, hostname)
+        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+
+    def _run_on_asics(self, *module_args, **complex_args):
+        if "asic_index" not in complex_args:
+            # Default ASIC/namespace
+            return getattr(self.sonichost, self.multi_asic_attr)(*module_args, **complex_args)
+        else:
+            asic_complex_args = copy.deepcopy(complex_args)
+            asic_index = asic_complex_args.pop("asic_index")
+            if type(asic_index) == int:
+                # Specific ASIC/namespace
+                if self.sonichost.facts['num_asic'] == 1:
+                    if asic_index != 0:
+                        raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.attr, asic_index, self.sonichost.hostname))
+                else:
+                    return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
+            elif type(asic_index) == str and asic_index.lower() == "all":
+                # All ASICs/namespace
+                if self.sonichost.facts['num_asic'] == 1:
+                    return [getattr(asic, self.multi_asic_attr)(*module_args, **complex_args) for asic in self.asics]
+                return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
+            else:
+                raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def __getattr__(self, attr):
+        sonic_asic_attr = getattr(SonicAsic, attr, None)
+        if not attr.startswith("_") and sonic_asic_attr and callable(sonic_asic_attr):
+            self.multi_asic_attr = attr
+            return self._run_on_asics
+        else:
+            return getattr(self.sonichost, attr)  # For backward compatibility
+
+
+class DutHosts(object):
+    class _Nodes(list):
+
+        # Delegate the call to each of the nodes, return the results in a dict.
+        def _run_on_nodes(self, *module_args, **complex_args):
+            return {node.hostname: getattr(node, self.attr)(*module_args, **complex_args) for node in self}
+
+        # To support calling ansible modules on list of nodes.
+        def __getattr__(self, attr):
+            self.attr = attr
+            return self._run_on_nodes
+
+    def __init__(self, ansible_adhoc, tbinfo):
+        # TODO: Initialize the nodes in parallel using multi-threads?
+        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"]])
+        self.supervisor_nodes = self._Nodes([node for node in self.nodes if self._is_supervisor_node(node)])
+        self.frontend_nodes = self._Nodes([node for node in self.nodes if self._is_frontend_node(node)])
+
+
+    # To support operations like duthosts[0] and duthost['sonic1_hostname']
+    def __getitem__(self, index):
+        if type(index) == int:
+            return self.nodes[index]
+        elif type(index) == str:
+            for node in self.nodes:
+                if node.hostname == index:
+                    return node
+            raise KeyError("No node has hostname '{}'".format(index))
+        else:
+            raise IndexError("Bad index '{}'".format(index))
+
+    # To support iteration
+    def __iter__(self):
+        self._node_index = 0
+        return self.nodes.__iter__()
+
+    # To support iteration
+    def __next__(self):
+        if self._node_index < len(self.nodes):
+            node = self.nodes[self._node_index]
+            self._node_index += 1
+            return node
+        else:
+            raise StopIteration
+
+    # To support calling ansible modules directly on instance of DutHosts
+    def __getattr__(self, attr):
+        return getattr(self.nodes, attr)
+
+    def _is_fabric_node(self, node):
+        # Add code to tell if a node is fabric node
+        pass
+
+    def _is_supervisor_node(self, node):
+        # Add code to tell if a node is supervisor node
+        if 'type' in node.host.options["inventory_manager"].get_host(node.hostname).get_vars():
+            card_type = node.host.options["inventory_manager"].get_host(node.hostname).get_vars()["type"]
+            if card_type is not None and card_type == 'supervisor':
+                return True
+            return False
+        pass
+
+    def _is_frontend_node(self, node):
+        return node not in self.supervisor_nodes
+
 
 class FanoutHost(object):
     """
