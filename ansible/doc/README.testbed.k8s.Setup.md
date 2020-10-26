@@ -54,13 +54,14 @@ Our setup meets Kubernetes Minimum Requirements to setup a High Available cluste
 - sudo privileges on all machines
 - SSH access from one device to all nodes in the system
 
-## How to Setup High Availability Kubernetes Master
+## How to Setup High Availability Kubernetes Master for Physical DUT
 
+#### To create a HA Kubernetes master for Virtual DUT: 
 1. Prepare Testbed Server and build and run `docker-sonic-mgmt` container as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md) 
 2. Allocate 4 available IPs reachable from SONiC DUT.
-3. Update [`ansible/k8s-ubuntu`](../k8s-ubuntu) to include your 4 newly allocated IP addresses for the HA Kubernetes master and IP address of testbed server.
+3. Update [`ansible/k8s_ubuntu`](../k8s_ubuntu) to include your 4 newly allocated IP addresses for the HA Kubernetes master and IP address of testbed server.
 
-  - We will walk through an example of setting up HA Kubernetes master set 1 on server 19 (STR-ACS-SERV-19). The following snippets are the relevant portions from [`ansible/k8s-ubuntu`](../k8s-ubuntu).
+  - We will walk through an example of setting up HA Kubernetes master set 1 on server 19 (STR-ACS-SERV-19). The following snippets are the relevant portions from [`ansible/k8s_ubuntu`](../k8s_ubuntu).
 
    ```
    k8s_vm_host19:
@@ -92,7 +93,7 @@ Our setup meets Kubernetes Minimum Requirements to setup a High Available cluste
   
   - Replace each `ansible_host` value with an IP address allocated in step 2. 
 
-  - Take note of the group name `k8s_vms1_19`. At the bottom of [`ansible/k8s-ubuntu`](../k8s-ubuntu), make sure that `k8s_server_19` has its `host_var_file` and two `children` properly set: 
+  - Take note of the group name `k8s_vms1_19`. At the top of [`ansible/k8s_ubuntu`](../k8s_ubuntu), make sure that `k8s_server_19` has its `host_var_file` and two `children` properly set: 
 
 ```
 k8s_server_19:
@@ -110,23 +111,45 @@ k8s_server_19:
 6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml).   
 7. If using Azure Storage to source Ubuntu 18.04 KVM image, set `k8s_vmimage_saskey` in [`ansible/vars/azure_storage.yml`](../vars/azure_storage.yml). 
    - To source image from public URL: download from  [here](https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img). Then, convert img to qcow2 by running `qemu-img convert -f qcow2 bionic-server-cloudimg-amd64.img bionic-server-cloudimg-amd64.qcow2`. Store qcow2 image at the path `/home/azure/ubuntu-vm/images/bionic-server-cloudimg-amd64.qcow2` on your testbed server. 
-8. From `docker-sonic-mgmt` container, `cd` into `sonic-mgmt/ansible` directory and run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password`
-   - `k8s-server-name` corresponds to the group name used to describe the testbed server in the [`ansible/k8s-ubuntu`](../k8s-ubuntu) inventory file, of the form `k8s_server_{unit}`. 
+8. From `docker-sonic-mgmt` container, `cd` into `sonic-mgmt/ansible` directory and run `./testbed-cli.sh -m k8s_ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password`
+   - `k8s-server-name` corresponds to the group name used to describe the testbed server in the [`ansible/k8s_ubuntu`](../k8s_ubuntu) inventory file, of the form `k8s_server_{unit}`. 
    - Please note: `~/.password` is the ansible vault password file name/path. Ansible allows users to use ansible-vault to encrypt password files. By default, this shell script requires a password file. If you are not using ansible-vault, just create an empty file and pass the file name to the command line. The file name and location are created and maintained by the user.
    - For HA Kubernetes master set 1 running on server 19 shown above, the proper command would be: 
-`./testbed-cli.sh -m k8s-ubuntu create-master k8s_server_19 ~/.password` 
+`./testbed-cli.sh -m k8s_ubuntu create-master k8s_server_19 ~/.password` 
   - OPTIONAL: We offer the functionality to run multiple master sets on one server. 
     - Each master set is one HA Kubernetes master composed of 4 Linux KVMs. 
-    - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. `msetnumber` is 1 by default. 
+    - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s_ubuntu`](../k8s_ubuntu) is updated accordingly. Specifically, make sure that the IPS are set in the correct group `k8s_vms{msetnumber}_{servernumber}` and the `children` are properly updated for `k8s_server_{servernumber}` at the bottom of the inventory file. `msetnumber` is 1 by default. 
 
 
 9. Join Kubernetes-enabled SONiC DUT to cluster (kube_join function to be written).
 
 
-#### To remove a HA Kubernetes master:
-- Run `./testbed-cli.sh -m k8s-ubuntu [additional OPTIONS] destroy-master <k8s-server-name> ~/.password`
+#### To remove a HA Kubernetes master for Physical DUT:
+- Run `./testbed-cli.sh -m k8s_ubuntu [additional OPTIONS] destroy-master <k8s-server-name> ~/.password`
 - For HA Kubernetes master set 1 running on server 19 shown above, the proper command would be: 
-`./testbed-cli.sh -m k8s-ubuntu destroy-master k8s_server_19 ~/.password` 
+`./testbed-cli.sh -m k8s_ubuntu destroy-master k8s_server_19 ~/.password` 
+
+## How to Setup High Availability Kubernetes Master for Virtual DUT
+
+#### To create a HA Kubernetes master for Virtual DUT: 
+1. Setup internal management network:
+```
+$ git clone https://github.com/Azure/sonic-mgmt
+$ cd sonic-mgmt/ansible
+$ sudo ./setup-k8s-management-network.sh
+```
+2. Setup virtual switch testbed as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.VsSetup.md). Note that k8s internal management network is set up in step 1 above; do NOT use `setup-management-network.sh`.
+3. In [`ansible/k8s_ubuntu_vtb`](../k8s_ubuntu_vtb), replace `use_own_value` with the username for the server, corresponds to the username used while setting up [`ansible/veos_vtb`](../veos_vtb) for the virtual switch testbed.
+4. From inside the `sonic-mgmt` docker set up in step 2, run:
+```
+$ cd /data/sonic-mgmt/ansible
+$ ./testbed-cli.sh k8s_ubuntu_vtb create-master k8s_server_21 password.txt  
+```
+#### To remove a HA Kubernetes master for Virtual DUT: 
+```
+$ cd /data/sonic-mgmt/ansible
+$ ./testbed-cli.sh k8s_ubuntu_vtb destroy-master k8s_server_21 password.txt  
+```
 
 ## Testing Scope
 

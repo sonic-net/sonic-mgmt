@@ -27,7 +27,7 @@ function usage
   echo "    <vault-password-file> : Path to file containing Ansible Vault password"
   echo "    <topo-name>           : Name of the target topology"
   echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
-  echo "    <k8s-server-name>     : Server identifier in form k8s_server_{id}, corresponds to k8s-ubuntu inventory group name"
+  echo "    <k8s-server-name>     : Server identifier in form k8s_server_{id}, corresponds to k8s_ubuntu inventory group name"
   echo
   echo "To start all VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
@@ -55,8 +55,8 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
-  echo "To create Kubernetes master on a server: $0 -m k8s-ubuntu create-master 'k8s-server-name'  ~/.password"
-  echo "To destroy Kubernetes master on a server: $0 -m k8s-ubuntu destroy-master 'k8s-server-name' ~/.password"
+  echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
+  echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo
   echo "You should define your topology in testbed CSV file"
   echo

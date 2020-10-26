@@ -1,7 +1,11 @@
 version: 2
 ethernets:
   ens2:
+{% if 'vtb' in inventory_file %}
+    dhcp4: true
+{% else %}
     dhcp4: false
+{% endif %}
+    dhcp4: true
     addresses: [{{ mgmt_ip_address }}/{{ mgmt_prefixlen_k8s }}, ]
     gateway4: {{ mgmt_gw }}
-      

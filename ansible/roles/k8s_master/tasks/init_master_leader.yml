@@ -20,7 +20,6 @@
 - name: Store logs and generated token for future reference
   local_action: copy content={{ output.stdout }} dest="./token"
 
-
 - name: Get join command for other master nodes
   shell: kubeadm token create --print-join-command
   register: join_command
