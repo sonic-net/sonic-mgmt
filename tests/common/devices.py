@@ -1311,7 +1311,8 @@ class SonicAsic(object):
 
     # Wrapper for ASIC/namespace aware modules
     def bgp_facts(self, *module_args, **complex_args):
-        complex_args['instance_id'] = self.asic_index
+        if self.sonichost.facts['num_asic'] != 1:
+            complex_args['instance_id'] = self.asic_index
         return self.sonichost.bgp_facts(*module_args, **complex_args)
 
 
@@ -1333,12 +1334,11 @@ class MultiAsicSonicHost(object):
                 if self.sonichost.facts['num_asic'] == 1:
                     if asic_index != 0:
                         raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.attr, asic_index, self.sonichost.hostname))
-                else:
-                    return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
+                return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
             elif type(asic_index) == str and asic_index.lower() == "all":
                 # All ASICs/namespace
                 if self.sonichost.facts['num_asic'] == 1:
-                    return [getattr(asic, self.multi_asic_attr)(*module_args, **complex_args) for asic in self.asics]
+                    return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
                 return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
