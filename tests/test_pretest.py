@@ -107,8 +107,8 @@ def collect_dut_lossless_prio(dut):
     if 'pfc_enable' not in port_qos_map[intf]:
         return []
 
-    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]    
-    return result 
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
+    return result
 
 def collect_dut_all_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
@@ -144,7 +144,7 @@ def test_collect_testbed_prio(duthosts, tbinfo):
         lossless_prio[dut.hostname] = collect_dut_lossless_prio(dut)
         lossy_prio[dut.hostname] = collect_dut_lossy_prio(dut)
 
-    prio_info = [all_prio, lossless_prio, lossy_prio]  
+    prio_info = [all_prio, lossless_prio, lossy_prio]
     file_names = [tbname + '-' + x + '.json' for x in ['all', 'lossless', 'lossy']]
     folder = 'priority'
 
@@ -223,3 +223,12 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
+
+def test_connect_to_internal_nameserver(duthost):
+    cmds = [
+        "echo \"nameserver 10.64.5.5\" > /etc/resolv.conf",
+        "sudo systemctl restart systemd-resolved"
+    ]
+
+    duthost.shell_cmds(cmds=cmds)
+
