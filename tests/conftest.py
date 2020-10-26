@@ -12,6 +12,8 @@ import csv
 import yaml
 import jinja2
 import ipaddr as ipaddress
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
 
 from collections import defaultdict
 from datetime import datetime
@@ -431,43 +433,28 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
 
-@pytest.fixture(scope="module", autouse=True)
-def disable_container_autorestart(duthost, request):
-    skip = False
-    for m in request.node.iter_markers():
-        if m.name == "enable_container_autorestart":
-            skip = True
-            break
-    if skip:
-        yield
-        return
-    container_autorestart_states = duthost.get_container_autorestart_states()
-    # Disable autorestart for all containers
-    logging.info("Disable container autorestart")
-    cmd_disable = "config feature autorestart {} disabled"
-    for name, state in container_autorestart_states.items():
-        if state == "enabled":
-            duthost.command(cmd_disable.format(name))
-    yield
-    # Recover autorestart states
-    logging.info("Recover container autorestart")
-    cmd_enable = "config feature autorestart {} enabled"
-    for name, state in container_autorestart_states.items():
-        if state == "enabled":
-            duthost.command(cmd_enable.format(name))
+def get_host_data(request, dut):
+    '''
+    This function parses multple inventory files and returns the dut information present in the inventory
+    '''
+    inv_data = None
+    inv_files = [inv_file.strip() for inv_file in request.config.getoption("ansible_inventory").split(",")]
+    for inv_file in inv_files:
+        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
+        if dut in inv_mgr.hosts:
+            return inv_mgr.get_host(dut).get_vars()
+
+    return inv_data
 
 def generate_param_asic_index(request, dut_indices, param_type):
     logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
-    inv_file =  request.config.getoption("ansible_inventory")
+    
     tbname = request.config.getoption("--testbed")
     tbfile = request.config.getoption("--testbed_file")
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
     
-    with open(inv_file, 'r') as fh:
-        inv = yaml.safe_load(fh)
-
-    hosts = inv['all']['children']['sonic']['hosts']
+    
     tbinfo = TestbedInfo(tbfile)
 
     #if the params are not present treat the device as a single asic device
@@ -475,13 +462,14 @@ def generate_param_asic_index(request, dut_indices, param_type):
 
     for dut_id in dut_indices:
         dut = tbinfo.testbed_topo[tbname]["duts"][dut_id]
-        inv_data = hosts[dut]
-        if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
-            asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
-        if param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_ALL in inv_data:
-            asic_index_params = inv_data[ASIC_PARAM_TYPE_ALL]
-        logging.info("dut_index {} dut name {}  asics params = {}".format(
-            dut_id, dut, asic_index_params))
+        inv_data = get_host_data(request, dut)
+        if inv_data is not None:
+            if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
+                asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+            elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
+                asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            logging.info("dut_index {} dut name {}  asics params = {}".format(
+                dut_id, dut, asic_index_params))
     return asic_index_params
 
 def generate_params_dut_index(request):
