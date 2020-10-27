@@ -116,7 +116,7 @@ class TestBGPRrTraffic():
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)
-        bgp_summary = bgpapi.show_bgp_ipv4_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv4_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         # when route-reflector is not configured at server(spine), we should not learn anything at
@@ -131,7 +131,7 @@ class TestBGPRrTraffic():
             tc_fail_flag = 1
         bgpapi.create_bgp_next_hop_self(topo.dut_list[0], spine_as, 'ipv4', 'spine_leaf', 'yes', 'yes',cli_type=bgp_cli_type)
         st.wait(15)
-        bgp_summary = bgpapi.show_bgp_ipv4_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv4_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         if int(rib_entries) < 100:
@@ -187,7 +187,7 @@ class TestBGPRrTraffic():
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)
-        bgp_summary = bgpapi.show_bgp_ipv6_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv6_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         # when route-reflector is not configured at server(spine), we should not learn anything at
@@ -202,7 +202,7 @@ class TestBGPRrTraffic():
             tc_fail_flag = 1
         bgpapi.create_bgp_next_hop_self(topo.dut_list[0], spine_as, 'ipv6', 'spine_leaf6', 'yes', 'yes',cli_type=bgp_cli_type)
         st.wait(15)
-        bgp_summary = bgpapi.show_bgp_ipv6_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv6_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         if int(rib_entries) < 100:

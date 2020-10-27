@@ -1,6 +1,6 @@
 import pytest
 import re
-
+import time
 from spytest import st, tgapi, SpyTestDict
 from spytest.utils import random_vlan_list
 
@@ -118,6 +118,8 @@ def snmp_pre_config():
     SNMP pre config
     """
     global ipaddress
+    st.log("Sleeping for 60 secs. Making sure eth0 gets its ip address")
+    time.sleep(60)
     ipaddress_list = basic_obj.get_ifconfig_inet(vars.D1, data.mgmt_int)
     st.log("Checking Ip address of the Device ")
     if not ipaddress_list:
