@@ -709,7 +709,7 @@ class TestVrfLoopbackIntf():
     announce_prefix = '10.10.10.0/26'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_loopback(self, ptfhost, cfg_facts, tbinfo):
+    def setup_vrf_loopback(self, duthost, ptfhost, cfg_facts, tbinfo):
         # -------- Setup ----------
         lb0_ip_facts = get_intf_ips('Loopback0', cfg_facts)
         vlan1000_ip_facts = get_intf_ips('Vlan1000', cfg_facts)
