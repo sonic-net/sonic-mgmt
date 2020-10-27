@@ -32,7 +32,7 @@ def test_join_available_master(duthost, k8shosts):
 
     master_vip = k8shosts['ha']['host'].ip_addr
     duthost.shell('sudo config kube server disable on')
-    make_vip_unreachable(duthost, master_vip)
+    ku.make_vip_unreachable(duthost, master_vip)
     ku.shutdown_all_api_server(k8shosts)
     time.sleep(WAIT_FOR_SYNC)
     
@@ -44,7 +44,7 @@ def test_join_available_master(duthost, k8shosts):
     server_connect_act_status = ku.check_connected(duthost)
     pytest_assert(server_connect_exp_status == server_connect_act_status, "DUT join available master failed, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
 
-    make_vip_reachable(duthost, master_vip)
+    ku.make_vip_reachable(duthost, master_vip)
     time.sleep(WAIT_FOR_SYNC)
     
     server_connect_exp_status = False
