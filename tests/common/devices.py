@@ -15,6 +15,7 @@ import inspect
 import ipaddress
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
+import time
 
 from ansible import constants
 from ansible.plugins.loader import connection_loader
@@ -1044,6 +1045,86 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return DEFAULT_NAMESPACE
         return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
+class K8sMasterHost(AnsibleHostBase):
+    """
+    @summary: Class for Ubuntu KVM that hosts Kubernetes master
+
+    For running ansible module on the K8s Ubuntu KVM host
+    """
+
+    def __init__(self, ansible_adhoc, hostname, ip_addr, k8s_user, k8s_passwd):
+        '''Initialize an object for interacting with Ubuntu KVM using ansible modules
+        
+        Args:
+            ansible_adhoc (): The pytest-ansible fixture
+            hostname (string): hostname of the Ubuntu KVM
+            k8s_user (string): Username for accessing the K8s VM CLI interface
+            k8s_passwd (string): Password for the k8s_user 
+        '''
+        self.k8s_user = k8s_user
+        self.k8s_passwd = k8s_passwd
+        self.hostname = hostname
+        self.ip_addr = ip_addr
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+        evars = {
+            'ansible_user': self.k8s_user,
+            'ansible_ssh_user': self.k8s_user,
+            'ansible_ssh_pass': self.k8s_passwd,
+            'ansible_become_method': 'enable'
+        }
+        self.host.options['variable_manager'].extra_vars.update(evars)
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+        
+    def check_k8s_master_ready(self):
+        """
+
+        @summary: check if all Kubernetes master node statuses reflect target state "Ready"
+
+        """
+        k8s_nodes_statuses = self.shell('kubectl get nodes')["stdout"].split("\n")
+        logging.info("k8s master node statuses: {}".format(k8s_nodes_statuses))
+
+        for line in k8s_nodes_statuses[1:4]:
+            if "NotReady" in line:
+                return False
+        return True
+    
+    def shutdown_api_server(self):
+        """
+
+        @summary: Shuts down API server container on one K8sMasterHost server
+
+        """
+        self.shell('sudo systemctl stop kubelet')
+        logging.info("Shutting down API server on backend master server hostname: {}".format(self.hostname))
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"].split("\n")
+        for id in api_server_container_ids:
+            self.shell('sudo docker kill {}'.format(id))
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"]
+        assert not api_server_container_ids
+
+    def start_api_server(self):
+        """
+        
+        @summary: Starts API server container on one K8sMasterHost server
+        
+        """
+        self.shell('sudo systemctl start kubelet')
+        logging.info("Starting API server on backend master server hostname: {}".format(self.hostname))
+        timeout_wait_secs = 60
+        poll_wait_secs = 5
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"].split("\n")
+        while ((len(api_server_container_ids) < 2) and (timeout_wait_secs > 0)):
+            logging.info("Waiting for Kubernetes API server to start")
+            time.sleep(poll_wait_secs)
+            timeout_wait_secs -= poll_wait_secs
+            api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"].split("\n")
+        assert len(api_server_container_ids) > 1
+        
+        
+
+
+
 
 class EosHost(AnsibleHostBase):
     """
@@ -1188,6 +1269,8 @@ class EosHost(AnsibleHostBase):
 
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+
+
 
 
 class OnyxHost(AnsibleHostBase):

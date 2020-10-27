@@ -19,8 +19,9 @@ from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost
+from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,9 @@ def pytest_addoption(parser):
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
 
+    # Kubernetes master options
+    parser.addoption("--kube_master", action="store", default=None, type=str, help="Kubernetes master identifier in the form {servernumber}_{mastersetnumber}")
+
     ############################
     # pfc_asym options         #
     ############################
@@ -139,8 +143,11 @@ def pytest_addoption(parser):
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> All commits combined
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """
@@ -258,6 +265,26 @@ def ptfhost(ansible_adhoc, tbinfo, duthost):
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         return PTFHost(ansible_adhoc, ptf_host)
 
+@pytest.fixture(scope="module")
+def k8shosts(ansible_adhoc, request, creds):
+    """
+    Shortcut fixture for getting Kubernetes hosts
+    """
+    master_id = request.config.getoption("--kube_master") 
+    # master_id is required to be in the format {servernumber}_{mastersetid} where 2-digit servernumber is enforced with leading 0 when necessary
+    master_server_id = int(master_id[:2])
+    master_set_id = int(master_id[3:]) 
+    k8s_ansible_group = "k8s_vms{}_{}".format(master_set_id, master_server_id)
+    master_vms = {}
+    with open('../ansible/k8s-ubuntu', 'r') as kinv:
+        k8sinventory = yaml.safe_load(kinv)
+        for hostname, attributes in k8sinventory[k8s_ansible_group]['hosts'].items():
+            master_vms[hostname[-2:]] = {'host': K8sMasterHost(ansible_adhoc,
+                                                          hostname,
+                                                          attributes['ansible_host'],
+                                                          creds['k8s_master_login'],
+                                                          creds['k8s_master_password'])}
+    return master_vms
 
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, tbinfo, creds):

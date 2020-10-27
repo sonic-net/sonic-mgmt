@@ -6,6 +6,7 @@ function show_help_and_exit()
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
+    echo "    -b <master_id> : kubernetes master identifier in the form {servernumber}_{mastersetnumber}"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
@@ -115,6 +116,7 @@ function setup_test_options()
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
                       --log-file-level ${FILE_LOG_LEVEL} \
+                      --kube_master ${KUBE_MASTER_ID} \
                       --showlocals \
                       --assert plain \
                       --show-capture no \
@@ -250,13 +252,16 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?a:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
+while getopts "h?a:b:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
             ;;
         a )
             AUTO_RECOVER=${OPTARG}
+            ;;
+        b ) 
+            KUBE_MASTER_ID=${OPTARG}
             ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
