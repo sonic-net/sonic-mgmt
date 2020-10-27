@@ -143,11 +143,7 @@ def pytest_addoption(parser):
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
 
-<<<<<<< HEAD
 
-
-=======
->>>>>>> All commits combined
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """
