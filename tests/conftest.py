@@ -12,12 +12,15 @@ import csv
 import yaml
 import jinja2
 import ipaddr as ipaddress
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
 
 from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
+from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 
 logger = logging.getLogger(__name__)
 
@@ -430,4 +433,63 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
 
+def get_host_data(request, dut):
+    '''
+    This function parses multple inventory files and returns the dut information present in the inventory
+    '''
+    inv_data = None
+    inv_files = [inv_file.strip() for inv_file in request.config.getoption("ansible_inventory").split(",")]
+    for inv_file in inv_files:
+        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
+        if dut in inv_mgr.hosts:
+            return inv_mgr.get_host(dut).get_vars()
+
+    return inv_data
+
+def generate_param_asic_index(request, dut_indices, param_type):
+    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
+    
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    
+    
+    tbinfo = TestbedInfo(tbfile)
+
+    #if the params are not present treat the device as a single asic device
+    asic_index_params = [DEFAULT_ASIC_ID]
+
+    for dut_id in dut_indices:
+        dut = tbinfo.testbed_topo[tbname]["duts"][dut_id]
+        inv_data = get_host_data(request, dut)
+        if inv_data is not None:
+            if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
+                asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+            elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
+                asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            logging.info("dut_index {} dut name {}  asics params = {}".format(
+                dut_id, dut, asic_index_params))
+    return asic_index_params
+
+def generate_params_dut_index(request):
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    tbinfo = TestbedInfo(tbfile)
+    num_duts = len(tbinfo.testbed_topo[tbname]["duts"])
+    logging.info("Num of duts in testbed topology {}".format(num_duts))
+    return range(num_duts)
+
+def pytest_generate_tests(metafunc):
+    # The topology always has atleast 1 dut
+    dut_indices = [0]
+    if "dut_index" in metafunc.fixturenames:
+        dut_indices = generate_params_dut_index(metafunc)
+        metafunc.parametrize("dut_index",dut_indices)
+    if "asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
+    if "frontend_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
 

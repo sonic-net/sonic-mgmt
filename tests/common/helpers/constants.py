@@ -1,0 +1,6 @@
+
+DEFAULT_ASIC_ID = None
+DEFAULT_NAMESPACE = None
+NAMESPACE_PREFIX = 'asic'
+ASIC_PARAM_TYPE_ALL = 'num_asics'
+ASIC_PARAM_TYPE_FRONTEND = 'frontend_asics'
