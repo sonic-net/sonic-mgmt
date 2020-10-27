@@ -44,6 +44,7 @@ def initialize_variables():
     ssh_data.contact = "Admin"
     ssh_data.sysname = "Sonic_device"
     ssh_data.oid_sysName = '1.3.6.1.2.1.1.5.0'
+    ssh_data.default_gw = '1.74.23.200'
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -209,6 +210,9 @@ def test_ft_ssh_add_user_verify():
     if not st.exec_ssh(vars.D1, ssh_data.usr_non_default, ssh_data.pwd_non_default, ssh_data.commands_to_verify):
         st.error('Cannot SSH into Device with non-default credentials')
         user_ssh = + 1
+
+    #add default route to download ssh pass
+    ip_obj.create_static_route(vars.D1, ssh_data.default_gw, "default")
 
     output = verify_ssh_connection(vars.D2, ssh_data.ipv4_address_D1D2P2, ssh_data.usr_default, ssh_data.pwd_final)
     if not output:
