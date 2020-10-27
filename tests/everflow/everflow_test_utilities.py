@@ -44,9 +44,6 @@ def setup_info(duthost, tbinfo):
         dict: Required test information
 
     """
-    # TODO: Support all T1 and T0 topos in these tests.
-    if tbinfo["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
-        pytest.skip("Unsupported topology")
 
     tor_ports = []
     spine_ports = []
@@ -54,7 +51,6 @@ def setup_info(duthost, tbinfo):
     # Gather test facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
-    host_facts = duthost.setup()["ansible_facts"]
 
     # Get the list of T0/T2 ports
     # TODO: The ACL tests do something really similar, I imagine we could refactor this bit.
@@ -122,7 +118,7 @@ def setup_info(duthost, tbinfo):
     # Also given how much info is here it probably makes sense to make a data object/named
     # tuple to help with the typing.
     setup_information = {
-        "router_mac": host_facts["ansible_Ethernet0"]["macaddress"],
+        "router_mac": duthost.facts["router_mac"],
         "tor_ports": tor_ports,
         "spine_ports": spine_ports,
         "test_mirror_v4": test_mirror_v4,
