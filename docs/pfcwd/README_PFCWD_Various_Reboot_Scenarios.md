@@ -1,14 +1,3 @@
-# Readme PFCWD Various Reboot Scenarios
-- [Readme PFCWD Various Reboot Scenarios](#readme-pfcwd-various-reboot-scenarios)
-  - [Background](#background)
-    - [PFC storm detection](#pfc-storm-detection)
-    - [PFC storm mitigation](#pfc-storm-mitigation)
-    - [PFC storm restoration](#pfc-storm-restoration)
-    - [PFC watchdog implementation](#pfc-watchdog-implementation)
-  - [PFC watchdog commands on SONiC](#pfc-watchdog-commands-on-sonic)
-  - [Testbed Setup](#testbed-setup)
-  - [Experiment Steps](#experiment-steps)
-  
 This document describes how to test that different reboot action does not impact PFCWD behavior. There are three reboot scenarios possible, warm reboot, cold reboot and fast reboot. This test verifies that after each reboot scenario there is no impact on the PFCWD behavior.
 
 ## Background

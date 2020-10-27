@@ -1,14 +1,3 @@
-# Readme PFCWD  Restart 
-- [Readme PFCWD  Restart](#readme-pfcwd-restart)
-  - [Background](#background)
-    - [PFC storm detection](#pfc-storm-detection)
-    - [PFC storm mitigation](#pfc-storm-mitigation)
-    - [PFC storm restoration](#pfc-storm-restoration)
-    - [PFC watchdog implementation](#pfc-watchdog-implementation)
-  - [PFC watchdog commands on SONiC](#pfc-watchdog-commands-on-sonic)
-  - [Testbed Setup](#testbed-setup)
-  - [Experiment Steps](#experiment-steps)
-  
 
 This document describes test methodology to verify that restarting PFC watchdog on a particular port does not affect the watchdog behavior on that port.
 Background
