@@ -482,6 +482,53 @@ def generate_params_dut_index(request):
     logging.info("Num of duts in testbed topology {}".format(num_duts))
     return range(num_duts)
 
+def generate_port_lists(request, port_scope):
+    if 'ports' in port_scope:
+        scope = 'Ethernet'
+        empty = [ { 'dut': 'unknown', 'interface': 'found-no-port' } ]
+    elif 'pc' in port_scope:
+        scope = 'PortChannel'
+        empty = [ { 'dut': 'unknown', 'interface': 'found-no-pc' } ]
+    else:
+        return [ { 'dut': 'unknown', 'interface': 'found-no-port' } ]
+
+    if 'all' in port_scope:
+        state = None
+    elif 'oper_up' in port_scope:
+        state = 'oper_state'
+    elif 'admin_up' in port_scope:
+        state = 'admin_state'
+    else:
+        return empty
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            ports = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in ports:
+        return empty
+
+    dut_ports = ports[tbname]
+    ret = []
+    for dut, val in dut_ports.items():
+        if 'intf_status' not in val:
+            continue
+        for intf, status in val['intf_status'].items():
+            if scope in intf and (not state or status[state] == 'up'):
+                ret.append({ 'dut' : dut, 'interface' : intf })
+
+    return ret if ret else empty
+
+
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -492,4 +539,11 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "frontend_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+
+    if "all_ports" in metafunc.fixturenames:
+        metafunc.parametrize("all_ports", generate_port_lists(metafunc, "all_ports"))
+    if "oper_up_ports" in metafunc.fixturenames:
+        metafunc.parametrize("oper_up_ports", generate_port_lists(metafunc, "oper_up_ports"))
+    if "admin_up_ports" in metafunc.fixturenames:
+        metafunc.parametrize("admin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
 
