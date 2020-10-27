@@ -154,7 +154,7 @@ def api (ixia_api_serv_ip,
         # a specific session ID 
         pass
     else: 
-        api_session = IxNetworkApi(ixia_api_serv_ip, 
+        api_session = IxNetworkApi(address=ixia_api_serv_ip, 
                                    port=ixia_api_serv_port,
                                    username=ixia_api_serv_user,
                                    password=ixia_api_serv_passwd)

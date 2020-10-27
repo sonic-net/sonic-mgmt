@@ -35,14 +35,36 @@ from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.port import Options as PortOptions
 
 def calculate_priority_vector(v) :
+    """
+    This function calculates the priority vector field of PFC Pause packets.
+
+    Args:
+        v (list of string) : This is a list of 8 items and indicates pause 
+            class values. It's format is ['0', 'ffff', '0', '0', '0', '0', '0'], 
+            where 'ffff' indicates that pause class is enabled for that index.
+
+    Returns:
+        Value of priority vector in hex format 
+    """
     s = 0
     for i in range(8)  :
         if v[i] != '0' :
            s += 2**(7 - i)
-           print(i)
     return "%x"%(s)
 
 def lossless_iteration_list (lst) :
+    """
+    This function converts a list of priorities into list of list of priorities
+    such that test functions can iterate over by taking one priority list at
+    a time. For Example: if lst == [3, 4] the return value is [[3], [4], [3, 4]] 
+
+    Args:
+      lst (list of integerrs): list of priorites. Example [3, 4]
+
+    Return : 
+       list of list of priorities (integers). Example [[3], [4], [3, 4]]
+ 
+    """
     retval = [[x] for x in lst]
     if (len(lst) > 1):
         retval.append(lst)
@@ -51,7 +73,7 @@ def lossless_iteration_list (lst) :
 def base_configs(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
-                 one_hundred_gbe,
+                 l1_config,
                  start_delay,
                  traffic_duration,
                  pause_line_rate,
@@ -60,7 +82,7 @@ def base_configs(conn_graph_facts,
                  frame_size,
                  serializer) :
 
-    for config in one_hundred_gbe :
+    for config in l1_config :
 
         delay = start_delay * 1000000000.0
 
@@ -77,6 +99,7 @@ def base_configs(conn_graph_facts,
         vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
 
         gw_addr = vlan_subnet.split('/')[0]
+        prefix = vlan_subnet.split('/')[1]
         tx_port_ip = vlan_ip_addrs[1]
         rx_port_ip = vlan_ip_addrs[0]
 
@@ -97,7 +120,7 @@ def base_configs(conn_graph_facts,
         ######################################################################
         tx_ipv4 = Ipv4(name='Tx Ipv4',
                        address=Pattern(tx_port_ip),
-                       prefix=Pattern('24'),
+                       prefix=Pattern(prefix),
                        gateway=Pattern(tx_gateway_ip),
                        ethernet=Ethernet(name='Tx Ethernet'))
 
@@ -110,7 +133,7 @@ def base_configs(conn_graph_facts,
         ######################################################################
         rx_ipv4 = Ipv4(name='Rx Ipv4',
                        address=Pattern(rx_port_ip),
-                       prefix=Pattern('24'),
+                       prefix=Pattern(prefix),
                        gateway=Pattern(rx_gateway_ip),
                        ethernet=Ethernet(name='Rx Ethernet'))
 
@@ -121,6 +144,7 @@ def base_configs(conn_graph_facts,
         ######################################################################
         # Traffic configuration Test data
         ######################################################################
+        test_flow_name = 'Test Data'
         data_endpoint = DeviceTxRx(
             tx_device_names=[tx.devices[0].name],
             rx_device_names=[rx.devices[0].name],
@@ -144,6 +168,7 @@ def base_configs(conn_graph_facts,
         #######################################################################
         # Traffic configuration Background data
         #######################################################################
+        background_flow_name = 'Background Data'
         background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
         background_flow = Flow(
             name=background_flow_name,
@@ -161,7 +186,7 @@ def base_configs(conn_graph_facts,
         #######################################################################
         # Traffic configuration Pause
         #######################################################################
-        pause_endpoint = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
+        pause_src_point = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
         if (pause_frame_type == 'priority') :
             p = ['0' if str(x) in test_dscp_list else 'ffff' for x in range(8)]
             v = calculate_priority_vector(p) 
@@ -181,7 +206,7 @@ def base_configs(conn_graph_facts,
 
             pause_flow = Flow(
                 name='Pause Storm',
-                tx_rx=TxRx(pause_endpoint),
+                tx_rx=TxRx(pause_src_point),
                 packet=[pause],
                 size=Size(64),
                 rate=Rate('line', value=100),
@@ -195,7 +220,7 @@ def base_configs(conn_graph_facts,
 
             pause_flow = Flow(
                 name='Pause Storm',
-                tx_rx=TxRx(pause_endpoint),
+                tx_rx=TxRx(pause_src_point),
                 packet=[pause],
                 size=Size(64),
                 rate=Rate('line', value=pause_line_rate),
@@ -206,7 +231,7 @@ def base_configs(conn_graph_facts,
 
         config.flows.append(pause_flow)
 
-    return one_hundred_gbe
+    return l1_config
 
 
 @pytest.fixture
@@ -269,7 +294,20 @@ def serializer(request):
 def port_bandwidth(conn_graph_facts,
                    fanout_graph_facts,
                    bw_multiplier) :
+   """
+   This fixture extracts the ixia port bandwidth from fanout_graph_facts,
+   and verifies it with the port speed of the DUT. The speed of all the 
+   ixia ports and dut port must be same. 
 
+   Args:
+      conn_graph_facts (fixture): connection graph fact.
+      fanout_graph_facts (fixture): fanout graph facts
+      bw_multiplier (int): multiplier to convert the port speed into bandwidth in 
+         bps unit, its value is 1000000.
+
+   Returns:
+      Port bandwidth in bps unit.
+   """  
    fanout_devices = IxiaFanoutManager(fanout_graph_facts)
    fanout_devices.get_fanout_device_details(device_number=0)
    device_conn = conn_graph_facts['device_conn']
@@ -287,7 +325,7 @@ def port_bandwidth(conn_graph_facts,
 
 
 @pytest.fixture
-def one_hundred_gbe(conn_graph_facts,
+def l1_config(conn_graph_facts,
                     fanout_graph_facts,
                     serializer) :
 
@@ -350,7 +388,7 @@ def one_hundred_gbe(conn_graph_facts,
 def lossy_configs(conn_graph_facts,
                   duthost,
                   lossless_prio_dscp_map,
-                  one_hundred_gbe,
+                  l1_config,
                   start_delay,
                   traffic_duration,
                   pause_line_rate,
@@ -362,7 +400,7 @@ def lossy_configs(conn_graph_facts,
         yield (base_configs(conn_graph_facts=conn_graph_facts,
                             duthost=duthost,
                             lossless_prio_dscp_map = p,
-                            one_hundred_gbe=one_hundred_gbe,
+                            l1_config=l1_config,
                             traffic_duration=traffic_duration,
                             start_delay=start_delay,
                             pause_line_rate=pause_line_rate,
@@ -376,7 +414,7 @@ def lossy_configs(conn_graph_facts,
 def global_pause(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
-                 one_hundred_gbe,
+                 l1_config,
                  start_delay,
                  traffic_duration,
                  pause_line_rate,
@@ -388,7 +426,7 @@ def global_pause(conn_graph_facts,
         yield (base_configs(conn_graph_facts=conn_graph_facts,
                             duthost=duthost,
                             lossless_prio_dscp_map=p,
-                            one_hundred_gbe=one_hundred_gbe,
+                            l1_config=l1_config,
                             traffic_duration=traffic_duration,
                             start_delay=start_delay,
                             pause_line_rate=pause_line_rate,

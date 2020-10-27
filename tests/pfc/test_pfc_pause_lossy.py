@@ -4,7 +4,7 @@ import pytest
 from abstract_open_traffic_generator.result import FlowRequest
 from abstract_open_traffic_generator.control import *
 
-from tests.common.helpers.assertions import pytest_assert
+#from tests.common.helpers.assertions import pytest_assert
 
 from tests.common.reboot import logger
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
@@ -14,7 +14,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port,\
     ixia_api_serv_session_id, api
 
-from files.configs.pfc import lossy_configs, one_hundred_gbe, serializer
+from files.configs.pfc import lossy_configs, l1_config, serializer
 from files.configs.pfc import start_delay, traffic_duration, pause_line_rate,\
     traffic_line_rate, port_bandwidth, bw_multiplier, frame_size
 from files.qos_fixtures import lossless_prio_dscp_map
@@ -92,8 +92,7 @@ def test_pfc_pause_lossy_traffic(api,
             if (row['name'] == 'Test Data') or (row['name'] == 'Background Data'):
 
                 if ((row['frames_rx'] == 0) or (row['frames_tx'] != row['frames_rx'])):
-                     pytest_assert(False, 
-                         "Not all %s reached Rx End" %(rows[caption_index]))
+                     pytest.fail("Not all %s reached Rx End" %(rows[caption_index]))
 
                 line_rate = traffic_line_rate / 100.0
                 exp_rx_bytes = (port_bandwidth * line_rate * traffic_duration) / 8
@@ -101,6 +100,5 @@ def test_pfc_pause_lossy_traffic(api,
     
                 if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
                     (tolerance_ratio > 1)) :
-                    pytest_assert(False,
-                        "expected % of packets not received at the RX port")
+                    pytest.fail("expected % of packets not received at the RX port")
                 
