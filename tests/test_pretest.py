@@ -3,7 +3,6 @@ import logging
 import json
 import time
 import os
-import yaml
 
 from common.helpers.assertions import pytest_require
 
@@ -77,7 +76,7 @@ def test_update_testbed_metadata(duthosts, tbinfo):
         if not os.path.exists(folder):
             os.mkdir(folder)
         with open(filepath, 'w') as yf:
-            json.dump(info, yf)
+            json.dump(info, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
