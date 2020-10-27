@@ -12,6 +12,7 @@ from jinja2 import Template
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
+from tests.common.fixtures.duthost_utils import disable_route_checker
 
 
 pytestmark = [
@@ -341,7 +342,7 @@ def get_entries_num(used, available):
     """ Get number of entries needed to be created that 'used' counter reached one percent """
     return ((used + available) / 100) + 1
 
-
+@pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "ip route add 2.2.2.0/24 via {}",
                                                                 "ip route del 2.2.2.0/24 via {}"),
                                                                 ("6", "ip -6 route add 2001::/126 via {}",
@@ -853,6 +854,7 @@ def test_crm_fdb_entry(duthost, tbinfo):
     if used_percent < 1:
         # Clear pre-set fdb entry
         duthost.command("fdbclear")
+        time.sleep(5)
         # Preconfiguration needed for used percentage verification
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT
