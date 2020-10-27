@@ -1,0 +1,70 @@
+simulation:
+  no_image_copy: true
+  sim_rel: /auto/vxr/vxr2_user/vxr2_npsuite_1.61.5
+  sim_flags: [-k ConfigLeabaSdkVer=1.33.1 -k ConfigNpsuiteVer=1.61.5 -k ConfigDsimNplPath=/auto/vxr1/sonic-images/SDK1.33_NPS1.61.5/npl]
+  slurm_flags:
+          hours: 120
+
+devices:
+
+  SD1:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop_2/sonic-cisco-8000.bin
+    linecard_versions: [p7]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+
+  SD2:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop_2/sonic-cisco-8000.bin
+    linecard_versions: [p7]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+
+  SD3:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop_2/sonic-cisco-8000.bin
+    linecard_versions: [p7]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+
+  SD4:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop_2/sonic-cisco-8000.bin
+    linecard_versions: [p7]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0:
+      - SD1.Ethernet1
+      - SD2.Ethernet1
+    hub1:
+      - SD2.Ethernet2
+      - SD3.Ethernet1
+    hub2:
+      - SD3.Ethernet2
+      - SD4.Ethernet1
