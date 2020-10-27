@@ -90,3 +90,18 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
 
     logger.info("--- Starting Pfcwd ---")
     duthost.command("pfcwd start_default")
+
+
+
+from tests.common.tgen.tgen_helpers import *
+
+
+def generate_params_port_id(request):
+    """ returns the port id list """
+    return get_tgen_links(request)
+
+
+def pytest_generate_tests(metafunc):
+    if "port_id" in metafunc.fixturenames:
+        port_ids = generate_params_port_id(metafunc)
+        metafunc.parametrize("port_id", port_ids)
