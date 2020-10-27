@@ -136,47 +136,47 @@ def l3tc_vrfipv4v6_confed_bgp_config(config='yes', vrf_type='all', config_type='
             #Confederation config for DUT1
             dut = topo['dut_list'][0]
             neighbor = topo['D1D2P1_neigh_ipv4']
-            bgpapi.config_bgp(dut, local_as = leftconfed_as, config = 'yes', conf_peers = rightconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
+            bgpapi.config_bgp(dut, cli_type = "vtysh", local_as = leftconfed_as, config = 'yes', conf_peers = rightconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
 
             #Confederation config for DUT2
             dut = topo['dut_list'][1]
             neighbor = topo['D2D3P1_neigh_ipv4']
-            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
-            bgpapi.create_bgp_neighbor(dut, rightconfed_as, topo['D2D1P1_neigh_ipv4'], leftconfed_as)
+            bgpapi.config_bgp(dut, cli_type = "vtysh", local_as = rightconfed_as, config = 'yes', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
+            bgpapi.create_bgp_neighbor(dut,  rightconfed_as, topo['D2D1P1_neigh_ipv4'], leftconfed_as)
 
             #Confederation config for DUT3
             dut = topo['dut_list'][2]
             neighbor = topo['D3D4P1_neigh_ipv4']
-            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
+            bgpapi.config_bgp(dut, cli_type = "vtysh", local_as = rightconfed_as, config = 'yes', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
             bgpapi.create_bgp_neighbor(dut, rightconfed_as, topo['D3D2P1_neigh_ipv4'], rightconfed_as)
 
             #Confederation config for DUT4
             dut = topo['dut_list'][3]
             neighbor = topo['D4D3P1_neigh_ipv4']
-            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
+            bgpapi.config_bgp(dut, local_as = rightconfed_as, cli_type = "vtysh", config = 'yes', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor"], neighbor = neighbor)
 
         if config_type == 'ipv6' or config_type == 'all':
             #Confederation config for DUT1
             dut = topo['dut_list'][0]
             neighbor = topo['D1D2P1_neigh_ipv6']
-            bgpapi.config_bgp(dut, local_as = leftconfed_as, config = 'yes', addr_family ='ipv6', conf_peers = rightconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
+            bgpapi.config_bgp(dut, cli_type = "vtysh", local_as = leftconfed_as, config = 'yes', addr_family ='ipv6', conf_peers = rightconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
 
             #Confederation config for DUT2
             dut = topo['dut_list'][1]
             neighbor = topo['D2D3P1_neigh_ipv6']
-            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', addr_family ='ipv6', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
+            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', addr_family ='ipv6',cli_type = "vtysh",  conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
             bgpapi.create_bgp_neighbor(dut, rightconfed_as, topo['D2D1P1_neigh_ipv6'], leftconfed_as, family="ipv6")
 
             #Confederation config for DUT3
             dut = topo['dut_list'][2]
             neighbor = topo['D3D4P1_neigh_ipv6']
-            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', addr_family ='ipv6', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
+            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', addr_family ='ipv6', conf_peers = leftconfed_as, cli_type = "vtysh", conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
             bgpapi.create_bgp_neighbor(dut, rightconfed_as, topo['D3D2P1_neigh_ipv6'], rightconfed_as, family="ipv6")
 
             #Confederation config for DUT4
             dut = topo['dut_list'][3]
             neighbor = topo['D4D3P1_neigh_ipv6']
-            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', addr_family ='ipv6', conf_peers = leftconfed_as, conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
+            bgpapi.config_bgp(dut, local_as = rightconfed_as, config = 'yes', addr_family ='ipv6', conf_peers = leftconfed_as, cli_type = "vtysh", conf_identf = iBGP_as, remote_as = rightconfed_as, config_type_list = ["neighbor", "activate"], neighbor = neighbor)
 
     else:
         bgpapi.cleanup_router_bgp(topo['dut_list'])
@@ -193,12 +193,12 @@ def l3tc_vrfipv4v6_address_confed_bgp_check(config_type='all'):
         neigh_list.append(topo['D2D3P1_neigh_ipv4'])
         neigh_list.append(topo['D2D1P1_neigh_ipv4'])
         neigh_list = list(set(neigh_list))
-        if not bgpapi.verify_bgp_summary(topo['dut_list'][1], family='ipv4', neighbor=neigh_list, state='Established'):
+        if not bgpapi.verify_bgp_summary(topo['dut_list'][1], shell='vtysh',family='ipv4', neighbor=neigh_list, state='Established'):
             st.log("{} - Neighbor {} is failed to Establish".format(topo['dut_list'][1], neigh_list))
             result = False
 
         #Check link between DUT3----DUT4
-        if not bgpapi.verify_bgp_summary(topo['dut_list'][2], family='ipv4', neighbor=topo['D3D4P1_neigh_ipv4'], state='Established'):
+        if not bgpapi.verify_bgp_summary(topo['dut_list'][2], shell='vtysh',family='ipv4', neighbor=topo['D3D4P1_neigh_ipv4'], state='Established'):
             st.log("{} - Neighbor {} is failed to Establish".format(topo['dut_list'][2], topo['D3D4P1_neigh_ipv4']))
             result = False
 
@@ -208,12 +208,12 @@ def l3tc_vrfipv4v6_address_confed_bgp_check(config_type='all'):
         neigh_list.append(topo['D2D3P1_neigh_ipv6'])
         neigh_list.append(topo['D2D1P1_neigh_ipv6'])
         neigh_list = list(set(neigh_list))
-        if not bgpapi.verify_bgp_summary(topo['dut_list'][1], family='ipv6', neighbor=neigh_list, state='Established'):
+        if not bgpapi.verify_bgp_summary(topo['dut_list'][1], shell='vtysh',family='ipv6', neighbor=neigh_list, state='Established'):
             st.log("{} - Neighbor {} is failed to Establish".format(topo['dut_list'][1], neigh_list))
             result = False
 
         #Check link between DUT3----DUT4
-        if not bgpapi.verify_bgp_summary(topo['dut_list'][2], family='ipv6', neighbor=topo['D3D4P1_neigh_ipv6'], state='Established'):
+        if not bgpapi.verify_bgp_summary(topo['dut_list'][2], family='ipv6', shell='vtysh',neighbor=topo['D3D4P1_neigh_ipv6'], state='Established'):
             st.log("{} - Neighbor {} is failed to Establish".format(topo['dut_list'][2], topo['D3D4P1_neigh_ipv6']))
             result = False
     return result

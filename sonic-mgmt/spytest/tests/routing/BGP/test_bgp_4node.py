@@ -64,7 +64,7 @@ def test_ft_bgp_ebgp_multihop_4byteASN():
     #Add static route to DUT1 neighbor
     ipapi.create_static_route(dut3, topo['D3D2P1_neigh_ipv4'], "{}/24".format(topo['D1D2P1_ipv4']))
 
-    result = bgpapi.verify_bgp_summary(dut1, family='ipv4', neighbor=topo['D3D2P1_ipv4'], state='Established')
+    result = bgpapi.verify_bgp_summary(dut1, family='ipv4', shell='vtysh', neighbor=topo['D3D2P1_ipv4'], state='Established')
 
     #Clear applied configs
     bgpapi.cleanup_router_bgp(dut1)
