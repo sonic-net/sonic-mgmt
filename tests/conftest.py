@@ -486,7 +486,7 @@ def generate_port_lists(request, port_scope):
     if 'ports' in port_scope:
         scope = 'Ethernet'
         empty = [ { 'dut': 'unknown', 'interface': 'found-no-port' } ]
-    elif 'pc' in port_scope:
+    elif 'pcs' in port_scope:
         scope = 'PortChannel'
         empty = [ { 'dut': 'unknown', 'interface': 'found-no-pc' } ]
     else:
@@ -546,4 +546,9 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("oper_up_ports", generate_port_lists(metafunc, "oper_up_ports"))
     if "admin_up_ports" in metafunc.fixturenames:
         metafunc.parametrize("admin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
-
+    if "all_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("all_pcs", generate_port_lists(metafunc, "all_pcs"))
+    if "oper_up_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("oper_up_pcs", generate_port_lists(metafunc, "oper_up_pcs"))
+    if "admin_up_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("admin_up_pcs", generate_port_lists(metafunc, "admin_up_pcs"))
