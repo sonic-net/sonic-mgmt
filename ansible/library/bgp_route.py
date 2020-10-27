@@ -367,7 +367,7 @@ def main():
         command = "docker exec -i bgp vtysh -c 'show version'"
         rc, out, err = module.run_command(command)
         if rc != 0:
-            err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rt, out, err)
+            err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
             module.fail_json(msg=err_message)
             return
         if "FRRouting" in out:
@@ -381,7 +381,7 @@ def main():
                 command = "docker exec -i bgp vtysh -c 'show ipv6 bgp {} {}'".format(str(prefix), use_json)
             rc, out, err = module.run_command(command)
             if rc != 0:
-                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rt, out, err)
+                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
                 module.fail_json(msg=err_message)
                 return
             if is_frr:
@@ -396,7 +396,7 @@ def main():
                 command = "docker exec -i bgp vtysh -c 'show ipv6 bgp neighbor {] {} {}'".format(str(neighbor), str(direction), use_json)
             rc, out, err = module.run_command(command)
             if rc !=  0:
-                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rt, out, err)
+                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
                 module.fail_json(msg=err_message)
                 return
             if is_frr:
