@@ -47,9 +47,9 @@ def _disable_route_checker(duthost):
         Args:
             duthost: DUT fixture
     """
-    duthost.command('monit stop routeCheck')
+    duthost.command('monit stop routeCheck', module_ignore_errors=True)
     yield
-    duthost.command('monit start routeCheck')
+    duthost.command('monit start routeCheck', module_ignore_errors=True)
 
 
 @pytest.fixture
