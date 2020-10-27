@@ -21,7 +21,7 @@ from ansible.plugins.loader import connection_loader
 
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
-
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -1038,6 +1038,11 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         """
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
+    
+    def get_namespace_from_asic_id(self, asic_id):
+        if asic_id is DEFAULT_ASIC_ID:
+            return DEFAULT_NAMESPACE
+        return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
 
 class EosHost(AnsibleHostBase):
