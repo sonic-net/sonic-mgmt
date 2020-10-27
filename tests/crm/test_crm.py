@@ -853,6 +853,7 @@ def test_crm_fdb_entry(duthost, tbinfo):
     if used_percent < 1:
         # Clear pre-set fdb entry
         duthost.command("fdbclear")
+        time.sleep(5)
         # Preconfiguration needed for used percentage verification
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT
