@@ -21,6 +21,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+from tests.common.helpers.dut_ports import encode_dut_port_name
 
 logger = logging.getLogger(__name__)
 
@@ -482,15 +483,17 @@ def generate_params_dut_index(request):
     logging.info("Num of duts in testbed topology {}".format(num_duts))
     return range(num_duts)
 
+
 def generate_port_lists(request, port_scope):
     if 'ports' in port_scope:
         scope = 'Ethernet'
-        empty = [ { 'dut': 'unknown', 'interface': 'found-no-port' } ]
+        empty = [ 'unknown|found-no-port' ]
     elif 'pcs' in port_scope:
         scope = 'PortChannel'
-        empty = [ { 'dut': 'unknown', 'interface': 'found-no-pc' } ]
+        empty = [ 'unknown|found-no-pc' ]
     else:
-        return [ { 'dut': 'unknown', 'interface': 'found-no-port' } ]
+        empty = [ 'unknown|found-no-port' ]
+        return empty
 
     if 'all' in port_scope:
         state = None
@@ -524,7 +527,7 @@ def generate_port_lists(request, port_scope):
             continue
         for intf, status in val['intf_status'].items():
             if scope in intf and (not state or status[state] == 'up'):
-                ret.append({ 'dut' : dut, 'interface' : intf })
+                ret.append(encode_dut_port_name(dut, intf))
 
     return ret if ret else empty
 

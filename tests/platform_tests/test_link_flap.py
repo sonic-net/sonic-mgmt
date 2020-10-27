@@ -7,6 +7,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
 from tests.common.plugins.test_completeness import CompletenessLevel
 from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.dut_ports import decode_dut_port_name
 
 logger = logging.getLogger(__name__)
 
@@ -100,8 +101,10 @@ class TestLinkFlap:
                 fanout.no_shutdown(fanout_port)
 
 @pytest.mark.platform('physical')
-def test_link_flap(request, duthost, all_ports, fanouthosts):
-    pytest_require(all_ports['dut'] == 'unknown' or duthost.hostname == all_ports['dut'],
-                   "Dut host name {} mismatch {}".format(duthost.hostname, all_ports['dut']))
+def test_link_flap(request, duthosts, all_ports, fanouthosts):
     tlf = TestLinkFlap(request)
-    tlf.run_link_flap_test(duthost, fanouthosts, all_ports['interface'])
+
+    dutname, portname = decode_dut_port_name(all_ports)
+    for dut in duthosts:
+        if dutname == 'unknown' or dutname == dut.hostname:
+            tlf.run_link_flap_test(dut, fanouthosts, portname)
