@@ -47,8 +47,8 @@ mkdir -p logs
 # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
 tgname=1vlan
 tests="\
-platform_tests/test_advanced_reboot.py \
 monit/test_monit_status.py \
+platform_tests/test_advanced_reboot.py \
 test_interfaces.py \
 bgp/test_bgp_fact.py \
 bgp/test_bgp_gr_helper.py \
