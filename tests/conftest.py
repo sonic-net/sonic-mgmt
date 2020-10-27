@@ -485,14 +485,12 @@ def generate_params_dut_index(request):
 
 
 def generate_port_lists(request, port_scope):
+    empty = [ encode_dut_port_name('unknown', 'unknown') ]
     if 'ports' in port_scope:
         scope = 'Ethernet'
-        empty = [ 'unknown|found-no-port' ]
     elif 'pcs' in port_scope:
         scope = 'PortChannel'
-        empty = [ 'unknown|found-no-pc' ]
     else:
-        empty = [ 'unknown|found-no-port' ]
         return empty
 
     if 'all' in port_scope:

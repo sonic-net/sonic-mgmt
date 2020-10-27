@@ -66,7 +66,7 @@ class TestLinkFlap:
 
     def __build_test_candidates(self, dut, fanouthosts, port):
         candidates = []
-        if port != 'found-no-port':
+        if port != 'unknown':
             status = self.__get_dut_if_status(dut, port)
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, port)
             self.__build_candidate_list(candidates, fanout, fanout_port, port, status)
