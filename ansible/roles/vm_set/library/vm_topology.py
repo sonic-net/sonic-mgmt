@@ -8,6 +8,7 @@ import re
 import docker
 from ansible.module_utils.basic import *
 import traceback
+import hashlib
 from pprint import pprint
 
 DOCUMENTATION = '''
@@ -110,7 +111,7 @@ PTF_MGMT_IF_TEMPLATE = 'ptf-%s-m'
 PTF_BP_IF_TEMPLATE = 'ptf-%s-b'
 ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
-RETRIES = 3
+RETRIES = 10
 
 cmd_debug_fname = None
 
@@ -207,7 +208,7 @@ class VMTopology(object):
     def update(self):
         errmsg = []
         i = 0
-        while i < 3:
+        while i < RETRIES:
             try:
                 self.host_br_to_ifs, self.host_if_to_br = VMTopology.brctl_show()
                 self.host_ifaces = VMTopology.ifconfig('ifconfig -a')
@@ -220,7 +221,7 @@ class VMTopology(object):
                 errmsg.append(str(error))
                 i += 1
 
-        if i == 3:
+        if i == RETRIES:
             raise Exception("update failed for %d times. %s" % (i, "|".join(errmsg)))
 
         return
@@ -291,9 +292,16 @@ class VMTopology(object):
         return
 
     def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None):
-        self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, MGMT_PORT_NAME)
-        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw)
+        if MGMT_PORT_NAME not in self.cntr_ifaces:
+            tmp_mgmt_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
+            self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, tmp_mgmt_if)
 
+            VMTopology.iface_down(tmp_mgmt_if, self.pid)
+            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, tmp_mgmt_if, MGMT_PORT_NAME))
+
+        VMTopology.iface_up(MGMT_PORT_NAME, self.pid)
+
+        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw)
         return
 
     def add_bp_port_to_docker(self, mgmt_ip, mgmt_ipv6):
@@ -369,7 +377,8 @@ class VMTopology(object):
     def add_veth_if_to_docker(self, ext_if, int_if):
         self.update()
 
-        t_int_if = int_if + '_t'
+        t_int_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + int_if + '_t'
+
         if ext_if not in self.host_ifaces:
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
 
