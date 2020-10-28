@@ -107,7 +107,7 @@ function setup_test_options()
         done
     fi
     # Ignore the scripts specified in $SKIP_SCRIPTS
-    TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+    TEST_CASES=$(python -c "print '\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())])")
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
