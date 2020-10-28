@@ -136,11 +136,13 @@ k8s_server_19:
 ```
 $ git clone https://github.com/Azure/sonic-mgmt
 $ cd sonic-mgmt/ansible
-$ sudo ./setup-k8s-management-network.sh
+$ sudo ./setup-management-network.sh
+$ sudo ./setup-br1-nat.sh <name of server's external facing port>
 ```
-2. Setup virtual switch testbed as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.VsSetup.md). Note that k8s internal management network is set up in step 1 above; do NOT use `setup-management-network.sh`.
+2. Setup virtual switch testbed as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.VsSetup.md).
 3. In [`ansible/k8s_ubuntu_vtb`](../k8s_ubuntu_vtb), replace `use_own_value` with the username for the server, corresponds to the username used while setting up [`ansible/veos_vtb`](../veos_vtb) for the virtual switch testbed.
-4. From inside the `sonic-mgmt` docker set up in step 2, run:
+4. Specify DNS server IP to be used by Ubuntu KVMs in [`ansible/host_vars/STR-ACS-VSERV-21.yml`](../host_vars/STR-ACS-VSERV-21.yml); this should be the same DNS server IP as used by the testbed server.
+5. From inside the `sonic-mgmt` docker set up in step 2, run:
 ```
 $ cd /data/sonic-mgmt/ansible
 $ ./testbed-cli.sh -m k8s_ubuntu_vtb create-master k8s_server_21 password.txt  
