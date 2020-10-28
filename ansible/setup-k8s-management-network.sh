@@ -42,10 +42,10 @@ echo
 echo "Enabling br1 forwarding..."
 l=$(iptables -v -L | grep -n 'Chain FORWARD')
 lowerbound="${l%%:*}"
-sync=0
+sync=1
 iptables -v -L | grep -n 'REJECT.*br1' | while read -r line; do
   upperbound=${line%%:*}
-  let index=$upperbound-$lowerbound-$sync-1
+  let index=$upperbound-$lowerbound-$sync
   iptables -D FORWARD $index
   ((sync=sync+1))
 done
