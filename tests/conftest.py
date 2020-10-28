@@ -21,6 +21,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+from tests.common.helpers.dut_ports import encode_dut_port_name
 
 logger = logging.getLogger(__name__)
 
@@ -482,6 +483,53 @@ def generate_params_dut_index(request):
     logging.info("Num of duts in testbed topology {}".format(num_duts))
     return range(num_duts)
 
+
+def generate_port_lists(request, port_scope):
+    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+    if 'ports' in port_scope:
+        scope = 'Ethernet'
+    elif 'pcs' in port_scope:
+        scope = 'PortChannel'
+    else:
+        return empty
+
+    if 'all' in port_scope:
+        state = None
+    elif 'oper_up' in port_scope:
+        state = 'oper_state'
+    elif 'admin_up' in port_scope:
+        state = 'admin_state'
+    else:
+        return empty
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            ports = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in ports:
+        return empty
+
+    dut_ports = ports[tbname]
+    ret = []
+    for dut, val in dut_ports.items():
+        if 'intf_status' not in val:
+            continue
+        for intf, status in val['intf_status'].items():
+            if scope in intf and (not state or status[state] == 'up'):
+                ret.append(encode_dut_port_name(dut, intf))
+
+    return ret if ret else empty
+
+
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -493,3 +541,15 @@ def pytest_generate_tests(metafunc):
     if "frontend_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
 
+    if "all_ports" in metafunc.fixturenames:
+        metafunc.parametrize("all_ports", generate_port_lists(metafunc, "all_ports"))
+    if "oper_up_ports" in metafunc.fixturenames:
+        metafunc.parametrize("oper_up_ports", generate_port_lists(metafunc, "oper_up_ports"))
+    if "admin_up_ports" in metafunc.fixturenames:
+        metafunc.parametrize("admin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
+    if "all_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("all_pcs", generate_port_lists(metafunc, "all_pcs"))
+    if "oper_up_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("oper_up_pcs", generate_port_lists(metafunc, "oper_up_pcs"))
+    if "admin_up_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("admin_up_pcs", generate_port_lists(metafunc, "admin_up_pcs"))
