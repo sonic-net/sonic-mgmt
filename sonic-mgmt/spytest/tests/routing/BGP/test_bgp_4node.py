@@ -220,6 +220,7 @@ class TestBGPConfed():
             for each in as_path:
                 if each == "200":
                     result = True
+        st.log("Result for as-path prepended:",result)
 
         #verify that network1 is not present in bgp routes
         n1 = ipapi.verify_ip_route(topo['dut_list'][1],ip_address=network1)
@@ -227,14 +228,16 @@ class TestBGPConfed():
             result = result & True
         else:
             result = result & False
-
+        st.log("Result for network1 is not present in bgp routes: ", n1)
+        
         #verify that network2 is present in bgp routes
         n2 = ipapi.verify_ip_route(topo['dut_list'][1],ip_address=network2)
         if (n2):
             result = result & True
         else:
             result = result & False
-
+        st.log("Result for network2 is present in bgp routes: ", n2)
+        
         #CLear applied configs
         ipapi.config_access_list(topo['dut_list'][0], 'test-access-list3', network2, 'permit', config='no')
         ipapi.config_access_list(topo['dut_list'][0], 'test-access-list2', network1, 'deny', config='no')
