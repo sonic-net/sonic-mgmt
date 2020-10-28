@@ -2,6 +2,9 @@ import pytest
 import logging
 import json
 import time
+import os
+
+from common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,33 @@ def test_disable_container_autorestart(duthost):
     # Wait sometime for snmp reloading
     SNMP_RELOADING_TIME = 30
     time.sleep(SNMP_RELOADING_TIME)
+
+
+def collect_dut_info(dut):
+    status = dut.show_interface(command='status')['ansible_facts']['int_status']
+    return { 'intf_status' : status }
+
+
+def test_update_testbed_metadata(duthosts, tbinfo):
+    metadata = {}
+    tbname = tbinfo['conf-name']
+    pytest_require(tbname, "skip test due to lack of testbed name.")
+
+    for dut in duthosts:
+        dutinfo = collect_dut_info(dut)
+        metadata[dut.hostname] = dutinfo
+
+    info = { tbname : metadata }
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+    try:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        with open(filepath, 'w') as yf:
+            json.dump(info, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
 
 def test_disable_rsyslog_rate_limit(duthost):
     features_dict, succeed = duthost.get_feature_status()
