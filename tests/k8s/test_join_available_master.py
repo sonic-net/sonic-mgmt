@@ -57,5 +57,3 @@ def test_join_available_master(duthost, k8shosts):
     server_connect_exp_status = True
     server_connect_act_status = ku.check_connected(duthost)
     pytest_assert(server_connect_exp_status == server_connect_act_status, "DUT join available master failed, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
-
-

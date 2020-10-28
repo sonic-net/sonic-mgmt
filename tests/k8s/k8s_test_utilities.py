@@ -3,7 +3,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-WAIT_FOR_SYNC = 60
+WAIT_FOR_SYNC = 60 # time unit seconds
 
 
 def join_master(duthost, master_vip):

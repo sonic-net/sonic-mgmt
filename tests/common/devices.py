@@ -1121,10 +1121,6 @@ class K8sMasterHost(AnsibleHostBase):
             api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"].split("\n")
         assert len(api_server_container_ids) > 1
         
-        
-
-
-
 
 class EosHost(AnsibleHostBase):
     """
@@ -1269,8 +1265,6 @@ class EosHost(AnsibleHostBase):
 
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["stdout"]))
-
-
 
 
 class OnyxHost(AnsibleHostBase):

@@ -267,12 +267,17 @@ def k8shosts(ansible_adhoc, request, creds):
     Shortcut fixture for getting Kubernetes hosts
     """
     master_id = request.config.getoption("--kube_master") 
-    # master_id is required to be in the format {servernumber}_{mastersetid} where 2-digit servernumber is enforced with leading 0 when necessary
-    master_server_id = int(master_id[:2])
-    master_set_id = int(master_id[3:]) 
+    master_id_elements = master_id.split('_')
+    assert len(master_id_elements) == 2, "Invalid master identifier format. Please use format {servernumber}_{mastersetnumber}"
+    master_server_id = master_id_elements[0]
+    master_set_id = master_id_elements[1]
     k8s_ansible_group = "k8s_vms{}_{}".format(master_set_id, master_server_id)
     master_vms = {}
-    with open('../ansible/k8s-ubuntu', 'r') as kinv:
+    inv_files = request.config.getoption("ansible_inventory")
+    for inv_file in inv_files:
+        if "k8s" in inv_file:
+            k8s_inv_file = inv_file
+    with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_ansible_group]['hosts'].items():
             master_vms[hostname[-2:]] = {'host': K8sMasterHost(ansible_adhoc,
