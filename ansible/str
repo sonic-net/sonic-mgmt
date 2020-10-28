@@ -359,6 +359,7 @@ sonic_mlnx_40:
     str-msn2700-02:
       ansible_host: 10.3.147.45
       pdu_host: pdu-99
+      model: MSN2700-CS2FO
       hwsku: Mellanox-SN2700
       serial: MT2020T04274
       base_mac: 1c:34:da:a1:a5:80
@@ -397,6 +398,7 @@ sonic_mlnx_100:
       ansible_host: 10.64.247.235
       hwsku: Mellanox-SN2700-D48C8
       pdu_host: pdu-106
+      model: MSN2700-CS2FO
       serial: MT1648X06682
       base_mac: 24:8a:07:80:6c:80
       syseeprom_info:
