@@ -27,7 +27,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture()
-def bring_up_fannout_interfaces(request, duthost, fanouthosts):
+def bring_up_fanout_interfaces(request, duthost, fanouthosts):
     """
     Bring up outer interfaces on the DUT.
 
