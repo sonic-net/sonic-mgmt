@@ -53,14 +53,14 @@
     remote_src: yes
     owner: ubuntu
  
-- name: Helper for HAProxy to have copy of admin.conf
+- name: Copy admin.conf onto server to help transfer file to HAProxy node
   become: yes
   fetch:
     src: /etc/kubernetes/admin.conf
     dest: /tmp/helper/admin.conf
     flat: yes
 
-- name: Copy admin.conf file into HAPRoxy node to enable worker node join from VIP
+- name: Copy admin.conf from server into HAProxy node
   delegate_to: "{{ haproxy_node }}"
   become: yes
   copy:
