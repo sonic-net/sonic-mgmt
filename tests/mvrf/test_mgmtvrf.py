@@ -7,6 +7,7 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from pkg_resources import parse_version
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -89,7 +90,11 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = {}
     prefix = ""
     if mvrf:
-        prefix = "sudo cgexec -g l3mdev:mgmt "
+        dut_kernel = duthost.setup()['ansible_facts']['ansible_kernel'].split('-')
+        if parse_version(dut_kernel[0]) > parse_version("4.9.0"):
+            prefix = "sudo ip vrf exec mgmt "
+        else:
+            prefix = "sudo cgexec -g l3mdev:mgmt "
     result = duthost.command(prefix + command, module_ignore_errors=ignore_errors)
     return result
 
