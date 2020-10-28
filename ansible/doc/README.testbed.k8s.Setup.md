@@ -117,7 +117,7 @@ k8s_server_19:
 `./testbed-cli.sh -m k8s-ubuntu create-master k8s_server_19 ~/.password` 
   - OPTIONAL: We offer the functionality to run multiple master sets on one server. 
     - Each master set is one HA Kubernetes master composed of 4 Linux KVMs. 
-    - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. `msetnumber` is 1 by default. 
+    - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. Specifically, make sure that the IPS are set in the correct group `k8s_vms{msetnumber}_{servernumber}` and the `children` are properly updated for `k8s_server_{servernumber}` at the bottom of the inventory file. `msetnumber` is 1 by default. 
 
 
 9. Join Kubernetes-enabled SONiC DUT to cluster (kube_join function to be written).

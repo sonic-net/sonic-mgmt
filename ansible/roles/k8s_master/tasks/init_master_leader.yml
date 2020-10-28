@@ -1,25 +1,29 @@
 - name: Get IP Address for HAProxy Machine
   set_fact: 
     haproxy_ip="{{ hostvars[item].ansible_ens2.ipv4.address }}"
+    haproxy_node="{{ hostvars[item].inventory_hostname }}"
   when: hostvars[item].haproxy is defined
   with_items: 
   - "{{ groups['k8s_vms' + msetnumber + '_' + servernumber] }}"
 
 - name: Wait for HAProxy service to be ready
   wait_for:
-    port: 80
+    port: "{{ k8s_port }}"
     host: "{{ haproxy_ip }}"
     connect_timeout: 3
     delay: 3
     timeout: 300
 
+- name: Set kubeadm init options
+  set_fact:
+    kubeadm_init_options="--apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns"
+
 - name: Initializing Kubernetes cluster
-  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:80 --upload-certs --apiserver-advertise-address {{ ansible_ens2.ipv4.address }} --skip-phases=addon/kube-proxy --skip-phases=addon/coredns --ignore-preflight-errors=NumCPU
+  shell: kubeadm init --control-plane-endpoint {{ haproxy_ip }}:{{ k8s_port }} --upload-certs {{ kubeadm_init_options }}
   register: output
 
 - name: Store logs and generated token for future reference
   local_action: copy content={{ output.stdout }} dest="./token"
-
 
 - name: Get join command for other master nodes
   shell: kubeadm token create --print-join-command
@@ -48,3 +52,18 @@
     dest: /home/ubuntu/.kube/config
     remote_src: yes
     owner: ubuntu
+ 
+- name: Copy admin.conf onto server to help transfer file to HAProxy node
+  become: yes
+  fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: /tmp/helper/admin.conf
+    flat: yes
+
+- name: Copy admin.conf from server into HAProxy node
+  delegate_to: "{{ haproxy_node }}"
+  become: yes
+  copy:
+    src: /tmp/helper/admin.conf
+    dest: /var/www/html/admin.conf
+    mode: '755'
