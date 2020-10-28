@@ -13,6 +13,7 @@ import os
 import re
 import inspect
 import ipaddress
+import copy
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
@@ -1301,15 +1302,14 @@ class IxiaHost (AnsibleHostBase):
         if (self.os == 'ixia') :
             eval(cmd)
 
-import copy
 
 class SonicAsic(object):
-
+    '''Wrapper for ASIC/namespace aware modules'''
     def __init__(self, sonichost, asic_index):
         self.sonichost = sonichost
         self.asic_index = asic_index
 
-    # Wrapper for ASIC/namespace aware modules
+
     def bgp_facts(self, *module_args, **complex_args):
         if self.sonichost.facts['num_asic'] != 1:
             complex_args['instance_id'] = self.asic_index
@@ -1333,12 +1333,10 @@ class MultiAsicSonicHost(object):
                 # Specific ASIC/namespace
                 if self.sonichost.facts['num_asic'] == 1:
                     if asic_index != 0:
-                        raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.attr, asic_index, self.sonichost.hostname))
+                        raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.multi_asic_attr, asic_index, self.sonichost.hostname))
                 return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
             elif type(asic_index) == str and asic_index.lower() == "all":
                 # All ASICs/namespace
-                if self.sonichost.facts['num_asic'] == 1:
-                    return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
                 return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
@@ -1355,12 +1353,12 @@ class MultiAsicSonicHost(object):
 class DutHosts(object):
     class _Nodes(list):
 
-        # Delegate the call to each of the nodes, return the results in a dict.
         def _run_on_nodes(self, *module_args, **complex_args):
+            '''Delegate the call to each of the nodes, return the results in a dict.'''
             return {node.hostname: getattr(node, self.attr)(*module_args, **complex_args) for node in self}
 
-        # To support calling ansible modules on list of nodes.
         def __getattr__(self, attr):
+            '''To support calling ansible modules on list of nodes.'''
             self.attr = attr
             return self._run_on_nodes
 
@@ -1385,20 +1383,16 @@ class DutHosts(object):
 
     # To support iteration
     def __iter__(self):
-        self._node_index = 0
-        return self.nodes.__iter__()
+        return iter(self.nodes)
 
-    # To support iteration
-    def __next__(self):
-        if self._node_index < len(self.nodes):
-            node = self.nodes[self._node_index]
-            self._node_index += 1
-            return node
-        else:
-            raise StopIteration
+    def __len__(self):
+        return len(self.nodes)
 
-    # To support calling ansible modules directly on instance of DutHosts
+    def __eq__(self, o):
+        return self.nodes.__eq__(o)
+
     def __getattr__(self, attr):
+        ''' To support calling ansible modules directly on instance of DutHosts'''
         return getattr(self.nodes, attr)
 
     def _is_fabric_node(self, node):
@@ -1411,8 +1405,7 @@ class DutHosts(object):
             card_type = node.host.options["inventory_manager"].get_host(node.hostname).get_vars()["type"]
             if card_type is not None and card_type == 'supervisor':
                 return True
-            return False
-        pass
+        return False
 
     def _is_frontend_node(self, node):
         return node not in self.supervisor_nodes

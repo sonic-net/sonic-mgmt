@@ -18,7 +18,7 @@ from ansible.inventory.manager import InventoryManager
 from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import SonicHost, Localhost
+from tests.common.devices import Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
