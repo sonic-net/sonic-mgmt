@@ -27,6 +27,8 @@ all:
           ansible_host: 10.64.246.139
         vms17-8:
           ansible_host: 10.64.246.140
+        vms18-1:
+          ansible_host: 10.64.246.141
         vms20-6:
           ansible_host: 10.64.246.120
         vms20-8:
@@ -67,6 +69,8 @@ fanout:
       ansible_host: 10.3.147.23
     str2-7260cx3-acs-fan-12:
       ansible_host: 10.3.147.21
+    str2-7260cx3-acs-fan-13:
+      ansible_host: 10.3.147.14
     str2-7260cx3-64-19:
       ansible_host: 10.3.146.150
     str2-7263CX3-azd-01:
@@ -86,6 +90,7 @@ sonic:
     sonic_mlnx_3800_50:
     sonic_dx010_100:
     sonic_nexus_3164:
+    sonic_mlnx_4600C:
 
 sonic_mlnx:
   vars:
@@ -106,6 +111,14 @@ sonic_mlnx_3800:
       ansible_host: 10.3.146.183
     str2-sn3800-azd-2:
       ansible_host: 10.3.146.238
+
+sonic_mlnx_4600C:
+  vars:
+    hwsku: ACS-MSN4600C
+    iface_speed: 100000
+  hosts:
+    str2-msn4600c-acs-01:
+      ansible_host: 10.3.146.51
 
 sonic_mlnx_3800_50:
   vars:
