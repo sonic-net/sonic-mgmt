@@ -108,12 +108,18 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
         def run(self):
             params["pfc_fanout_interface"] = ""
             dev_conn = fanout_graph_facts[fanout_host_name]["device_conn"]
+            plist = []
             if self.server_ports:
-                params["pfc_fanout_interface"] += ",".join([key for key, value in dev_conn[k].items() for k in dev_conn.keys() if value["peerport"] in self.used_server_ports])
+                for _, val in dev_conn.items():
+                    p = ",".join([key for key, value in val.items() if value["peerport"] in self.used_server_ports])
+                    if p:
+                        plist.append(p)
             if self.non_server_port:
-                if params["pfc_fanout_interface"]:
-                    params["pfc_fanout_interface"] += ","
-                params["pfc_fanout_interface"] += ",".join([key for key, value in dev_conn[k].items() for k in dev_conn.keys() if value["peerport"] in self.used_non_server_port])
+                for _, val in dev_conn.items():
+                    p = ",".join([key for key, value in val.items() if value["peerport"] in self.used_non_server_port])
+                    if p:
+                        plist.append(p)
+            params["pfc_fanout_interface"] += ",".join([key for key in plist])
             fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
                 **params)
             time.sleep(5)

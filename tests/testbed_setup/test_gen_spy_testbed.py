@@ -2,7 +2,6 @@ import logging
 import json
 import os
 import pytest
-import yaml
 
 from collections import defaultdict
 from jinja2 import Template
