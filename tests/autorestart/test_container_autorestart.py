@@ -21,6 +21,55 @@ CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
+    """
+        Ignore expected failure/error messages during testing the autorestart feature.
+
+        First, since we killed a critical process in a specific container to test the feature of
+        autorestart, we expect to see error messages which were fired by Monit such as
+        "ERR monit[563]: 'lldp|lldpd' status failed (1) -- 'lldpd' is not running."
+
+        Second, if teammgrd process was killed for testing, orchagent process in
+        swss container would write the error messages into syslog such as
+        "ERR swss#orchagent: :- removeLag: Failed to remove ref count 1 LAG PortChannel10008."
+        When teamd was restarted, there was an error message in the syslog: "ERR teamd#teamsyncd:
+        :- readData: netlink reports an error=-33 on reading a netlink socket."
+
+        Third, during pmon container was restarted due to ledd process was killed for testing,
+        xcvrd process would write an error message into syslog such as "ERR pmon#xcvrd[29]: :-initialize
+        GlobalConfig: Sonic database config global file doesn't exist at /var/run/redis/sonic-db/database_global.json."
+        thermalctld process would write an error message into syslog such as "ERR pmon#thermalctld[33]:
+        Caught exception while initializing thermal manager."
+
+        Fourth, if orchagent process was killed and swss container was restarted, then syncd process
+        would write error messages such as "ERR syncd#syncd: [none] driverEgressMemoryUpdate:1395
+        Error getting cosq for port 1.". At the same time, syncd process also wrote two WARNING messages
+        into syslog such as "WARNING syncd#syncd:- saiDiscover: skipping since it causes crash:
+        SAI_STP_ATTR_BRIDGE_ID". Since there was a keyword "crash" in these warning message, logAnalyzer
+        would fail.
+
+        Fifth, systemd would fire an error message:"ERR systemd[1]: Failed to start SNMP/TEAMD container." since
+        SNMP/TEAMD container hits the limitation of restart. route_check.py also wrote an error message into syslog.
+
+    """
+    ignoreRegex = [
+        ".*ERR monit.*",
+        ".*ERR swss#orchagent.*removeLag.*",
+        ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
+        ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
+        ".*ERR syncd#syncd.*driverEgressMemoryUpdate.*",
+        ".*ERR syncd#syncd.*brcm_sai*",
+        ".*ERR teamd#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+        ".*WARNING syncd#syncd.*saiDiscover: skipping since it cause crash.*",
+        ".*ERR systemd.*Failed to start .* container*",
+        ".*ERR kernel.*PortChannel.*",
+        ".*ERR route_check.*",
+    ]
+    if loganalyzer:
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+
 def get_group_program_info(duthost, container_name, group_name):
     """
     @summary: Get program names, running status and their pids by analyzing the command
@@ -34,7 +83,7 @@ def get_group_program_info(duthost, container_name, group_name):
     program_status = None
     program_pid = -1
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name))
+    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(group_name) != -1:
             program_name = program_info.split()[0].split(':')[1].strip()
@@ -59,7 +108,7 @@ def get_program_info(duthost, container_name, program_name):
     program_status = None
     program_pid = -1
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name))
+    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
             program_status = program_info.split()[1].strip()
@@ -137,6 +186,20 @@ def is_hiting_start_limit(duthost, container_name):
     return False
 
 
+def clear_failed_flag_and_restart(duthost, container_name):
+    """
+    @summary: If a container hits the restart limitation, then we clear the failed flag and
+              restart it.
+    """
+    logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
+    duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
+    duthost.shell("sudo systemctl start {}.service".format(container_name))
+    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                           CONTAINER_CHECK_INTERVAL_SECS,
+                           check_container_state, duthost, container_name, True)
+    pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
+
+
 def verify_autorestart_with_critical_process(duthost, container_name, program_name,
                                              program_status, program_pid):
     """
@@ -165,13 +228,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
                            check_container_state, duthost, container_name, True)
     if not restarted:
         if is_hiting_start_limit(duthost, container_name):
-            logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
-            duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
-            duthost.shell("sudo systemctl start {}.service".format(container_name))
-            restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                                   CONTAINER_CHECK_INTERVAL_SECS,
-                                   check_container_state, duthost, container_name, True)
-            pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
+            clear_failed_flag_and_restart(duthost, container_name)
         else:
             pytest.fail("Failed to restart container '{}'".format(container_name))
 
@@ -201,6 +258,24 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logger.info("Container '{}' did not stop".format(container_name))
     logger.info("Restart the program '{}' in container '{}'".format(program_name, container_name))
     duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
+
+
+def postcheck_critical_processes_status(duthost, container_autorestart_states):
+    """
+    @summary: Do the post check to see whether all the critical processes are alive after testing
+              the autorestart feature.
+              First we restart the containers which hit the restart limitation and then do the post check
+    """
+    for container_name in container_autorestart_states.keys():
+        if is_hitting_start_limit(duthost, container_name):
+            clear_failed_flag_and_restart(duthost, container_name)
+
+    # Sleep 20 seconds such that containers have a chance to start.
+    time.sleep(20)
+    processes_status = duthost.all_critical_process_status()
+    for container_name, processes in processes_status.items():
+        if processes["status"] is False or len(processes["exited_critical_processes"]) > 0:
+            pytest.fail("Critical process(es) was not running after container '{}' was restarted.".format(container_name))
 
 
 def test_containers_autorestart(duthost, tbinfo):
@@ -275,3 +350,5 @@ def test_containers_autorestart(duthost, tbinfo):
             duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
 
         logger.info("End of testing the container '{}'".format(container_name))
+
+    postcheck_critical_processes_status(duthost, container_autorestart_states)
