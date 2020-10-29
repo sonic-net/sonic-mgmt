@@ -1435,6 +1435,18 @@ class DutHosts(object):
             self.attr = attr
             return self._run_on_nodes
 
+        def __eq__(self, o):
+            """ To support eq operator on the DUTs (nodes) in the testbed """
+            return list.__eq__(o)
+
+        def __ne__(self, o):
+            """ To support ne operator on the DUTs (nodes) in the testbed """
+            return list.__ne__(o)
+
+        def __hash__(self, o):
+            """ To support hash operator on the DUTs (nodes) in the testbed """
+            return list.__hash__(o)
+
     def __init__(self, ansible_adhoc, tbinfo):
         """ Initialize a multi-dut testbed with all the DUT's defined in testbed info.
 
@@ -1483,6 +1495,14 @@ class DutHosts(object):
     def __eq__(self, o):
         """ To support eq operator on the DUTs (nodes) in the testbed """
         return self.nodes.__eq__(o)
+
+    def __ne__(self, o):
+        """ To support ne operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__ne__(o)
+
+    def __hash__(self, o):
+        """ To support hash operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__hash__(o)
 
     def __getattr__(self, attr):
         """To support calling ansible modules directly on all the DUTs (nodes) in the testbed
