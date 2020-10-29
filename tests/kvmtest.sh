@@ -36,7 +36,8 @@ PYTEST_CLI_COMMON_OPTS="\
 -m individual \
 -q 1 \
 -a False \
--e --disable_loganalyzer"
+-e --disable_loganalyzer \
+-O"
 
 cd $SONIC_MGMT_DIR/tests
 rm -rf logs
