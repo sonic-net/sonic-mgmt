@@ -128,3 +128,15 @@ def watch_system_status(dut):
     # Watch Redis Memory
     redis_memory = dut.shell("redis-cli info memory | grep used_memory_human")["stdout"]
     logging.info("Redis Memory: %s", redis_memory)
+
+
+def check_orch_cpu_utilization(dut, orch_cpu_threshold):
+    """
+    Compare orchagent CPU utilization
+
+    Args:
+        dut: DUT host object
+        orch_cpu_threshold: orch cpu threshold
+    """
+    orch_cpu = dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
+    return int(float(orch_cpu)) < orch_cpu_threshold

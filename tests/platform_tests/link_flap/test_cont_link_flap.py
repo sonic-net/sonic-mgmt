@@ -12,7 +12,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import port_toggle
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link
+from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -59,13 +60,9 @@ class TestContLinkFlap(object):
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
-        for _ in range(100):
-            orch_cpu = duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-            if int(float(orch_cpu)) < orch_cpu_threshold:
-                break
-            time.sleep(2)
-        else:
-            pytest.fail("Orch CPU utilization {} > orch cpu threshold {} before link flap".format(orch_cpu, orch_cpu_threshold))
+        pytest_assert(wait_until(100, 2, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
 
         # Flap all interfaces one by one on DUT
         for iteration in range(3):
@@ -130,10 +127,6 @@ class TestContLinkFlap(object):
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
-        for _ in range(30):
-            orch_cpu = duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-            if int(float(orch_cpu)) < orch_cpu_threshold:
-                break
-            time.sleep(2)
-        else:
-            pytest.fail("Orch CPU utilization {} > orch cpu threshold {} before link flap".format(orch_cpu, orch_cpu_threshold))
+        pytest_assert(wait_until(30, 2, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
