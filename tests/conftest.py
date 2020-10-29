@@ -12,12 +12,16 @@ import csv
 import yaml
 import jinja2
 import ipaddr as ipaddress
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
 
 from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import SonicHost, Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
+from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+from tests.common.helpers.dut_ports import encode_dut_port_name
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +89,7 @@ class TestbedInfo(object):
                 self.testbed_topo[line['conf-name']] = line
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(t0|t1|ptf|fullmesh)')
+        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor)')
         match = pattern.match(topo_name)
         if match == None:
             raise Exception("Unsupported testbed type - {}".format(topo_name))
@@ -135,6 +139,7 @@ def pytest_addoption(parser):
     ########################
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
+
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -429,31 +434,122 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
 
-@pytest.fixture(scope="module", autouse=True)
-def disable_container_autorestart(duthost, request):
-    skip = False
-    for m in request.node.iter_markers():
-        if m.name == "enable_container_autorestart":
-            skip = True
-            break
-    if skip:
-        yield
-        return
-    container_autorestart_states = duthost.get_container_autorestart_states()
-    # Disable autorestart for all containers
-    logging.info("Disable container autorestart")
-    cmd_disable = "config feature autorestart {} disabled"
-    cmds_disable = []
-    for name, state in container_autorestart_states.items():
-        if state == "enabled":
-            cmds_disable.append(cmd_disable.format(name))
-    duthost.shell_cmds(cmds=cmds_disable)
-    yield
-    # Recover autorestart states
-    logging.info("Recover container autorestart")
-    cmd_enable = "config feature autorestart {} enabled"
-    cmds_enable = []
-    for name, state in container_autorestart_states.items():
-        if state == "enabled":
-            cmds_enable.append(cmd_enable.format(name))
-    duthost.shell_cmds(cmds=cmds_enable)
+def get_host_data(request, dut):
+    '''
+    This function parses multple inventory files and returns the dut information present in the inventory
+    '''
+    inv_data = None
+    inv_files = [inv_file.strip() for inv_file in request.config.getoption("ansible_inventory").split(",")]
+    for inv_file in inv_files:
+        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
+        if dut in inv_mgr.hosts:
+            return inv_mgr.get_host(dut).get_vars()
+
+    return inv_data
+
+def generate_param_asic_index(request, dut_indices, param_type):
+    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
+    
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    
+    
+    tbinfo = TestbedInfo(tbfile)
+
+    #if the params are not present treat the device as a single asic device
+    asic_index_params = [DEFAULT_ASIC_ID]
+
+    for dut_id in dut_indices:
+        dut = tbinfo.testbed_topo[tbname]["duts"][dut_id]
+        inv_data = get_host_data(request, dut)
+        if inv_data is not None:
+            if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
+                asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+            elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
+                asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            logging.info("dut_index {} dut name {}  asics params = {}".format(
+                dut_id, dut, asic_index_params))
+    return asic_index_params
+
+def generate_params_dut_index(request):
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    tbinfo = TestbedInfo(tbfile)
+    num_duts = len(tbinfo.testbed_topo[tbname]["duts"])
+    logging.info("Num of duts in testbed topology {}".format(num_duts))
+    return range(num_duts)
+
+
+def generate_port_lists(request, port_scope):
+    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+    if 'ports' in port_scope:
+        scope = 'Ethernet'
+    elif 'pcs' in port_scope:
+        scope = 'PortChannel'
+    else:
+        return empty
+
+    if 'all' in port_scope:
+        state = None
+    elif 'oper_up' in port_scope:
+        state = 'oper_state'
+    elif 'admin_up' in port_scope:
+        state = 'admin_state'
+    else:
+        return empty
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            ports = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in ports:
+        return empty
+
+    dut_ports = ports[tbname]
+    ret = []
+    for dut, val in dut_ports.items():
+        if 'intf_status' not in val:
+            continue
+        for intf, status in val['intf_status'].items():
+            if scope in intf and (not state or status[state] == 'up'):
+                ret.append(encode_dut_port_name(dut, intf))
+
+    return ret if ret else empty
+
+
+def pytest_generate_tests(metafunc):
+    # The topology always has atleast 1 dut
+    dut_indices = [0]
+    if "dut_index" in metafunc.fixturenames:
+        dut_indices = generate_params_dut_index(metafunc)
+        metafunc.parametrize("dut_index",dut_indices)
+    if "asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
+    if "frontend_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+
+    if "all_ports" in metafunc.fixturenames:
+        metafunc.parametrize("all_ports", generate_port_lists(metafunc, "all_ports"))
+    if "oper_up_ports" in metafunc.fixturenames:
+        metafunc.parametrize("oper_up_ports", generate_port_lists(metafunc, "oper_up_ports"))
+    if "admin_up_ports" in metafunc.fixturenames:
+        metafunc.parametrize("admin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
+    if "all_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("all_pcs", generate_port_lists(metafunc, "all_pcs"))
+    if "oper_up_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("oper_up_pcs", generate_port_lists(metafunc, "oper_up_pcs"))
+    if "admin_up_pcs" in metafunc.fixturenames:
+        metafunc.parametrize("admin_up_pcs", generate_port_lists(metafunc, "admin_up_pcs"))

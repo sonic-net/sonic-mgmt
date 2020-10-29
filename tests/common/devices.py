@@ -21,7 +21,7 @@ from ansible.plugins.loader import connection_loader
 
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
-
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -61,8 +61,9 @@ class AnsibleHostBase(object):
             self.module = getattr(self.host, module_name)
 
             return self._run
-
-        return super(AnsibleHostBase, self).__getattr__(module_name)
+        raise AttributeError(
+            "'%s' object has no attribute '%s'" % (self.__class__, module_name)
+            )
 
     def _run(self, *module_args, **complex_args):
 
@@ -799,7 +800,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
         return ret;
-        
+
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
@@ -844,8 +845,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         @param neighbor_ip: bgp neighbor IP
         """
         nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
-        if nbinfo['bgpState'].lower() == "Active".lower():
-            if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
+        if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Active".lower():
+            if 'bgpStateIs' in nbinfo and nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
 
@@ -1037,6 +1038,11 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         """
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
+    
+    def get_namespace_from_asic_id(self, asic_id):
+        if asic_id is DEFAULT_ASIC_ID:
+            return DEFAULT_NAMESPACE
+        return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
 
 class EosHost(AnsibleHostBase):
