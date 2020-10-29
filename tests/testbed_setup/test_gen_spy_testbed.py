@@ -37,10 +37,6 @@ def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,
         """Get interface key to sort."""
         return list(map(int, interface.lstrip("Ethernet").split("/")))
 
-    def _to_string(obj):
-        """Convert unicodes in obj to strings"""
-        return yaml.safe_load(json.dumps(obj))
-
     hostnames = tbinfo["duts"]
     connections = conn_graph_facts["device_conn"]
 
