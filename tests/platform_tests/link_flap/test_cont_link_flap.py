@@ -17,7 +17,8 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
 ]
 
 class TestContLinkFlap(object):
