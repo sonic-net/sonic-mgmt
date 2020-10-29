@@ -49,7 +49,7 @@ def calculate_priority_vector(v) :
     s = 0
     for i in range(8)  :
         if v[i] != '0' :
-           s += 2**(7 - i)
+           s += 2**7
     return "%x"%(s)
 
 def lossless_iteration_list (lst) :
@@ -124,10 +124,11 @@ def base_configs(conn_graph_facts,
                        gateway=Pattern(tx_gateway_ip),
                        ethernet=Ethernet(name='Tx Ethernet'))
 
-        tx.devices.append(Device(name='Tx Device',
-                                        device_count=1,
-                                        choice=tx_ipv4))
-
+        tx_device = Device(container_name=tx.name,
+                           name='Tx Device', 
+                           device_count=1,
+                           choice=tx_ipv4)
+        config.devices.append(tx_device) 
         ######################################################################
         # Create RX stack configuration
         ######################################################################
@@ -137,21 +138,22 @@ def base_configs(conn_graph_facts,
                        gateway=Pattern(rx_gateway_ip),
                        ethernet=Ethernet(name='Rx Ethernet'))
 
-        rx.devices.append(Device(name='Rx Device',
-                                        device_count=1,
-                                        choice=rx_ipv4))
+        rx_device = Device(container_name=rx.name,
+                           name='Rx Device',
+                           device_count=1,
+                           choice=rx_ipv4)
+        config.devices.append(rx_device)
 
+
+        data_endpoint = DeviceTxRx(
+            tx_device_names=[tx_device.name],
+            rx_device_names=[rx_device.name],
+        )
         ######################################################################
         # Traffic configuration Test data
         ######################################################################
         test_flow_name = 'Test Data'
-        data_endpoint = DeviceTxRx(
-            tx_device_names=[tx.devices[0].name],
-            rx_device_names=[rx.devices[0].name],
-        )
-
         test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
-
         test_flow = Flow(
             name=test_flow_name,
             tx_rx=TxRx(data_endpoint),
