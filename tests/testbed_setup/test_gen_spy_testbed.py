@@ -6,7 +6,7 @@ import yaml
 
 from collections import defaultdict
 from jinja2 import Template
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts_multi_duts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
 
 TESTBED_TEMPLATE = "templates/spytest_testbed.yaml.j2"
@@ -29,7 +29,7 @@ def hostvars(duthosts):
             for duthost in duthosts}
 
 
-def test_gen_spy_testbed(conn_graph_facts_multi_duts, hostvars, tbinfo,
+def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,
                          pytestconfig):
     """Generate spytest testbed file."""
 
@@ -42,9 +42,7 @@ def test_gen_spy_testbed(conn_graph_facts_multi_duts, hostvars, tbinfo,
         return yaml.safe_load(json.dumps(obj))
 
     hostnames = tbinfo["duts"]
-    device_conn = _to_string(conn_graph_facts_multi_duts["device_conn"])
-    connections = dict(
-        zip(hostnames, conn_graph_facts_multi_duts["device_conn"]))
+    connections = conn_graph_facts["device_conn"]
 
     # devices section
     devices = []

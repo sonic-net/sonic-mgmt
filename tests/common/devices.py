@@ -422,7 +422,7 @@ class SonicHost(AnsibleHostBase):
                 else:
                     if process_status == "RUNNING" and process_name in critical_process_list:
                         expected_critical_process_list.append(process_name)
-            
+
             critical_group_list = expected_critical_group_list
             critical_process_list = expected_critical_process_list
 
@@ -1038,7 +1038,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         """
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
-    
+
     def get_namespace_from_asic_id(self, asic_id):
         if asic_id is DEFAULT_ASIC_ID:
             return DEFAULT_NAMESPACE
@@ -1359,6 +1359,9 @@ class FanoutHost(object):
             DUT instance in the test. As result the port mapping is
             unique from the DUT perspective. However, this function
             need update when supporting multiple DUT
+
+            host_port is a encoded string of <host name>|<port name>,
+            e.g. sample_host|Ethernet0.
         """
         self.host_to_fanout_port_map[host_port]   = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
