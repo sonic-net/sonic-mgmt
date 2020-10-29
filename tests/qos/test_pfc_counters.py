@@ -51,7 +51,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=True, 
     @param pause_time: Pause time quanta (0-65535) in the frame. 0 means unpause.
     """
     setup_testbed(fanouthosts, duthost, leaf_fanouts)
-    conn_facts = conn_graph_facts['device_conn']
+    conn_facts = conn_graph_facts['device_conn'][duthost.hostname]
 
     int_status = duthost.show_interface(command = "status")['ansible_facts']['int_status']
 

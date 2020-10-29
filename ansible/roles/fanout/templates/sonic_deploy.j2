@@ -8,12 +8,12 @@
 },
 
 "PORT": {
-{% for alias in device_conn %}
+{% for alias in device_conn[inventory_hostname] %}
     "{{ alias }}": {
-{% if device_conn[alias]['speed'] == "100000" %}
+{% if device_conn[inventory_hostname][alias]['speed'] == "100000" %}
         "fec" : "rs",
 {% endif %}
-        "speed" : "{{ device_conn[alias]['speed'] }}"
+        "speed" : "{{ device_conn[inventory_hostname][alias]['speed'] }}"
     }{% if not loop.last %},{% endif %}
 {% endfor %}
 },

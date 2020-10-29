@@ -167,7 +167,7 @@ def rif_port_down(duthost, setup, fanouthosts, loganalyzer):
             break
     pytest_assert(ip_dst, 'Unable to find IP address for neighbor "{}"'.format(vm_name))
 
-    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, rif_member_iface)
+    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
 
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:

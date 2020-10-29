@@ -24,7 +24,7 @@ def test_reload_configuration(duthost, conn_graph_facts):
     """
     @summary: This test case is to reload the configuration and check platform status
     """
-    interfaces = conn_graph_facts["device_conn"]
+    interfaces = conn_graph_facts["device_conn"][duthost.hostname]
     asic_type = duthost.facts["asic_type"]
 
     logging.info("Reload configuration")

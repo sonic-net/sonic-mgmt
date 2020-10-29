@@ -27,7 +27,7 @@ def test_check_sfp_using_ethtool(duthost, conn_graph_facts):
         lanes_divider = 8
     else:
         lanes_divider = 4
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in conn_graph_facts["device_conn"][duthost.hostname]:
         intf_lanes = ports_config[intf]["lanes"]
         sfp_id = int(intf_lanes.split(",")[0])/lanes_divider + 1
 

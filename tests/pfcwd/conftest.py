@@ -43,7 +43,7 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     port_list = mg_facts['minigraph_ports'].keys()
     ports = (' ').join(port_list)
-    neighbors = conn_graph_facts['device_conn']
+    neighbors = conn_graph_facts['device_conn'][duthost.hostname]
     dut_facts = duthost.setup()['ansible_facts']
     dut_eth0_ip = dut_facts['ansible_eth0']['ipv4']['address']
     dut_eth0_mac = dut_facts['ansible_eth0']['macaddress']

@@ -32,28 +32,28 @@ vrf definition management
 {% for i in range(1,65) %}
 {% set intf =  'Ethernet' + i|string + '/1'  %}
 {% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
-{%     if device_conn[intf]['speed'] == "100000" %}
+{%     if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
    interface {{ intf }}
-   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 100gfull
    error-correction encoding reed-solomon
    no shutdown
-{%     elif device_conn[intf]['speed'] == "40000" %}
+{%     elif device_conn[inventory_hostname][intf]['speed'] == "40000" %}
    interface {{ intf }}
-   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 40gfull
    no shutdown
-{%     elif device_conn[intf]['speed'] == "10000" %}
+{%     elif device_conn[inventory_hostname][intf]['speed'] == "10000" %}
 {%          for sub in range (1,5) %}
 {%             set subintf = 'Ethernet' + i|string + '/' + sub|string %}
    interface {{ subintf }}
-   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
@@ -61,9 +61,9 @@ vrf definition management
    no shutdown
 !
 {% endfor %}   
-{%     elif device_conn[intf]['speed'] == "50000" %}
+{%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
 interface {{ intf }}
-   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
@@ -74,7 +74,7 @@ interface {{ intf }}
 {% set intf =  'Ethernet' + i|string + '/3'  %}
 interface {{ intf }}
 {%         if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
-   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
@@ -90,14 +90,14 @@ interface {{ intf }}
 {%     endif %}
 {% elif intf in device_port_vlans and device_port_vlans[intf]['mode'] == 'Trunk' %}
    interface {{ intf }}
-   description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport mode trunk
    switchport trunk allowed vlan {{ device_port_vlans[intf]['vlanids'] }}
    spanning-tree portfast
-{%       if device_conn[intf]['speed'] == "100000" %}
+{%       if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
             speed forced 100gfull
             error-correction encoding reed-solomon
-{%       elif device_conn[intf]['speed'] == "40000" %}
+{%       elif device_conn[inventory_hostname][intf]['speed'] == "40000" %}
             speed forced 40gfull
 {%       endif %}
    no shutdown

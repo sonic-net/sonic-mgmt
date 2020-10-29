@@ -115,10 +115,11 @@ class IxiaFanoutManager () :
     def __parse_fanout_connections__ (self) :
         device_conn = self.last_device_connection_details
         retval = []
-        for key in device_conn.keys() :
-            pp =  device_conn[key]['peerport']
-            string = self.ip_address + '/' + key + '/' + pp
-            retval.append(string)
+        for _, value in device_conn:        # enumerate hosts
+            for key, val in value.items():  # enumerate ports
+                pp = val['peerport']
+                string = self.ip_address + '/' + key + '/' + pp
+                retval.append(string)
         retval.sort()
         return(retval)
 

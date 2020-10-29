@@ -14,7 +14,7 @@
     conn_graph_facts: host={{ inventory_hostname }}
     delegate_to: localhost
 
-  - set_fact: neighbors="{{device_conn}}"
+  - set_fact: neighbors="{{device_conn[inventory_hostname]}}"
 
   - include_tasks: resume_fanout_ports.yml
     with_items: "{{ ansible_interface_link_down_ports }}"

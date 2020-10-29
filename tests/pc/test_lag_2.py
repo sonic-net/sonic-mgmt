@@ -48,7 +48,7 @@ class LagTest:
         self.mg_facts         = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
         self.conn_graph_facts = conn_graph_facts
         self.vm_neighbors     = self.mg_facts['minigraph_neighbors']
-        self.fanout_neighbors = self.conn_graph_facts['device_conn'] if 'device_conn' in self.conn_graph_facts else {}
+        self.fanout_neighbors = self.conn_graph_facts['device_conn'][duthost.hostname] if 'device_conn' in self.conn_graph_facts else {}
 
     def __get_lag_facts(self):
         return self.duthost.lag_facts(host = self.duthost.hostname)['ansible_facts']['lag_facts']
