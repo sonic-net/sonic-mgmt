@@ -70,11 +70,12 @@ def lossless_iteration_list (lst) :
         retval.append(lst)
     return retval
 
+sec_to_nano_sec = lambda x : x * 1000000000.0
 def base_configs(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
                  l1_config,
-                 start_delay,
+                 start_delay_secs,
                  traffic_duration,
                  pause_line_rate,
                  traffic_line_rate,
@@ -84,7 +85,7 @@ def base_configs(conn_graph_facts,
 
     for config in l1_config :
 
-        delay = start_delay * 1000000000.0
+        
 
         bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
         test_dscp_list = [str(x) for x in range(64) if str(x) not in bg_dscp_list]
@@ -149,6 +150,7 @@ def base_configs(conn_graph_facts,
             tx_device_names=[tx_device.name],
             rx_device_names=[rx_device.name],
         )
+        delay_nano_sec = sec_to_nano_sec(start_delay_secs)
         ######################################################################
         # Traffic configuration Test data
         ######################################################################
@@ -163,7 +165,7 @@ def base_configs(conn_graph_facts,
             ],
             size=Size(frame_size),
             rate=Rate('line', test_line_rate),
-            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay, delay_unit='nanoseconds'))
+            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay_nano_sec, delay_unit='nanoseconds'))
         )
 
         config.flows.append(test_flow)
@@ -181,7 +183,7 @@ def base_configs(conn_graph_facts,
             ],
             size=Size(frame_size),
             rate=Rate('line', background_line_rate),
-            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay, delay_unit='nanoseconds'))
+            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay_nano_sec, delay_unit='nanoseconds'))
         )
         config.flows.append(background_flow)
 
@@ -237,7 +239,7 @@ def base_configs(conn_graph_facts,
 
 
 @pytest.fixture
-def start_delay(request):
+def start_delay_secs(request):
     return request
 
 
@@ -391,7 +393,7 @@ def lossy_configs(conn_graph_facts,
                   duthost,
                   lossless_prio_dscp_map,
                   l1_config,
-                  start_delay,
+                  start_delay_secs,
                   traffic_duration,
                   pause_line_rate,
                   traffic_line_rate,
@@ -404,7 +406,7 @@ def lossy_configs(conn_graph_facts,
                             lossless_prio_dscp_map = p,
                             l1_config=l1_config,
                             traffic_duration=traffic_duration,
-                            start_delay=start_delay,
+                            start_delay_secs=start_delay_secs,
                             pause_line_rate=pause_line_rate,
                             traffic_line_rate=traffic_line_rate,
                             pause_frame_type='priority',
@@ -417,7 +419,7 @@ def global_pause(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
                  l1_config,
-                 start_delay,
+                 start_delay_secs,
                  traffic_duration,
                  pause_line_rate,
                  traffic_line_rate,
@@ -430,7 +432,7 @@ def global_pause(conn_graph_facts,
                             lossless_prio_dscp_map=p,
                             l1_config=l1_config,
                             traffic_duration=traffic_duration,
-                            start_delay=start_delay,
+                            start_delay_secs=start_delay_secs,
                             pause_line_rate=pause_line_rate,
                             traffic_line_rate=traffic_line_rate,
                             pause_frame_type='global',

@@ -4,8 +4,6 @@ import pytest
 from abstract_open_traffic_generator.result import FlowRequest
 from abstract_open_traffic_generator.control import *
 
-#from tests.common.helpers.assertions import pytest_assert
-
 from tests.common.reboot import logger
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts 
@@ -15,7 +13,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
     ixia_api_serv_session_id, api
 
 from files.configs.pfc import lossy_configs, l1_config, serializer
-from files.configs.pfc import start_delay, traffic_duration, pause_line_rate,\
+from files.configs.pfc import start_delay_secs, traffic_duration, pause_line_rate,\
     traffic_line_rate, port_bandwidth, bw_multiplier, frame_size
 from files.qos_fixtures import lossless_prio_dscp_map
 
@@ -27,7 +25,7 @@ BW_MULTIPLIER = [1000000]
 FRAME_SIZE = [1024]
 TOLERANCE_THRESHOLD = .97
 
-@pytest.mark.parametrize('start_delay', START_DELAY)
+@pytest.mark.parametrize('start_delay_secs', START_DELAY)
 @pytest.mark.parametrize('traffic_duration', TRAFFIC_DURATION)
 @pytest.mark.parametrize('pause_line_rate', PAUSE_LINE_RATE)
 @pytest.mark.parametrize('traffic_line_rate', TRAFFIC_LINE_RATE)
@@ -37,7 +35,7 @@ TOLERANCE_THRESHOLD = .97
 def test_pfc_pause_lossy_traffic(api, 
                                  duthost, 
                                  lossy_configs, 
-                                 start_delay,
+                                 start_delay_secs,
                                  pause_line_rate,
                                  traffic_line_rate, 
                                  traffic_duration,
@@ -79,7 +77,7 @@ def test_pfc_pause_lossy_traffic(api,
         # start all flows
         api.set_state(State(FlowTransmitState(state='start')))
 
-        exp_dur = start_delay + traffic_duration
+        exp_dur = start_delay_secs + traffic_duration
         logger.info("Traffic is running for %s seconds" %(exp_dur))
         time.sleep(exp_dur)
 
