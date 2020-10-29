@@ -1443,9 +1443,9 @@ class DutHosts(object):
             """ To support ne operator on the DUTs (nodes) in the testbed """
             return list.__ne__(o)
 
-        def __hash__(self, o):
+        def __hash__(self):
             """ To support hash operator on the DUTs (nodes) in the testbed """
-            return list.__hash__(o)
+            return list.__hash__()
 
     def __init__(self, ansible_adhoc, tbinfo):
         """ Initialize a multi-dut testbed with all the DUT's defined in testbed info.
@@ -1500,9 +1500,9 @@ class DutHosts(object):
         """ To support ne operator on the DUTs (nodes) in the testbed """
         return self.nodes.__ne__(o)
 
-    def __hash__(self, o):
+    def __hash__(self):
         """ To support hash operator on the DUTs (nodes) in the testbed """
-        return self.nodes.__hash__(o)
+        return self.nodes.__hash__()
 
     def __getattr__(self, attr):
         """To support calling ansible modules directly on all the DUTs (nodes) in the testbed
