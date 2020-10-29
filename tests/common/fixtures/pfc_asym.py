@@ -26,7 +26,7 @@ def get_fanout(fanout_graph_facts, setup):
         for _, ports in value["device_conn"].items():
             for fanout_inf, peer_info in ports.items():
                 if peer_info["peerport"] == setup["ptf_test_params"]["server_ports"][0]["dut_name"]:
-                return fanout_host_name
+                    return fanout_host_name
     return None
 
 
