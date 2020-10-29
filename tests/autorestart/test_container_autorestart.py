@@ -267,14 +267,14 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states):
               First we restart the containers which hit the restart limitation and then do the post check
     """
     for container_name in container_autorestart_states.keys():
-        if is_hitting_start_limit(duthost, container_name):
+        if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
     # Sleep 20 seconds such that containers have a chance to start.
     time.sleep(20)
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
-        if processes["status"] is False or len(processes["exited_critical_processes"]) > 0:
+        if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
             pytest.fail("Critical process(es) was not running after container '{}' was restarted.".format(container_name))
 
 
