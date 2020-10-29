@@ -5,7 +5,6 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0')
 ]
@@ -30,7 +29,7 @@ def test_warm_reboot(request, get_advanced_reboot):
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', kvmCompatible=True)
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
     advancedReboot.runRebootTestcase()
 
 @pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')

@@ -39,13 +39,11 @@ class AdvancedReboot:
             "Please set rebootType var."
         )
 
-        if duthost.facts['asic_type'] == 'vs':
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             self.kvmTest = True
-            # skip testcase if it is not marked as kvm compatible
-            # TODO: A better way could be selecting kvm testcases with the vs device type marker
-            #       Remove this check once the vs testcases are selected using the marker
-            if 'kvmCompatible' not in kwargs or kwargs['kvmCompatible'] != True:
-                pytest.skip("Testcase not supported for kvm")
+            device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
+            if 'vs' not in device_marks:
+                pytest.skip('Testcase not supported for kvm')
         else:
             self.kvmTest = False
 
