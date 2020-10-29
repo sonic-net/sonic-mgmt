@@ -42,7 +42,7 @@ def calculate_priority_vector(v) :
     s = 0
     for i in range(8)  :
         if v[i] != '0' :
-           s += 2**(7 - i)
+           s += 2**7
            print(i)
     return "%x"%(s)
 
@@ -53,12 +53,12 @@ def lossless_iteration_list (lst) :
         retval.append(lst)
     return retval
 
-
+sec_to_nano_sec = lambda x : x * 1000000000.0
 def base_configs(conn_graph_facts,
                  duthost,
                  lossless_prio_dscp_map,
                  one_hundred_gbe,
-                 start_delay,
+                 start_delay_secs,
                  traffic_duration,
                  pause_line_rate,
                  traffic_line_rate,
@@ -106,9 +106,12 @@ def base_configs(conn_graph_facts,
                        gateway=Pattern(tx_gateway_ip),
                        ethernet=Ethernet(name='Tx Ethernet'))
 
-        tx.devices.append(Device(name='Tx Device',
-                                        device_count=1,
-                                        choice=tx_ipv4))
+        tx_device = Device(container_name=tx.name,
+                           name='Tx Device',
+                           device_count=1,
+                           choice=tx_ipv4)
+
+        config.devices.append(tx_device)
 
         ######################################################################
         # Create RX stack configuration
@@ -119,28 +122,26 @@ def base_configs(conn_graph_facts,
                        gateway=Pattern(rx_gateway_ip),
                        ethernet=Ethernet(name='Rx Ethernet'))
 
+        rx_device = Device(container_name=rx.name,
+                           name='Rx Device',
+                           device_count=1,
+                           choice=rx_ipv4)
 
-        rx.devices.append(Device(name='Rx Device',
-                                        device_count=1,
-                                        choice=rx_ipv4))
-
+        config.devices.append(rx_device)
         ######################################################################
         # Traffic configuration Test data
         ######################################################################
         data_endpoint = DeviceTxRx(
-            tx_device_names=[tx.devices[0].name],
-            rx_device_names=[rx.devices[0].name],
+            tx_device_names=[tx_device.name],
+            rx_device_names=[rx_device.name],
         )
-
 
         test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list),
                                   ecn=FieldPattern(Dscp.ECN_CAPABLE_TRANSPORT_1)))
 
         # ecn_thresholds in bytes 
         #number_of_packets = int(2 * (ecn_thresholds / frame_size))
-        logger.info("Total number of packets to send = %s" %(number_of_packets))
-   
-        delay = start_delay * 1000000000.0
+        delay_nano_sec = sec_to_nano_sec(start_delay_secs)
         test_flow = Flow(
             name=test_flow_name,
             tx_rx=TxRx(data_endpoint),
@@ -150,7 +151,7 @@ def base_configs(conn_graph_facts,
             ],
             size=Size(frame_size),
             rate=Rate('line', test_line_rate),
-            duration=Duration(FixedPackets(packets=number_of_packets, delay=delay, delay_unit='nanoseconds'))
+            duration=Duration(FixedPackets(packets=number_of_packets, delay=delay_nano_sec, delay_unit='nanoseconds'))
         )
 
         config.flows.append(test_flow)
@@ -177,7 +178,7 @@ def base_configs(conn_graph_facts,
             pause_class_7=FieldPattern(choice=p[7]),
         ))
 
-        pause_duration = start_delay + traffic_duration
+        pause_duration = start_delay_secs + traffic_duration
         pause_flow = Flow(
             name='Pause Storm',
             tx_rx=TxRx(pause_endpoint),
@@ -193,7 +194,7 @@ def base_configs(conn_graph_facts,
 
 
 @pytest.fixture
-def start_delay(request):
+def start_delay_secs(request):
     return request
 
 
@@ -339,7 +340,7 @@ def ecn_marking_at_ecress(conn_graph_facts,
                           duthost,
                           lossless_prio_dscp_map,
                           one_hundred_gbe,
-                          start_delay,
+                          start_delay_secs,
                           traffic_duration,
                           pause_line_rate,
                           traffic_line_rate,
@@ -353,7 +354,7 @@ def ecn_marking_at_ecress(conn_graph_facts,
                             duthost=duthost,
                             lossless_prio_dscp_map=lossless_prio_dscp_map,
                             one_hundred_gbe=one_hundred_gbe,
-                            start_delay=start_delay,
+                            start_delay_secs=start_delay_secs,
                             traffic_duration=traffic_duration,
                             pause_line_rate=pause_line_rate,
                             traffic_line_rate=traffic_line_rate,
@@ -368,7 +369,7 @@ def marking_accuracy(conn_graph_facts,
                      duthost,
                      lossless_prio_dscp_map,
                      one_hundred_gbe,
-                     start_delay,
+                     start_delay_secs,
                      traffic_duration,
                      pause_line_rate,
                      traffic_line_rate,
@@ -383,7 +384,7 @@ def marking_accuracy(conn_graph_facts,
                             duthost=duthost,
                             lossless_prio_dscp_map=lossless_prio_dscp_map,
                             one_hundred_gbe=one_hundred_gbe,
-                            start_delay=start_delay,
+                            start_delay_secs=start_delay_secs,
                             traffic_duration=traffic_duration,
                             pause_line_rate=pause_line_rate,
                             traffic_line_rate=traffic_line_rate,
