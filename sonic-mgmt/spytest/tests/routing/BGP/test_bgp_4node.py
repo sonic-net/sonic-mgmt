@@ -210,8 +210,8 @@ class TestBGPConfed():
         ipapi.config_route_map_match_ip_address(topo['dut_list'][0], 'test-rmap', 'permit', '30', 'test-access-list3')
         #Create access-list test-access-list3
         ipapi.config_access_list(topo['dut_list'][0], 'test-access-list3', network2, 'permit')
-
-        #verify that the neighbor has the as-path prepended
+       
+       	#verify that the neighbor has the as-path prepended
         output = bgpapi.show_bgp_ipvx_prefix(topo['dut_list'][1], prefix=network3, masklen=topo['D1_as'])
         st.log(output)
         for x in output:  # type: basestring
@@ -229,9 +229,18 @@ class TestBGPConfed():
         else:
             result = result & False
         st.log("Result for network1 is not present in bgp routes: {}".format(n1))
-        
+        st.log(result)
         #verify that network2 is present in bgp routes
         n2 = ipapi.verify_ip_route(topo['dut_list'][1],ip_address=network2)
+        ctr = 0
+        while not n2:
+            st.wait(10)
+            n2 = ipapi.verify_ip_route(topo['dut_list'][1],ip_address=network2)
+            if ctr > 2:
+                break
+            else:
+                ctr +=1 
+        
         if (n2):
             result = result & True
         else:
