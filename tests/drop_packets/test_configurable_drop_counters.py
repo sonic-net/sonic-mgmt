@@ -244,7 +244,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthost)
     logging.info("Populating FDB and ARP entry for mock server under VLAN")
     # Issue a ping to populate ARP table on DUT
     duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
-    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, server_dst_intf)
+    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
             "server_dst_addr": server_dst_addr,

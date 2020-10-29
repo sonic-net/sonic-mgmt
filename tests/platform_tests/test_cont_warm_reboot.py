@@ -163,7 +163,7 @@ class ContinuousReboot:
         logging.info("Check whether transceiver information of all ports are in redis")
         xcvr_info = self.duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
         parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
-        interfaces = self.conn_graph_facts["device_conn"]
+        interfaces = self.conn_graph_facts["device_conn"][self.duthost.hostname]
         for intf in interfaces:
             if intf not in parsed_xcvr_info:
                 raise ContinuousRebootError("TRANSCEIVER INFO of {} is not found in DB".format(intf))
