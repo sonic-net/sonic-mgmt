@@ -93,7 +93,7 @@ def setup_pfc_test(duthost, ptfhost, conn_graph_facts):
 
 
 
-from tests.common.tgen.tgen_helpers import *
+from tests.common.tgen.tgen_helpers import get_tgen_links
 
 
 def generate_params_port_id(request):

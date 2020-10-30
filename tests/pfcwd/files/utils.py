@@ -1,4 +1,3 @@
-import pytest
 
 def lossless_prio_dscp_map(duthost, dut_intf_map=None):
     """
@@ -25,8 +24,7 @@ def lossless_prio_dscp_map(duthost, dut_intf_map=None):
         return None
 
     lossless_priorities = \
-        list(set([int(x) for x in port_qos_map[intf]['pfc_enable'].split(',') for intf in port_qos_map]))
-    
+             list(set([int(x) for intf in port_qos_map for x in port_qos_map[intf]['pfc_enable'].split(',')]))
     dscp_to_tc_map = config_facts["DSCP_TO_TC_MAP"]
 
     result = dict()

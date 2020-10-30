@@ -8,7 +8,8 @@ from abstract_open_traffic_generator.layer1 import\
 from abstract_open_traffic_generator.layer1 import \
     Ethernet as EthernetPort
 from abstract_open_traffic_generator.port import Options as PortOptions
-
+from abstract_open_traffic_generator.flow import Header, PfcPause
+from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 
 class FanoutManager():
     """Class for managing multiple chassis and extracting the information
@@ -185,7 +186,7 @@ class FanoutManager():
 
 class TgenPorts(object):
     """
-    TgenPorts Class used by ports_config fixture
+    TgenPorts instance to configure the Tgen related properties
     """
     def __init__(self,
                  conn_graph_facts,
@@ -439,7 +440,7 @@ def get_location(intf):
     location = None
     try:
         location = str("%s;%s;%s" % (intf['ip'], intf['card_id'], intf['port_id']))
-    except:
+    except Exception:
         pytest_assert(False,
                       "Interface must have the keys 'ip', 'card_id' and 'port_id'")
     return location
@@ -460,6 +461,33 @@ def increment_ip_address (ip, incr=1) :
     ipaddress = ipaddress + incr
     return_value = ipaddress._string_from_ip_int(ipaddress._ip)
     return(return_value)
+
+
+def create_pause_packet(pause_prio_list):
+    """
+    Creates and return the pause packet object that can be
+    configured in the Tgen traffic item, based on the priority
+    list passed via param :pause_prio_list
+    """
+
+    val = 0
+    for prio in pause_prio_list:
+        val += 2 ** prio
+    choice = ['ffff' if prio in pause_prio_list else '0' for prio in range(8)]
+    pause = Header(PfcPause(
+        dst=FieldPattern(choice='01:80:C2:00:00:01'),
+        src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
+        class_enable_vector=FieldPattern(choice=hex(val)),
+        pause_class_0=FieldPattern(choice=choice[0]),
+        pause_class_1=FieldPattern(choice=choice[1]),
+        pause_class_2=FieldPattern(choice=choice[2]),
+        pause_class_3=FieldPattern(choice=choice[3]),
+        pause_class_4=FieldPattern(choice=choice[4]),
+        pause_class_5=FieldPattern(choice=choice[5]),
+        pause_class_6=FieldPattern(choice=choice[6]),
+        pause_class_7=FieldPattern(choice=choice[7]),
+    ))
+    return pause
 
 
 ##################################################################
@@ -510,7 +538,7 @@ def _find_xml_file():
     xml_list = [os.path.join(file_path,xml) for xml in path.next()[2] if "connection_graph.xml" in xml]
     try:
         xml_list.pop(xml_list.index(os.path.join(file_path,'example_ixia_connection_graph.xml')))
-    except:
+    except Exception:
         pass
     return xml_list
 

@@ -1,4 +1,5 @@
-from tests.common.tgen.tgen_helpers import *
+from tests.common.tgen.tgen_helpers import get_vlan_subnet, \
+    get_addrs_in_subnet, TgenPorts
 from abstract_open_traffic_generator.device import *
 from abstract_open_traffic_generator.flow import \
     Flow, TxRx, DeviceTxRx, Header, Size, Rate, Duration, \
@@ -13,7 +14,7 @@ from abstract_open_traffic_generator.control import *
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
-from .utils import *
+from .utils import lossless_prio_dscp_map
 import logging
 import pytest
 
@@ -43,7 +44,7 @@ def run_pfcwd_impact_test(api, duthost, port_id, conn_graph_facts, fanout_graph_
 
     """ runs the pfcwd impact test """ 
     
-    __create_tgen_config__(api=api,
+    __create_tgen_config_pfcwd_impact__(api=api,
                            duthost=duthost,
                            port_id=port_id,
                            conn_graph_facts=conn_graph_facts,
@@ -56,7 +57,7 @@ def run_pfcwd_impact_test(api, duthost, port_id, conn_graph_facts, fanout_graph_
 
 
 
-def __create_tgen_config__(api,
+def __create_tgen_config_pfcwd_impact__(api,
                            duthost,
                            port_id,
                            conn_graph_facts,
@@ -96,26 +97,28 @@ def __create_tgen_config__(api,
     rx_port = tgen_config.ports[1]
 
     tx_device = Device(name='Tx Device',
-           device_count=1,
-           choice=Ipv4(name='Tx Ipv4',
-                       address=Pattern(vlan_ip_addrs[0]),
-                       prefix=Pattern(network_prefix),
-                       gateway=Pattern(gw_ip),
-                       ethernet=Ethernet(name='Tx Ethernet')
+                       container_name=tx_port.name,
+                       device_count=1,
+                       choice=Ipv4(name='Tx Ipv4',
+                                   address=Pattern(vlan_ip_addrs[0]),
+                                   prefix=Pattern(network_prefix),
+                                   gateway=Pattern(gw_ip),
+                                   ethernet=Ethernet(name='Tx Ethernet')
+                       )
                 )
-        )
-    tx_port.devices = [tx_device]
+    tgen_config.devices.append(tx_device)
 
     rx_device = Device(name='Rx Device',
-           device_count=1,
-           choice=Ipv4(name='Rx Ipv4',
-                       address=Pattern(vlan_ip_addrs[1]),
-                       prefix=Pattern(network_prefix),
-                       gateway=Pattern(gw_ip),
-                       ethernet=Ethernet(name='Rx Ethernet')
+                       container_name=rx_port.name,
+                       device_count=1,
+                       choice=Ipv4(name='Rx Ipv4',
+                                   address=Pattern(vlan_ip_addrs[1]),
+                                   prefix=Pattern(network_prefix),
+                                   gateway=Pattern(gw_ip),
+                                   ethernet=Ethernet(name='Rx Ethernet')
+                       )
                 )
-        )
-    rx_port.devices = [rx_device]
+    tgen_config.devices.append(rx_device)
 
     ######################################################################
     # Fetching priorities for lossless and lossy traffic
@@ -124,6 +127,7 @@ def __create_tgen_config__(api,
     priority_lossless_list = lossless_priority[0]
     
     lossless_list = interface_priorities.get(port_list[0].get('peer_port'))
+
     if lossless_list is None:
         pytest_assert(False, "DSCP priorities are not configured on the port {}".format(port_list[0].get('peer_port')))
 

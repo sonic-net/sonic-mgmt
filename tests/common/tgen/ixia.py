@@ -1,8 +1,7 @@
 # Ixia file to update ixia related variables 
 
-import pytest
 
-class IXIA():
+class IXIA(object):
     """
     IXIA Class to get ixia related variables
     """
