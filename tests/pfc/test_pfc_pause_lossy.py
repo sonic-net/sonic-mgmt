@@ -12,7 +12,8 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port,\
     ixia_api_serv_session_id, api
 
-from files.configs.pfc import lossy_configs, l1_config, serializer
+from files.configs.pfc import lossy_configs, l1_config, background_flow_name, test_flow_name
+
 from files.configs.pfc import start_delay_secs, traffic_duration, pause_line_rate,\
     traffic_line_rate, port_bandwidth, bw_multiplier, frame_size
 from files.qos_fixtures import lossless_prio_dscp_map
@@ -24,6 +25,8 @@ TRAFFIC_LINE_RATE = [50]
 BW_MULTIPLIER = [1000000]
 FRAME_SIZE = [1024]
 TOLERANCE_THRESHOLD = .97
+TEST_FLOW_NAME = ['Test Data']
+BACKGROUND_FLOW_NAME = ['Background Data']
 
 @pytest.mark.parametrize('start_delay_secs', START_DELAY)
 @pytest.mark.parametrize('traffic_duration', TRAFFIC_DURATION)
@@ -31,7 +34,8 @@ TOLERANCE_THRESHOLD = .97
 @pytest.mark.parametrize('traffic_line_rate', TRAFFIC_LINE_RATE)
 @pytest.mark.parametrize('bw_multiplier', BW_MULTIPLIER)
 @pytest.mark.parametrize('frame_size', FRAME_SIZE)
-
+@pytest.mark.parametrize('test_flow_name', TEST_FLOW_NAME)
+@pytest.mark.parametrize('background_flow_name', BACKGROUND_FLOW_NAME)
 def test_pfc_pause_lossy_traffic(api, 
                                  duthost, 
                                  lossy_configs, 
@@ -40,7 +44,9 @@ def test_pfc_pause_lossy_traffic(api,
                                  traffic_line_rate, 
                                  traffic_duration,
                                  port_bandwidth,
-                                 frame_size) :
+                                 frame_size,
+                                 test_flow_name,
+                                 background_flow_name) :
     """
     This test case checks the behaviour of the SONiC DUT when it receives 
     a PFC pause frame on lossy priorities.
@@ -85,10 +91,9 @@ def test_pfc_pause_lossy_traffic(api,
         api.set_state(State(FlowTransmitState(state='stop')))
 
         # Get statistics
-        stat_captions =['Test Data', 'Background Data']
+        stat_captions =[test_flow_name, background_flow_name]
         for row in api.get_flow_results(FlowRequest(flow_names=stat_captions)):
-            if (row['name'] == 'Test Data') or (row['name'] == 'Background Data'):
-
+            if (row['name'] == test_flow_name) or (row['name'] == background_flow_name):
                 if ((row['frames_rx'] == 0) or (row['frames_tx'] != row['frames_rx'])):
                      pytest.fail("Not all %s reached Rx End" %(rows[caption_index]))
 

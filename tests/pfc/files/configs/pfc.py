@@ -71,8 +71,7 @@ def lossless_iteration_list (lst) :
     return retval
 
 sec_to_nano_sec = lambda x : x * 1000000000.0
-def base_configs(conn_graph_facts,
-                 duthost,
+def base_configs(duthost,
                  lossless_prio_dscp_map,
                  l1_config,
                  start_delay_secs,
@@ -81,11 +80,10 @@ def base_configs(conn_graph_facts,
                  traffic_line_rate,
                  pause_frame_type,
                  frame_size,
-                 serializer) :
+                 test_flow_name,
+                 background_flow_name): 
 
     for config in l1_config :
-
-        
 
         bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
         test_dscp_list = [str(x) for x in range(64) if str(x) not in bg_dscp_list]
@@ -106,9 +104,6 @@ def base_configs(conn_graph_facts,
 
         tx_gateway_ip = gw_addr
         rx_gateway_ip = gw_addr
-
-        test_flow_name = 'Test Data'
-        background_flow_name = 'Background Data'
 
         test_line_rate = traffic_line_rate
         background_line_rate = traffic_line_rate
@@ -154,7 +149,6 @@ def base_configs(conn_graph_facts,
         ######################################################################
         # Traffic configuration Test data
         ######################################################################
-        test_flow_name = 'Test Data'
         test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
         test_flow = Flow(
             name=test_flow_name,
@@ -172,7 +166,6 @@ def base_configs(conn_graph_facts,
         #######################################################################
         # Traffic configuration Background data
         #######################################################################
-        background_flow_name = 'Background Data'
         background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
         background_flow = Flow(
             name=background_flow_name,
@@ -268,30 +261,14 @@ def frame_size(request):
     return request
 
 
-@pytest.fixture(scope='session')
-def serializer(request):
-    class Serializer(object):
-        def __init__(self, request):
-            self.request = request
-            self.test_name = getattr(request.node, "name")
+@pytest.fixture
+def test_flow_name(request):
+   return request
 
-        def json(self, obj):
-            import json
-            json_str = json.dumps(obj, indent=2, default=lambda x: x.__dict__)
-            return '\n[%s] %s: %s\n' % (self.test_name, obj.__class__.__name__, json_str)
 
-        def yaml(self, obj):
-            import yaml
-            yaml_str = yaml.dump(obj, indent=2)
-            return '\n[%s] %s: %s\n' % (self.test_name, obj.__class__.__name__, yaml_str)
-
-        def obj(self, json_string):
-            return json.loads(json_string, object_hook=self._object_hook)
-
-        def _object_hook(self, converted_dict):
-            return namedtuple('X', converted_dict.keys())(*converted_dict.values())
-
-    return Serializer(request)
+@pytest.fixture
+def background_flow_name(request):
+   return request    
 
 
 @pytest.fixture
@@ -329,9 +306,7 @@ def port_bandwidth(conn_graph_facts,
 
 
 @pytest.fixture
-def l1_config(conn_graph_facts,
-                    fanout_graph_facts,
-                    serializer) :
+def l1_config(fanout_graph_facts) :
 
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
     fanout_devices.get_fanout_device_details(device_number=0)
@@ -389,20 +364,19 @@ def l1_config(conn_graph_facts,
 
 
 @pytest.fixture
-def lossy_configs(conn_graph_facts,
-                  duthost,
+def lossy_configs(duthost,
                   lossless_prio_dscp_map,
                   l1_config,
                   start_delay_secs,
                   traffic_duration,
                   pause_line_rate,
                   traffic_line_rate,
-                  frame_size, 
-                  serializer) :
+                  frame_size,
+                  test_flow_name,
+                  background_flow_name) :
 
     for p in lossless_iteration_list(lossless_prio_dscp_map) :
-        yield (base_configs(conn_graph_facts=conn_graph_facts,
-                            duthost=duthost,
+        yield (base_configs(duthost=duthost,
                             lossless_prio_dscp_map = p,
                             l1_config=l1_config,
                             traffic_duration=traffic_duration,
@@ -411,12 +385,13 @@ def lossy_configs(conn_graph_facts,
                             traffic_line_rate=traffic_line_rate,
                             pause_frame_type='priority',
                             frame_size=frame_size,
-                            serializer=serializer))
+                            test_flow_name=test_flow_name,
+                            background_flow_name=background_flow_name))
+
 
 
 @pytest.fixture
-def global_pause(conn_graph_facts,
-                 duthost,
+def global_pause(duthost,
                  lossless_prio_dscp_map,
                  l1_config,
                  start_delay_secs,
@@ -424,11 +399,11 @@ def global_pause(conn_graph_facts,
                  pause_line_rate,
                  traffic_line_rate,
                  frame_size,
-                 serializer) :
+                 test_flow_name,
+                 background_flow_name):
 
     for p in lossless_iteration_list(lossless_prio_dscp_map) :
-        yield (base_configs(conn_graph_facts=conn_graph_facts,
-                            duthost=duthost,
+        yield (base_configs(duthost=duthost,
                             lossless_prio_dscp_map=p,
                             l1_config=l1_config,
                             traffic_duration=traffic_duration,
@@ -437,5 +412,6 @@ def global_pause(conn_graph_facts,
                             traffic_line_rate=traffic_line_rate,
                             pause_frame_type='global',
                             frame_size=frame_size,
-                            serializer=serializer))
+                            test_flow_name=test_flow_name,
+                            background_flow_name=background_flow_name))
 
