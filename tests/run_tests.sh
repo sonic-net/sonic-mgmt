@@ -78,7 +78,7 @@ function setup_environment()
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
-    SKIP_FOLDERS="ptftests acstests saitests scripts"
+    SKIP_FOLDERS="ptftests acstests saitests scripts k8s"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
     TEST_INPUT_ORDER="False"
@@ -260,7 +260,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
+while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -270,6 +270,7 @@ while getopts "h?a:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
             ;;
         b ) 
             KUBE_MASTER_ID=${OPTARG}
+	    SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
