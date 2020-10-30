@@ -4,9 +4,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import logger
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_location
+from tests.common.tgen.tgen_helpers import *
 
 from tests.common.ixia.common_helpers import get_vlan_subnet, \
     get_addrs_in_subnet
+
 
 ###############################################################################
 # Imports for Tgen and IxNetwork abstract class
@@ -15,6 +17,10 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, \
 from abstract_open_traffic_generator.port import Port
 from abstract_open_traffic_generator.config import Options
 from abstract_open_traffic_generator.config import Config
+
+from abstract_open_traffic_generator.result import FlowRequest
+from abstract_open_traffic_generator.control import *
+
 
 from abstract_open_traffic_generator.layer1 import\
     Layer1, OneHundredGbe, FlowControl, Ieee8021qbb
@@ -34,7 +40,7 @@ from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
 from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.port import Options as PortOptions
 
-def calculate_priority_vector(v) :
+def __calculate_priority_vector__(v) :
     """
     This function calculates the priority vector field of PFC Pause packets.
 
@@ -52,229 +58,166 @@ def calculate_priority_vector(v) :
            s += 2**7
     return "%x"%(s)
 
-def lossless_iteration_list (lst) :
-    """
-    This function converts a list of priorities into list of list of priorities
-    such that test functions can iterate over by taking one priority list at
-    a time. For Example: if lst == [3, 4] the return value is [[3], [4], [3, 4]] 
-
-    Args:
-      lst (list of integerrs): list of priorites. Example [3, 4]
-
-    Return : 
-       list of list of priorities (integers). Example [[3], [4], [3, 4]]
- 
-    """
-    retval = [[x] for x in lst]
-    if (len(lst) > 1):
-        retval.append(lst)
-    return retval
-
 sec_to_nano_sec = lambda x : x * 1000000000.0
-def base_configs(duthost,
-                 lossless_prio_dscp_map,
-                 l1_config,
-                 start_delay_secs,
-                 traffic_duration,
-                 pause_line_rate,
-                 traffic_line_rate,
-                 pause_frame_type,
-                 frame_size,
-                 test_flow_name,
-                 background_flow_name): 
+def __base_configs__(duthost,
+                     lossless_prio_dscp_map,
+                     l1_config,
+                     start_delay_secs,
+                     traffic_duration,
+                     pause_line_rate,
+                     traffic_line_rate,
+                     pause_frame_type,
+                     frame_size,
+                     test_flow_name,
+                     background_flow_name): 
 
-    for config in l1_config :
+    bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
+    test_dscp_list = [str(x) for x in range(64) if str(x) not in bg_dscp_list]
 
-        bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
-        test_dscp_list = [str(x) for x in range(64) if str(x) not in bg_dscp_list]
+    tx = l1_config.ports[0]
+    rx = l1_config.ports[1]
 
-        tx = config.ports[0]
-        rx = config.ports[1]
+    vlan_subnet = get_vlan_subnet(duthost)
+    pytest_assert(vlan_subnet is not None,
+                  "Fail to get Vlan subnet information")
 
-        vlan_subnet = get_vlan_subnet(duthost)
-        pytest_assert(vlan_subnet is not None,
-                      "Fail to get Vlan subnet information")
+    vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
 
-        vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
+    gw_addr = vlan_subnet.split('/')[0]
+    prefix = vlan_subnet.split('/')[1]
+    tx_port_ip = vlan_ip_addrs[1]
+    rx_port_ip = vlan_ip_addrs[0]
 
-        gw_addr = vlan_subnet.split('/')[0]
-        prefix = vlan_subnet.split('/')[1]
-        tx_port_ip = vlan_ip_addrs[1]
-        rx_port_ip = vlan_ip_addrs[0]
+    tx_gateway_ip = gw_addr
+    rx_gateway_ip = gw_addr
 
-        tx_gateway_ip = gw_addr
-        rx_gateway_ip = gw_addr
+    test_line_rate = traffic_line_rate
+    background_line_rate = traffic_line_rate
 
-        test_line_rate = traffic_line_rate
-        background_line_rate = traffic_line_rate
+    pytest_assert(test_line_rate + background_line_rate <= 100,
+        "test_line_rate + background_line_rate should be less than 100")
 
-        pytest_assert(test_line_rate + background_line_rate <= 100,
-            "test_line_rate + background_line_rate should be less than 100")
+    ######################################################################
+    # Create TX stack configuration
+    ######################################################################
+    tx_ipv4 = Ipv4(name='Tx Ipv4',
+                   address=Pattern(tx_port_ip),
+                   prefix=Pattern(prefix),
+                   gateway=Pattern(tx_gateway_ip),
+                   ethernet=Ethernet(name='Tx Ethernet'))
 
-        ######################################################################
-        # Create TX stack configuration
-        ######################################################################
-        tx_ipv4 = Ipv4(name='Tx Ipv4',
-                       address=Pattern(tx_port_ip),
-                       prefix=Pattern(prefix),
-                       gateway=Pattern(tx_gateway_ip),
-                       ethernet=Ethernet(name='Tx Ethernet'))
+    tx_device = Device(container_name=tx.name,
+                       name='Tx Device', 
+                       device_count=1,
+                       choice=tx_ipv4)
+    l1_config.devices.append(tx_device) 
+    ######################################################################
+    # Create RX stack configuration
+    ######################################################################
+    rx_ipv4 = Ipv4(name='Rx Ipv4',
+                   address=Pattern(rx_port_ip),
+                   prefix=Pattern(prefix),
+                   gateway=Pattern(rx_gateway_ip),
+                   ethernet=Ethernet(name='Rx Ethernet'))
 
-        tx_device = Device(container_name=tx.name,
-                           name='Tx Device', 
-                           device_count=1,
-                           choice=tx_ipv4)
-        config.devices.append(tx_device) 
-        ######################################################################
-        # Create RX stack configuration
-        ######################################################################
-        rx_ipv4 = Ipv4(name='Rx Ipv4',
-                       address=Pattern(rx_port_ip),
-                       prefix=Pattern(prefix),
-                       gateway=Pattern(rx_gateway_ip),
-                       ethernet=Ethernet(name='Rx Ethernet'))
-
-        rx_device = Device(container_name=rx.name,
-                           name='Rx Device',
-                           device_count=1,
-                           choice=rx_ipv4)
-        config.devices.append(rx_device)
+    rx_device = Device(container_name=rx.name,
+                       name='Rx Device',
+                       device_count=1,
+                       choice=rx_ipv4)
+    l1_config.devices.append(rx_device)
 
 
-        data_endpoint = DeviceTxRx(
-            tx_device_names=[tx_device.name],
-            rx_device_names=[rx_device.name],
+    data_endpoint = DeviceTxRx(
+        tx_device_names=[tx_device.name],
+        rx_device_names=[rx_device.name],
+    )
+    delay_nano_sec = sec_to_nano_sec(start_delay_secs)
+    ######################################################################
+    # Traffic configuration Test data
+    ######################################################################
+    test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
+    test_flow = Flow(
+        name=test_flow_name,
+        tx_rx=TxRx(data_endpoint),
+        packet=[
+            Header(choice=EthernetHeader()),
+            Header(choice=Ipv4Header(priority=test_dscp))
+        ],
+        size=Size(frame_size),
+        rate=Rate('line', test_line_rate),
+        duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay_nano_sec, delay_unit='nanoseconds'))
+    )
+
+    l1_config.flows.append(test_flow)
+    #######################################################################
+    # Traffic configuration Background data
+    #######################################################################
+    background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
+    background_flow = Flow(
+        name=background_flow_name,
+        tx_rx=TxRx(data_endpoint),
+        packet=[
+            Header(choice=EthernetHeader()),
+            Header(choice=Ipv4Header(priority=background_dscp))
+        ],
+        size=Size(frame_size),
+        rate=Rate('line', background_line_rate),
+        duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay_nano_sec, delay_unit='nanoseconds'))
+    )
+    l1_config.flows.append(background_flow)
+
+    #######################################################################
+    # Traffic configuration Pause
+    #######################################################################
+    pause_src_point = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
+    if (pause_frame_type == 'priority') :
+        p = ['0' if str(x) in test_dscp_list else 'ffff' for x in range(8)]
+        v = __calculate_priority_vector__(p) 
+        pause = Header(PfcPause(
+            dst=FieldPattern(choice='01:80:C2:00:00:01'),
+            src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
+            class_enable_vector=FieldPattern(choice=v),
+            pause_class_0=FieldPattern(choice=p[0]),
+            pause_class_1=FieldPattern(choice=p[1]),
+            pause_class_2=FieldPattern(choice=p[2]),
+            pause_class_3=FieldPattern(choice=p[3]),
+            pause_class_4=FieldPattern(choice=p[4]),
+            pause_class_5=FieldPattern(choice=p[5]),
+            pause_class_6=FieldPattern(choice=p[6]),
+            pause_class_7=FieldPattern(choice=p[7]),
+        ))
+
+        pause_flow = Flow(
+            name='Pause Storm',
+            tx_rx=TxRx(pause_src_point),
+            packet=[pause],
+            size=Size(64),
+            rate=Rate('line', value=100),
+            duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
         )
-        delay_nano_sec = sec_to_nano_sec(start_delay_secs)
-        ######################################################################
-        # Traffic configuration Test data
-        ######################################################################
-        test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
-        test_flow = Flow(
-            name=test_flow_name,
-            tx_rx=TxRx(data_endpoint),
-            packet=[
-                Header(choice=EthernetHeader()),
-                Header(choice=Ipv4Header(priority=test_dscp))
-            ],
-            size=Size(frame_size),
-            rate=Rate('line', test_line_rate),
-            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay_nano_sec, delay_unit='nanoseconds'))
+    elif (pause_frame_type == 'global') :
+        pause = Header(EthernetPause(
+        dst=FieldPattern(choice='01:80:C2:00:00:01'),
+            src=FieldPattern(choice='00:00:fa:ce:fa:ce')
+        ))
+
+        pause_flow = Flow(
+            name='Pause Storm',
+            tx_rx=TxRx(pause_src_point),
+            packet=[pause],
+            size=Size(64),
+            rate=Rate('line', value=pause_line_rate),
+            duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
         )
+    else :
+        pass   
 
-        config.flows.append(test_flow)
-        #######################################################################
-        # Traffic configuration Background data
-        #######################################################################
-        background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
-        background_flow = Flow(
-            name=background_flow_name,
-            tx_rx=TxRx(data_endpoint),
-            packet=[
-                Header(choice=EthernetHeader()),
-                Header(choice=Ipv4Header(priority=background_dscp))
-            ],
-            size=Size(frame_size),
-            rate=Rate('line', background_line_rate),
-            duration=Duration(FixedSeconds(seconds=traffic_duration, delay=delay_nano_sec, delay_unit='nanoseconds'))
-        )
-        config.flows.append(background_flow)
-
-        #######################################################################
-        # Traffic configuration Pause
-        #######################################################################
-        pause_src_point = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
-        if (pause_frame_type == 'priority') :
-            p = ['0' if str(x) in test_dscp_list else 'ffff' for x in range(8)]
-            v = calculate_priority_vector(p) 
-            pause = Header(PfcPause(
-                dst=FieldPattern(choice='01:80:C2:00:00:01'),
-                src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
-                class_enable_vector=FieldPattern(choice=v),
-                pause_class_0=FieldPattern(choice=p[0]),
-                pause_class_1=FieldPattern(choice=p[1]),
-                pause_class_2=FieldPattern(choice=p[2]),
-                pause_class_3=FieldPattern(choice=p[3]),
-                pause_class_4=FieldPattern(choice=p[4]),
-                pause_class_5=FieldPattern(choice=p[5]),
-                pause_class_6=FieldPattern(choice=p[6]),
-                pause_class_7=FieldPattern(choice=p[7]),
-            ))
-
-            pause_flow = Flow(
-                name='Pause Storm',
-                tx_rx=TxRx(pause_src_point),
-                packet=[pause],
-                size=Size(64),
-                rate=Rate('line', value=100),
-                duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
-            )
-        elif (pause_frame_type == 'global') :
-            pause = Header(EthernetPause(
-                dst=FieldPattern(choice='01:80:C2:00:00:01'),
-                src=FieldPattern(choice='00:00:fa:ce:fa:ce')
-            ))
-
-            pause_flow = Flow(
-                name='Pause Storm',
-                tx_rx=TxRx(pause_src_point),
-                packet=[pause],
-                size=Size(64),
-                rate=Rate('line', value=pause_line_rate),
-                duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
-            )
-        else :
-            pass   
-
-        config.flows.append(pause_flow)
-
+    l1_config.flows.append(pause_flow)
     return l1_config
 
-
-@pytest.fixture
-def start_delay_secs(request):
-    return request
-
-
-@pytest.fixture
-def traffic_duration(request):
-    return request
-
-
-@pytest.fixture
-def bw_multiplier(request):
-    return request
-
-
-@pytest.fixture
-def pause_line_rate(request):
-    return request
-
-
-@pytest.fixture
-def traffic_line_rate(request):
-    return request
-
-
-@pytest.fixture
-def frame_size(request):
-    return request
-
-
-@pytest.fixture
-def test_flow_name(request):
-   return request
-
-
-@pytest.fixture
-def background_flow_name(request):
-   return request    
-
-
-@pytest.fixture
-def port_bandwidth(conn_graph_facts,
-                   fanout_graph_facts,
-                   bw_multiplier) :
+def __port_bandwidth__(conn_graph_facts,
+                       fanout_graph_facts,
+                       bw_multiplier) :
    """
    This fixture extracts the ixia port bandwidth from fanout_graph_facts,
    and verifies it with the port speed of the DUT. The speed of all the 
@@ -305,113 +248,75 @@ def port_bandwidth(conn_graph_facts,
    return reference_speed * bw_multiplier
 
 
-@pytest.fixture
-def l1_config(fanout_graph_facts) :
+##################################
+# NEW CODE ------------------
+#################################
+def run_test_pfc_lossy(api,
+                       duthost,
+                       conn_graph_facts,
+                       fanout_graph_facts,
+                       port_id,
+                       lossless_prio,
+                       start_delay_secs,
+                       pause_line_rate,
+                       traffic_line_rate,
+                       traffic_duration,
+                       pause_frame_type,
+                       frame_size,
+                       test_flow_name,
+                       background_flow_name,
+                       bw_multiplier,
+                       tolerance_threshold):
 
-    fanout_devices = IxiaFanoutManager(fanout_graph_facts)
-    fanout_devices.get_fanout_device_details(device_number=0)
+    tgen_ports = TgenPorts(conn_graph_facts, fanout_graph_facts) 
+    port_list = tgen_ports.create_ports_list(2, port_id)
+    l1_config = tgen_ports.l1_config(port_list)
 
-    # The number of ports should be at least two for this test
-    available_phy_port = fanout_devices.get_ports()
-    pytest_assert(len(available_phy_port) > 2,
-                  "Number of physical ports must be at least 2")
+    l1_config.layer1[0].port_names = ['Tx', 'Rx']
+    l1_config.ports[0].name = 'Tx'
+    l1_config.ports[1].name = 'Rx'
 
-    configs = []
-    for i in range(len(available_phy_port)):
-        rx_id = i
-        tx_id = (i + 1) % len(available_phy_port)
+    base_config = __base_configs__(duthost,
+                                   lossless_prio,
+                                   l1_config,
+                                   start_delay_secs,
+                                   traffic_duration,
+                                   pause_line_rate,
+                                   traffic_line_rate,
+                                   pause_frame_type,
+                                   frame_size,
+                                   test_flow_name,
+                                   background_flow_name)
 
-        phy_tx_port = get_location(available_phy_port[tx_id])
-        phy_rx_port = get_location(available_phy_port[rx_id])
+    api.set_state(State(ConfigState(config=base_config, state='set')))
 
-        #########################################################################
-        # common L1 configuration
-        #########################################################################
+    # start all flows
+    api.set_state(State(FlowTransmitState(state='start')))
 
-        tx = Port(name='Tx', location=phy_tx_port)
-        rx = Port(name='Rx', location=phy_rx_port)
+    exp_dur = start_delay_secs + traffic_duration
+    logger.info("Traffic is running for %s seconds" %(exp_dur))
+    time.sleep(exp_dur)
 
-        pfc = Ieee8021qbb(pfc_delay=1,
-                          pfc_class_0=0,
-                          pfc_class_1=1,
-                          pfc_class_2=2,
-                          pfc_class_3=3,
-                          pfc_class_4=4,
-                          pfc_class_5=5,
-                          pfc_class_6=6,
-                          pfc_class_7=7)
+    # stop all flows
+    api.set_state(State(FlowTransmitState(state='stop')))
 
-        flow_ctl = FlowControl(choice=pfc)
+    # Get statistics
+    port_bandwidth_value = __port_bandwidth__(conn_graph_facts,
+                                              fanout_graph_facts,
+                                              bw_multiplier)
 
-        l1_oneHundredGbe = OneHundredGbe(link_training=True,
-                                         ieee_media_defaults=False,
-                                         auto_negotiate=False,
-                                         speed='one_hundred_gbps',
-                                         flow_control=flow_ctl,
-                                         rs_fec=True)
+    stat_captions =[test_flow_name, background_flow_name]
+    for row in api.get_flow_results(FlowRequest(flow_names=stat_captions)):
+        if (row['name'] == test_flow_name) or (row['name'] == background_flow_name):
+            if ((row['frames_rx'] == 0) or (row['frames_tx'] != row['frames_rx'])):
+                 pytest.fail("Not all %s reached Rx End" %(rows[caption_index]))
 
-        common_l1_config = Layer1(name='common L1 config',
-                                  choice=l1_oneHundredGbe,
-                                  port_names=[tx.name, rx.name])
+            line_rate = traffic_line_rate / 100.0
+            exp_rx_bytes = (port_bandwidth_value * line_rate * traffic_duration) / 8
+            tolerance_ratio = row['bytes_rx'] / exp_rx_bytes
 
-        config = Config(ports=[tx, rx],
-            layer1=[common_l1_config],
-            options=Options(PortOptions(location_preemption=True)))
+            if ((tolerance_ratio < tolerance_threshold) or
+                (tolerance_ratio > 1)) :
+                pytest.fail("expected % of packets not received at the RX port")
 
-        configs.append(config)
-
-    return configs
-
-
-@pytest.fixture
-def lossy_configs(duthost,
-                  lossless_prio_dscp_map,
-                  l1_config,
-                  start_delay_secs,
-                  traffic_duration,
-                  pause_line_rate,
-                  traffic_line_rate,
-                  frame_size,
-                  test_flow_name,
-                  background_flow_name) :
-
-    for p in lossless_iteration_list(lossless_prio_dscp_map) :
-        yield (base_configs(duthost=duthost,
-                            lossless_prio_dscp_map = p,
-                            l1_config=l1_config,
-                            traffic_duration=traffic_duration,
-                            start_delay_secs=start_delay_secs,
-                            pause_line_rate=pause_line_rate,
-                            traffic_line_rate=traffic_line_rate,
-                            pause_frame_type='priority',
-                            frame_size=frame_size,
-                            test_flow_name=test_flow_name,
-                            background_flow_name=background_flow_name))
-
-
-
-@pytest.fixture
-def global_pause(duthost,
-                 lossless_prio_dscp_map,
-                 l1_config,
-                 start_delay_secs,
-                 traffic_duration,
-                 pause_line_rate,
-                 traffic_line_rate,
-                 frame_size,
-                 test_flow_name,
-                 background_flow_name):
-
-    for p in lossless_iteration_list(lossless_prio_dscp_map) :
-        yield (base_configs(duthost=duthost,
-                            lossless_prio_dscp_map=p,
-                            l1_config=l1_config,
-                            traffic_duration=traffic_duration,
-                            start_delay_secs=start_delay_secs,
-                            pause_line_rate=pause_line_rate,
-                            traffic_line_rate=traffic_line_rate,
-                            pause_frame_type='global',
-                            frame_size=frame_size,
-                            test_flow_name=test_flow_name,
-                            background_flow_name=background_flow_name))
 

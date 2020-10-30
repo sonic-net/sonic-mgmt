@@ -1,9 +1,6 @@
 import time
 import pytest
 
-from abstract_open_traffic_generator.result import FlowRequest
-from abstract_open_traffic_generator.control import *
-
 from tests.common.reboot import logger
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts 
@@ -12,51 +9,30 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_dev, ixia_api_serv_port,\
     ixia_api_serv_session_id, api
 
-from files.configs.pfc import lossy_configs, l1_config, background_flow_name, test_flow_name
-
-from files.configs.pfc import start_delay_secs, traffic_duration, pause_line_rate,\
-    traffic_line_rate, port_bandwidth, bw_multiplier, frame_size
-from files.qos_fixtures import lossless_prio_dscp_map
-
-START_DELAY = [1]
-TRAFFIC_DURATION = [3]
-PAUSE_LINE_RATE = [100]
-TRAFFIC_LINE_RATE = [50]
-BW_MULTIPLIER = [1000000]
-FRAME_SIZE = [1024]
+START_DELAY = 1
+TRAFFIC_DURATION = 3
+PAUSE_LINE_RATE = 100
+TRAFFIC_LINE_RATE = 50
+BW_MULTIPLIER = 1000000
+FRAME_SIZE = 1024
 TOLERANCE_THRESHOLD = .97
-TEST_FLOW_NAME = ['Test Data']
-BACKGROUND_FLOW_NAME = ['Background Data']
+TEST_FLOW_NAME = 'Test Data'
+BACKGROUND_FLOW_NAME = 'Background Data'
 
-@pytest.mark.parametrize('start_delay_secs', START_DELAY)
-@pytest.mark.parametrize('traffic_duration', TRAFFIC_DURATION)
-@pytest.mark.parametrize('pause_line_rate', PAUSE_LINE_RATE)
-@pytest.mark.parametrize('traffic_line_rate', TRAFFIC_LINE_RATE)
-@pytest.mark.parametrize('bw_multiplier', BW_MULTIPLIER)
-@pytest.mark.parametrize('frame_size', FRAME_SIZE)
-@pytest.mark.parametrize('test_flow_name', TEST_FLOW_NAME)
-@pytest.mark.parametrize('background_flow_name', BACKGROUND_FLOW_NAME)
-def test_pfc_pause_lossy_traffic(api, 
-                                 duthost, 
-                                 lossy_configs, 
-                                 start_delay_secs,
-                                 pause_line_rate,
-                                 traffic_line_rate, 
-                                 traffic_duration,
-                                 port_bandwidth,
-                                 frame_size,
-                                 test_flow_name,
-                                 background_flow_name) :
+def test_pfc_pause_lossy_traffic(api,
+                                 duthost,
+                                 conn_graph_facts,
+                                 fanout_graph_facts,
+                                 port_id,
+                                 lossless_prio):
     """
     This test case checks the behaviour of the SONiC DUT when it receives 
     a PFC pause frame on lossy priorities.
-
                                 +-----------+
     [Keysight Chassis Tx Port]  |           | [Keysight Chassis Rx Port]
     --------------------------->| SONiC DUT |<---------------------------
     Test Data Traffic +         |           |  PFC pause frame on 
     Background Dada Traffic     +-----------+  "lossy" priorities.
-
     1. Configure SONiC DUT with multipul lossless priorities. 
     2. On SONiC DUT enable PFC on several lossless priorities e.g priority 
        3 and 4.
@@ -74,34 +50,36 @@ def test_pfc_pause_lossy_traffic(api,
        (b) When Pause Storm are stoped, then also Keysight Rx port is receiving
        both 'Test Data Traffic' and 'Background Data traffic'.
     """
-    duthost.shell('sudo pfcwd stop')
 
-    for base_config in lossy_configs:
-        # create the configuration
-        api.set_state(State(ConfigState(config=base_config, state='set')))
+    from files.configs.pfc import run_test_pfc_lossy
+    logger.info("port_id = %s" %(port_id))
+    logger.info("lossless prio = %s" %(lossless_prio))
 
-        # start all flows
-        api.set_state(State(FlowTransmitState(state='start')))
+    start_delay_secs = START_DELAY
+    pause_line_rate = PAUSE_LINE_RATE
+    traffic_line_rate = TRAFFIC_LINE_RATE
+    traffic_duration = TRAFFIC_DURATION
+    frame_size = FRAME_SIZE
+    test_flow_name = TEST_FLOW_NAME
+    bw_multiplier = BW_MULTIPLIER
+    background_flow_name = BACKGROUND_FLOW_NAME
+    tolerance_threshold = TOLERANCE_THRESHOLD
+ 
+    run_test_pfc_lossy(api=api,
+                       duthost=duthost,
+                       conn_graph_facts=conn_graph_facts,
+                       fanout_graph_facts=fanout_graph_facts,
+                       port_id=port_id,
+                       lossless_prio=lossless_prio,
+                       start_delay_secs=start_delay_secs,
+                       pause_line_rate=pause_line_rate,
+                       traffic_line_rate=traffic_line_rate,
+                       traffic_duration=traffic_duration,
+                       pause_frame_type='priority',
+                       frame_size=frame_size,
+                       test_flow_name=test_flow_name,
+                       background_flow_name=background_flow_name,
+                       bw_multiplier=bw_multiplier,
+                       tolerance_threshold=tolerance_threshold)
 
-        exp_dur = start_delay_secs + traffic_duration
-        logger.info("Traffic is running for %s seconds" %(exp_dur))
-        time.sleep(exp_dur)
-
-        # stop all flows
-        api.set_state(State(FlowTransmitState(state='stop')))
-
-        # Get statistics
-        stat_captions =[test_flow_name, background_flow_name]
-        for row in api.get_flow_results(FlowRequest(flow_names=stat_captions)):
-            if (row['name'] == test_flow_name) or (row['name'] == background_flow_name):
-                if ((row['frames_rx'] == 0) or (row['frames_tx'] != row['frames_rx'])):
-                     pytest.fail("Not all %s reached Rx End" %(rows[caption_index]))
-
-                line_rate = traffic_line_rate / 100.0
-                exp_rx_bytes = (port_bandwidth * line_rate * traffic_duration) / 8
-                tolerance_ratio = row['bytes_rx'] / exp_rx_bytes
-    
-                if ((tolerance_ratio < TOLERANCE_THRESHOLD) or
-                    (tolerance_ratio > 1)) :
-                    pytest.fail("expected % of packets not received at the RX port")
-                
+ 
