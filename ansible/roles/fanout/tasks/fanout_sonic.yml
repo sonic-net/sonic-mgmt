@@ -7,8 +7,13 @@
   port_alias: hwsku="{{ device_info["HwSku"] }}"
 
 - name: build fanout vlan config
-  template: src=sonic_deploy.j2
+  fail: msg="SONiC fanout switch with HwSku {{ device_info.HwSku }} not supported"
+  when: device_info.HwSku != "Arista-7060CX-32S-C32"
+
+- name: build fanout startup config for Arista 7060 SONiC leaf fanout
+  template: src=sonic_deploy_arista_7060.j2
             dest=/etc/sonic/vlan.json
+  when: device_info.HwSku == "Arista-7060CX-32S-C32"
   become: yes
 
 - name: disable all copp rules
@@ -18,10 +23,6 @@
 
 - name: generate config_db.json
   shell: sonic-cfggen -H -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
-  become: yes
-
-- name: reload config_db.json
-  shell: config reload -y
   become: yes
 
 - name: stop and disable lldp service
