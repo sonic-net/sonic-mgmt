@@ -17,6 +17,8 @@
 import sys
 import os.path
 import json
+import time
+import pprint
 import ptf
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
@@ -227,6 +229,7 @@ class Vxlan(BaseTest):
             test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(gw, prefixlen, test['acc_ports'])
 
             self.tests.append(test)
+        self.log('Collected tests: {}'.format(pprint.pformat(self.tests)))
 
         self.dut_mac = graph['dut_mac']
 
@@ -283,20 +286,13 @@ class Vxlan(BaseTest):
         return True
 
     def wait_dut(self, test, timeout):
-        t = 0
-        while t < timeout:
-            if self.check_fdb_on_dut(test):
-                break;
-            t += 1
-        if t >= timeout:
-            return False
-        while t < timeout:
-            if self.check_arp_table_on_dut(test):
-                break;
-            t += 1
-        if t >= timeout:
-            return False
-        return True
+        start_time = datetime.datetime.now()
+        while True:
+            if self.check_fdb_on_dut(test) and self.check_arp_table_on_dut(test):
+                return True
+            if (datetime.datetime.now() - start_time).seconds > timeout:
+                return False
+            time.sleep(3)
 
     def tearDown(self):
         self.cmd(["supervisorctl", "stop", "arp_responder"])
@@ -541,5 +537,3 @@ class Vxlan(BaseTest):
             arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac, test['src_ip'], ip_dst, inner_src_mac, inner_dst_mac, inner_src_ip, inner_dst_ip, test['vni']
             out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s | Inner: src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s vni=%s" % arg
         return rv, out
-
-
