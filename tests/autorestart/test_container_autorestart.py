@@ -53,21 +53,42 @@ def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
         SNMP/TEAMD container hits the limitation of restart. route_check.py also wrote an error message into syslog.
 
     """
-    ignoreRegex = [
+    monit_ignoreRegex = [
         ".*ERR monit.*",
+    ]
+    swss_ignoreRegex = [
         ".*ERR swss#orchagent.*removeLag.*",
+    ]
+    pmon_ignoreRegex = [
         ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
         ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
+    ]
+    syncd_ignoreRegex = [
         ".*ERR syncd#syncd.*driverEgressMemoryUpdate.*",
         ".*ERR syncd#syncd.*brcm_sai*",
+        ".*WARNING syncd#syncd.*saiDiscover: skipping since it causes crash.*",
+    ]
+    teamd_ignoreRegex = [
         ".*ERR teamd#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
-        ".*WARNING syncd#syncd.*saiDiscover: skipping since it cause crash.*",
+    ]
+    systemd_ignoreRegex = [
         ".*ERR systemd.*Failed to start .* container*",
+    ]
+    kernel_ignoreRegex = [
         ".*ERR kernel.*PortChannel.*",
+    ]
+    other_ignoreRegex = [
         ".*ERR route_check.*",
     ]
     if loganalyzer:
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer.ignore_regex.extend(monit_ignoreRegex)
+        loganalyzer.ignore_regex.extend(swss_ignoreRegex)
+        loganalyzer.ignore_regex.extend(pmon_ignoreRegex)
+        loganalyzer.ignore_regex.extend(syncd_ignoreRegex)
+        loganalyzer.ignore_regex.extend(teamd_ignoreRegex)
+        loganalyzer.ignore_regex.extend(systemd_ignoreRegex)
+        loganalyzer.ignore_regex.extend(kernel_ignoreRegex)
+        loganalyzer.ignore_regex.extend(other_ignoreRegex)
 
 
 def get_group_program_info(duthost, container_name, group_name):
@@ -259,6 +280,14 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logger.info("Restart the program '{}' in container '{}'".format(program_name, container_name))
     duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
 
+def check_all_critical_processes_status(duthost):
+    processes_status = duthost.all_critical_process_status()
+    for container_name, processes in processes_status.items():
+        if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
+            return False
+
+    return True
+
 
 def postcheck_critical_processes_status(duthost, container_autorestart_states):
     """
@@ -270,12 +299,10 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states):
         if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
-    # Sleep 20 seconds such that containers have a chance to start.
-    time.sleep(20)
-    processes_status = duthost.all_critical_process_status()
-    for container_name, processes in processes_status.items():
-        if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
-            pytest.fail("Critical process(es) was not running after container '{}' was restarted.".format(container_name))
+    pytest_assert(wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                             CONTAINER_CHECK_INTERVAL_SECS,
+                             check_all_critical_processes_status, duthost), 
+                             "Post checking the healthy of critical processes failed.")
 
 
 def test_containers_autorestart(duthost, tbinfo):
