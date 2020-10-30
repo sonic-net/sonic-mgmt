@@ -30,10 +30,11 @@
 
 - name: Find the root fanout switch
   set_fact:
-    ansible_host: "{{ lab_devices[item]['mgmtip'] }}"
-    root_dev: "{{ item }}"
-  with_items: "{{ lab_devices }}"
-  when: lab_devices[item]['Type'] == 'FanoutRoot'
+    ansible_host: "{{ item.value['mgmtip'] }}"
+    root_dev: "{{ item.key }}"
+    root_hwsku: "{{ item.value['HwSku'] }}"
+  with_dict: "{{ lab_devices }}"
+  when: item.value['Type'] == 'FanoutRoot'
 
 - set_fact:
     root_conn: "{{ lab.ansible_facts['device_conn'][root_dev] }}"
