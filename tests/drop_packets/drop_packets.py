@@ -42,7 +42,7 @@ def fanouthost(request, duthost, localhost):
         for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "fanout")):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
-                module = importlib.import_module("fanout.{0}.{0}_fanout".format(file_name.strip(".py")))
+                module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
                 fanout = module.FanoutHandler(duthost, localhost)
                 break
 
