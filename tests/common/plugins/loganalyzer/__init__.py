@@ -37,6 +37,6 @@ def loganalyzer(duthost, request):
 
     yield loganalyzer
     # Skip LogAnalyzer if case is skipped
-    if request.node.rep_call.skipped:
+    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped:
         return
     loganalyzer.analyze(marker)
