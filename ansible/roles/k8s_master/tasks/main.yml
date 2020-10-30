@@ -51,6 +51,7 @@
   template:
     src: 'docker-proxy.j2'
     dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
+  when: proxy_env['https_proxy'] is defined
 
 - name: Enable docker systemd service
   service:
