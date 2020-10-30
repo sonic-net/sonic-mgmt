@@ -26,7 +26,7 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
-    def test_cont_link_flap(self, request, duthost, fanouthosts, bring_up_fannout_interfaces, perform_config_reload):
+    def test_cont_link_flap(self, request, duthost, fanouthosts, bring_up_fanout_interfaces, bring_up_dut_interfaces):
         """
         Validates that continuous link flap works as expected
 

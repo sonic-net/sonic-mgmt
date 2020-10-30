@@ -43,15 +43,3 @@ def bring_up_fanout_interfaces(request, duthost, fanouthosts):
             fanout.no_shutdown(fanout_port)
 
         time.sleep(60)
-
-
-@pytest.fixture()
-def perform_config_reload(duthost):
-    """
-    Perform config reload.
-
-    Args:
-        duthost: Fixture for interacting with the DUT.
-    """
-    yield
-    config_reload(duthost)

@@ -63,7 +63,7 @@ def port_toggle(duthost, ports=None, wait=60, wait_after_ports_up=60, watch=Fals
 
     logger.info('waiting for ports to become up')
 
-    pytest_assert(wait_until(wait, 1, not __check_interface_state),
+    pytest_assert(wait_until(wait, 1, __check_interface_state),
                   "dut ports {} didn't go up as expected".format(duthost.interface_facts(up_ports=ports)['ansible_facts']['ansible_interface_link_down_ports']))
 
     logger.info('wait %d seconds for system to startup', wait_after_ports_up)
