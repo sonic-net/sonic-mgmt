@@ -64,7 +64,7 @@ def test_ft_bgp_ebgp_multihop_4byteASN():
     #Add static route to DUT1 neighbor
     ipapi.create_static_route(dut3, topo['D3D2P1_neigh_ipv4'], "{}/24".format(topo['D1D2P1_ipv4']))
 
-    result = bgpapi.verify_bgp_summary(dut1, family='ipv4', neighbor=topo['D3D2P1_ipv4'], state='Established')
+    result = bgpapi.verify_bgp_summary(dut1, family='ipv4', shell='vtysh', neighbor=topo['D3D2P1_ipv4'], state='Established')
 
     #Clear applied configs
     bgpapi.cleanup_router_bgp(dut1)
@@ -210,8 +210,8 @@ class TestBGPConfed():
         ipapi.config_route_map_match_ip_address(topo['dut_list'][0], 'test-rmap', 'permit', '30', 'test-access-list3')
         #Create access-list test-access-list3
         ipapi.config_access_list(topo['dut_list'][0], 'test-access-list3', network2, 'permit')
-
-        #verify that the neighbor has the as-path prepended
+       
+       	#verify that the neighbor has the as-path prepended
         output = bgpapi.show_bgp_ipvx_prefix(topo['dut_list'][1], prefix=network3, masklen=topo['D1_as'])
         st.log(output)
         for x in output:  # type: basestring
@@ -220,6 +220,7 @@ class TestBGPConfed():
             for each in as_path:
                 if each == "200":
                     result = True
+        st.log("Result for as-path prepended: {}".format(result))
 
         #verify that network1 is not present in bgp routes
         n1 = ipapi.verify_ip_route(topo['dut_list'][1],ip_address=network1)
@@ -227,14 +228,25 @@ class TestBGPConfed():
             result = result & True
         else:
             result = result & False
-
+        st.log("Result for network1 is not present in bgp routes: {}".format(n1))
+        st.log(result)
         #verify that network2 is present in bgp routes
         n2 = ipapi.verify_ip_route(topo['dut_list'][1],ip_address=network2)
+        ctr = 0
+        while not n2:
+            st.wait(10)
+            n2 = ipapi.verify_ip_route(topo['dut_list'][1],ip_address=network2)
+            if ctr > 2:
+                break
+            else:
+                ctr +=1 
+        
         if (n2):
             result = result & True
         else:
             result = result & False
-
+        st.log("Result for network2 is present in bgp routes: {}".format(n2))
+        
         #CLear applied configs
         ipapi.config_access_list(topo['dut_list'][0], 'test-access-list3', network2, 'permit', config='no')
         ipapi.config_access_list(topo['dut_list'][0], 'test-access-list2', network1, 'deny', config='no')
