@@ -1065,7 +1065,7 @@ class K8sMasterHost(AnsibleHostBase):
         self.k8s_passwd = k8s_passwd
         self.hostname = hostname
         self.ip_addr = ip_addr
-        super().__init__(self, ansible_adhoc, hostname)
+        super(K8sMasterHost, self).__init__(ansible_adhoc, hostname)
         evars = {
             'ansible_user': self.k8s_user,
             'ansible_ssh_user': self.k8s_user,

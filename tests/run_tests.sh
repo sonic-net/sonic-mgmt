@@ -270,7 +270,7 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
             ;;
         b ) 
             KUBE_MASTER_ID=${OPTARG}
-	    SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
+            SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
