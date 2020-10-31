@@ -19,7 +19,7 @@ def test_cleanup_testbed(duthost, request, ptfhost):
     if deep_clean:
         logger.info("Deep cleaning DUT {}".format(duthost.hostname))
         # Remove old log files.
-        duthost.shell("sudo find /var/log/ -name '*.gz' | xargs sudo rm -f", executable="/bin/bash")
+        duthost.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
         # Remove old core files.
         duthost.shell("sudo rm -f /var/core/*", executable="/bin/bash")
         # Remove old dump files.
