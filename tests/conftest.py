@@ -18,10 +18,11 @@ from ansible.inventory.manager import InventoryManager
 from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import SonicHost, Localhost
+from tests.common.devices import Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.devices import DutHosts
 
 
 logger = logging.getLogger(__name__)
@@ -217,7 +218,7 @@ def fixture_duthosts(ansible_adhoc, tbinfo):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return [SonicHost(ansible_adhoc, dut) for dut in tbinfo["duts"]]
+    return DutHosts(ansible_adhoc, tbinfo)
 
 
 @pytest.fixture(scope="session")
@@ -316,42 +317,43 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
     try:
-        for dut_port in dev_conn.keys():
-            fanout_rec = dev_conn[dut_port]
-            fanout_host = fanout_rec['peerdevice']
-            fanout_port = fanout_rec['peerport']
+        for dut_host, value in dev_conn.items():
+            for dut_port in value.keys():
+                fanout_rec = value[dut_port]
+                fanout_host = fanout_rec['peerdevice']
+                fanout_port = fanout_rec['peerport']
 
-            if fanout_host in fanout_hosts.keys():
-                fanout = fanout_hosts[fanout_host]
-            else:
-                host_vars = ansible_adhoc().options[
-                    'inventory_manager'].get_host(fanout_host).vars
-                os_type = host_vars.get('os', 'eos')
-                admin_user = creds['fanout_admin_user']
-                admin_password = creds['fanout_admin_password']
-                # `fanout_network_user` and `fanout_network_password` are for
-                # accessing the non-shell CLI of fanout.
-                # Ansible will use this set of credentail for establishing
-                # `network_cli` connection with device when applicable.
-                network_user = creds.get('fanout_network_user', admin_user)
-                network_password = creds.get('fanout_network_password',
-                                             admin_password)
-                shell_user = creds.get('fanout_shell_user', admin_user)
-                shell_password = creds.get('fanout_shell_pass', admin_password)
-                if os_type == 'sonic':
-                    shell_user = creds['fanout_sonic_user']
-                    shell_password = creds['fanout_sonic_password']
+                if fanout_host in fanout_hosts.keys():
+                    fanout = fanout_hosts[fanout_host]
+                else:
+                    host_vars = ansible_adhoc().options[
+                        'inventory_manager'].get_host(fanout_host).vars
+                    os_type = host_vars.get('os', 'eos')
+                    admin_user = creds['fanout_admin_user']
+                    admin_password = creds['fanout_admin_password']
+                    # `fanout_network_user` and `fanout_network_password` are for
+                    # accessing the non-shell CLI of fanout.
+                    # Ansible will use this set of credentail for establishing
+                    # `network_cli` connection with device when applicable.
+                    network_user = creds.get('fanout_network_user', admin_user)
+                    network_password = creds.get('fanout_network_password',
+                                                 admin_password)
+                    shell_user = creds.get('fanout_shell_user', admin_user)
+                    shell_password = creds.get('fanout_shell_pass', admin_password)
+                    if os_type == 'sonic':
+                        shell_user = creds['fanout_sonic_user']
+                        shell_password = creds['fanout_sonic_password']
 
-                fanout = FanoutHost(ansible_adhoc,
-                                    os_type,
-                                    fanout_host,
-                                    'FanoutLeaf',
-                                    network_user,
-                                    network_password,
-                                    shell_user=shell_user,
-                                    shell_passwd=shell_password)
-                fanout_hosts[fanout_host] = fanout
-            fanout.add_port_map(dut_port, fanout_port)
+                    fanout = FanoutHost(ansible_adhoc,
+                                        os_type,
+                                        fanout_host,
+                                        'FanoutLeaf',
+                                        network_user,
+                                        network_password,
+                                        shell_user=shell_user,
+                                        shell_passwd=shell_password)
+                    fanout_hosts[fanout_host] = fanout
+                fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
     except:
         pass
     return fanout_hosts

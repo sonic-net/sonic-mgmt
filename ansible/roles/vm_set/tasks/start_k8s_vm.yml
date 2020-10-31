@@ -1,5 +1,6 @@
 - name: Create directory for Ubuntu VM disks
-  file: path={{ k8s_root_path }}/{{ vm_name }} state=directory mode=0755
+  file: path={{ k8s_root_path }}/{{ vm_name }} state=directory mode=0777
+  become: yes
 
 - name: Check destination file existence
   stat: path={{ disk_image }} get_checksum="no"
@@ -41,14 +42,14 @@
         --noautoconsole
         --name {{ vm_name }}
         --memory 4098
-        --vcpus  2
+        --vcpus 2
         --disk {{ disk_image }},device=disk,bus=virtio 
         --disk {{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_cloud-config.img,device=cdrom 
         --os-type linux 
         --os-variant ubuntu18.04
         --virt-type kvm 
         --graphics none 
-        --network bridge={{ mgmt_bridge_k8s }},model=virtio 
+        --network bridge={{ mgmt_bridge_k8s }},model=virtio
         --import
   become: yes
   when: vm_name not in vm_list_defined.list_vms
@@ -56,7 +57,8 @@
 - name: "{{ vm_name }} start with host startup"
   virt: 
     name: "{{ vm_name }}"
-    autostart: true 
+    autostart: true
+  become: yes 
 
 - name: "Wait for K8s Ubuntu VM to be accessible via SSH"
   wait_for:
