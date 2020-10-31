@@ -94,7 +94,12 @@ class TestbedInfo(object):
         match = pattern.match(topo_name)
         if match == None:
             raise Exception("Unsupported testbed type - {}".format(topo_name))
-        return match.group()
+        tb_type = match.group()
+        if tb_type == 'dualtor':
+            # augment dualtor topology type to 't0' to avoid adding it
+            # everywhere.
+            tb_type = 't0'
+        return tb_type
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
