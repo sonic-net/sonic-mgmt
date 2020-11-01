@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import multiprocessing
 import operator
 try:
     import psutil
@@ -71,8 +70,7 @@ def monit_process(module, interval, iterations):
                 process = dict(
                     zip(proc_attrs, proc_attrs_getter(line.split()))
                     )
-                process['cpu_percent'] = \
-                    float(process['cpu_percent']) / multiprocessing.cpu_count()
+                process['cpu_percent'] = float(process['cpu_percent'])
                 process['memory_percent'] = float(process['memory_percent'])
                 process['pid'] = int(process['pid'])
                 monit_results[-1].processes.append(process)
@@ -88,8 +86,6 @@ def monit_process(module, interval, iterations):
                                              'cpu_percent',
                                              'memory_percent',
                                              'status']):
-                proc.info['cpu_percent'] = \
-                    proc.info['cpu_percent'] / multiprocessing.cpu_count()
                 processes.append(proc.info)
             processes.sort(key=lambda p: p['cpu_percent'], reverse=True)
             return processes
