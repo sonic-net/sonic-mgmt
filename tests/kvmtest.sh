@@ -70,7 +70,8 @@ tacacs/test_ro_user.py \
 telemetry/test_telemetry.py \
 test_features.py \
 test_procdockerstatsd.py \
-iface_namingmode/test_iface_namingmode.py"
+iface_namingmode/test_iface_namingmode.py \
+platform_tests/test_cpu_memory_usage.py"
 
 # FIXME: This test has been disabled and needs to be fixed and put back in:
 # pc/test_po_update.py

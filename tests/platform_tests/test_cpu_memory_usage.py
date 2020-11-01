@@ -14,12 +14,12 @@ pytestmark = [
 def setup_thresholds(duthost):
     cpu_threshold = 50
     memory_threshold = 60
-    if duthost.facts['platform'] in ('x86_64-arista_7050_qx32',):
+    if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0'):
         memory_threshold = 80
     return memory_threshold, cpu_threshold
 
 
-def test_cpu_memory_usage(duthost, setup_threshold):
+def test_cpu_memory_usage(duthost, setup_thresholds):
     """Check DUT memory usage and process cpu usage are within threshold."""
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
     monit_results = duthost.monit_process(iterations=12)['monit_results']
