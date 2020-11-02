@@ -483,7 +483,6 @@ class AdvancedReboot:
                 "setup_fdb_before_test" : True,
                 "vnet" : self.vnet,
                 "vnet_pkts" : self.vnetPkts,
-                "kvm_test" : self.kvmTest,
             },
             log_file=u'/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors
