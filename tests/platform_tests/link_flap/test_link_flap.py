@@ -1,12 +1,17 @@
 """
 Tests the link flap in SONiC.
 """
+import logging
 
 import pytest
 import random
 
 from tests.common.plugins.test_completeness import CompletenessLevel
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link
+from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.dut_ports import decode_dut_port_name
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -28,7 +33,7 @@ class TestLinkFlap(object):
         """
         self.completeness_level = CompletenessLevel.get_normalized_level(request)
 
-    def run_link_flap_test(self, dut, fanouthosts):
+    def run_link_flap_test(self, dut, fanouthosts, port):
         """
         Test runner of link flap test.
 
@@ -36,17 +41,15 @@ class TestLinkFlap(object):
             dut: DUT host object
             fanouthosts: List of fanout switch instances.
         """
-        candidates = build_test_candidates(dut, fanouthosts, self.completeness_level)
-
-        if not candidates:
-            pytest.skip("Didn't find any port that is admin up and present in the connection graph")
+        candidates = build_test_candidates(dut, fanouthosts, port, self.completeness_level)
+        pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
 
         for dut_port, fanout, fanout_port in candidates:
             toggle_one_link(dut, dut_port, fanout, fanout_port)
 
 
 @pytest.mark.platform('physical')
-def test_link_flap(request, duthost, fanouthosts, bring_up_fanout_interfaces):
+def test_link_flap(request, duthosts, all_ports, fanouthosts, bring_up_fanout_interfaces):
     """
     Validates that link flap works as expected
     """

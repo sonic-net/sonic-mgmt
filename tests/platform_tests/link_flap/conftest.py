@@ -10,7 +10,7 @@ import pytest
 
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
 from tests.common import config_reload
-
+from tests.common.helpers.dut_ports import decode_dut_port_name
 
 def pytest_addoption(parser):
     """
@@ -27,7 +27,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture()
-def bring_up_fanout_interfaces(request, duthost, fanouthosts):
+def bring_up_fanout_interfaces(request, all_ports, duthosts, fanouthosts):
     """
     Bring up outer interfaces on the DUT.
 
@@ -38,8 +38,12 @@ def bring_up_fanout_interfaces(request, duthost, fanouthosts):
     """
     yield
     if request.node.rep_call.failed:
-        candidates = build_test_candidates(duthost, fanouthosts)
-        for _, fanout, fanout_port in candidates:
-            fanout.no_shutdown(fanout_port)
+        dutname, portname = decode_dut_port_name(all_ports)
+
+        for dut in duthosts:
+            if dutname == 'unknown' or dutname == dut.hostname:
+                candidates = build_test_candidates(dut, fanouthosts, portname)
+                for _, fanout, fanout_port in candidates:
+                    fanout.no_shutdown(fanout_port)
 
         time.sleep(60)

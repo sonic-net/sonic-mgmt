@@ -73,7 +73,7 @@ class TestContLinkFlap(object):
         # Flap all interfaces one by one on Peer Device
         for iteration in range(3):
             logging.info("%d Iteration flap all interfaces one by one on Peer Device", iteration + 1)
-            candidates = build_test_candidates(duthost, fanouthosts)
+            candidates = build_test_candidates(duthost, fanouthosts, 'unknown')
 
             if not candidates:
                 pytest.skip("Didn't find any port that is admin up and present in the connection graph")
