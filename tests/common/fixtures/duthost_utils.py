@@ -36,3 +36,35 @@ def backup_and_restore_config_db_module(duthost):
     # TODO: Use the neater "yield from _function" syntax when we move to python3
     for func in _backup_and_restore_config_db(duthost):
         yield func
+
+
+def _disable_route_checker(duthost):
+    """
+        Some test cases will add static routes for test, which may trigger route_checker
+        to report error. This function is to disable route_checker before test, and recover it
+        after test.
+
+        Args:
+            duthost: DUT fixture
+    """
+    duthost.command('monit stop routeCheck', module_ignore_errors=True)
+    yield
+    duthost.command('monit start routeCheck', module_ignore_errors=True)
+
+
+@pytest.fixture
+def disable_route_checker(duthost):
+    """
+    Wrapper for _disable_route_checker, function level
+    """
+    for func in _disable_route_checker(duthost):
+        yield func
+
+
+@pytest.fixture(scope='module')
+def disable_route_checker_module(duthost):
+    """
+    Wrapper for _disable_route_checker, module level
+    """
+    for func in _disable_route_checker(duthost):
+        yield func

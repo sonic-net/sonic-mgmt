@@ -21,7 +21,7 @@ class FanoutHandler(BaseFanoutHandler):
         self.ansible_localhost = localhost
 
         dut_facts = self.ansible_localhost.conn_graph_facts(host=duthost.hostname, filename=LAB_CONNECTION_GRAPH)["ansible_facts"]
-        self.fanout_host = dut_facts["device_conn"]["Ethernet0"]["peerdevice"]
+        self.fanout_host = dut_facts["device_conn"][duthost.hostname]["Ethernet0"]["peerdevice"]
         fanout_facts = self.ansible_localhost.conn_graph_facts(host=self.fanout_host, filename=LAB_CONNECTION_GRAPH)["ansible_facts"]
 
         self.fanout_trunk_port = None

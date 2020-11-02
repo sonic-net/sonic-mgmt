@@ -36,7 +36,8 @@ PYTEST_CLI_COMMON_OPTS="\
 -m individual \
 -q 1 \
 -a False \
--e --disable_loganalyzer"
+-e --disable_loganalyzer \
+-O"
 
 cd $SONIC_MGMT_DIR/tests
 rm -rf logs
@@ -66,7 +67,11 @@ snmp/test_snmp_queue.py \
 syslog/test_syslog.py \
 tacacs/test_rw_user.py \
 tacacs/test_ro_user.py \
-telemetry/test_telemetry.py"
+telemetry/test_telemetry.py \
+test_features.py \
+test_procdockerstatsd.py \
+iface_namingmode/test_iface_namingmode.py \
+platform_tests/test_cpu_memory_usage.py"
 
 # FIXME: This test has been disabled and needs to be fixed and put back in:
 # pc/test_po_update.py
