@@ -9,7 +9,7 @@ def conn_graph_facts(duthosts, localhost):
     return get_graph_facts(duthosts[0], localhost,
                            [dh.hostname for dh in duthosts])
 
- 
+
 @pytest.fixture(scope="module")
 def fanout_graph_facts(localhost, duthost, conn_graph_facts):
     facts = dict()
