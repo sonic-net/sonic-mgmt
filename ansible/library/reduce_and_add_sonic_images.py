@@ -30,16 +30,14 @@ results = {"downloaded_image_version": "Unknown"}
 
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     rc, out, err = module.run_command(cmd)
-    if ignore_error:
-        return rc, out, err
-    if rc != 0:
+    if not ignore_error and rc != 0:
         module.fail_json(msg="Failed %s: rc=%d, out=%s, err=%s" %
                          (msg, rc, out, err))
-    return out
+    return rc, out, err
 
 
 def get_disk_free_size(module, partition):
-    out   = exec_command(module, cmd="df -BM --output=avail %s" % partition,
+    _, out, _   = exec_command(module, cmd="df -BM --output=avail %s" % partition,
                          msg="checking disk available size")
     avail = int(out.split('\n')[1][:-1])
 
@@ -57,9 +55,10 @@ def download_new_sonic_image(module, new_image_url, save_as):
                  cmd="curl -o {} {}".format(save_as, new_image_url),
                  msg="downloading new image")
     if path.exists(save_as):
-        results['downloaded_image_version'] = exec_command(module,
+        _, out, _ = exec_command(module,
                                                 cmd="sonic_installer binary_version %s" % save_as
-                                                ).rstrip('\n')
+                                                )
+        results['downloaded_image_version'] = out.rstrip('\n')
 
 def install_new_sonic_image(module, new_image_url):
     if not new_image_url:
