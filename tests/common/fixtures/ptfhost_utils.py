@@ -1,5 +1,5 @@
 import os
-from natsort.natsort import natsorted
+from natsort import natsorted
 import pytest
 import logging
 
