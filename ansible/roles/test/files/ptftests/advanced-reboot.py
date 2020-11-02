@@ -1,6 +1,6 @@
 #
 # ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
-# This test also support basic warm/fast-reboot function check by adding test parameter 'kvm_test=True'
+#
 #
 # This test checks that DUT is able to make FastReboot procedure
 #
@@ -126,7 +126,6 @@ class ReloadTest(BaseTest):
         self.sad_handle = None
         self.process_id = str(os.getpid())
         self.test_params = testutils.test_params_get()
-        self.check_param('kvm_test', False, required=False)
         self.check_param('verbose', False, required=False)
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
@@ -228,6 +227,14 @@ class ReloadTest(BaseTest):
             self.test_params['dut_username'],
             password=self.test_params['dut_password']
         )
+
+        # Check if platform type is kvm
+        stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
+        platform_type = str(stdout[0]).replace('\n', '')
+        if platform_type == 'x86_64-kvm_x86_64-r0':
+            self.kvm_test = True
+        else:
+            self.kvm_test = False
 
         return
 
@@ -493,7 +500,6 @@ class ReloadTest(BaseTest):
         self.default_ip_range = self.test_params['default_ip_range']
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
-        self.kvm_test = self.test_params['kvm_test']
         self.reboot_type = self.test_params['reboot_type']
         if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
