@@ -1334,6 +1334,24 @@ class SonicAsic(object):
             complex_args['instance_id'] = self.asic_index
         return self.sonichost.bgp_facts(*module_args, **complex_args)
 
+    def config_facts(self, *module_args, **complex_args):
+        """ Wrapper method for config_facts ansible module.
+        If number of asics in SonicHost are more than 1, then add 'namespace' param for this Asic
+        If 'host' is not specified in complex_args, add it - as it is a mandatory param for the config_facts module
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            if SonicHost has only 1 asic, then return the config_facts for the global namespace, else config_facts for namespace for my asic_index.
+        """
+        if 'host' not in complex_args:
+            complex_args['host'] = self.sonichost.hostname
+        if self.sonichost.facts['num_asic'] != 1:
+            complex_args['namespace'] = 'asic{}'.format(self.asic_index)
+        return self.sonichost.config_facts(*module_args, **complex_args)
+
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:

@@ -23,7 +23,7 @@ options:
             - Set to "running" for running config, or "persistent" for persistent config from /etc/sonic/config_db.json
 '''
 
-PERSISTENT_CONFIG_PATH = "/etc/sonic/config_db.json"
+PERSISTENT_CONFIG_PATH = "/etc/sonic/config_db{}.json"
 TABLE_NAME_SEPARATOR = '|'
 
 def format_config(json_data):
@@ -63,18 +63,21 @@ def format_config(json_data):
 
 def create_maps(config):
     """ Create a map of SONiC port name to physical port index """
-
-    port_name_list = config["PORT"].keys()
-    port_name_list_sorted = natsorted(port_name_list)
-
     port_index_map = {}
-    for idx, val in enumerate(port_name_list_sorted):
-        port_index_map[val] = idx
+    port_name_to_alias_map = {}
+    port_alias_to_name_map = {}
 
-    port_name_to_alias_map = { name : v['alias'] for name, v in config["PORT"].iteritems()}
+    if 'PORT' in config:
+        port_name_list = config["PORT"].keys()
+        port_name_list_sorted = natsorted(port_name_list)
 
-    # Create inverse mapping between port name and alias
-    port_alias_to_name_map = {v: k for k, v in port_name_to_alias_map.iteritems()}
+        for idx, val in enumerate(port_name_list_sorted):
+            port_index_map[val] = idx
+
+        port_name_to_alias_map = { name : v['alias'] for name, v in config["PORT"].iteritems()}
+
+        # Create inverse mapping between port name and alias
+        port_alias_to_name_map = {v: k for k, v in port_name_to_alias_map.iteritems()}
 
     return {
     'port_name_to_alias_map' : port_name_to_alias_map,
@@ -126,7 +129,11 @@ def main():
             if 'filename' in m_args and m_args['filename'] is not None:
                 cfg_file_path = "%s" % m_args['filename']
             else:
-                cfg_file_path = PERSISTENT_CONFIG_PATH
+                if namespace is not None:
+                    asic_index = namespace.split("asic")[1]
+                    cfg_file_path = PERSISTENT_CONFIG_PATH.format(asic_index)
+                else:
+                    cfg_file_path = PERSISTENT_CONFIG_PATH.format("")
             with open(cfg_file_path, "r") as f:
                 config = json.load(f)
         elif m_args["source"] == "running":    
