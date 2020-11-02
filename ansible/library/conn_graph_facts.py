@@ -343,6 +343,11 @@ def main():
         results = {k: v for k, v in locals().items()
                    if (k.startswith("device_") and v)}
 
+        # TODO: Currently the results values are heterogeneous, let's change
+        # them all into dictionaries in the future.
+        if m_args['hosts'] is None:
+            results = {k: v[0] if isinstance(v, list) else v for k, v in results.items()}
+
         module.exit_json(ansible_facts=results)
     except (IOError, OSError):
         module.fail_json(msg="Can not find lab graph file under {}".format(LAB_GRAPHFILE_PATH))
