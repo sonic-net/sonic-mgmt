@@ -1,6 +1,4 @@
-import time
 import pytest
-import sys
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import logger
@@ -17,7 +15,6 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, \
 ###############################################################################
 
 from abstract_open_traffic_generator.port import Port
-from abstract_open_traffic_generator.result import PortRequest
 from abstract_open_traffic_generator.config import Options
 from abstract_open_traffic_generator.config import Config
 from abstract_open_traffic_generator.capture import *
@@ -26,20 +23,17 @@ from abstract_open_traffic_generator.control import *
 from abstract_open_traffic_generator.port import *
 from abstract_open_traffic_generator.result import FlowRequest, CaptureRequest
 
-
 from abstract_open_traffic_generator.layer1 import\
     Layer1, OneHundredGbe, FlowControl, Ieee8021qbb
 
 from abstract_open_traffic_generator.device import\
-     Device, Ethernet, Vlan, Ipv4, Pattern
+     Device, Ethernet, Ipv4, Pattern
 
 from abstract_open_traffic_generator.flow import\
     DeviceTxRx, TxRx, Flow, Header, Size, Rate,\
-    Duration, FixedPackets, PortTxRx, PfcPause, Counter, Random,\
-    EthernetPause, FixedSeconds, Continuous
+    Duration, FixedPackets, PortTxRx, PfcPause, Continuous
 
-from abstract_open_traffic_generator.flow_ipv4 import\
-    Priority, Dscp
+from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -89,7 +83,6 @@ def __base_configs__(conn_graph_facts,
     vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
 
     gw_addr = vlan_subnet.split('/')[0]
-    interface_ip_addr = vlan_ip_addrs[0]
 
     tx_port_ip = vlan_ip_addrs[1]
     rx_port_ip = vlan_ip_addrs[0]
@@ -97,11 +90,8 @@ def __base_configs__(conn_graph_facts,
     tx_gateway_ip = gw_addr
     rx_gateway_ip = gw_addr
 
-    test_line_rate = traffic_line_rate
-    pause_line_rate = pause_line_rate
-
-    pytest_assert(test_line_rate <= pause_line_rate,
-        "test_line_rate + should be less than pause_line_rate")
+    pytest_assert(traffic_line_rate <= pause_line_rate,
+        "traffic_line_rate + should be less than pause_line_rate")
 
     ######################################################################
     # Create TX stack configuration
@@ -156,7 +146,7 @@ def __base_configs__(conn_graph_facts,
             Header(choice=Ipv4Header(priority=test_dscp))
         ],
         size=Size(frame_size),
-        rate=Rate('line', test_line_rate),
+        rate=Rate('line', traffic_line_rate),
         duration=Duration(FixedPackets(packets=number_of_packets, delay=delay_nano_sec, delay_unit='nanoseconds'))
     )
 
@@ -256,9 +246,6 @@ def run_ecn_marking_at_egress(api,
     logger.info("Traffic is running for %s seconds" %(traffic_duration))
     time.sleep(exp_dur)
 
-    #import pytest
-    #pytest.set_trace()
-
     # stop all flows
     api.set_state(State(FlowTransmitState(state='stop')))
 
@@ -285,7 +272,6 @@ def run_ecn_marking_at_egress(api,
         p = [x['IP'].getfieldval('tos') for x in ip_packet]
         logger.error("dumping dscp-ECN field %s" %(p))
         pytest.fail("1st should be ECN marked & last packet should be ECN marked")
-
 
 
 def run_marking_accuracy(api,
