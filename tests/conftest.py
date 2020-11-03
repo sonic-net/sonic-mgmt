@@ -456,13 +456,12 @@ def get_host_data(request, dut):
 
 def generate_param_asic_index(request, dut_indices, param_type):
     logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
-    
+
     tbname = request.config.getoption("--testbed")
     tbfile = request.config.getoption("--testbed_file")
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
-    
-    
+
     tbinfo = TestbedInfo(tbfile)
 
     #if the params are not present treat the device as a single asic device
@@ -489,6 +488,17 @@ def generate_params_dut_index(request):
     num_duts = len(tbinfo.testbed_topo[tbname]["duts"])
     logging.info("Num of duts in testbed topology {}".format(num_duts))
     return range(num_duts)
+
+
+def generate_params_dut_hostname(request):
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    tbinfo = TestbedInfo(tbfile)
+    duts = tbinfo.testbed_topo[tbname]["duts"]
+    logging.info("DUTs in testbed topology: {}".format(str(duts)))
+    return tbinfo.testbed_topo[tbname]["duts"]
 
 
 def generate_port_lists(request, port_scope):
@@ -543,6 +553,9 @@ def pytest_generate_tests(metafunc):
     if "dut_index" in metafunc.fixturenames:
         dut_indices = generate_params_dut_index(metafunc)
         metafunc.parametrize("dut_index",dut_indices)
+    elif "dut_hostname" in metafunc.fixturenames:  # Fixture "dut_index" and "dut_hostname" should be mutually exclusive
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        metafunc.parametrize("dut_hostname", dut_hostnames)
     if "asic_index" in metafunc.fixturenames:
         metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "frontend_asic_index" in metafunc.fixturenames:
