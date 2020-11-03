@@ -1,19 +1,75 @@
 # Example usage:
 #
 # upgrade via sonic2sonic upgrade:
-#   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=sonic" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+#   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=sonic" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'" -e "copy_ssh=yes"
 # upgrade via onie:
 #   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
 
 - hosts: all
   gather_facts: no
+  remote_user: admin
   tasks:
 
     - set_fact:
         real_ansible_host: "{{ ansible_ssh_host }}"
 
-    - block:
+    - name: Get image version from image_url
+      shell: curl -s {{image_url}} | head -n 300
+      register: curl_output
+      run_once: true
 
+    - name: Save image version
+      set_fact:
+        image_version: "{{curl_output.stdout| regex_search('(?<=image_version=\")(.*)(?=\")')}}"
+      run_once: true
+
+    - block:
+        - name: Download full image as we could not find image version
+          get_url:
+            url: "{{image_url}}"
+            dest: /tmp/sonic-image.bin
+          run_once: true
+
+        - name: Get image version from downloaded image file
+          shell: grep -a image_version /tmp/sonic-image.bin
+          register: curl_output
+          run_once: true
+
+        - name: Save image version
+          set_fact:
+            image_version: "{{curl_output.stdout| regex_search('(?<=image_version=\")(.*)(?=\")')}}"
+          run_once: true
+
+        - name: Remove downloaded image file
+          file:
+            path: /tmp/sonic-image.bin
+            state: absent
+          run_once: true
+      when: image_version == ""
+
+    - name: Check image version
+      fail: msg="Failed to get image version"
+      when: image_version == ""
+
+    - name: Get current running image version
+      become: true
+      shell: sonic_installer list
+      register: sonic_installer_output
+
+    - name: Extract Current image version
+      set_fact:
+        current_image: "{{sonic_installer_output.stdout| regex_search('(?<=Current:)(?s)(.*)(?=\nNext)')}}"
+
+    - name: Save Current image version
+      set_fact:
+        current_image_version: "{{current_image | regex_replace(' SONiC-OS-', '')}}"
+
+    - name: Find upgrade_required
+      set_fact:
+        need_upgrade: True
+      when: image_version != current_image_version
+
+    - block:
         - name: Set next boot device to ONIE
           become: true
           shell: grub-editenv /host/grub/grubenv set next_entry=ONIE
@@ -42,7 +98,8 @@
         - name: Install SONiC image in ONIE
           action: onie install=yes url={{ image_url }}
           connection: onie
-
+          set_fact:
+             need_upgrade: True
       when: upgrade_type == "onie"
 
     - name: define disk_used_pcent if not defined
@@ -51,7 +108,8 @@
       when: disk_used_pcent is not defined
 
     - block:
-        - fail: msg="image_url is not defined"
+        - name: Check new image url
+          fail: msg="image_url is not defined"
           when: image_url is not defined
 
         - name: Remove some old sonic image(s) and install new image
@@ -60,6 +118,49 @@
           args:
             disk_used_pcent: '{{disk_used_pcent}}'
             new_image_url: '{{ image_url }}'
+
+        - name: Get current running image version
+          become: true
+          shell: sonic_installer list
+          register: sonic_installer_output
+
+        - name: Extract Next image version
+          set_fact:
+            next_image: "{{sonic_installer_output.stdout| regex_search('(?<=Next:)(?s)(.*)(?=\nAvailable)')}}"
+
+        - name: Save Next image version
+          set_fact:
+            next_image_version: "{{next_image | regex_replace(' SONiC-OS-', '')}}"
+            next_image_dir: "{{next_image | regex_replace(' SONiC-OS', 'image')}}"
+
+        - block:
+          - name: create home dir on the new image
+            become: true
+            file:
+              path: /host/{{next_image_dir}}/rw/home/
+              state: directory
+              mode: 0755
+
+          - name: create admin dir on the new image
+            become: true
+            file:
+              path: /host/{{next_image_dir}}/rw/home/admin
+              state: directory
+              owner: admin
+              group: admin
+              mode: 0755
+
+          - name: copy .ssh folder to new image
+            shell: cp -rf /home/admin/.ssh /host/{{next_image_dir}}/rw/home/admin
+
+          - name: create etc/ssh dir on the new image
+            become: true
+            file:
+              path: /host/{{next_image_dir}}/rw/etc/ssh
+              state: directory
+              mode: 0755
+
+          when: copy_ssh is defined
 
         # Reboot may need some time to update firmware firstly.
         # Increasing the async time to 300 seconds to avoid reboot being interrupted.
@@ -70,33 +171,36 @@
           poll: 0
           ignore_errors: true
 
-      when: upgrade_type == "sonic"
+      when: upgrade_type == "sonic" and need_upgrade is defined
 
-    # Delay 180 seconds to wait for firmware updating before reboot, then start polling switch
-    - name: Wait for switch {{ inventory_hostname }} to come back (to SONiC)
-      local_action: wait_for
-      args:
-        host: "{{ real_ansible_host }}"
-        port: 22
-        state: started
-        search_regex: "OpenSSH"
-        delay: 180
-        timeout: 600
-      changed_when: false
 
-    - name: Wait for SONiC initialization
-      pause: seconds=60
+    - block:
+        # Delay 180 seconds to wait for firmware updating before reboot, then start polling switch
+        - name: Wait for switch {{ inventory_hostname }} to come back (to SONiC)
+          local_action: wait_for
+          args:
+            host: "{{ real_ansible_host }}"
+            port: 22
+            state: started
+            search_regex: "OpenSSH"
+            delay: 180
+            timeout: 600
+          changed_when: false
 
-    - name: Set all bgp interfaces admin-up
-      become: true
-      shell: config bgp startup all
+        - name: Wait for SONiC initialization
+          pause: seconds=60
 
-    - name: save bgp admin-up states
-      become: true
-      shell: config save -y
+        - name: Set all bgp interfaces admin-up
+          become: true
+          shell: config bgp startup all
 
-    - name: Remove some old sonic image(s) after installing new image
-      reduce_and_add_sonic_images:
-      become: true
-      args:
-        disk_used_pcent: '{{disk_used_pcent}}'
+        - name: save bgp admin-up states
+          become: true
+          shell: config save -y
+
+        - name: Remove some old sonic image(s) after installing new image
+          reduce_and_add_sonic_images:
+          become: true
+          args:
+            disk_used_pcent: '{{disk_used_pcent}}'
+      when: need_upgrade is defined
