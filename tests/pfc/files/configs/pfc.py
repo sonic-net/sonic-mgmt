@@ -9,36 +9,30 @@ from tests.common.tgen.tgen_helpers import *
 from tests.common.ixia.common_helpers import get_vlan_subnet, \
     get_addrs_in_subnet
 
-
 ###############################################################################
 # Imports for Tgen and IxNetwork abstract class
 ###############################################################################
-
 from abstract_open_traffic_generator.port import Port
-from abstract_open_traffic_generator.config import Options
-from abstract_open_traffic_generator.config import Config
+from abstract_open_traffic_generator.config import Options Config
+#from abstract_open_traffic_generator.config import Config
 
 from abstract_open_traffic_generator.result import FlowRequest
 from abstract_open_traffic_generator.control import *
 
+from abstract_open_traffic_generator.device import Device, Ethernet, Ipv4,\
+    Pattern
 
-from abstract_open_traffic_generator.layer1 import\
-    Layer1, OneHundredGbe, FlowControl, Ieee8021qbb
+from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow,\
+    Header, Size, Rate, Duration, FixedSeconds, PortTxRx, PfcPause,\
+    EthernetPause, Continuous
 
-from abstract_open_traffic_generator.device import\
-     Device, Ethernet, Ipv4, Pattern
-
-from abstract_open_traffic_generator.flow import\
-    DeviceTxRx, TxRx, Flow, Header, Size, Rate,\
-    Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
-
-from abstract_open_traffic_generator.flow_ipv4 import\
-    Priority, Dscp
+from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
 from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.port import Options as PortOptions
+
 
 def __calculate_priority_vector__(v) :
     """
@@ -55,8 +49,9 @@ def __calculate_priority_vector__(v) :
     s = 0
     for i in range(8)  :
         if v[i] != '0' :
-           s += 2**7
+           s += 2**i
     return "%x"%(s)
+
 
 sec_to_nano_sec = lambda x : x * 1000000000.0
 def __base_configs__(duthost,
@@ -71,8 +66,8 @@ def __base_configs__(duthost,
                      test_flow_name,
                      background_flow_name): 
 
-    bg_dscp_list = [str(prio) for prio in lossless_prio_dscp_map]
-    test_dscp_list = [str(x) for x in range(64) if str(x) not in bg_dscp_list]
+    lossless_prio_list = [str(prio) for prio in lossless_prio_dscp_map]
+    lossy_prio_list = [str(x) for x in range(64) if str(x) not in lossless_prio_list]
 
     tx = l1_config.ports[0]
     rx = l1_config.ports[1]
@@ -135,7 +130,7 @@ def __base_configs__(duthost,
     ######################################################################
     # Traffic configuration Test data
     ######################################################################
-    test_dscp = Priority(Dscp(phb=FieldPattern(choice=test_dscp_list)))
+    test_dscp = Priority(Dscp(phb=FieldPattern(choice=lossy_prio_list)))
     test_flow = Flow(
         name=test_flow_name,
         tx_rx=TxRx(data_endpoint),
@@ -152,7 +147,7 @@ def __base_configs__(duthost,
     #######################################################################
     # Traffic configuration Background data
     #######################################################################
-    background_dscp = Priority(Dscp(phb=FieldPattern(choice=bg_dscp_list)))
+    background_dscp = Priority(Dscp(phb=FieldPattern(choice=lossless_prio_list)))
     background_flow = Flow(
         name=background_flow_name,
         tx_rx=TxRx(data_endpoint),
@@ -171,7 +166,8 @@ def __base_configs__(duthost,
     #######################################################################
     pause_src_point = PortTxRx(tx_port_name='Rx', rx_port_names=['Rx'])
     if (pause_frame_type == 'priority') :
-        p = ['0' if str(x) in test_dscp_list else 'ffff' for x in range(8)]
+        p = ['0' if str(x) in lossless_prio_list else 'ffff' for x in range(8)]
+        
         v = __calculate_priority_vector__(p) 
         pause = Header(PfcPause(
             dst=FieldPattern(choice='01:80:C2:00:00:01'),
@@ -215,6 +211,7 @@ def __base_configs__(duthost,
     l1_config.flows.append(pause_flow)
     return l1_config
 
+
 def __port_bandwidth__(conn_graph_facts,
                        fanout_graph_facts,
                        bw_multiplier) :
@@ -248,9 +245,6 @@ def __port_bandwidth__(conn_graph_facts,
    return reference_speed * bw_multiplier
 
 
-##################################
-# NEW CODE ------------------
-#################################
 def run_test_pfc_lossy(api,
                        duthost,
                        conn_graph_facts,
@@ -276,6 +270,8 @@ def run_test_pfc_lossy(api,
     l1_config.ports[0].name = 'Tx'
     l1_config.ports[1].name = 'Rx'
 
+    duthost.shell('sudo pfcwd stop')
+
     base_config = __base_configs__(duthost,
                                    lossless_prio,
                                    l1_config,
@@ -300,7 +296,6 @@ def run_test_pfc_lossy(api,
     # stop all flows
     api.set_state(State(FlowTransmitState(state='stop')))
 
-    # Get statistics
     port_bandwidth_value = __port_bandwidth__(conn_graph_facts,
                                               fanout_graph_facts,
                                               bw_multiplier)
@@ -309,7 +304,7 @@ def run_test_pfc_lossy(api,
     for row in api.get_flow_results(FlowRequest(flow_names=stat_captions)):
         if (row['name'] == test_flow_name) or (row['name'] == background_flow_name):
             if ((row['frames_rx'] == 0) or (row['frames_tx'] != row['frames_rx'])):
-                 pytest.fail("Not all %s reached Rx End" %(rows[caption_index]))
+                 pytest.fail("Not all %s reached Rx End" %(row['name']))
 
             line_rate = traffic_line_rate / 100.0
             exp_rx_bytes = (port_bandwidth_value * line_rate * traffic_duration) / 8
