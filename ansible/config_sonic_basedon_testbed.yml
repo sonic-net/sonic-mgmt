@@ -65,6 +65,10 @@
   - topo_facts: topo={{ topo }}
     delegate_to: localhost
 
+  - name: gather dual ToR information
+    dual_tor_facts: hostname="{{ inventory_hostname }}" testbed_facts="{{ testbed_facts }}" hostvars="{{ hostvars }}"
+    delegate_to: localhost
+
   - name: set default vm file path
     set_fact:
       vm_file: veos

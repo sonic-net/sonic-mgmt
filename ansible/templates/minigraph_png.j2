@@ -33,6 +33,16 @@
            <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
       </Device>
+{% if 'neighbor' in dual_tor_facts %}
+    <Devices>
+      <Device i:type="{{ vm_topo_config['dut_type'] }}">
+        <Hostname>{{ dual_tor_facts['neighbor']['hostname'] }}</Hostname>
+        <HwSku>{{ dual_tor_facts['neighbor']['hwsku'] }}</HwSku>
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
+        </ManagementAddress>
+      </Device>
+{% endif %}
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
 {% if 'T1' in dev %}
