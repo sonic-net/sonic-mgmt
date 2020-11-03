@@ -722,13 +722,14 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         :param expected_speed: Expect speed in percentage.
         :return: True if match else False.
         """
-        for fan_data in self.expected_data.values():
-            if fan_data.target_speed_file:
-                target_speed = fan_data.get_target_speed()
-                if expected_speed != target_speed:
-                    logging.error(
-                        '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
-                    return False
+        for drawer_data in self.drawer_list:
+            for fan_data in drawer_data.fan_data_list:
+                if fan_data.target_speed_file:
+                    target_speed = fan_data.get_target_speed()
+                    if expected_speed != target_speed:
+                        logging.error(
+                            '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
+                        return False
         return True
 
 
