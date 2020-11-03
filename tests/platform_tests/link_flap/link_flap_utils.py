@@ -91,7 +91,7 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
 
     if port != 'unknown':
         status = __get_dut_if_status(dut, port)
-        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, port)
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, port)
         __build_candidate_list(candidates, fanout, fanout_port, port, status)
     else:
         # Build the full list
@@ -99,7 +99,7 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
         status = __get_dut_if_status(dut)
 
         for dut_port in status.keys():
-            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut_port)
+            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, dut_port)
             __build_candidate_list(candidates, fanout, fanout_port, dut_port, status)
 
         if completeness_level == 'debug':
