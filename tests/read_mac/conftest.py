@@ -6,7 +6,9 @@ def pytest_addoption(parser):
     """
         Adding arguments required for read MAC metadata testcase
     """
-    parser.addoption(
+    read_mac_group = parser.getgroup("Read MAC metadata test suite options")
+
+    read_mac_group.addoption(
         "--iteration",
         action="store",
         type=int,
@@ -14,7 +16,7 @@ def pytest_addoption(parser):
         required=True,
     )
 
-    parser.addoption(
+    read_mac_group.addoption(
         '--image1',
         action='store',
         type=str,
@@ -22,7 +24,7 @@ def pytest_addoption(parser):
         required=True,
     )
 
-    parser.addoption(
+    read_mac_group.addoption(
         '--image2',
         action='store',
         type=str,
@@ -30,13 +32,13 @@ def pytest_addoption(parser):
         required=True,
     )
 
-    parser.addoption(
+    read_mac_group.addoption(
         '--minigraph1',
         action='store',
         type=str,
         help='path to the minigraph1',
     )
-    parser.addoption(
+    read_mac_group.addoption(
         '--minigraph2',
         action='store',
         type=str,

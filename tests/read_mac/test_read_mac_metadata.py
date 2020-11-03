@@ -82,7 +82,6 @@ class ReadMACMetadata():
                 logger.info("Wait until system is stable")
                 pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
 
-
             if current_minigraph:
                 logger.info("Execute cli 'config load_minigraph -y' to apply new minigraph")
                 duthost.shell("config load_minigraph -y")
