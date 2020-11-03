@@ -10,14 +10,18 @@
 - [Test Cases](#Test-cases)
   - [Static NAT/NAPT](#Static-NAT/NAPT)
     - [test_nat_static_basic](#Test-case-test_nat_static_basic)
+    - [test_nat_static_basic_icmp](#Test-case-test_nat_static_basic_icmp)
     - [test_nat_static_napt](#Test-case-test_nat_static_napt)
     - [test_nat_clear_statistics_static_basic](#Test-case-test_nat_clear_statistics_static_basic)
     - [test_nat_clear_statistics_static_napt](#Test-case-test_nat_clear_statistics_static_napt)
     - [test_nat_clear_translations_static_basic](#Test-case-test_nat_clear_translations_static_basic)
     - [test_nat_clear_translations_static_napt](#Test-case-test_nat_clear_translations_static_napt)
     - [test_nat_crud_static_nat](#Test-case-test_nat_crud_static_nat)
+    - [test_nat_crud_static_napt](#Test-case-test_nat_crud_static_napt)
+    - [test_nat_reboot_static_basic](#Test-case-test_nat_reboot_static_basic)
+    - [test_nat_reboot_static_napt](#Test-case-test_nat_reboot_static_napt)
     - [test_nat_static_zones_basic_snat](#Test-case-test_nat_static_zones_basic_snat)
-    - [test_nat_static_zones_basic_dnat](#Test-case-test_nat_static_zones_basic_dnat)
+    - [test_nat_static_zones_basic_icmp_snat](#Test-case-test_nat_static_zones_basic_icmp_snat)
     - [test_nat_static_zones_napt_dnat_and_snat](#Test-case-test_nat_static_zones_napt_dnat_and_snat)
   - [Dynamic NAT](#Dynamic-NAT)
     - [test_nat_dynamic_basic](#Test-case-test_nat_dynamic_basic)
@@ -26,6 +30,8 @@
     - [test_nat_dynamic_entry_persist_icmp](#Test-case-test_nat_dynamic_entry_persist_icmp)
     - [test_nat_dynamic_disable_nat](#Test-case-test_nat_dynamic_disable_nat)
     - [test_nat_dynamic_disable_nat_icmp](#Test-case-test_nat_dynamic_disable_nat_icmp)
+    - [test_nat_dynamic_bindings](#Test-case-test_nat_dynamic_bindings)
+    - [test_nat_dynamic_bindings_icmp](#Test-case-test_nat_dynamic_bindings_icmp)
     - [test_nat_dynamic_other_protocols](#Test-case-test_nat_dynamic_other_protocols)
     - [test_nat_dynamic_acl_rule_actions](#Test-case-test_nat_dynamic_acl_rule_actions)
     - [test_nat_dynamic_acl_rule_actions_icmp](#Test-case-test_nat_dynamic_acl_rule_actions_icmp)
@@ -36,6 +42,7 @@
     - [test_nat_dynamic_crud_icmp](#Test-case-test_nat_dynamic_crud_icmp)
     - [test_nat_dynamic_full_cone](#Test-case-test_nat_dynamic_full_cone)
     - [test_nat_dynamic_enable_disable_nat_docker](#Test-case-test_nat_dynamic_enable_disable_nat_docker)
+    - [test_nat_dynamic_enable_disable_nat_docker_icmp](#Test-case-test_nat_dynamic_enable_disable_nat_docker_icmp)
     - [test_nat_clear_statistics_dynamic](#Test-case-test_nat_clear_statistics_dynamic)
     - [test_nat_clear_translations_dynamic](#Test-case-test_nat_clear_translations_dynamic)
     - [test_nat_interfaces_flap_dynamic](#Test-case-test_nat_interfaces_flap_dynamic)
@@ -49,7 +56,7 @@
 
 | Rev |     Date    |       Author       | Change Description                 |
 |:---:|:-----------:|:-------------------|:-----------------------------------|
-| 0.2 |  20/10/2020 | Mykhailo Onipko, <br> Roman Savchuk|          Initial version           |
+| 0.3 |  03/11/2020 | Mykhailo Onipko, <br> Roman Savchuk|          Initial version           |
 
 
 ## Overview
@@ -102,6 +109,7 @@ NAT test suite is located in tests/nat folder. The are two separate files test_n
 ### Setup of DUT switch
 
 During setup procedure python mgmt scripts perform DUT configuration with CLI commands via corresponding wrappers.
+Setup  procedure configures/removes  PTF's vrf interfaces with fixture setup_test_env
 
 For specific features like ACL mgmt scripts are using jinja template to convert it in to the JSON file containing configuration to be pushed to the SONiC config DB via sonic-cfggen.
 
@@ -146,7 +154,6 @@ Verify that NAT will happen when NAT basic static configuration applied on DUT
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -154,12 +161,37 @@ Verify that NAT will happen when NAT basic static configuration applied on DUT
 - Define network data
 - Apply Static NAT config on DUT via CLI
 - Perform handshake
-- Send bidirectional traffic
-- Verify that packet was SNAT and DNAT in both directions
+- Send bidirectional traffic with configured inner SRC IP
+- Verify that packet was SNAT and DNAT in both directions for configured inner SRC IP
+- Send bidirectional traffic with not configured inner SRC IP
+- Verify that packets are not translating for not configured inner SRC IP
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+## Test case test_nat_static_basic_icmp
+
+### Test objective
+
+Verify that NAT for ICMP will happen when NAT basic static configuration applied on DUT
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAT config on DUT via CLI
+- Send ICMP traffic with configured inner SRC IP
+- Verify that packet was SNAT and DNAT in both directions for configured inner SRC IP
+- Send ICMP traffic with not configured inner SRC IP
+- Verify that ICMP packets are not translating for not configured inner SRC IP
+
+### Test teardown
+
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -171,7 +203,6 @@ Verify that NAT will happen when static NAPT configuration applied on DUT
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -179,12 +210,13 @@ Verify that NAT will happen when static NAPT configuration applied on DUT
 - Define network data and L4 ports
 - Apply Static NAPT config on DUT via CLI
 - Perform handshake
-- Send bidirectional traffic
+- Send bidirectional traffic with DST IP/PORT according the configured NAPT rule 
 - Verify that traffic was SNAPT and DNAPT in both direction
+- Send traffic traffic with DST IP according the configured NAPT rule and different DST PORT
+- Verify that traffic was not DNAPTed
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -197,7 +229,6 @@ Verify that for NAT static basic configuraion NAT statistics is incremeting and 
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -206,14 +237,13 @@ Verify that for NAT static basic configuraion NAT statistics is incremeting and 
 - Apply Static NAT config on DUT via CLI
 - Perform handshake
 - Send bidirectional traffic
-- Verify that traffic was SNAPT and DNAPT in both direction
+- Verify that traffic was SNAT and DNAT in both direction
 - Verify that NAT statistics is incremeting
 - Perform clearance procedure for NAT statistics
 - Make sure NAT statistics has been cleared 
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -225,7 +255,6 @@ Verify that for NAPT static configuraion NAT statistics is incremeting and can b
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -241,7 +270,6 @@ Verify that for NAPT static configuraion NAT statistics is incremeting and can b
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -254,7 +282,6 @@ Verify that for NAT static basic configuraion NAT translations cannot be cleared
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -274,7 +301,6 @@ Verify that for NAT static basic configuraion NAT translations cannot be cleared
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -286,27 +312,25 @@ Verify that for static NAPT configuraion NAT translations cannot be cleared
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
 
 - Define network data
 - Define expected NAT translations
-- Apply Static NAT config on DUT via CLI
+- Apply Static NAPT config on DUT via CLI
 - Perform handshake
-- Make sure NAT translations has been set 
+- Make sure NAPT translations has been set 
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT in both direction
-- Perform clearance procedure for static NAT translations
-- Make sure NAT translations are not cleared
-- Make sure NAT statistics is not cleared
+- Perform clearance procedure for static NAPT translations
+- Make sure NAPT translations are not cleared
+- Make sure NAPT statistics is not cleared
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT in both direction
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -319,7 +343,6 @@ Verify Create/Read/Update/Delete actions for NAT static basic rule
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -333,7 +356,7 @@ Verify Create/Read/Update/Delete actions for NAT static basic rule
 - Remove NAT rule 
 - Make sure static basic NAT rule has been deleted
 - Send bidirectional traffic
-- Verify that traffic was forwarded and not not SNAT/DNAT in both direction
+- Verify that traffic was forwarded and not SNAT/DNAT in both direction
 - Add updated static basic NAT rule
 - Make sure updated static basic NAT rule has been set 
 - Perform handshake
@@ -342,23 +365,116 @@ Verify Create/Read/Update/Delete actions for NAT static basic rule
 - Remove NAT rule 
 - Make sure static basic NAT rule has been deleted
 - Send bidirectional traffic
-- Verify that traffic was forwarded and not not SNAT/DNAT in both direction
+- Verify that traffic was forwarded and not SNAT/DNAT in both direction
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
+
+## Test case test_nat_crud_static_napt
+
+### Test objective
+
+Verify Create/Read/Update/Delete actions for NAPT static rule
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAPT config on DUT via CLI
+- Perform handshake
+- Make sure static NAPT rule has been set 
+- Send bidirectional traffic
+- Verify that traffic was SNAPT and DNAPT
+- Remove NAPT rule 
+- Make sure static NAPT rule has been deleted
+- Send bidirectional traffic
+- Verify that traffic was forwarded and not SNAPT/DNAPT
+- Add updated static NAPT rule
+- Make sure updated static NAPT rule has been set 
+- Perform handshake
+- Send bidirectional traffic
+- Verify that traffic was SNAPT and DNAPT
+- Remove NAT rule 
+- Make sure static NAPT rule has been deleted
+- Send bidirectional traffic
+- Verify that traffic was forwarded and not SNAPT/DNAPT
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+## Test case test_nat_reboot_static_basic
+
+### Test objective
+
+Verify for static basic NAT that with saved configuration after COLD/FAST reboot translation takes place in accordance saved and restored static basic NAT rules
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAT config on DUT via CLI
+- Perform handshake
+- Send bidirectional traffic
+- Verify that traffic was SNAT and DNAT in both direction
+- Save running configuration
+- Perform COLD/FAST(parametrized) reboot
+- Perform handshake
+- Send bidirectional traffic
+- Verify that traffic was SNAT and DNAT in both direction
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_reboot_static_napt
+
+### Test objective
+
+Verify for static NAPT that with saved configuration after COLD/FAST reboot translation takes place in accordance saved and restored static basic NAT rules
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAPT config on DUT via CLI
+- Perform handshake
+- Send bidirectional traffic
+- Verify that traffic was SNAPT and DNAPT in both direction
+- Save running configuration
+- Perform COLD/FAST(parametrized) reboot
+- Perform handshake
+- Send bidirectional traffic
+- Verify that traffic was SNAPT and DNAPT in both direction
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
 
 ## Test case test_nat_static_zones_basic_snat
 
 ### Test objective
 
-Verify for static basic NAT that there is no NAT when all interfaces zones configuration is set to 1 for direction host-tor
+Verify for static basic NAT that there is no NAT when all interfaces zones configuration is set to 1 
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -369,7 +485,7 @@ Verify for static basic NAT that there is no NAT when all interfaces zones confi
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was forwarded and not SNAT
-- Set inner interface zone config to 0 
+- Set inner interface (Vlan1000) zone config to 0 
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was SNAT and DNAT in both direction
@@ -377,20 +493,18 @@ Verify for static basic NAT that there is no NAT when all interfaces zones confi
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
 
-## Test case test_nat_static_zones_basic_dnat
+## Test case test_nat_static_zones_basic_icmp_snat
 
 ### Test objective
 
-Verify for static basic NAT that there is no NAT when all interfaces zones configuration is set to 1 for direction leaf-tor
+Verify for static basic NAT that there is no NAT for ICMP when all interfaces zones configuration is set to 1 
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -398,18 +512,15 @@ Verify for static basic NAT that there is no NAT when all interfaces zones confi
 - Define network data
 - Set all interfaces zone config to 1
 - Apply Static NAT config on DUT via CLI
-- Perform handshake
-- Send bidirectional traffic
-- Verify that traffic was forwarded and not DNAT
-- Set inner interface zone config to 0 
-- Perform handshake
-- Send bidirectional traffic
+- Send ICMP traffic
+- Verify that traffic was forwarded and not SNAT
+- Set inner interface (Vlan1000) zone config to 0 
+- Send ICMP traffic
 - Verify that traffic was SNAT and DNAT in both direction
 
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -422,7 +533,6 @@ Verify for static NAPT that there is no NAT when all interfaces zones configurat
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -432,9 +542,9 @@ Verify for static NAPT that there is no NAT when all interfaces zones configurat
 - Apply Static NAPT config on DUT via CLI
 - Perform handshake
 - Send bidirectional traffic
-- Verify that traffic was DNAPT
+- Verify that traffic was refused/dropped and not DNAPT
 - Verify that traffic was forwarded and not SNAPT
-- Set inner interface zone config to 0 
+- Set inner interface (Vlan1000) zone config to 0 
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT in both direction
@@ -442,7 +552,6 @@ Verify for static NAPT that there is no NAT when all interfaces zones configurat
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -457,7 +566,6 @@ Verify that NAT will happen when NAT basic dynamic configuration applied on DUT
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -470,7 +578,6 @@ Verify that NAT will happen when NAT basic dynamic configuration applied on DUT
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -483,20 +590,17 @@ Verify that NAT will happen when NAT basic dynamic configuration applied on DUT 
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Perform handshake
 - Send bidirectional traffic
 - Verify that packet was SNAT and DNAT in both directions
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -508,7 +612,6 @@ Verify that dynamic NAT entries are stay in the translation table according NAT 
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -516,12 +619,14 @@ Verify that dynamic NAT entries are stay in the translation table according NAT 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
-- Send bidirectional traffic 4 times with timeout in range of the NAT protocol timeout settings
-- Verify that packet was SNAT and DNAT in both directions
+- Send bidirectional traffic 
+- Verify that NAT entries are persist in the translation table according NAT protocol timeout settings, packet was SNAT and DNAT in both directions
+- Wait random time in range [1 second: half global protocol timout value]
+- Repeat previous 3 steps 4 times 
+
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -534,20 +639,19 @@ Verify that with no dynamic NAT entries in the translation table ICMP id value i
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Perform handshake
-- Send bidirectional traffic 4 times with timeout 15 seconds
-- Verify that packet was SNAT and DNAT in both directions
+- Send ICMP traffic
+- Verify that no dynamic NAT entries in the translation table, packet was SNAT and DNAT in both directions, ICMP id value is persist and id value is in dynamic pool range 
+- Wait 15 seconds
+- Repeat previous 2 steps 4 times 
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -560,7 +664,6 @@ Verify there is no any NAT translation for dynamic NAT configuration with disabl
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -578,7 +681,6 @@ Verify there is no any NAT translation for dynamic NAT configuration with disabl
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -590,7 +692,6 @@ Verify there is no any NAT translation for dynamic NAT configuration with disabl
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -608,7 +709,57 @@ Verify there is no any NAT translation for dynamic NAT configuration with disabl
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_bindings
+
+### Test objective
+
+Verify there is no any NAT translation for dynamic NAT configuration with removed bindigs
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Dynamic NAT config on DUT via CLI
+- Remove NAT POOL bindings to ACL 
+- Perform handshake
+- Send bidirectional traffic
+- Verify that packet was not SNAT and DNAT in both directions
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+## Test case test_nat_dynamic_bindings_icmp
+
+### Test objective
+
+Verify there is no any NAT translation for ICMP and dynamic NAT configuration with removed bindigs
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Dynamic NAT config on DUT via CLI
+- Remove NAT POOL bindings to ACL 
+- Perform handshake
+- Send ICMP traffic
+- Verify that packet was not SNAT and DNAT in both directions
+
+
+### Test teardown
+
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -620,7 +771,6 @@ Verify there is no any NAT translation for non-IPv4 traffic
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -633,7 +783,6 @@ Verify there is no any NAT translation for non-IPv4 traffic
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -646,29 +795,27 @@ Verify that NAT happens with ACL action "forward" and does not with action "do_n
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Set ACL with "do_not_nat" action
+- Set ACL with priority 10, src_ip 192.168.0.0/24 and "do_not_nat" action
 - Perform handshake
-- Send bidirectional traffic
+- Send bidirectional traffic with src_ip 192.168.0.101
 - Verify that packet was not SNAT and DNAT in both directions
-- Set ACL with "forward" action
+- Set ACL with priority 10, src_ip 192.168.0.0/24 and "forward" action
 - Perform handshake
-- Send bidirectional traffic
+- Send bidirectional traffic with src_ip 192.168.0.101
 - Verify that packet was SNAT and DNAT in both directions
-- Set ACL with "do_not_nat" action
+- Set ACL with priority 10, src_ip 192.168.0.0/24 and "do_not_nat" action
 - Perform handshake
-- Send bidirectional traffic
+- Send bidirectional traffic with src_ip 192.168.0.101
 - Verify that packet was not SNAT and DNAT in both directions
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -681,26 +828,24 @@ Verify that NAT happens with ACL action "forward" and does not with action "do_n
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Set ACL with "do_not_nat" action
-- Send bidirectional traffic
+- Set ACL with priority 10, src_ip 192.168.0.0/24 and "do_not_nat" action
+- Send ICMP traffic with src_ip 192.168.0.101
 - Verify that packet was not SNAT and DNAT in both directions
-- Set ACL with "forward" action
-- Send bidirectional traffic
+- Set ACL with priority 10, src_ip 192.168.0.0/24 and "forward" action
+- Send ICMP traffic with src_ip 192.168.0.101
 - Verify that packet was SNAT and DNAT in both directions
-- Set ACL with "do_not_nat" action
-- Send bidirectional traffic
+- Set ACL with priority 10, src_ip 192.168.0.0/24 and "do_not_nat" action
+- Send ICMP traffic with src_ip 192.168.0.101
 - Verify that packet was not SNAT and DNAT in both directions
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -713,7 +858,6 @@ Verify that NAT happens with ACL action "forward" and does not with action "do_n
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -721,17 +865,16 @@ Verify that NAT happens with ACL action "forward" and does not with action "do_n
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
-- Send bidirectional traffic
+- Send bidirectional traffic with src_ip 192.168.0.101
 - Verify that packet was SNAT and DNAT in both directions
-- Set ACL with "do_not_nat" action and change ACL subnet value
-- Change traffic SRC IP according to the ACL subnet value
+- Set ACL with priority 10, src_ip 172.20.0.0/24 and "do_not_nat" action
+- Send ICMP traffic with src_ip 172.20.0.2
 - Perform handshake
 - Send bidirectional traffic
 - Verify that packet was not SNAT and DNAT in both directions
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -744,7 +887,6 @@ Verify that NAT happens with ACL action "forward" and does not with action "do_n
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -760,7 +902,6 @@ Verify that NAT happens with ACL action "forward" and does not with action "do_n
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -773,7 +914,6 @@ Verify that all NAT requests will be dropped in case all L4 port values from the
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -799,7 +939,6 @@ Verify that all NAT requests will be dropped in case all L4 port values from the
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -812,7 +951,6 @@ Verify that the same dynamic NAT entry's (re-added) SRC PORT is changed if dynam
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -831,7 +969,6 @@ Verify that the same dynamic NAT entry's (re-added) SRC PORT is changed if dynam
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -844,7 +981,6 @@ Verify that translated ICMP id is changed for same traffic item if dynamic pool 
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -859,7 +995,6 @@ Verify that translated ICMP id is changed for same traffic item if dynamic pool 
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -871,7 +1006,6 @@ Verify full cone(one to one) NAT funcionality for dynamic NAT
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -885,7 +1019,6 @@ Verify full cone(one to one) NAT funcionality for dynamic NAT
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -897,7 +1030,6 @@ Verify that when NAT docker is disabled - iptable rules in the nat table and dyn
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -916,7 +1048,34 @@ Verify that when NAT docker is disabled - iptable rules in the nat table and dyn
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_enable_disable_nat_docker_icmp
+
+### Test objective
+
+Verify that when NAT docker is disabled - iptable rules in the nat table and dynamic NAT translation entries are cleared.
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Dynamic NAT config on DUT via CLI
+- Make sure iptables rules are in the nat table
+- Send ICMP traffic from the inner network 
+- Stop NAT docker
+- Make sure corresponding iptables rules are cleared
+- Start NAT docker
+- Make sure corresponding iptables rules are restored
+
+
+### Test teardown
+
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -929,7 +1088,6 @@ Verify that NAT statistics counters for dynamic NAT entries are incremeting and 
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -945,7 +1103,6 @@ Verify that NAT statistics counters for dynamic NAT entries are incremeting and 
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -958,7 +1115,6 @@ Verify that translation entries for dynamic NAT can be cleared
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -975,7 +1131,6 @@ Verify that translation entries for dynamic NAT can be cleared
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -987,7 +1142,6 @@ Verify that dynamic NAT translation entries and iptables rules are not cleared i
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -1006,7 +1160,6 @@ Verify that dynamic NAT translation entries and iptables rules are not cleared i
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -1020,7 +1173,6 @@ Verify for dynamic NAT that there is no NAT when all interfaces zones configurat
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -1033,14 +1185,13 @@ Verify for dynamic NAT that there is no NAT when all interfaces zones configurat
 - Set all interfaces zones configuration to 1
 - Send bidirectional traffic
 - Verify that traffic is not SNAT and DNAT 
-- Set inner interface zone configuration to 0
+- Set inner interface (Vlan1000) zone configuration to 0
 - Perform handshake
 - Send bidirectional traffic
 - Verify that corresponding dynamic NAT entriy is created and traffic is SNAT 
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration
 
@@ -1054,7 +1205,6 @@ Verify for dynamic NAT that there is no NAT when all interfaces zones configurat
 
 ### Test set up
 
-- setup_test_env fixture(scope="module"): configures vrf interfaces
 - apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
 
 ### Test steps
@@ -1066,12 +1216,11 @@ Verify for dynamic NAT that there is no NAT when all interfaces zones configurat
 - Set all interfaces zones configuration to 1
 - Send same traffic set from the inner network 
 - Verify that ICMP packets have not trasnlated and forwarded
-- Set inner interface zone configuration to 0
+- Set inner interface (Vlan1000) zone configuration to 0
 - Send same traffic set from the inner network 
 - Verify that ICMP packets have correct translated SRC IP and ICMP id value in the configured dynamic pool range
 
 ### Test teardown
 
-- setup_test_env fixture(scope="module"): remove ptf interfaces
 - apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
 - teardown fixture(scope="function"): remove all NAT related configuration

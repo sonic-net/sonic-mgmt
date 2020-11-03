@@ -51,14 +51,14 @@ def teardown(duthost):
 
 
 @pytest.fixture(params=["loopback", "port_in_lag"], scope='module')
-def setup_test_env(request, ptfhost, duthost, testbed):
+def setup_test_env(request, ptfhost, duthost, tbinfo):
     """
-    setup testbed's environment for CT run
+    setup tbinfo's environment for CT run
     :param request: pytest request object
     :param ptfhost: PTF host object
     :param duthost: DUT host object
-    :param testbed: Testbed object
-    :return: interface type and testbed setup info
+    :param tbinfo: Testbed object
+    :return: interface type and tbinfo setup info
     """
     interface_type = request.param
     interfaces_nat_zone = {}
@@ -73,7 +73,7 @@ def setup_test_env(request, ptfhost, duthost, testbed):
         port = config_portchannels[port_id]['members'][0]
         portchannels_port_indices.append(config_port_indices[port])
     inner_port_id = SETUP_CONF[interface_type]["vrf"]["blue"]["port_id"]
-    outer_port_id = testbed['topo']['properties']['topology']['VMs']['ARISTA01T1']['vlans']
+    outer_port_id = tbinfo['topo']['properties']['topology']['VMs']['ARISTA01T1']['vlans']
     dut_rifs_in_topo_t0 = [el[8:] for el in duthost.setup()['ansible_facts'].keys()
                            if 'PortCh' in el or 'Loop' in el or 'Vlan' in el]
     dut_rifs_in_topo_t0 = sorted(dut_rifs_in_topo_t0, reverse=True)
@@ -119,13 +119,13 @@ def setup_test_env(request, ptfhost, duthost, testbed):
                         }
     try:
         # Setup interfaces on PTF container
-        conf_ptf_interfaces(testbed, ptfhost, duthost, setup_information, interface_type)
+        conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type)
     except Exception as err:
-        teardown_test_env(testbed, duthost, ptfhost, setup_information, interface_type)
+        teardown_test_env(tbinfo, duthost, ptfhost, setup_information, interface_type)
         raise err
     yield interface_type, setup_information
     # Remove ptf interfaces
-    conf_ptf_interfaces(testbed, ptfhost, duthost, setup_information, interface_type, teardown=True)
+    conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type, teardown=True)
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -135,12 +135,8 @@ def apply_global_nat_config(duthost):
     after test run cleanup artifacts on DUT
     :param duthost: DUT host object
     """
-    # Set nat feature enabled, reload
+    # Set nat feature enabled
     duthost.command("sudo config feature state nat enabled")
-    duthost.command("sudo config save -y")
-    duthost.command("sudo config reload -y")
-    time.sleep(180)
-    
     # Set nat global values
     duthost.command("sudo config nat feature enable")
     duthost.command("sudo config nat set timeout {}".format(GLOBAL_NAT_TIMEOUT))
@@ -178,6 +174,19 @@ def enable_nat_config(request, duthost):
 
 
 @pytest.fixture()
+def reload_dut_config(request, duthost):
+    """
+    DUT's configuration reload on teardown
+    :param request: pytest request object
+    :param duthost: DUT host object
+    """
+    yield
+    if request.node.rep_call.failed:
+        duthost.command("sudo config reload -y")
+        time.sleep(120)
+
+
+@pytest.fixture()
 def enable_nat_docker(request, duthost):
     """
     enable NAT Docker on teardown
@@ -196,7 +205,7 @@ def cleaup_dut_route(request, duthost, setup_test_env):
     :param request: pytest request object
     :param duthost: DUT host object
     :param ptfhost: PTF host object
-    :param testbed: Testbed object
+    :param tbinfo: Testbed object
     :param setup_test_env: Setup information
     """
     yield
@@ -213,7 +222,7 @@ def enable_outer_interfaces(request, duthost, setup_test_env):
     :param request: pytest request object
     :param duthost: DUT host object
     :param ptfhost: PTF host object
-    :param testbed: Testbed object
+    :param tbinfo: Testbed object
     :param setup_test_env: Setup information
     """
     yield

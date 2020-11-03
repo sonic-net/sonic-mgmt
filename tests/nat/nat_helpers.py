@@ -56,6 +56,21 @@ PTF_NETWORK_DATA = namedtuple('PTF_NETWORK_DATA', ['outer_ports', 'inner_ports',
 L4_PORTS_DATA = namedtuple('L4_PORTS_DATA', ['src_port', 'dst_port', 'exp_src_port', 'exp_dst_port'])
 
 
+def set_static_arp_entries(duthost, ptfadapter):
+    """
+    Sets static arp entries on DUT for PTF's RIFs
+
+        Args:
+            duthost: DUT host object
+            ptfadapter: ptf adapter fixture
+    """
+    for vrf in VRF:
+        mac_address = BR_MAC[0]
+        if vrf != "red":
+            mac_address = ptfadapter.dataplane.get_mac(0, int(VRF[vrf]["port_id"]))
+        duthost.command("sudo arp -s {0} {1}".format(VRF[vrf]["ip"], mac_address))
+
+
 def configure_nat_over_cli(duthost, action, nat_type, global_ip, local_ip, proto=None,
                            global_port=None, local_port=None):
     """
@@ -345,6 +360,8 @@ def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
     else:
         pytest_assert('all' == static_nat['IP Protocol'])
     nat_zones_config(duthost, setup_data, interface_type)
+    # set_static arp entries
+    set_static_arp_entries(duthost, ptfadapter)
     # Perform TCP handshake
     if handshake:
         perform_handshake(ptfhost, setup_data, protocol_type, direction,
@@ -448,7 +465,7 @@ def setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, 
                   "|| echo '{} {}' >> /etc/iproute2/rt_tables".format(vrf_id, vrf_name, vrf_id, vrf_name))
     ptfhost.shell("ip link add {} type vrf table {}".format(vrf_name, vrf_id))
     ptfhost.shell("ip link set dev {} up".format(vrf_name))
-    if len(port_id) > 1:
+    if vrf_name == "red":
         br_interface = "br1"
         ptfhost.shell("ip link add name {} type bridge".format(br_interface))
         ptfhost.shell("ip link set dev {} up".format(br_interface))
@@ -526,7 +543,6 @@ def conf_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, t
         else:
             setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, vrf_id, vrf_name, port_id, ip_address,
                                  mask, gw_ip, key)
-    # Workaround SWI-3048
     ptfhost.shell('supervisorctl restart ptf_nn_agent')
 
 
@@ -821,7 +837,6 @@ def generate_and_verify_traffic_dropped(ptfadapter, setup_info, interface_type, 
 def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type, second_port=False, icmp_id=None):
     """
     Generates ICMP traffic and checks that traffic is translated due to NAT types/rules.
-    Or checks that ICMP traffic is not translated if argument `negative=True` is specified
 
         Args:
             ptfadapter: ptf adapter fixture
@@ -861,8 +876,7 @@ def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, dir
 def generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type, second_port=False,
                                                     ip_src=None, ip_dst=None, check_reply=True):
     """
-    Generates ICMP traffic and checks that traffic is translated due to NAT types/rules.
-    Or checks that ICMP traffic is not translated if argument `negative=True` is specified
+    Generates ICMP traffic and checks that traffic is not translated due to NAT types/rules.
 
         Args:
             ptfadapter: ptf adapter fixture
@@ -1007,6 +1021,8 @@ def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interfa
         duthost.command("config nat remove bindings")
     # Apply NAT zones
     nat_zones_config(duthost, setup_info, interface_type)
+    # set_static arp entries
+    set_static_arp_entries(duthost, ptfadapter)
     if handshake:
         # Perform handshake
         direction = 'host-tor'
