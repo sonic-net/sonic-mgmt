@@ -14,6 +14,7 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 
 from tests.common import reboot, port_toggle
+from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
@@ -66,10 +67,10 @@ def setup(duthost, tbinfo, ptfadapter):
         A Dictionary with required test information.
 
     """
-    topo = tbinfo["topo"]["type"]
-
-    if topo not in ("t0", "t1"):
-        pytest.skip("ACL test not supported on topology: \"{}\"".format(tbinfo["topo"]["name"]))
+    pytest_require(
+        tbinfo["topo"]["name"] != "dualtor",
+        "ACL test not supported on topology: \"{}\"".format(tbinfo["topo"]["name"])
+    )
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
 
@@ -79,6 +80,7 @@ def setup(duthost, tbinfo, ptfadapter):
     downstream_port_ids = []
     upstream_port_ids = []
 
+    topo = tbinfo["topo"]["type"]
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
         port_id = mg_facts["minigraph_port_indices"][interface]
         if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]):
@@ -196,9 +198,10 @@ def stage(request, duthost):
         str: The ACL stage to be tested.
 
     """
-    if request.param == "egress" and duthost.facts["asic_type"] in ("broadcom"):
-        pytest.skip("Egress ACLs are not currently supported on \"{}\" ASICs"
-                    .format(duthost.facts["asic_type"]))
+    pytest_require(
+        request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
+        "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
+    )
 
     return request.param
 
