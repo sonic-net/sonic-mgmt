@@ -52,6 +52,7 @@ def main():
             vlan_configs[vlan]['tag'] = vlan_param['tag']
             vlan_configs[vlan]['prefix'] = vlan_param['prefix']
             vlan_configs[vlan]['prefix_v6'] = vlan_param['prefix_v6']
+            vlan_configs[vlan]['mac'] = vlan_param['mac']
             vlan_configs[vlan]['intfs'] = [port_alias[i] for i in vlan_param['intfs']]
     except Exception as e:
         module.fail_json(msg = traceback.format_exc())
