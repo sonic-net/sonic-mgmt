@@ -166,6 +166,13 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ```
 - Requires switch connected to a PTF testbed
 
+##### Incremental Config Test
+```
+ansible-playbook test_sonic.yml -i {INVENTORY}  --limit {DUT_NAME} -e testcase_name=incremental_config -e testbed_name={TESTBED_NAME}
+```
+- Requires 2 active Ethernet interfaces on the DUT
+
+
 ##### LAG test
 ```
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=lag_2 -e testbed_name={TESTBED_NAME}
