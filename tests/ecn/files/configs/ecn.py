@@ -59,7 +59,7 @@ def __calculate_priority_vector__(v) :
     s = 0
     for i in range(8)  :
         if v[i] != '0' :
-           s += 2**7
+           s += 2**i
     return "%x"%(s)
 
 
@@ -255,6 +255,9 @@ def run_ecn_marking_at_egress(api,
     exp_dur = start_delay_secs + traffic_duration
     logger.info("Traffic is running for %s seconds" %(traffic_duration))
     time.sleep(exp_dur)
+
+    #import pytest
+    #pytest.set_trace()
 
     # stop all flows
     api.set_state(State(FlowTransmitState(state='stop')))
