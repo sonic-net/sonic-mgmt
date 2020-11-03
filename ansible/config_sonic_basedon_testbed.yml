@@ -104,6 +104,12 @@
     delegate_to: localhost
     when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
+  - name: find any tunnel configurations
+    tunnel_config: 
+      vm_topo_config: "{{ vm_topo_config }}"
+      tunnel_config: "{{ tunnel_config | default(None) }}"
+    delegate_to: localhost
+
   - name: find all interface indexes mapping connecting to VM
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'][dut_index|int] }) }}"
