@@ -493,7 +493,7 @@ class ReloadTest(BaseTest):
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
-        if self.reboot_type not in ['fast-reboot', 'warm-reboot']:
+        if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
 
@@ -541,7 +541,7 @@ class ReloadTest(BaseTest):
         self.generate_ping_dut_lo()
         self.generate_arp_ping_packet()
 
-        if self.reboot_type == 'warm-reboot':
+        if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
 
             # Pre-generate list of packets to be sent in send_in_background method.
@@ -884,7 +884,7 @@ class ReloadTest(BaseTest):
         if self.reboot_type == 'fast-reboot' and self.no_cp_replies < 0.95 * self.nr_vl_pkts:
             self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
 
-        if self.reboot_type == 'warm-reboot':
+        if 'warm-reboot' in self.reboot_type:
             if self.total_disrupt_time > self.limit.total_seconds():
                 self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
                     % (str(self.limit), str(self.total_disrupt_time)))
@@ -993,7 +993,7 @@ class ReloadTest(BaseTest):
             self.wait_until_reboot()
             if self.reboot_type == 'fast-reboot':
                 self.handle_fast_reboot_health_check()
-            if self.reboot_type == 'warm-reboot':
+            if 'warm-reboot' in self.reboot_type:
                 self.handle_warm_reboot_health_check()
             self.handle_post_reboot_health_check()
 
