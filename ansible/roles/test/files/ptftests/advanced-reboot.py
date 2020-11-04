@@ -872,8 +872,8 @@ class ReloadTest(BaseTest):
         for _, q in self.ssh_jobs:
             q.put('quit')
 
-        def wait_for_ssh_threads():
-            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+        def wait_for_ssh_threads(signal):
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
                 time.sleep(self.TIMEOUT)
 
             for thr, _ in self.ssh_jobs:
@@ -890,7 +890,7 @@ class ReloadTest(BaseTest):
         if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
             self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
 
-        if self.reboot_type == 'warm-reboot':
+        if 'warm-reboot' in self.reboot_type:
             if self.total_disrupt_time > self.limit.total_seconds():
                 self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
                     % (str(self.limit), str(self.total_disrupt_time)))
