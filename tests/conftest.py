@@ -86,6 +86,7 @@ class TestbedInfo(object):
                 line['topo']['type'] = self.get_testbed_type(line['topo']['name'])
                 with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
                     line['topo']['properties'] = yaml.safe_load(fh)
+                line['topo']['ptf_map'] = self.calculate_ptf_index_map(line)
 
                 self.testbed_topo[line['conf-name']] = line
 
@@ -100,6 +101,64 @@ class TestbedInfo(object):
             # everywhere.
             tb_type = 't0'
         return tb_type
+
+    def _parse_dut_port_index(self, port):
+        """
+        parse port string
+
+        port format : dut_index.port_index@ptf_index
+
+        """
+        m = re.match("(\d+)\.(\d+)@(\d+)", port)
+        (dut_index, port_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+        return (dut_index, port_index, ptf_index)
+
+    def calculate_ptf_index_map(self, line):
+        map = defaultdict()
+        if len(line['duts']) <= 1:
+            # No need to calculate map for single DUT testbed
+            return map
+
+        # For multi-DUT testbed, because multiple DUTs are sharing a same
+        # PTF docker, the ptf docker interface index will not be exactly
+        # match the interface index on DUT. The information is available
+        # in the topology facts. Get these information out and put them
+        # in the 2 levels dictionary as:
+        # { dut_index : { dut_port_index : ptf_index * } * }
+
+        topo_facts = line['topo']['properties']
+        if 'topology' not in topo_facts:
+            return map
+
+        topology = topo_facts['topology']
+        if 'host_interfaces' in topology:
+            for ports in topology['host_interfaces']:
+                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+                # if there is no '@' then they are shared, no need to update.
+                for port in ports.split(','):
+                    if '@' in port and '.' in port:
+                        dut_index, port_index, ptf_index = _parse_dut_port_index(port)
+                        if port_index != ptf_index:
+                            # Need to add this in map
+                            dut_dict = map[dut_index] if dut_index in map else {}
+                            dut_dict[port_index] = ptf_index
+                            map[dut_index] = dut_dict
+
+        if 'VMs' in topology:
+            for _, vm in topology['VMs'].items():
+                if 'vlans' in vm:
+                    for port in vm['vlans']:
+                        # Example: ['0.31@34', '1.31@35']
+                        if '@' in port and '.' in port:
+                            dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
+                            if port_index != ptf_index:
+                                # Need to add this in map
+                                dut_dict = map[dut_index] if dut_index in map else {}
+                                dut_dict[port_index] = ptf_index
+                                map[dut_index] = dut_dict
+
+        return map
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
