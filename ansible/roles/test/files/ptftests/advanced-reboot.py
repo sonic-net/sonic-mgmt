@@ -956,8 +956,8 @@ class ReloadTest(BaseTest):
         for _, q in self.ssh_jobs:
             q.put('quit')
 
-        def wait_for_ssh_threads():
-            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+        def wait_for_ssh_threads(signal):
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
                 time.sleep(self.TIMEOUT)
 
             for thr, _ in self.ssh_jobs:
