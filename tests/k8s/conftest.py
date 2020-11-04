@@ -26,3 +26,23 @@ def check_k8s_vms(k8shosts):
             if not "running" in line:
                 k8shost.shell("sudo systemctl start kubelet")
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+    """
+       Ignore expected failures logs during test execution
+
+       Kubernetes join attempt causes some expected failure logs when master serr
+vice is unreachable
+
+       Args:
+           duthost: DUT fixture
+           loganalyzer: Loganalyzer utility fixture
+    """
+    # When loganalyzer is disabled, the object could be None
+    if loganalyzer:
+         ignoreRegex = [
+             ".*Max retries exceeded with url: /admin.conf.*",
+             ".*for troubleshooting tips.*",
+         ]
+         loganalyzer.ignore_regex.extend(ignoreRegex)
+    yield
