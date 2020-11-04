@@ -441,6 +441,60 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
 
+
+@pytest.fixture(scope="module")
+def disable_container_autorestart(duthost):
+    def disable_container_autorestart(testcase="", all_features=False, feature_list=None):
+        command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
+        if command_output['rc'] != 0:
+            logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
+            logging.info("Skipping disable_container_autorestart")
+            return
+        container_autorestart_states = duthost.get_container_autorestart_states()
+        state_file_name = "/tmp/autorestart_state_{}_{}.json".format(duthost.hostname, testcase)
+        # Dump autorestart state to file
+        with open(state_file_name, "w") as f:
+            json.dump(container_autorestart_states, f)
+        # Disable autorestart for all containers
+        logging.info("Disable container autorestart")
+        cmd_disable = "config feature autorestart {} disabled"
+        cmds_disable = []
+        for name, state in container_autorestart_states.items():
+            if state == "enabled" and (all_features or name in feature_list):
+                cmds_disable.append(cmd_disable.format(name))
+        # Write into config_db
+        cmds_disable.append("config save -y")
+        duthost.shell_cmds(cmds=cmds_disable)
+
+    return disable_container_autorestart
+
+@pytest.fixture(scope="module")
+def enable_container_autorestart(duthost):
+    def enable_container_autorestart(testcase="", all_features=False, feature_list=None):
+        state_file_name = "/tmp/autorestart_state_{}_{}.json".format(duthost.hostname, testcase)
+        if not os.path.exists(state_file_name):
+            return
+        stored_autorestart_states = {}
+        with open(state_file_name, "r") as f:
+            stored_autorestart_states = json.load(f)
+        container_autorestart_states = duthost.get_container_autorestart_states()
+        # Recover autorestart states
+        logging.info("Recover container autorestart")
+        cmd_enable = "config feature autorestart {} enabled"
+        cmds_enable = []
+        for name, state in container_autorestart_states.items():
+            if state == "disabled"  and (all_features or name in feature_list) \
+                    and stored_autorestart_states.has_key(name) \
+                    and stored_autorestart_states[name] == "enabled":
+                cmds_enable.append(cmd_enable.format(name))
+        # Write into config_db
+        cmds_enable.append("config save -y")
+        duthost.shell_cmds(cmds=cmds_enable)
+        os.remove(state_file_name)
+
+    return enable_container_autorestart
+
+
 def get_host_data(request, dut):
     '''
     This function parses multple inventory files and returns the dut information present in the inventory

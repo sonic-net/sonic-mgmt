@@ -403,7 +403,9 @@ class QosSaiBase:
             updateIptablesDropRule(duthost, state="absent", **ipVersion)
 
     @pytest.fixture(scope='class')
-    def stopServices(self, duthost, swapSyncd):
+    @pytest.mark.usefixtures('enable_container_autorestart', 'disable_container_autorestart')
+    def stopServices(self, duthost, swapSyncd, \
+        enable_container_autorestart, disable_container_autorestart):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -441,12 +443,15 @@ class QosSaiBase:
             {"docker": "bgp",  "service": "bgpd"},
         ]
 
+        feature_list = ['lldp', 'bgp', 'syncd', 'swss']
+        disable_container_autorestart(testcase="test_qos_sai", feature_list=feature_list)
         logger.info("Stop lldp, lldp-syncd, and bgpd services")
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
         yield
 
+        enable_container_autorestart(testcase="test_qos_sai", feature_list=feature_list)
         logger.info("Start lldp, lldp-syncd, and bgpd services")
         for service in services:
             updateDockerService(duthost, action="start", **service)
