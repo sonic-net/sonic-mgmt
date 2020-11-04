@@ -69,5 +69,5 @@ def set_status_led(conn, psu_idx, fan_idx, color):
     return psu_fan_api(conn, psu_idx, fan_idx, 'set_status_led', [color])
 
 
-def get_status_led(conn, fan_idx):
+def get_status_led(conn, psu_idx, fan_idx):
     return psu_fan_api(conn, psu_idx, fan_idx, 'get_status_led')
