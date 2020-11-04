@@ -38,9 +38,9 @@ def config_syslog_srv(ptfhost):
 
 
 @pytest.fixture(scope="module")
-def config_dut(testbed, duthost):
+def config_dut(tbinfo, duthost):
     logger.info("Configuring the DUT")
-    local_syslog_srv_ip = testbed["ptf_ip"]
+    local_syslog_srv_ip = tbinfo["ptf_ip"]
     logger.info("test_syslog_srv_ip %s", local_syslog_srv_ip)
 
     # Add Rsyslog destination for testing

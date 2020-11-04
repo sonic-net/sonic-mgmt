@@ -23,11 +23,13 @@ VNI_BASE = 336
 COUNT = 10
 
 
-def prepare_ptf(ptfhost, mg_facts, dut_facts):
-    """
-    @summary: Prepare the PTF docker container for testing
-    @param mg_facts: Minigraph facts
-    @param dut_facts: Host facts of DUT
+def prepare_ptf(ptfhost, mg_facts, duthost):
+    """Prepare arp responder configuration and store temporary vxlan decap related information to PTF docker
+
+    Args:
+        ptfhost (PTFHost): The ptfhost fixture, instance of PTFHost
+        mg_facts (dict): Collected minigraph facts
+        duthost (SonicHost): The duthost fixture, instance of SonicHost
     """
 
     logger.info("Prepare arp_responder")
@@ -47,7 +49,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
-        "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"]
+        "dut_mac": duthost.facts["router_mac"]
     }
     ptfhost.copy(content=json.dumps(vxlan_decap, indent=2), dest="/tmp/vxlan_decap.json")
 
@@ -94,11 +96,9 @@ def setup(duthost, ptfhost):
 
     logger.info("Gather some facts")
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
-    dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
-    ptf_facts = ptfhost.setup(gather_subset="!all,!any,network")["ansible_facts"]
 
     logger.info("Prepare PTF")
-    prepare_ptf(ptfhost, mg_facts, dut_facts)
+    prepare_ptf(ptfhost, mg_facts, duthost)
 
     logger.info("Generate VxLAN config files")
     generate_vxlan_config_files(duthost, mg_facts)
@@ -135,14 +135,9 @@ def vxlan_status(setup, request, duthost):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost):
+def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost, creds):
 
     vxlan_enabled, scenario = vxlan_status
-
-    hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    inventory = hostVars['inventory_file'].split('/')[-1]
-    secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
-
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     ptf_runner(ptfhost,
@@ -152,8 +147,8 @@ def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost):
                 params={"vxlan_enabled": vxlan_enabled,
                         "config_file": '/tmp/vxlan_decap.json',
                         "count": COUNT,
-                        "sonic_admin_user": secrets[inventory]['sonicadmin_user'],
-                        "sonic_admin_password": secrets[inventory]['sonicadmin_password'],
+                        "sonic_admin_user": creds.get('sonicadmin_user'),
+                        "sonic_admin_password": creds.get('sonicadmin_password'),
                         "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
                 qlen=10000,
                 log_file=log_file)

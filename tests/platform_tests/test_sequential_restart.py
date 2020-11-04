@@ -11,11 +11,12 @@ import pytest
 from tests.common import config_reload
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import check_critical_processes, get_critical_processes_status
 from tests.common.utilities import wait_until
-from check_critical_services import check_critical_services
-from check_transceiver_status import check_transceiver_basic
-from check_all_interface_info import check_interface_information
+from tests.common.platform.processes_utils import check_critical_processes
+from tests.common.platform.processes_utils import get_critical_processes_status
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.transceiver_utils import check_transceiver_basic
+from tests.common.platform.interface_utils import check_interface_information
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -41,7 +42,7 @@ def restart_service_and_check(localhost, dut, service, interfaces):
     dut.command("sudo systemctl restart %s" % service)
 
     logging.info("Wait until all critical services are fully started")
-    check_critical_services(dut)
+    wait_critical_processes(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
     pytest_assert(wait_until(300, 20, check_interface_information, dut, interfaces),
@@ -69,7 +70,7 @@ def test_restart_swss(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to restart the swss service and check platform status
     """
-    restart_service_and_check(localhost, duthost, "swss", conn_graph_facts["device_conn"])
+    restart_service_and_check(localhost, duthost, "swss", conn_graph_facts["device_conn"][duthost.hostname])
 
 
 @pytest.mark.skip(reason="Restarting syncd is not supported yet")
@@ -77,4 +78,4 @@ def test_restart_syncd(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to restart the syncd service and check platform status
     """
-    restart_service_and_check(localhost, duthost, "syncd", conn_graph_facts["device_conn"])
+    restart_service_and_check(localhost, duthost, "syncd", conn_graph_facts["device_conn"][duthost.hostname])

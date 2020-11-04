@@ -4,6 +4,7 @@ import pytest
 import re
 import yaml
 
+from natsort import natsorted
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.system_utils import docker
 
@@ -462,13 +463,26 @@ class QosSaiBase:
             Returns:
                 None
         """
-        ignoreRegex = [
-            ".*ERR monit.*'lldpd_monitor' process is not running",
-            ".*ERR monit.*'lldp_syncd' process is not running",
-            ".*ERR monit.*'bgpd' process is not running",
-            ".*ERR monit.*'bgpcfgd' process is not running",
-        ]
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        if loganalyzer:
+            ignoreRegex = [
+                ".*ERR monit.*'lldpd_monitor' process is not running",
+                ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.",
+
+                ".*ERR monit.*'lldp_syncd' process is not running",
+                ".*ERR monit.* 'lldp\|lldp_syncd' status failed.*-- 'python2 -m lldp_syncd' is not running.",
+
+                ".*ERR monit.*'bgpd' process is not running",
+                ".*ERR monit.* 'bgp\|bgpd' status failed.*-- '/usr/lib/frr/bgpd' is not running.",
+
+                ".*ERR monit.*'bgpcfgd' process is not running",
+                ".*ERR monit.* 'bgp\|bgpcfgd' status failed.*-- '/usr/bin/python /usr/local/bin/bgpcfgd' is not running.",
+
+                ".*ERR syncd#syncd:.*brcm_sai_set_switch_attribute:.*updating switch mac addr failed.*",
+
+                ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python /usr/local/bin/bgpmon' is not running",
+                ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
+            ]
+            loganalyzer.ignore_regex.extend(ignoreRegex)
 
         yield
 
@@ -556,7 +570,7 @@ class QosSaiBase:
         }
 
     @pytest.fixture(scope='class')
-    def ptfPortMapFile(self, request, duthost, ptfhost):
+    def ptfPortMapFile(self, duthost, ptfhost):
         """
             Prepare and copys port map file to PTF host
 
@@ -568,16 +582,15 @@ class QosSaiBase:
             Returns:
                 filename (str): returns the filename copied to PTF host
         """
-        portMapFile = request.config.getoption("--ptf_portmap")
-        if not portMapFile:
-            portMapFile = self.DEFAULT_PORT_INDEX_TO_ALIAS_MAP_FILE
-            mgFacts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
-            with open(portMapFile, 'w') as file:
-                file.write("# ptf host interface @ switch front port name\n")
-                file.writelines(
-                    map(
-                        lambda (port, index): "{0}@{1}\n".format(index, port),
-                        mgFacts["minigraph_port_indices"].items()
+        intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
+        portList = natsorted([port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['speed'] != '10G'])
+        portMapFile = self.DEFAULT_PORT_INDEX_TO_ALIAS_MAP_FILE
+        with open(portMapFile, 'w') as file:
+            file.write("# ptf host interface @ switch front port name\n")
+            file.writelines(
+                map(
+                     lambda (index, port): "{0}@{1}\n".format(index, port),
+                     enumerate(portList)
                     )
                 )
 
@@ -586,13 +599,13 @@ class QosSaiBase:
         yield "/root/{}".format(portMapFile.split('/')[-1])
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthost, testbed, ptfPortMapFile):
+    def dutTestParams(self, duthost, tbinfo, ptfPortMapFile):
         """
             Prepares DUT host test params
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                testbed (Fixture, dict): Map containing testbed information
+                tbinfo (Fixture, dict): Map containing testbed information
                 ptfPortMapFile (Fxiture, str): filename residing on PTF host and contains port maps information
 
             Returns:
@@ -600,7 +613,7 @@ class QosSaiBase:
         """
         dutFacts = duthost.setup()['ansible_facts']
         mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        topo = testbed["topo"]["name"]
+        topo = tbinfo["topo"]["name"]
 
         yield {
             "topo": topo,
@@ -736,7 +749,7 @@ class QosSaiBase:
     def egressLossyProfile(self, request, duthost, dutConfig):
         """
             Retreives egress lossy profile
- 
+
             Args:
                 request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)

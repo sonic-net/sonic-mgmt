@@ -1,0 +1,8 @@
+- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }}
+  become: yes
+  ceos_network:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    vm_name:    "{{ vm_name }}"
+    fp_mtu:     "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"

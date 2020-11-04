@@ -13,12 +13,16 @@ import os
 import re
 import inspect
 import ipaddress
+import copy
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
+from ansible import constants
+from ansible.plugins.loader import connection_loader
+
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
-
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -58,8 +62,9 @@ class AnsibleHostBase(object):
             self.module = getattr(self.host, module_name)
 
             return self._run
-
-        return super(AnsibleHostBase, self).__getattr__(module_name)
+        raise AttributeError(
+            "'%s' object has no attribute '%s'" % (self.__class__, module_name)
+            )
 
     def _run(self, *module_args, **complex_args):
 
@@ -122,8 +127,33 @@ class SonicHost(AnsibleHostBase):
 
     _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
-    def __init__(self, ansible_adhoc, hostname):
+    def __init__(self, ansible_adhoc, hostname,
+                 shell_user=None, shell_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+
+        if shell_user and shell_passwd:
+            im = self.host.options['inventory_manager']
+            vm = self.host.options['variable_manager']
+            sonic_conn = vm.get_vars(
+                host=im.get_hosts(pattern='sonic')[0]
+                )['ansible_connection']
+            hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
+            # parse connection options and reset those options with
+            # passed credentials
+            connection_loader.get(sonic_conn, class_only=True)
+            user_def = constants.config.get_configuration_definition(
+                "remote_user", "connection", sonic_conn
+                )
+            pass_def = constants.config.get_configuration_definition(
+                "password", "connection", sonic_conn
+                )
+            for user_var in (_['name'] for _ in user_def['vars']):
+                if user_var in hostvars:
+                    vm.extra_vars.update({user_var: shell_user})
+            for pass_var in (_['name'] for _ in pass_def['vars']):
+                if pass_var in hostvars:
+                    vm.extra_vars.update({pass_var: shell_passwd})
+
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
 
@@ -268,6 +298,22 @@ class SonicHost(AnsibleHostBase):
                 result["hwsku"] = line.split(":")[1].strip()
             elif line.startswith("ASIC:"):
                 result["asic_type"] = line.split(":")[1].strip()
+
+        if result["platform"]:
+            platform_file_path = os.path.join("/usr/share/sonic/device", result["platform"], "platform.json")
+
+            try:
+                out = self.command("cat {}".format(platform_file_path))
+                platform_info = json.loads(out["stdout"])
+                for key, value in platform_info.iteritems():
+                    result[key] = value
+
+            except Exception:
+                # if platform.json does not exist, then it's not added currently for certain platforms
+                # eventually all the platforms should have the platform.json
+                logging.debug("platform.json is not available for this platform, "
+                              + "DUT facts will not contain complete platform information.")
+
         return result
 
     def _get_os_version(self):
@@ -332,6 +378,57 @@ class SonicHost(AnsibleHostBase):
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
 
+    def get_critical_group_and_process_lists(self, container_name):
+        """
+        @summary: Get critical group and process lists by parsing the
+                  critical_processes file in the specified container
+        @return: Two lists which include the critical groups and critical processes respectively
+        """
+        critical_group_list = []
+        critical_process_list = []
+        succeeded = True
+
+        file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
+                && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
+        for line in file_content["stdout_lines"]:
+            line_info = line.strip().split(':')
+            if len(line_info) != 2:
+                succeeded = False
+                break
+
+            identifier_key = line_info[0].strip()
+            identifier_value = line_info[1].strip()
+            if identifier_key == "group" and identifier_value:
+                critical_group_list.append(identifier_value)
+            elif identifier_key == "program" and identifier_value:
+                critical_process_list.append(identifier_value)
+            else:
+                succeeded = False
+                break
+
+        # For PMon container, since different daemons are enabled in different platforms, we need find common processes
+        # which are not only in the critical_processes file and also are configured to run on that platform.
+        if succeeded and container_name == "pmon":
+            expected_critical_group_list = []
+            expected_critical_process_list = []
+            process_list = self.shell("docker exec {} supervisorctl status".format(container_name))
+            for process_info in process_list["stdout_lines"]:
+                process_name = process_info.split()[0].strip()
+                process_status = process_info.split()[1].strip()
+                if ":" in process_name:
+                    group_name = process_name.split(":")[0]
+                    process_name = process_name.split(":")[1]
+                    if process_status == "RUNNING" and group_name in critical_group_list:
+                        expected_critical_group_list.append(process_name)
+                else:
+                    if process_status == "RUNNING" and process_name in critical_process_list:
+                        expected_critical_process_list.append(process_name)
+
+            critical_group_list = expected_critical_group_list
+            critical_process_list = expected_critical_process_list
+
+        return critical_group_list, critical_process_list, succeeded
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -341,6 +438,7 @@ class SonicHost(AnsibleHostBase):
         result = {'status': True}
         result['exited_critical_process'] = []
         result['running_critical_process'] = []
+        critical_group_list = []
         critical_process_list = []
 
         # return false if the service is not started
@@ -349,12 +447,10 @@ class SonicHost(AnsibleHostBase):
             result['status'] = False
             return result
 
-        # get critical process list for the service
-        output = self.command("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] && cat /etc/supervisor/critical_processes'".format(service), module_ignore_errors=True)
-        for l in output['stdout'].split():
-            # If ':' exists, the second field is got. Otherwise the only field is got.
-            critical_process_list.append(l.split(':')[-1].rstrip())
-        if len(critical_process_list) == 0:
+        # get critical group and process lists for the service
+        critical_group_list, critical_process_list, succeeded = self.get_critical_group_and_process_lists(service)
+        if succeeded == False:
+            result['status'] = False
             return result
 
         # get process status for the service
@@ -364,11 +460,11 @@ class SonicHost(AnsibleHostBase):
         for l in output['stdout_lines']:
             (pname, status, info) = re.split("\s+", l, 2)
             if status != "RUNNING":
-                if pname in critical_process_list:
+                if pname in critical_group_list or pname in critical_process_list:
                     result['exited_critical_process'].append(pname)
                     result['status'] = False
             else:
-                if pname in critical_process_list:
+                if pname in critical_group_list or pname in critical_process_list:
                     result['running_critical_process'].append(pname)
 
         return result
@@ -421,7 +517,7 @@ class SonicHost(AnsibleHostBase):
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
-        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd']
+        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
 
         daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
 
@@ -691,6 +787,25 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return nbinfo[str(neighbor_ip)]
 
+    def get_bgp_statistic(self, stat):
+        """
+        Get the named bgp statistic
+
+        Args: stat - name of statistic
+
+        Returns: statistic value or None if not found
+
+        """
+        ret = None
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        if stat in bgp_facts['bgp_statistics']:
+            ret = bgp_facts['bgp_statistics'][stat]
+        return ret;
+
+    def check_bgp_statistic(self, stat, value):
+        val = self.get_bgp_statistic(stat)
+        return val == value
+
     def get_bgp_neighbors(self):
         """
         Get a diction of BGP neighbor states
@@ -731,8 +846,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         @param neighbor_ip: bgp neighbor IP
         """
         nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
-        if nbinfo['bgpState'].lower() == "Active".lower():
-            if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
+        if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Active".lower():
+            if 'bgpStateIs' in nbinfo and nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
 
@@ -749,6 +864,25 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return None
 
+    def get_container_autorestart_states(self):
+        """
+        @summary: Get container names and their autorestart states by analyzing
+                  the command output of "show feature autorestart"
+        @return:  A dictionary where keys are the names of containers which have the
+                  autorestart feature implemented and values are the autorestart feature
+                  state for that container
+        """
+        container_autorestart_states = {}
+
+        show_cmd_output = self.shell("show feature autorestart")
+        for line in show_cmd_output["stdout_lines"]:
+            container_name = line.split()[0].strip()
+            container_state = line.split()[1].strip()
+            if container_state in ["enabled", "disabled"]:
+                container_autorestart_states[container_name] = container_state
+
+        return container_autorestart_states
+
     def get_feature_status(self):
         """
         Gets the list of features and states
@@ -758,8 +892,12 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             bool: status obtained successfully (True | False)
         """
         feature_status = {}
-        command_output = self.shell('show features', module_ignore_errors=True)
-        if command_output['rc'] != 0:
+        command_list = ['show feature status', 'show features']
+        for cmd in command_list:
+            command_output = self.shell(cmd, module_ignore_errors=True)
+            if command_output['rc'] == 0:
+                break
+        else:
             return feature_status, False
 
         features_stdout = command_output['stdout_lines']
@@ -901,6 +1039,11 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         """
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
+
+    def get_namespace_from_asic_id(self, asic_id):
+        if asic_id is DEFAULT_ASIC_ID:
+            return DEFAULT_NAMESPACE
+        return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
 
 class EosHost(AnsibleHostBase):
@@ -1160,7 +1303,267 @@ class IxiaHost (AnsibleHostBase):
             eval(cmd)
 
 
-class FanoutHost():
+class SonicAsic(object):
+    """ This class represents an ASIC on a SONiC host. This class implements wrapper methods for ASIC/namespace related operations.
+    The purpose is to hide the complexity of handling ASIC/namespace specific details.
+    For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
+    """
+    def __init__(self, sonichost, asic_index):
+        """ Initializing a ASIC on a SONiC host.
+
+        Args:
+            sonichost : SonicHost object to which this asic belongs
+            asic_index: ASIC / namespace id for this asic.
+        """
+        self.sonichost = sonichost
+        self.asic_index = asic_index
+
+
+    def bgp_facts(self, *module_args, **complex_args):
+        """ Wrapper method for bgp_facts ansible module.
+        If number of asics in SonicHost are more than 1, then add 'instance_id' param for this Asic
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            if SonicHost has only 1 asic, then return the bgp_facts for the global namespace, else bgp_facts for the bgp instance for my asic_index.
+        """
+        if self.sonichost.facts['num_asic'] != 1:
+            complex_args['instance_id'] = self.asic_index
+        return self.sonichost.bgp_facts(*module_args, **complex_args)
+
+    def config_facts(self, *module_args, **complex_args):
+        """ Wrapper method for config_facts ansible module.
+        If number of asics in SonicHost are more than 1, then add 'namespace' param for this Asic
+        If 'host' is not specified in complex_args, add it - as it is a mandatory param for the config_facts module
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            if SonicHost has only 1 asic, then return the config_facts for the global namespace, else config_facts for namespace for my asic_index.
+        """
+        if 'host' not in complex_args:
+            complex_args['host'] = self.sonichost.hostname
+        if self.sonichost.facts['num_asic'] != 1:
+            complex_args['namespace'] = 'asic{}'.format(self.asic_index)
+        return self.sonichost.config_facts(*module_args, **complex_args)
+
+
+class MultiAsicSonicHost(object):
+    """ This class represents a Multi-asic SonicHost It has two attributes:
+    sonic_host: a SonicHost instance. This object is for interacting with the SONiC host through pytest_ansible.
+    asics: a list of SonicAsic instances.
+
+    The 'duthost' fixture will return an instance of a MultiAsicSonicHost.
+    So, even a single asic pizza box is represented as a MultiAsicSonicHost with 1 SonicAsic.
+    """
+
+    def __init__(self, ansible_adhoc, hostname):
+        """ Initializing a MultiAsicSonicHost.
+
+        Args:
+            ansible_adhoc : The pytest-ansible fixture
+            hostname: Name of the host in the ansible inventory
+        """
+        self.sonichost = SonicHost(ansible_adhoc, hostname)
+        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+
+    def _run_on_asics(self, *module_args, **complex_args):
+        """ Run an asible module on asics based on 'asic_index' keyword in complex_args
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Raises:
+            ValueError:  if asic_index is specified and it is neither an int or string 'all'.
+            ValueError: if asic_index is specified and is an int, but greater than number of asics in the SonicHost
+
+        Returns:
+            if asic_index is not specified, then we return the output of the ansible module on global namespace (using SonicHost)
+            else
+                if asic_index is an int, the output of the ansible module on that asic namespace
+                    - for single asic SonicHost this would still be the same as the ansible module on the global namespace
+                else if asic_index is string 'all', then a list of ansible module output for all the asics on the SonicHost
+                    - for single asic, this would be a list of size 1.
+        """
+        if "asic_index" not in complex_args:
+            # Default ASIC/namespace
+            return getattr(self.sonichost, self.multi_asic_attr)(*module_args, **complex_args)
+        else:
+            asic_complex_args = copy.deepcopy(complex_args)
+            asic_index = asic_complex_args.pop("asic_index")
+            if type(asic_index) == int:
+                # Specific ASIC/namespace
+                if self.sonichost.facts['num_asic'] == 1:
+                    if asic_index != 0:
+                        raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.multi_asic_attr, asic_index, self.sonichost.hostname))
+                return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
+            elif type(asic_index) == str and asic_index.lower() == "all":
+                # All ASICs/namespace
+                return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
+            else:
+                raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def __getattr__(self, attr):
+        """ To support calling an ansible module on a MultiAsicSonicHost.
+
+        Args:
+            attr: attribute to get
+
+        Returns:
+            if attr doesn't start with '_' and is a method of SonicAsic, attr will be ansible module that has dependency on ASIC,
+                return the output of the ansible module on asics requested - using _run_on_asics method.
+            else
+                return the attribute from SonicHost.
+        """
+        sonic_asic_attr = getattr(SonicAsic, attr, None)
+        if not attr.startswith("_") and sonic_asic_attr and callable(sonic_asic_attr):
+            self.multi_asic_attr = attr
+            return self._run_on_asics
+        else:
+            return getattr(self.sonichost, attr)  # For backward compatibility
+
+
+class DutHosts(object):
+    """ Represents all the DUTs (nodes) in a testbed. class has 3 important attributes:
+    nodes: List of all the MultiAsicSonicHost instances for all the SONiC nodes (or cards for chassis) in a multi-dut testbed
+    frontend_nodes: subset of nodes and holds list of MultiAsicSonicHost instances for DUTs with front-panel ports (like linecards in chassis
+    supervisor_nodes: subset of nodes and holds list of MultiAsicSonicHost instances for supervisor cards.
+    """
+    class _Nodes(list):
+        """ Internal class representing a list of MultiAsicSonicHosts """
+        def _run_on_nodes(self, *module_args, **complex_args):
+            """ Delegate the call to each of the nodes, return the results in a dict."""
+            return {node.hostname: getattr(node, self.attr)(*module_args, **complex_args) for node in self}
+
+        def __getattr__(self, attr):
+            """ To support calling ansible modules on a list of MultiAsicSonicHost
+            Args:
+                attr: attribute to get
+
+            Returns:
+               a dictionary with key being the MultiAsicSonicHost's hostname, and value being the output of ansible module
+               on that MultiAsicSonicHost
+            """
+            self.attr = attr
+            return self._run_on_nodes
+
+        def __eq__(self, o):
+            """ To support eq operator on the DUTs (nodes) in the testbed """
+            return list.__eq__(o)
+
+        def __ne__(self, o):
+            """ To support ne operator on the DUTs (nodes) in the testbed """
+            return list.__ne__(o)
+
+        def __hash__(self):
+            """ To support hash operator on the DUTs (nodes) in the testbed """
+            return list.__hash__()
+
+    def __init__(self, ansible_adhoc, tbinfo):
+        """ Initialize a multi-dut testbed with all the DUT's defined in testbed info.
+
+        Args:
+            ansible_adhoc: The pytest-ansible fixture
+            tbinfo - Testbed info whose "duts" holds the hostnames for the DUT's in the multi-dut testbed.
+
+        """
+        # TODO: Initialize the nodes in parallel using multi-threads?
+        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"]])
+        self.supervisor_nodes = self._Nodes([node for node in self.nodes if self._is_supervisor_node(node)])
+        self.frontend_nodes = self._Nodes([node for node in self.nodes if self._is_frontend_node(node)])
+
+    def __getitem__(self, index):
+        """To support operations like duthosts[0] and duthost['sonic1_hostname']
+
+        Args:
+            index (int or string): Index or hostname of a duthost.
+
+        Raises:
+            KeyError: Raised when duthost with supplied hostname is not found.
+            IndexError: Raised when duthost with supplied index is not found.
+
+        Returns:
+            [MultiAsicSonicHost]: Returns the specified duthost in duthosts. It is an instance of MultiAsicSonicHost.
+        """
+        if type(index) == int:
+            return self.nodes[index]
+        elif type(index) == str:
+            for node in self.nodes:
+                if node.hostname == index:
+                    return node
+            raise KeyError("No node has hostname '{}'".format(index))
+        else:
+            raise IndexError("Bad index '{}'".format(index))
+
+    # Below method are to support treating an instance of DutHosts as a list
+    def __iter__(self):
+        """ To support iteration over all the DUTs (nodes) in the testbed"""
+        return iter(self.nodes)
+
+    def __len__(self):
+        """ To support length of the number of DUTs (nodes) in the testbed """
+        return len(self.nodes)
+
+    def __eq__(self, o):
+        """ To support eq operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__eq__(o)
+
+    def __ne__(self, o):
+        """ To support ne operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__ne__(o)
+
+    def __hash__(self):
+        """ To support hash operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__hash__()
+
+    def __getattr__(self, attr):
+        """To support calling ansible modules directly on all the DUTs (nodes) in the testbed
+         Args:
+            attr: attribute to get
+
+        Returns:
+            a dictionary with key being the MultiAsicSonicHost's hostname, and value being the output of ansible module
+            on that MultiAsicSonicHost
+        """
+        return getattr(self.nodes, attr)
+
+    def _is_supervisor_node(self, node):
+        """ Is node a supervisor node
+
+        Args:
+            node: MultiAsicSonicHost object represent a DUT in the testbed.
+
+        Returns:
+            Currently, we are using 'type' in the inventory to make the decision.
+                if 'type' for the node is defined in the inventory, and it is 'supervisor', then return True, else return False
+            In future, we can change this logic if possible to derive it from the DUT.
+        """
+        if 'type' in node.host.options["inventory_manager"].get_host(node.hostname).get_vars():
+            card_type = node.host.options["inventory_manager"].get_host(node.hostname).get_vars()["type"]
+            if card_type is not None and card_type == 'supervisor':
+                return True
+        return False
+
+    def _is_frontend_node(self, node):
+        """ Is not a frontend node
+        Args:
+            node: MultiAsicSonicHost object represent a DUT in the testbed.
+
+        Returns:
+            True if it is not any other type of node.
+            Currently, the only other type of node supported is 'supervisor' node. If we add more types of nodes, then
+            we need to exclude them from this method as well.
+        """
+        return node not in self.supervisor_nodes
+
+
+class FanoutHost(object):
     """
     @summary: Class for Fanout switch
 
@@ -1174,7 +1577,9 @@ class FanoutHost():
         self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
-            self.host = SonicHost(ansible_adhoc, hostname)
+            self.host = SonicHost(ansible_adhoc, hostname,
+                                  shell_user=shell_user,
+                                  shell_passwd=shell_passwd)
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
@@ -1215,6 +1620,9 @@ class FanoutHost():
             DUT instance in the test. As result the port mapping is
             unique from the DUT perspective. However, this function
             need update when supporting multiple DUT
+
+            host_port is a encoded string of <host name>|<port name>,
+            e.g. sample_host|Ethernet0.
         """
         self.host_to_fanout_port_map[host_port]   = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port

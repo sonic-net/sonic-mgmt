@@ -8,6 +8,16 @@ from tests.common.helpers.platform_api import chassis, module
 
 from platform_api_test_base import PlatformApiTestBase
 
+###################################################
+# TODO: Remove this after we transition to Python 3
+import sys
+if sys.version_info.major == 3:
+    STRING_TYPE = str
+else:
+    STRING_TYPE = basestring
+# END Remove this after we transition to Python 3
+###################################################
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -67,7 +77,7 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             name = module.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve module {} name".format(i)):
-                self.expect(isinstance(name, str), "Module {} name appears incorrect".format(i))
+                self.expect(isinstance(name, STRING_TYPE), "Module {} name appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
@@ -88,7 +98,7 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             model = module.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Unable to retrieve module {} model".format(i)):
-                self.expect(isinstance(model, str), "Module {} model appears incorrect".format(i))
+                self.expect(isinstance(model, STRING_TYPE), "Module {} model appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_serial(self, duthost, localhost, platform_api_conn):
@@ -97,8 +107,8 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             serial = module.get_serial(platform_api_conn, i)
-            if self.expect(serial is not None, "Unable to retrieve module {} serial number".format(i)):
-                self.expect(isinstance(serial, str), "Module {} serial number appears incorrect".format(i))
+            if self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
+                self.expect(isinstance(serial, STRING_TYPE), "Module {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_status(self, duthost, localhost, platform_api_conn):
@@ -109,6 +119,20 @@ class TestModuleApi(PlatformApiTestBase):
             status = module.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve module {} status".format(i)):
                 self.expect(isinstance(status, bool), "Module {} status appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_modules):
+            position = module.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for module {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for module {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for i in range(self.num_modules):
+            replaceable = module.is_replaceable(platform_api_conn, i)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for module {}".format(i)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for module {}".format(i))
         self.assert_expectations()
 
     #
@@ -126,25 +150,6 @@ class TestModuleApi(PlatformApiTestBase):
             if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
                 continue
             self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
-        self.assert_expectations()
-
-    def test_get_serial_number(self, duthost, localhost, platform_api_conn):
-        if self.num_modules == 0:
-            pytest.skip("No modules found on device")
-
-        # Ensure the serial number of each module is sane
-        # Note: It appears that when retrieving some variable-length fields,
-        # the value is padded with trailing '\x00' bytes because the field
-        # length is longer than the actual value, so we strip those bytes
-        # here before comparing. We may want to change the EEPROM parsing
-        # logic to ensure that trailing '\x00' bytes are removed when retreiving
-        # a variable-length value.
-        # TODO: Add expected serial number of each module to inventory file and compare against it
-        for i in range(self.num_modules):
-            serial = module.get_serial_number(platform_api_conn, i).rstrip('\x00')
-            if not self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
-                continue
-            self.expect(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
         self.assert_expectations()
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):

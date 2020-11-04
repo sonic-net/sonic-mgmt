@@ -1,0 +1,19 @@
+- block:
+    - name: Start SONiC VM
+      include_tasks: start_sonic_vm.yml
+      when: action == 'start_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
+    - name: Stop SONiC VM
+      include_tasks: stop_sonic_vm.yml
+      when: action == 'stop_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
+    - name: Start SID
+      include_tasks: start_sid.yml
+      when: action == 'start_sid' and hostvars[dut_name]['type'] == 'simx'
+
+    - name: Stop SID
+      include_tasks: stop_sid.yml
+      when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
+  when:
+    - hostvars[dut_name] is defined
+    - hostvars[dut_name].type is defined

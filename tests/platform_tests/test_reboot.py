@@ -21,8 +21,8 @@ from tests.common.reboot import *
 from tests.common.platform.interface_utils import check_interface_information
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
+from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 
-from check_critical_services import check_critical_services
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -38,8 +38,8 @@ def teardown_module(duthost, conn_graph_facts):
     yield
 
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
-    interfaces = conn_graph_facts["device_conn"]
-    check_critical_services(duthost)
+    interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    check_critical_processes(duthost, watch_secs=10)
     check_interfaces_and_services(duthost, interfaces)
 
 
@@ -68,7 +68,7 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
     @param interfaces: DUT's interfaces defined by minigraph
     """
     logging.info("Wait until all critical services are fully started")
-    check_critical_services(dut)
+    wait_critical_processes(dut)
 
     if reboot_type is not None:
         logging.info("Check reboot cause")
@@ -105,14 +105,14 @@ def test_cold_reboot(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], reboot_type=REBOOT_TYPE_COLD)
 
 
 def test_fast_reboot(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_FAST)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], reboot_type=REBOOT_TYPE_FAST)
 
 
 def test_warm_reboot(duthost, localhost, conn_graph_facts):
@@ -126,17 +126,7 @@ def test_warm_reboot(duthost, localhost, conn_graph_facts):
         if "disabled" in issu_capability:
             pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_WARM)
-
-
-@pytest.fixture(params=[15, 5])
-def power_off_delay(request):
-    """
-    @summary: used to parametrized test cases on power_off_delay
-    @param request: pytest request object
-    @return: power_off_delay
-    """
-    return request.param
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], reboot_type=REBOOT_TYPE_WARM)
 
 
 def _power_off_reboot_helper(kwargs):
@@ -166,7 +156,7 @@ def test_power_off_reboot(duthost, localhost, conn_graph_facts, psu_controller, 
     @param localhost: Fixture for interacting with localhost through ansible
     @param conn_graph_facts: Fixture parse and return lab connection graph
     @param psu_controller: The python object of psu controller
-    @param power_off_delay: Pytest fixture. The delay between turning off and on the PSU
+    @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     psu_ctrl = psu_controller
     if psu_ctrl is None:
@@ -193,7 +183,7 @@ def test_power_off_reboot(duthost, localhost, conn_graph_facts, psu_controller, 
         poweroff_reboot_kwargs["all_psu"] = all_psu
         poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
         poweroff_reboot_kwargs["delay_time"] = power_off_delay
-        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], REBOOT_TYPE_POWEROFF,
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], REBOOT_TYPE_POWEROFF,
                          _power_off_reboot_helper, poweroff_reboot_kwargs)
 
 
@@ -207,7 +197,7 @@ def test_watchdog_reboot(duthost, localhost, conn_graph_facts):
     if "" != watchdog_supported:
         pytest.skip("Watchdog is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], REBOOT_TYPE_WATCHDOG)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], REBOOT_TYPE_WATCHDOG)
 
 
 def test_continuous_reboot(duthost, localhost, conn_graph_facts):
@@ -215,4 +205,4 @@ def test_continuous_reboot(duthost, localhost, conn_graph_facts):
     @summary: This test case is to perform 3 cold reboot in a row
     """
     for i in range(3):
-        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"], reboot_type=REBOOT_TYPE_COLD)
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], reboot_type=REBOOT_TYPE_COLD)

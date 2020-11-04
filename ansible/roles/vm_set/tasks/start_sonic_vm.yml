@@ -15,7 +15,7 @@
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
     hwsku: "{{ hostvars[dut_name].hwsku }}"
-    num_asic: "{{ hostvars[dut_name]['num_asic'] | default(1) }}"
+    num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
 
 - name: Device debug output
   debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"

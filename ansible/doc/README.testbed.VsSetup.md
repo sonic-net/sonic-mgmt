@@ -20,6 +20,7 @@ $ sudo ./setup-management-network.sh
    - `vEOS-lab-4.20.15M.vmdk`
 
 ### Use cEOS image (experimental)
+#### Option 1, download and import cEOS image manually
 - Download cEOS image from [arista](https://www.arista.com/en/support/software-download) onto your testbed server
 - Import cEOS image (It will take several minutes to import, so please be patient)
 
@@ -29,6 +30,10 @@ $ docker images
 REPOSITORY                                     TAG                 IMAGE ID            CREATED             SIZE
 ceosimage                                      4.23.2F             d53c28e38448        2 hours ago         1.82GB
 ```
+#### Option 2, download and image cEOS image automatically
+Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2). If a saskey is required for downloading cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
+
+If you want to skip image downloading when the cEOS image is not imported locally, set `skip_ceos_image_downloading` to `true` in `sonic-mgmt/ansible/group_vars/all/ceos.yml`. Then when cEOS image is not locally imported, the scripts will not try to download it and will fail with an error message. Please use option 1 to download and import the cEOS image manually.
 
 ## Download sonic-vs image
 
@@ -46,30 +51,6 @@ $ mv sonic-vs.img ~/sonic-vm/images
 
 ## Setup sonic-mgmt docker
 
-### Build or download *sonic-mgmt* docker image
-(Note: downloading or building the sonic-mgmt image is optional)
-
-ansible playbook in *sonic-mgmt* repo requires to setup ansible and various dependencies.
-We have built a *sonic-mgmt* docker that installs all dependencies, and you can build
-the docker and run ansible playbook inside the docker.
-
-- Build *sonic-mgmt* docker
-```
-$ git clone --recursive https://github.com/Azure/sonic-buildimage.git
-$ make configure PLATFORM=generic
-$ make target/docker-sonic-mgmt.gz
-```
-
-- Or, download pre-built *sonic-mgmt* image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
-```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz
-```
-
-- Load *sonic-mgmt* image
-```
-$ docker load -i docker-sonic-mgmt.gz
-```
-
 Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
 ```
@@ -82,12 +63,12 @@ From now on, all steps are running inside the *sonic-mgmt* docker except where o
 You can enter your sonic-mgmt container with the following command:
 
 ```
-$ docker exec -u <alias> -it <container name> bash
+$ docker exec -it <container name> bash
 ```
 
 ### Setup public key to login into the linux host from sonic-mgmt docker
 
-- Modify veos_vtb to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
+- Modify `veos_vtb` to use the user name, e.g., `foo` to login linux host (this can be your username on the host).
 
 ```
 lgh@gulv-vm2:/data/sonic-mgmt/ansible$ git diff
@@ -107,18 +88,14 @@ index 3e7b3c4e..edabfc40 100644
 ```
 
 - Create dummy `password.txt` under `/data/sonic-mgmt/ansible`
-  
-  Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line. The file name and location is created and maintained by user.
 
-- Add user `foo`'s public key to `/home/foo/.ssh/authorized_keys` on the host
+  Please note: Here "password.txt" is the Ansible Vault password file name/path. Ansible allows user to use Ansible Vault to encrypt password files. By default, this shell script requires a password file. If you are not using Ansible Vault, you can create a file with a dummy password, e.g., `abc` and pass the filename to the command line. The file name and location is created and maintained by user.
 
 - On the host, run `sudo visudo` and add the following line at the end:
 
 ```
 foo ALL=(ALL) NOPASSWD:ALL
 ```
-
-- Add user `foo`'s private key to `$HOME/.ssh/id_rsa` inside sonic-mgmt docker container.
 
 - Test you can login into the host `ssh foo@172.17.0.1` without any password prompt
 from the `sonic-mgmt` container. Then, test you can sudo without password prompt in the host.

@@ -1,5 +1,7 @@
 import logging
 import os
+
+from jinja2 import Template
 from tests.common.errors import MissingInputError
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
@@ -11,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 class PFCStorm(object):
     """ PFC storm/start on different interfaces on a fanout connected to the DUT"""
+
+    _PFC_GEN_DIR = {
+        'sonic': '/tmp',
+        'eos': '/mnt/flash',
+    }
+
     def __init__(self, duthost, fanout_graph_facts, fanouthosts, **kwargs):
         """
         Args:
@@ -73,18 +81,22 @@ class PFCStorm(object):
         """
         Create the pfc generation file on the fanout if it does not exist
         """
-        out = self.peer_device.stat(path="/mnt/flash")
+        pfc_gen_fpath = os.path.join(self._PFC_GEN_DIR[self.peer_device.os],
+                                     self.pfc_gen_file)
+        out = self.peer_device.stat(path=pfc_gen_fpath)
         if not out['stat']['exists'] or not out['stat']['isdir']:
-            self.peer_device.file(path="/mnt/flash/{}".format(self.pfc_gen_file), state="touch")
+            self.peer_device.file(path=pfc_gen_fpath, state="touch")
 
     def deploy_pfc_gen(self):
         """
         Deploy the pfc generation file on the fanout
         """
-        if 'arista' in self.peer_info['hwsku'].lower():
+        if self.peer_device.os in ('eos', 'sonic'):
             self._create_pfc_gen()
-            self.peer_device.copy(src="common/helpers/{}".format(self.pfc_gen_file),
-                                  dest="/mnt/flash")
+            self.peer_device.copy(
+                src="common/helpers/{}".format(self.pfc_gen_file),
+                dest=self._PFC_GEN_DIR[self.peer_device.os]
+                )
 
     def update_queue_index(self, q_idx):
         """
@@ -118,26 +130,31 @@ class PFCStorm(object):
         Populates all the vars needed by the pfc storm templates
         """
         self.extra_vars = dict()
-        self.extra_vars = { "pfc_gen_file": self.pfc_gen_file,
-                       "pfc_queue_index": self.pfc_queue_idx,
-                       "pfc_frames_number": self.pfc_frames_number,
-                       "pfc_fanout_interface": self.peer_info['pfc_fanout_interface'],
-                       "ansible_eth0_ipv4_addr": self.ip_addr,
-                       "peer_hwsku": self.peer_info['hwsku']
-                     }
+        self.extra_vars = {
+            "pfc_gen_file": self.pfc_gen_file,
+            "pfc_queue_index": self.pfc_queue_idx,
+            "pfc_frames_number": self.pfc_frames_number,
+            "pfc_fanout_interface": self.peer_info['pfc_fanout_interface'],
+            "ansible_eth0_ipv4_addr": self.ip_addr,
+            "peer_hwsku": self.peer_info['hwsku']
+            }
+        if self.peer_device.os in self._PFC_GEN_DIR:
+            self.extra_vars['pfc_gen_dir'] = \
+                self._PFC_GEN_DIR[self.peer_device.os]
         if getattr(self, "pfc_storm_defer_time", None):
-           self.extra_vars.update({"pfc_storm_defer_time": self.pfc_storm_defer_time})
+            self.extra_vars.update({"pfc_storm_defer_time": self.pfc_storm_defer_time})
         if getattr(self, "pfc_storm_stop_defer_time", None):
-           self.extra_vars.update({"pfc_storm_stop_defer_time": self.pfc_storm_stop_defer_time})
+            self.extra_vars.update({"pfc_storm_stop_defer_time": self.pfc_storm_stop_defer_time})
         if getattr(self, "pfc_asym", None):
-           self.extra_vars.update({"pfc_asym": self.pfc_asym})
+            self.extra_vars.update({"pfc_asym": self.pfc_asym})
 
     def _prepare_start_template(self):
         """
         Populates the pfc storm start template
         """
         self._update_template_args()
-        self.pfc_start_template = os.path.join(TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.platform_name))
+        self.pfc_start_template = os.path.join(
+            TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_start_template})
 
     def _prepare_stop_template(self):
@@ -145,8 +162,28 @@ class PFCStorm(object):
         Populates the pfc storm stop template
         """
         self._update_template_args()
-        self.pfc_stop_template = os.path.join(TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.platform_name))
+        self.pfc_stop_template = os.path.join(
+            TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_stop_template})
+
+    def _run_pfc_gen_template(self):
+        """
+        Run pfc generator script on a specific OS type.
+        """
+        if self.peer_device.os == 'sonic':
+            with open(self.extra_vars['template_path']) as tmpl_fd:
+                tmpl = Template(tmpl_fd.read())
+                cmds = tmpl.render(**self.extra_vars).splitlines()
+            cmds = (_.strip() for _ in cmds)
+            cmd = "; ".join(_ for _ in cmds if _)
+            self.peer_device.shell(cmd, module_ignore_errors=True)
+        else:
+            # TODO: replace this playbook execution with Mellanox
+            # onyx_config/onyx_command modules
+            self.peer_device.exec_template(
+                ANSIBLE_ROOT, RUN_PLAYBOOK,
+                self.inventory, **self.extra_vars
+                )
 
     def start_storm(self):
         """
@@ -157,9 +194,7 @@ class PFCStorm(object):
                     .format(self.peer_info['peerdevice'],
                             self.peer_info['pfc_fanout_interface'],
                             self.pfc_queue_idx))
-        # TODO will get rid of this ansible playbook execution option when Mellanox adds the necessary functionality
-        # to their onyx_config/onyx_command modules
-        self.peer_device.exec_template(ANSIBLE_ROOT, RUN_PLAYBOOK, self.inventory, **self.extra_vars)
+        self._run_pfc_gen_template()
 
     def stop_storm(self):
         """
@@ -170,9 +205,7 @@ class PFCStorm(object):
                     .format(self.peer_info['peerdevice'],
                             self.peer_info['pfc_fanout_interface'],
                             self.pfc_queue_idx))
-        # TODO will get rid of this ansible playbook execution option when Mellanox adds the necessary functionality
-        # to their onyx_config/onyx_command modules
-        self.peer_device.exec_template(ANSIBLE_ROOT, RUN_PLAYBOOK, self.inventory, **self.extra_vars)
+        self._run_pfc_gen_template()
 
 
 class PFCMultiStorm(object):
