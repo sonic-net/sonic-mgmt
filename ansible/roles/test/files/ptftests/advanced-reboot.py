@@ -914,15 +914,18 @@ class ReloadTest(BaseTest):
 
     def handle_advanced_reboot_health_check_kvm(self):
         self.log("Wait until data plane stops")
-        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop)
+        forward_stop_signal = multiprocessing.Event()
+        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop, args=(forward_stop_signal,))
 
         self.log("Wait until control plane up")
-        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up)
+        port_up_signal = multiprocessing.Event()
+        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up, args=(port_up_signal,))
 
         try:
             self.no_routing_start, _ = async_forward_stop.get(timeout=self.task_timeout)
             self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(self.no_routing_start))
         except TimeoutError:
+            forward_stop_signal.set()
             self.log("Data plane never stop")
 
         try:
@@ -930,6 +933,7 @@ class ReloadTest(BaseTest):
             no_control_stop = self.cpu_state.get_state_time('up')
             self.log("Control plane down stops %s" % str(no_control_stop))
         except TimeoutError as e:
+            port_up_signal.set()
             self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
             self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
             raise
