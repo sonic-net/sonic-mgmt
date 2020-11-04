@@ -33,6 +33,7 @@ all:
         vlab-04:
         vlab-05:
         vlab-06:
+        vlab-07:
     sonic:
       hosts:
         vlab-01:

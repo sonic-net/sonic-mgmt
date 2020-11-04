@@ -10,6 +10,7 @@ all:
             sonic_s6000:
             sonic_s6100:
             sonic_a7260:
+            sonic_multi_asic:
         fanout:
           hosts:
             str-7260-10:
@@ -104,6 +105,6 @@ sonic_multi_asic:
     hwsku: msft_multi_asic_vs
     iface_speed: 40000
   hosts:
-    vlab-05:
+    vlab-07:
       ansible_host: 10.250.0.109
       ansible_hostv6: fec0::ffff:afa:7
