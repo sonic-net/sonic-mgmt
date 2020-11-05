@@ -70,10 +70,8 @@ tacacs/test_ro_user.py \
 telemetry/test_telemetry.py \
 test_features.py \
 test_procdockerstatsd.py \
+iface_namingmode/test_iface_namingmode.py \
 platform_tests/test_cpu_memory_usage.py"
-
-# FIXME: disable this test due to https://github.com/Azure/sonic-buildimage/issues/5697
-# iface_namingmode/test_iface_namingmode.py
 
 # FIXME: The lldp test has been temporarily disabled for https://github.com/Azure/sonic-mgmt/pull/2413
 # and https://github.com/Azure/sonic-buildimage/pull/5698. The reason is that these two PRs dependent on each other.
