@@ -63,6 +63,7 @@ from operator import itemgetter
 import scapy.all as scapyall
 import itertools
 from device_connection import DeviceConnection
+import multiprocessing
 
 from arista import Arista
 import sad_path as sp
@@ -290,12 +291,15 @@ class ReloadTest(BaseTest):
             self.log_fp.flush()
 
     def timeout(self, func, seconds, message):
-        async_res = self.pool.apply_async(func)
+        signal = multiprocessing.Event()
+        async_res = self.pool.apply_async(func, args=(signal,))
+
         try:
             res = async_res.get(timeout=seconds)
         except Exception as err:
             # TimeoutError and Exception's from func
             # captured here
+            signal.set()
             raise type(err)(message)
         return res
 
@@ -489,7 +493,7 @@ class ReloadTest(BaseTest):
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
-        if self.reboot_type not in ['fast-reboot', 'warm-reboot']:
+        if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
 
@@ -537,7 +541,7 @@ class ReloadTest(BaseTest):
         self.generate_ping_dut_lo()
         self.generate_arp_ping_packet()
 
-        if self.reboot_type == 'warm-reboot':
+        if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
 
             # Pre-generate list of packets to be sent in send_in_background method.
@@ -792,14 +796,17 @@ class ReloadTest(BaseTest):
         self.fails['dut'].clear()
 
         self.log("Wait until control plane up")
-        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up)
+        port_up_signal = multiprocessing.Event()
+        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up, args=(port_up_signal,))
 
         self.log("Wait until data plane stops")
-        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop)
+        forward_stop_signal = multiprocessing.Event()
+        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop, args=(forward_stop_signal,))
 
         try:
             async_cpu_up.get(timeout=self.task_timeout)
         except TimeoutError as e:
+            port_up_signal.set()
             self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
             self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
             raise
@@ -808,6 +815,7 @@ class ReloadTest(BaseTest):
             self.no_routing_start, self.upper_replies = async_forward_stop.get(timeout=self.task_timeout)
             self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(self.no_routing_start))
         except TimeoutError:
+            forward_stop_signal.set()
             self.log("Data plane never stop")
             self.routing_always = True
             self.upper_replies = [self.nr_vl_pkts]
@@ -853,8 +861,8 @@ class ReloadTest(BaseTest):
         for _, q in self.ssh_jobs:
             q.put('quit')
 
-        def wait_for_ssh_threads():
-            while any(thr.is_alive() for thr, _ in self.ssh_jobs):
+        def wait_for_ssh_threads(signal):
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
                 time.sleep(self.TIMEOUT)
 
             for thr, _ in self.ssh_jobs:
@@ -876,7 +884,7 @@ class ReloadTest(BaseTest):
         if self.reboot_type == 'fast-reboot' and self.no_cp_replies < 0.95 * self.nr_vl_pkts:
             self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
 
-        if self.reboot_type == 'warm-reboot':
+        if 'warm-reboot' in self.reboot_type:
             if self.total_disrupt_time > self.limit.total_seconds():
                 self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
                     % (str(self.limit), str(self.total_disrupt_time)))
@@ -985,7 +993,7 @@ class ReloadTest(BaseTest):
             self.wait_until_reboot()
             if self.reboot_type == 'fast-reboot':
                 self.handle_fast_reboot_health_check()
-            if self.reboot_type == 'warm-reboot':
+            if 'warm-reboot' in self.reboot_type:
                 self.handle_warm_reboot_health_check()
             self.handle_post_reboot_health_check()
 
@@ -1068,16 +1076,16 @@ class ReloadTest(BaseTest):
         ssh = Arista(ip, queue, self.test_params)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
 
-    def wait_until_cpu_port_down(self):
-        while True:
+    def wait_until_cpu_port_down(self, signal):
+        while not signal.is_set():
             for _, q in self.ssh_jobs:
                 self.put_nowait(q, 'cpu_down')
             if self.cpu_state.get() == 'down':
                 break
             time.sleep(self.TIMEOUT)
 
-    def wait_until_cpu_port_up(self):
-        while True:
+    def wait_until_cpu_port_up(self, signal):
+        while not signal.is_set():
             for _, q in self.ssh_jobs:
                 self.put_nowait(q, 'cpu_up')
             if self.cpu_state.get() == 'up':
@@ -1295,10 +1303,10 @@ class ReloadTest(BaseTest):
             scapyall.wrpcap(filename, packets)
             self.log("Filtered pcap dumped to %s" % filename)
 
-    def check_forwarding_stop(self):
+    def check_forwarding_stop(self, signal):
         self.asic_start_recording_vlan_reachability()
 
-        while True:
+        while not signal.is_set():
             state = self.asic_state.get()
             for _, q in self.ssh_jobs:
                 self.put_nowait(q, 'check_stop')
@@ -1310,8 +1318,8 @@ class ReloadTest(BaseTest):
         self.asic_stop_recording_vlan_reachability()
         return self.asic_state.get_state_time(state), self.get_asic_vlan_reachability()
 
-    def check_forwarding_resume(self):
-        while True:
+    def check_forwarding_resume(self, signal):
+        while not signal.is_set():
             state = self.asic_state.get()
             if state != 'down':
                 break

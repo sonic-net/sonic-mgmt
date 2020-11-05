@@ -23,14 +23,14 @@ interface {{ intf }}
  no ip address
  switchport
 {% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != 'Trunk' %}
- description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+ description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
  vlan-stack access
  no shutdown
  interface Vlan {{ device_port_vlans[intf]['vlanids'] }}
  vlan-stack compatible
  member {{ intf }}
 {% elif intf in device_port_vlans and device_port_vlans[intf]['mode'] == 'Trunk' %} 
- description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+ description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
  vlan-stack trunk 
  no shutdown
 {% for vlanid in  device_port_vlans[intf]['vlanlist']  %}

@@ -244,7 +244,7 @@ class Parse_Lab_Graph():
         return the given hostname device each individual connection
         """
         if hostname in self.links:
-            return self.links[hostname]
+            return { hostname: self.links[hostname] }
         else:
             return self.links
 
@@ -322,7 +322,7 @@ def main():
             lab_graph = find_graph(target)
 
         device_info = []
-        device_conn = []
+        device_conn = {}
         device_port_vlans = []
         device_vlan_range = []
         device_vlan_list = []
@@ -332,7 +332,7 @@ def main():
             if dev is None:
                 module.fail_json(msg="cannot find info for %s" % hostname)
             device_info.append(dev)
-            device_conn.append(lab_graph.get_host_connections(hostname))
+            device_conn.update(lab_graph.get_host_connections(hostname))
             host_vlan = lab_graph.get_host_vlan(hostname)
             # for multi-DUTs, must ensure all have vlan configured.
             if host_vlan:
@@ -343,7 +343,8 @@ def main():
         results = {k: v for k, v in locals().items()
                    if (k.startswith("device_") and v)}
 
-        # flatten the lists for single host
+        # TODO: Currently the results values are heterogeneous, let's change
+        # them all into dictionaries in the future.
         if m_args['hosts'] is None:
             results = {k: v[0] if isinstance(v, list) else v for k, v in results.items()}
 

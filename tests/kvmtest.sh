@@ -36,7 +36,8 @@ PYTEST_CLI_COMMON_OPTS="\
 -m individual \
 -q 1 \
 -a False \
--e --disable_loganalyzer"
+-e --disable_loganalyzer \
+-O"
 
 cd $SONIC_MGMT_DIR/tests
 rm -rf logs
@@ -54,7 +55,6 @@ bgp/test_bgp_speaker.py \
 cacl/test_cacl_application.py \
 cacl/test_cacl_function.py \
 dhcp_relay/test_dhcp_relay.py \
-lldp/test_lldp.py \
 ntp/test_ntp.py \
 pc/test_po_cleanup.py \
 route/test_default_route.py \
@@ -66,7 +66,21 @@ snmp/test_snmp_queue.py \
 syslog/test_syslog.py \
 tacacs/test_rw_user.py \
 tacacs/test_ro_user.py \
-telemetry/test_telemetry.py"
+telemetry/test_telemetry.py \
+test_features.py \
+test_procdockerstatsd.py \
+platform_tests/test_cpu_memory_usage.py"
+
+# FIXME: disable this test due to https://github.com/Azure/sonic-buildimage/issues/5697
+# iface_namingmode/test_iface_namingmode.py
+
+# FIXME: The lldp test has been temporarily disabled for https://github.com/Azure/sonic-mgmt/pull/2413
+# and https://github.com/Azure/sonic-buildimage/pull/5698. The reason is that these two PRs dependent on each other.
+# If PR#2413 is not merged, PR#5698 would fail PR test and cannot be merged. If PR#2413 is merged firstly, all
+# sonic-mgmt-pr testing would fail before a new image with PR#5698 is ready. The workaround is to temporarily disable
+# LLDP for sonic-mgmt-pr testing. Merge PR#2413 to unblock PR#5698. After a new image with PR#5698 is ready, then
+# enable LLDP testing again.
+# lldp/test_lldp.py
 
 # FIXME: This test has been disabled and needs to be fixed and put back in:
 # pc/test_po_update.py

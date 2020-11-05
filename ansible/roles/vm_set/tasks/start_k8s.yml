@@ -6,6 +6,7 @@
 
 - name: Ensure {{ k8s_root_path }} exists
   file: path={{ k8s_root_path }} state=directory
+  become: yes
 
 - name: Find current server group
   set_fact: current_server={{ group_names | extract_by_prefix('k8s_server_') }}
@@ -15,6 +16,7 @@
 
 - name: Create directory for Ubuntu VM image
   file: path={{ k8s_root_path }}/images state=directory mode=0755
+  become: yes
 
 - name: Check local cloud image 
   stat: 

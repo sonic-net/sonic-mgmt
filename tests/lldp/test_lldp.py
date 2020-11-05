@@ -75,7 +75,6 @@ def test_lldp_neighbor(duthost, localhost, eos,
         # Verify the published DUT system description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
         # Verify the published DUT port id field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == mg_facts['minigraph_ports'][k]['alias']
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == mg_facts['minigraph_ports'][k]['name']
         # Verify the published DUT port description field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
-                "%s:%s" % (mg_facts['minigraph_neighbors'][k]['name'], mg_facts['minigraph_neighbors'][k]['port'])
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == mg_facts['minigraph_ports'][k]['alias']
