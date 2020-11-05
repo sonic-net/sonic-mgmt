@@ -4,7 +4,7 @@ import pytest
 import re
 import yaml
 
-from natsort import natsorted
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.system_utils import docker
 
@@ -20,7 +20,6 @@ class QosSaiBase:
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
     TARGET_LOSSLESS_QUEUE_SCHED = 3
-    DEFAULT_PORT_INDEX_TO_ALIAS_MAP_FILE = "/tmp/default_interface_to_front_map.ini"
 
     def __runRedisCommandOrAssert(self, duthost, argv=[]):
         """
@@ -569,37 +568,8 @@ class QosSaiBase:
             "portSpeedCableLength": portSpeedCableLength,
         }
 
-    @pytest.fixture(scope='class')
-    def ptfPortMapFile(self, duthost, ptfhost):
-        """
-            Prepare and copys port map file to PTF host
-
-            Args:
-                request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-            Returns:
-                filename (str): returns the filename copied to PTF host
-        """
-        intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-        portList = natsorted([port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['speed'] != '10G'])
-        portMapFile = self.DEFAULT_PORT_INDEX_TO_ALIAS_MAP_FILE
-        with open(portMapFile, 'w') as file:
-            file.write("# ptf host interface @ switch front port name\n")
-            file.writelines(
-                map(
-                     lambda (index, port): "{0}@{1}\n".format(index, port),
-                     enumerate(portList)
-                    )
-                )
-
-        ptfhost.copy(src=portMapFile, dest="/root/")
-
-        yield "/root/{}".format(portMapFile.split('/')[-1])
-
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthost, tbinfo, ptfPortMapFile):
+    def dutTestParams(self, duthost, tbinfo, ptf_portmap_file):
         """
             Prepares DUT host test params
 
@@ -621,7 +591,7 @@ class QosSaiBase:
             "basicParams": {
                 "router_mac": '' if topo in self.SUPPORTED_T0_TOPOS else dutFacts['ansible_Ethernet0']['macaddress'],
                 "server": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
-                "port_map_file": ptfPortMapFile,
+                "port_map_file": ptf_portmap_file,
                 "sonic_asic_type": duthost.facts['asic_type'],
             }
         }
