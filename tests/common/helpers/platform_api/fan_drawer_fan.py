@@ -40,6 +40,14 @@ def get_serial(conn, fan_drawer_idx, fan_idx):
 def get_status(conn, fan_drawer_idx, fan_idx):
     return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'get_status')
 
+
+def get_position_in_parent(conn, fan_drawer_idx, fan_idx):
+    return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'get_position_in_parent')
+
+
+def is_replaceable(conn, fan_drawer_idx, fan_idx):
+    return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'is_replaceable')
+
 #
 # Methods defined in fanBase class
 #

@@ -1046,6 +1046,26 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return DEFAULT_NAMESPACE
         return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
+    def get_extended_minigraph_facts(self, tbinfo):
+        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+        mg_facts['minigraph_ptf_indeces'] = mg_facts['minigraph_port_indices'].copy()
+
+        # Fix the ptf port index for multi-dut testbeds. These testbeds have
+        # multiple DUTs sharing a same PTF host. Therefore, the indeces from
+        # the minigraph facts are not always match up with PTF port indeces.
+        try:
+            dut_index = tbinfo['duts'].index(self.hostname)
+            map = tbinfo['topo']['ptf_map'][dut_index]
+            if map:
+                for port, index in mg_facts['minigraph_ptf_indeces'].items():
+                    if index in map:
+                        mg_facts['minigraph_ptf_indeces'][port] = map[index]
+        except ValueError:
+            pass
+
+        return mg_facts
+
+
 class K8sMasterHost(AnsibleHostBase):
     """
     @summary: Class for Ubuntu KVM that hosts Kubernetes master
@@ -1410,6 +1430,24 @@ class SonicAsic(object):
         if self.sonichost.facts['num_asic'] != 1:
             complex_args['instance_id'] = self.asic_index
         return self.sonichost.bgp_facts(*module_args, **complex_args)
+
+    def config_facts(self, *module_args, **complex_args):
+        """ Wrapper method for config_facts ansible module.
+        If number of asics in SonicHost are more than 1, then add 'namespace' param for this Asic
+        If 'host' is not specified in complex_args, add it - as it is a mandatory param for the config_facts module
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            if SonicHost has only 1 asic, then return the config_facts for the global namespace, else config_facts for namespace for my asic_index.
+        """
+        if 'host' not in complex_args:
+            complex_args['host'] = self.sonichost.hostname
+        if self.sonichost.facts['num_asic'] != 1:
+            complex_args['namespace'] = 'asic{}'.format(self.asic_index)
+        return self.sonichost.config_facts(*module_args, **complex_args)
 
 
 class MultiAsicSonicHost(object):

@@ -43,6 +43,13 @@ def get_status(conn, mod_idx):
     return module_api(conn, mod_idx, 'get_status')
 
 
+def get_position_in_parent(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_position_in_parent')
+
+
+def is_replaceable(conn, mod_idx):
+    return module_api(conn, mod_idx, 'is_replaceable')
+
 #
 # Methods defined in ModuleBase class
 #
