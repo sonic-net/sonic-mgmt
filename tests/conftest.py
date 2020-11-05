@@ -116,9 +116,6 @@ class TestbedInfo(object):
 
     def calculate_ptf_index_map(self, line):
         map = defaultdict()
-        if len(line['duts']) <= 1:
-            # No need to calculate map for single DUT testbed
-            return map
 
         # For multi-DUT testbed, because multiple DUTs are sharing a same
         # PTF docker, the ptf docker interface index will not be exactly
@@ -133,9 +130,10 @@ class TestbedInfo(object):
 
         topology = topo_facts['topology']
         if 'host_interfaces' in topology:
-            for ports in topology['host_interfaces']:
+            for _ports in topology['host_interfaces']:
                 # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
                 # if there is no '@' then they are shared, no need to update.
+                ports = str(_ports)
                 for port in ports.split(','):
                     if '@' in port and '.' in port:
                         dut_index, port_index, ptf_index = _parse_dut_port_index(port)
@@ -148,8 +146,9 @@ class TestbedInfo(object):
         if 'VMs' in topology:
             for _, vm in topology['VMs'].items():
                 if 'vlans' in vm:
-                    for port in vm['vlans']:
+                    for _port in vm['vlans']:
                         # Example: ['0.31@34', '1.31@35']
+                        port = str(_port)
                         if '@' in port and '.' in port:
                             dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
                             if port_index != ptf_index:
