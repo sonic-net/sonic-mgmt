@@ -14,7 +14,8 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
-def test_cleanup_testbed(duthost, request, ptfhost):
+def test_cleanup_testbed(duthosts, dut_hostname, request, ptfhost):
+    duthost = duthosts[dut_hostname]
     deep_clean = request.config.getoption("--deep_clean")
     if deep_clean:
         logger.info("Deep cleaning DUT {}".format(duthost.hostname))
@@ -29,7 +30,8 @@ def test_cleanup_testbed(duthost, request, ptfhost):
     if ptfhost:
         ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
-def test_disable_container_autorestart(duthost):
+def test_disable_container_autorestart(duthosts, dut_hostname):
+    duthost = duthosts[dut_hostname]
     command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
     if command_output['rc'] != 0:
         logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
@@ -60,28 +62,33 @@ def collect_dut_info(dut):
     return { 'intf_status' : status }
 
 
-def test_update_testbed_metadata(duthosts, tbinfo):
+def test_update_testbed_metadata(duthosts, dut_hostname, tbinfo):
+    duthost = duthosts[dut_hostname]
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
 
-    for dut in duthosts:
-        dutinfo = collect_dut_info(dut)
-        metadata[dut.hostname] = dutinfo
-
-    info = { tbname : metadata }
-    folder = 'metadata'
-    filepath = os.path.join(folder, tbname + '.json')
+    dutinfo = collect_dut_info(duthost)
+    metadata[duthost.hostname] = dutinfo
     try:
+        folder = 'metadata'
+        filepath = os.path.join(folder, tbname + '.json')
         if not os.path.exists(folder):
             os.mkdir(folder)
-        with open(filepath, 'w') as yf:
+        with open(filepath, 'a+') as yf:
+            try:
+                info = json.load(yf)
+                info[tbname].update(metadata)
+            except (KeyError, ValueError) as e:
+                info = {tbname: metadata}
+            yf.truncate(0)
             json.dump(info, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_disable_rsyslog_rate_limit(duthost):
+def test_disable_rsyslog_rate_limit(duthosts, dut_hostname):
+    duthost = duthosts[dut_hostname]
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.
