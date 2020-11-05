@@ -172,11 +172,18 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
 
 def test_perf_add_remove_routes(duthost, request, ip_versions):
     # Number of routes for test
-    num_routes = request.config.getoption("--num_routes")
+    set_num_routes = request.config.getoption("--num_routes")
 
     # Generate interfaces and neighbors
     NUM_NEIGHS = 8
     intf_neighs, str_intf_nexthop = generate_intf_neigh(NUM_NEIGHS, ip_versions)
+
+    route_tag = "ipv{}_route".format(ip_versions)
+    used_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag).get("used")
+    avail_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag).get("available")
+    num_routes = min(avail_routes_count, set_num_routes)
+    logger.info("IP route utilization before test start: Used: {}, Available: {}, Test count: {}"\
+        .format(used_routes_count, avail_routes_count, num_routes))
 
     # Generate ip prefixes of routes
     if (ip_versions == 4):
