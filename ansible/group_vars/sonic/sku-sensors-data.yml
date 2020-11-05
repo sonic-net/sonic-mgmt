@@ -2904,7 +2904,8 @@ sensors_checks:
       - dps1900-i2c-7-58/vout1/in2_crit_alarm
       - dps1900-i2c-7-58/vout1/in2_lcrit_alarm
       temp:
-      - coretemp-isa-0000/P[a-z]* id 0/temp1_crit_alarm
+        # to specify regular expression use backslash '\' at the beginning and end of expression
+      - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit_alarm
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
       - dps1900-i2c-6-58/PSU1 primary hotspot temp/temp1_alarm
@@ -2935,8 +2936,9 @@ sensors_checks:
       - - dps1900-i2c-7-58/iout1/curr2_input
         - dps1900-i2c-7-58/iout1/curr2_max
       temp:
-      - - coretemp-isa-0000/P[a-z]* id 0/temp1_input
-        - coretemp-isa-0000/P[a-z]* id 0/temp1_max
+        # to specify regular expression use backslash '\' at the beginning and end of expression
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
       - - coretemp-isa-0000/Core 0/temp2_input
         - coretemp-isa-0000/Core 0/temp2_max
       - - coretemp-isa-0000/Core 1/temp3_input
