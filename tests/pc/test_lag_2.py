@@ -40,7 +40,7 @@ class LagTest:
         self.ptfhost     = ptfhost
         self.nbrhosts    = nbrhosts
         self.fanouthosts = fanouthosts
-        self.mg_facts         = duthost.get_minigraph_facts(tbinfo)
+        self.mg_facts         = duthost.get_extended_minigraph_facts(tbinfo)
         self.conn_graph_facts = conn_graph_facts
         self.vm_neighbors     = self.mg_facts['minigraph_neighbors']
         self.fanout_neighbors = self.conn_graph_facts['device_conn'][duthost.hostname] if 'device_conn' in self.conn_graph_facts else {}
@@ -134,7 +134,7 @@ class LagTest:
         iface_behind_lag_member = []
         for neighbor_intf in self.vm_neighbors.keys():
             if peer_device == self.vm_neighbors[neighbor_intf]['name']:
-                iface_behind_lag_member.append(self.mg_facts['minigraph_port_indices'][neighbor_intf])
+                iface_behind_lag_member.append(self.mg_facts['minigraph_ptf_indeces'][neighbor_intf])
 
         neighbor_lag_intfs = []
         for po_intf in po_interfaces:
