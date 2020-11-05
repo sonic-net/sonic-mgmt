@@ -17,6 +17,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 
 from collections import defaultdict
+from collections import OrderedDict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import Localhost
@@ -43,53 +44,154 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
 
 
 class TestbedInfo(object):
-    """
-    Parse the CSV file used to describe whole testbed info
-    Please refer to the example of the CSV file format
-    CSV file first line is title
-    The topology name in title is using conf-name
-    """
+    """Parse the testbed file used to describe whole testbed info."""
+
+    TESTBED_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
 
     def __init__(self, testbed_file):
-        self.testbed_filename = testbed_file
-        self.testbed_topo = defaultdict()
-        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+        if testbed_file.endswith(".csv"):
+            self.testbed_yamlfile = testbed_file.replace(".csv", ".yaml")
+            logging.warn(
+                "Deprecated CSV format testbed file, please use yaml file"
+                )
+            if os.path.exists(self.testbed_yamlfile):
+                logging.debug(
+                    "Use yaml testbed file: %s", self.testbed_yamlfile
+                    )
+                self.testbed_filename = self.testbed_yamlfile
+            else:
+                self.testbed_filename = testbed_file
+        elif testbed_file.endswith(".yaml"):
+            self.testbed_filename = testbed_file
+        else:
+            raise ValueError("Unsupported testbed file type")
 
+        # use OrderedDict here to ensure yaml file has same order as csv.
+        self.testbed_topo = OrderedDict()
+        # use to convert from netmask to cidr
+        self._address_cache = {}
+        if self.testbed_filename.endswith(".yaml"):
+            self._read_testbed_topo_from_yaml()
+        if self.testbed_filename.endswith(".csv"):
+            self._read_testbed_topo_from_csv()
+            # create yaml testbed file
+            self.dump_testbeds_to_yaml()
+        self.parse_topo()
+
+    def _cidr_to_ip_mask(self, network):
+        addr = ipaddress.IPNetwork(network)
+        ip_address, netmask = str(addr.ip), str(addr.netmask)
+        self._address_cache[(ip_address, netmask)] = network
+        return ip_address, netmask
+
+    def _ip_mask_to_cidr(self, ip_address, netmask):
+        return self._address_cache[(ip_address, netmask)]
+
+    def _read_testbed_topo_from_csv(self):
+        """Read csv testbed info file."""
         with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f, fieldnames=CSV_FIELDS, delimiter=',')
+            topo = csv.DictReader(f, fieldnames=self.TESTBED_FIELDS,
+                                  delimiter=',')
 
             # Validate all field are in the same order and are present
             header = next(topo)
-            for field in CSV_FIELDS:
+            for field in self.TESTBED_FIELDS:
                 assert header[field].replace('#', '').strip() == field
 
             for line in topo:
                 if line['conf-name'].lstrip().startswith('#'):
-                    ### skip comment line
+                    # skip comment line
                     continue
                 if line['ptf_ip']:
-                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
-                    line['ptf_ip'] = str(ptfaddress.ip)
-                    line['ptf_netmask'] = str(ptfaddress.netmask)
-
+                    line['ptf_ip'], line['ptf_netmask'] = \
+                        self._cidr_to_ip_mask(line['ptf_ip'])
                 if line['ptf_ipv6']:
-                    ptfaddress = ipaddress.IPNetwork(line['ptf_ipv6'])
-                    line['ptf_ipv6'] = str(ptfaddress.ip)
-                    line['ptf_netmask_v6'] = str(ptfaddress.netmask)
+                    line['ptf_ipv6'], line['ptf_netmask_v6'] = \
+                        self._cidr_to_ip_mask(line['ptf_ipv6'])
 
                 line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
+                line['duts_map'] = {dut:line['duts'].index(dut) for dut in line['duts']}
                 del line['dut']
 
-                topo = line['topo']
-                del line['topo']
-                line['topo'] = defaultdict()
-                line['topo']['name'] = topo
-                line['topo']['type'] = self.get_testbed_type(line['topo']['name'])
-                with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
-                    line['topo']['properties'] = yaml.safe_load(fh)
-                line['topo']['ptf_map'] = self.calculate_ptf_index_map(line)
-
                 self.testbed_topo[line['conf-name']] = line
+
+    def _read_testbed_topo_from_yaml(self):
+        """Read yaml testbed info file."""
+        with open(self.testbed_filename) as f:
+            tb_info = yaml.safe_load(f)
+            for tb in tb_info:
+                if tb["ptf_ip"]:
+                    tb["ptf_ip"], tb["ptf_netmask"] = \
+                        self._cidr_to_ip_mask(tb["ptf_ip"])
+                if tb["ptf_ipv6"]:
+                    tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
+                        self._cidr_to_ip_mask(tb["ptf_ipv6"])
+                tb["duts"] = tb.pop("dut")
+                tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
+                self.testbed_topo[tb["conf-name"]] = tb
+
+    def dump_testbeds_to_yaml(self):
+
+        def none_representer(dumper, _):
+            return dumper.represent_scalar("tag:yaml.org,2002:null", "")
+
+        def ordereddict_representer(dumper, data):
+            value = []
+            node = yaml.MappingNode("tag:yaml.org,2002:map", value)
+            for item_key, item_value in data.items():
+                node_key = dumper.represent_data(item_key)
+                node_value = dumper.represent_data(item_value)
+                value.append((node_key, node_value))
+            return node
+
+        class IncIndentDumper(yaml.Dumper):
+            """
+            Dumper class to increase indentation for nested list.
+
+            Add extra indentation since py-yaml doesn't add extra
+            indentation for list inside mapping by default [1].
+
+            [1]: https://web.archive.org/web/20170903201521/https://pyyaml.org/ticket/64
+            """
+            def increase_indent(self, flow=False, indentless=False):
+                return yaml.Dumper.increase_indent(self, flow, False)
+
+        testbed_data = []
+        for tb_name, tb_dict in self.testbed_topo.items():
+            ptf_ip, ptf_ipv6 = None, None
+            if tb_dict["ptf_ip"]:
+                ptf_ip = self._ip_mask_to_cidr(tb_dict["ptf_ip"],
+                                               tb_dict["ptf_netmask"])
+            if tb_dict["ptf_ipv6"]:
+                ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
+                                                 tb_dict["ptf_netmask_v6"])
+            testbed_mapping = zip(
+                self.TESTBED_FIELDS,
+                [
+                    tb_name,
+                    tb_dict["group-name"],
+                    tb_dict["topo"],
+                    tb_dict["ptf_image_name"],
+                    tb_dict["ptf"],
+                    ptf_ip,
+                    ptf_ipv6,
+                    tb_dict["server"],
+                    tb_dict["vm_base"] or None,
+                    tb_dict["duts"],
+                    tb_dict["comment"]
+                ]
+            )
+            testbed = OrderedDict(testbed_mapping)
+            testbed_data.append(testbed)
+
+        # dump blank instead of 'null' for None
+        IncIndentDumper.add_representer(type(None), none_representer)
+        # dump testbed fields in the order same as csv
+        IncIndentDumper.add_representer(OrderedDict, ordereddict_representer)
+
+        with open(self.testbed_yamlfile, "w") as yamlfile:
+            yaml.dump(testbed_data, yamlfile,
+                      explicit_start=True, Dumper=IncIndentDumper)
 
     def get_testbed_type(self, topo_name):
         pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor)')
@@ -159,6 +261,17 @@ class TestbedInfo(object):
                                 map[dut_index] = dut_dict
 
         return map
+
+    def parse_topo(self):
+        for tb_name, tb in self.testbed_topo.items():
+            topo = tb.pop("topo")
+            tb["topo"] = defaultdict()
+            tb["topo"]["name"] = topo
+            tb["topo"]["type"] = self.get_testbed_type(topo)
+            with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
+                tb['topo']['properties'] = yaml.safe_load(fh)
+            tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)           
+
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
@@ -267,7 +380,7 @@ def tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = TestbedInfo(tbfile)
-    return testbedinfo.testbed_topo[tbname]
+    return testbedinfo.testbed_topo.get(tbname, {})
 
 
 @pytest.fixture(name="duthosts", scope="session")
