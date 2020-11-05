@@ -47,7 +47,7 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
         for member in po[ifname]['members']:
             nbr_ports.append(dev_nbr[member]['port'])
     else:
-        pytest.skip("Do not support peer device not connected via port channel")
+        nbr_ports.append(dev_nbr[ifname]['port'])
     logger.info("neighbor device connected ports {}".format(nbr_ports))
 
     # get nexthop ip
