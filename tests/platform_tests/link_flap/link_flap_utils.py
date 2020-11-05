@@ -166,3 +166,23 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     """
     orch_cpu = dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
     return int(float(orch_cpu)) < orch_cpu_threshold
+
+
+def check_bgp_routes(dut, start_time_ip_route_counts, ipv4=False):
+    """
+    Make Sure all ip routes are relearned with jitter of ~5
+
+    Args:
+        dut: DUT host object
+        start_time_ip_route_counts: IP route counts at start
+        ipv4: Version of IP
+    """
+    if ipv4:
+        end_time_ip_route_counts = dut.shell("show ip route summary | grep Total | awk '{print $2}'")["stdout"]
+        logger.info("IPv4 routes at end: %s", end_time_ip_route_counts)
+    else:
+        end_time_ip_route_counts = dut.shell("show ipv6 route summary | grep Total | awk '{print $2}'")["stdout"]
+        logger.info("IPv6 routes at end: %s", end_time_ip_route_counts)
+
+    incr_ip_route_counts = abs(int(float(start_time_ip_route_counts)) - int(float(end_time_ip_route_counts)))
+    return incr_ip_route_counts < 5
