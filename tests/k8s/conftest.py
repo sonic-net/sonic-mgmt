@@ -31,8 +31,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
        Ignore expected failures logs during test execution
 
-       Kubernetes join attempt causes some expected failure logs when master serr
-vice is unreachable
+       Kubernetes join attempt causes some expected failure logs when master service is unreachable
 
        Args:
            duthost: DUT fixture

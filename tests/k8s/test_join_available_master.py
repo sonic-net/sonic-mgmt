@@ -10,10 +10,6 @@ WAIT_FOR_SYNC = 60
 logger = logging.getLogger(__name__)
 
 
-pytestmark = [
-    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-]
-
 
 def test_join_available_master(duthost, k8shosts):
     """
