@@ -25,7 +25,6 @@ def add_advanced_reboot_args(parser):
         "--reboot_limit",
         action="store",
         type=int,
-        default=30,
         help="Reboot time limit in sec",
     )
 

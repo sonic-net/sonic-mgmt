@@ -1,5 +1,5 @@
 #
-#ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
 #
 #
 # This test checks that DUT is able to make FastReboot procedure
@@ -146,15 +146,15 @@ class ReloadTest(BaseTest):
         self.check_param('min_bgp_gr_timeout', 15, required=False)
         self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
-        self.check_param('preboot_files', None, required = False)
-        self.check_param('preboot_oper', None, required = False) # preboot sad path to inject before warm-reboot
-        self.check_param('inboot_oper', None, required = False) # sad path to inject during warm-reboot
-        self.check_param('nexthop_ips', [], required = False) # nexthops for the routes that will be added during warm-reboot
-        self.check_param('allow_vlan_flooding', False, required = False)
-        self.check_param('sniff_time_incr', 60, required = False)
-        self.check_param('vnet', False, required = False)
-        self.check_param('vnet_pkts', None, required = False)
-        self.check_param('target_version', '', required = False)
+        self.check_param('preboot_files', None, required=False)
+        self.check_param('preboot_oper', None, required=False) # preboot sad path to inject before warm-reboot
+        self.check_param('inboot_oper', None, required=False) # sad path to inject during warm-reboot
+        self.check_param('nexthop_ips', [], required=False) # nexthops for the routes that will be added during warm-reboot
+        self.check_param('allow_vlan_flooding', False, required=False)
+        self.check_param('sniff_time_incr', 60, required=False)
+        self.check_param('vnet', False, required=False)
+        self.check_param('vnet_pkts', None, required=False)
+        self.check_param('target_version', '', required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -227,6 +227,14 @@ class ReloadTest(BaseTest):
             self.test_params['dut_username'],
             password=self.test_params['dut_password']
         )
+
+        # Check if platform type is kvm
+        stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
+        platform_type = str(stdout[0]).replace('\n', '')
+        if platform_type == 'x86_64-kvm_x86_64-r0':
+            self.kvm_test = True
+        else:
+            self.kvm_test = False
 
         return
 
@@ -496,6 +504,9 @@ class ReloadTest(BaseTest):
         if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
+
+        if self.kvm_test:
+            self.log("This test is for KVM platform")
 
         # get VM info
         if isinstance(self.test_params['arista_vms'], list):
@@ -873,16 +884,11 @@ class ReloadTest(BaseTest):
         self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
         self.log("")
 
-        if self.reboot_type == 'fast-reboot':
-            self.no_cp_replies = self.extract_no_cpu_replies(self.upper_replies)
-
         if self.no_routing_stop - self.no_routing_start > self.limit:
             self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
                     % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
         if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
             self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
-        if self.reboot_type == 'fast-reboot' and self.no_cp_replies < 0.95 * self.nr_vl_pkts:
-            self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
 
         if 'warm-reboot' in self.reboot_type:
             if self.total_disrupt_time > self.limit.total_seconds():
@@ -900,6 +906,73 @@ class ReloadTest(BaseTest):
             else:
                 # verify there are no interface flaps after warm boot
                 self.neigh_lag_status_check()
+
+        if self.reboot_type == 'fast-reboot':
+            self.no_cp_replies = self.extract_no_cpu_replies(self.upper_replies)
+            if self.no_cp_replies < 0.95 * self.nr_vl_pkts:
+                self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
+
+    def handle_advanced_reboot_health_check_kvm(self):
+        self.log("Wait until data plane stops")
+        forward_stop_signal = multiprocessing.Event()
+        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop, args=(forward_stop_signal,))
+
+        self.log("Wait until control plane up")
+        port_up_signal = multiprocessing.Event()
+        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up, args=(port_up_signal,))
+
+        try:
+            self.no_routing_start, _ = async_forward_stop.get(timeout=self.task_timeout)
+            self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(self.no_routing_start))
+        except TimeoutError:
+            forward_stop_signal.set()
+            self.log("Data plane never stop")
+
+        try:
+            async_cpu_up.get(timeout=self.task_timeout)
+            no_control_stop = self.cpu_state.get_state_time('up')
+            self.log("Control plane down stops %s" % str(no_control_stop))
+        except TimeoutError as e:
+            port_up_signal.set()
+            self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
+            self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
+            raise
+
+        # Wait until data plane up if it stopped
+        if self.no_routing_start is not None:
+            self.no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
+                    self.task_timeout,
+                    "DUT hasn't started to work for %d seconds" % self.task_timeout)
+        else:
+            self.no_routing_stop = datetime.datetime.min
+            self.no_routing_start = datetime.datetime.min
+
+        # Stop watching DUT
+        self.watching = False
+
+    def handle_post_reboot_health_check_kvm(self):
+        # wait until all bgp session are established
+        self.log("Wait until bgp routing is up on all devices")
+        for _, q in self.ssh_jobs:
+            q.put('quit')
+
+        def wait_for_ssh_threads(signal):
+            while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
+                time.sleep(self.TIMEOUT)
+
+            for thr, _ in self.ssh_jobs:
+                thr.join()
+
+        self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
+
+        self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
+        self.log("")
+
+        if self.no_routing_stop - self.no_routing_start > self.limit:
+            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
+                    % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
+        if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
+            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
 
     def handle_post_reboot_test_reports(self):
         # Stop watching DUT
@@ -991,11 +1064,15 @@ class ReloadTest(BaseTest):
             thr.start()
 
             self.wait_until_reboot()
-            if self.reboot_type == 'fast-reboot':
-                self.handle_fast_reboot_health_check()
-            if 'warm-reboot' in self.reboot_type:
-                self.handle_warm_reboot_health_check()
-            self.handle_post_reboot_health_check()
+            if self.kvm_test:
+                self.handle_advanced_reboot_health_check_kvm()
+                self.handle_post_reboot_health_check_kvm()
+            else:
+                if self.reboot_type == 'fast-reboot':
+                    self.handle_fast_reboot_health_check()
+                if 'warm-reboot' in self.reboot_type:
+                    self.handle_warm_reboot_health_check()
+                self.handle_post_reboot_health_check()
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
