@@ -70,6 +70,7 @@ class AdvancedReboot:
         self.cleanupOldSonicImages = self.request.config.getoption("--cleanup_old_sonic_images")
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
         self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
+        self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
 
     def getHostMaxLen(self):
         '''
@@ -282,6 +283,8 @@ class AdvancedReboot:
 
         logger.info('Remove config_db.json so the new image will reload minigraph')
         self.duthost.shell('rm -f /host/old_config/config_db.json')
+        logger.info('Remove downloaded tempfile')
+        self.duthost.shell('rm -f {}'.format(tempfile))
 
     def __setupTestbed(self):
         '''
@@ -500,6 +503,10 @@ class AdvancedReboot:
         assert len(result['stderr_lines']) == 0, '/etc/sonic/config_db.json is missing'
 
         self.__runScript(['remove_ip.sh'], self.ptfhost)
+
+        if self.postRebootCheckScript:
+            logger.info('Run the post reboot check script')
+            self.__runScript([self.postRebootCheckScript], self.duthost)
 
         if not self.stayInTargetImage:
             self.__restorePrevImage()

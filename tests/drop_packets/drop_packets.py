@@ -42,7 +42,7 @@ def fanouthost(request, duthost, localhost):
         for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "fanout")):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
-                module = importlib.import_module("fanout.{0}.{0}_fanout".format(file_name.strip(".py")))
+                module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
                 fanout = module.FanoutHandler(duthost, localhost)
                 break
 
@@ -167,7 +167,7 @@ def rif_port_down(duthost, setup, fanouthosts, loganalyzer):
             break
     pytest_assert(ip_dst, 'Unable to find IP address for neighbor "{}"'.format(vm_name))
 
-    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, rif_member_iface)
+    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
 
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:

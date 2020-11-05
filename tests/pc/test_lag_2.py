@@ -10,18 +10,19 @@ from tests.ptf_runner import ptf_runner
 from tests.common.devices import AnsibleHostBase
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.dut_ports import decode_dut_port_name
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthost, ptfhost, tbinfo):
-    logging.info("########### Setup for lag testing ###########")
-
-    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-    if lag_facts['names'] == []:
-        pytest.skip("No lag configuration found in %s" % duthost.hostname)
+def common_setup_teardown(ptfhost):
+    logger.info("########### Setup for lag testing ###########")
 
     # Copy PTF test into PTF-docker for test LACP DU
     test_files = ['lag_test.py', 'acs_base_test.py', 'router_utils.py']
@@ -30,25 +31,19 @@ def common_setup_teardown(duthost, ptfhost, tbinfo):
         dst = "/tmp/%s" % test_file
         ptfhost.copy(src=src, dest=dst)
 
-    # Inlucde testbed topology configuration
-    testbed_type = tbinfo['topo']['name']
-
-    support_testbed_types = frozenset(['t1-lag', 't0', 't0-116'])
-    if testbed_type not in support_testbed_types:
-        pytest.skip("Not support given test bed type %s" % testbed_type)
-
-    yield duthost, ptfhost, lag_facts
+    yield ptfhost
 
 class LagTest:
-    def __init__(self, duthost, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
+    def __init__(self, duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
         self.duthost     = duthost
+        self.tbinfo      = tbinfo
         self.ptfhost     = ptfhost
         self.nbrhosts    = nbrhosts
         self.fanouthosts = fanouthosts
-        self.mg_facts         = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        self.mg_facts         = duthost.get_extended_minigraph_facts(tbinfo)
         self.conn_graph_facts = conn_graph_facts
         self.vm_neighbors     = self.mg_facts['minigraph_neighbors']
-        self.fanout_neighbors = self.conn_graph_facts['device_conn'] if 'device_conn' in self.conn_graph_facts else {}
+        self.fanout_neighbors = self.conn_graph_facts['device_conn'][duthost.hostname] if 'device_conn' in self.conn_graph_facts else {}
 
     def __get_lag_facts(self):
         return self.duthost.lag_facts(host = self.duthost.hostname)['ansible_facts']['lag_facts']
@@ -110,16 +105,13 @@ class LagTest:
 
             # Verify lag member is marked deselected for the shutdown port and all other lag member interfaces are marked selected
             for po_intf in po_interfaces.keys():
-                if po_intf != intf:
-                    assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
-                else:
-                    assert not lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
+                pytest_assert((po_intf != intf) == (lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']),
+                              "Unexpected port channel {} member {} selected state: {}".format(lag_name, po_intf, (po_intf != intf)))
 
             # Verify PortChannel's interface are marked down/up correctly if it should down/up
-            if po_flap == True:
-                assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Down'
-            else:
-                assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
+            exp_state = 'Down' if po_flap else 'Up'
+            found_state = lag_facts['lags'][lag_name]['po_intf_stat']
+            pytest_assert(found_state == exp_state, "Expected lag {} state {} found {}.".format(lag_name, exp_state, found_state))
         finally:
             # Bring back port in case test error and left testbed in unknow stage
             # Bring up neighbor interface
@@ -132,7 +124,7 @@ class LagTest:
                     wait_until(wait_timeout, delay, self.__check_shell_output, self.duthost, command)
 
     def run_single_lag_lacp_rate_test(self, lag_name):
-        logging.info("Start checking single lag lacp rate for: %s" % lag_name)
+        logger.info("Start checking single lag lacp rate for: %s" % lag_name)
 
         lag_facts           = self.__get_lag_facts()
         intf, po_interfaces = self.__get_lag_intf_info(lag_facts, lag_name)
@@ -142,7 +134,7 @@ class LagTest:
         iface_behind_lag_member = []
         for neighbor_intf in self.vm_neighbors.keys():
             if peer_device == self.vm_neighbors[neighbor_intf]['name']:
-                iface_behind_lag_member.append(self.mg_facts['minigraph_port_indices'][neighbor_intf])
+                iface_behind_lag_member.append(self.mg_facts['minigraph_ptf_indeces'][neighbor_intf])
 
         neighbor_lag_intfs = []
         for po_intf in po_interfaces:
@@ -156,7 +148,7 @@ class LagTest:
 
             # Make sure all lag members on VM are set to fast
             for neighbor_lag_member in neighbor_lag_intfs:
-                logging.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_member, peer_device))
+                logger.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_member, peer_device))
                 vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'fast')
             lag_rate_current_setting = 'fast'
             time.sleep(5)
@@ -165,7 +157,7 @@ class LagTest:
 
             # Make sure all lag members on VM are set to slow
             for neighbor_lag_member in neighbor_lag_intfs:
-                logging.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
+                logger.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
                 vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'normal')
             lag_rate_current_setting = 'slow'
             time.sleep(5)
@@ -175,11 +167,11 @@ class LagTest:
             # Restore lag rate setting on VM in case of failure
             if lag_rate_current_setting == 'fast':
                 for neighbor_lag_member in neighbor_lag_intfs:
-                    logging.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
+                    logger.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
                     vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'normal')
 
     def run_single_lag_test(self, lag_name):
-        logging.info("Start checking single lag for: %s" % lag_name)
+        logger.info("Start checking single lag for: %s" % lag_name)
 
         lag_facts           = self.__get_lag_facts()
         intf, po_interfaces = self.__get_lag_intf_info(lag_facts, lag_name)
@@ -197,7 +189,7 @@ class LagTest:
         self.__verify_lag_minlink(self.nbrhosts[peer_device]['host'], lag_name, intf, neighbor_intf, po_interfaces, po_flap, deselect_time=95)
 
     def run_lag_fallback_test(self, lag_name):
-        logging.info("Start checking lag fall back for: %s" % lag_name)
+        logger.info("Start checking lag fall back for: %s" % lag_name)
 
         lag_facts           = self.__get_lag_facts()
         intf, po_interfaces = self.__get_lag_intf_info(lag_facts, lag_name)
@@ -220,7 +212,7 @@ class LagTest:
 
             # Get teamshow result
             teamshow_result = self.duthost.shell('teamshow')
-            logging.debug("Teamshow result: %s" % teamshow_result)
+            logger.debug("Teamshow result: %s" % teamshow_result)
 
             # Verify lag members
             # 1. All other lag should keep selected state
@@ -228,41 +220,65 @@ class LagTest:
             # 3. Shutdown port should marded as deselected if fallback disabled
             #  is marked deselected for the shutdown port and all other lag member interfaces are marked selected
             for po_intf in po_interfaces.keys():
-                if po_intf != intf or po_fallback:
-                    assert lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
-                else:
-                    assert not lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']
+                pytest_assert((po_intf != intf or po_fallback) == (lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']),
+                              "Unexpected port channel {} member {} selected state: {}".format(lag_name, po_intf, (po_intf != intf)))
 
             # The portchannel should marked Up/Down correctly according to po fallback setting
-            if po_fallback:
-                assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Up'
-            else:
-                assert lag_facts['lags'][lag_name]['po_intf_stat'] == 'Down'
+            exp_state = 'Up' if po_fallback else 'Down'
+            found_state = lag_facts['lags'][lag_name]['po_intf_stat']
+            pytest_assert(found_state == exp_state, "Expected lag {} state {} found {}.".format(lag_name, exp_state, found_state))
 
         finally:
             # Bring up neighbor interface
             vm_host.no_shutdown(neighbor_intf)
             wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, True)
 
-def test_lag(common_setup_teardown, nbrhosts, fanouthosts, conn_graph_facts):
-    duthost, ptfhost, lag_facts = common_setup_teardown
-    test_instance = LagTest(duthost, ptfhost, nbrhosts, fanouthosts, conn_graph_facts)
+@pytest.mark.parametrize("testcase", ["single_lag",
+                                      "lacp_rate",
+                                      "fallback"])
+def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, all_pcs, testcase):
+    ptfhost = common_setup_teardown
 
-    # Test for each lag
-    for lag_name in lag_facts['names']:
-        try:
-            lag_facts['lags'][lag_name]['po_config']['runner']['min_ports']
-        except KeyError:
-            logging.info("Skip [check_single_lag_lacp_rate] for lag (%s) due to min_ports not exists" % lag_name)
-            logging.info("Skip [check_single_lag] for lag (%s) due to min_ports not exists" % lag_name)
-            continue
-        else:
-            test_instance.run_single_lag_lacp_rate_test(lag_name)
-            test_instance.run_single_lag_test(lag_name)
+    dut_name, dut_lag = decode_dut_port_name(all_pcs)
 
-        try:
-            lag_facts['lags'][lag_name]['po_config']['runner']['fallback']
-        except KeyError:
-            logging.info("Skip [check_lag_fallback] for lag (%s) due to fallback was not set for it" % lag_name)
-        else:
-            test_instance.run_lag_fallback_test(lag_name)
+    some_test_ran = False
+    for duthost in duthosts:
+        if dut_name in [ 'unknown', duthost.hostname ]:
+            lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+
+            test_instance = LagTest(duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts)
+
+            # Test for each lag
+            if dut_lag == "unknown":
+                test_lags = lag_facts['names']
+            else:
+                pytest_require(dut_lag in lag_facts['names'], "No lag {} configuration found in {}".format(dut_lag, duthost.hostname))
+                test_lags = [ dut_lag ]
+
+            for lag_name in test_lags:
+                if testcase in [ "single_lag",  "lacp_rate" ]:
+                    try:
+                        lag_facts['lags'][lag_name]['po_config']['runner']['min_ports']
+                    except KeyError:
+                        msg = "Skip {} for lag {} due to min_ports not exists".format(testcase, lag_name)
+                        pytest_require(lag_name == "unknown", msg)
+                        logger.info(msg)
+                        continue
+                    else:
+                        some_test_ran = True
+                        if testcase == "single_lag":
+                            test_instance.run_single_lag_test(lag_name)
+                        else:
+                            test_instance.run_single_lag_lacp_rate_test(lag_name)
+                else: # fallback testcase
+                    try:
+                        lag_facts['lags'][lag_name]['po_config']['runner']['fallback']
+                    except KeyError:
+                        msg = "Skip {} for lag {} due to fallback was not set for it".format(testcase, lag_name)
+                        pytest_require(lag_name == "unknown", msg)
+                        continue
+                    else:
+                        some_test_ran = True
+                        test_instance.run_lag_fallback_test(lag_name)
+
+    pytest_assert(some_test_ran, "Didn't run any test.")
