@@ -6,13 +6,9 @@ import pytest
 import re
 
 from nat_helpers import SETUP_CONF
-from nat_helpers import DUT_TMP_DIR
-from nat_helpers import NAT_ADMIN_MODE
-from nat_helpers import TEMPLATE_DIR
 from nat_helpers import GLOBAL_NAT_TIMEOUT
 from nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
 from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
-from nat_helpers import NAT_GLOBAL_TEMPLATE
 from nat_helpers import FULL_CONE_TEST_SUBNET
 from nat_helpers import conf_ptf_interfaces
 from nat_helpers import teardown_test_env
