@@ -1,8 +1,5 @@
 import pytest
 import logging
-import os.path
-import os
-import json
 import time
 
 logger = logging.getLogger(__name__)
