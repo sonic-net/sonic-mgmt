@@ -9,7 +9,6 @@ from nat_helpers import STATIC_NAT_TABLE_NAME
 from nat_helpers import STATIC_NAPT_TABLE_NAME
 from nat_helpers import REBOOT_MAP
 from nat_helpers import apply_static_nat_config
-from nat_helpers import dut_interface_status
 from nat_helpers import set_static_arp_entries
 from nat_helpers import nat_zones_config
 from nat_helpers import nat_statistics
@@ -136,8 +135,6 @@ class TestStaticNat(object):
         # Define network data and L4 ports
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
-        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
-        # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
                                  network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Send bidirectional traffic
@@ -246,8 +243,6 @@ class TestStaticNat(object):
         nat_source = "{}:{}".format(setup_data[interface_type]["src_ip"], src_port)
         nat_translated_destination = nat_source
         nat_destination = nat_translated_source
-        # Set NAT configuration for test
-        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
                                  network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
