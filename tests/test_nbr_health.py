@@ -1,6 +1,9 @@
 import json
 import pytest
 import logging
+
+from common.helpers.assertions import pytest_assert
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -49,26 +52,27 @@ def check_bgp_facts(hostname, host):
     if not res.has_key('stdout_lines') or u'BGP summary' not in res['stdout_lines'][0][0]:
         return "neighbor {} bgp not configured correctly".format(hostname)
 
-def test_neighbors_health(duthost, localhost, nbrhosts, eos):
+def test_neighbors_health(duthosts, localhost, nbrhosts, eos):
     """Check each neighbor device health"""
 
     fails = []
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
-    for k, v in nei_meta.items():
-        failmsg = check_snmp(k, v['mgmt_addr'], localhost, eos['snmp_rocommunity'])
-        if failmsg:
-            fails.append(failmsg)
+    for duthost in duthosts:
+        config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
+        for k, v in nei_meta.items():
+            failmsg = check_snmp(k, v['mgmt_addr'], localhost, eos['snmp_rocommunity'])
+            if failmsg:
+                fails.append(failmsg)
 
-        eoshost = nbrhosts[k]['host']
-        failmsg = check_eos_facts(k, v['mgmt_addr'], eoshost)
-        if failmsg:
-            fails.append(failmsg)
+            eoshost = nbrhosts[k]['host']
+            failmsg = check_eos_facts(k, v['mgmt_addr'], eoshost)
+            if failmsg:
+                fails.append(failmsg)
 
-        failmsg = check_bgp_facts(k, eoshost)
-        if failmsg:
-            fails.append(failmsg)
+            failmsg = check_bgp_facts(k, eoshost)
+            if failmsg:
+                fails.append(failmsg)
 
-    # TODO: check link, bgp, etc. on
-    if len(fails) > 0:
-        pytest.fail("\n".join(fails))
+        # TODO: check link, bgp, etc. on
+
+    pytest_assert(len(fails) == 0, "\n".join(fails))
