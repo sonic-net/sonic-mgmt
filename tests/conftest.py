@@ -498,7 +498,7 @@ def generate_params_dut_hostname(request):
     tbinfo = TestbedInfo(tbfile)
     duts = tbinfo.testbed_topo[tbname]["duts"]
     logging.info("DUTs in testbed topology: {}".format(str(duts)))
-    return tbinfo.testbed_topo[tbname]["duts"]
+    return duts
 
 
 def generate_port_lists(request, port_scope):
