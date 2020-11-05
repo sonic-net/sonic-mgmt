@@ -121,6 +121,11 @@ all:
           ansible_hostv6: fec0::ffff:afa:9
           ansible_user: root
           ansible_password: root
+        ptf-05:
+          ansible_host: 10.250.0.110
+          ansible_hostv6: fec0::ffff:afa:a
+          ansible_user: root
+          ansible_password: root
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
