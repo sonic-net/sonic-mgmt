@@ -1,8 +1,10 @@
 import pytest
 import json
 import logging
+import time
 from datetime import datetime
 from tests.common.utilities import wait_until
+from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 
 CRM_POLL_INTERVAL = 1
@@ -16,6 +18,54 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+    """
+        Ignore expected failures logs during test execution.
+
+        The route_checker script will compare routes in APP_DB and ASIC_DB, and an ERROR will be
+        recorded if mismatch. The testcase will add 10,000 routes to APP_DB, and route_checker may
+        detect mismatch during this period. So a new pattern is added to ignore possible error logs.
+
+        Args:
+            duthost: DUT fixture
+            loganalyzer: Loganalyzer utility fixture
+    """
+    ignoreRegex = [
+        ".*ERR route_check.py:.*",
+        ".*ERR.* \'routeCheck\' status failed.*"
+    ]
+    if loganalyzer:
+        # Skip if loganalyzer is disabled
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+@pytest.fixture(params=[4, 6])
+def ip_versions(request):
+    """
+    Parameterized fixture for IP versions.
+    """
+    yield request.param
+
+@pytest.fixture(scope='function', autouse=True)
+def reload_dut(duthost, request):
+    yield
+    if request.node.rep_call.failed:
+        #Issue a config_reload to clear statically added route table and ip addr
+        logging.info("Reloading config..")
+        config_reload(duthost)
+
+@pytest.fixture(scope="module", autouse=True)
+def set_polling_interval(duthost):
+    """ Set CRM polling interval to 1 second """
+    wait_time = 2
+    duthost.command("crm config polling interval {}".format(CRM_POLL_INTERVAL))
+    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
+    time.sleep(wait_time)
+    yield
+    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
+    time.sleep(wait_time)
 
 def prepare_dut(duthost, intf_neighs):
     for intf_neigh in intf_neighs:
@@ -146,13 +196,9 @@ def test_perf_add_remove_routes(duthost, request, ip_versions):
     intf_neighs, str_intf_nexthop = generate_intf_neigh(NUM_NEIGHS, ip_versions)
 
     route_tag = "ipv{}_route".format(ip_versions)
-    used_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag, {}).get("used")
-    avail_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag, {}).get("available")
-    pytest_assert(avail_routes_count, "CRM main_resources data is not ready within adjusted CRM polling time {}s".\
-            format(CRM_POLL_INTERVAL))
-
+    used_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag).get("used")
+    avail_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag).get("available")
     num_routes = min(avail_routes_count, set_num_routes)
-
     logger.info("IP route utilization before test start: Used: {}, Available: {}, Test count: {}"\
         .format(used_routes_count, avail_routes_count, num_routes))
 
@@ -176,4 +222,3 @@ def test_perf_add_remove_routes(duthost, request, ip_versions):
         logger.info('Time to del %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_del))
     finally:
         cleanup_dut(duthost, intf_neighs)
-
