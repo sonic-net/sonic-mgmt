@@ -1,5 +1,4 @@
 #!/bin/bash
-
 if [[ $(id -u) -ne 0 ]]; then
     echo "Root privilege required"
     exit
@@ -19,17 +18,24 @@ if ! command -v ifconfig; then
 fi
 echo
 
-echo "STEP 3: Checking if bridge br1 already exists..."
-if brctl show br1; then
-    echo "br1 already exists, deleting first"
-    ifconfig br1 down
-    brctl delbr br1
+echo "STEP 3: Checking for ethtool package..."
+if ! command -v ethtool; then
+    echo "ethtool not found, install ethtool"
+    apt-get install -y ethtool
 fi
 echo
 
-echo "STEP 4: Creating management bridge br1..."
-brctl addbr br1
+echo "STEP 4: Checking if bridge br1 already exists..."
+if ! brctl show br1; then
+    echo "br1 not found, creating bridge network..."
+    brctl addbr br1
+fi
+echo
+
+echo "STEP 5: Configuring br1 interface..."
+echo "Assigning 10.250.0.1/24 to br1"
 ifconfig br1 10.250.0.1/24
+echo "Bringing up br1"
 ifconfig br1 up
 echo
 
