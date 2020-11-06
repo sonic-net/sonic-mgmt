@@ -212,11 +212,14 @@ def test_ft_ssh_add_user_verify():
         user_ssh = + 1
 
     #add default route to download ssh pass
-    ip_obj.create_static_route(vars.D1, ssh_data.default_gw, "default")
+    ip_obj.create_static_route(vars.D2, ssh_data.default_gw, "default", "sonic")
 
     output = verify_ssh_connection(vars.D2, ssh_data.ipv4_address_D1D2P2, ssh_data.usr_default, ssh_data.pwd_final)
     if not output:
         user_ssh = + 1
+
+    #delete default route to download ssh pass
+    ip_obj.delete_static_route(vars.D2, ssh_data.default_gw, "default", "sonic")
 
     IPAddr = ensure_service_params(vars.D1, "snmptrap", "ip") + "/32"
     change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_ACL|RULE_1", "SRC_IP", IPAddr)
