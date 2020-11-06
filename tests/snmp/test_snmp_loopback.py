@@ -27,7 +27,7 @@ def test_snmp_loopback(duthosts, dut_index, nbrhosts, tbinfo, localhost, creds):
     # Get first neighbor VM information
     nbr = nbrhosts[list(nbrhosts.keys())[0]]
 
-    # Perform SNMP walk rom neighbor  
+    # Perform SNMP walk from neighbor  
     for ip in config_facts[u'LOOPBACK_INTERFACE'][u'Loopback0']:
         ip = ip.split('/')[0]
         eos_snmpwalk = 'bash snmpget -v2c -c ' + creds['snmp_rocommunity'] + ' ' + ip  + ' 1.3.6.1.2.1.1.1.0'
