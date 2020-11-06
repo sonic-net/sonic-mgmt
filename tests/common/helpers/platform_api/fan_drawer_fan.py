@@ -77,5 +77,5 @@ def set_status_led(conn, fan_drawer_idx, fan_idx, color):
     return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'set_status_led', [color])
 
 
-def get_status_led(conn, fan_idx):
+def get_status_led(conn, fan_drawer_idx, fan_idx):
     return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'get_status_led')

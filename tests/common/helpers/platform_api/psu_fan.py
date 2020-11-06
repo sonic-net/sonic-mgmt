@@ -47,6 +47,7 @@ def get_position_in_parent(conn, psu_idx, fan_idx):
 
 def is_replaceable(conn, psu_idx, fan_idx):
     return psu_fan_api(conn, psu_idx, fan_idx, 'is_replaceable')
+
 #
 # Methods defined in fanBase class
 #
