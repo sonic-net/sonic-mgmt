@@ -12,7 +12,8 @@ pytestmark = [
 ]
 
 
-def test_collect_techsupport(duthost):
+def test_collect_techsupport(duthosts, dut_hostname):
+    duthost = duthosts[dut_hostname]
     """
     A util for collecting techsupport after tests.
 
@@ -33,13 +34,16 @@ def test_collect_techsupport(duthost):
 
 
 @pytest.mark.usefixtures('enable_container_autorestart')
-def test_restore_container_autorestart(duthost, enable_container_autorestart):
-    enable_container_autorestart(all_features=True)
+def test_restore_container_autorestart(duthosts, dut_hostname, enable_container_autorestart):
+    duthost = duthosts[dut_hostname]
+    enable_container_autorestart(duthost, all_features=True)
     # Wait sometime for snmp reloading
     SNMP_RELOADING_TIME = 30
     time.sleep(SNMP_RELOADING_TIME)
 
-def test_recover_rsyslog_rate_limit(duthost):
+
+def test_recover_rsyslog_rate_limit(duthosts, dut_hostname):
+    duthost = duthosts[dut_hostname]
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.

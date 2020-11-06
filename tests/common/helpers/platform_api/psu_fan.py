@@ -40,6 +40,14 @@ def get_serial(conn, psu_idx, fan_idx):
 def get_status(conn, psu_idx, fan_idx):
     return psu_fan_api(conn, psu_idx, fan_idx, 'get_status')
 
+
+def get_position_in_parent(conn, psu_idx, fan_idx):
+    return psu_fan_api(conn, psu_idx, fan_idx, 'get_position_in_parent')
+
+
+def is_replaceable(conn, psu_idx, fan_idx):
+    return psu_fan_api(conn, psu_idx, fan_idx, 'is_replaceable')
+
 #
 # Methods defined in fanBase class
 #
@@ -69,5 +77,5 @@ def set_status_led(conn, psu_idx, fan_idx, color):
     return psu_fan_api(conn, psu_idx, fan_idx, 'set_status_led', [color])
 
 
-def get_status_led(conn, fan_idx):
+def get_status_led(conn, psu_idx, fan_idx):
     return psu_fan_api(conn, psu_idx, fan_idx, 'get_status_led')

@@ -127,7 +127,7 @@ sshd                             RUNNING   pid 13, uptime 2 days, 10:35:21
 ```
 
 - pytest fib fixture to generate routes to exabgp
-  - currently support t0, t1-lag, extending to other topology is straighforward
+  - currently support t0, t1, t1-lag, extending to other topology is straighforward
   - fib module generate http request to exabgp instance
   
 ## Future applications:

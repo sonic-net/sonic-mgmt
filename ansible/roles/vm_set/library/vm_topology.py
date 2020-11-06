@@ -160,14 +160,19 @@ class VMTopology(object):
         self.vm_names = vm_names
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
-
-        self.host_ifaces = VMTopology.ifconfig('ifconfig -a')
-
         return
 
     def init(self, vm_set_name, topo, vm_base, duts_fp_ports, duts_name, ptf_exists=True):
         self.vm_set_name = vm_set_name
         self.duts_name = duts_name
+
+        if ptf_exists:
+            self.pid = VMTopology.get_pid(PTF_NAME_TEMPLATE % vm_set_name)
+        else:
+            self.pid = None
+
+        self.update()
+
         self.VMs = {}
         if 'VMs' in topo:
             self.vm_base = vm_base
@@ -194,14 +199,7 @@ class VMTopology(object):
 
         self.injected_fp_ports = self.extract_vm_vlans()
 
-        if ptf_exists:
-            self.pid = VMTopology.get_pid(PTF_NAME_TEMPLATE % vm_set_name)
-        else:
-            self.pid = None
-
         self.bp_bridge = ROOT_BACK_BR_TEMPLATE % self.vm_set_name
-
-        self.update()
 
         return
 

@@ -7,9 +7,10 @@ pytestmark = [
 ]
 
 # Test Functions
-def test_show_features(duthost):
+def test_show_features(duthosts, dut_hostname):
     """Verify show features command output against CONFIG_DB
     """
+    duthost = duthosts[dut_hostname]
     features_dict, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "failed to obtain feature status")
     for cmd_key, cmd_value in features_dict.items():
