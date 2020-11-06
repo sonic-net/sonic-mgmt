@@ -169,6 +169,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 replaceable = fan_drawer_fan.is_replaceable(platform_api_conn, j, i)
                 if self.expect(replaceable is not None, "Failed to perform is_replaceable for drawer {} fan {}".format(j, i)):
                     self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for drawer {} fan {}".format(j, i))
+
         self.assert_expectations()
 
     #

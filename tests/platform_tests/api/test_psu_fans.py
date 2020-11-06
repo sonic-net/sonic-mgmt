@@ -169,6 +169,7 @@ class TestPsuFans(PlatformApiTestBase):
                 replaceable = psu_fan.is_replaceable(platform_api_conn, j, i)
                 if self.expect(replaceable is not None, "Failed to perform is_replaceable for PSU {} fan {}".format(j, i)):
                     self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for PSU {} fan {}".format(j, i))
+
         self.assert_expectations()
 
     #
