@@ -17,6 +17,8 @@ cd sonic-mgmt/ansible
 sudo ./setup-management-network.sh
 ```
 
+3. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
+
 ## Download an EOS VM image
 We currently use EOS-based VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
 
