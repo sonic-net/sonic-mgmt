@@ -15,7 +15,8 @@ pytestmark = [
 ]
 
 
-def test_collect_techsupport(duthost):
+def test_collect_techsupport(duthosts, dut_hostname):
+    duthost = duthosts[dut_hostname]
     """
     A util for collecting techsupport after tests.
 
@@ -34,7 +35,8 @@ def test_collect_techsupport(duthost):
 
     assert True
 
-def test_restore_container_autorestart(duthost):
+def test_restore_container_autorestart(duthosts, dut_hostname):
+    duthost = duthosts[dut_hostname]
     state_file_name = "/tmp/autorestart_state_{}.json".format(duthost.hostname)
     if not os.path.exists(state_file_name):
         return
@@ -59,7 +61,8 @@ def test_restore_container_autorestart(duthost):
     SNMP_RELOADING_TIME = 30
     time.sleep(SNMP_RELOADING_TIME)
 
-def test_recover_rsyslog_rate_limit(duthost):
+def test_recover_rsyslog_rate_limit(duthosts, dut_hostname):
+    duthost = duthosts[dut_hostname]
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.
