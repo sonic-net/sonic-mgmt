@@ -47,14 +47,7 @@ In order to connect each physical SONiC DUT to a High Availability Kubernetes ma
 - Each KVM has one management interface assigned an IP address reachable from SONiC DUT.
 - HAProxy Load Balancer proxies requests to 3 backend Kubernetes master nodes. 
 
-In order to connect each virtual SONiC DUT to a High Availability Kubernetes master, we need to set up the following topology:
-![alt text](https://github.com/isabelmsft/k8s-ha-master-starlab/blob/master/k8s-testbed-diagram1.png)
-- Each high availability master setup requires 4 new Linux KVMs running on a Testbed Server connected to an internal management network.
-    - 3 Linux KVMs to serve as 3-node high availability Kubernetes master
-    - 1 Linux KVM to serve as HAProxy Load Balancer node
-- Each KVM has one management interface assigned an IP address reachable from the virtual SONiC DUT on the internal management network.
-- HAProxy Load Balancer proxies requests to 3 backend Kubernetes master nodes. 
-- Not pictured: internal management network, Linux bridge br1. Each KVM is connected to Linux bridge br1. br1 setup is described in [How to Setup High Availability Kubernetes Master for Virtual DUT](#how-to-setup-high-availability-kubernetes-master-for-virtual-dut) below.
+In the case of a virtual SONiC DUT, the SONiC KVM and 4 new Linux KVMs for the Kubernetes master are all running on the Testbed Server (or host VM). Each KVM is connected to an internal management network, Linux bridge br1. Management network setup is described in [How to Setup High Availability Kubernetes Master for Virtual DUT](#how-to-setup-high-availability-kubernetes-master-for-virtual-dut) below.
 
 Our setup meets Kubernetes Minimum Requirements to setup a High Availability cluster. The Minimum Requirements are as follows:
 - 2 GB or more of RAM per machine
