@@ -9,7 +9,6 @@ import time
 import pytest
 
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
-from tests.common.helpers.dut_ports import decode_dut_port_name
 
 def pytest_addoption(parser):
     """
