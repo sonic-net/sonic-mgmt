@@ -62,26 +62,22 @@ def collect_dut_info(dut):
     return { 'intf_status' : status }
 
 
-def test_update_testbed_metadata(duthosts, dut_hostname, tbinfo):
-    duthost = duthosts[dut_hostname]
+def test_update_testbed_metadata(duthosts, tbinfo):
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
 
-    dutinfo = collect_dut_info(duthost)
-    metadata[duthost.hostname] = dutinfo
+    for dut in duthosts:
+        dutinfo = collect_dut_info(dut)
+        metadata[dut.hostname] = dutinfo
+
+    info = { tbname : metadata }
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
     try:
-        folder = 'metadata'
-        filepath = os.path.join(folder, tbname + '.json')
         if not os.path.exists(folder):
             os.mkdir(folder)
-        with open(filepath, 'a+') as yf:
-            try:
-                info = json.load(yf)
-                info[tbname].update(metadata)
-            except (KeyError, ValueError) as e:
-                info = {tbname: metadata}
-            yf.truncate(0)
+        with open(filepath, 'w') as yf:
             json.dump(info, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
