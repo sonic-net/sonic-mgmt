@@ -136,7 +136,8 @@ def _install_nano(dut, creds):
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
 
         cmd = '''docker exec -e http_proxy={} -e https_proxy={} syncd bash -c " \
-                apt-get update \
+                rm -rf /var/lib/apt/lists/* \
+                && apt-get update \
                 && apt-get install -y python-pip build-essential libssl-dev python-dev wget cmake \
                 && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
                 && tar xvfz 1.0.0.tar.gz && cd nanomsg-1.0.0 \
