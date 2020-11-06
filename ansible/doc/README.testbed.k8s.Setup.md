@@ -58,7 +58,7 @@ Our setup meets Kubernetes Minimum Requirements to setup a High Availability clu
 
 ## How to Setup High Availability Kubernetes Master for Physical DUT
 
-#### To create a HA Kubernetes master for Virtual DUT: 
+#### To create a HA Kubernetes master for Physical DUT: 
 1. Prepare Testbed Server and build and run `docker-sonic-mgmt` container as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md) 
 2. Allocate 4 available IPs reachable from SONiC DUT.
 3. Update [`ansible/k8s_ubuntu`](../k8s_ubuntu) to include your 4 newly allocated IP addresses for the HA Kubernetes master and IP address of testbed server.
