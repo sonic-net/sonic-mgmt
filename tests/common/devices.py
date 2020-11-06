@@ -454,7 +454,7 @@ class SonicHost(AnsibleHostBase):
             return result
 
         # get process status for the service
-        output = self.command("docker exec {} supervisorctl status".format(service))
+        output = self.command("docker exec {} supervisorctl status".format(service), module_ignore_errors=True)
         logging.info("====== supervisor process status for service {} ======".format(service))
 
         for l in output['stdout_lines']:
