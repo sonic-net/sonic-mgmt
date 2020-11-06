@@ -79,8 +79,14 @@
     delegate_to: localhost
     when: "VM_topo | bool"
 
-  - name: find interface name mapping and individual interface speed if defined
+  - name: find interface name mapping and individual interface speed if defined from dut
     port_alias: hwsku="{{ hwsku }}"
+    when: deploy is defined and deploy|bool == true
+
+  - name: find interface name mapping and individual interface speed if defined with local data
+    port_alias: hwsku="{{ hwsku }}"
+    delegate_to: localhost
+    when: deploy is not defined or deploy|bool == false
 
   - name: find all enabled host_interfaces
     set_fact:
@@ -186,6 +192,7 @@
           -subj "/CN=ndastreamingclienttest"
           -out "{{ dsmsroot_cer }}"
       become: true
+    when: deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
