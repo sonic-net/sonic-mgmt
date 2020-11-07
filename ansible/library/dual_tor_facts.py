@@ -7,6 +7,7 @@ class DualTorParser:
         self.hostname = hostname
         self.testbed_facts = testbed_facts
         self.host_vars= host_vars
+        self.dual_tor_facts = {}
 
     def parse_neighbor_tor(self):
         '''
@@ -17,40 +18,30 @@ class DualTorParser:
         neighbor['ip'] = self.host_vars[neighbor['hostname']]['ansible_host']
         neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
 
-        return neighbor
+        self.dual_tor_facts['neighbor'] = neighbor
 
-    def get_tor_position(self):
+    def parse_tor_position(self):
         '''
         Determines the position ('U' for upper and 'L' for lower) of the ToR.
 
         The upper ToR is always the first ToR alphabetically by hostname
         '''
         upper_tor, lower_tor = sorted(self.testbed_facts['duts'])
-        return {'upper': upper_tor, 'lower': lower_tor}
+        self.dual_tor_facts['positions'] = {'upper': upper_tor, 'lower': lower_tor}
         
-    def get_v_links(self):
+    def parse_y_links(self):
         pass
 
-    def get_y_links(self):
-        pass
-
-    def get_link_meta(self):
-        pass
-
-    def parse_dual_tor_facts(self):
+    def get_dual_tor_facts(self):
         '''
         Gathers facts related to a dual ToR configuration
         '''
-        dual_tor_facts = {}
-
         if self.testbed_facts['topo'] == 'dualtor':
-            dual_tor_facts['neighbor'] = self.parse_neighbor_tor()
-            dual_tor_facts['positions'] = self.get_tor_position()
-            dual_tor_facts['v_links'] = self.get_v_links()
-            dual_tor_facts['y_links'] = self.get_y_links()
-            dual_tor_facts['link_meta'] = self.get_link_meta()
+            self.parse_neighbor_tor()
+            self.parse_tor_position()
+            self.parse_y_links()
 
-        return dual_tor_facts
+        return self.dual_tor_facts
 
 
 def main():
@@ -69,7 +60,7 @@ def main():
     host_vars= m_args['hostvars']
     try:
         dual_tor_parser = DualTorParser(hostname, testbed_facts, host_vars)
-        module.exit_json(ansible_facts={'dual_tor_facts': dual_tor_parser.parse_dual_tor_facts()})
+        module.exit_json(ansible_facts={'dual_tor_facts': dual_tor_parser.get_dual_tor_facts()})
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())
 
