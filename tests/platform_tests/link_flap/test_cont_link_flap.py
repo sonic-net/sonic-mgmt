@@ -10,7 +10,7 @@ import logging
 import time
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization, check_bgp_routes
 from tests.common.utilities import wait_until
@@ -26,7 +26,7 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
-    def test_cont_link_flap(self, request, duthost, fanouthosts, bring_up_fanout_interfaces, bring_up_dut_interfaces):
+    def test_cont_link_flap(self, request, duthost, fanouthosts, bring_up_dut_interfaces):
         """
         Validates that continuous link flap works as expected
 
@@ -75,8 +75,7 @@ class TestContLinkFlap(object):
             logging.info("%d Iteration flap all interfaces one by one on Peer Device", iteration + 1)
             candidates = build_test_candidates(duthost, fanouthosts, 'all_ports')
 
-            if not candidates:
-                pytest.skip("Didn't find any port that is admin up and present in the connection graph")
+            pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
 
             for dut_port, fanout, fanout_port in candidates:
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
