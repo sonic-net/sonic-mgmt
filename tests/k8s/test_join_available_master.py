@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 
-def test_join_available_master(duthost, k8shosts):
+def test_join_available_master(duthost, k8smasters):
     """
     Test case to ensure DUT properly joins Kubernetes master once VIP and API servers are both reachable
 
@@ -23,15 +23,18 @@ def test_join_available_master(duthost, k8shosts):
 
     Args:
         duthost: DUT host object
-        k8shosts: shortcut fixture for getting Kubernetes master hosts
+        k8smasters: shortcut fixture for getting Kubernetes master hosts
     """
-
-    master_vip = k8shosts['ha']['host'].ip_addr
+    haproxy = k8smasters['ha']
+    master_vip = haproxy['host'].mgmt_ip
     duthost.shell('sudo config kube server disable on')
-    ku.make_vip_unreachable(duthost, master_vip)
-    ku.shutdown_all_api_server(k8shosts)
     time.sleep(WAIT_FOR_SYNC)
     
+    server_connect_exp_status = False
+    server_connect_act_status = ku.check_connected(duthost)
+    pytest_assert(server_connect_exp_status == server_connect_act_status, "DUT shows unexpected kubernetes server connected status, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
+    
+    ku.make_vip_unreachable(duthost, master_vip)
     duthost.shell('sudo config kube server disable off') 
     duthost.shell('sudo config kube server ip {}'.format(master_vip))
     time.sleep(WAIT_FOR_SYNC)
@@ -42,14 +45,8 @@ def test_join_available_master(duthost, k8shosts):
 
     ku.make_vip_reachable(duthost, master_vip)
     time.sleep(WAIT_FOR_SYNC)
-    
-    server_connect_exp_status = False
-    server_connect_act_status = ku.check_connected(duthost)
-    pytest_assert(server_connect_exp_status == server_connect_act_status, "DUT shows unexpected kubernetes server connected status, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
 
-    ku.start_all_api_server(k8shosts)
-    time.sleep(WAIT_FOR_SYNC)
-    
     server_connect_exp_status = True
     server_connect_act_status = ku.check_connected(duthost)
     pytest_assert(server_connect_exp_status == server_connect_act_status, "DUT join available master failed, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
+

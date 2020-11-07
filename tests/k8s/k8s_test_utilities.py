@@ -1,6 +1,8 @@
 import logging
 import time
 
+from tests.common.helpers.assertions import pytest_assert
+
 logger = logging.getLogger(__name__)
 
 WAIT_FOR_SYNC = 60 # time unit seconds
@@ -17,11 +19,12 @@ def join_master(duthost, master_vip):
     If join fails, test will fail at the assertion to check_connected
     """
     logger.info("Joining DUT to Kubernetes master")
-    duthost.shell('sudo config kube server disable on')
-    duthost.shell('sudo config kube server ip {}'.format(master_vip))
-    duthost.shell('sudo config kube server disable off')
+    dut_join_cmds = ['sudo config kube server disable on',
+                     'sudo config kube server ip {}'.format(master_vip),
+                     'sudo config kube server disable off']
+    duthost.shell_cmds(cmds=dut_join_cmds)
     time.sleep(WAIT_FOR_SYNC)
-    assert check_connected(duthost)
+    pytest_assert(check_connected(duthost),"DUT failed to successfully join Kubernetes master")
     
 
 def make_vip_unreachable(duthost, master_vip):
@@ -58,37 +61,11 @@ def clean_vip_iptables_rules(duthost, master_vip):
         duthost: DUT host object
         master_vip: VIP of high availability Kubernetes master
     """
-    iptables_rules = duthost.shell('sudo iptables -S | grep {} || true'.format(master_vip))["stdout"].split("\n")
+    iptables_rules = duthost.shell('sudo iptables -S | grep {} || true'.format(master_vip))["stdout_lines"]
     logger.info('iptables rules: {}'.format(iptables_rules))
     for line in iptables_rules:
         if line: 
             duthost.shell('sudo iptables -D {}'.format(line[2:]))
-
-
-def shutdown_all_api_server(k8shosts):
-    """
-    Shuts down the API server on each backend master server.
-
-    Args:
-        k8shosts:  Shortcut fixture for getting Kubernetes hosts
-    """
-    for i in range(1, len(k8shosts)):
-        k8shost = k8shosts['m{}'.format(i)]['host']
-        logger.info("Shutting down API Server on master node m{}".format(i))
-        k8shost.shutdown_api_server()
-
-
-def start_all_api_server(k8shosts):
-    """
-    Starts the API server on each backend master server.
-
-    Args:
-        k8shosts:  Shortcut fixture for getting Kubernetes hosts
-    """
-    for i in range(1, len(k8shosts)):
-        k8shost = k8shosts['m{}'.format(i)]['host']
-        logger.info("Starting API Server on master node m{}".format(i))
-        k8shost.start_api_server()
 
 
 def check_connected(duthost):
@@ -101,7 +78,7 @@ def check_connected(duthost):
     Returns:
         True if connected, False if not connected
     """
-    kube_server_status = duthost.shell('show kube server')["stdout"].split("\n")
+    kube_server_status = duthost.shell('show kube server')["stdout_lines"]
     logger.info("Kube server status: {}".format(kube_server_status))
     for line in kube_server_status:
         if line.startswith("KUBERNETES_MASTER SERVER connected"):

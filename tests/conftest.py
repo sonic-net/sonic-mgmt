@@ -327,16 +327,11 @@ def ptfhost(ansible_adhoc, tbinfo, duthost):
         return PTFHost(ansible_adhoc, ptf_host)
 
 @pytest.fixture(scope="module")
-def k8shosts(ansible_adhoc, request, creds):
+def k8smasters(ansible_adhoc, request, creds):
     """
     Shortcut fixture for getting Kubernetes hosts
     """
-    master_id = request.config.getoption("--kube_master") 
-    master_id_elements = master_id.split('_')
-    assert len(master_id_elements) == 2, "Invalid master identifier format. Please use format {servernumber}_{mastersetnumber}"
-    master_server_id = master_id_elements[0]
-    master_set_id = master_id_elements[1]
-    k8s_ansible_group = "k8s_vms{}_{}".format(master_set_id, master_server_id)
+    k8s_master_ansible_group = request.config.getoption("--kube_master") 
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
     for inv_file in inv_files:
@@ -344,10 +339,9 @@ def k8shosts(ansible_adhoc, request, creds):
             k8s_inv_file = inv_file
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
-        for hostname, attributes in k8sinventory[k8s_ansible_group]['hosts'].items():
+        for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
             master_vms[hostname[-2:]] = {'host': K8sMasterHost(ansible_adhoc,
                                                           hostname,
-                                                          attributes['ansible_host'],
                                                           creds['k8s_master_login'],
                                                           creds['k8s_master_password'])}
     return master_vms

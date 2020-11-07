@@ -1073,7 +1073,7 @@ class K8sMasterHost(AnsibleHostBase):
     For running ansible module on the K8s Ubuntu KVM host
     """
 
-    def __init__(self, ansible_adhoc, hostname, ip_addr, k8s_user, k8s_passwd):
+    def __init__(self, ansible_adhoc, hostname, k8s_user, k8s_passwd):
         '''Initialize an object for interacting with Ubuntu KVM using ansible modules
         
         Args:
@@ -1085,7 +1085,6 @@ class K8sMasterHost(AnsibleHostBase):
         self.k8s_user = k8s_user
         self.k8s_passwd = k8s_passwd
         self.hostname = hostname
-        self.ip_addr = ip_addr
         super(K8sMasterHost, self).__init__(ansible_adhoc, hostname)
         evars = {
             'ansible_user': self.k8s_user,
@@ -1094,15 +1093,13 @@ class K8sMasterHost(AnsibleHostBase):
             'ansible_become_method': 'enable'
         }
         self.host.options['variable_manager'].extra_vars.update(evars)
-        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
         
     def check_k8s_master_ready(self):
         """
-
         @summary: check if all Kubernetes master node statuses reflect target state "Ready"
 
         """
-        k8s_nodes_statuses = self.shell('kubectl get nodes')["stdout"].split("\n")
+        k8s_nodes_statuses = self.shell('kubectl get nodes')["stdout_lines"]
         logging.info("k8s master node statuses: {}".format(k8s_nodes_statuses))
 
         for line in k8s_nodes_statuses[1:4]:
@@ -1112,13 +1109,12 @@ class K8sMasterHost(AnsibleHostBase):
     
     def shutdown_api_server(self):
         """
-
         @summary: Shuts down API server container on one K8sMasterHost server
 
         """
         self.shell('sudo systemctl stop kubelet')
         logging.info("Shutting down API server on backend master server hostname: {}".format(self.hostname))
-        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"].split("\n")
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
         for id in api_server_container_ids:
             self.shell('sudo docker kill {}'.format(id))
         api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"]
@@ -1126,7 +1122,6 @@ class K8sMasterHost(AnsibleHostBase):
 
     def start_api_server(self):
         """
-        
         @summary: Starts API server container on one K8sMasterHost server
         
         """
@@ -1134,12 +1129,12 @@ class K8sMasterHost(AnsibleHostBase):
         logging.info("Starting API server on backend master server hostname: {}".format(self.hostname))
         timeout_wait_secs = 60
         poll_wait_secs = 5
-        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"].split("\n")
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
         while ((len(api_server_container_ids) < 2) and (timeout_wait_secs > 0)):
             logging.info("Waiting for Kubernetes API server to start")
             time.sleep(poll_wait_secs)
             timeout_wait_secs -= poll_wait_secs
-            api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"].split("\n")
+            api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
         assert len(api_server_container_ids) > 1
         
 
