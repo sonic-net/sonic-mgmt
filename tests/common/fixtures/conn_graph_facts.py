@@ -5,21 +5,17 @@ import yaml
 
 
 @pytest.fixture(scope="module")
-def conn_graph_facts(duthost, localhost):
-    return get_graph_facts(duthost, localhost, duthost.hostname)
-
-
-@pytest.fixture(scope="module")
-def conn_graph_facts_multi_duts(duthost, duthosts, localhost):
-    return get_graph_facts(duthost, localhost,
+def conn_graph_facts(duthosts, localhost):
+    return get_graph_facts(duthosts[0], localhost,
                            [dh.hostname for dh in duthosts])
 
-  
+
 @pytest.fixture(scope="module")
 def fanout_graph_facts(localhost, duthost, conn_graph_facts):
     facts = dict()
-    for intf in conn_graph_facts["device_conn"]:
-        fanout = conn_graph_facts["device_conn"][intf]["peerdevice"]
+    dev_conn = conn_graph_facts.get('device_conn', {})
+    for intf, val in dev_conn[duthost.hostname].items():
+        fanout = val["peerdevice"]
         if fanout not in facts:
             facts[fanout] = get_graph_facts(duthost, localhost, fanout)
     return facts

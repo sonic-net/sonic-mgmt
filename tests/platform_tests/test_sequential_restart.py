@@ -70,7 +70,7 @@ def test_restart_swss(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to restart the swss service and check platform status
     """
-    restart_service_and_check(localhost, duthost, "swss", conn_graph_facts["device_conn"])
+    restart_service_and_check(localhost, duthost, "swss", conn_graph_facts["device_conn"][duthost.hostname])
 
 
 @pytest.mark.skip(reason="Restarting syncd is not supported yet")
@@ -78,4 +78,4 @@ def test_restart_syncd(duthost, localhost, conn_graph_facts):
     """
     @summary: This test case is to restart the syncd service and check platform status
     """
-    restart_service_and_check(localhost, duthost, "syncd", conn_graph_facts["device_conn"])
+    restart_service_and_check(localhost, duthost, "syncd", conn_graph_facts["device_conn"][duthost.hostname])

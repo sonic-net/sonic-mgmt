@@ -9,7 +9,6 @@ import docker
 from ansible.module_utils.basic import *
 import traceback
 import hashlib
-from pprint import pprint
 
 DOCUMENTATION = '''
 ---
@@ -160,14 +159,19 @@ class VMTopology(object):
         self.vm_names = vm_names
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
-
-        self.host_ifaces = VMTopology.ifconfig('ifconfig -a')
-
         return
 
     def init(self, vm_set_name, topo, vm_base, duts_fp_ports, duts_name, ptf_exists=True):
         self.vm_set_name = vm_set_name
         self.duts_name = duts_name
+
+        if ptf_exists:
+            self.pid = VMTopology.get_pid(PTF_NAME_TEMPLATE % vm_set_name)
+        else:
+            self.pid = None
+
+        self.update()
+
         self.VMs = {}
         if 'VMs' in topo:
             self.vm_base = vm_base
@@ -194,14 +198,7 @@ class VMTopology(object):
 
         self.injected_fp_ports = self.extract_vm_vlans()
 
-        if ptf_exists:
-            self.pid = VMTopology.get_pid(PTF_NAME_TEMPLATE % vm_set_name)
-        else:
-            self.pid = None
-
         self.bp_bridge = ROOT_BACK_BR_TEMPLATE % self.vm_set_name
-
-        self.update()
 
         return
 
@@ -378,6 +375,11 @@ class VMTopology(object):
         self.update()
 
         t_int_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + int_if + '_t'
+
+        if t_int_if in self.host_ifaces:
+            VMTopology.cmd("ip link del dev %s" % t_int_if)
+
+        self.update()
 
         if ext_if not in self.host_ifaces:
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
@@ -684,7 +686,7 @@ class VMTopology(object):
     @staticmethod
     def cmd(cmdline):
         with open(cmd_debug_fname, 'a') as fp:
-            pprint("CMD: %s" % cmdline, fp)
+            fp.write("CMD: %s\n" % cmdline)
         cmd = cmdline.split(' ')
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
@@ -694,7 +696,7 @@ class VMTopology(object):
             raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
 
         with open(cmd_debug_fname, 'a') as fp:
-            pprint("OUTPUT: %s" % stdout, fp)
+            fp.write("OUTPUT: \n%s" % stdout.decode('utf-8'))
         return stdout.decode('utf-8')
 
     @staticmethod
