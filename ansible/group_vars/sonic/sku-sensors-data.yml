@@ -854,10 +854,10 @@ sensors_checks:
   x86_64-mlnx_msn2100-r0:
     alarms:
       fan:
-      - mlxsw-i2c-2-48/Chassis Fan Drawer-1/fan1_fault
-      - mlxsw-i2c-2-48/Chassis Fan Drawer-2/fan2_fault
-      - mlxsw-i2c-2-48/Chassis Fan Drawer-3/fan3_fault
-      - mlxsw-i2c-2-48/Chassis Fan Drawer-4/fan4_fault
+      - mlxsw-i2c-2-48/Chassis Fan 1/fan1_fault
+      - mlxsw-i2c-2-48/Chassis Fan 2/fan2_fault
+      - mlxsw-i2c-2-48/Chassis Fan 3/fan3_fault
+      - mlxsw-i2c-2-48/Chassis Fan 4/fan4_fault
       power:
       - pmbus-i2c-5-41/PMB-1 0.9V Rail Curr (out)/curr2_crit_alarm
       - pmbus-i2c-5-41/PMB-1 0.9V Rail Curr (out)/curr2_lcrit_alarm
@@ -948,11 +948,11 @@ sensors_checks:
       - - coretemp-isa-0000/Core 3/temp5_input
         - coretemp-isa-0000/Core 3/temp5_max
 
-      - - lm75-i2c-7-4a/Ambient Fan Side Temp (air intake)/temp1_input
-        - lm75-i2c-7-4a/Ambient Fan Side Temp (air intake)/temp1_max
+      - - lm75-i2c-7-4b/Ambient Fan Side Temp (air intake)/temp1_input
+        - lm75-i2c-7-4b/Ambient Fan Side Temp (air intake)/temp1_max
 
-      - - lm75-i2c-7-4b/Ambient Port Side Temp (air exhaust)/temp1_input
-        - lm75-i2c-7-4b/Ambient Port Side Temp (air exhaust)/temp1_max
+      - - lm75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_input
+        - lm75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_max
     non_zero:
       fan: []
       power: []
