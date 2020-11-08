@@ -9,7 +9,6 @@ import docker
 from ansible.module_utils.basic import *
 import traceback
 import hashlib
-from pprint import pprint
 
 DOCUMENTATION = '''
 ---
