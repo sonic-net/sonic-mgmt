@@ -377,6 +377,11 @@ class VMTopology(object):
 
         t_int_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + int_if + '_t'
 
+        if t_int_if in self.host_ifaces:
+            VMTopology.cmd("ip link del dev %s" % t_int_if)
+
+        self.update()
+
         if ext_if not in self.host_ifaces:
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
 
