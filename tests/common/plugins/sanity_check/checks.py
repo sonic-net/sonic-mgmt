@@ -103,7 +103,7 @@ def check_bgp_status(dut):
         asic_check_results = []
         bgp_facts = dut.bgp_facts(asic_index='all')
         for asic_index, a_asic_facts in enumerate(bgp_facts):
-            asic_check_results.append(False)
+            a_asic_result = False
             a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
             if a_asic_neighbors:
                 down_neighbors = [k for k, v in a_asic_neighbors.items()
@@ -113,9 +113,9 @@ def check_bgp_status(dut):
                         check_result['bgp'] = {'down_neighbors' : down_neighbors }
                     else:
                         check_result['bgp' + str(asic_index)] = {'down_neighbors' : down_neighbors }
-                    asic_check_results[asic_index] = True
+                    a_asic_result = True
                 else:
-                    asic_check_results[asic_index] = False
+                    a_asic_result = False
                     if dut.facts['num_asic'] == 1:
                         if 'bgp' in check_result:
                             check_result['bgp'].pop('down_neighbors', None)
@@ -123,7 +123,9 @@ def check_bgp_status(dut):
                         if 'bgp' + str(asic_index) in check_result:
                             check_result['bgp' + str(asic_index)].pop('down_neighbors', None)
             else:
-                asic_check_results[asic_index] = True
+                a_asic_result = True
+
+            asic_check_results.append(a_asic_result)
 
         if any(asic_check_results):
             check_result['failed'] = True
