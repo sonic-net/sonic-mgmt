@@ -18,6 +18,9 @@ def test_bgp_facts(duthosts, dut_hostname, asic_index):
         assert v['state'] == 'established'
         # Verify local ASNs in bgp sessions
         assert v['local AS'] == int(config_facts['DEVICE_METADATA']['localhost']['bgp_asn'].decode("utf-8"))
+        # Check bgpmon functionality by validate STATE DB contains this neighbor as well
+        state_fact = duthost.shell('sonic-db-cli STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'.format(k), module_ignore_errors=False)['stdout_lines']
+        assert state_fact[0] == "Established"
 
     for k, v in config_facts['BGP_NEIGHBOR'].items():
         # Compare the bgp neighbors name with config db bgp neighbors name
