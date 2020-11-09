@@ -15,11 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 def collect_info(duthost):
-    logger.info('************* Collect information for debug *************')
-    duthost.shell('ip link')
-    duthost.shell('ip addr')
-    duthost.shell('grep . /sys/class/net/Ethernet*/address', module_ignore_errors=True)
-    duthost.shell('grep . /sys/class/net/PortChannel*/address', module_ignore_errors=True)
+    if duthost.facts['asic_type'] == "mellanox":
+        logger.info('************* Collect information for debug *************')
+        duthost.shell('ip link')
+        duthost.shell('ip addr')
+        duthost.shell('grep . /sys/class/net/Ethernet*/address', module_ignore_errors=True)
+        duthost.shell('grep . /sys/class/net/PortChannel*/address', module_ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
