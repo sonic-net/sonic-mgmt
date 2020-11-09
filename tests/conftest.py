@@ -609,17 +609,20 @@ def generate_port_lists(request, port_scope):
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
+
+    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
     if "enum_dut_index" in metafunc.fixturenames:
         dut_indices = generate_params_dut_index(metafunc)
         metafunc.parametrize("enum_dut_index",dut_indices)
-    elif "enum_dut_hostname" in metafunc.fixturenames:  # Fixture "enum_dut_index" and "enum_dut_hostname" should be mutually exclusive
+    elif "enum_dut_hostname" in metafunc.fixturenames:
         dut_hostnames = generate_params_dut_hostname(metafunc)
         metafunc.parametrize("enum_dut_hostname", dut_hostnames)
-    elif "rand_one_dut_hostname" in metafunc.fixturenames:  # Fixture "enum_dut_index" and "enum_dut_hostname" should be mutually exclusive
+    elif "rand_one_dut_hostname" in metafunc.fixturenames:
         dut_hostnames = generate_params_dut_hostname(metafunc)
         if len(dut_hostnames) > 1:
             dut_hostnames = random.sample(dut_hostnames, 1)
         metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
+
     if "enum_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
