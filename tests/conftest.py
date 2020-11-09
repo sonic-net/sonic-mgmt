@@ -19,7 +19,7 @@ from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost
+from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8sMasterCluster
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
@@ -172,7 +172,7 @@ def pytest_addoption(parser):
     parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
 
     # Kubernetes master options
-    parser.addoption("--kube_master", action="store", default=None, type=str, help="Kubernetes master identifier in the form {servernumber}_{mastersetnumber}")
+    parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     ############################
     # pfc_asym options         #
@@ -327,9 +327,9 @@ def ptfhost(ansible_adhoc, tbinfo, duthost):
         return PTFHost(ansible_adhoc, ptf_host)
 
 @pytest.fixture(scope="module")
-def k8smasters(ansible_adhoc, request, creds):
+def k8smasters(ansible_adhoc, request):
     """
-    Shortcut fixture for getting Kubernetes hosts
+    Shortcut fixture for getting Kubernetes master hosts
     """
     k8s_master_ansible_group = request.config.getoption("--kube_master") 
     master_vms = {}
@@ -340,11 +340,19 @@ def k8smasters(ansible_adhoc, request, creds):
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
-            master_vms[hostname[-2:]] = {'host': K8sMasterHost(ansible_adhoc,
-                                                          hostname,
-                                                          creds['k8s_master_login'],
-                                                          creds['k8s_master_password'])}
+            if 'haproxy' in attributes:
+                is_haproxy = True
+            else: 
+                is_haproxy = False
+            master_vms[hostname] = {'host': K8sMasterHost(ansible_adhoc,
+                                                               hostname,
+                                                               is_haproxy)}
     return master_vms
+
+@pytest.fixture(scope="module")
+def k8scluster(k8smasters):
+    k8s_master_cluster = K8sMasterCluster(k8smasters)
+    return k8s_master_cluster
 
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, tbinfo, creds):

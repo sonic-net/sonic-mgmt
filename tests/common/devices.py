@@ -1073,36 +1073,31 @@ class K8sMasterHost(AnsibleHostBase):
     For running ansible module on the K8s Ubuntu KVM host
     """
 
-    def __init__(self, ansible_adhoc, hostname, k8s_user, k8s_passwd):
+    def __init__(self, ansible_adhoc, hostname, is_haproxy):
         '''Initialize an object for interacting with Ubuntu KVM using ansible modules
         
         Args:
             ansible_adhoc (): The pytest-ansible fixture
             hostname (string): hostname of the Ubuntu KVM
-            k8s_user (string): Username for accessing the K8s VM CLI interface
-            k8s_passwd (string): Password for the k8s_user 
+            is_haproxy (boolean): True if node is haproxy load balancer, False if node is backend master server
         '''
-        self.k8s_user = k8s_user
-        self.k8s_passwd = k8s_passwd
         self.hostname = hostname
         super(K8sMasterHost, self).__init__(ansible_adhoc, hostname)
         evars = {
-            'ansible_user': self.k8s_user,
-            'ansible_ssh_user': self.k8s_user,
-            'ansible_ssh_pass': self.k8s_passwd,
             'ansible_become_method': 'enable'
         }
+        self.is_haproxy = is_haproxy
         self.host.options['variable_manager'].extra_vars.update(evars)
-        
+    
     def check_k8s_master_ready(self):
         """
         @summary: check if all Kubernetes master node statuses reflect target state "Ready"
 
         """
-        k8s_nodes_statuses = self.shell('kubectl get nodes')["stdout_lines"]
+        k8s_nodes_statuses = self.shell('kubectl get nodes | grep master', module_ignore_errors=True)["stdout_lines"]
         logging.info("k8s master node statuses: {}".format(k8s_nodes_statuses))
 
-        for line in k8s_nodes_statuses[1:4]:
+        for line in k8s_nodes_statuses:
             if "NotReady" in line:
                 return False
         return True
@@ -1136,7 +1131,74 @@ class K8sMasterHost(AnsibleHostBase):
             timeout_wait_secs -= poll_wait_secs
             api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
         assert len(api_server_container_ids) > 1
-        
+
+    def ensure_kubelet_started(self):
+        """
+        @summary: Ensures kubelet is running on one K8sMasterHost server
+        """
+        logging.info("Ensuring kubelet is started on {}".format(self.hostname))
+        kubelet_status = self.shell("sudo systemctl status kubelet | grep 'Active: '", module_ignore_errors=True)
+        for line in kubelet_status["stdout_lines"]:
+            if not "running" in line:
+                self.shell("sudo systemctl start kubelet")
+
+
+class K8sMasterCluster():
+    """
+    @summary: Class that encapsulates Kubernetes master cluster
+    
+    For operating on a group of K8sMasterHost objects that compose one HA Kubernetes master cluster
+    """
+
+    def __init__(self, k8smasters):
+        '''Initialize a list of backend master servers, and identify the HAProxy load balancer node
+
+        Args:
+            k8smasters: fixture that allows retrieval of K8sMasterHost objects
+        '''
+        self.backend_masters = []
+        for hostname, k8smaster in k8smasters.items():
+            if k8smaster['host'].is_haproxy:
+                self.haproxy = k8smaster['host']
+            else:
+                self.backend_masters.append(k8smaster)
+   
+    def get_master_vip(self):
+        """
+        @summary: Retrieve VIP of Kubernetes master cluster
+        """
+        return self.haproxy.mgmt_ip
+
+    def shutdown_all_api_server(self):
+        """
+        @summary: shut down API server on all backend master servers
+        """
+        for k8smaster in self.backend_masters:
+            logger.info("Shutting down API Server on master node {}".format(k8smaster['host'].hostname))
+            k8smaster['host'].shutdown_api_server()
+    
+    def start_all_api_server(self):
+        """
+        @summary: Start API server on all backend master servers
+        """
+        for k8smaster in self.backend_masters:
+            logger.info("Starting API server on master node {}".format(k8smaster['host'].hostname))
+            k8smaster['host'].start_api_server()
+
+    def check_k8s_masters_ready(self):
+        """
+        @summary: Ensure that Kubernetes master is in healthy state
+        """
+        for k8smaster in self.backend_masters:
+            assert k8smaster['host'].check_k8s_master_ready()
+
+    def ensure_kubelet_started(self):
+        """
+        @summary: Ensures kubelet is started on all backend masters, start kubelet if necessary
+        """
+        for k8smaster in self.backend_masters:
+            k8smaster['host'].ensure_kubelet_started()
+            
 
 class EosHost(AnsibleHostBase):
     """

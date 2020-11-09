@@ -84,3 +84,29 @@ def check_connected(duthost):
         if line.startswith("KUBERNETES_MASTER SERVER connected"):
             return line.endswith("true")
     logger.info("Kubernetes server check_connected failed to check server status")
+
+
+def poll_for_status_change(duthost, exp_status, poll_wait_secs=5, min_wait_time=20, max_wait_time=120):
+    """
+    Polls to see if kube server connected status updates as expected
+
+    Args:
+        duthost: DUT host object
+        exp_status: expected server connected status once processes are synced
+        poll_wait_secs: seconds between each server connected status poll. Default: 5 seconds
+        min_wait_time: seconds before starting poll of server connected status. Default: 20 seconds
+        max_wait_time: maximum amount of time to spend polling for status change. Default: 120 seconds
+
+    Returns: 
+        True if server connected status updates as expected by max_wait_time
+        False if server connected status fails to update as expected by max_wait_time
+    """
+    time.sleep(min_wait_time)
+    timeout_wait_secs = max_wait_time - min_wait_time
+    while (timeout_wait_secs > 0):
+       if (check_connected(duthost) == exp_status):
+           logging.info("Time taken to update status: {} seconds".format(timeout_wait_secs))
+           return True
+       time.sleep(poll_wait_secs)
+       timeout_wait_secs -= poll_wait_secs
+    return False
