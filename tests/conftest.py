@@ -6,6 +6,7 @@ import logging
 import string
 import re
 import getpass
+import random
 
 import pytest
 import csv
@@ -608,26 +609,31 @@ def generate_port_lists(request, port_scope):
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
-    if "dut_index" in metafunc.fixturenames:
+    if "enum_dut_index" in metafunc.fixturenames:
         dut_indices = generate_params_dut_index(metafunc)
-        metafunc.parametrize("dut_index",dut_indices)
-    elif "dut_hostname" in metafunc.fixturenames:  # Fixture "dut_index" and "dut_hostname" should be mutually exclusive
+        metafunc.parametrize("enum_dut_index",dut_indices)
+    elif "enum_dut_hostname" in metafunc.fixturenames:  # Fixture "enum_dut_index" and "enum_dut_hostname" should be mutually exclusive
         dut_hostnames = generate_params_dut_hostname(metafunc)
-        metafunc.parametrize("dut_hostname", dut_hostnames)
-    if "asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
-    if "frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+        metafunc.parametrize("enum_dut_hostname", dut_hostnames)
+    elif "rand_one_dut_hostname" in metafunc.fixturenames:  # Fixture "enum_dut_index" and "enum_dut_hostname" should be mutually exclusive
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        if len(dut_hostnames) > 1:
+            dut_hostnames = random.sample(dut_hostnames, 1)
+        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
+    if "enum_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
+    if "enum_frontend_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
 
-    if "all_ports" in metafunc.fixturenames:
-        metafunc.parametrize("all_ports", generate_port_lists(metafunc, "all_ports"))
-    if "oper_up_ports" in metafunc.fixturenames:
-        metafunc.parametrize("oper_up_ports", generate_port_lists(metafunc, "oper_up_ports"))
-    if "admin_up_ports" in metafunc.fixturenames:
-        metafunc.parametrize("admin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
-    if "all_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("all_pcs", generate_port_lists(metafunc, "all_pcs"))
-    if "oper_up_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("oper_up_pcs", generate_port_lists(metafunc, "oper_up_pcs"))
-    if "admin_up_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("admin_up_pcs", generate_port_lists(metafunc, "admin_up_pcs"))
+    if "enum_dut_portname" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
+    if "enum_dut_portname_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("aname_admin_updmin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
+    if "enum_dut_portchannel" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel", generate_port_lists(metafunc, "all_pcs"))
+    if "enum_dut_portchannel_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
+    if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))
