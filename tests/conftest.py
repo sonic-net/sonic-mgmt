@@ -630,7 +630,7 @@ def pytest_generate_tests(metafunc):
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
-        metafunc.parametrize("aname_admin_updmin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
+        metafunc.parametrize("enum_dut_portname_admin_up", generate_port_lists(metafunc, "admin_up_ports"))
     if "enum_dut_portchannel" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portchannel", generate_port_lists(metafunc, "all_pcs"))
     if "enum_dut_portchannel_oper_up" in metafunc.fixturenames:
