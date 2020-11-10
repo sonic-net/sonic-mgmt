@@ -219,7 +219,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, p
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 
-    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route_%s.txt" % family)
+    ptfhost.template(src="bgp/templates/bgp_speaker_route.j2", dest="/root/bgp_speaker_route_%s.txt" % family)
 
     logging.info("run ptf test")
 
