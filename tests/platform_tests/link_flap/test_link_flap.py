@@ -49,7 +49,7 @@ class TestLinkFlap(object):
 
 
 @pytest.mark.platform('physical')
-def test_link_flap(request, duthosts, enum_dut_portname, fanouthosts, bring_up_fanout_interfaces):
+def test_link_flap(request, duthosts, enum_dut_portname, fanouthosts):
     """
     Validates that link flap works as expected
     """
