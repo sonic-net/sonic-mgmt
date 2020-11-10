@@ -121,34 +121,35 @@ def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
     logging.info("Check output of '%s'" % cmd_sfp_presence)
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-    for intf in conn_graph_facts["device_conn"]:
+    dev_conn = conn_graph_facts["device_conn"][duthost.hostname]
+    for intf in dev_conn:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check output of '%s'" % cmd_xcvr_presence)
     xcvr_presence = duthost.command(cmd_xcvr_presence)
     parsed_presence = parse_output(xcvr_presence["stdout_lines"][2:])
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_xcvr_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check output of '%s'" % cmd_sfp_eeprom)
     sfp_eeprom = duthost.command(cmd_sfp_eeprom)
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
         assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
     logging.info("Check output of '%s'" % cmd_xcvr_eeprom)
     xcvr_eeprom = duthost.command(cmd_xcvr_eeprom)
     parsed_eeprom = parse_eeprom(xcvr_eeprom["stdout_lines"])
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         assert intf in parsed_eeprom, "Interface is not in output of '%s'" % cmd_xcvr_eeprom
         assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
     logging.info("Test '%s <interface name>'" % cmd_sfp_reset)
     tested_physical_ports = set()
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         phy_intf = portmap[intf][0]
         if phy_intf in tested_physical_ports:
             logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
@@ -164,7 +165,7 @@ def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
     logging.info("Check sfp presence again after reset")
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
@@ -205,16 +206,25 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     original_lpmode = copy.deepcopy(parsed_lpmode)
-    for intf in conn_graph_facts["device_conn"]:
+    dev_conn = conn_graph_facts["device_conn"][duthost.hostname]
+    for intf in dev_conn:
         assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
     tested_physical_ports = set()
-    for intf in conn_graph_facts["device_conn"]:
+
+    not_supporting_lpm_physical_ports = set()
+    for intf in dev_conn:
         phy_intf = portmap[intf][0]
         if phy_intf in tested_physical_ports:
             logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+            continue
+        sfp_type = duthost.command('redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" type'.format(intf))["stdout"]
+        power_class = duthost.command('redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" ext_identifier'.format(intf))["stdout"]
+        if not "QSFP" in sfp_type or "Power Class 1" in power_class:
+            logging.info("skip testing port {} which doesn't support LPM".format(intf))
+            not_supporting_lpm_physical_ports.add(phy_intf)
             continue
         tested_physical_ports.add(phy_intf)
         logging.info("setting {} physical interface {}".format(intf, phy_intf))
@@ -223,17 +233,23 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
         assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
     time.sleep(10)
 
+    if len(tested_physical_ports) == 0:
+        pytest.skip("None of the ports supporting LPM, skip the test")
+
     logging.info("Check SFP lower power mode again after changing SFP lpmode")
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
     tested_physical_ports = set()
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         phy_intf = portmap[intf][0]
+        if phy_intf in not_supporting_lpm_physical_ports:
+            logging.info("skip testing port {} which doesn't support LPM".format(intf))
+            continue
         if phy_intf in tested_physical_ports:
             logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
             continue
@@ -247,14 +263,14 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
     logging.info("Check SFP lower power mode again after changing SFP lpmode")
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Check sfp presence again after setting lpmode")
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in dev_conn:
         assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 

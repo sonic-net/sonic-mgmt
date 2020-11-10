@@ -1,6 +1,5 @@
 import pytest
 import time
-import re
 import json
 import ipaddress
 import netaddr
@@ -13,6 +12,7 @@ from jinja2 import Template
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
+from tests.common.fixtures.duthost_utils import disable_route_checker
 
 
 pytestmark = [
@@ -216,13 +216,19 @@ def verify_thresholds(duthost, **kwargs):
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
-            if used_percent < 1:
-                logger.warning("CRM used entries is < 1 percent")
             if key == "exceeded_percentage":
+                if used_percent < 1:
+                    logger.warning("The used percentage for {} is {} and verification for exceeded_percentage is skipped" \
+                               .format(kwargs["crm_cli_res"], used_percent))
+                    continue
                 kwargs["th_lo"] = used_percent - 1
                 kwargs["th_hi"] = used_percent
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
             elif key == "clear_percentage":
+                if used_percent >= 100:
+                    logger.warning("The used percentage for {} is {} and verification for clear_percentage is skipped" \
+                               .format(kwargs["crm_cli_res"], used_percent))
+                    continue
                 kwargs["th_lo"] = used_percent
                 kwargs["th_hi"] = used_percent + 1
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
@@ -336,7 +342,7 @@ def get_entries_num(used, available):
     """ Get number of entries needed to be created that 'used' counter reached one percent """
     return ((used + available) / 100) + 1
 
-
+@pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "ip route add 2.2.2.0/24 via {}",
                                                                 "ip route del 2.2.2.0/24 via {}"),
                                                                 ("6", "ip -6 route add 2001::/126 via {}",
@@ -576,6 +582,7 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
 
     # Get "crm_stats_nexthop_group_[member]" used and available counter value
     get_nexthop_group_stats = get_group_member_stats if group_member else get_group_stats
+    get_nexthop_group_another_stats = get_group_stats if group_member else get_group_member_stats
     nexthop_group_used, nexthop_group_available = get_crm_stats(get_nexthop_group_stats, duthost)
 
     # Get NH IP 1
@@ -639,7 +646,8 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
     used_percent = get_used_percent(new_nexthop_group_used, new_nexthop_group_available)
     if used_percent < 1:
         nexthop_group_num = get_entries_num(new_nexthop_group_used, new_nexthop_group_available)
-
+        _, nexthop_available_resource_num = get_crm_stats(get_nexthop_group_another_stats, duthost)
+        nexthop_group_num = min(nexthop_group_num, nexthop_available_resource_num)
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
@@ -749,9 +757,13 @@ def test_acl_counter(duthost, collector):
     used_percent = get_used_percent(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
     if used_percent < 1:
         # Preconfiguration needed for used percentage verification
-        nexthop_group_num = get_entries_num(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
+        needed_acl_counter_num = get_entries_num(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
 
-        apply_acl_config(duthost, "test_acl_counter", collector, nexthop_group_num)
+        get_acl_entry_stats = "redis-cli --raw -n 2 HMGET {acl_tbl_key} crm_stats_acl_entry_used \
+        crm_stats_acl_entry_available".format(acl_tbl_key=acl_tbl_key)
+        _, available_acl_entry_num = get_crm_stats(get_acl_entry_stats, duthost)
+        # The number we can applied is limited to available_acl_entry_num
+        apply_acl_config(duthost, "test_acl_counter", collector, min(needed_acl_counter_num, available_acl_entry_num))
 
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
@@ -842,6 +854,7 @@ def test_crm_fdb_entry(duthost, tbinfo):
     if used_percent < 1:
         # Clear pre-set fdb entry
         duthost.command("fdbclear")
+        time.sleep(5)
         # Preconfiguration needed for used percentage verification
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT

@@ -134,7 +134,7 @@ def sanity_check(localhost, duthost, request, fanouthosts, tbinfo):
     logger.info("!!!!!!!!!!!!!!!! Post-test sanity check results: !!!!!!!!!!!!!!!!\n%s" % \
                 json.dumps(post_check_results, indent=4))
     if any([result["failed"] for result in post_check_results]):
-        failed_items = json.dumps([result for result in new_check_results if result["failed"]], indent=4)
+        failed_items = json.dumps([result for result in post_check_results if result["failed"]], indent=4)
         logger.error("Failed check items:\n{}".format(failed_items))
         pytest.fail("Post-test sanity check failed with failed items:\n{}".format(failed_items))
         return

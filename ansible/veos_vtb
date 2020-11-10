@@ -22,6 +22,7 @@ all:
           - t0-64
           - t0-64-32
           - t0-116
+          - dualtor
       children:
         server_1:
     lab:
@@ -29,6 +30,9 @@ all:
         vlab-01:
         vlab-02:
         vlab-03:
+        vlab-04:
+        vlab-05:
+        vlab-06:
     sonic:
       hosts:
         vlab-01:
@@ -63,6 +67,22 @@ all:
           serial_port: 9002
           ansible_password: password
           ansible_user: admin
+        vlab-05:
+          ansible_host: 10.250.0.110
+          ansible_hostv6: fec0::ffff:afa:a
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9003
+          ansible_password: password
+          ansible_user: admin
+        vlab-06:
+          ansible_host: 10.250.0.111
+          ansible_hostv6: fec0::ffff:afa:b
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9004
+          ansible_password: password
+          ansible_user: admin
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3
@@ -86,6 +106,11 @@ all:
         ptf-03:
           ansible_host: 10.250.0.108
           ansible_hostv6: fec0::ffff:afa:8
+          ansible_user: root
+          ansible_password: root
+        ptf-04:
+          ansible_host: 10.250.0.109
+          ansible_hostv6: fec0::ffff:afa:9
           ansible_user: root
           ansible_password: root
 

@@ -6,17 +6,17 @@
           <Name>HostIP</Name>
           <AttachTo>Loopback0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>10.1.0.32/32</b:IPPrefix>
+            <b:IPPrefix>{{ lp_ipv4 }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>10.1.0.32/32</a:PrefixStr>
+          <a:PrefixStr>{{ lp_ipv4 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
         <a:LoopbackIPInterface>
           <Name>HostIP1</Name>
           <AttachTo>Loopback0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>FC00:1::32/128</b:IPPrefix>
+            <b:IPPrefix>{{ lp_ipv6 }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>FC00:1::32/128</a:PrefixStr>
+          <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
       </LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
@@ -44,7 +44,7 @@
       <Hostname>{{ inventory_hostname }}</Hostname>
       <PortChannelInterfaces>
 {% for index in range(vms_number) %}
-{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(intf_names[vms[index]])  %}
         <PortChannel>
           <Name>PortChannel{{ ((index+1)|string).zfill(4) }}</Name>
@@ -80,18 +80,18 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
           <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
 {% else %}
-          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][0]] }}</AttachTo>
+          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'] }}</Prefix>
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int] }}</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
 {% if 'port-channel' in (vm_topo_config['vm'][vms[index]]['ip_intf']|lower) %}
           <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
 {% else %}
-          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][0]] }}</AttachTo>
+          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'] }}</Prefix>
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int] }}</Prefix>
         </IPInterface>
 {% endfor %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
@@ -139,13 +139,13 @@
         <AclInterface>
           <AttachTo>
 {%- for index in range(vms_number) %}
-{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
 {% endif %}
 {% endfor %}
 {% for index in range(vms_number) %}
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
-{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][0]] }}{% if not loop.last %};{% endif %}
+{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}{% if not loop.last %};{% endif %}
 {% endif %}
 {% endfor -%}
           </AttachTo>

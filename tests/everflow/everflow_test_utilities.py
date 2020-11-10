@@ -44,9 +44,6 @@ def setup_info(duthost, tbinfo):
         dict: Required test information
 
     """
-    # TODO: Support all T1 and T0 topos in these tests.
-    if tbinfo["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
-        pytest.skip("Unsupported topology")
 
     tor_ports = []
     spine_ports = []
@@ -54,7 +51,6 @@ def setup_info(duthost, tbinfo):
     # Gather test facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
-    host_facts = duthost.setup()["ansible_facts"]
 
     # Get the list of T0/T2 ports
     # TODO: The ACL tests do something really similar, I imagine we could refactor this bit.
@@ -122,7 +118,7 @@ def setup_info(duthost, tbinfo):
     # Also given how much info is here it probably makes sense to make a data object/named
     # tuple to help with the typing.
     setup_information = {
-        "router_mac": host_facts["ansible_Ethernet0"]["macaddress"],
+        "router_mac": duthost.facts["router_mac"],
         "tor_ports": tor_ports,
         "spine_ports": spine_ports,
         "test_mirror_v4": test_mirror_v4,
@@ -165,6 +161,11 @@ def setup_info(duthost, tbinfo):
 
     peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3])
 
+    # Disable recursive route resolution as we have test case where we check
+    # if better unresolved route is there then it should not be picked by Mirror state DB
+    # This change is triggeed by Sonic PR#https://github.com/Azure/sonic-buildimage/pull/5600
+    duthost.shell("vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"")
+
     add_route(duthost, "30.0.0.1/24", peer_ip)
 
     duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
@@ -174,6 +175,8 @@ def setup_info(duthost, tbinfo):
     duthost.command("rm -rf {}".format(DUT_RUN_DIR))
 
     remove_route(duthost, "30.0.0.1/24", peer_ip)
+
+    duthost.shell("vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"")
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -595,18 +598,16 @@ class BaseEverflowTest(object):
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
-        logging.info("mirror session configuration: %s", mirror_output["stdout"])
+        logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
 
-        pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
-                      "Test mirror session {} not found".format(mirror_session["session_name"]))
+        matching_session = list(filter(lambda line: line.startswith(mirror_session["session_name"]),
+                                       mirror_output["stdout_lines"]))
+        pytest_assert(matching_session, "Test mirror session {} not found".format(mirror_session["session_name"]))
+        logging.info("Found mirror session:\n%s", matching_session[0])
 
-        pytest_assert(len(mirror_output["stdout_lines"]) == 3,
-                      "Unexpected number of mirror sesssions:\n{}".format(mirror_output["stdout"]))
-
-        monitor_intf = mirror_output["stdout_lines"][2].split()[-1:][0]
-
-        pytest_assert(monitor_intf in setup["port_index_map"],
+        monitor_port = matching_session[0].split()[-1]
+        pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
-        logging.info("selected monitor interface %s (port=%s)", monitor_intf, setup["port_index_map"][monitor_intf])
+        logging.info("Selected monitor port %s (index=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
-        return setup["port_index_map"][monitor_intf]
+        return setup["port_index_map"][monitor_port]
