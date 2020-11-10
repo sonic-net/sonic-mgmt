@@ -75,6 +75,7 @@ function setup_environment()
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
     INVENTORY="${BASE_PATH}/ansible/lab,${BASE_PATH}/ansible/veos"
+    KUBE_MASTER_ID="unset"
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
