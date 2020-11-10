@@ -48,4 +48,3 @@ def test_join_available_master(duthost, k8scluster):
     server_connect_act_status = ku.check_connected(duthost)
     server_connect_status_updated = ku.poll_for_status_change(duthost, server_connect_exp_status)
     pytest_assert(server_connect_status_updated, "DUT join available master failed, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
-

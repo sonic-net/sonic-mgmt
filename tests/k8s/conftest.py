@@ -15,7 +15,7 @@ def check_k8s_vms(k8scluster):
     """
     k8scluster.check_k8s_masters_ready()
     yield
-    k8scluster.ensure_kubelet_started()
+    k8scluster.ensure_all_kubelet_running()
 
 
 @pytest.fixture(autouse=True)

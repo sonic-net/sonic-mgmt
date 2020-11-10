@@ -23,8 +23,7 @@ def join_master(duthost, master_vip):
                      'sudo config kube server ip {}'.format(master_vip),
                      'sudo config kube server disable off']
     duthost.shell_cmds(cmds=dut_join_cmds)
-    time.sleep(WAIT_FOR_SYNC)
-    pytest_assert(check_connected(duthost),"DUT failed to successfully join Kubernetes master")
+    pytest_assert(poll_for_status_change(duthost, True),"DUT failed to successfully join Kubernetes master")
     
 
 def make_vip_unreachable(duthost, master_vip):

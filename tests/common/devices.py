@@ -1074,19 +1074,20 @@ class K8sMasterHost(AnsibleHostBase):
     """
 
     def __init__(self, ansible_adhoc, hostname, is_haproxy):
-        '''Initialize an object for interacting with Ubuntu KVM using ansible modules
+        """ Initialize an object for interacting with Ubuntu KVM using ansible modules
         
         Args:
             ansible_adhoc (): The pytest-ansible fixture
             hostname (string): hostname of the Ubuntu KVM
             is_haproxy (boolean): True if node is haproxy load balancer, False if node is backend master server
-        '''
+        
+        """
         self.hostname = hostname
+        self.is_haproxy = is_haproxy
         super(K8sMasterHost, self).__init__(ansible_adhoc, hostname)
         evars = {
             'ansible_become_method': 'enable'
         }
-        self.is_haproxy = is_haproxy
         self.host.options['variable_manager'].extra_vars.update(evars)
     
     def check_k8s_master_ready(self):
@@ -1132,9 +1133,10 @@ class K8sMasterHost(AnsibleHostBase):
             api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
         assert len(api_server_container_ids) > 1
 
-    def ensure_kubelet_started(self):
+    def ensure_kubelet_running(self):
         """
         @summary: Ensures kubelet is running on one K8sMasterHost server
+
         """
         logging.info("Ensuring kubelet is started on {}".format(self.hostname))
         kubelet_status = self.shell("sudo systemctl status kubelet | grep 'Active: '", module_ignore_errors=True)
@@ -1151,11 +1153,12 @@ class K8sMasterCluster():
     """
 
     def __init__(self, k8smasters):
-        '''Initialize a list of backend master servers, and identify the HAProxy load balancer node
+        """Initialize a list of backend master servers, and identify the HAProxy load balancer node
 
         Args:
             k8smasters: fixture that allows retrieval of K8sMasterHost objects
-        '''
+        
+        """
         self.backend_masters = []
         for hostname, k8smaster in k8smasters.items():
             if k8smaster['host'].is_haproxy:
@@ -1166,12 +1169,14 @@ class K8sMasterCluster():
     def get_master_vip(self):
         """
         @summary: Retrieve VIP of Kubernetes master cluster
+        
         """
         return self.haproxy.mgmt_ip
 
     def shutdown_all_api_server(self):
         """
         @summary: shut down API server on all backend master servers
+        
         """
         for k8smaster in self.backend_masters:
             logger.info("Shutting down API Server on master node {}".format(k8smaster['host'].hostname))
@@ -1180,6 +1185,7 @@ class K8sMasterCluster():
     def start_all_api_server(self):
         """
         @summary: Start API server on all backend master servers
+        
         """
         for k8smaster in self.backend_masters:
             logger.info("Starting API server on master node {}".format(k8smaster['host'].hostname))
@@ -1188,16 +1194,18 @@ class K8sMasterCluster():
     def check_k8s_masters_ready(self):
         """
         @summary: Ensure that Kubernetes master is in healthy state
+        
         """
         for k8smaster in self.backend_masters:
             assert k8smaster['host'].check_k8s_master_ready()
 
-    def ensure_kubelet_started(self):
+    def ensure_all_kubelet_running(self):
         """
         @summary: Ensures kubelet is started on all backend masters, start kubelet if necessary
+        
         """
         for k8smaster in self.backend_masters:
-            k8smaster['host'].ensure_kubelet_started()
+            k8smaster['host'].ensure_kubelet_running()
             
 
 class EosHost(AnsibleHostBase):
