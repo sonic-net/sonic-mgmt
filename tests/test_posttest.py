@@ -15,8 +15,8 @@ pytestmark = [
 ]
 
 
-def test_collect_techsupport(duthosts, dut_hostname):
-    duthost = duthosts[dut_hostname]
+def test_collect_techsupport(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
     """
     A util for collecting techsupport after tests.
 
@@ -35,8 +35,8 @@ def test_collect_techsupport(duthosts, dut_hostname):
 
     assert True
 
-def test_restore_container_autorestart(duthosts, dut_hostname):
-    duthost = duthosts[dut_hostname]
+def test_restore_container_autorestart(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
     state_file_name = "/tmp/autorestart_state_{}.json".format(duthost.hostname)
     if not os.path.exists(state_file_name):
         return
@@ -61,8 +61,8 @@ def test_restore_container_autorestart(duthosts, dut_hostname):
     SNMP_RELOADING_TIME = 30
     time.sleep(SNMP_RELOADING_TIME)
 
-def test_recover_rsyslog_rate_limit(duthosts, dut_hostname):
-    duthost = duthosts[dut_hostname]
+def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.
