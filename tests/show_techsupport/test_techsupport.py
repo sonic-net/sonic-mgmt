@@ -174,6 +174,8 @@ def gre_version(duthost):
     asic_type = duthost.facts['asic_type']
     if asic_type in ["mellanox"]:
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
+    if asic_type in ["barefoot"]:
+        SESSION_INFO['gre'] = 0x22EB  # barefoot specific
     else:
         SESSION_INFO['gre'] = 0x6558
 
