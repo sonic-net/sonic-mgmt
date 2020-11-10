@@ -15,11 +15,11 @@ def test_join_available_master(duthost, k8scluster):
     """
     Test case to ensure DUT properly joins Kubernetes master once VIP and API servers are both reachable
 
-    Makes VIP unreachable, shuts down API server on all backend master servers
+    Makes VIP unreachable
 
     Attempts to join DUT by configuring VIP and enabling kube server connection
 
-    Ensures that DUT joins master only after VIP and API servers are both made available
+    Ensures that DUT joins master once VIP is reachable
 
     Args:
         duthost: DUT host object
