@@ -143,7 +143,7 @@ def check_bgp_status(dut):
             if a_result != 'failed':
                 # Dealing with asic result
                 if 'down_neighbors' in check_result[a_result]:
-                    logger.info('BGP neighbors down: %s on bgp instance %s on dut %s', (check_result[a_result]['down_neighbors'], a_result, dut.hostname))
+                    logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (check_result[a_result]['down_neighbors'], a_result, dut.hostname))
     else:
         logger.info('No BGP neighbors are down on %s' % dut.hostname)
 

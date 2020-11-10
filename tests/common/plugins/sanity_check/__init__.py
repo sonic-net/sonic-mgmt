@@ -116,20 +116,21 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
                 logger.info("Pre-test sanity check failed on %s, try to recover, recover_method=%s" % (a_dutname, recover_method))
                 recover(duthosts[a_dutname], localhost, fanouthosts, a_dut_results, recover_method)
 
-    pt_assert(not allow_recover and pre_sanity_failed, "Pre-test sanity check failed on DUTs, allow_recover=False:{}".format(check_results))
+    pt_assert(allow_recover or not pre_sanity_failed, "Pre-test sanity check failed on DUTs, allow_recover=False:{}".format(check_results))
 
-    logger.info("Run sanity check again after recovery")
-    new_check_results = do_checks(duthosts, check_items)
-    logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check after recovery results: !!!!!!!!!!!!!!!!\n%s" % \
-                json.dumps(new_check_results, indent=4))
-    pre_sanity_failed_after_recover = False
-    for a_dutname, a_dut_new_results in new_check_results.items():
-        if any([result["failed"] for result in a_dut_new_results]):
-            pre_sanity_failed_after_recover = True
-            failed_items = json.dumps([result for result in a_dut_new_results if result["failed"]], indent=4)
-            logger.error("On {}, failed check items after recover:\n{}".format(a_dutname, failed_items))
+    if allow_recover and pre_sanity_failed:
+        logger.info("Run sanity check again after recovery")
+        new_check_results = do_checks(duthosts, check_items)
+        logger.info("!!!!!!!!!!!!!!!! Pre-test sanity check after recovery results: !!!!!!!!!!!!!!!!\n%s" % \
+                    json.dumps(new_check_results, indent=4))
+        pre_sanity_failed_after_recover = False
+        for a_dutname, a_dut_new_results in new_check_results.items():
+            if any([result["failed"] for result in a_dut_new_results]):
+                pre_sanity_failed_after_recover = True
+                failed_items = json.dumps([result for result in a_dut_new_results if result["failed"]], indent=4)
+                logger.error("On {}, failed check items after recover:\n{}".format(a_dutname, failed_items))
 
-    pt_assert(pre_sanity_failed_after_recover, "Pre-test sanity check failed on DUTs after recover:\n{}".format(new_check_results))
+        pt_assert(not pre_sanity_failed_after_recover, "Pre-test sanity check failed on DUTs after recover:\n{}".format(new_check_results))
 
     logger.info("Done pre-test sanity check")
 
@@ -151,7 +152,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
             failed_items = json.dumps([result for result in a_dut_new_results if result["failed"]], indent=4)
             logger.error("On {}, failed check items after recover:\n{}".format(a_dutname, failed_items))
 
-    pt_assert(post_sanity_failed, "Post-test sanity check failed on DUTs after recover:\n{}".format(post_check_results))
+    pt_assert(not post_sanity_failed, "Post-test sanity check failed on DUTs after recover:\n{}".format(post_check_results))
 
     logger.info("Done post-test sanity check")
     return
