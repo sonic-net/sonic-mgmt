@@ -8,10 +8,10 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_interfaces(duthosts, dut_hostname):
+def test_interfaces(duthosts, enum_dut_hostname):
     """compare the interfaces between observed states and target state"""
 
-    duthost    = duthosts[dut_hostname]
+    duthost    = duthosts[enum_dut_hostname]
     host_facts = duthost.setup()['ansible_facts']
     mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 

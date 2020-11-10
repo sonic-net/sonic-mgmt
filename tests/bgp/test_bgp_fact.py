@@ -5,12 +5,12 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_bgp_facts(duthosts, dut_hostname, asic_index):
+def test_bgp_facts(duthosts, enum_dut_hostname, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
 
-    duthost = duthosts[dut_hostname]
-    bgp_facts =duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    duthost = duthosts[enum_dut_hostname]
+    bgp_facts =duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     config_facts = duthost.config_facts(host=duthost.hostname, source="running",namespace=namespace)['ansible_facts']
 
     for k, v in bgp_facts['bgp_neighbors'].items():
