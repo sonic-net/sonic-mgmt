@@ -1140,7 +1140,18 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        if out['changed'] == False:
+            # new eos deprecate lacp rate and use lacp timer command
+            out = self.eos_config(
+                lines=['lacp timer %s' % mode],
+                parents='interface %s' % interface_name)
+            if out['changed'] == False:
+                logging.warning("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+                raise Exception("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+            else:
+                logging.info("Set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+        else:
+            logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
         return out
 
     def kill_bgpd(self):
