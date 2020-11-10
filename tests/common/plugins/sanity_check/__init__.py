@@ -9,7 +9,7 @@ import pytest
 import constants
 from checks import do_checks, print_logs
 from recover import recover
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
                 logger.info("Pre-test sanity check failed on %s, try to recover, recover_method=%s" % (a_dutname, recover_method))
                 recover(duthosts[a_dutname], localhost, fanouthosts, a_dut_results, recover_method)
 
-    pytest_assert(not allow_recover and pre_sanity_failed, "Pre-test sanity check failed on DUTs, allow_recover=False:{}".format(check_results))
+    pt_assert(not allow_recover and pre_sanity_failed, "Pre-test sanity check failed on DUTs, allow_recover=False:{}".format(check_results))
 
     logger.info("Run sanity check again after recovery")
     new_check_results = do_checks(duthosts, check_items)
@@ -129,7 +129,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
             failed_items = json.dumps([result for result in a_dut_new_results if result["failed"]], indent=4)
             logger.error("On {}, failed check items after recover:\n{}".format(a_dutname, failed_items))
 
-    pytest_assert(pre_sanity_failed_after_recover, "Pre-test sanity check failed on DUTs after recover:\n{}".format(new_check_results))
+    pt_assert(pre_sanity_failed_after_recover, "Pre-test sanity check failed on DUTs after recover:\n{}".format(new_check_results))
 
     logger.info("Done pre-test sanity check")
 
@@ -151,7 +151,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
             failed_items = json.dumps([result for result in a_dut_new_results if result["failed"]], indent=4)
             logger.error("On {}, failed check items after recover:\n{}".format(a_dutname, failed_items))
 
-    pytest_assert(post_sanity_failed, "Post-test sanity check failed on DUTs after recover:\n{}".format(post_check_results))
+    pt_assert(post_sanity_failed, "Post-test sanity check failed on DUTs after recover:\n{}".format(post_check_results))
 
     logger.info("Done post-test sanity check")
     return
