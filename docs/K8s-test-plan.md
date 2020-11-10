@@ -119,7 +119,7 @@ Verify Device Under Test (DUT) appropriately disconnects upon config reload togg
 
 
 ## Test Scenario: Mode Transitions for {feature x}, Feature Image Upgrades with Reachable Master
-These test cases upgrade the container for `{feature x}`. The updated image for `{feature x}` is stored in ACR at the URL specified by the manifest being used in the test case. The manifest is stored in a GitHub repository, along with scripts that modify the manifest as needed by the test case. 
+These test cases upgrade the container for {feature x}. The updated image for {feature x} is stored in ACR at the URL specified by the manifest being used in the test case. The manifest is stored in a GitHub repository, along with scripts that modify the manifest as needed by the test case. 
 
 ### TC_LOCAL_KUBE_1: Switch between Local Mode and Kube Mode
 #### Test Objective
