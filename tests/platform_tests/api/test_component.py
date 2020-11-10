@@ -85,7 +85,7 @@ class TestComponentApi(PlatformApiTestBase):
             name = component.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Component {}: Unable to retrieve name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Component {}: Name appears incorrect".format(i))
-                self.compare_value_with_platform_facts(self, 'name', name, i)
+                self.compare_value_with_platform_facts('name', name, i)
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
@@ -128,6 +128,20 @@ class TestComponentApi(PlatformApiTestBase):
             status = component.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Component {}: Unable to retrieve status".format(i)):
                 self.expect(isinstance(status, bool), "Component {}: Status appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_components):
+            position = component.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for component {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for component {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for i in range(self.num_components):
+            replaceable = component.is_replaceable(platform_api_conn, i)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for component {}".format(i)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for component {}".format(i))
         self.assert_expectations()
 
     #

@@ -162,8 +162,8 @@
 
 - name: veos VMs not needed when setting up Kubernetes master
   set_fact:
-    veos_vm_required: false 
-  when: 
+    veos_vm_required: false
+  when:
     - k8s is defined
 
 - name: VMs not needed in case of Keysight API Server
@@ -191,7 +191,7 @@
         uri=qemu:///system
         state=pause
   register: vm_list_paused
-  become: true  
+  become: true
 
 - block:
     - name: Ensure {{ root_path }} exists
@@ -260,24 +260,9 @@
   include_tasks: start_k8s.yml
   when: action == 'start_k8s'
 
-- block:
-    - name: Start SONiC VM
-      include_tasks: start_sonic_vm.yml
-      when: action == 'start_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
-
-    - name: Stop SONiC VM
-      include_tasks: stop_sonic_vm.yml
-      when: action == 'stop_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
-
-    - name: Start SID
-      include_tasks: start_sid.yml
-      when: action == 'start_sid' and hostvars[dut_name]['type'] == 'simx'
-
-    - name: Stop SID
-      include_tasks: stop_sid.yml
-      when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
-  when:
-    - dut_name is defined
-    - dut_name.split(',')|length == 1
-    - hostvars[dut_name] is defined
-    - hostvars[dut_name].type is defined
+- name: Manage the dut state
+  include_tasks: manage_duts.yml
+  loop: "{{ duts_name.split(',') }}"
+  loop_control:
+    loop_var: dut_name
+  when: duts_name is defined

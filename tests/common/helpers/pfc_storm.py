@@ -174,9 +174,9 @@ class PFCStorm(object):
             with open(self.extra_vars['template_path']) as tmpl_fd:
                 tmpl = Template(tmpl_fd.read())
                 cmds = tmpl.render(**self.extra_vars).splitlines()
-            for cmd in (_.strip() for _ in cmds):
-                if cmd:
-                    self.peer_device.shell(cmd, module_ignore_errors=True)
+            cmds = (_.strip() for _ in cmds)
+            cmd = "; ".join(_ for _ in cmds if _)
+            self.peer_device.shell(cmd, module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules

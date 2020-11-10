@@ -33,9 +33,10 @@ from datetime import datetime
 import defusedxml.ElementTree as ET
 
 
-TEST_REPORT_CLIENT_VERSION = (1, 0, 0)
+TEST_REPORT_CLIENT_VERSION = (1, 1, 0)
 
 MAXIMUM_XML_SIZE = 20e7  # 20MB
+MAXIMUM_SUMMARY_SIZE = 1024  # 1MB
 
 # Fields found in the testsuite/root section of the JUnit XML file.
 TESTSUITE_TAG = "testsuite"
@@ -264,25 +265,6 @@ def _validate_test_cases(root):
                     f"\"{test_case.get('name', 'Name Not Found')}\""
                 )
 
-            # NOTE: "if failure" does not work with the ETree library.
-            failure = test_case.find("failure")
-            if failure is not None and failure.get("message") is None:
-                raise JUnitXMLValidationError(
-                    f"no message found for failure in \"{test_case.get('name')}\""
-                )
-
-            error = test_case.find("error")
-            if error is not None and error.get("message") is None:
-                raise JUnitXMLValidationError(
-                    f"no message found for error in \"{test_case.get('name')}\""
-                )
-
-            skipped = test_case.find("skipped")
-            if skipped is not None and skipped.get("message") is None:
-                raise JUnitXMLValidationError(
-                    f"no message found for skip in \"{test_case.get('name')}\""
-                )
-
     cases = root.findall(TESTCASE_TAG)
 
     for test_case in cases:
@@ -373,13 +355,18 @@ def _parse_test_cases(root):
         # errored out during setup or teardown.
         if failure is not None:
             result["result"] = "failure"
+            summary = failure.get("message", "")
         elif skipped is not None:
             result["result"] = "skipped"
+            summary = skipped.get("message", "")
         elif error is not None:
             result["result"] = "error"
+            summary = error.get("message", "")
         else:
             result["result"] = "success"
+            summary = ""
 
+        result["summary"] = summary[:min(len(summary), MAXIMUM_SUMMARY_SIZE)]
         result["error"] = error is not None
 
         return feature, result
@@ -397,7 +384,7 @@ def _update_test_summary(current, update):
 
     new_summary = {}
     for attribute, attr_type in REQUIRED_TESTSUITE_ATTRIBUTES:
-        new_summary[attribute] = str(round(attr_type(current[attribute]) + attr_type(update[attribute]), 3))
+        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0)) + attr_type(update.get(attribute, 0)), 3))
 
     return new_summary
 

@@ -521,7 +521,7 @@ class TestVrfFib():
 
         for vrf in cfg_facts['VRF']:
 
-            bgp_summary_string = duthost.shell("show bgp vrf {} summary json".format(vrf))['stdout']
+            bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf {} summary json'".format(vrf))['stdout']
             bgp_summary = json.loads(bgp_summary_string)
 
             for info in bgp_summary.itervalues():
@@ -709,7 +709,7 @@ class TestVrfLoopbackIntf():
     announce_prefix = '10.10.10.0/26'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_loopback(self, ptfhost, cfg_facts, tbinfo):
+    def setup_vrf_loopback(self, duthost, ptfhost, cfg_facts, tbinfo):
         # -------- Setup ----------
         lb0_ip_facts = get_intf_ips('Loopback0', cfg_facts)
         vlan1000_ip_facts = get_intf_ips('Vlan1000', cfg_facts)
@@ -736,12 +736,13 @@ class TestVrfLoopbackIntf():
             for ip in ips:
                 ptfhost.shell("ip netns exec {} ip route add {} nexthop via {} ".format(g_vars['vlan_peer_vrf2ns_map']['Vrf2'], ip, nexthop))
 
+        duthost.shell("sysctl -w net.ipv6.ip_nonlocal_bind=1")
         # -------- Testing ----------
         yield
 
         # -------- Teardown ----------
         # routes on ptf could be flushed when remove vrfs
-        pass
+        duthost.shell("sysctl -w net.ipv6.ip_nonlocal_bind=0")
 
     def test_ping_vrf1_loopback(self, ptfhost, duthost):
         for ver, ips in self.c_vars['lb0_ip_facts'].iteritems():
@@ -933,7 +934,7 @@ class TestVrfWarmReboot():
         assert wait_until(300, 20, check_interface_status, duthost, up_ports), \
                "All interfaces should be up!"
 
-    def test_vrf_system_warm_reboot(self, duthost, cfg_facts, partial_ptf_runner):
+    def test_vrf_system_warm_reboot(self, duthost, localhost, cfg_facts, partial_ptf_runner):
         exc_que = Queue.Queue()
         params = {
             'ptf_runner': partial_ptf_runner,
