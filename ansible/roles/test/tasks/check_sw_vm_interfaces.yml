@@ -44,7 +44,8 @@
     args:
       host: "{{ vms[item]['mgmt_addr'] }}"
       login: "{{ switch_login[hwsku_map[peer_hwsku]] }}"
-    connection: switch
+    vars:
+      ansible_connection: switch
     ignore_errors: yes
     when: vms["{{ item }}"]['hwsku'] == 'Arista-VM'
     with_items: "{{ vms }}"
