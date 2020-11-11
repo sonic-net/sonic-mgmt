@@ -920,7 +920,10 @@ def get_tgen_location(intf):
     try :
         location = str("%s;%s;%s" % (intf['ip'], intf['card_id'], intf['port_id']))
     
-    except :
+    except Exception as ex:
         pytest.fail("Interface must have the keys 'ip', 'card_id' and 'port_id'")
-        
+    
+    except BaseException:
+        pytest.fail("Base exception")
+
     return location
