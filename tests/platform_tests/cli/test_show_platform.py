@@ -11,7 +11,6 @@ Tests for the `show platform ...` commands in SONiC
 
 import logging
 import re
-import time
 
 import pytest
 
@@ -41,12 +40,13 @@ def test_show_platform_summary(duthost):
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
+    new_field = set(["ASIC Count"])
 
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {}".format(repr(missing_fields)))
 
     unexpected_fields = actual_fields - expected_fields
-    pytest_assert(len(unexpected_fields) == 0, "Unexpected fields in output: {}".format(repr(unexpected_fields)))
+    pytest_assert(((unexpected_fields == new_field) or len(unexpected_fields) == 0), "Unexpected fields in output: {}".format(repr(unexpected_fields)))
 
     # TODO: Test values against platform-specific expected data instead of testing for missing values
     for key in expected_fields:
