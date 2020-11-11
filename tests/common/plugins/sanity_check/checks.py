@@ -281,7 +281,6 @@ def do_checks(dut, check_items):
         elif item == "monit":
             results.append(check_monit(dut))
 
-
     return results
 
 def print_logs(dut, print_logs):
