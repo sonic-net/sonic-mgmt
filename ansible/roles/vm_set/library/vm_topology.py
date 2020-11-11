@@ -239,8 +239,7 @@ class VMTopology(object):
         return
 
     def create_ovs_bridge(self, bridge_name, mtu):
-        if bridge_name not in self.host_ifaces:
-            VMTopology.cmd('ovs-vsctl add-br %s' % bridge_name)
+        VMTopology.cmd('ovs-vsctl --may-exist add-br %s' % bridge_name)
 
         if mtu != DEFAULT_MTU:
             VMTopology.cmd('ifconfig %s mtu %d' % (bridge_name, mtu))
@@ -250,17 +249,16 @@ class VMTopology(object):
         return
 
     def destroy_bridges(self):
+        host_ifaces = VMTopology.ifconfig('ifconfig -a')
         for vm in self.vm_names:
-            for ifname in self.host_ifaces:
+            for ifname in host_ifaces:
                 if re.compile(OVS_FP_BRIDGE_REGEX % vm).match(ifname):
                     self.destroy_ovs_bridge(ifname)
 
         return
 
     def destroy_ovs_bridge(self, bridge_name):
-        if bridge_name in self.host_ifaces:
-            VMTopology.cmd('ifconfig %s down' % bridge_name)
-            VMTopology.cmd('ovs-vsctl del-br %s' % bridge_name)
+        VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
 
         return
 
