@@ -13,7 +13,7 @@ def test_bgp_facts(duthosts, enum_dut_hostname, enum_asic_index):
     # Check if duthost is 'supervisor' card based on 'type' defined in inventory, and skip the test if dealing with supervisor card.
     host_vars = duthost.sonichost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()
     if 'type' in host_vars and host_vars['type'] == 'supervisor':
-        pytest.skip("bgp_facts not valid on supervisor card")
+        pytest.skip("bgp_facts not valid on supervisor card '%s'" % enum_dut_hostname)
 
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
