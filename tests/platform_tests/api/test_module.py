@@ -70,7 +70,8 @@ class TestModuleApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -80,7 +81,8 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(name, STRING_TYPE), "Module {} name appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -91,7 +93,8 @@ class TestModuleApi(PlatformApiTestBase):
                     self.expect(presence is True, "Module {} is not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -101,7 +104,8 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "Module {} model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -111,7 +115,8 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(serial, STRING_TYPE), "Module {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -140,7 +145,8 @@ class TestModuleApi(PlatformApiTestBase):
     # Functions to test methods defined in ModuleBase class
     #
 
-    def test_get_base_mac(self, duthost, localhost, platform_api_conn):
+    def test_get_base_mac(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -153,10 +159,11 @@ class TestModuleApi(PlatformApiTestBase):
             self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
+    def test_get_system_eeprom_info(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
         """
         Test that we can retrieve sane system EEPROM info from each module of the DUT via the platform API
         """
+        duthost = duthosts[rand_one_dut_hostname]
         # OCP ONIE TlvInfo EEPROM type codes defined here: https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
         VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [
             ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME,
@@ -215,7 +222,8 @@ class TestModuleApi(PlatformApiTestBase):
             self.expect(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_components(self, duthost, localhost, platform_api_conn):
+    def test_components(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -237,7 +245,8 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(component and component == component_list[mod_idx], "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
         self.assert_expectations()
 
-    def test_fans(self, duthost, localhost, platform_api_conn):
+    def test_fans(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -259,7 +268,8 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(fan and fan == fan_list[mod_idx], "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
         self.assert_expectations()
 
-    def test_psus(self, duthost, localhost, platform_api_conn):
+    def test_psus(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -281,7 +291,8 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(psu and psu == psu_list[mod_idx], "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
         self.assert_expectations()
 
-    def test_thermals(self, duthost, localhost, platform_api_conn):
+    def test_thermals(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -303,7 +314,8 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(thermal and thermal == thermal_list[mod_idx], "Thermal {} is incorrect".format(mod_idx, therm_idx))
         self.assert_expectations()
 
-    def test_sfps(self, duthost, localhost, platform_api_conn):
+    def test_sfps(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 

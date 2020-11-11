@@ -79,10 +79,11 @@ class TestWatchdogApi(PlatformApiTestBase):
         return config
 
     @pytest.mark.dependency()
-    def test_arm_disarm_states(self, duthost, localhost, platform_api_conn, conf):
+    def test_arm_disarm_states(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn, conf):
         ''' arm watchdog with a valid timeout value, verify it is in armed state,
         disarm watchdog and verify it is in disarmed state
         '''
+        duthost = duthosts[rand_one_dut_hostname]
         watchdog_timeout = conf['valid_timeout']
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
 
@@ -119,8 +120,9 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_remaining_time(self, duthost, platform_api_conn, conf):
+    def test_remaining_time(self, duthosts, rand_one_dut_hostname, platform_api_conn, conf):
         ''' arm watchdog with a valid timeout and verify that remaining time API works correctly '''
+        duthost = duthosts[rand_one_dut_hostname]
 
         watchdog_timeout = conf['valid_timeout']
 
@@ -142,8 +144,9 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_periodic_arm(self, duthost, platform_api_conn, conf):
+    def test_periodic_arm(self, duthosts, rand_one_dut_hostname, platform_api_conn, conf):
         ''' arm watchdog several times as watchdog deamon would and verify API behaves correctly '''
+        duthost = duthosts[rand_one_dut_hostname]
 
         watchdog_timeout = conf['valid_timeout']
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
@@ -157,10 +160,11 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_arm_different_timeout_greater(self, duthost, platform_api_conn, conf):
+    def test_arm_different_timeout_greater(self, duthosts, rand_one_dut_hostname, platform_api_conn, conf):
         ''' arm the watchdog with greater timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
+        duthost = duthosts[rand_one_dut_hostname]
 
         watchdog_timeout = conf['valid_timeout']
         watchdog_timeout_greater = conf['greater_timeout']
@@ -175,10 +179,11 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_arm_different_timeout_smaller(self, duthost, platform_api_conn, conf):
+    def test_arm_different_timeout_smaller(self, duthosts, rand_one_dut_hostname, platform_api_conn, conf):
         ''' arm the watchdog with smaller timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
+        duthost = duthosts[rand_one_dut_hostname]
 
         watchdog_timeout = conf['greater_timeout']
         if watchdog_timeout is None:
@@ -194,10 +199,11 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_arm_too_big_timeout(self, duthost, platform_api_conn, conf):
+    def test_arm_too_big_timeout(self, duthosts, rand_one_dut_hostname, platform_api_conn, conf):
         ''' try to arm the watchdog with timeout that is too big for hardware watchdog;
         If no such limitation exist, @too_big_timeout should be None for such platform.
         '''
+        duthost = duthosts[rand_one_dut_hostname]
 
         watchdog_timeout = conf['too_big_timeout']
         if watchdog_timeout is None:
@@ -207,8 +213,9 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_arm_negative_timeout(self, duthost, platform_api_conn):
+    def test_arm_negative_timeout(self, duthosts, rand_one_dut_hostname, platform_api_conn):
         ''' try to arm the watchdog with negative value '''
+        duthost = duthosts[rand_one_dut_hostname]
 
         watchdog_timeout = -1
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)

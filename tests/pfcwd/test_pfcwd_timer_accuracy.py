@@ -14,18 +14,19 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
-def stop_pfcwd(duthost):
+def stop_pfcwd(duthosts, rand_one_dut_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
         duthost (AnsibleHost): DUT instance
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
 @pytest.fixture(autouse=True)
-def ignore_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
     """
     Fixture that ignores expected failures during test execution.
 
@@ -33,6 +34,7 @@ def ignore_loganalyzer_exceptions(duthost, loganalyzer):
         duthost (AnsibleHost): DUT instance
         loganalyzer (loganalyzer): Loganalyzer utility fixture
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
@@ -43,7 +45,7 @@ def ignore_loganalyzer_exceptions(duthost, loganalyzer):
     yield
 
 @pytest.fixture(scope='class', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthost, fanouthosts):
+def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand_one_dut_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
@@ -57,6 +59,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthost, fanou
         timers (dict): pfcwd timer values
         storm_handle (PFCStorm): class PFCStorm instance
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Pfcwd timer test setup ---")
     setup_info = setup_pfc_test
     test_ports = setup_info['test_ports']
@@ -202,7 +205,7 @@ class TestPfcwdAllTimer(object):
         timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
         return int(timestamp_ms)
 
-    def test_pfcwd_timer_accuracy(self, duthost, pfcwd_timer_setup_restore):
+    def test_pfcwd_timer_accuracy(self, duthosts, rand_one_dut_hostname, pfcwd_timer_setup_restore):
         """
         Tests PFCwd timer accuracy
 
@@ -210,6 +213,7 @@ class TestPfcwdAllTimer(object):
             duthost (AnsibleHost): DUT instance
             pfcwd_timer_setup_restore (fixture): class scoped autouse setup fixture
         """
+        duthost = duthosts[rand_one_dut_hostname]
         setup_info = pfcwd_timer_setup_restore
         self.storm_handle = setup_info['storm_handle']
         self.timers = setup_info['timers']

@@ -33,7 +33,8 @@ image_list = [
 ]
 
 @pytest.fixture(scope="class")
-def gather_facts(request, duthost):
+def gather_facts(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
 
@@ -77,7 +78,8 @@ class TestComponentApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -88,7 +90,8 @@ class TestComponentApi(PlatformApiTestBase):
                 self.compare_value_with_platform_facts('name', name, i)
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -100,7 +103,8 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(presence is True, "Component {} not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -110,7 +114,8 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "Component {}: Model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -120,7 +125,8 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(serial, STRING_TYPE), "Component {}: Serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -149,7 +155,8 @@ class TestComponentApi(PlatformApiTestBase):
     #
 
 
-    def test_get_description(self, duthost, localhost, platform_api_conn):
+    def test_get_description(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -159,7 +166,8 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(description, STRING_TYPE), "Component {}: Description appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_firmware_version(self, duthost, localhost, platform_api_conn):
+    def test_get_firmware_version(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -169,7 +177,8 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(fw_version, STRING_TYPE), "Component {}: Firmware version appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_available_firmware_version(self, duthost, localhost, platform_api_conn):
+    def test_get_available_firmware_version(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -180,7 +189,8 @@ class TestComponentApi(PlatformApiTestBase):
                     self.expect(isinstance(avail_fw_version, STRING_TYPE), "Component {}: Available Firmware version appears to be incorrect from image {}".format(i, image))
         self.assert_expectations()
 
-    def test_get_firmware_update_notification(self, duthost, localhost, platform_api_conn):
+    def test_get_firmware_update_notification(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -190,7 +200,8 @@ class TestComponentApi(PlatformApiTestBase):
                 # Can return "None" if no update required. 
                 pytest_assert(isinstance(notif, STRING_TYPE), "Component {}: Firmware update notification appears to be incorrect from image {}".format(i, image))
 
-    def test_install_firmware(self, duthost, localhost, platform_api_conn):
+    def test_install_firmware(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -202,7 +213,8 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
 
-    def test_update_firmware(self, duthost, localhost, platform_api_conn):
+    def test_update_firmware(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 

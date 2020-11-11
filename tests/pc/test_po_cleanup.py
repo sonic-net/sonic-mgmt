@@ -9,7 +9,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -20,6 +20,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
             duthost: DUT fixture
             loganalyzer: Loganalyzer utility fixture
     """
+    duthost = duthosts[rand_one_dut_hostname]
     # when loganalyzer is disabled, the object could be None
     if loganalyzer:
         ignoreRegex = [
@@ -38,11 +39,12 @@ def check_kernel_po_interface_cleaned(duthost):
     return res == '0'
 
 
-def test_po_cleanup(duthost):
+def test_po_cleanup(duthosts, rand_one_dut_hostname):
     """
     test port channel are cleaned up correctly and teammgrd and teamsyncd process
     handle  SIGTERM gracefully
     """
+    duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
     if len(mg_facts['minigraph_portchannels'].keys()) == 0:

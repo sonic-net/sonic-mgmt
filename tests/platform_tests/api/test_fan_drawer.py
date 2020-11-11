@@ -35,7 +35,8 @@ STATUS_LED_COLOR_OFF = "off"
 
 
 @pytest.fixture(scope="class")
-def gather_facts(request, duthost):
+def gather_facts(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
 
@@ -77,7 +78,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fan_drawers):
             name = fan_drawer.get_name(platform_api_conn, i)
 
@@ -87,7 +89,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fan_drawers):
             presence = fan_drawer.get_presence(platform_api_conn, i)
 
@@ -97,7 +100,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fan_drawers):
             model = fan_drawer.get_model(platform_api_conn, i)
 
@@ -106,7 +110,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fan_drawers):
             serial = fan_drawer.get_serial(platform_api_conn, i)
 
@@ -115,7 +120,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fan_drawers):
             status = fan_drawer.get_status(platform_api_conn, i)
 
@@ -141,7 +147,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
     #
     # Functions to test methods defined in Fan_drawerBase class
     #
-    def test_get_num_fans(self, duthost, localhost, platform_api_conn):
+    def test_get_num_fans(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fan_drawers):
 
             num_fans = fan_drawer.get_num_fans(platform_api_conn, i)
@@ -150,7 +157,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
                 self.compare_value_with_platform_facts('num_fans', num_fans, i)
         self.assert_expectations()
 
-    def test_get_all_fans(self, duthost, localhost, platform_api_conn):
+    def test_get_all_fans(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fan_drawers):
 
             fans_list = fan_drawer.get_all_fans(platform_api_conn, i)
@@ -158,7 +166,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
                 self.expect(isinstance(fans_list, list), "fan drawer {} list of fans appear to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_set_fan_drawers_led(self, duthost, localhost, platform_api_conn):
+    def test_set_fan_drawers_led(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         LED_COLOR_LIST = [
             "off",
             "red",

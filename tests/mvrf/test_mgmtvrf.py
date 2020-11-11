@@ -28,10 +28,11 @@ def restore_config_db(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_mvrf(duthost, localhost):
+def setup_mvrf(duthosts, rand_one_dut_hostname, localhost):
     """
     Setup Management vrf configs before the start of testsuite
     """
+    duthost = duthosts[rand_one_dut_hostname]
     # Backup the original config_db without mgmt vrf config
     duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
@@ -100,10 +101,12 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
 
 
 class TestMvrfInbound():
-    def test_ping(self, duthost):
+    def test_ping(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.ping()
 
-    def test_snmp_fact(self, localhost, duthost, creds):
+    def test_snmp_fact(self, localhost, duthosts, rand_one_dut_hostname, creds):
+        duthost = duthosts[rand_one_dut_hostname]
         localhost.snmp_facts(host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
@@ -133,12 +136,14 @@ class TestMvrfOutbound():
 
         ptfhost.file(path=server_script_dest_path, state="absent")
 
-    def test_ping(self, duthost, ptfhost):
+    def test_ping(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         logger.info("Test OutBound Ping")
         command = "ping  -c 3 " + ptfhost.mgmt_ip
         execute_dut_command(duthost, command, mvrf=True)
 
-    def test_curl(self, duthost, setup_http_server):
+    def test_curl(self, duthosts, rand_one_dut_hostname, setup_http_server):
+        duthost = duthosts[rand_one_dut_hostname]
         logger.info("Test Curl")
 
         url, MAGIC_STRING = setup_http_server
@@ -154,7 +159,8 @@ class TestServices():
         ntp_stat = execute_dut_command(duthost, ntpstat_cmd, mvrf=True, ignore_errors=True)
         return ntp_stat["rc"] == 0
 
-    def test_ntp(self, duthost):
+    def test_ntp(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         force_ntp = "ntpd -gq"
         duthost.service(name="ntp", state="stopped")
         logger.info("Ntp restart in mgmt vrf")
@@ -162,7 +168,8 @@ class TestServices():
         duthost.service(name="ntp", state="restarted")
         pytest_assert(wait_until(100, 10, self.check_ntp_status, duthost), "Ntp not started")
 
-    def test_service_acl(self, duthost, localhost):
+    def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # SSH definitions
         logger.info("test Service acl")
 
@@ -195,21 +202,24 @@ class TestReboot():
         inbound_test.test_snmp_fact(localhost, duthost, creds)
 
     @pytest.mark.disable_loganalyzer
-    def test_warmboot(self, duthost, localhost, ptfhost, creds):
+    def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
-    def test_reboot(self, duthost, localhost, ptfhost, creds):
+    def test_reboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
-    def test_fastboot(self, duthost, localhost, ptfhost, creds):
+    def test_fastboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")

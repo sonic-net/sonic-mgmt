@@ -30,10 +30,11 @@ THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 
 
-def test_show_platform_summary(duthost):
+def test_show_platform_summary(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform summary`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "summary"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -53,10 +54,11 @@ def test_show_platform_summary(duthost):
         pytest_assert(summary_dict[key], "Missing value for '{}'".format(key))
 
 
-def test_show_platform_syseeprom(duthost):
+def test_show_platform_syseeprom(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform syseeprom`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -91,10 +93,11 @@ def test_show_platform_syseeprom(duthost):
             pytest_assert(line in syseeprom_output, "Line '{}' was not found in output".format(line))
 
 
-def test_show_platform_psustatus(duthost):
+def test_show_platform_psustatus(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform psustatus`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -122,10 +125,11 @@ def verify_show_platform_fan_output(raw_output_lines):
         pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_fan(duthost):
+def test_show_platform_fan(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform fan`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "fan"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -152,10 +156,11 @@ def verify_show_platform_temperature_output(raw_output_lines):
         pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_temperature(duthost):
+def test_show_platform_temperature(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform temperature`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "temperature"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -165,10 +170,11 @@ def test_show_platform_temperature(duthost):
     # TODO: Test values against platform-specific expected data
 
 
-def test_show_platform_ssdhealth(duthost):
+def test_show_platform_ssdhealth(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform ssdhealth`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "ssdhealth"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -201,10 +207,11 @@ def verify_show_platform_firmware_status_output(raw_output_lines):
     pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_firmware_status(duthost):
+def test_show_platform_firmware_status(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform firmware status`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))

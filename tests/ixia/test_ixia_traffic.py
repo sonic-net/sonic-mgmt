@@ -28,8 +28,9 @@ from tests.common.ixia.ixia_helpers import  IxiaFanoutManager, configure_ports,\
 
 from tests.common.ixia.common_helpers import increment_ip_address
 
-def test_testbed(conn_graph_facts, duthost, fanout_graph_facts,
+def test_testbed(conn_graph_facts, duthosts, rand_one_dut_hostname, fanout_graph_facts,
     ixia_api_server_session, fanouthosts):
+    duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Connection Graph Facts = %s " %(conn_graph_facts))
     logger.info("Fanout Graph facts = %s" %(fanout_graph_facts))

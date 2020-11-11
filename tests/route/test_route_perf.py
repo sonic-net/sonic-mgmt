@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -32,6 +32,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
             duthost: DUT fixture
             loganalyzer: Loganalyzer utility fixture
     """
+    duthost = duthosts[rand_one_dut_hostname]
     ignoreRegex = [
         ".*ERR route_check.py:.*",
         ".*ERR.* \'routeCheck\' status failed.*"
@@ -48,7 +49,8 @@ def ip_versions(request):
     yield request.param
 
 @pytest.fixture(scope='function', autouse=True)
-def reload_dut(duthost, request):
+def reload_dut(duthosts, rand_one_dut_hostname, request):
+    duthost = duthosts[rand_one_dut_hostname]
     yield
     if request.node.rep_call.failed:
         #Issue a config_reload to clear statically added route table and ip addr
@@ -56,8 +58,9 @@ def reload_dut(duthost, request):
         config_reload(duthost)
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts, rand_one_dut_hostname):
     """ Set CRM polling interval to 1 second """
+    duthost = duthosts[rand_one_dut_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLL_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
@@ -187,7 +190,8 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthost, request, ip_versions):
+def test_perf_add_remove_routes(duthosts, rand_one_dut_hostname, request, ip_versions):
+    duthost = duthosts[rand_one_dut_hostname]
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
 

@@ -12,7 +12,8 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthost, ptfhost):
+def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
+    duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     int_facts = duthost.interface_facts()['ansible_facts']
 

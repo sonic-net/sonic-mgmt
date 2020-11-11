@@ -38,7 +38,8 @@ STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
 @pytest.fixture(scope="class")
-def gather_facts(request, duthost):
+def gather_facts(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
 
@@ -82,7 +83,8 @@ class TestChassisFans(PlatformApiTestBase):
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fans):
             name = fan.get_name(platform_api_conn, i)
 
@@ -92,7 +94,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fans):
             presence = fan.get_presence(platform_api_conn, i)
 
@@ -102,7 +105,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fans):
             model = fan.get_model(platform_api_conn, i)
 
@@ -111,7 +115,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fans):
             serial = fan.get_serial(platform_api_conn, i)
 
@@ -120,7 +125,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         for i in range(self.num_fans):
             status = fan.get_status(platform_api_conn, i)
 
@@ -147,7 +153,8 @@ class TestChassisFans(PlatformApiTestBase):
     # Functions to test methods defined in FanBase class
     #
 
-    def test_get_speed(self, duthost, localhost, platform_api_conn):
+    def test_get_speed(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         # Ensure the fan speed is sane
         for i in range(self.num_fans):
             speed = fan.get_speed(platform_api_conn, i)
@@ -158,7 +165,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_direction(self, duthost, localhost, platform_api_conn):
+    def test_get_direction(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         # Ensure the fan speed is sane
         FAN_DIRECTION_LIST = [
             "intake",
@@ -172,7 +180,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_fans_target_speed(self, duthost, localhost, platform_api_conn):
+    def test_get_fans_target_speed(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
 
         for i in range(self.num_fans):
             speed_target_val = 25
@@ -185,7 +194,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_fans_speed_tolerance(self, duthost, localhost, platform_api_conn):
+    def test_get_fans_speed_tolerance(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
 
         for i in range(self.num_fans):
             speed_tolerance = fan.get_speed_tolerance(platform_api_conn, i)
@@ -195,7 +205,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_fans_speed(self, duthost, localhost, platform_api_conn):
+    def test_set_fans_speed(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
 
         target_speed = random.randint(1, 100)
 
@@ -212,7 +223,8 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_fans_led(self, duthost, localhost, platform_api_conn):
+    def test_set_fans_led(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+        duthost = duthosts[rand_one_dut_hostname]
         LED_COLOR_LIST = [
             "off",
             "red",
