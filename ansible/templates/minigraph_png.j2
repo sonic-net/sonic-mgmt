@@ -52,6 +52,7 @@
         </ManagementAddress>
       </Device>
 {% endif %}
+{% if 'cables' in dual_tor_facts %}
 {% for cable in dual_tor_facts['cables'] %}
       <Device i:type="SmartCable">
         <ElementType>SmartCable</ElementType>
@@ -70,6 +71,7 @@
         <SerialNumber i:nil="true" />
         <Hostname>cable</Hostname>
 {% endfor %}
+{% endif %}
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
 {% if 'T1' in dev %}
