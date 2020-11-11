@@ -16,7 +16,7 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import logger
 
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
@@ -26,7 +26,7 @@ from tests.common.ixia.ixia_helpers import  IxiaFanoutManager, configure_ports,\
     create_topology, create_ipv4_traffic, start_protocols, start_traffic, \
     stop_traffic, stop_protocols, dump_flow_statistics
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_next_dut_port, get_peer_ixia_chassis
+    get_peer_ixia_chassis
 
 def test_testbed(conn_graph_facts, duthost, fanout_graph_facts,
     ixia_api_server_session, fanouthosts):
