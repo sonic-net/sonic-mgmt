@@ -346,7 +346,6 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
     def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
         """Verify that the ASIC does not reject rules with TCP flags if the protocol is not TCP."""
-        duthost = duthosts[rand_one_dut_hostname]
         pass
 
         # NOTE: This type of rule won't really function since you need a TCP packet to have TCP flags.

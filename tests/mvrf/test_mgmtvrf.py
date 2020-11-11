@@ -101,12 +101,10 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
 
 
 class TestMvrfInbound():
-    def test_ping(self, duthosts, rand_one_dut_hostname):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_ping(self, duthost):
         duthost.ping()
 
-    def test_snmp_fact(self, localhost, duthosts, rand_one_dut_hostname, creds):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_snmp_fact(self, localhost, duthost, creds):
         localhost.snmp_facts(host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
@@ -136,8 +134,7 @@ class TestMvrfOutbound():
 
         ptfhost.file(path=server_script_dest_path, state="absent")
 
-    def test_ping(self, duthosts, rand_one_dut_hostname, ptfhost):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_ping(self, duthost, ptfhost):
         logger.info("Test OutBound Ping")
         command = "ping  -c 3 " + ptfhost.mgmt_ip
         execute_dut_command(duthost, command, mvrf=True)
@@ -197,9 +194,9 @@ class TestReboot():
         verify_show_command(duthost)
         inbound_test = TestMvrfInbound()
         outbound_test = TestMvrfOutbound()
-        outbound_test.test_ping(duthost, ptfhost)
-        inbound_test.test_ping(duthost)
-        inbound_test.test_snmp_fact(localhost, duthost, creds)
+        outbound_test.test_ping(duthost=duthost, ptfhost=ptfhost)
+        inbound_test.test_ping(duthost=duthost)
+        inbound_test.test_snmp_fact(localhost=localhost, duthost=duthost, creds=creds)
 
     @pytest.mark.disable_loganalyzer
     def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):

@@ -77,8 +77,7 @@ def vlan_ports_list(cfg_facts, ptfhost):
     return vlan_ports_list
 
 
-def create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthosts, rand_one_dut_hostname, ptfhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost):
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port["permit_vlanid"].keys():
             if int(permit_vlanid) != vlan_port["pvid"]:

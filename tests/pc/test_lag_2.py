@@ -34,8 +34,7 @@ def common_setup_teardown(ptfhost):
     yield ptfhost
 
 class LagTest:
-    def __init__(self, duthosts, rand_one_dut_hostname, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
-        duthost = duthosts[rand_one_dut_hostname]
+    def __init__(self, duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
         self.duthost     = duthost
         self.tbinfo      = tbinfo
         self.ptfhost     = ptfhost
