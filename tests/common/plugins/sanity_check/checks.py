@@ -186,22 +186,21 @@ def check_monit(dut):
                 check_result["failed"] = True
 
             check_result["services_status"].update({service_name: service_info["service_status"]})
-
     else:
         start = time.time()
         elapsed = 0
-	is_running = False
+        is_running = False
         while elapsed < timeout:
-	    check_result["failed"] = False
-	    monit_services_status = dut.get_monit_services_status()
-	    if not monit_services_status:
+            check_result["failed"] = False
+            monit_services_status = dut.get_monit_services_status()
+            if not monit_services_status:
                 wait(interval, msg="Monit was not started and wait {} seconds to retry. Remaining time: {}." \
                     .format(interval, timeout - elapsed))
                 elapsed = time.time() - start
-		continue
+                continue
 
-	    is_running = True
-    	    check_result["services_status"] = {}
+            is_running = True
+            check_result["services_status"] = {}
             for service_name, service_info in monit_services_status.items():
                 if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
                     or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
@@ -218,13 +217,12 @@ def check_monit(dut):
                 break
 
         if not is_running:
-	    logger.info("Monit was not running.")
-	    check_result["failed"] = True
+            logger.info("Monit was not running.")
+            check_result["failed"] = True
             check_result["failed_reason"] = "Monit was not running"
 
     logger.info("Checking status of each Monit entry was done!")
     return check_result
-
 
 def check_processes(dut):
     logger.info("Checking process status...")
