@@ -154,6 +154,77 @@ def check_dbmemory(dut):
     logger.info("Done checking database memory")
     return check_result
 
+def check_monit(dut):
+    """
+    @summary: Check whether the Monit is running and whether the services which were monitored by Monit are 
+              running correctly or not.
+    """
+    logger.info("Checking status of each Monit entry...")
+    networking_uptime = dut.get_networking_uptime().seconds
+    timeout = max((MONIT_STABILIZE_MAX_TIME - networking_uptime), 0)
+    interval = 20
+    logger.info("networking_uptime = {} seconds, timeout = {} seconds, interval = {} seconds" \
+                .format(networking_uptime, timeout, interval))
+
+    check_result = {"failed": False, "check_item": "Monit services"}
+
+    if timeout == 0:
+	monit_services_status = dut.get_monit_services_status()
+    	if not monit_services_status:
+	    logger.info("Monit was not running.")
+	    check_result["failed"] = True
+            check_result["failed_reason"] = "Monit was not running"
+    	    logger.info("Checking status of each Monit entry was done!")
+            return check_result
+
+    	check_result["services_status"] = {}
+        for service_name, service_info in monit_services_status.items():
+            if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
+                or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
+                or (service_info["service_type"] == "Program" and service_info["service_status"] != "Status ok")):
+                check_result["failed"] = True
+
+            check_result["services_status"].update({service_name: service_info["service_status"]})
+
+    else:
+        start = time.time()
+        elapsed = 0
+	is_running = False
+        while elapsed < timeout:
+	    check_result["failed"] = False
+	    monit_services_status = dut.get_monit_services_status()
+	    if not monit_services_status:
+                wait(interval, msg="Monit was not started and wait {} seconds to retry. Remaining time: {}." \
+                    .format(interval, timeout - elapsed))
+                elapsed = time.time() - start
+		continue
+
+	    is_running = True
+    	    check_result["services_status"] = {}
+            for service_name, service_info in monit_services_status.items():
+                if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
+                    or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
+                    or (service_info["service_type"] == "Program" and service_info["service_status"] != "Status ok")):
+                    check_result["failed"] = True
+
+                check_result["services_status"].update({service_name: service_info["service_status"]})
+            
+            if check_result["failed"]:
+                wait(interval, msg="Services were not monitored and wait {} seconds to retry. Remaining time: {}. Services status: {}" \
+                    .format(interval, timeout - elapsed, str(check_result["services_status"])))
+                elapsed = time.time() - start
+            else:
+                break
+
+        if not is_running:
+	    logger.info("Monit was not running.")
+	    check_result["failed"] = True
+            check_result["failed_reason"] = "Monit was not running"
+
+    logger.info("Checking status of each Monit entry was done!")
+    return check_result
+
+
 def check_processes(dut):
     logger.info("Checking process status...")
 
@@ -176,6 +247,7 @@ def check_processes(dut):
         start = time.time()
         elapsed = 0
         while elapsed < timeout:
+            check_result["failed"] = False
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
@@ -207,6 +279,9 @@ def do_checks(dut, check_items):
             results.append(check_processes(dut))
         elif item == "bgp":
             results.append(check_bgp_status(dut))
+        elif item == "monit":
+            results.append(check_monit(dut))
+
 
     return results
 
