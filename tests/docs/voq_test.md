@@ -65,7 +65,7 @@ Ansible modules that are applicable to be run in different namespaces have been 
 - bgp_facts - added 'instance_id' as an optional module param.
 - config_facts - added 'namespace' as an opitonal module param.
 
-These ansible modules when called with namespace related params on a single-asic DUT, returns the output from the global namespace.
+If the optional namespace/ASIC specific module params are not specified, then they default to returning the output from the global namespace.
 
 ## 2.2 Parameterizing dut_index and asic_index 
 PR's
