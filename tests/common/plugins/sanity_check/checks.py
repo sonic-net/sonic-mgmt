@@ -170,15 +170,15 @@ def check_monit(dut):
     check_result = {"failed": False, "check_item": "Monit services"}
 
     if timeout == 0:
-	monit_services_status = dut.get_monit_services_status()
-    	if not monit_services_status:
-	    logger.info("Monit was not running.")
-	    check_result["failed"] = True
+        monit_services_status = dut.get_monit_services_status()
+        if not monit_services_status:
+            logger.info("Monit was not running.")
+            check_result["failed"] = True
             check_result["failed_reason"] = "Monit was not running"
-    	    logger.info("Checking status of each Monit entry was done!")
+            logger.info("Checking status of each Monit entry was done!")
             return check_result
 
-    	check_result["services_status"] = {}
+        check_result["services_status"] = {}
         for service_name, service_info in monit_services_status.items():
             if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
                 or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
