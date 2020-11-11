@@ -7,6 +7,7 @@ from tests.common.utilities import wait, wait_until
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
+MONIT_STABILIZE_MAX_TIME = 420
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 
 def check_services(dut):
