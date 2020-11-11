@@ -384,7 +384,7 @@ def _update_test_summary(current, update):
 
     new_summary = {}
     for attribute, attr_type in REQUIRED_TESTSUITE_ATTRIBUTES:
-        new_summary[attribute] = str(round(attr_type(current[attribute]) + attr_type(update[attribute]), 3))
+        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0)) + attr_type(update.get(attribute, 0)), 3))
 
     return new_summary
 

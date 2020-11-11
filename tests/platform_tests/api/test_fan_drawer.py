@@ -147,7 +147,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, i)
             if self.expect(num_fans is not None, "Unable to retrieve fan_drawer {} number of fans".format(i)):
                 self.expect(isinstance(num_fans, int), "fan drawer {} number of fans appear to be incorrect".format(i))
-                self.compare_value_with_platform_facts('num_fans', name, i)
+                self.compare_value_with_platform_facts('num_fans', num_fans, i)
         self.assert_expectations()
 
     def test_get_all_fans(self, duthost, localhost, platform_api_conn):

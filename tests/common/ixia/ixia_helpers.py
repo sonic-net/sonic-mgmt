@@ -127,7 +127,7 @@ class IxiaFanoutManager () :
             string = "{}/{}/{}/{}/{}".\
                 format(self.ip_address, fanout_port, peer_port, peer_device, speed)
             retval.append(string)
-            
+                           
         return(retval)
 
     def get_fanout_device_details (self, device_number) :

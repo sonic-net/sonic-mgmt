@@ -1,7 +1,6 @@
 import pytest
 
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
-from .args.normal_reboot_args import add_normal_reboot_args
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
@@ -14,7 +13,25 @@ def skip_on_simx(duthost):
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 
-# Platform pytest arguments
+@pytest.fixture()
+def bring_up_dut_interfaces(request, duthost):
+    """
+    Bring up outer interfaces on the DUT.
+
+    Args:
+        request: pytest request object
+        duthost: Fixture for interacting with the DUT.
+    """
+    yield
+    if request.node.rep_call.failed:
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        ports = mg_facts['minigraph_ports'].keys()
+
+        # Enable outer interfaces
+        for port in ports:
+            duthost.no_shutdown(ifname=port)
+
+
 def pytest_addoption(parser):
     add_advanced_reboot_args(parser)
     add_cont_warm_reboot_args(parser)
