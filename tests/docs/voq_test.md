@@ -122,8 +122,7 @@ The format of the return value is the same for all the following scenarios:
 The test case can take 'duthosts' as an arguement
 ```
 def test_bgp_facts(duthosts):
-  duthost = duthosts[dut_index]
-  bgp_facts = duthost.frontend_nodes.bgp_facts(asic_index='all')
+  bgp_facts = duthosts.frontend_nodes.bgp_facts(asic_index='all')
 ```
 
 # 3 Testbed
