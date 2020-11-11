@@ -9,7 +9,7 @@ Table of Contents
 
   - [Scope](#scope)
 
-  - [1 Requirements Overview](#1-requirements-overview)
+  - [1 Requirements](#1-requirements)
   
   - [2 Approach](#2-approach)
     - [2.1 Ansible modules](#21-ansible-modules)
@@ -44,7 +44,7 @@ The scope of this document is to enhance the framework to test SONiC Chassis wit
 
 The end goal is to be able to run the existing OC tests against a SONiC Chassis with minimal changes to test cases itself.
 
-# 1 Requirements Overview
+# 1 Requirements
 The sonic-mgmt test framework enhancements for testing on SONiC VOQ shall support the following
 - backward compatability - Any enhancement should not break testing of pizza box, while allowing for testing of SONiC Chassis.
 
@@ -56,32 +56,36 @@ In order to test SONiC chassis, the following issues had to be resolved:
 - The front-panel linecards could be multi-asic (have multiple SONiC instances). 
 - Need to distinguish between front-panel linecards and supervisor cards
 
-The solution is to improve the current sonic-mgmt test infrastructure to support multi-DUT and multi-ASIC systems. Then, a SONiC chassis can be viewed as a collection of DUT's, each with either a single or multiple asics. This includes the 'supervisor' card as well.
+The solution is to improve the current sonic-mgmt test infrastructure to support multi-DUT and multi-ASIC systems. Then, a SONiC chassis can be viewed as a collection of DUT's, each with either a single or multiple asics. This includes the 'supervisor' card as well. 
 
-The following enhancements have been pushed into sonic-mgmt that facilitate the testing of SONiC chassis.
+There was support added for multi-DUT for [Spytest](https://github.com/Azure/sonic-mgmt/pull/1848). This approach was extended with the following enhancements that facilitate the testing of SONiC chassis.
 
 ## 2.1 Ansible modules
-Ansible modules that are applicable to be run in different namespaces have been enhanced to support such functionaliy. Currently, the following modules support running them on different namespaces:
+The OC pytest tests in sonic-mgmt use ansible modules for querying for parsing data from the DUT. 
+
+The ansible modules that are applicable to be run in different namespaces have been enhanced to support such functionaliy. Currently, the following modules support running them on different namespaces:
 - bgp_facts - added 'instance_id' as an optional module param.
 - config_facts - added 'namespace' as an opitonal module param.
 
 If the optional namespace/ASIC specific module params are not specified, then they default to returning the output from the global namespace.
 
+Other modules will be enhanced as needed during adaption of the tests to SONiC chassis.
+
 ## 2.2 Parameterizing dut_index and asic_index 
 PR's
 - [Multi asic: parameterize asic_index and dut_index](https://github.com/Azure/sonic-mgmt/pull/2245)
 
-With this approch we use pytest parameterization to repeat a test against each of the DUT's and all asics (namespaces). If 'asic_index' and 'dut_index' are used as arguements to the test, then it would get repeated on each asic and each DUT.  
+With this approch we use pytest parameterization to repeat a test against each of the DUTs and all asics (namespaces). If 'asic_index' and 'dut_index' are used as arguements to the test, then it would get repeated on each asic and each DUT. The 'dut_index' is derived from the number of DUTs specified in testbed.csv and 'asic_index' is derived from 'num_asics' defined in the inventory for each of the DUT.
 
-You define the number of asics per DUT in the inventory file.
-```
-multi_asic_1:
+Sample inventory file:
+<pre>
+node1:
    ansible_host: 10.1.1.100
    ansible_hostv6: fec0::ffff:afa:7
-   num_asics: 6
-```
+   <b>num_asics: 6</b>
+</pre>
 
-And then the test case can take 'dut_index' and 'asic_index' as an argument:
+The test case modified to take 'dut_index' and 'asic_index' as an argument:
 ```
 def test_bgp_facts(duthosts, dut_index, asic_index):
   duthost = duthosts[dut_index]
@@ -126,9 +130,9 @@ def test_bgp_facts(duthosts):
 
 The testbed consists of SONiC chassis, where each linecard with frontpanel ports is connected to 'leaf' fanout switch.
 
-We use the same testbed server for all the linecards. So, all the VM's that are connecting to a SONiC chassis are running on the same testbed server.
+We use the **same testbed server** for all the linecards. So, all the VMs that are connecting to a SONiC chassis are running on the same testbed server.
 
-We use a single PTF container for all the linecards in the SONiC chassis.
+We use a **single PTF container** for all the linecards in the SONiC chassis.
 
 # 4 Orchestration
 
@@ -171,15 +175,15 @@ node2,Ethernet0,fanout2,Ethernet0,100000,100,Access
 
 In testbed.csv, you define the SONiC chassis as a list of duts
 
-```
+<pre>
 # conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
-chassis1-t1,vms_5,t1-chassis,docker-ptf,ptf_vms_6,10.250.5.188/24,,server_5,VM0500,[node1;node2;supervisor1], OC tests for chassis1
+chassis1-t1,vms_5,t1-chassis,docker-ptf,ptf_vms_6,10.250.5.188/24,,server_5,VM0500,<b>[node1;node2;supervisor1]</b>, OC tests for chassis1
 
-```
+</pre>
 
 # 4.4 topology file
 
-We use the multi-dut approach for defining the topology file, where the VM offsets have the format '<dut_index>.<dut_port>@<ptf_index>'
+We use the multi-dut approach in defining the topology file, where the VM offsets have the format '<dut_index>.<dut_port>@<ptf_index>'. This format was introduced to support [DualTor]((https://github.com/Azure/sonic-mgmt/pull/2333).  
 
 ```
 topology:
@@ -205,6 +209,8 @@ topology:
     .
     .
 ```
+
+SpyTest mult-dut support and recentThere is an upcoming PR to support this multi-dut 'vlans' for VMS/injected ptf ports.
 
 # 5 Test case changes
 
@@ -280,6 +286,12 @@ def test_bgp_facts(<b>duthosts</b>):
                 assert int(v['asn'].decode("utf-8")) == asic_bgp_facts['bgp_neighbors'][k]['remote AS']
 
 </pre>
+
+MSFT has already pushed a few PR's changing test cases to be multi-dut aware.  Some examples:
+- [[multi-dut] Make test_posttest and test_pretest multi-dut ready](https://github.com/Azure/sonic-mgmt/pull/2475)
+- [[multi-DUT] making test_interfaces multi-DUT ready](https://github.com/Azure/sonic-mgmt/pull/2471)
+
+If you search 'multi-dut' in the PR's on sonic-mgmt github, you will be able to see more examples of tests already modified.
 
 # 6 Acknowlegement
 
