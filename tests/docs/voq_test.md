@@ -73,7 +73,7 @@ Other modules will be enhanced as needed during adaption of the tests to SONiC c
 
 ## 2.2 Parameterizing dut_index and asic_index 
 PR's
-- [Multi asic: parameterize asic_index and dut_index](https://github.com/Azure/sonic-mgmt/pull/2245)
+- [[Multi asic]: parameterize asic_index and dut_index](https://github.com/Azure/sonic-mgmt/pull/2245)
 
 With this approch we use pytest parameterization to repeat a test against each of the DUTs and all asics (namespaces). If 'asic_index' and 'dut_index' are used as arguements to the test, then it would get repeated on each asic and each DUT. The 'dut_index' is derived from the number of DUTs specified in testbed.csv and 'asic_index' is derived from 'num_asics' defined in the inventory for each of the DUT.
 
@@ -183,7 +183,7 @@ chassis1-t1,vms_5,t1-chassis,docker-ptf,ptf_vms_6,10.250.5.188/24,,server_5,VM05
 
 # 4.4 topology file
 
-We use the multi-dut approach in defining the topology file, where the VM offsets have the format '<dut_index>.<dut_port>@<ptf_index>'. This format was introduced to support [DualTor]((https://github.com/Azure/sonic-mgmt/pull/2333).  
+We use the multi-dut approach in defining the topology file, where the VM offsets have the format '<dut_index>.<dut_port>@<ptf_index>'. This format was introduced to support [Dual Tor](https://github.com/Azure/sonic-mgmt/pull/2333).  
 
 ```
 topology:
@@ -209,8 +209,6 @@ topology:
     .
     .
 ```
-
-SpyTest mult-dut support and recentThere is an upcoming PR to support this multi-dut 'vlans' for VMS/injected ptf ports.
 
 # 5 Test case changes
 
@@ -290,6 +288,10 @@ def test_bgp_facts(<b>duthosts</b>):
 MSFT has already pushed a few PR's changing test cases to be multi-dut aware.  Some examples:
 - [[multi-dut] Make test_posttest and test_pretest multi-dut ready](https://github.com/Azure/sonic-mgmt/pull/2475)
 - [[multi-DUT] making test_interfaces multi-DUT ready](https://github.com/Azure/sonic-mgmt/pull/2471)
+- [[multi-dut] making test_show_features multi-dut ready](https://github.com/Azure/sonic-mgmt/pull/2470)
+
+Nokia is in the process of enhancing some of the fixtures to support multi-dut as well:
+- [[multi-dut] - sanity checks for multi-duts](https://github.com/Azure/sonic-mgmt/pull/2478)
 
 If you search 'multi-dut' in the PR's on sonic-mgmt github, you will be able to see more examples of tests already modified.
 
