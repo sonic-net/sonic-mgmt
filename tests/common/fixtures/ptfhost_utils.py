@@ -136,7 +136,7 @@ def ptf_portmap_file(duthost, ptfhost):
             filename (str): returns the filename copied to PTF host
     """
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = natsorted([port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['speed'] != '10G'])
+    portList = natsorted([port for port in intfInfo if port.startswith('Ethernet')])
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
         file.write("# ptf host interface @ switch front port name\n")
