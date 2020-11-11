@@ -80,7 +80,11 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     Args:
         dut: DUT host object
         fanouthosts: List of fanout switch instances.
-        port: port
+        port: port, when port == 'unknown' or 'all_ports'
+              candidate will be all ports. A warning  will
+              be generated if the port == 'unknown'.
+              caller can use 'all_ports' explicitly to mute
+              the warning.
         completeness_level: Completeness level.
 
     Returns:
@@ -89,13 +93,14 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     """
     candidates = []
 
-    if port != 'unknown':
+    if port not in [ 'unknown', 'all_ports' ]:
         status = __get_dut_if_status(dut, port)
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, port)
         __build_candidate_list(candidates, fanout, fanout_port, port, status)
     else:
         # Build the full list
-        logger.warning("Failed to get ports enumerated as parameter. Fall back to test all ports")
+        if port == 'unknown':
+            logger.warning("Failed to get ports enumerated as parameter. Fall back to test all ports")
         status = __get_dut_if_status(dut)
 
         for dut_port in status.keys():
@@ -124,16 +129,24 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
     pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port))
 
     logger.info("Shutting down fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
-    fanout.shutdown(fanout_port)
-    pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
 
-    if watch:
-        time.sleep(1)
-        watch_system_status(dut)
+    need_recovery = True
+    try:
+        fanout.shutdown(fanout_port)
+        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
 
-    logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
-    fanout.no_shutdown(fanout_port)
-    pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+        if watch:
+            time.sleep(1)
+            watch_system_status(dut)
+
+        logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
+        fanout.no_shutdown(fanout_port)
+        need_recovery = False
+        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+    finally:
+        if need_recovery:
+            fanout.no_shutdown(fanout_port)
+            wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True)
 
 
 def watch_system_status(dut):

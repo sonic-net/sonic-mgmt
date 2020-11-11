@@ -49,13 +49,13 @@ class TestLinkFlap(object):
 
 
 @pytest.mark.platform('physical')
-def test_link_flap(request, duthosts, all_ports, fanouthosts, bring_up_fanout_interfaces):
+def test_link_flap(request, duthosts, enum_dut_portname, fanouthosts):
     """
     Validates that link flap works as expected
     """
     tlf = TestLinkFlap(request)
 
-    dutname, portname = decode_dut_port_name(all_ports)
+    dutname, portname = decode_dut_port_name(enum_dut_portname)
     for dut in duthosts:
         if dutname == 'unknown' or dutname == dut.hostname:
             tlf.run_link_flap_test(dut, fanouthosts, portname)

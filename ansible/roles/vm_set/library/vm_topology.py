@@ -9,7 +9,6 @@ import docker
 from ansible.module_utils.basic import *
 import traceback
 import hashlib
-from pprint import pprint
 
 DOCUMENTATION = '''
 ---
@@ -377,6 +376,11 @@ class VMTopology(object):
 
         t_int_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + int_if + '_t'
 
+        if t_int_if in self.host_ifaces:
+            VMTopology.cmd("ip link del dev %s" % t_int_if)
+
+        self.update()
+
         if ext_if not in self.host_ifaces:
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
 
@@ -682,7 +686,7 @@ class VMTopology(object):
     @staticmethod
     def cmd(cmdline):
         with open(cmd_debug_fname, 'a') as fp:
-            pprint("CMD: %s" % cmdline, fp)
+            fp.write("CMD: %s\n" % cmdline)
         cmd = cmdline.split(' ')
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
@@ -692,7 +696,7 @@ class VMTopology(object):
             raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
 
         with open(cmd_debug_fname, 'a') as fp:
-            pprint("OUTPUT: %s" % stdout, fp)
+            fp.write("OUTPUT: \n%s" % stdout.decode('utf-8'))
         return stdout.decode('utf-8')
 
     @staticmethod

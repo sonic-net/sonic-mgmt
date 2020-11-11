@@ -6,6 +6,7 @@ import logging
 import string
 import re
 import getpass
+import random
 
 import pytest
 import csv
@@ -502,8 +503,14 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
 
 @pytest.fixture(scope="module")
 def disable_container_autorestart():
-    def disable_container_autorestart(duthost, testcase="",
-                                     all_features=False, feature_list=None):
+    def disable_container_autorestart(duthost, testcase="", feature_list=None):
+        '''
+        @summary: Disable autorestart of the features present in feature_list.
+
+        @param duthosts: Instance of DutHost
+        @param testcase: testcase name used to save pretest autorestart state. Later to be used for restoration.
+        @feature_list: List of features to disable autorestart. If None, autorestart of all the features will be disabled.
+        '''
         command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
         if command_output['rc'] != 0:
             logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
@@ -519,7 +526,7 @@ def disable_container_autorestart():
         cmd_disable = "config feature autorestart {} disabled"
         cmds_disable = []
         for name, state in container_autorestart_states.items():
-            if state == "enabled" and (all_features or name in feature_list):
+            if state == "enabled" and (feature_list is None or name in feature_list):
                 cmds_disable.append(cmd_disable.format(name))
         # Write into config_db
         cmds_disable.append("config save -y")
@@ -529,8 +536,14 @@ def disable_container_autorestart():
 
 @pytest.fixture(scope="module")
 def enable_container_autorestart():
-    def enable_container_autorestart(duthost, testcase="",
-                                     all_features=False, feature_list=None):
+    def enable_container_autorestart(duthost, testcase="", feature_list=None):
+        '''
+        @summary: Enable autorestart of the features present in feature_list.
+
+        @param duthosts: Instance of DutHost
+        @param testcase: testcase name used to find corresponding file to restore autorestart state.
+        @feature_list: List of features to enable autorestart. If None, autorestart of all the features will be disabled.
+        '''
         state_file_name = "/tmp/autorestart_state_{}_{}.json".format(duthost.hostname, testcase)
         if not os.path.exists(state_file_name):
             return
@@ -543,7 +556,7 @@ def enable_container_autorestart():
         cmd_enable = "config feature autorestart {} enabled"
         cmds_enable = []
         for name, state in container_autorestart_states.items():
-            if state == "disabled"  and (all_features or name in feature_list) \
+            if state == "disabled"  and (feature_list is None or name in feature_list) \
                     and stored_autorestart_states.has_key(name) \
                     and stored_autorestart_states[name] == "enabled":
                 cmds_enable.append(cmd_enable.format(name))
@@ -664,26 +677,34 @@ def generate_port_lists(request, port_scope):
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
-    if "dut_index" in metafunc.fixturenames:
-        dut_indices = generate_params_dut_index(metafunc)
-        metafunc.parametrize("dut_index",dut_indices)
-    elif "dut_hostname" in metafunc.fixturenames:  # Fixture "dut_index" and "dut_hostname" should be mutually exclusive
-        dut_hostnames = generate_params_dut_hostname(metafunc)
-        metafunc.parametrize("dut_hostname", dut_hostnames)
-    if "asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
-    if "frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
 
-    if "all_ports" in metafunc.fixturenames:
-        metafunc.parametrize("all_ports", generate_port_lists(metafunc, "all_ports"))
-    if "oper_up_ports" in metafunc.fixturenames:
-        metafunc.parametrize("oper_up_ports", generate_port_lists(metafunc, "oper_up_ports"))
-    if "admin_up_ports" in metafunc.fixturenames:
-        metafunc.parametrize("admin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
-    if "all_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("all_pcs", generate_port_lists(metafunc, "all_pcs"))
-    if "oper_up_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("oper_up_pcs", generate_port_lists(metafunc, "oper_up_pcs"))
-    if "admin_up_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("admin_up_pcs", generate_port_lists(metafunc, "admin_up_pcs"))
+    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
+    if "enum_dut_index" in metafunc.fixturenames:
+        dut_indices = generate_params_dut_index(metafunc)
+        metafunc.parametrize("enum_dut_index",dut_indices)
+    elif "enum_dut_hostname" in metafunc.fixturenames:
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        metafunc.parametrize("enum_dut_hostname", dut_hostnames)
+    elif "rand_one_dut_hostname" in metafunc.fixturenames:
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        if len(dut_hostnames) > 1:
+            dut_hostnames = random.sample(dut_hostnames, 1)
+        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
+
+    if "enum_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
+    if "enum_frontend_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+
+    if "enum_dut_portname" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
+    if "enum_dut_portname_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_admin_up", generate_port_lists(metafunc, "admin_up_ports"))
+    if "enum_dut_portchannel" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel", generate_port_lists(metafunc, "all_pcs"))
+    if "enum_dut_portchannel_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
+    if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))

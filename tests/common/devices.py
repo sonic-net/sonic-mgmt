@@ -454,7 +454,7 @@ class SonicHost(AnsibleHostBase):
             return result
 
         # get process status for the service
-        output = self.command("docker exec {} supervisorctl status".format(service))
+        output = self.command("docker exec {} supervisorctl status".format(service), module_ignore_errors=True)
         logging.info("====== supervisor process status for service {} ======".format(service))
 
         for l in output['stdout_lines']:
@@ -1059,7 +1059,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 for port, index in mg_facts['minigraph_ptf_indeces'].items():
                     if index in map:
                         mg_facts['minigraph_ptf_indeces'][port] = map[index]
-        except ValueError:
+        except (ValueError, KeyError):
             pass
 
         return mg_facts
@@ -1140,7 +1140,18 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        if out['changed'] == False:
+            # new eos deprecate lacp rate and use lacp timer command
+            out = self.eos_config(
+                lines=['lacp timer %s' % mode],
+                parents='interface %s' % interface_name)
+            if out['changed'] == False:
+                logging.warning("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+                raise Exception("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+            else:
+                logging.info("Set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+        else:
+            logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
         return out
 
     def kill_bgpd(self):

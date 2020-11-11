@@ -14,8 +14,8 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
-def test_cleanup_testbed(duthosts, dut_hostname, request, ptfhost):
-    duthost = duthosts[dut_hostname]
+def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
+    duthost = duthosts[enum_dut_hostname]
     deep_clean = request.config.getoption("--deep_clean")
     if deep_clean:
         logger.info("Deep cleaning DUT {}".format(duthost.hostname))
@@ -31,10 +31,9 @@ def test_cleanup_testbed(duthosts, dut_hostname, request, ptfhost):
         ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
 
-@pytest.mark.usefixtures('disable_container_autorestart')
-def test_disable_container_autorestart(duthosts, dut_hostname, disable_container_autorestart):
-    duthost = duthosts[dut_hostname]
-    disable_container_autorestart(duthost, all_features=True)
+def test_disable_container_autorestart(duthosts, enum_dut_hostname, disable_container_autorestart):
+    duthost = duthosts[enum_dut_hostname]
+    disable_container_autorestart(duthost)
     # Wait sometime for snmp reloading
     SNMP_RELOADING_TIME = 30
     time.sleep(SNMP_RELOADING_TIME)
@@ -66,8 +65,8 @@ def test_update_testbed_metadata(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_disable_rsyslog_rate_limit(duthosts, dut_hostname):
-    duthost = duthosts[dut_hostname]
+def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.
