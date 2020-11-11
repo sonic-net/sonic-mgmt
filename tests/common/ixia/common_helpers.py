@@ -94,3 +94,114 @@ def get_addrs_in_subnet(subnet, number_of_ip):
 
     return ip_addrs[:number_of_ip]
 
+def get_next_dut_port(conn_data, dut_portname):
+    """
+    Given a DUT port, get the next one DUT port
+
+    Args:
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        Example format of the conn_data is given below:
+        
+        {
+            u'device_conn': {
+                u'Ethernet0': {
+                    u'peerdevice': u'msr-ixia-1',
+                    u'peerport': u'Card12/Port3',
+                    u'speed': u'100000'
+                },
+                u'Ethernet4': {
+                    u'peerdevice': u'msr-ixia-1',
+                    u'peerport': u'Card12/Port4',
+                    u'speed': u'100000'
+                }
+            },
+
+            u'device_info': {
+                u'HwSku': u'Arista-7060', 
+                u'Type': u'DevSonic'
+            },
+
+            u'device_port_vlans': {
+                u'Ethernet0': {
+                    u'mode': u'Access',
+                    u'vlanids': u'',
+                    u'vlanlist': []
+                },
+                u'Ethernet4': {
+                    u'mode': u'Access',
+                    u'vlanids': u'',
+                    u'vlanlist': []
+                }
+            }
+        }
+
+        dut_portname (str): DUT port name
+
+    Return:
+        Return the name of the next DUT port
+    """
+    device_conn = conn_data['device_conn']
+    dut_ports = list(device_conn.keys())
+
+    if dut_portname not in dut_ports:
+        return None 
+    else:
+        id = dut_ports.index(dut_portname)
+        next_id = (id + 1) % len(dut_ports)
+        return dut_ports[next_id]
+
+def get_peer_ixia_chassis(conn_data):
+    """
+    Get the IXIA chassis connected to the DUT
+    Note that a DUT can only be connected to a IXIA chassis
+
+    Args:
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        Example format of the conn_data is given below:
+        
+        {
+            u'device_conn': {
+                u'Ethernet0': {
+                    u'peerdevice': u'msr-ixia-1',
+                    u'peerport': u'Card12/Port3',
+                    u'speed': u'100000'
+                },
+                u'Ethernet4': {
+                    u'peerdevice': u'msr-ixia-1',
+                    u'peerport': u'Card12/Port4',
+                    u'speed': u'100000'
+                }
+            },
+
+            u'device_info': {
+                u'HwSku': u'Arista-7060', 
+                u'Type': u'DevSonic'
+            },
+
+            u'device_port_vlans': {
+                u'Ethernet0': {
+                    u'mode': u'Access',
+                    u'vlanids': u'',
+                    u'vlanlist': []
+                },
+                u'Ethernet4': {
+                    u'mode': u'Access',
+                    u'vlanids': u'',
+                    u'vlanlist': []
+                }
+            }
+        }
+    
+    Return:
+        Return the name of the peer IXIA chassis
+    """
+    
+    device_conn = conn_data['device_conn']
+    peer_devices = list(set(device_conn[port]['peerdevice'] for port in device_conn))
+
+    if len(peer_devices) == 1:
+        return peer_devices[0]
+    else:
+        return None 
+
+
