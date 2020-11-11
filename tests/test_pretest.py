@@ -14,7 +14,8 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
-def test_cleanup_testbed(duthost, request, ptfhost):
+def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
+    duthost = duthosts[enum_dut_hostname]
     deep_clean = request.config.getoption("--deep_clean")
     if deep_clean:
         logger.info("Deep cleaning DUT {}".format(duthost.hostname))
@@ -29,7 +30,8 @@ def test_cleanup_testbed(duthost, request, ptfhost):
     if ptfhost:
         ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
-def test_disable_container_autorestart(duthost):
+def test_disable_container_autorestart(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
     command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
     if command_output['rc'] != 0:
         logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
@@ -81,7 +83,8 @@ def test_update_testbed_metadata(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_disable_rsyslog_rate_limit(duthost):
+def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.

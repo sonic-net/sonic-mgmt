@@ -6,6 +6,7 @@ import logging
 import string
 import re
 import getpass
+import random
 
 import pytest
 import csv
@@ -86,6 +87,7 @@ class TestbedInfo(object):
                 line['topo']['type'] = self.get_testbed_type(line['topo']['name'])
                 with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
                     line['topo']['properties'] = yaml.safe_load(fh)
+                line['topo']['ptf_map'] = self.calculate_ptf_index_map(line)
 
                 self.testbed_topo[line['conf-name']] = line
 
@@ -100,6 +102,63 @@ class TestbedInfo(object):
             # everywhere.
             tb_type = 't0'
         return tb_type
+
+    def _parse_dut_port_index(self, port):
+        """
+        parse port string
+
+        port format : dut_index.port_index@ptf_index
+
+        """
+        m = re.match("(\d+)\.(\d+)@(\d+)", port)
+        (dut_index, port_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+        return (dut_index, port_index, ptf_index)
+
+    def calculate_ptf_index_map(self, line):
+        map = defaultdict()
+
+        # For multi-DUT testbed, because multiple DUTs are sharing a same
+        # PTF docker, the ptf docker interface index will not be exactly
+        # match the interface index on DUT. The information is available
+        # in the topology facts. Get these information out and put them
+        # in the 2 levels dictionary as:
+        # { dut_index : { dut_port_index : ptf_index * } * }
+
+        topo_facts = line['topo']['properties']
+        if 'topology' not in topo_facts:
+            return map
+
+        topology = topo_facts['topology']
+        if 'host_interfaces' in topology:
+            for _ports in topology['host_interfaces']:
+                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+                # if there is no '@' then they are shared, no need to update.
+                ports = str(_ports)
+                for port in ports.split(','):
+                    if '@' in port and '.' in port:
+                        dut_index, port_index, ptf_index = _parse_dut_port_index(port)
+                        if port_index != ptf_index:
+                            # Need to add this in map
+                            dut_dict = map[dut_index] if dut_index in map else {}
+                            dut_dict[port_index] = ptf_index
+                            map[dut_index] = dut_dict
+
+        if 'VMs' in topology:
+            for _, vm in topology['VMs'].items():
+                if 'vlans' in vm:
+                    for _port in vm['vlans']:
+                        # Example: ['0.31@34', '1.31@35']
+                        port = str(_port)
+                        if '@' in port and '.' in port:
+                            dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
+                            if port_index != ptf_index:
+                                # Need to add this in map
+                                dut_dict = map[dut_index] if dut_index in map else {}
+                                dut_dict[port_index] = ptf_index
+                                map[dut_index] = dut_dict
+
+        return map
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
@@ -456,13 +515,12 @@ def get_host_data(request, dut):
 
 def generate_param_asic_index(request, dut_indices, param_type):
     logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
-    
+
     tbname = request.config.getoption("--testbed")
     tbfile = request.config.getoption("--testbed_file")
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
-    
-    
+
     tbinfo = TestbedInfo(tbfile)
 
     #if the params are not present treat the device as a single asic device
@@ -489,6 +547,17 @@ def generate_params_dut_index(request):
     num_duts = len(tbinfo.testbed_topo[tbname]["duts"])
     logging.info("Num of duts in testbed topology {}".format(num_duts))
     return range(num_duts)
+
+
+def generate_params_dut_hostname(request):
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    tbinfo = TestbedInfo(tbfile)
+    duts = tbinfo.testbed_topo[tbname]["duts"]
+    logging.info("DUTs in testbed topology: {}".format(str(duts)))
+    return duts
 
 
 def generate_port_lists(request, port_scope):
@@ -540,23 +609,34 @@ def generate_port_lists(request, port_scope):
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
-    if "dut_index" in metafunc.fixturenames:
-        dut_indices = generate_params_dut_index(metafunc)
-        metafunc.parametrize("dut_index",dut_indices)
-    if "asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
-    if "frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
 
-    if "all_ports" in metafunc.fixturenames:
-        metafunc.parametrize("all_ports", generate_port_lists(metafunc, "all_ports"))
-    if "oper_up_ports" in metafunc.fixturenames:
-        metafunc.parametrize("oper_up_ports", generate_port_lists(metafunc, "oper_up_ports"))
-    if "admin_up_ports" in metafunc.fixturenames:
-        metafunc.parametrize("admin_up_ports", generate_port_lists(metafunc, "admin_up_ports"))
-    if "all_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("all_pcs", generate_port_lists(metafunc, "all_pcs"))
-    if "oper_up_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("oper_up_pcs", generate_port_lists(metafunc, "oper_up_pcs"))
-    if "admin_up_pcs" in metafunc.fixturenames:
-        metafunc.parametrize("admin_up_pcs", generate_port_lists(metafunc, "admin_up_pcs"))
+    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
+    if "enum_dut_index" in metafunc.fixturenames:
+        dut_indices = generate_params_dut_index(metafunc)
+        metafunc.parametrize("enum_dut_index",dut_indices)
+    elif "enum_dut_hostname" in metafunc.fixturenames:
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        metafunc.parametrize("enum_dut_hostname", dut_hostnames)
+    elif "rand_one_dut_hostname" in metafunc.fixturenames:
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        if len(dut_hostnames) > 1:
+            dut_hostnames = random.sample(dut_hostnames, 1)
+        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
+
+    if "enum_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
+    if "enum_frontend_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+
+    if "enum_dut_portname" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
+    if "enum_dut_portname_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_admin_up", generate_port_lists(metafunc, "admin_up_ports"))
+    if "enum_dut_portchannel" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel", generate_port_lists(metafunc, "all_pcs"))
+    if "enum_dut_portchannel_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
+    if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))

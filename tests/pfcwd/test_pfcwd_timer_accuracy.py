@@ -158,6 +158,8 @@ class TestPfcwdAllTimer(object):
         """
         Compare the timestamps obtained and verify the timer accuracy
         """
+        self.all_detect_time.sort()
+        self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
