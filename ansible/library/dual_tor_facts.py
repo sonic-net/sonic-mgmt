@@ -3,10 +3,11 @@ import yaml
 
 class DualTorParser:
 
-    def __init__(self, hostname, testbed_facts, host_vars):
+    def __init__(self, hostname, testbed_facts, host_vars, vm_config):
         self.hostname = hostname
         self.testbed_facts = testbed_facts
-        self.host_vars= host_vars
+        self.host_vars = host_vars
+        self.vm_config = vm_config
         self.dual_tor_facts = {}
 
     def parse_neighbor_tor(self):
@@ -28,9 +29,15 @@ class DualTorParser:
         '''
         upper_tor, lower_tor = sorted(self.testbed_facts['duts'])
         self.dual_tor_facts['positions'] = {'upper': upper_tor, 'lower': lower_tor}
-        
-    def parse_y_links(self):
-        pass
+
+    def generate_cable_names(self):
+        cables = []
+
+        for vm in sorted(self.vm_config['vm'].keys()):
+            name = '{}-{}-SC'.format(self.hostname, vm)
+            cables.append(name)
+
+        self.dual_tor_facts['cables'] = cables
 
     def get_dual_tor_facts(self):
         '''
@@ -39,7 +46,7 @@ class DualTorParser:
         if self.testbed_facts['topo'] == 'dualtor':
             self.parse_neighbor_tor()
             self.parse_tor_position()
-            self.parse_y_links()
+            self.generate_cable_names()
 
         return self.dual_tor_facts
 
@@ -49,7 +56,8 @@ def main():
         argument_spec=dict(
             hostname=dict(required=True, default=None, type='str'),
             testbed_facts=dict(required=True, default=None, type='dict'),
-            hostvars=dict(required=True, default=None, type='dict')
+            hostvars=dict(required=True, default=None, type='dict'),
+            vm_config=dict(required=True, default=None, type='dict')
         ),
         supports_check_mode=True
     )
@@ -57,9 +65,10 @@ def main():
     # testbed_facts ={u'comment': u'Dual-TOR testbed', u'conf-name': u'vms-kvm-dual-t0', u'ptf_ip': u'10.250.0.109', u'ptf_netmask': u'255.255.255.0', u'ptf_ipv6': u'fec0::ffff:afa:9', u'vm_base': u'VM0108', u'server': u'server_1', u'topo': u'dualtor', u'group-name': u'vms6-4', u'ptf': u'ptf-04', u'duts_map': {u'vlab-06': 1, u'vlab-05': 0}, u'ptf_netmask_v6': u'ffff:ffff:ffff:ffff::', u'ptf_image_name': u'docker-ptf', u'duts': [u'vlab-05', u'vlab-06']}
     hostname = m_args['hostname']
     testbed_facts = m_args['testbed_facts']
-    host_vars= m_args['hostvars']
+    host_vars = m_args['hostvars']
+    vm_config = m_args['vm_config']
     try:
-        dual_tor_parser = DualTorParser(hostname, testbed_facts, host_vars)
+        dual_tor_parser = DualTorParser(hostname, testbed_facts, host_vars, vm_config)
         module.exit_json(ansible_facts={'dual_tor_facts': dual_tor_parser.get_dual_tor_facts()})
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())

@@ -11,6 +11,16 @@
         <StartDevice>{{ inventory_hostname }}</StartDevice>
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
       </DeviceLinkBase>
+{% if topo == 'dualtor' %}
+{% set cable_position = 'U' if inventory_hostname == dual_tor_facts['positions']['upper'] else 'L' %}
+      <DeviceLinkBase>
+        <ElementType>LogicalLink</ElementType>
+        <EndDevice>{{ inventory_hostname }}</EndDevice>
+        <EndPort>{{ port_alias[dut_intfs[if_index]] }}</EndPort>
+        <StartDevice>{{ dual_tor_facts['cables'][index] }}</StartDevice>
+        <StartPort>{{ cable_position }}</StartPort>
+      </DeviceLinkBase>
+{% endif %}
 {% endfor %}
 {% endfor %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
@@ -34,7 +44,6 @@
         </ManagementAddress>
       </Device>
 {% if 'neighbor' in dual_tor_facts %}
-    <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
         <Hostname>{{ dual_tor_facts['neighbor']['hostname'] }}</Hostname>
         <HwSku>{{ dual_tor_facts['neighbor']['hwsku'] }}</HwSku>
@@ -43,6 +52,24 @@
         </ManagementAddress>
       </Device>
 {% endif %}
+{% for cable in dual_tor_facts['cables'] %}
+      <Device i:type="SmartCable">
+        <ElementType>SmartCable</ElementType>
+        <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
+        </Address>
+        <AddressV6 xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>::/0</d5p1:IPPrefix>
+        </AddressV6>
+        <ManagementAddress xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
+        </ManagementAddress>
+        <ManagementAddressV6 xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>::/0</d5p1:IPPrefix>
+        </ManagementAddressV6>
+        <SerialNumber i:nil="true" />
+        <Hostname>cable</Hostname>
+{% endfor %}
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
 {% if 'T1' in dev %}
