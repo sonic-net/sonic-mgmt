@@ -43,6 +43,13 @@ def get_status(conn, comp_idx):
     return component_api(conn, comp_idx, 'get_status')
 
 
+def get_position_in_parent(conn, comp_idx):
+    return component_api(conn, comp_idx, 'get_position_in_parent')
+
+
+def is_replaceable(conn, comp_idx):
+    return component_api(conn, comp_idx, 'is_replaceable')
+
 #
 # Methods defined in ComponentBase class
 #

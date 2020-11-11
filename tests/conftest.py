@@ -6,18 +6,24 @@ import logging
 import string
 import re
 import getpass
+import random
 
 import pytest
 import csv
 import yaml
 import jinja2
 import ipaddr as ipaddress
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
 
 from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import SonicHost, Localhost
+from tests.common.devices import Localhost
 from tests.common.devices import PTFHost, EosHost, FanoutHost
+from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.devices import DutHosts
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +87,7 @@ class TestbedInfo(object):
                 line['topo']['type'] = self.get_testbed_type(line['topo']['name'])
                 with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
                     line['topo']['properties'] = yaml.safe_load(fh)
+                line['topo']['ptf_map'] = self.calculate_ptf_index_map(line)
 
                 self.testbed_topo[line['conf-name']] = line
 
@@ -89,7 +96,69 @@ class TestbedInfo(object):
         match = pattern.match(topo_name)
         if match == None:
             raise Exception("Unsupported testbed type - {}".format(topo_name))
-        return match.group()
+        tb_type = match.group()
+        if tb_type == 'dualtor':
+            # augment dualtor topology type to 't0' to avoid adding it
+            # everywhere.
+            tb_type = 't0'
+        return tb_type
+
+    def _parse_dut_port_index(self, port):
+        """
+        parse port string
+
+        port format : dut_index.port_index@ptf_index
+
+        """
+        m = re.match("(\d+)\.(\d+)@(\d+)", port)
+        (dut_index, port_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+        return (dut_index, port_index, ptf_index)
+
+    def calculate_ptf_index_map(self, line):
+        map = defaultdict()
+
+        # For multi-DUT testbed, because multiple DUTs are sharing a same
+        # PTF docker, the ptf docker interface index will not be exactly
+        # match the interface index on DUT. The information is available
+        # in the topology facts. Get these information out and put them
+        # in the 2 levels dictionary as:
+        # { dut_index : { dut_port_index : ptf_index * } * }
+
+        topo_facts = line['topo']['properties']
+        if 'topology' not in topo_facts:
+            return map
+
+        topology = topo_facts['topology']
+        if 'host_interfaces' in topology:
+            for _ports in topology['host_interfaces']:
+                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+                # if there is no '@' then they are shared, no need to update.
+                ports = str(_ports)
+                for port in ports.split(','):
+                    if '@' in port and '.' in port:
+                        dut_index, port_index, ptf_index = _parse_dut_port_index(port)
+                        if port_index != ptf_index:
+                            # Need to add this in map
+                            dut_dict = map[dut_index] if dut_index in map else {}
+                            dut_dict[port_index] = ptf_index
+                            map[dut_index] = dut_dict
+
+        if 'VMs' in topology:
+            for _, vm in topology['VMs'].items():
+                if 'vlans' in vm:
+                    for _port in vm['vlans']:
+                        # Example: ['0.31@34', '1.31@35']
+                        port = str(_port)
+                        if '@' in port and '.' in port:
+                            dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
+                            if port_index != ptf_index:
+                                # Need to add this in map
+                                dut_dict = map[dut_index] if dut_index in map else {}
+                                dut_dict[port_index] = ptf_index
+                                map[dut_index] = dut_dict
+
+        return map
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
@@ -210,7 +279,7 @@ def fixture_duthosts(ansible_adhoc, tbinfo):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return [SonicHost(ansible_adhoc, dut) for dut in tbinfo["duts"]]
+    return DutHosts(ansible_adhoc, tbinfo)
 
 
 @pytest.fixture(scope="session")
@@ -284,42 +353,43 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
     try:
-        for dut_port in dev_conn.keys():
-            fanout_rec = dev_conn[dut_port]
-            fanout_host = fanout_rec['peerdevice']
-            fanout_port = fanout_rec['peerport']
+        for dut_host, value in dev_conn.items():
+            for dut_port in value.keys():
+                fanout_rec = value[dut_port]
+                fanout_host = fanout_rec['peerdevice']
+                fanout_port = fanout_rec['peerport']
 
-            if fanout_host in fanout_hosts.keys():
-                fanout = fanout_hosts[fanout_host]
-            else:
-                host_vars = ansible_adhoc().options[
-                    'inventory_manager'].get_host(fanout_host).vars
-                os_type = host_vars.get('os', 'eos')
-                admin_user = creds['fanout_admin_user']
-                admin_password = creds['fanout_admin_password']
-                # `fanout_network_user` and `fanout_network_password` are for
-                # accessing the non-shell CLI of fanout.
-                # Ansible will use this set of credentail for establishing
-                # `network_cli` connection with device when applicable.
-                network_user = creds.get('fanout_network_user', admin_user)
-                network_password = creds.get('fanout_network_password',
-                                             admin_password)
-                shell_user = creds.get('fanout_shell_user', admin_user)
-                shell_password = creds.get('fanout_shell_pass', admin_password)
-                if os_type == 'sonic':
-                    shell_user = creds['fanout_sonic_user']
-                    shell_password = creds['fanout_sonic_password']
+                if fanout_host in fanout_hosts.keys():
+                    fanout = fanout_hosts[fanout_host]
+                else:
+                    host_vars = ansible_adhoc().options[
+                        'inventory_manager'].get_host(fanout_host).vars
+                    os_type = host_vars.get('os', 'eos')
+                    admin_user = creds['fanout_admin_user']
+                    admin_password = creds['fanout_admin_password']
+                    # `fanout_network_user` and `fanout_network_password` are for
+                    # accessing the non-shell CLI of fanout.
+                    # Ansible will use this set of credentail for establishing
+                    # `network_cli` connection with device when applicable.
+                    network_user = creds.get('fanout_network_user', admin_user)
+                    network_password = creds.get('fanout_network_password',
+                                                 admin_password)
+                    shell_user = creds.get('fanout_shell_user', admin_user)
+                    shell_password = creds.get('fanout_shell_pass', admin_password)
+                    if os_type == 'sonic':
+                        shell_user = creds['fanout_sonic_user']
+                        shell_password = creds['fanout_sonic_password']
 
-                fanout = FanoutHost(ansible_adhoc,
-                                    os_type,
-                                    fanout_host,
-                                    'FanoutLeaf',
-                                    network_user,
-                                    network_password,
-                                    shell_user=shell_user,
-                                    shell_passwd=shell_password)
-                fanout_hosts[fanout_host] = fanout
-            fanout.add_port_map(dut_port, fanout_port)
+                    fanout = FanoutHost(ansible_adhoc,
+                                        os_type,
+                                        fanout_host,
+                                        'FanoutLeaf',
+                                        network_user,
+                                        network_password,
+                                        shell_user=shell_user,
+                                        shell_passwd=shell_password)
+                    fanout_hosts[fanout_host] = fanout
+                fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
     except:
         pass
     return fanout_hosts
@@ -430,4 +500,143 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
 
+def get_host_data(request, dut):
+    '''
+    This function parses multple inventory files and returns the dut information present in the inventory
+    '''
+    inv_data = None
+    inv_files = [inv_file.strip() for inv_file in request.config.getoption("ansible_inventory").split(",")]
+    for inv_file in inv_files:
+        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
+        if dut in inv_mgr.hosts:
+            return inv_mgr.get_host(dut).get_vars()
 
+    return inv_data
+
+def generate_param_asic_index(request, dut_indices, param_type):
+    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
+
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+
+    tbinfo = TestbedInfo(tbfile)
+
+    #if the params are not present treat the device as a single asic device
+    asic_index_params = [DEFAULT_ASIC_ID]
+
+    for dut_id in dut_indices:
+        dut = tbinfo.testbed_topo[tbname]["duts"][dut_id]
+        inv_data = get_host_data(request, dut)
+        if inv_data is not None:
+            if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
+                asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+            elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
+                asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            logging.info("dut_index {} dut name {}  asics params = {}".format(
+                dut_id, dut, asic_index_params))
+    return asic_index_params
+
+def generate_params_dut_index(request):
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    tbinfo = TestbedInfo(tbfile)
+    num_duts = len(tbinfo.testbed_topo[tbname]["duts"])
+    logging.info("Num of duts in testbed topology {}".format(num_duts))
+    return range(num_duts)
+
+
+def generate_params_dut_hostname(request):
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+    tbinfo = TestbedInfo(tbfile)
+    duts = tbinfo.testbed_topo[tbname]["duts"]
+    logging.info("DUTs in testbed topology: {}".format(str(duts)))
+    return duts
+
+
+def generate_port_lists(request, port_scope):
+    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+    if 'ports' in port_scope:
+        scope = 'Ethernet'
+    elif 'pcs' in port_scope:
+        scope = 'PortChannel'
+    else:
+        return empty
+
+    if 'all' in port_scope:
+        state = None
+    elif 'oper_up' in port_scope:
+        state = 'oper_state'
+    elif 'admin_up' in port_scope:
+        state = 'admin_state'
+    else:
+        return empty
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            ports = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in ports:
+        return empty
+
+    dut_ports = ports[tbname]
+    ret = []
+    for dut, val in dut_ports.items():
+        if 'intf_status' not in val:
+            continue
+        for intf, status in val['intf_status'].items():
+            if scope in intf and (not state or status[state] == 'up'):
+                ret.append(encode_dut_port_name(dut, intf))
+
+    return ret if ret else empty
+
+
+def pytest_generate_tests(metafunc):
+    # The topology always has atleast 1 dut
+    dut_indices = [0]
+
+    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
+    if "enum_dut_index" in metafunc.fixturenames:
+        dut_indices = generate_params_dut_index(metafunc)
+        metafunc.parametrize("enum_dut_index",dut_indices)
+    elif "enum_dut_hostname" in metafunc.fixturenames:
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        metafunc.parametrize("enum_dut_hostname", dut_hostnames)
+    elif "rand_one_dut_hostname" in metafunc.fixturenames:
+        dut_hostnames = generate_params_dut_hostname(metafunc)
+        if len(dut_hostnames) > 1:
+            dut_hostnames = random.sample(dut_hostnames, 1)
+        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
+
+    if "enum_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
+    if "enum_frontend_asic_index" in metafunc.fixturenames:
+        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+
+    if "enum_dut_portname" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
+    if "enum_dut_portname_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_admin_up", generate_port_lists(metafunc, "admin_up_ports"))
+    if "enum_dut_portchannel" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel", generate_port_lists(metafunc, "all_pcs"))
+    if "enum_dut_portchannel_oper_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
+    if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))
