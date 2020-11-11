@@ -345,7 +345,19 @@ def main():
             if host_vlan:
                 device_vlan_range.append(host_vlan["VlanRange"])
                 device_vlan_list.append(host_vlan["VlanList"])
-                device_vlan_map_list[hostname] = host_vlan["VlanList"]
+                port_vlans = lab_graph.get_host_port_vlans(hostname)
+                device_vlan_map_list[hostname] = {}
+                for a_host_vlan in host_vlan["VlanList"]:
+                    # Get the corresponding port for this vlan from the port vlan list for this hostname
+                    found_port_for_vlan = False
+                    for a_port in port_vlans:
+                        if a_host_vlan in port_vlans[a_port]['vlanlist']:
+                            port_index = a_port.split("Ethernet")[1]
+                            device_vlan_map_list[hostname][port_index] = a_host_vlan
+                            found_port_for_vlan = True
+                            break
+                    if not found_port_for_vlan:
+                        module.fail_json(msg="Did not find correspoding link for %d vlan in %s for host %s" % (a_host_vlan, port_vlans, hostname))
             device_port_vlans.append(lab_graph.get_host_port_vlans(hostname))
         results = {k: v for k, v in locals().items()
                    if (k.startswith("device_") and v)}

@@ -456,7 +456,7 @@ class VMTopology(object):
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], idx)
                 (dut_index, vlan_index, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, ptf_index)
-                self.bind_ovs_ports(br_name, self.duts_fp_ports[self.duts_name[dut_index]][vlan_index], injected_iface, vm_iface, disconnect_vm)
+                self.bind_ovs_ports(br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)], injected_iface, vm_iface, disconnect_vm)
 
         return
 

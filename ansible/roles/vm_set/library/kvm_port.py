@@ -36,7 +36,7 @@ def main():
         module.fail_json(msg="failed to iflist dom %s" % vmname)
 
     mgmt_port = None
-    fp_ports = []
+    fp_ports = {}
 
     for l in output.split('\n'):
         fds = re.split('\s+', l.lstrip())
@@ -46,7 +46,7 @@ def main():
             if mgmt_port == None:
                 mgmt_port = fds[0]
             else:
-                fp_ports.append(fds[0])
+                fp_ports[fds[0]] = fds[0]
 
     if mgmt_port == None:
         module.fail_json(msg="failed to find mgmt port")
