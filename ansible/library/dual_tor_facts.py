@@ -1,6 +1,3 @@
-import os
-import yaml
-
 class DualTorParser:
 
     def __init__(self, hostname, testbed_facts, host_vars, vm_config):
