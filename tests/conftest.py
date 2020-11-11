@@ -621,7 +621,7 @@ def pytest_generate_tests(metafunc):
         dut_hostnames = generate_params_dut_hostname(metafunc)
         if len(dut_hostnames) > 1:
             dut_hostnames = random.sample(dut_hostnames, 1)
-        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
+        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames, scope='module')
 
     if "enum_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
