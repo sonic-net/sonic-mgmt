@@ -9,7 +9,6 @@ This module also contains a definition of a simple helper class
 "IxiaFanoutManager" which can be used to manage cards and ports of ixia 
 chassis instead of reading it from fanout_graph_facts fixture.
 """
-import pytest
 from copy import deepcopy
 
 from tests.common.helpers.assertions import pytest_assert
