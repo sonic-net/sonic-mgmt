@@ -134,7 +134,7 @@ def main():
 
     fp_ports = {}
 
-    vp = VlanPort(external_port, _vlan_ids)
+    vp = VlanPort(external_port, vlan_ids)
 
     vp.up_external_port()
     if cmd == "create":
