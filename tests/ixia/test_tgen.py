@@ -9,7 +9,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_next_dut_port, get_peer_ixia_chassis
+    get_peer_ixia_chassis
 
 from abstract_open_traffic_generator.port import Port
 from abstract_open_traffic_generator.config import Options, Config
@@ -28,9 +28,12 @@ from abstract_open_traffic_generator.control import State, ConfigState, FlowTran
 from abstract_open_traffic_generator.result import FlowRequest
 
 @pytest.mark.disable_loganalyzer
+@pytest.mark.topology("t0")
 
 def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
-    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts)
+    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
+                                        dut_hostname=duthost.hostname)
+
     pytest_require(ixia_fanout is not None, 
                    skip_message="Cannot find the peer IXIA chassis")
 
@@ -170,25 +173,27 @@ def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
     """ Dump per-flow statistics """
     rows = ixia_api.get_flow_results(FlowRequest(flow_names=[flow_name]))
 
+    """ Stop traffic """
+    ixia_api.set_state(State(FlowTransmitState(state='stop')))
+
     """ Analyze traffic results """
-    if len(rows) != 1 or rows[0]['name'] != flow_name:
-        pytest.fail("Fail to get results of flow {}".format(flow_name))
+    pytest_assert(len(rows) == 1 or rows[0]['name'] == flow_name,
+        'Fail to get results of flow {}'.format(flow_name))
     
     row = rows[0]
     rx_frames = row['frames_rx']
     tx_frames = row['frames_tx']
 
-    if rx_frames != tx_frames:
-        pytest.fail('Unexpected packet losses (Tx: {}, Rx: {})'.\
-            format(tx_frames, rx_frames))
+    pytest_assert(rx_frames == tx_frames,
+        'Unexpected packet losses (Tx: {}, Rx: {})'.format(tx_frames, rx_frames))
     
     tput_bps = rx_port_speed * 1e6 * rate_percent / 100.0  
-    expected_rx_frames = tput_bps * duration_sec / 8 / pkt_size
+    exp_rx_frames = tput_bps * duration_sec / 8 / pkt_size
 
     deviation_thresh = 0.05
-    ratio = float(expected_rx_frames) / rx_frames
+    ratio = float(exp_rx_frames) / rx_frames
     deviation = abs(ratio - 1)
 
-    if deviation > deviation_thresh:
-        pytest.fail('Expected # of packets: {}. Actual # of packets: {}'.\
-            format(expected_rx_frames, rx_frames))
+    pytest_assert(deviation <= deviation_thresh,
+        'Expected / Actual # of pkts: {} / {}'.format(exp_rx_frames, rx_frames))
+

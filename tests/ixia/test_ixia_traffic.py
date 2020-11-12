@@ -28,6 +28,9 @@ from tests.common.ixia.ixia_helpers import  IxiaFanoutManager, configure_ports,\
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
     get_peer_ixia_chassis
 
+@pytest.mark.disable_loganalyzer
+@pytest.mark.topology("t0")
+
 def test_testbed(conn_graph_facts, duthost, fanout_graph_facts,
     ixia_api_server_session, fanouthosts):
 
@@ -35,7 +38,9 @@ def test_testbed(conn_graph_facts, duthost, fanout_graph_facts,
     logger.info("Fanout Graph facts = %s" %(fanout_graph_facts))
     logger.info("DUT hostname = %s" %(duthost.hostname))
 
-    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts)
+    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
+                                        dut_hostname=duthost.hostname)
+                                        
     pytest_require(ixia_fanout is not None, 
                    skip_message="Cannot find the peer IXIA chassis")
 
