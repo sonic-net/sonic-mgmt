@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -32,7 +32,6 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             duthost: DUT fixture
             loganalyzer: Loganalyzer utility fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
     ignoreRegex = [
         ".*ERR route_check.py:.*",
         ".*ERR.* \'routeCheck\' status failed.*"

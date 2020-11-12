@@ -52,8 +52,7 @@ ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
 
 @pytest.fixture(scope="class")
-def gather_facts(request, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
 
@@ -106,37 +105,32 @@ class TestChassisApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_name(self, duthost, localhost, platform_api_conn):
         name = chassis.get_name(platform_api_conn)
         pytest_assert(name is not None, "Unable to retrieve chassis name")
         pytest_assert(isinstance(name, STRING_TYPE), "Chassis name appears incorrect")
         self.compare_value_with_platform_facts('name', name)
 
-    def test_get_presence(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_presence(self, duthost, localhost, platform_api_conn):
         presence = chassis.get_presence(platform_api_conn)
         pytest_assert(presence is not None, "Unable to retrieve chassis presence")
         pytest_assert(isinstance(presence, bool), "Chassis presence appears incorrect")
         # Chassis should always be present
         pytest_assert(presence is True, "Chassis is not present")
 
-    def test_get_model(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_model(self, duthost, localhost, platform_api_conn):
         model = chassis.get_model(platform_api_conn)
         pytest_assert(model is not None, "Unable to retrieve chassis model")
         pytest_assert(isinstance(model, STRING_TYPE), "Chassis model appears incorrect")
         self.compare_value_with_device_facts('model', model)
 
-    def test_get_serial(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_serial(self, duthost, localhost, platform_api_conn):
         serial = chassis.get_serial(platform_api_conn)
         pytest_assert(serial is not None, "Unable to retrieve chassis serial number")
         pytest_assert(isinstance(serial, STRING_TYPE), "Chassis serial number appears incorrect")
         self.compare_value_with_device_facts('serial', serial)
 
-    def test_get_status(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_status(self, duthost, localhost, platform_api_conn):
         status = chassis.get_status(platform_api_conn)
         pytest_assert(status is not None, "Unable to retrieve chassis status")
         pytest_assert(isinstance(status, bool), "Chassis status appears incorrect")
@@ -157,18 +151,16 @@ class TestChassisApi(PlatformApiTestBase):
     # Functions to test methods defined in ChassisBase class
     #
 
-    def test_get_base_mac(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_base_mac(self, duthost, localhost, platform_api_conn):
         # Ensure the base MAC address is sane
         base_mac = chassis.get_base_mac(platform_api_conn)
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
         self.compare_value_with_device_facts('base_mac', base_mac, False)
 
-    def test_get_system_eeprom_info(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
+    def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
         '''
-        duthost = duthosts[rand_one_dut_hostname]
         # OCP ONIE TlvInfo EEPROM type codes defined here: https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
         VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [
             ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME,
@@ -220,8 +212,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         self.compare_value_with_device_facts('syseeprom_info', syseeprom_info_dict)
 
-    def test_get_reboot_cause(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_reboot_cause(self, duthost, localhost, platform_api_conn):
         # TODO: Compare return values to potential combinations
         reboot_cause = chassis.get_reboot_cause(platform_api_conn)
 
@@ -230,8 +221,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(reboot_cause is not None, "Failed to retrieve reboot cause")
         pytest_assert(isinstance(reboot_cause, list) and len(reboot_cause) == 2, "Reboot cause appears to be incorrect")
 
-    def test_components(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_components(self, duthost, localhost, platform_api_conn):
         try:
             num_components = int(chassis.get_num_components(platform_api_conn))
         except:
@@ -252,8 +242,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(component and component == component_list[i], "Component {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_modules(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_modules(self, duthost, localhost, platform_api_conn):
         try:
             num_modules = int(chassis.get_num_modules(platform_api_conn))
         except:
@@ -268,8 +257,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(module and module == module_list[i], "Module {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_fans(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_fans(self, duthost, localhost, platform_api_conn):
         try:
             num_fans = int(chassis.get_num_fans(platform_api_conn))
         except:
@@ -290,8 +278,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(fan and fan == fan_list[i], "Fan {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_fan_drawers(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_fan_drawers(self, duthost, localhost, platform_api_conn):
         try:
             num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
         except:
@@ -312,8 +299,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(fan_drawer and fan_drawer == fan_drawer_list[i], "Fan drawer {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_psus(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_psus(self, duthost, localhost, platform_api_conn):
         try:
             num_psus = int(chassis.get_num_psus(platform_api_conn))
         except:
@@ -334,8 +320,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(psu and psu == psu_list[i], "PSU {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_thermals(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_thermals(self, duthost, localhost, platform_api_conn):
         try:
             num_thermals = int(chassis.get_num_thermals(platform_api_conn))
         except:
@@ -356,8 +341,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_sfps(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_sfps(self, duthost, localhost, platform_api_conn):
         try:
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
@@ -378,8 +362,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_status_led(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_status_led(self, duthost, localhost, platform_api_conn):
         # TODO: Get a platform-specific list of available colors for the status LED
         LED_COLOR_LIST = [
             "off",
@@ -399,17 +382,14 @@ class TestChassisApi(PlatformApiTestBase):
                     self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
         self.assert_expectations()
 
-    def test_get_thermal_manager(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_thermal_manager(self, duthost, localhost, platform_api_conn):
         thermal_mgr = chassis.get_thermal_manager(platform_api_conn)
         pytest_assert(thermal_mgr is not None, "Failed to retrieve thermal manager")
 
-    def test_get_watchdog(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_watchdog(self, duthost, localhost, platform_api_conn):
         watchdog = chassis.get_watchdog(platform_api_conn)
         pytest_assert(watchdog is not None, "Failed to retrieve watchdog")
 
-    def test_get_eeprom(self, duthosts, rand_one_dut_hostname, localhost, platform_api_conn):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_get_eeprom(self, duthost, localhost, platform_api_conn):
         eeprom = chassis.get_eeprom(platform_api_conn)
         pytest_assert(eeprom is not None, "Failed to retrieve system EEPROM")

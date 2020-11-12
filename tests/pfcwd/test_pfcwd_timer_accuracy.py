@@ -26,7 +26,7 @@ def stop_pfcwd(duthosts, rand_one_dut_hostname):
     duthost.command("pfcwd stop")
 
 @pytest.fixture(autouse=True)
-def ignore_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """
     Fixture that ignores expected failures during test execution.
 
@@ -34,7 +34,6 @@ def ignore_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
         duthost (AnsibleHost): DUT instance
         loganalyzer (loganalyzer): Loganalyzer utility fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",

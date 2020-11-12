@@ -301,11 +301,12 @@ def duthost(duthosts, request):
     return duthost
 
 @pytest.fixture(scope="module", autouse=True)
-def reset_critical_services_list(duthost):
+def reset_critical_services_list(duthosts, rand_one_dut_hostname):
     """
     Resets the critical services list between test modules to ensure that it is
     left in a known state after tests finish running.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     duthost.reset_critical_services_tracking_list()
 
@@ -315,7 +316,8 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthost):
+def ptfhost(ansible_adhoc, tbinfo, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     if "ptf" in tbinfo:
         return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:
@@ -411,8 +413,9 @@ def pdu():
 
 
 @pytest.fixture(scope="module")
-def creds(duthost):
+def creds(duthosts, rand_one_dut_hostname):
     """ read credential information according to the dut inventory """
+    duthost = duthosts[rand_one_dut_hostname]
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
@@ -467,7 +470,8 @@ def fetch_dbs(duthost, testname):
 
 
 @pytest.fixture
-def collect_techsupport(request, duthost):
+def collect_techsupport(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     yield
     # request.node is an "item" because we use the default
     # "function" scope
@@ -484,7 +488,8 @@ def collect_techsupport(request, duthost):
         logging.info("########### Collected tech support for test {} ###########".format(testname))
 
 @pytest.fixture(scope="session", autouse=True)
-def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
+def tag_test_report(request, pytestconfig, tbinfo, duthosts, rand_one_dut_hostname, record_testsuite_property):
+    duthost = duthosts[rand_one_dut_hostname]
     if not request.config.getoption("--junit-xml"):
         return
 

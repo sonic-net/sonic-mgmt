@@ -22,7 +22,7 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exception(loganalyzer):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -53,7 +53,6 @@ def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, logan
         SNMP/TEAMD container hits the limitation of restart. route_check.py also wrote an error message into syslog.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
     monit_ignoreRegex = [
         ".*ERR monit.*",
     ]

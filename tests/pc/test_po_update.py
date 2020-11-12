@@ -11,7 +11,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -22,7 +22,6 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             duthost: DUT fixture
             loganalyzer: Loganalyzer utility fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
     # when loganalyzer is disabled, the object could be None
     if loganalyzer:
         ignoreRegex = [

@@ -127,7 +127,7 @@ def copp_testbed(duthosts, rand_one_dut_hostname, creds, ptfhost, tbinfo, reques
     _teardown_testbed(duthost, creds, ptfhost, test_params)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -138,7 +138,6 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             duthost: DUT fixture
             loganalyzer: Loganalyzer utility fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
     ignoreRegex = [
         ".*ERR monit.*'lldpd_monitor' process is not running",
         ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.",
