@@ -33,35 +33,24 @@ class IxiaFanoutManager () :
        
         {u'ixia-sonic': {
             u'device_conn': {
-                u'Card9/Port1': {
-                    u'peerdevice': u'sonic-s6100-dut',
-                    u'peerport': u'Ethernet0',
-                    u'speed': u'100000'
-                },
-                u'Card9/Port2': {
-                    u'peerdevice': u'sonic-s6100-dut',
-                    u'peerport': u'Ethernet4',
-                    u'speed': u'100000'
-                },
-                u'Card9/Port3': {
-                    u'peerdevice': u'sonic-s6100-dut',
-                    u'peerport': u'Ethernet8',
-                    u'speed': u'100000'
-                },
-                'Card9/Port4': {
-                    u'peerdevice': u'sonic-s6100-dut',
-                    u'peerport': u'Ethernet12',
-                    u'speed': u'100000'
-                },
-                u'Card9/Port5': {
-                    u'peerdevice': u'sonic-s6100-dut',
-                    u'peerport': u'Ethernet16',
-                    u'speed': u'100000'
-                },
-                u'Card9/Port6': {
-                    u'peerdevice': u'sonic-s6100-dut',
-                    u'peerport': u'Ethernet20',
-                    u'speed': u'100000'
+                u'ixia-sonic': {
+                    u'Card9/Port1': {
+                        u'peerdevice': u'sonic-s6100-dut',
+                        u'peerport': u'Ethernet0',
+                        u'speed': u'100000'
+                    },
+                    
+                    u'Card9/Port2': {
+                        u'peerdevice': u'sonic-s6100-dut',
+                        u'peerport': u'Ethernet4',
+                        u'speed': u'100000'
+                    },
+                
+                    u'Card9/Port3': {
+                        u'peerdevice': u'sonic-s6100-dut',
+                        u'peerport': u'Ethernet8',
+                        u'speed': u'100000'
+                    }
                 }
             },
             u'device_info': {
@@ -86,21 +75,6 @@ class IxiaFanoutManager () :
                     u'mode': u'Access',
                     u'vlanids': u'302',
                     u'vlanlist': [302]
-                },
-                u'Card9/Port4': {
-                    u'mode': u'Access',
-                    u'vlanids': u'300',
-                    u'vlanlist': [300]
-                },
-                u'Card9/Port5': {
-                    u'mode': u'Access',
-                    u'vlanids': u'301',
-                    u'vlanlist': [301]
-                },
-                u'Card9/Port6': {
-                    u'mode': u'Access',
-                    u'vlanids': u'302',
-                    u'vlanlist': [302]
                 }
             },
             u'device_vlan_list': [301, 302, 300, 302, 300, 301],
@@ -112,9 +86,10 @@ class IxiaFanoutManager () :
         self.fanout_list = []
         self.last_device_connection_details = None
         self.current_ixia_port_list = None
-        self.ip_address = '0.0.0.0' 
-        for i in fanout_data.keys() :
-            self.fanout_list.append(fanout_data[i])
+        self.ip_address = '0.0.0.0'
+
+        for fanout in fanout_data.keys() :
+            self.fanout_list.append(fanout_data[fanout])
 
     def __parse_fanout_connections__ (self) :
         device_conn = self.last_device_connection_details
@@ -154,7 +129,7 @@ class IxiaFanoutManager () :
 
         # Chassis connection details
         self.last_device_connection_details = \
-            self.fanout_list[self.last_fanout_assessed]['device_conn']
+            self.fanout_list[self.last_fanout_assessed]['device_conn'].values()[0]
 
         # Chassis ip details
         chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['mgmtip']
@@ -371,7 +346,7 @@ def create_topology(session, name, port_list, ip_list, gw_list):
         port_list (list): List of IxNetwork port objects, returned by the
             function 'configure_ports'  
         ip_list (list): List of IP addresses. Each port should have an IP.
-        gw_list (list): List of gateway addresses. Each prot should have a gateway
+        gw_list (list): List of gateway addresses. Each port should have a gateway
   
     Return: IxNetwork topology obect.       
     """
@@ -617,7 +592,7 @@ def create_ipv4_traffic(session,
         traffic_item = ixnetwork.Traffic.TrafficItem.add(Name=name, SrcDestMesh='fullMesh', TrafficType='ipv4')
 
         if source != destination:
-            logger.error('Source and destination must same under full mesh traffic pattern')
+            logger.error('Source and destination must be same under full mesh traffic pattern')
             return None
         else:
             traffic_item.EndpointSet.add(FullyMeshedEndpoints=destination)
@@ -905,7 +880,7 @@ def get_tgen_location(intf):
     Note: Interface must have the keys 'ip', 'card_id' and 'port_id'
                                                                                                            
     Args:
-    intf (dict) : intf must containg the keys 'ip', 'card_id', 'port_id'.
+    intf (dict) : intf must contain the keys 'ip', 'card_id', 'port_id'.
         Example format :
         {'ip': u'10.36.78.53', 
          'port_id': u'1', 
@@ -915,15 +890,8 @@ def get_tgen_location(intf):
     
     Returns: location in string format. Example: '10.36.78.5;1;2' where
     1 is card_id and 2 is port_id.
-    """    
-    location = None
-    try :
-        location = str("%s;%s;%s" % (intf['ip'], intf['card_id'], intf['port_id']))
-    
-    except Exception as ex:
-        pytest.fail("Interface must have the keys 'ip', 'card_id' and 'port_id'")
-    
-    except BaseException:
-        pytest.fail("Base exception")
+    """
+    keys = set(['ip', 'card_id', 'port_id'])
+    pytest_assert(keys.issubset(set(intf.keys())), "intf does not have all the keys")
 
-    return location
+    return "{};{};{}".format(intf['ip'], intf['card_id'], intf['port_id'])
