@@ -155,10 +155,3 @@ def ixia_api(ixia_api_serv_ip,
     
     yield api_session
     api_session.assistant.Session.remove()
-
-
-
-
-
-
-                               
