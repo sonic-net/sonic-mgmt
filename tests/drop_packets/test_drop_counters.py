@@ -262,7 +262,7 @@ def check_if_skip():
 
 @pytest.fixture(scope='module')
 def do_test():
-    def do_counters_test(discard_group, pkt, ptfadapter, duthosts, rand_one_dut_hostname, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None):
+    def do_counters_test(discard_group, pkt, ptfadapter, duthost, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL'
@@ -272,7 +272,6 @@ def do_test():
         @param dut_iface: DUT interface name expected to receive packets from PTF
         @param sniff_ports: DUT ports to check that packets were not egressed from
         """
-        duthost = duthosts[rand_one_dut_hostname]
         check_if_skip()
         base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_dut_ports)
 
