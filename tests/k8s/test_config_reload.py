@@ -1,5 +1,4 @@
 import pytest
-import logging
 import time
 import k8s_test_utilities as ku
 
