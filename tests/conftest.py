@@ -316,8 +316,7 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def ptfhost(ansible_adhoc, tbinfo, duthost):
     if "ptf" in tbinfo:
         return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:
@@ -488,8 +487,7 @@ def collect_techsupport(request, duthosts, rand_one_dut_hostname):
         logging.info("########### Collected tech support for test {} ###########".format(testname))
 
 @pytest.fixture(scope="session", autouse=True)
-def tag_test_report(request, pytestconfig, tbinfo, duthosts, rand_one_dut_hostname, record_testsuite_property):
-    duthost = duthosts[rand_one_dut_hostname]
+def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
     if not request.config.getoption("--junit-xml"):
         return
 
