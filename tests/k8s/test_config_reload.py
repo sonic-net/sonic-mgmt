@@ -54,7 +54,7 @@ def test_config_reload_toggle_join(duthost, k8scluster):
     """
     master_vip = k8scluster.get_master_vip()
     dut_cmds = ['sudo config kube server ip {}'.format(master_vip),
-                'sudo config kube server disable off'
+                'sudo config kube server disable off',
                 'sudo config save -y']
     duthost.shell_cmds(cmds=dut_cmds)
   
