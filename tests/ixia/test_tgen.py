@@ -177,7 +177,7 @@ def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
     ixia_api.set_state(State(FlowTransmitState(state='stop')))
 
     """ Analyze traffic results """
-    pytest_assert(len(rows) == 1 or rows[0]['name'] == flow_name,
+    pytest_assert(len(rows) == 1 and rows[0]['name'] == flow_name,
         'Fail to get results of flow {}'.format(flow_name))
     
     row = rows[0]
