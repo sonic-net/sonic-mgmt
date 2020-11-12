@@ -1,5 +1,4 @@
 import pytest
-import logging
 import time
 import k8s_test_utilities as ku
 
@@ -7,7 +6,6 @@ from tests.common.helpers.assertions import pytest_assert
 
 WAIT_FOR_SYNC = 60
 
-logger = logging.getLogger(__name__)
 
 
 

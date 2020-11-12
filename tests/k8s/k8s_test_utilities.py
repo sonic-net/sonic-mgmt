@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
-WAIT_FOR_SYNC = 60 # time unit seconds
+
 
 
 def join_master(duthost, master_vip):
@@ -104,7 +104,7 @@ def poll_for_status_change(duthost, exp_status, poll_wait_secs=5, min_wait_time=
     timeout_wait_secs = max_wait_time - min_wait_time
     while (timeout_wait_secs > 0):
        if (check_connected(duthost) == exp_status):
-           logging.info("Time taken to update status: {} seconds".format(timeout_wait_secs))
+           logging.info("Time taken to update Kube server status: {} seconds".format(timeout_wait_secs))
            return True
        time.sleep(poll_wait_secs)
        timeout_wait_secs -= poll_wait_secs
