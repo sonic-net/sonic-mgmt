@@ -1,4 +1,5 @@
 ---
+
 - conf-name: ptf1-m
   group-name: ptf1
   topo: ptf32
@@ -11,6 +12,7 @@
   dut:
     - str-msn2700-01
   comment: Test ptf Mellanox
+
 - conf-name: ptf2-b
   group-name: ptf2
   topo: ptf64
@@ -23,6 +25,7 @@
   dut:
     - lab-s6100-01
   comment: Test ptf Broadcom
+
 - conf-name: vms-sn2700-t1
   group-name: vms1-1
   topo: t1
@@ -35,6 +38,7 @@
   dut:
     - str-msn2700-01
   comment: Tests Mellanox SN2700 vms
+
 - conf-name: vms-sn2700-t1-lag
   group-name: vms1-1
   topo: t1-lag
@@ -47,6 +51,7 @@
   dut:
     - str-msn2700-01
   comment: Tests Mellanox SN2700 vms
+
 - conf-name: vms-sn2700-t0
   group-name: vms1-1
   topo: t0
@@ -59,6 +64,7 @@
   dut:
     - str-msn2700-01
   comment: Tests Mellanox SN2700 vms
+
 - conf-name: vms-s6000-t0
   group-name: vms2-1
   topo: t0
@@ -71,6 +77,7 @@
   dut:
     - lab-s6000-01
   comment: Tests Dell S6000 vms
+
 - conf-name: vms-a7260-t0
   group-name: vms3-1
   topo: t0-116
@@ -83,6 +90,7 @@
   dut:
     - lab-a7260-01
   comment: Tests Arista A7260 vms
+
 - conf-name: vms-s6100-t0
   group-name: vms4-1
   topo: t0-64
@@ -95,6 +103,7 @@
   dut:
     - lab-s6100-01
   comment: Tests Dell S6100 vms
+
 - conf-name: vms-s6100-t1
   group-name: vms4-1
   topo: t1-64
@@ -107,6 +116,7 @@
   dut:
     - lab-s6100-01
   comment: Tests Dell S6100 vms
+
 - conf-name: vms-s6100-t1-lag
   group-name: vms5-1
   topo: t1-64-lag
@@ -119,6 +129,7 @@
   dut:
     - lab-s6100-01
   comment: Tests Dell S6100 vms
+
 - conf-name: vms-multi-dut
   group-name: vms1-duts
   topo: ptf64
@@ -132,6 +143,7 @@
     - dut-host1
     - dut-host2
   comment: Example Multi DUTs testbed
+
 - conf-name: vms-example-ixia-1
   group-name: vms6-1
   topo: t0-64

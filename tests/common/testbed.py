@@ -124,10 +124,18 @@ class TestbedInfo(object):
             Add extra indentation since py-yaml doesn't add extra
             indentation for list inside mapping by default [1].
 
+            This also add extra blank lines between each testbed entry [2].
+
             [1]: https://web.archive.org/web/20170903201521/https://pyyaml.org/ticket/64
+            [2]: https://github.com/yaml/pyyaml/issues/127
             """
             def increase_indent(self, flow=False, indentless=False):
                 return yaml.Dumper.increase_indent(self, flow, False)
+
+            def write_line_break(self, data=None):
+                yaml.Dumper.write_line_break(self, data)
+                if len(self.indents) == 1:
+                    yaml.Dumper.write_line_break(self)
 
         testbed_data = []
         for tb_name, tb_dict in self.testbed_topo.items():

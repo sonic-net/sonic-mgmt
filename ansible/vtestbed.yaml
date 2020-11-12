@@ -1,4 +1,5 @@
 ---
+
 - conf-name: vms-kvm-t0
   group-name: vms6-1
   topo: t0
@@ -11,6 +12,7 @@
   dut:
     - vlab-01
   comment: Tests virtual switch vm
+
 - conf-name: vms-kvm-t0-64
   group-name: vms6-1
   topo: t0-64
@@ -23,6 +25,7 @@
   dut:
     - vlab-02
   comment: Tests virtual switch vm
+
 - conf-name: vms-kvm-t1-lag
   group-name: vms6-2
   topo: t1-lag
@@ -35,6 +38,7 @@
   dut:
     - vlab-03
   comment: Tests virtual switch vm
+
 - conf-name: vms-kvm-t0-2
   group-name: vms6-3
   topo: t0
@@ -47,6 +51,7 @@
   dut:
     - vlab-04
   comment: Tests virtual switch vm
+
 - conf-name: vms-kvm-dual-t0
   group-name: vms6-4
   topo: dualtor
