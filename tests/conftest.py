@@ -3,20 +3,15 @@ import glob
 import json
 import tarfile
 import logging
-import string
-import re
 import getpass
 import random
 
 import pytest
-import csv
 import yaml
 import jinja2
-import ipaddr as ipaddress
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 
-from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import Localhost
@@ -24,6 +19,8 @@ from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
+from tests.common.testbed import TestbedInfo
+
 
 
 logger = logging.getLogger(__name__)
@@ -42,124 +39,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.custom_fixtures',
                   'tests.vxlan')
 
-
-class TestbedInfo(object):
-    """
-    Parse the CSV file used to describe whole testbed info
-    Please refer to the example of the CSV file format
-    CSV file first line is title
-    The topology name in title is using conf-name
-    """
-
-    def __init__(self, testbed_file):
-        self.testbed_filename = testbed_file
-        self.testbed_topo = defaultdict()
-        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
-
-        with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f, fieldnames=CSV_FIELDS, delimiter=',')
-
-            # Validate all field are in the same order and are present
-            header = next(topo)
-            for field in CSV_FIELDS:
-                assert header[field].replace('#', '').strip() == field
-
-            for line in topo:
-                if line['conf-name'].lstrip().startswith('#'):
-                    ### skip comment line
-                    continue
-                if line['ptf_ip']:
-                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
-                    line['ptf_ip'] = str(ptfaddress.ip)
-                    line['ptf_netmask'] = str(ptfaddress.netmask)
-
-                if line['ptf_ipv6']:
-                    ptfaddress = ipaddress.IPNetwork(line['ptf_ipv6'])
-                    line['ptf_ipv6'] = str(ptfaddress.ip)
-                    line['ptf_netmask_v6'] = str(ptfaddress.netmask)
-
-                line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
-                del line['dut']
-
-                topo = line['topo']
-                del line['topo']
-                line['topo'] = defaultdict()
-                line['topo']['name'] = topo
-                line['topo']['type'] = self.get_testbed_type(line['topo']['name'])
-                with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
-                    line['topo']['properties'] = yaml.safe_load(fh)
-                line['topo']['ptf_map'] = self.calculate_ptf_index_map(line)
-
-                self.testbed_topo[line['conf-name']] = line
-
-    def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor)')
-        match = pattern.match(topo_name)
-        if match == None:
-            raise Exception("Unsupported testbed type - {}".format(topo_name))
-        tb_type = match.group()
-        if tb_type == 'dualtor':
-            # augment dualtor topology type to 't0' to avoid adding it
-            # everywhere.
-            tb_type = 't0'
-        return tb_type
-
-    def _parse_dut_port_index(self, port):
-        """
-        parse port string
-
-        port format : dut_index.port_index@ptf_index
-
-        """
-        m = re.match("(\d+)\.(\d+)@(\d+)", port)
-        (dut_index, port_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-
-        return (dut_index, port_index, ptf_index)
-
-    def calculate_ptf_index_map(self, line):
-        map = defaultdict()
-
-        # For multi-DUT testbed, because multiple DUTs are sharing a same
-        # PTF docker, the ptf docker interface index will not be exactly
-        # match the interface index on DUT. The information is available
-        # in the topology facts. Get these information out and put them
-        # in the 2 levels dictionary as:
-        # { dut_index : { dut_port_index : ptf_index * } * }
-
-        topo_facts = line['topo']['properties']
-        if 'topology' not in topo_facts:
-            return map
-
-        topology = topo_facts['topology']
-        if 'host_interfaces' in topology:
-            for _ports in topology['host_interfaces']:
-                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
-                # if there is no '@' then they are shared, no need to update.
-                ports = str(_ports)
-                for port in ports.split(','):
-                    if '@' in port and '.' in port:
-                        dut_index, port_index, ptf_index = _parse_dut_port_index(port)
-                        if port_index != ptf_index:
-                            # Need to add this in map
-                            dut_dict = map[dut_index] if dut_index in map else {}
-                            dut_dict[port_index] = ptf_index
-                            map[dut_index] = dut_dict
-
-        if 'VMs' in topology:
-            for _, vm in topology['VMs'].items():
-                if 'vlans' in vm:
-                    for _port in vm['vlans']:
-                        # Example: ['0.31@34', '1.31@35']
-                        port = str(_port)
-                        if '@' in port and '.' in port:
-                            dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
-                            if port_index != ptf_index:
-                                # Need to add this in map
-                                dut_dict = map[dut_index] if dut_index in map else {}
-                                dut_dict[port_index] = ptf_index
-                                map[dut_index] = dut_dict
-
-        return map
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
@@ -270,7 +149,7 @@ def tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = TestbedInfo(tbfile)
-    return testbedinfo.testbed_topo[tbname]
+    return testbedinfo.testbed_topo.get(tbname, {})
 
 
 @pytest.fixture(name="duthosts", scope="session")
