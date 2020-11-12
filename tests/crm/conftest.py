@@ -98,8 +98,7 @@ def set_polling_interval(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def collector(duthosts, rand_one_dut_hostname):
+def collector():
     """ Fixture for sharing variables beatween test cases """
-    duthost = duthosts[rand_one_dut_hostname]
     data = {}
     yield data
