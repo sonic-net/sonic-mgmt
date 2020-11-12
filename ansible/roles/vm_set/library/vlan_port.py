@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import itertools
 import re
 import sys
 import time
