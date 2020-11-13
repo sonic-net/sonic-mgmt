@@ -346,6 +346,7 @@ def test_containers_autorestart(duthosts, rand_one_dut_hostname, tbinfo):
             pytest.fail("Failed to get critical group and process lists of container '{}'".format(container_name))
 
         for critical_process in critical_process_list:
+            # Skip 'dsserve' process since it was not managed by supervisord
             if container_name == "syncd" and critical_process == "dsserve":
                 continue
             program_status, program_pid = get_program_info(duthost, container_name, critical_process)
