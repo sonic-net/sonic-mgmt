@@ -32,7 +32,7 @@ EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthost, tbinfo):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Gather all required test information.
 
@@ -44,6 +44,7 @@ def setup_info(duthost, tbinfo):
         dict: Required test information
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     tor_ports = []
     spine_ports = []

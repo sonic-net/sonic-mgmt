@@ -20,10 +20,11 @@ pytestmark = [
 ]
 
 
-def test_reload_configuration(duthost, conn_graph_facts):
+def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts):
     """
     @summary: This test case is to reload the configuration and check platform status
     """
+    duthost = duthosts[rand_one_dut_hostname]
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
     asic_type = duthost.facts["asic_type"]
 

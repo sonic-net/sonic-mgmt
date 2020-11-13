@@ -7,14 +7,15 @@ from .args.normal_reboot_args import add_normal_reboot_args
 
 
 @pytest.fixture(autouse=True, scope="module")
-def skip_on_simx(duthost):
+def skip_on_simx(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
     if "simx" in platform:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 
 @pytest.fixture()
-def bring_up_dut_interfaces(request, duthost):
+def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname):
     """
     Bring up outer interfaces on the DUT.
 
@@ -22,6 +23,7 @@ def bring_up_dut_interfaces(request, duthost):
         request: pytest request object
         duthost: Fixture for interacting with the DUT.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     yield
     if request.node.rep_call.failed:
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']

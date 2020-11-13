@@ -56,7 +56,8 @@ def pytest_runtest_teardown(item, nextitem):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_thresholds(duthost):
+def crm_thresholds(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
     crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor",
         "ipv6_neighbor", "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
@@ -72,8 +73,9 @@ def crm_thresholds(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthost):
+def crm_interface(duthosts, rand_one_dut_hostname):
     """ Return tuple of two DUT interfaces """
+    duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
 
     if len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
@@ -86,8 +88,9 @@ def crm_interface(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts, rand_one_dut_hostname):
     """ Set CRM polling interval to 1 second """
+    duthost = duthosts[rand_one_dut_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
@@ -95,7 +98,7 @@ def set_polling_interval(duthost):
 
 
 @pytest.fixture(scope="module")
-def collector(duthost):
+def collector():
     """ Fixture for sharing variables beatween test cases """
     data = {}
     yield data

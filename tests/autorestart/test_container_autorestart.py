@@ -22,7 +22,7 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exception(loganalyzer):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -305,12 +305,13 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states):
                              "Post checking the healthy of critical processes failed.")
 
 
-def test_containers_autorestart(duthost, tbinfo):
+def test_containers_autorestart(duthosts, rand_one_dut_hostname, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
+    duthost = duthosts[rand_one_dut_hostname]
     container_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
