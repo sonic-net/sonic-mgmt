@@ -196,7 +196,7 @@ def check_monit(dut):
             logger.info("Checking status of each Monit entry was done!")
             return check_result
 
-            check_result = check_monit_services_status(check_result, monit_services_status)
+        check_result = check_monit_services_status(check_result, monit_services_status)
     else:
         start = time.time()
         elapsed = 0
