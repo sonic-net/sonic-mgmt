@@ -19,7 +19,7 @@ def check_k8s_vms(k8scluster):
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
     """
        Ignore expected failures logs during test execution
 
@@ -29,6 +29,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
            duthost: DUT fixture
            loganalyzer: Loganalyzer utility fixture
     """
+    duthost = duthosts[rand_one_dut_hostname]
     # When loganalyzer is disabled, the object could be None
     if loganalyzer:
          ignoreRegex = [

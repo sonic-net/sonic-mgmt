@@ -349,7 +349,7 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthost, localhost, setup, acl_table, populate_vlan_arp_entries):
+    def acl_rules(self, duthosts, rand_one_dut_hostname, localhost, setup, acl_table, populate_vlan_arp_entries):
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -360,6 +360,7 @@ class BaseAclTest(object):
             populate_vlan_arp_entries: A function to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        duthost = duthosts[rand_one_dut_hostname]
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
         loganalyzer.load_common_config()
 
