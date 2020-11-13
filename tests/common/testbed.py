@@ -23,6 +23,11 @@ class TestbedInfo(object):
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
+            self.testbed_filename = testbed_file
+            """
+            TODO: don't give preference to yaml unless specified explicitly.
+                  we need to make sure the ansible tasks are also can use
+                  testbed.yaml first.
             self.testbed_yamlfile = testbed_file.replace(".csv", ".yaml")
             logging.warn(
                 "Deprecated CSV format testbed file, please use yaml file"
@@ -32,8 +37,7 @@ class TestbedInfo(object):
                     "Use yaml testbed file: %s", self.testbed_yamlfile
                     )
                 self.testbed_filename = self.testbed_yamlfile
-            else:
-                self.testbed_filename = testbed_file
+            """
         elif testbed_file.endswith(".yaml"):
             self.testbed_filename = testbed_file
         else:
