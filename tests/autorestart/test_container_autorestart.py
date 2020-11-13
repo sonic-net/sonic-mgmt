@@ -347,8 +347,10 @@ def test_containers_autorestart(duthosts, rand_one_dut_hostname, tbinfo):
 
         for critical_process in critical_process_list:
             # Skip 'dsserve' process since it was not managed by supervisord
+            # TODO: Should remove the following two lines once the issue was solved in the image.
             if container_name == "syncd" and critical_process == "dsserve":
                 continue
+
             program_status, program_pid = get_program_info(duthost, container_name, critical_process)
             verify_autorestart_with_critical_process(duthost, container_name, critical_process,
                                                      program_status, program_pid)
