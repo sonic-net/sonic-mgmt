@@ -176,7 +176,7 @@ def check_monit_services_status(check_result, monit_services_status):
 def check_monit(dut):
     """
     @summary: Check whether the Monit is running and whether the services which were monitored by Monit are 
-              running correctly or not.
+              in the correct status or not.
     """
     logger.info("Checking status of each Monit entry...")
     networking_uptime = dut.get_networking_uptime().seconds
