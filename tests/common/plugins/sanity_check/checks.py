@@ -160,6 +160,7 @@ def check_monit_services_status(check_result, monit_services_status):
     @summary: Check whether each type of service which was monitored by Monit was in correct status or not.
               If a service was in "Not monitored" status, sanity check will skip it since this service
               was temporarily set to not be monitored by Monit.
+    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
     check_result["services_status"] = {}
     for service_name, service_info in monit_services_status.items():
@@ -177,6 +178,7 @@ def check_monit(dut):
     """
     @summary: Check whether the Monit is running and whether the services which were monitored by Monit are 
               in the correct status or not.
+    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
     logger.info("Checking status of each Monit entry...")
     networking_uptime = dut.get_networking_uptime().seconds
