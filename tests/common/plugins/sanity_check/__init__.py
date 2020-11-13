@@ -41,7 +41,8 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(localhost, duthost, request, fanouthosts, tbinfo):
+def sanity_check(localhost, duthosts, rand_one_dut_hostname, request, fanouthosts, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Start pre-test sanity check")
 
     skip_sanity = False

@@ -11,7 +11,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -33,10 +33,11 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
 
     yield
 
-def test_po_update(duthost):
+def test_po_update(duthosts, rand_one_dut_hostname):
     """
     test port channel add/deletion as well ip address configuration
     """
+    duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     int_facts = duthost.interface_facts()['ansible_facts']
 
