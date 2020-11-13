@@ -180,7 +180,7 @@ def check_monit(dut):
               in the correct status or not.
     @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
-    logger.info("Checking status of each Monit entry...")
+    logger.info("Checking status of each Monit service...")
     networking_uptime = dut.get_networking_uptime().seconds
     timeout = max((MONIT_STABILIZE_MAX_TIME - networking_uptime), 0)
     interval = 20
@@ -195,7 +195,7 @@ def check_monit(dut):
             logger.info("Monit was not running.")
             check_result["failed"] = True
             check_result["failed_reason"] = "Monit was not running"
-            logger.info("Checking status of each Monit entry was done!")
+            logger.info("Checking status of each Monit service was done!")
             return check_result
 
         check_result = check_monit_services_status(check_result, monit_services_status)
@@ -226,7 +226,7 @@ def check_monit(dut):
             check_result["failed"] = True
             check_result["failed_reason"] = "Monit was not running"
 
-    logger.info("Checking status of each Monit entry was done!")
+    logger.info("Checking status of each Monit service was done!")
     return check_result
 
 def check_processes(dut):
