@@ -116,7 +116,7 @@ class TestNeighborMac:
         ])
 
     @pytest.fixture(autouse=True)
-    def configureNeighborIpAndPing(self, duthosts, rand_one_dut_hostname, ptfhost, macIndex):
+    def configureNeighborIpAndPing(self, ptfhost, macIndex):
         """
             Configure Neighbor/Interface IP
 
@@ -131,7 +131,6 @@ class TestNeighborMac:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
         self.__configureNeighborIp(ptfhost, macIndex)
         ptfhost.shell("ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP))
 

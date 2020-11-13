@@ -459,7 +459,7 @@ class QosSaiBase:
             updateDockerService(duthost, action="start", **service)
 
     @pytest.fixture(autouse=True)
-    def updateLoganalyzerExceptions(self, duthosts, rand_one_dut_hostname, loganalyzer):
+    def updateLoganalyzerExceptions(self, loganalyzer):
         """
             Update loganalyzer ignore regex list
 
@@ -470,7 +470,6 @@ class QosSaiBase:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
         if loganalyzer:
             ignoreRegex = [
                 ".*ERR monit.*'lldpd_monitor' process is not running",
