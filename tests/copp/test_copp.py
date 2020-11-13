@@ -191,12 +191,17 @@ def _gather_test_params(tbinfo, duthost, request):
                                topo=topo,
                                bgp_graph=bgp_graph)
 
-def _setup_testbed(dut, creds, ptf, test_params):
+@pytest.mark.usefixtures('disable_container_autorestart')
+def _setup_testbed(dut, creds, ptf, test_params, \
+        disable_container_autorestart):
     """
         Sets up the testbed to run the COPP tests.
     """
 
     logging.info("Disable LLDP for COPP tests")
+    feature_list = ['lldp']
+    disable_container_autorestart(testcase="test_copp", feature_list=feature_list)
+
     dut.command("docker exec lldp supervisorctl stop lldp-syncd")
     dut.command("docker exec lldp supervisorctl stop lldpd")
 
@@ -218,7 +223,9 @@ def _setup_testbed(dut, creds, ptf, test_params):
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, creds)
 
-def _teardown_testbed(dut, creds, ptf, test_params):
+@pytest.mark.usefixtures('enable_container_autorestart')
+def _teardown_testbed(dut, creds, ptf, test_params, \
+        enable_container_autorestart):
     """
         Tears down the testbed, returning it to its initial state.
     """
@@ -239,3 +246,5 @@ def _teardown_testbed(dut, creds, ptf, test_params):
     logging.info("Restore LLDP")
     dut.command("docker exec lldp supervisorctl start lldpd")
     dut.command("docker exec lldp supervisorctl start lldp-syncd")
+    feature_list = ['lldp']
+    enable_container_autorestart(testcase="test_copp", feature_list=feature_list)
