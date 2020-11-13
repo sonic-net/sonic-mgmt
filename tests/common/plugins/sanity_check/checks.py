@@ -185,7 +185,7 @@ def check_monit(dut):
     logger.info("networking_uptime = {} seconds, timeout = {} seconds, interval = {} seconds" \
                 .format(networking_uptime, timeout, interval))
 
-    check_result = {"failed": False, "check_item": "Monit services"}
+    check_result = {"failed": False, "check_item": "monit"}
 
     if timeout == 0:
         monit_services_status = dut.get_monit_services_status()
