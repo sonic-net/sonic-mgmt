@@ -27,10 +27,11 @@ from abstract_open_traffic_generator.port import Options as PortOptions
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
 
-@pytest.mark.disable_loganalyzer
 @pytest.mark.topology("t0")
+@pytest.mark.disable_loganalyzer
 
-def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
+@pytest.fixture(scope = "function")
+def testbed_config(conn_graph_facts, fanout_graph_facts, duthost):
     ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
                                         dut_hostname=duthost.hostname)
 
@@ -47,7 +48,7 @@ def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
                    skip_message="The test requires at least two ports")
 
     rx_id = 0
-    tx_id = 1 
+    tx_id = 1
 
     rx_port_location = get_tgen_location(ixia_ports[rx_id])
     tx_port_location = get_tgen_location(ixia_ports[tx_id])
@@ -122,6 +123,12 @@ def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
                                  container_name=rx_port.name,
                                  choice=rx_ipv4))
     
+    return config 
+
+@pytest.fixture(scope = "function")
+def traffic_config(testbed_config):
+    config = testbed_config 
+
     """ Traffic configuraiton """
     flow_name = 'Test Flow'
     rate_percent = 50
@@ -148,7 +155,23 @@ def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
                                        delay_unit='nanoseconds'))
     )
 
-    config.flows.append(flow)
+    config.flows = [flow]
+    return config
+
+def test_tgen(traffic_config, ixia_api):
+    config = traffic_config
+
+    flow_name = config.flows[0].name 
+    pkt_size = config.flows[0].size.fixed
+    rate_percent = config.flows[0].rate.value
+    duration_sec = config.flows[0].duration.seconds.seconds
+    
+    port_speed = config.layer1[0].speed
+    words = port_speed.split('_')
+    pytest_assert(len(words) == 3 and words[1].isdigit(),
+                  'Fail to get port speed from {}'.format(port_speed)) 
+
+    port_speed_gbps = int(words[1])
 
     """ Apply configuration """
     ixia_api.set_state(State(ConfigState(config=config, state='set')))
@@ -187,7 +210,7 @@ def test_tgen(conn_graph_facts, fanout_graph_facts, duthost, ixia_api):
     pytest_assert(rx_frames == tx_frames,
         'Unexpected packet losses (Tx: {}, Rx: {})'.format(tx_frames, rx_frames))
     
-    tput_bps = rx_port_speed * 1e6 * rate_percent / 100.0  
+    tput_bps = port_speed_gbps * 1e9 * rate_percent / 100.0  
     exp_rx_frames = tput_bps * duration_sec / 8 / pkt_size
 
     deviation_thresh = 0.05
