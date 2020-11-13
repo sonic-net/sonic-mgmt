@@ -92,7 +92,8 @@ def generate_vxlan_config_files(duthost, mg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost):
+def setup(duthosts, rand_one_dut_hostname, ptfhost):
+    duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Gather some facts")
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
@@ -119,7 +120,8 @@ def setup(duthost, ptfhost):
 
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
-def vxlan_status(setup, request, duthost):
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     #clear FDB and arp cache on DUT
     duthost.shell('sonic-clear arp; fdbclear')
     if request.param == "Enabled":
@@ -135,7 +137,8 @@ def vxlan_status(setup, request, duthost):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost, creds):
+def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds):
+    duthost = duthosts[rand_one_dut_hostname]
 
     vxlan_enabled, scenario = vxlan_status
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))

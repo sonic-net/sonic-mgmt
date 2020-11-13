@@ -307,7 +307,8 @@ def cleanup(duthost):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(tbinfo, duthost):
+def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     if tbinfo['topo']['name'] not in SUPPORTED_TOPO:
         logger.warning("Unsupported topology, currently supports " + str(SUPPORTED_TOPO))
         pytest.skip("Unsupported topology")

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def fanouthost(request, duthost, localhost):
+def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -36,6 +36,7 @@ def fanouthost(request, duthost, localhost):
     By default 'fanouthost' fixture will not instantiate any instance so it will return None, and in such case
     'fanouthost' instance should not be used in test case logic.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     fanout = None
     # Check that class to handle fanout config is implemented
     if "mellanox" == duthost.facts["asic_type"]:
@@ -53,7 +54,8 @@ def fanouthost(request, duthost, localhost):
 
 
 @pytest.fixture(scope="module")
-def pkt_fields(duthost):
+def pkt_fields(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     # Gather ansible facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     ipv4_addr = None
@@ -98,12 +100,13 @@ def expected_packet_mask(pkt):
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, tbinfo):
+def setup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Setup fixture for collecting PortChannel, VLAN and RIF port members.
     @return: Dictionary with keys:
         port_channel_members, vlan_members, rif_members, dut_to_ptf_port_map, neighbor_sniff_ports, vlans, mg_facts
     """
+    duthost = duthosts[rand_one_dut_hostname]
     port_channel_members = {}
     vlan_members = {}
     configured_vlans = []
@@ -146,11 +149,12 @@ def setup(duthost, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthost, setup, fanouthosts, loganalyzer):
+def rif_port_down(duthosts, rand_one_dut_hostname, setup, fanouthosts, loganalyzer):
     """Shut RIF interface and return neighbor IP address attached to this interface.
 
     The RIF member is shut from the fanout side so that the ARP entry remains in
     place on the DUT."""
+    duthost = duthosts[rand_one_dut_hostname]
     wait_after_ports_up = 30
 
     if not setup["rif_members"]:
@@ -190,7 +194,7 @@ def tx_dut_ports(request, setup):
 
 
 @pytest.fixture
-def ports_info(ptfadapter, duthost, setup, tx_dut_ports):
+def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports):
     """
     Return:
         dut_iface - DUT interface name expected to receive packtes from PTF
@@ -198,6 +202,7 @@ def ports_info(ptfadapter, duthost, setup, tx_dut_ports):
         dst_mac - DUT interface destination MAC address
         src_mac - PTF interface source MAC address
     """
+    duthost = duthosts[rand_one_dut_hostname]
     data = {}
     data["dut_iface"] = random.choice(tx_dut_ports.keys())
     data["ptf_tx_port_id"] = setup["dut_to_ptf_port_map"][data["dut_iface"]]

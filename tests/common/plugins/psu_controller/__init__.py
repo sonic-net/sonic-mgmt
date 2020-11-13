@@ -17,13 +17,14 @@ def psu_controller_factory(controller_ip, controller_protocol, dut_hostname, pdu
 
 
 @pytest.fixture(scope="module")
-def psu_controller(duthost, pdu):
+def psu_controller(duthosts, rand_one_dut_hostname, pdu):
     """
     @summary: Fixture for controlling power supply to PSUs of DUT
     @param duthost: Fixture duthost defined in sonic-mgmt/tests/conftest.py
     @returns: Returns a psu controller object implementing the BasePsuController interface defined in
               controller_base.py.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     logging.info("Creating psu_controller fixture")
     inv_mgr = duthost.host.options["inventory_manager"]

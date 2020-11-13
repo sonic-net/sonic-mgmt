@@ -27,13 +27,14 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='function', autouse=True)
-def stop_pfcwd(duthost):
+def stop_pfcwd(duthosts, rand_one_dut_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
         duthost(AnsibleHost) : dut instance
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
@@ -498,7 +499,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         logger.info("--- Verify PFCwd counters for port {} ---".format(port))
         self.stats.verify_pkt_cnts(self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
 
-    def test_pfcwd_actions(self, request, setup_pfc_test, fanout_graph_facts, ptfhost, duthost, fanouthosts):
+    def test_pfcwd_actions(self, request, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
         """
         PFCwd functional test
 
@@ -510,6 +511,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             duthost(AnsibleHost) : DUT instance
             fanouthosts(AnsibleHost): fanout instance
         """
+        duthost = duthosts[rand_one_dut_hostname]
         setup_info = setup_pfc_test
         self.fanout_info = fanout_graph_facts
         self.ptf = ptfhost

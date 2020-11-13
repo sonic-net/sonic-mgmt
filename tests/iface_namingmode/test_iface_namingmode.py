@@ -13,7 +13,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthost):
+def setup(duthosts, rand_one_dut_hostname):
     """
     Sets up all the parameters needed for the interface naming mode tests
 
@@ -23,6 +23,7 @@ def setup(duthost):
         setup_info: dictionary containing port alias mappings, list of
         working interfaces, minigraph facts
     """
+    duthost = duthosts[rand_one_dut_hostname]
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     port_alias_facts = duthost.port_alias(hwsku=hwsku)['ansible_facts']
@@ -78,7 +79,7 @@ def setup(duthost):
         duthost.command('redis-cli -n 4 HSET "PORT|{}" alias {}'.format(item, port_alias_old))
 
 @pytest.fixture(scope='module', params=['alias', 'default'])
-def setup_config_mode(ansible_adhoc, duthost, request):
+def setup_config_mode(ansible_adhoc, duthosts, rand_one_dut_hostname, request):
     """
     Creates a guest user and configures the interface naming mode
 
@@ -91,6 +92,7 @@ def setup_config_mode(ansible_adhoc, duthost, request):
         mode: Interface naming mode to be configured
         ifmode: Current interface naming mode present in the DUT
     """
+    duthost = duthosts[rand_one_dut_hostname]
     mode = request.param
 
     logger.info('Creating a guest user')
@@ -556,7 +558,7 @@ class TestConfigInterface():
             pytest.skip('Unsupported topology')
 
     @pytest.fixture(scope='class', autouse=True)
-    def reset_config_interface(self, duthost, sample_intf):
+    def reset_config_interface(self, duthosts, rand_one_dut_hostname, sample_intf):
         """
         Resets the test interface's configurations on completion of
         all tests in the enclosing test class.
@@ -567,6 +569,7 @@ class TestConfigInterface():
         Yields:
             None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         interface = sample_intf['default']
         interface_ip = sample_intf['ip']
         native_speed = sample_intf['native_speed']
@@ -736,11 +739,12 @@ class TestNeighbors():
         if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
 
-    def test_show_arp(self, duthost, setup, setup_config_mode):
+    def test_show_arp(self, duthosts, rand_one_dut_hostname, setup, setup_config_mode):
         """
         Checks whether 'show arp' lists the interface names as per the
         configured naming mode
         """
+        duthost = duthosts[rand_one_dut_hostname]
         dutHostGuest, mode, ifmode = setup_config_mode
         arptable = duthost.switch_arptable()['ansible_facts']['arptable']
         minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']
@@ -755,11 +759,12 @@ class TestNeighbors():
                 elif mode == 'default':
                     assert re.search(r'{}.*\s+{}'.format(item, arptable['v4'][item]['interface']), arp_output) is not None
 
-    def test_show_ndp(self, duthost, setup, setup_config_mode):
+    def test_show_ndp(self, duthosts, rand_one_dut_hostname, setup, setup_config_mode):
         """
         Checks whether 'show ndp' lists the interface names as per the
         configured naming mode
         """
+        duthost = duthosts[rand_one_dut_hostname]
         dutHostGuest, mode, ifmode = setup_config_mode
         arptable = duthost.switch_arptable()['ansible_facts']['arptable']
         minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']

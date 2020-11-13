@@ -56,7 +56,7 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, tbinfo, ptfadapter):
+def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -67,6 +67,7 @@ def setup(duthost, tbinfo, ptfadapter):
         A Dictionary with required test information.
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
         tbinfo["topo"]["name"] != "dualtor",
         "ACL test not supported on topology: \"{}\"".format(tbinfo["topo"]["name"])
@@ -134,8 +135,9 @@ def setup(duthost, tbinfo, ptfadapter):
 
 
 @pytest.fixture(scope="module")
-def populate_vlan_arp_entries(setup, ptfhost, duthost):
+def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname):
     """Set up the ARP responder utility in the PTF container."""
+    duthost = duthosts[rand_one_dut_hostname]
     if setup["topo"] != "t0":
         def noop():
             pass
@@ -187,7 +189,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthost):
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthost):
+def stage(request, duthosts, rand_one_dut_hostname):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
@@ -198,6 +200,7 @@ def stage(request, duthost):
         str: The ACL stage to be tested.
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
         request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
@@ -207,7 +210,7 @@ def stage(request, duthost):
 
 
 @pytest.fixture(scope="module")
-def acl_table_config(duthost, setup, stage):
+def acl_table_config(duthosts, rand_one_dut_hostname, setup, stage):
     """Generate ACL table configuration files and deploy them to the DUT.
 
     Args:
@@ -219,6 +222,7 @@ def acl_table_config(duthost, setup, stage):
         A dictionary containing the table name and the corresponding configuration file.
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     stage_to_name_map = {
         "ingress": "DATA_INGRESS_TEST",
         "egress": "DATA_EGRESS_TEST"
@@ -250,7 +254,7 @@ def acl_table_config(duthost, setup, stage):
 
 
 @pytest.fixture(scope="module")
-def acl_table(duthost, acl_table_config, backup_and_restore_config_db_module):
+def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_restore_config_db_module):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -263,6 +267,7 @@ def acl_table(duthost, acl_table_config, backup_and_restore_config_db_module):
         The ACL table configuration.
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     table_name = acl_table_config["table_name"]
     config_file = acl_table_config["config_file"]
 

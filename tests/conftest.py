@@ -182,12 +182,22 @@ def duthost(duthosts, request):
 
     return duthost
 
+@pytest.fixture(scope="module")
+def rand_one_dut_hostname(request):
+    """
+    """
+    dut_hostnames = generate_params_dut_hostname(request)
+    if len(dut_hostnames) > 1:
+        dut_hostnames = random.sample(dut_hostnames, 1)
+    return dut_hostnames[0]
+
 @pytest.fixture(scope="module", autouse=True)
-def reset_critical_services_list(duthost):
+def reset_critical_services_list(duthosts, rand_one_dut_hostname):
     """
     Resets the critical services list between test modules to ensure that it is
     left in a known state after tests finish running.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     duthost.reset_critical_services_tracking_list()
 
@@ -320,8 +330,9 @@ def pdu():
 
 
 @pytest.fixture(scope="module")
-def creds(duthost):
+def creds(duthosts, rand_one_dut_hostname):
     """ read credential information according to the dut inventory """
+    duthost = duthosts[rand_one_dut_hostname]
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
@@ -376,7 +387,8 @@ def fetch_dbs(duthost, testname):
 
 
 @pytest.fixture
-def collect_techsupport(request, duthost):
+def collect_techsupport(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     yield
     # request.node is an "item" because we use the default
     # "function" scope
@@ -594,11 +606,6 @@ def pytest_generate_tests(metafunc):
     elif "enum_dut_hostname" in metafunc.fixturenames:
         dut_hostnames = generate_params_dut_hostname(metafunc)
         metafunc.parametrize("enum_dut_hostname", dut_hostnames)
-    elif "rand_one_dut_hostname" in metafunc.fixturenames:
-        dut_hostnames = generate_params_dut_hostname(metafunc)
-        if len(dut_hostnames) > 1:
-            dut_hostnames = random.sample(dut_hostnames, 1)
-        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
 
     if "enum_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))

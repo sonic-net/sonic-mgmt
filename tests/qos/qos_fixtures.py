@@ -3,7 +3,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
 
 @pytest.fixture(scope = "module")
-def lossless_prio_dscp_map(duthost):
+def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     if "PORT_QOS_MAP" not in config_facts.keys():

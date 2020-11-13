@@ -53,7 +53,7 @@ def vnet_test_params(request):
     return params
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthost):
+def minigraph_facts(duthosts, rand_one_dut_hostname):
     """
     Fixture to get minigraph facts
 
@@ -63,6 +63,7 @@ def minigraph_facts(duthost):
     Returns:
         Dictionary containing minigraph information
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     return duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
 

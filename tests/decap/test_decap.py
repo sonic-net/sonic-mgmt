@@ -118,7 +118,8 @@ def prepare_ptf(ptfhost, tbinfo, cfg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup_teardown(request, tbinfo, duthost, ptfhost):
+def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
+    duthost = duthosts[rand_one_dut_hostname]
 
     # Initialize parameters
     dscp_mode = "pipe"

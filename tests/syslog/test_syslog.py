@@ -38,7 +38,8 @@ def config_syslog_srv(ptfhost):
 
 
 @pytest.fixture(scope="module")
-def config_dut(tbinfo, duthost):
+def config_dut(tbinfo, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Configuring the DUT")
     local_syslog_srv_ip = tbinfo["ptf_ip"]
     logger.info("test_syslog_srv_ip %s", local_syslog_srv_ip)
@@ -53,7 +54,8 @@ def config_dut(tbinfo, duthost):
     duthost.shell("sudo config syslog del {}".format(local_syslog_srv_ip))
 
 
-def test_syslog(duthost, ptfhost, config_dut):
+def test_syslog(duthosts, rand_one_dut_hostname, ptfhost, config_dut):
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Starting syslog tests")
     test_message = "Basic Test Message"
 

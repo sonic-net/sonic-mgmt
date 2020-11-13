@@ -112,7 +112,7 @@ class PopulateFdb:
         )
 
 @pytest.fixture
-def populate_fdb(request, duthost, ptfhost):
+def populate_fdb(request, duthosts, rand_one_dut_hostname, ptfhost):
     """
         Populates DUT FDB entries
 
@@ -124,6 +124,7 @@ def populate_fdb(request, duthost, ptfhost):
         Returns:
             None
     """
+    duthost = duthosts[rand_one_dut_hostname]
     populateFdb = PopulateFdb(request, duthost, ptfhost)
 
     populateFdb.run()

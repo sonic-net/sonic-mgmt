@@ -31,14 +31,16 @@ def get_fanout(fanout_graph_facts, setup):
 
 
 @pytest.fixture(scope="module")
-def ansible_facts(duthost):
+def ansible_facts(duthosts, rand_one_dut_hostname):
     """ Ansible facts fixture """
+    duthost = duthosts[rand_one_dut_hostname]
     yield duthost.setup()['ansible_facts']
 
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthost):
+def minigraph_facts(duthosts, rand_one_dut_hostname):
     """ DUT minigraph facts fixture """
+    duthost = duthosts[rand_one_dut_hostname]
     yield duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
 
@@ -139,10 +141,11 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
 
 
 @pytest.fixture(scope="function")
-def enable_pfc_asym(setup, duthost):
+def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
     """
     Enable/disable asymmetric PFC on all server interfaces
     """
+    duthost = duthosts[rand_one_dut_hostname]
     get_pfc_mode = "docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
     srv_ports = " ".join([port["dut_name"] for port in setup["ptf_test_params"]["server_ports"]])
     pfc_asym_enabled = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE"
@@ -175,7 +178,7 @@ def enable_pfc_asym(setup, duthost):
             assert setup["pfc_bitmask"]["pfc_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"])
 
 @pytest.fixture(scope="module")
-def setup(tbinfo, duthost, ptfhost, ansible_facts, minigraph_facts, request):
+def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minigraph_facts, request):
     """
     Fixture performs initial steps which is required for test case execution.
     Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is used in test case logic.
@@ -212,6 +215,7 @@ def setup(tbinfo, duthost, ptfhost, ansible_facts, minigraph_facts, request):
     - Remove ARP responder
     - Restore supervisor configuration in PTF container
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if tbinfo['topo']['name'] != "t0":
         pytest.skip('Unsupported topology')
     setup_params = {

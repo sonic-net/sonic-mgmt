@@ -14,7 +14,8 @@ pytestmark = [
 ]
 
 
-def test_monit_status(duthost):
+def test_monit_status(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     monit_status_result = duthost.shell("sudo monit status", module_ignore_errors=True)
 
     exit_code = monit_status_result["rc"]

@@ -527,7 +527,7 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthost, ptfhost, localhost, tbinfo, creds):
+def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -536,6 +536,7 @@ def get_advanced_reboot(request, duthost, ptfhost, localhost, tbinfo, creds):
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
     '''
+    duthost = duthosts[rand_one_dut_hostname]
     instances = []
 
     def get_advanced_reboot(**kwargs):

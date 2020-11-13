@@ -48,7 +48,8 @@ def enable_ssh_timout(dut):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def test_setup_teardown(duthost, localhost):
+def test_setup_teardown(duthosts, rand_one_dut_hostname, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
     disable_ssh_timout(duthost)
     # There must be a better way to do this.
     # Reboot the DUT so that we guaranteed to login without ssh timeout.
@@ -66,7 +67,7 @@ def test_setup_teardown(duthost, localhost):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.broadcom
-def test_ser(duthost):
+def test_ser(duthosts, rand_one_dut_hostname):
     '''
     @summary: Broadcom SER injection test use Broadcom SER injection utility to insert SER
               into different memory tables. Before the SER injection, Broadcom mem/sram scanners
@@ -76,6 +77,7 @@ def test_ser(duthost):
                                                    --host-pattern=vms12-t0-s6000-1 --module-path=../ansible/library
     @param duthost: Ansible framework testbed DUT device
     '''
+    duthost = duthosts[rand_one_dut_hostname]
     asic_type = duthost.facts["asic_type"]
     if "broadcom" not in asic_type:
         pytest.skip('Skipping SER test for asic_type: %s' % asic_type)

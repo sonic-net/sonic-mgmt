@@ -36,7 +36,7 @@ LEAKED_ROUTES_TEMPLATE = "Leaked routes: {}"
 
 
 @pytest.fixture(scope="module")
-def configure_dut(minigraph_facts, duthost, vnet_config, vnet_test_params):
+def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config, vnet_test_params):
     """
     Setup/teardown fixture for VNET route leak test
 
@@ -49,6 +49,7 @@ def configure_dut(minigraph_facts, duthost, vnet_config, vnet_test_params):
         vnet_config: Dictionary containing VNET configuration information
         vnet_test_params: Dictionary containing VNET test parameters
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Backing up config_db.json")
     duthost.shell(BACKUP_CONFIG_DB_CMD)
@@ -165,7 +166,7 @@ def get_leaked_routes(duthost):
     return leaked_routes
 
 
-def test_vnet_route_leak(configure_dut, duthost):
+def test_vnet_route_leak(configure_dut, duthosts, rand_one_dut_hostname):
     """
     Test case for VNET route leak check
 
@@ -180,6 +181,7 @@ def test_vnet_route_leak(configure_dut, duthost):
         configure_dut: Pytest fixture to prepare DUT for testing
         duthost: DUT host object
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes, LEAKED_ROUTES_TEMPLATE.format(leaked_routes))

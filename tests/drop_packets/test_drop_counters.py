@@ -34,8 +34,9 @@ COMBINED_ACL_DROP_COUNTER = False
 
 
 @pytest.fixture(autouse=True, scope="module")
-def enable_counters(duthost):
+def enable_counters(duthosts, rand_one_dut_hostname):
     """ Fixture which enables RIF and L2 counters """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd_list = ["intfstat -D", "counterpoll port enable", "counterpoll rif enable", "sonic-clear counters",
                 "sonic-clear rifcounters"]
     cmd_get_cnt_status = "redis-cli -n 4 HGET \"FLEX_COUNTER_TABLE|{}\" \"FLEX_COUNTER_STATUS\""
@@ -52,8 +53,9 @@ def enable_counters(duthost):
 
 
 @pytest.fixture
-def acl_setup(duthost, loganalyzer):
+def acl_setup(duthosts, rand_one_dut_hostname, loganalyzer):
     """ Create acl rule defined in config file. Delete rule after test case finished """
+    duthost = duthosts[rand_one_dut_hostname]
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, 'acl_templates')
     acl_rules_template = "acltb_test_rule.json"
@@ -87,7 +89,8 @@ def acl_setup(duthost, loganalyzer):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def parse_combined_counters(duthost):
+def parse_combined_counters(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     # Get info whether L2 and L3 drop counters are linked
     # Or ACL and L2 drop counters are linked
     global COMBINED_L2L3_DROP_COUNTER, COMBINED_ACL_DROP_COUNTER
@@ -215,8 +218,9 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_du
 
 
 @pytest.fixture
-def mtu_config(duthost):
+def mtu_config(duthosts, rand_one_dut_hostname):
     """ Fixture which prepare port MTU configuration for 'test_ip_pkt_with_exceeded_mtu' test case """
+    duthost = duthosts[rand_one_dut_hostname]
     class MTUConfig(object):
         iface = None
         mtu = None
@@ -278,13 +282,14 @@ def do_test():
     return do_counters_test
 
 
-def test_reserved_dmac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pkt_fields, ports_info):
+def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
         01:80:C2:00:00:05 - reserved for future standardization
         01:80:C2:00:00:08 - provider Bridge group address
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
 
@@ -311,10 +316,11 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pkt
         do_test("L2", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"])
 
 
-def test_acl_drop(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, acl_setup, ports_info):
+def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, acl_setup, ports_info):
     """
     @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL and ACL drop counter incremented
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if tx_dut_ports[ports_info["dut_iface"]] not in duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
         pytest.skip("RX DUT port absent in 'DATAACL' table")
 
@@ -338,10 +344,11 @@ def test_acl_drop(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields,
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_egress_drop_on_down_link(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
+def test_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
     """
     @summary: Verify that packets on ingress port are dropped when egress RIF link is down and check that L3 drop counter incremented
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     ip_dst = rif_port_down
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
@@ -358,10 +365,11 @@ def test_egress_drop_on_down_link(do_test, ptfadapter, duthost, setup, tx_dut_po
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_src_ip_link_local(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     link_local_ip = "169.254.10.125"
 
@@ -381,10 +389,11 @@ def test_src_ip_link_local(do_test, ptfadapter, duthost, setup, tx_dut_ports, pk
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):
+def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     global L2_COL_KEY
     if  "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():

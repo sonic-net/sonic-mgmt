@@ -60,7 +60,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
     """
     Prepares DUT and PTF hosts for testing
 
@@ -71,6 +71,7 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
         vnet_config: Configuration file generated from templates/vnet_config.j2
         vnet_test_params: Dictionary holding vnet test parameters
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
 
@@ -81,7 +82,7 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
     return minigraph_facts
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_params, vnet_config):
     """
     Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
 
@@ -93,6 +94,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
     Returns:
         A tuple containing the VxLAN status (True or False), and the test scenario (one of the pytest parameters)
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     vxlan_enabled = False
     if request.param == "Disabled":
@@ -117,7 +119,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
     return vxlan_enabled, request.param
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, creds):
+def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
     """
     Test case for VNET VxLAN
 
@@ -128,6 +130,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, cre
         ptfhost: PTF host object
         vnet_test_params: Dictionary containing vnet test parameters
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     vxlan_enabled, scenario = vxlan_status
 

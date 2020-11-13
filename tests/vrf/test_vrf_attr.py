@@ -39,7 +39,8 @@ class TestVrfAttrSrcMac():
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
-    def test_vrf_src_mac_cfg(self, duthost):
+    def test_vrf_src_mac_cfg(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         # get vrf1 new router_mac from config_db
         vrf1_mac = duthost.shell("redis-cli -n 4 hget 'VRF|Vrf1' 'src_mac'")['stdout']
         assert vrf1_mac == self.new_vrf1_router_mac

@@ -6,7 +6,7 @@ file currently holds the following fixture(s):
     1. lossless_prio_dscp_map
 """
 @pytest.fixture(scope = "module")
-def lossless_prio_dscp_map(duthost):
+def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
     """
     This fixture reads the QOS parameters from SONiC DUT, and creates
     lossless priority Vs. DSCP priority port map (dictionary key = lossless 
@@ -19,6 +19,7 @@ def lossless_prio_dscp_map(duthost):
         Lossless priority vs. DSCP map (dictionary, key = lossless priority).
         Example: {3: [3], 4: [4]} 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, 
                                         source="persistent")['ansible_facts']
 
