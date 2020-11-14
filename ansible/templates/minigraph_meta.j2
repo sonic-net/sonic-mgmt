@@ -21,6 +21,13 @@
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
+{% if topo == 'dualtor' %}
+          <a:DeviceProperty>
+            <a:Name>GeminiEnabled</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>True</a:Value>
+          </a:DeviceProperty>
+{% endif %}
 {% if dhcp_servers %}
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>

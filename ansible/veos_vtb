@@ -34,6 +34,8 @@ all:
         vlab-05:
         vlab-06:
     sonic:
+      vars:
+        mgmt_subnet_mask_length: 24
       hosts:
         vlab-01:
           ansible_host: 10.250.0.101
