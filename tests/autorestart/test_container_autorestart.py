@@ -281,6 +281,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logger.info("Restart the program '{}' in container '{}'".format(program_name, container_name))
     duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
 
+
 def check_all_critical_processes_status(duthost):
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
@@ -289,8 +290,11 @@ def check_all_critical_processes_status(duthost):
 
     return True
 
+def post_test_check(duthost, up_bgp_neighbors):
+    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
 
-def postcheck_critical_processes_status(duthost, container_autorestart_states):
+
+def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
     """
     @summary: Do the post check to see whether all the critical processes are alive after testing
               the autorestart feature.
@@ -300,10 +304,8 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states):
         if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
-    pytest_assert(wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                             CONTAINER_CHECK_INTERVAL_SECS,
-                             check_all_critical_processes_status, duthost), 
-                             "Post checking the healthy of critical processes failed.")
+    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
+                      post_test_check, duthost, up_bgp_neighbors)
 
 
 def run_test_on_single_container(duthost, container_name, tbinfo):
@@ -370,23 +372,15 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
             # statement
             break
 
-    # After these two containers are restarted, we need wait to give their dependent containers
-    # a chance to restart
-    if container_name in ["syncd", "swss"]:
-        logger.info("Sleep 20 seconds after testing the container '{}'...".format(container_name))
-        time.sleep(20)
-
     if restore_disabled_state:
         logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
         duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
 
-    logger.info("End of testing the container '{}'".format(container_name))
-
-    postcheck_critical_processes_status(duthost, container_autorestart_states)
-
-    if not duthost.check_bgp_session_state(up_bgp_neighbors, "established"):
+    if not postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
         config_reload(duthost)
-        pytest.fail("Some BGP sessions went down after testing feature {}".format(container_name))
+        pytest.fail("Some post check failed after testing feature {}".format(container_name))
+
+    logger.info("End of testing the container '{}'".format(container_name))
 
 
 def test_containers_autorestart(duthosts, enum_dut_feature, rand_one_dut_hostname, tbinfo):
