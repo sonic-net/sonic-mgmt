@@ -92,7 +92,7 @@ class DhcpPktFwdBase:
         ))
 
     @pytest.fixture(scope="class")
-    def dutPorts(self, duthost, tbinfo):
+    def dutPorts(self, duthosts, rand_one_dut_hostname, tbinfo):
         """
         Build list of DUT ports and classify them as Upstream/Downstream ports.
 
@@ -103,6 +103,7 @@ class DhcpPktFwdBase:
         Returns:
             dict: contains downstream/upstream ports information
         """
+        duthost = duthosts[rand_one_dut_hostname]
         if "t1" not in tbinfo["topo"]["name"]:
             pytest.skip("Unsupported topology")
 
@@ -120,7 +121,7 @@ class DhcpPktFwdBase:
         yield {"upstreamPorts": upstreamPorts, "downstreamPorts": downstreamPorts}
 
     @pytest.fixture(scope="class")
-    def testPorts(self, duthost, dutPorts):
+    def testPorts(self, duthosts, rand_one_dut_hostname, dutPorts):
         """
         Select one upstream and one downstream ports for DHCP packet forwarding test
 
@@ -131,6 +132,7 @@ class DhcpPktFwdBase:
         Returns:
             dict: contains downstream/upstream port (or LAG members) information used for test
         """
+        duthost = duthosts[rand_one_dut_hostname]
         downstreamLags, downstreamPeerIp = self.__getPortLagsAndPeerIp(
             duthost,
             random.choice(dutPorts["downstreamPorts"])

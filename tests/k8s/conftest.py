@@ -19,14 +19,13 @@ def check_k8s_vms(k8scluster):
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
     """
        Ignore expected failures logs during test execution
 
        Kubernetes join attempt causes some expected failure logs when master service is unreachable
 
        Args:
-           duthost: DUT fixture
            loganalyzer: Loganalyzer utility fixture
     """
     # When loganalyzer is disabled, the object could be None
