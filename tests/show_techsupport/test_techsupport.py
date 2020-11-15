@@ -250,13 +250,12 @@ def config(request):
     return request.getfixturevalue(request.param)
 
 
-def execute_command(duthosts, rand_one_dut_hostname, since):
+def execute_command(duthost, since):
     """
     Function to execute show techsupport command
     :param duthost: DUT
     :param since: since string enterd by user
     """
-    duthost = duthosts[rand_one_dut_hostname]
     stdout = duthost.command("show techsupport --since={}".format('"' + since + '"'))
     if stdout['rc'] == SUCCESS_CODE:
         pytest.tar_stdout = stdout['stdout']

@@ -23,7 +23,7 @@ class TestNeighborMac:
     TEST_MAC = ["00:c0:ca:c0:1a:05", "00:c0:ca:c0:1a:06"]
 
     @pytest.fixture(scope="module", autouse=True)
-    def interfaceConfig(self, duthost):
+    def interfaceConfig(self, duthosts, rand_one_dut_hostname):
         """
             Configures and Restores DUT configuration after test completes
 
@@ -33,6 +33,7 @@ class TestNeighborMac:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         logger.info("Configure the DUT interface, start interface, add IP address")
         self.__startInterface(duthost)
         self.__configureInterfaceIp(duthost, action="add")
@@ -115,7 +116,7 @@ class TestNeighborMac:
         ])
 
     @pytest.fixture(autouse=True)
-    def configureNeighborIpAndPing(self, duthost, ptfhost, macIndex):
+    def configureNeighborIpAndPing(self, ptfhost, macIndex):
         """
             Configure Neighbor/Interface IP
 
@@ -138,7 +139,7 @@ class TestNeighborMac:
         yield
 
     @pytest.fixture
-    def redisNeighborMac(self, duthost, ptfhost, macIndex, configureNeighborIpAndPing):
+    def redisNeighborMac(self, duthosts, rand_one_dut_hostname, ptfhost, macIndex, configureNeighborIpAndPing):
         """
             Retreive DUT Redis MAC entry of neighbor IP
 
@@ -151,6 +152,7 @@ class TestNeighborMac:
             Returns:
                 redisNeighborMac (str): Redis MAC entry of neighbor IP
         """
+        duthost = duthosts[rand_one_dut_hostname]
         result = duthost.shell(argv=["redis-cli", "-n", "1", "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"])
         neighborKey = None
         for key in result["stdout_lines"]:

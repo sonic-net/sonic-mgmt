@@ -487,7 +487,8 @@ class TestIngressEverflowIPv6(EverflowIPv6Tests):
         return "ingress"
 
     @pytest.fixture(scope='class',  autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session, config_method):
+    def setup_acl_table(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, config_method):
+        duthost = duthosts[rand_one_dut_hostname]
         table_name = self._get_table_name(duthost)
         temporary_table = False
 

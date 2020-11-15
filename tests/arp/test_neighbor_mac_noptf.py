@@ -25,7 +25,7 @@ class TestNeighborMacNoPtf:
     }
 
     @pytest.fixture(scope="module", autouse=True)
-    def restoreDutConfig(self, duthost):
+    def restoreDutConfig(self, duthosts, rand_one_dut_hostname):
         """
             Restores DUT configuration after test completes
 
@@ -35,6 +35,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         yield
 
         logger.info("Reload Config DB")
@@ -55,7 +56,7 @@ class TestNeighborMacNoPtf:
         yield request.param
 
     @pytest.fixture(scope="module")
-    def routedInterface(self, duthost):
+    def routedInterface(self, duthosts, rand_one_dut_hostname):
         """
             Find routed interface to test neighbor MAC functionality with
 
@@ -65,6 +66,7 @@ class TestNeighborMacNoPtf:
             Retruns:
                 routedInterface (str): Routed interface used for testing
         """
+        duthost = duthosts[rand_one_dut_hostname]
         testRoutedInterface = None
 
         intfStatus = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
@@ -76,7 +78,7 @@ class TestNeighborMacNoPtf:
         yield testRoutedInterface
 
     @pytest.fixture
-    def verifyOrchagentPresence(self, duthost):
+    def verifyOrchagentPresence(self, duthosts, rand_one_dut_hostname):
         """
             Verify orchagent is running before and after the test is finished
 
@@ -86,6 +88,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         def verifyOrchagentRunningOrAssert(duthost):
             """
                 Verifyes that orchagent is running, asserts otherwise
@@ -155,7 +158,7 @@ class TestNeighborMacNoPtf:
         ])
 
     @pytest.fixture(autouse=True)
-    def updateNeighborIp(self, duthost, routedInterface, ipVersion, verifyOrchagentPresence):
+    def updateNeighborIp(self, duthosts, rand_one_dut_hostname, routedInterface, ipVersion, verifyOrchagentPresence):
         """
             Update Neighbor/Interface IP
 
@@ -172,6 +175,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         self.__updateInterfaceIp(duthost, routedInterface, ipVersion, action="add")
         self.__updateNeighborIp(duthost, routedInterface, ipVersion, 0, action="add")
         self.__updateNeighborIp(duthost, routedInterface, ipVersion, 0, action="change")
@@ -185,7 +189,7 @@ class TestNeighborMacNoPtf:
         self.__updateInterfaceIp(duthost, routedInterface, ipVersion, action="remove")
 
     @pytest.fixture
-    def arpTableMac(self, duthost, ipVersion, updateNeighborIp):
+    def arpTableMac(self, duthosts, rand_one_dut_hostname, ipVersion, updateNeighborIp):
         """
             Retreive DUT ARP table MAC entry of neighbor IP
 
@@ -197,11 +201,12 @@ class TestNeighborMacNoPtf:
             Returns:
                 arpTableMac (str): ARP MAC entry of neighbor IP
         """
+        duthost = duthosts[rand_one_dut_hostname]
         dutArpTable = duthost.switch_arptable()["ansible_facts"]["arptable"]
         yield dutArpTable["v{0}".format(ipVersion)][self.TEST_INTF[ipVersion]["NeighborIp"]]["macaddress"]
 
     @pytest.fixture
-    def redisNeighborMac(self, duthost, ipVersion, updateNeighborIp):
+    def redisNeighborMac(self, duthosts, rand_one_dut_hostname, ipVersion, updateNeighborIp):
         """
             Retreive DUT Redis MAC entry of neighbor IP
 
@@ -213,6 +218,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 redisNeighborMac (str): Redis MAC entry of neighbor IP
         """
+        duthost = duthosts[rand_one_dut_hostname]
         result = duthost.shell(argv=["redis-cli", "-n", "1", "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"])
         neighborKey = None
         for key in result["stdout_lines"]:

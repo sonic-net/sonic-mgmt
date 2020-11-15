@@ -265,7 +265,7 @@ class BaseEverflowTest(object):
         return request.param
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, duthost, config_method):
+    def setup_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session for Everflow.
 
@@ -275,6 +275,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         session_info = self._mirror_session_info("test_session_1", duthost.facts["asic_type"])
 
         self.apply_mirror_config(duthost, session_info, config_method)
@@ -284,7 +285,7 @@ class BaseEverflowTest(object):
         self.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, duthost, config_method):
+    def policer_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -294,6 +295,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         policer = "TEST_POLICER"
 
         # Create a policer that allows 100 packets/sec through
@@ -354,7 +356,7 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session, config_method):
+    def setup_acl_table(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, config_method):
         """
         Configure the ACL table for this set of test cases.
 
@@ -363,6 +365,7 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
+        duthost = duthosts[rand_one_dut_hostname]
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))

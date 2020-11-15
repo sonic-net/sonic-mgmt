@@ -719,7 +719,8 @@ class TestVrfLoopbackIntf():
     announce_prefix = '10.10.10.0/26'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_loopback(self, duthost, ptfhost, cfg_facts, tbinfo):
+    def setup_vrf_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts, tbinfo):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         lb0_ip_facts = get_intf_ips('Loopback0', cfg_facts)
         vlan1000_ip_facts = get_intf_ips('Vlan1000', cfg_facts)
@@ -783,7 +784,8 @@ class TestVrfLoopbackIntf():
                     duthost.shell("ping6 {} -I Vrf2 -I {} -c 3 -f -W2".format(neigh_ip6, ip.ip))
 
     @pytest.fixture
-    def setup_bgp_with_loopback(self, duthost, ptfhost, cfg_facts):
+    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
 
         # ----------- Setup ----------------
 
@@ -1023,7 +1025,7 @@ class TestVrfCapacity():
         return sorted(random.sample(xrange(1, vrf_count+1), min(test_count, vrf_count)))
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_capacity(self, duthost, ptfhost, localhost, cfg_facts, vrf_count, random_vrf_list, request):
+    def setup_vrf_capacity(self, duthosts, rand_one_dut_hostname, ptfhost, localhost, cfg_facts, vrf_count, random_vrf_list, request):
         """
         Setup $VRF_CAPACITY(minus global VRF and Vrf1/Vrf2) vrfs,
         2 vlan interfaces per vrf,
@@ -1040,6 +1042,7 @@ class TestVrfCapacity():
         ...
 
         """
+        duthost = duthosts[rand_one_dut_hostname]
 
         # -------- Setup ----------
 
@@ -1210,7 +1213,8 @@ class TestVrfUnbindIntf():
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_unbindintf(self, duthost, ptfhost, tbinfo, cfg_facts):
+    def setup_vrf_unbindintf(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.shell("config interface vrf unbind PortChannel0001")
 
@@ -1232,7 +1236,8 @@ class TestVrfUnbindIntf():
                 duthost.shell("config interface ip add PortChannel0001 {}".format(ip))
 
     @pytest.fixture(scope='class')
-    def setup_vrf_rebind_intf(self, duthost, cfg_facts):
+    def setup_vrf_rebind_intf(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         self.rebind_intf(duthost)
         self.c_vars['rebind_intf'] = False  # Mark to skip rebind interface during teardown
 
@@ -1359,7 +1364,8 @@ class TestVrfDeletion():
                     duthost.shell("config interface ip add {} {}".format(intf, ip))
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_deletion(self, duthost, ptfhost, tbinfo, cfg_facts):
+    def setup_vrf_deletion(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0001', 'PortChannel0002'],
@@ -1384,7 +1390,8 @@ class TestVrfDeletion():
             wait_until(120, 10, check_bgp_facts, duthost, cfg_facts)
 
     @pytest.fixture(scope='class')
-    def setup_vrf_restore(self, duthost, cfg_facts):
+    def setup_vrf_restore(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         self.restore_vrf(duthost)
         self.c_vars['restore_vrf'] = False  # Mark to skip restore vrf during teardown
 
