@@ -430,6 +430,23 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("os_version", duthost.os_version)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def clear_neigh_entries(duthosts, tbinfo):
+    """
+        This is a stop bleeding change for dualtor testbed. Because dualtor duts will
+        learn the same set of arp entries during tests. But currently the test only
+        cleans up on the dut under test. So the other dut will accumulate arp entries
+        until kernel start to barf.
+        Adding this fixture to cleanup after each test module.
+    """
+
+    yield
+
+    if tbinfo['topo']['name'] == 'dualtor':
+        for dut in duthosts:
+            dut.command("sudo ip neigh flush nud permanent")
+
+
 @pytest.fixture(scope="module")
 def disable_container_autorestart():
     def disable_container_autorestart(duthost, testcase="", feature_list=None):
