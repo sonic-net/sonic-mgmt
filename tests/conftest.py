@@ -192,14 +192,12 @@ def rand_one_dut_hostname(request):
     return dut_hostnames[0]
 
 @pytest.fixture(scope="module", autouse=True)
-def reset_critical_services_list(duthosts, rand_one_dut_hostname):
+def reset_critical_services_list(duthosts):
     """
     Resets the critical services list between test modules to ensure that it is
     left in a known state after tests finish running.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    duthost.reset_critical_services_tracking_list()
+    [a_dut.reset_critical_services_tracking_list() for a_dut in duthosts]
 
 @pytest.fixture(scope="session")
 def localhost(ansible_adhoc):
@@ -386,23 +384,33 @@ def fetch_dbs(duthost, testname):
         duthost.fetch(src="{}.json".format(db[1]), dest="logs/{}".format(testname))
 
 
-@pytest.fixture
-def collect_techsupport(request, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    yield
+def collect_techsupport_on_dut(request, a_dut):
     # request.node is an "item" because we use the default
     # "function" scope
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
-        res = duthost.shell("generate_dump -s yesterday")
+        res = a_dut.shell("generate_dump -s \"-2 hours\"")
         fname = res['stdout']
-        duthost.fetch(src=fname, dest="logs/{}".format(testname))
-        tar = tarfile.open("logs/{}/{}/{}".format(testname, duthost.hostname, fname))
+        a_dut.fetch(src=fname, dest="logs/{}".format(testname))
+        tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
             if m.isfile():
-                tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
+                tar.extract(m, path="logs/{}/{}/".format(testname, a_dut.hostname))
 
         logging.info("########### Collected tech support for test {} ###########".format(testname))
+
+@pytest.fixture
+def collect_techsupport(request, duthosts, enum_dut_hostname):
+    yield
+    # request.node is an "item" because we use the default
+    # "function" scope
+    duthost = duthosts[enum_dut_hostname]
+    collect_techsupport_on_dut(request, duthost)
+
+@pytest.fixture
+def collect_techsupport_all_duts(request, duthosts):
+    yield
+    [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
 
 @pytest.fixture(scope="session", autouse=True)
 def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
