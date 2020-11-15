@@ -39,6 +39,7 @@ try:
 except Exception as e:
     logging.error("Hack for https://github.com/ansible/pytest-ansible/issues/47 failed: {}".format(repr(e)))
 
+logger = logging.getLogger(__name__)
 
 class AnsibleHostBase(object):
     """
@@ -1666,13 +1667,13 @@ class DutHosts(object):
         """
         if type(index) == int:
             return self.nodes[index]
-        elif type(index) == str:
+        elif type(index) in [ str, unicode ]:
             for node in self.nodes:
                 if node.hostname == index:
                     return node
             raise KeyError("No node has hostname '{}'".format(index))
         else:
-            raise IndexError("Bad index '{}'".format(index))
+            raise IndexError("Bad index '{}' type {}".format(index, type(index)))
 
     # Below method are to support treating an instance of DutHosts as a list
     def __iter__(self):
