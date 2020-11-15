@@ -2,7 +2,6 @@
 Test the auto-restart feature of containers
 """
 import logging
-import time
 from collections import defaultdict
 
 import pytest
