@@ -320,6 +320,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
 
     skip_condition = disabled_containers[:]
     skip_condition.append("database")
+    skip_condition.append("acms")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
 
