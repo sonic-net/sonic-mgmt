@@ -59,7 +59,19 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, enum_dut_hostname)
     duthost = duthosts[enum_dut_hostname]
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
+
+    dut_type = None
+    dev_meta = config_facts.get('DEVICE_METADATA', {})
+    if "localhost" in dev_meta and "type" in dev_meta["localhost"]:
+        dut_type = dev_meta["localhost"]["type"]
+
     for k, v in nei_meta.items():
+        if 'SmartCable' == v['type'] or dut_type == v['type']:
+            # Smart cable doesn't respond to snmp, it doesn't have BGP session either.
+            # DualToR has the peer ToR listed in device as well. If the device type
+            # is the same as testing DUT, then it is the peer.
+            continue
+
         failmsg = check_snmp(k, v['mgmt_addr'], localhost, eos['snmp_rocommunity'])
         if failmsg:
             fails.append(failmsg)
