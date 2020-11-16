@@ -224,11 +224,12 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     pretests below this comment.
 """
 
-def test_connect_to_internal_nameserver(duthost):
+def test_connect_to_internal_nameserver(duthosts, enum_dut_hostname):
     cmds = [
         "echo \"nameserver 10.64.5.5\" > /etc/resolv.conf",
         "sudo systemctl restart systemd-resolved"
     ]
 
+    duthost = duthosts[enum_dut_hostname]
     duthost.shell_cmds(cmds=cmds)
 
