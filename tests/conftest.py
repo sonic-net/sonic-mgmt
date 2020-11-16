@@ -437,7 +437,8 @@ def clear_neigh_entries(duthosts, tbinfo):
         learn the same set of arp entries during tests. But currently the test only
         cleans up on the dut under test. So the other dut will accumulate arp entries
         until kernel start to barf.
-        Adding this fixture to cleanup after each test module.
+        Adding this fixture to flush out IPv4/IPv6 static ARP entries after each test
+        moduel is done.
     """
 
     yield
