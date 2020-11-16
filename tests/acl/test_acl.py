@@ -54,6 +54,10 @@ LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
+LOG_IGNORE_RE = [
+                    ".*ERR monit.*"
+                ]
+
 
 @pytest.fixture(scope="module")
 def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
@@ -276,6 +280,8 @@ def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_rest
 
     try:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+        if "201911" in duthost.os_version:
+            loganalyzer.ignore_regex.extend(LOG_IGNORE_RE)
         with loganalyzer:
             logger.info("Creating ACL table from config file: \"{}\"".format(config_file))
 
@@ -366,6 +372,8 @@ class BaseAclTest(object):
 
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+            if "201911" in duthost.os_version:
+                loganalyzer.ignore_regex.extend(LOG_IGNORE_RE)
             with loganalyzer:
                 self.setup_rules(duthost, acl_table)
 
