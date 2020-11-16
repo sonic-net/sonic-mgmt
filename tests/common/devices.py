@@ -1648,8 +1648,8 @@ class DutHosts(object):
         """
         # TODO: Initialize the nodes in parallel using multi-threads?
         self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"]])
-        self.supervisor_nodes = self._Nodes([node for node in self.nodes if self._is_supervisor_node(node)])
-        self.frontend_nodes = self._Nodes([node for node in self.nodes if self._is_frontend_node(node)])
+        self.supervisor_nodes = self._Nodes([node for node in self.nodes if self.is_supervisor_node(node)])
+        self.frontend_nodes = self._Nodes([node for node in self.nodes if self.is_frontend_node(node)])
 
     def __getitem__(self, index):
         """To support operations like duthosts[0] and duthost['sonic1_hostname']
@@ -1706,7 +1706,7 @@ class DutHosts(object):
         """
         return getattr(self.nodes, attr)
 
-    def _is_supervisor_node(self, node):
+    def is_supervisor_node(self, node):
         """ Is node a supervisor node
 
         Args:
@@ -1723,7 +1723,7 @@ class DutHosts(object):
                 return True
         return False
 
-    def _is_frontend_node(self, node):
+    def is_frontend_node(self, node):
         """ Is not a frontend node
         Args:
             node: MultiAsicSonicHost object represent a DUT in the testbed.
