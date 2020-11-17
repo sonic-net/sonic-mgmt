@@ -621,6 +621,35 @@ def generate_port_lists(request, port_scope):
     return ret if ret else empty
 
 
+def generate_dut_feature_list(request):
+    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in metadata:
+        return empty
+
+    meta = metadata[tbname]
+    ret = []
+    for dut, val in meta.items():
+        if 'features' not in val:
+            continue
+        for feature, _ in val['features'].items():
+            ret.append(encode_dut_port_name(dut, feature))
+
+    return ret if ret else empty
+
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -650,3 +679,6 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
     if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))
+
+    if "enum_dut_feature" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_feature", generate_dut_feature_list(metafunc))

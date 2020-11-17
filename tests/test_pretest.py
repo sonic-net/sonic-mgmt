@@ -41,7 +41,8 @@ def test_disable_container_autorestart(duthosts, enum_dut_hostname, disable_cont
 
 def collect_dut_info(dut):
     status = dut.show_interface(command='status')['ansible_facts']['int_status']
-    return { 'intf_status' : status }
+    features, _ = dut.get_feature_status()
+    return { 'intf_status' : status, 'features' : features }
 
 
 def test_update_testbed_metadata(duthosts, tbinfo):
