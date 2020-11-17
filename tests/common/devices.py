@@ -413,7 +413,7 @@ class SonicHost(AnsibleHostBase):
         if succeeded and container_name == "pmon":
             expected_critical_group_list = []
             expected_critical_process_list = []
-            process_list = self.shell("docker exec {} supervisorctl status".format(container_name))
+            process_list = self.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
             for process_info in process_list["stdout_lines"]:
                 process_name = process_info.split()[0].strip()
                 process_status = process_info.split()[1].strip()
