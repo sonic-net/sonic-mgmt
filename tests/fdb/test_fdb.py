@@ -151,8 +151,9 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
 
 
 @pytest.fixture
-def fdb_cleanup(duthost):
+def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before and after test run """
+    duthost = duthosts[rand_one_dut_hostname]
     try:
         duthost.command('sonic-clear fdb all')
         yield
@@ -164,11 +165,12 @@ def fdb_cleanup(duthost):
 @pytest.mark.bsl
 @pytest.mark.usefixtures('fdb_cleanup')
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, ptfadapter, duthost, ptfhost, pkt_type):
+def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type):
     """
     1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     host_facts  = duthost.setup()['ansible_facts']
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']

@@ -21,7 +21,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthost, ptfhost, tbinfo):
+def common_setup_teardown(ptfhost):
     logger.info("########### Setup for lag testing ###########")
 
     # Copy PTF test into PTF-docker for test LACP DU
@@ -31,22 +31,16 @@ def common_setup_teardown(duthost, ptfhost, tbinfo):
         dst = "/tmp/%s" % test_file
         ptfhost.copy(src=src, dest=dst)
 
-    # Inlucde testbed topology configuration
-    topo_name = tbinfo['topo']['name']
-    topo_type = tbinfo['topo']['type']
-
-    support_testbed_types = frozenset(['t1-lag', 't0', 't0-116', 'dualtor'])
-    pytest_require(topo_name in support_testbed_types, "Not support given test bed type {} topology {}".format(topo_type, topo_name))
-
     yield ptfhost
 
 class LagTest:
-    def __init__(self, duthost, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
+    def __init__(self, duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
         self.duthost     = duthost
+        self.tbinfo      = tbinfo
         self.ptfhost     = ptfhost
         self.nbrhosts    = nbrhosts
         self.fanouthosts = fanouthosts
-        self.mg_facts         = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        self.mg_facts         = duthost.get_extended_minigraph_facts(tbinfo)
         self.conn_graph_facts = conn_graph_facts
         self.vm_neighbors     = self.mg_facts['minigraph_neighbors']
         self.fanout_neighbors = self.conn_graph_facts['device_conn'][duthost.hostname] if 'device_conn' in self.conn_graph_facts else {}
@@ -140,7 +134,7 @@ class LagTest:
         iface_behind_lag_member = []
         for neighbor_intf in self.vm_neighbors.keys():
             if peer_device == self.vm_neighbors[neighbor_intf]['name']:
-                iface_behind_lag_member.append(self.mg_facts['minigraph_port_indices'][neighbor_intf])
+                iface_behind_lag_member.append(self.mg_facts['minigraph_ptf_indices'][neighbor_intf])
 
         neighbor_lag_intfs = []
         for po_intf in po_interfaces:
@@ -242,17 +236,17 @@ class LagTest:
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",
                                       "fallback"])
-def test_lag(common_setup_teardown, duthosts, nbrhosts, fanouthosts, conn_graph_facts, all_pcs, testcase):
+def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel, testcase):
     ptfhost = common_setup_teardown
 
-    dut_name, dut_lag = decode_dut_port_name(all_pcs)
+    dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel)
 
     some_test_ran = False
     for duthost in duthosts:
         if dut_name in [ 'unknown', duthost.hostname ]:
             lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
 
-            test_instance = LagTest(duthost, ptfhost, nbrhosts, fanouthosts, conn_graph_facts)
+            test_instance = LagTest(duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts)
 
             # Test for each lag
             if dut_lag == "unknown":

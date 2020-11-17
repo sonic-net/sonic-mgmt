@@ -88,18 +88,22 @@ def run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=True, 
         else:
             assert counter_facts[intf]['Rx'] == ['0'] * PRIO_COUNT
 
-def test_pfc_pause(fanouthosts, duthost, conn_graph_facts, leaf_fanouts):
+def test_pfc_pause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run PFC pause frame (pause time quanta > 0) tests """
+    duthost = duthosts[rand_one_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts)
 
-def test_pfc_unpause(fanouthosts, duthost, conn_graph_facts, leaf_fanouts):
+def test_pfc_unpause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
+    duthost = duthosts[rand_one_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, pause_time=0)
 
-def test_fc_pause(fanouthosts, duthost, conn_graph_facts, leaf_fanouts):
+def test_fc_pause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run FC pause frame (pause time quanta > 0) tests """
+    duthost = duthosts[rand_one_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=False)
 
-def test_fc_unpause(fanouthosts, duthost, conn_graph_facts, leaf_fanouts):
+def test_fc_unpause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
     """ @Summary: Run FC pause frame (pause time quanta = 0) tests """
+    duthost = duthosts[rand_one_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)

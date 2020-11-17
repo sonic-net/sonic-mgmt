@@ -6,7 +6,7 @@
   gather_facts: no
   vars_files:
     - vars/azure_storage.yml
-  tasks:
+    - group_vars/all/creds.yml
   roles:
     - { role: vm_set, action: 'start_k8s' }
 

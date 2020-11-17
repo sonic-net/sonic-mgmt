@@ -29,7 +29,8 @@ TMP_PORTS_FILE = '/tmp/ports.json'
 
 
 @pytest.fixture(scope="module")
-def setup(localhost, ptfhost, duthost, upgrade_path_lists):
+def setup(localhost, ptfhost, duthosts, rand_one_dut_hostname, upgrade_path_lists):
+    duthost = duthosts[rand_one_dut_hostname]
     prepare_ptf(ptfhost, duthost)
     yield
     cleanup(localhost, ptfhost, duthost, upgrade_path_lists)
@@ -81,7 +82,8 @@ def prepare_ptf(ptfhost, duthost):
 
 
 @pytest.fixture(scope="module")
-def ptf_params(duthost, nbrhosts, creds):
+def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds):
+    duthost = duthosts[rand_one_dut_hostname]
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     lo_v6_prefix = ""
@@ -139,7 +141,8 @@ def install_sonic(duthost, image_url):
     res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
     return res['ansible_facts']['downloaded_image_version']
 
-def test_upgrade_path(localhost, duthost, ptfhost, upgrade_path_lists, ptf_params, setup):
+def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgrade_path_lists, ptf_params, setup):
+    duthost = duthosts[rand_one_dut_hostname]
     from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')

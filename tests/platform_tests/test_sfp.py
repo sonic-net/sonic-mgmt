@@ -90,7 +90,7 @@ def get_port_map(duthost):
     return port_mapping
 
 
-def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
+def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, conn_graph_facts):
     """
     @summary: Check SFP status and configure SFP
 
@@ -102,6 +102,7 @@ def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
     * show interface transceiver eeprom
     * sfputil reset <interface name>
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_cfg')
         loganalyzer.load_common_config()
@@ -179,7 +180,7 @@ def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
         loganalyzer.analyze(marker)
 
 
-def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
+def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, conn_graph_facts):
     """
     @summary: Check SFP low power mode
 
@@ -188,6 +189,7 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
     * sfputil lpmode off
     * sfputil lpmode on
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_lpm')
         loganalyzer.load_common_config()
@@ -213,10 +215,18 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
 
     logging.info("Try to change SFP lpmode")
     tested_physical_ports = set()
+
+    not_supporting_lpm_physical_ports = set()
     for intf in dev_conn:
         phy_intf = portmap[intf][0]
         if phy_intf in tested_physical_ports:
             logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+            continue
+        sfp_type = duthost.command('redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" type'.format(intf))["stdout"]
+        power_class = duthost.command('redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" ext_identifier'.format(intf))["stdout"]
+        if not "QSFP" in sfp_type or "Power Class 1" in power_class:
+            logging.info("skip testing port {} which doesn't support LPM".format(intf))
+            not_supporting_lpm_physical_ports.add(phy_intf)
             continue
         tested_physical_ports.add(phy_intf)
         logging.info("setting {} physical interface {}".format(intf, phy_intf))
@@ -224,6 +234,9 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
         lpmode_set_result = duthost.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
         assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
     time.sleep(10)
+
+    if len(tested_physical_ports) == 0:
+        pytest.skip("None of the ports supporting LPM, skip the test")
 
     logging.info("Check SFP lower power mode again after changing SFP lpmode")
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
@@ -236,6 +249,9 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
     tested_physical_ports = set()
     for intf in dev_conn:
         phy_intf = portmap[intf][0]
+        if phy_intf in not_supporting_lpm_physical_ports:
+            logging.info("skip testing port {} which doesn't support LPM".format(intf))
+            continue
         if phy_intf in tested_physical_ports:
             logging.info("skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
             continue

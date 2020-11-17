@@ -70,7 +70,8 @@ FAN_NAMING_RULE = {
     "psu_fan": {
         "name": "psu_{}_fan_1",
         "speed": "psu{}_fan1_speed_get",
-        "power_status": "psu{}_pwr_status"
+        "power_status": "psu{}_pwr_status",
+        "max_speed": "psu_fan_max",
     }
 }
 
@@ -440,7 +441,10 @@ class FanData:
         :return: Max speed of this FAN or -1 if max speed is not available.
         """
         if self.max_speed_file:
-            max_speed = self.helper.read_thermal_value(self.max_speed_file)
+            if 'psu' not in self.max_speed_file:
+                max_speed = self.helper.read_thermal_value(self.max_speed_file)
+            else:
+                max_speed = self.helper.read_value(os.path.join('/run/hw-management/config', self.max_speed_file))
             return int(max_speed)
         else:
             return -1
@@ -699,15 +703,14 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         for index in range(1, psu_count + 1):
             try:
                 fan_data = FanData(self.mock_helper, naming_rule, index)
-                # PSU fan speed display PWM not percentage, it should not be less than 100
-                speed = random.randint(101, RandomFanStatusMocker.PSU_FAN_MAX_SPEED)
+                speed = random.randint(60, 100)
                 fan_data.mock_speed(speed)
 
                 self.expected_data[fan_data.name] = [
                     'N/A',
                     '',
                     fan_data.name,
-                    '{}RPM'.format(fan_data.mocked_speed),
+                    '{}%'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
                     'Present',
                     'OK'

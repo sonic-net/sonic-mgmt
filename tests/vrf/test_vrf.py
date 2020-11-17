@@ -338,11 +338,13 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
 
 # fixtures
 @pytest.fixture(scope="module")
-def host_facts(duthost):
+def host_facts(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     return get_host_facts(duthost)
 
 @pytest.fixture(scope="module")
-def cfg_facts(duthost):
+def cfg_facts(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     return get_cfg_facts(duthost)
 
 def restore_config_db(localhost, duthost, ptfhost):
@@ -361,7 +363,8 @@ def restore_config_db(localhost, duthost, ptfhost):
         cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vrf(tbinfo, duthost, ptfhost, localhost, host_facts):
+def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, host_facts):
+    duthost = duthosts[rand_one_dut_hostname]
 
     # backup config_db.json
     duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
@@ -432,7 +435,8 @@ def partial_ptf_runner(request, ptfhost, tbinfo, host_facts):
 
 # tests
 class TestVrfCreateAndBind():
-    def test_vrf_in_kernel(self, duthost, cfg_facts):
+    def test_vrf_in_kernel(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in kernel
         res = duthost.shell("ip link show type vrf | grep Vrf")
 
@@ -444,7 +448,8 @@ class TestVrfCreateAndBind():
                 res = duthost.shell("ip link show %s" % intf)
                 assert vrf in res['stdout'], "The master dev of interface %s should be %s !" % (intf, vrf)
 
-    def test_vrf_in_appl_db(self, duthost, cfg_facts):
+    def test_vrf_in_appl_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in app_db
         for vrf in cfg_facts['VRF'].keys():
             res = duthost.shell("redis-cli -n 0 keys VRF_TABLE:%s" % vrf)
@@ -455,7 +460,8 @@ class TestVrfCreateAndBind():
                 res = duthost.shell("redis-cli -n 0 hgetall \"INTF_TABLE:%s\"" % intf)
                 assert vrf in res['stdout'], "The vrf of interface %s should be %s !" % (intf, vrf)
 
-    def test_vrf_in_asic_db(self, duthost, cfg_facts):
+    def test_vrf_in_asic_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in asic_db
         vrf_count = len(cfg_facts['VRF'].keys()) + 1  # plus default virtual router
         res = duthost.shell("redis-cli -n 1 keys *VIRTUAL_ROUTER*")
@@ -463,7 +469,8 @@ class TestVrfCreateAndBind():
 
 
 class TestVrfNeigh():
-    def test_ping_lag_neigh(self, duthost, cfg_facts):
+    def test_ping_lag_neigh(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         for neigh in cfg_facts['BGP_NEIGHBOR']:
             if '|' not in neigh:
                 continue
@@ -478,7 +485,8 @@ class TestVrfNeigh():
 
             duthost.shell(cmd)
 
-    def test_ping_vlan_neigh(self, duthost):
+    def test_ping_vlan_neigh(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         for (vrf, _), neigh_ips in g_vars['vlan_peer_ips'].iteritems():
             for ver, ips in neigh_ips.iteritems():
                 ping_cmd = 'ping' if ver == 'ipv4' else 'ping6'
@@ -515,7 +523,8 @@ class TestVrfFib():
                     dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file='/tmp/vrf2_fib.txt')
 
-    def test_show_bgp_summary(self, duthost, cfg_facts):
+    def test_show_bgp_summary(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         props = g_vars['props']
         route_count = props['podset_number'] * props['tor_number'] * props['tor_subnet_number']
 
@@ -601,7 +610,8 @@ class TestVrfAclRedirect():
     c_vars = {}
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_redirect(self, duthost, cfg_facts):
+    def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
 
         # make sure neighs from Vlan2000 are resolved
@@ -709,7 +719,8 @@ class TestVrfLoopbackIntf():
     announce_prefix = '10.10.10.0/26'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_loopback(self, duthost, ptfhost, cfg_facts, tbinfo):
+    def setup_vrf_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts, tbinfo):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         lb0_ip_facts = get_intf_ips('Loopback0', cfg_facts)
         vlan1000_ip_facts = get_intf_ips('Vlan1000', cfg_facts)
@@ -744,7 +755,8 @@ class TestVrfLoopbackIntf():
         # routes on ptf could be flushed when remove vrfs
         duthost.shell("sysctl -w net.ipv6.ip_nonlocal_bind=0")
 
-    def test_ping_vrf1_loopback(self, ptfhost, duthost):
+    def test_ping_vrf1_loopback(self, ptfhost, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         for ver, ips in self.c_vars['lb0_ip_facts'].iteritems():
             for ip in ips:
                 if ip.version == 4:
@@ -757,7 +769,8 @@ class TestVrfLoopbackIntf():
                     neigh_ip6 = self.c_vars['vlan1000_ip_facts']['ipv6'][0].ip + 1
                     duthost.shell("ping6 {} -I Vrf1 -I {} -c 3 -f -W2".format(neigh_ip6, ip.ip))
 
-    def test_ping_vrf2_loopback(self, ptfhost, duthost):
+    def test_ping_vrf2_loopback(self, ptfhost, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         for ver, ips in self.c_vars['lb2_ip_facts'].iteritems():
             for ip in ips:
                 if ip.version == 4:
@@ -771,7 +784,8 @@ class TestVrfLoopbackIntf():
                     duthost.shell("ping6 {} -I Vrf2 -I {} -c 3 -f -W2".format(neigh_ip6, ip.ip))
 
     @pytest.fixture
-    def setup_bgp_with_loopback(self, duthost, ptfhost, cfg_facts):
+    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
 
         # ----------- Setup ----------------
 
@@ -857,7 +871,8 @@ class TestVrfLoopbackIntf():
         #duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
 
     @pytest.mark.usefixtures('setup_bgp_with_loopback')
-    def test_bgp_with_loopback(self, duthost, cfg_facts):
+    def test_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         peer_range = IPNetwork(cfg_facts['BGP_PEER_RANGE']['BGPSLBPassive']['ip_range'][0])
         ptf_speaker_ip = IPNetwork("{}/{}".format(peer_range[1], peer_range.prefixlen))
 
@@ -888,7 +903,8 @@ class TestVrfWarmReboot():
         #FIXME Might need cold reboot if test failed?
         pass
 
-    def test_vrf_swss_warm_reboot(self, duthost, cfg_facts, partial_ptf_runner):
+    def test_vrf_swss_warm_reboot(self, duthosts, rand_one_dut_hostname, cfg_facts, partial_ptf_runner):
+        duthost = duthosts[rand_one_dut_hostname]
         # enable swss warm-reboot
         duthost.shell("config warm_restart enable swss")
 
@@ -934,7 +950,8 @@ class TestVrfWarmReboot():
         assert wait_until(300, 20, check_interface_status, duthost, up_ports), \
                "All interfaces should be up!"
 
-    def test_vrf_system_warm_reboot(self, duthost, localhost, cfg_facts, partial_ptf_runner):
+    def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner):
+        duthost = duthosts[rand_one_dut_hostname]
         exc_que = Queue.Queue()
         params = {
             'ptf_runner': partial_ptf_runner,
@@ -1008,7 +1025,7 @@ class TestVrfCapacity():
         return sorted(random.sample(xrange(1, vrf_count+1), min(test_count, vrf_count)))
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_capacity(self, duthost, ptfhost, localhost, cfg_facts, vrf_count, random_vrf_list, request):
+    def setup_vrf_capacity(self, duthosts, rand_one_dut_hostname, ptfhost, localhost, cfg_facts, vrf_count, random_vrf_list, request):
         """
         Setup $VRF_CAPACITY(minus global VRF and Vrf1/Vrf2) vrfs,
         2 vlan interfaces per vrf,
@@ -1025,6 +1042,7 @@ class TestVrfCapacity():
         ...
 
         """
+        duthost = duthosts[rand_one_dut_hostname]
 
         # -------- Setup ----------
 
@@ -1160,7 +1178,8 @@ class TestVrfCapacity():
 
         duthost.shell("logger -p INFO -- '-------- {} end!!! ---------'".format(request.cls.__name__))
 
-    def test_ping(self, duthost, random_vrf_list):
+    def test_ping(self, duthosts, rand_one_dut_hostname, random_vrf_list):
+        duthost = duthosts[rand_one_dut_hostname]
         dut_extra_vars = {
             'vrf_name_tpl':     self.vrf_name_tpl,
             'random_vrf_list':  random_vrf_list,
@@ -1194,7 +1213,8 @@ class TestVrfUnbindIntf():
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_unbindintf(self, duthost, ptfhost, tbinfo, cfg_facts):
+    def setup_vrf_unbindintf(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.shell("config interface vrf unbind PortChannel0001")
 
@@ -1216,7 +1236,8 @@ class TestVrfUnbindIntf():
                 duthost.shell("config interface ip add PortChannel0001 {}".format(ip))
 
     @pytest.fixture(scope='class')
-    def setup_vrf_rebind_intf(self, duthost, cfg_facts):
+    def setup_vrf_rebind_intf(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         self.rebind_intf(duthost)
         self.c_vars['rebind_intf'] = False  # Mark to skip rebind interface during teardown
 
@@ -1224,13 +1245,15 @@ class TestVrfUnbindIntf():
         assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
                "Bgp sessions should be re-estabalished after Portchannel0001 rebind to Vrf"
 
-    def test_pc1_ip_addr_flushed(self, duthost):
+    def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         ip_addr_show = duthost.shell("ip addr show PortChannel0001")['stdout']
         for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0001'].iteritems():
             for ip in ips:
                 assert str(ip) not in ip_addr_show, "The ip addresses on PortChannel0001 should be flushed after unbind from vrf."
 
-    def test_pc1_neigh_flushed(self, duthost):
+    def test_pc1_neigh_flushed(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         # verify ipv4
         show_arp = duthost.shell("show arp")['stdout']
         assert 'PortChannel0001' not in show_arp, "The arps on PortChannel0001 should be flushed after unbind from vrf."
@@ -1341,7 +1364,8 @@ class TestVrfDeletion():
                     duthost.shell("config interface ip add {} {}".format(intf, ip))
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_deletion(self, duthost, ptfhost, tbinfo, cfg_facts):
+    def setup_vrf_deletion(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                     dst_intfs=['PortChannel0001', 'PortChannel0002'],
@@ -1366,7 +1390,8 @@ class TestVrfDeletion():
             wait_until(120, 10, check_bgp_facts, duthost, cfg_facts)
 
     @pytest.fixture(scope='class')
-    def setup_vrf_restore(self, duthost, cfg_facts):
+    def setup_vrf_restore(self, duthosts, rand_one_dut_hostname, cfg_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         self.restore_vrf(duthost)
         self.c_vars['restore_vrf'] = False  # Mark to skip restore vrf during teardown
 
@@ -1374,23 +1399,28 @@ class TestVrfDeletion():
         assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
                "Bgp sessions should be re-estabalished after restore Vrf1"
 
-    def test_pc1_ip_addr_flushed(self, duthost):
+    def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
         assert 'PortChannel0001' not in show_interfaces, "The ip addr of PortChannel0001 should be flushed after Vrf1 is deleted."
 
-    def test_pc2_ip_addr_flushed(self, duthost):
+    def test_pc2_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
         assert 'PortChannel0002' not in show_interfaces, "The ip addr of PortChannel0002 should be flushed after Vrf1 is deleted."
 
-    def test_vlan1000_ip_addr_flushed(self, duthost):
+    def test_vlan1000_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
         assert 'Vlan1000' not in show_interfaces, "The ip addr of Vlan1000 should be flushed after Vrf1 is deleted."
 
-    def test_loopback0_ip_addr_flushed(self, duthost):
+    def test_loopback0_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
         assert 'Loopback0' not in show_interfaces, "The ip addr of Loopback0 should be flushed after Vrf1 is deleted."
 
-    def test_vrf1_neighs_flushed(self, duthost):
+    def test_vrf1_neighs_flushed(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         ip_neigh_show = duthost.shell("ip neigh show vrf Vrf1", module_ignore_errors=True)['stdout']
         assert '' == ip_neigh_show, "The neighbors on Vrf1 should be flushed after Vrf1 is deleted."
 

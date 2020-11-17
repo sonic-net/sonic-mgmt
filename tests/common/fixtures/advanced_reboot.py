@@ -39,6 +39,14 @@ class AdvancedReboot:
             "Please set rebootType var."
         )
 
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            self.kvmTest = True
+            device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
+            if 'vs' not in device_marks:
+                pytest.skip('Testcase not supported for kvm')
+        else:
+            self.kvmTest = False
+
         self.request = request
         self.duthost = duthost
         self.ptfhost = ptfhost
@@ -71,6 +79,13 @@ class AdvancedReboot:
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
         self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
+
+        # Set default reboot limit if it is not given
+        if self.rebootLimit is None:
+            if self.kvmTest:
+                self.rebootLimit = 150 # Default reboot limit for kvm
+            else:
+                self.rebootLimit = 30 # Default reboot limit for physical devices
 
     def getHostMaxLen(self):
         '''
@@ -512,7 +527,7 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthost, ptfhost, localhost, tbinfo, creds):
+def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -521,6 +536,7 @@ def get_advanced_reboot(request, duthost, ptfhost, localhost, tbinfo, creds):
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
     '''
+    duthost = duthosts[rand_one_dut_hostname]
     instances = []
 
     def get_advanced_reboot(**kwargs):

@@ -8,8 +8,9 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_lldp(duthost, localhost, collect_techsupport):
+def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """
+    duthost = duthosts[rand_one_dut_hostname]
 
     mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     lldp_facts = duthost.lldp()['ansible_facts']
@@ -31,9 +32,10 @@ def test_lldp(duthost, localhost, collect_techsupport):
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
 
-def test_lldp_neighbor(duthost, localhost, eos,
+def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
                        collect_techsupport, loganalyzer):
     """ verify LLDP information on neighbors """
+    duthost = duthosts[rand_one_dut_hostname]
 
     if loganalyzer:
         loganalyzer.ignore_regex.extend([
@@ -75,6 +77,7 @@ def test_lldp_neighbor(duthost, localhost, eos,
         # Verify the published DUT system description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
         # Verify the published DUT port id field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == mg_facts['minigraph_ports'][k]['name']
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == mg_facts['minigraph_ports'][k]['alias']
         # Verify the published DUT port description field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == mg_facts['minigraph_ports'][k]['alias']
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
+                "%s:%s" % (mg_facts['minigraph_neighbors'][k]['name'], mg_facts['minigraph_neighbors'][k]['port'])

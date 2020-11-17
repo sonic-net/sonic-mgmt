@@ -24,7 +24,7 @@ def ixia_api_serv_ip(tbinfo):
 
 
 @pytest.fixture(scope = "module")
-def ixia_api_serv_user(duthost):
+def ixia_api_serv_user(duthosts, rand_one_dut_hostname):
     """
     Return the username of Ixia API server.
 
@@ -34,11 +34,12 @@ def ixia_api_serv_user(duthost):
     Returns:
         Ixia API server username.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['user']
 
 
 @pytest.fixture(scope = "module")
-def ixia_api_serv_passwd(duthost):
+def ixia_api_serv_passwd(duthosts, rand_one_dut_hostname):
     """
     Return the password of Ixia API server.
 
@@ -48,11 +49,12 @@ def ixia_api_serv_passwd(duthost):
     Returns:
         Ixia API server password.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['password']
 
 
 @pytest.fixture(scope = "module")
-def ixia_api_serv_port(duthost):
+def ixia_api_serv_port(duthosts, rand_one_dut_hostname):
     """
     This fixture returns the TCP port for REST API of the ixia API server.
 
@@ -62,11 +64,12 @@ def ixia_api_serv_port(duthost):
     Returns:
         Ixia API server REST port.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['rest_port']
 
 
 @pytest.fixture(scope = "module")
-def ixia_api_serv_session_id(duthost):
+def ixia_api_serv_session_id(duthosts, rand_one_dut_hostname):
     """
     Ixia API server can spawn multiple session on the same REST port.
     Optional for LINUX, required for windows return the session ID.
@@ -77,11 +80,12 @@ def ixia_api_serv_session_id(duthost):
     Returns:
         Ixia API server session id.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['session_id']
 
 
 @pytest.fixture(scope = "module")
-def ixia_dev(duthost, fanouthosts):
+def ixia_dev(duthosts, rand_one_dut_hostname, fanouthosts):
     """
     Returns the Ixia chassis IP. This fixture can return multiple IPs if
     multiple Ixia chassis are present in the test topology.
@@ -93,6 +97,7 @@ def ixia_dev(duthost, fanouthosts):
     Returns:
         Dictionary of Ixia Chassis IP/IPs.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     result = dict()
     ixia_dev_hostnames = fanouthosts.keys()
     for hostname in ixia_dev_hostnames:

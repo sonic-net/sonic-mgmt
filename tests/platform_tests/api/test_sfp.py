@@ -444,11 +444,11 @@ class TestSfpApi(PlatformApiTestBase):
             except Exception:
                 pytest.fail("SFP {}: num_thermals is not an integer".format(sfp_id))
 
-            thermal_list = sfp.get_all_thermals(platform_api_conn, i)
+            thermal_list = sfp.get_all_thermals(platform_api_conn, sfp_id)
             pytest_assert(thermal_list is not None, "Failed to retrieve thermals for sfp {}".format(sfp_id))
             pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect for sfp {}".format(sfp_id))
 
             for thermal_index in range(num_thermals):
-                thermal = sfp.get_thermal(platform_api_conn, i, thermal_index)
-                self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
+                thermal = sfp.get_thermal(platform_api_conn, sfp_id, thermal_index)
+                self.expect(thermal and thermal == thermal_list[thermal_index], "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()
