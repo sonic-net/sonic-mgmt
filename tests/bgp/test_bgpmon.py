@@ -1,6 +1,6 @@
 import pytest
 import logging
-from netaddr import IPAddress, IPNetwork
+from netaddr import IPNetwork
 import ptf.testutils as testutils
 from jinja2 import Template
 import ptf.packet as scapy
@@ -35,8 +35,8 @@ def route_through_default_routes(host, ip_addr):
 
 def generate_ip_through_default_route(host):
     # Generate an IP address routed through default routes
-    ip_addrs = generate_ips(200, "200.0.0.1/24", [])
-    for ip_addr in ip_addrs:
+    for leading in range(11, 255):
+        ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), [])[0]
         if route_through_default_routes(host, ip_addr):
             return ip_addr
     return None
@@ -82,7 +82,6 @@ def common_setup_teardown(duthost, ptfhost):
     # Cleanup bgp monitor
     duthost.shell("redis-cli -n 4 -c DEL 'BGP_MONITORS|{}'".format(peer_addr))
     duthost.file(path=BGPMON_CONFIG_FILE, state='absent')
-
 
 def build_syn_pkt(local_addr, peer_addr):
     pkt = testutils.simple_tcp_packet(
@@ -130,4 +129,25 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter):
     duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
     # Verify syn packet on ptf
     testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
+
+def test_bgpmon_no_resolve_via_default(duthost, common_setup_teardown, ptfadapter):
+    """
+    Verify no syn for BGP is sent when 'ip nht resolve-via-default' is disabled.
+    """
+    local_addr, peer_addr, peer_ports = common_setup_teardown
+    exp_packet = build_syn_pkt(local_addr, peer_addr)
+    # Load bgp monitor config
+    logger.info("Configured bgpmon and verifying no packet on {} when resolve-via-default is disabled".format(peer_ports))
+    try:
+        # Disable resolve-via-default
+        duthost.command("vtysh -c \"configure terminal\" \
+                        -c \"no ip nht resolve-via-default\"")
+        duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
+        # Verify no syn packet is received
+        pytest_assert(0 == testutils.count_matched_packets_all_ports(test=ptfadapter, exp_packet=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT),
+                     "Syn packets is captured when resolve-via-default is disabled")
+    finally:
+        # Re-enable resolve-via-default
+        duthost.command("vtysh -c \"configure terminal\" \
+                        -c \"ip nht resolve-via-default\"")
 
