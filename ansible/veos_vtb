@@ -124,9 +124,6 @@ all:
           type: simx
           hwsku: MSN3700
 
-
-
-
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
   vars:
