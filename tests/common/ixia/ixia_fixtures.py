@@ -1,3 +1,4 @@
+from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
 """
 This module contains the necessary fixtures for running test cases with
 Ixia devices and IxNetwork. If more fixtures are required, they should be
@@ -145,3 +146,25 @@ def ixia_api_server_session(
 
     ixNetwork.NewConfig()
     session.Session.remove()
+
+@pytest.fixture(scope = "function")
+def api (ixia_api_serv_ip,
+         ixia_api_serv_user,
+         ixia_api_serv_passwd,
+         ixia_api_serv_port,
+         ixia_api_serv_session_id) :
+
+    if (ixia_api_serv_session_id.lower() != 'none') :
+        # Currently Tgen APIs do not support to connect to
+        # a specific session ID 
+        pass
+    else: 
+        api_session = IxNetworkApi(address=ixia_api_serv_ip, 
+                                   port=ixia_api_serv_port,
+                                   username=ixia_api_serv_user,
+                                   password=ixia_api_serv_passwd)
+
+    yield api_session
+
+    api_session.assistant.Session.remove()
+
