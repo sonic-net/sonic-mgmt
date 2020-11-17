@@ -134,7 +134,7 @@ class LagTest:
         iface_behind_lag_member = []
         for neighbor_intf in self.vm_neighbors.keys():
             if peer_device == self.vm_neighbors[neighbor_intf]['name']:
-                iface_behind_lag_member.append(self.mg_facts['minigraph_ptf_indeces'][neighbor_intf])
+                iface_behind_lag_member.append(self.mg_facts['minigraph_ptf_indices'][neighbor_intf])
 
         neighbor_lag_intfs = []
         for po_intf in po_interfaces:
