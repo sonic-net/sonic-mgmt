@@ -76,7 +76,7 @@ def crm_thresholds(duthosts, rand_one_dut_hostname):
 def crm_interface(duthosts, rand_one_dut_hostname):
     """ Return tuple of two DUT interfaces """
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts()
 
     if len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
         crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]

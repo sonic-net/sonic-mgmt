@@ -181,7 +181,7 @@ class ContinuousReboot:
         """
         logging.info("Check BGP neighbors status. Expected state - established")
         bgp_facts = self.duthost.bgp_facts()['ansible_facts']
-        mg_facts  = self.duthost.minigraph_facts(host=self.duthost.hostname)['ansible_facts']
+        mg_facts  = self.duthost.get_extended_minigraph_facts()
 
         for value in bgp_facts['bgp_neighbors'].values():
             # Verify bgp sessions are established

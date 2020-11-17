@@ -25,7 +25,7 @@ def setup(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     hwsku = duthost.facts['hwsku']
-    minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    minigraph_facts = duthost.get_extended_minigraph_facts()
     port_alias_facts = duthost.port_alias(hwsku=hwsku)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()

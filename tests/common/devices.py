@@ -1098,9 +1098,13 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return DEFAULT_NAMESPACE
         return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
-    def get_extended_minigraph_facts(self, tbinfo):
+    def get_extended_minigraph_facts(self, tbinfo=None):
         mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
+
+        if not tbinfo:
+            # Allow caller to not care for the ptf indices mapping
+            return mg_facts
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
         # multiple DUTs sharing a same PTF host. Therefore, the indeces from

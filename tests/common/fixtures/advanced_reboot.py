@@ -62,7 +62,7 @@ class AdvancedReboot:
         self.vlanMaxCnt = 0
         self.hostMaxCnt = HOST_MAX_COUNT
 
-        self.__buildTestbedData()
+        self.__buildTestbedData(tbinfo)
 
     def __extractTestParam(self):
         '''
@@ -118,12 +118,12 @@ class AdvancedReboot:
         '''
         return self.tbinfo['topo']['name']
 
-    def __buildTestbedData(self):
+    def __buildTestbedData(self, tbinfo):
         '''
         Build testbed data that are needed by ptf advanced-reboot.ReloadTest class
         '''
 
-        self.mgFacts = self.duthost.minigraph_facts(host=self.duthost.hostname)['ansible_facts']
+        self.mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
 
         self.rebootData['arista_vms'] = [
             attr['mgmt_addr'] for dev, attr in self.mgFacts['minigraph_devices'].items() if attr['hwsku'] == 'Arista-VM'
@@ -307,7 +307,7 @@ class AdvancedReboot:
         testDataFiles = [
             {'source' : self.mgFacts['minigraph_portchannels'], 'name' : 'portchannel_interfaces'},
             {'source' : self.mgFacts['minigraph_vlans'],        'name' : 'vlan_interfaces'       },
-            {'source' : self.mgFacts['minigraph_port_indices'], 'name' : 'ports'                 },
+            {'source' : self.mgFacts['minigraph_ptf_indices'],  'name' : 'ports'                 },
             {'source' : self.mgFacts['minigraph_devices'],      'name' : 'peer_dev_info'         },
             {'source' : self.mgFacts['minigraph_neighbors'],    'name' : 'neigh_port_info'       },
         ]

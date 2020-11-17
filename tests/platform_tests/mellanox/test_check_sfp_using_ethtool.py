@@ -46,7 +46,7 @@ def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_fac
                     "Unexpected line %s in %s" % (line, str(ethtool_sfp_output["stdout_lines"]))
 
     logging.info("Check interface status")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts()
     intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])

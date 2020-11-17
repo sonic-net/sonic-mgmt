@@ -13,7 +13,7 @@ def test_interfaces(duthosts, enum_dut_hostname):
 
     duthost    = duthosts[enum_dut_hostname]
     host_facts = duthost.setup()['ansible_facts']
-    mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts   = duthost.get_extended_minigraph_facts()
 
     verify_port(host_facts, mg_facts['minigraph_portchannels'].keys())
     for k, v in mg_facts['minigraph_portchannels'].items():

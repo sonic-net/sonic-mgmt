@@ -21,7 +21,7 @@ def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """
     duthost = duthosts[rand_one_dut_hostname]
 
-    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts  = duthost.get_extended_minigraph_facts()
     lldp_facts = duthost.lldp()['ansible_facts']
 
     minigraph_lldp_nei = {}
@@ -55,7 +55,7 @@ def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
                 not sent since it contain invalid OIDs, bug.*",
         ])
 
-    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts  = duthost.get_extended_minigraph_facts()
     res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
     lldp_facts = duthost.lldp()['ansible_facts']

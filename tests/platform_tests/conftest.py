@@ -26,7 +26,7 @@ def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     yield
     if request.node.rep_call.failed:
-        mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        mg_facts = duthost.get_extended_minigraph_facts()
         ports = mg_facts['minigraph_ports'].keys()
 
         # Enable outer interfaces

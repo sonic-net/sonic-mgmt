@@ -38,7 +38,7 @@ def test_po_update(duthosts, rand_one_dut_hostname):
     test port channel add/deletion as well ip address configuration
     """
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts()
     int_facts = duthost.interface_facts()['ansible_facts']
 
     # Initialize portchannel
