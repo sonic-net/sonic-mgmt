@@ -27,6 +27,8 @@ all:
           ansible_host: 10.64.246.139
         vms17-8:
           ansible_host: 10.64.246.140
+        vms17-9:
+          ansible_host: 10.64.246.142  
         vms18-1:
           ansible_host: 10.64.246.141
         vms20-6:
@@ -71,6 +73,8 @@ fanout:
       ansible_host: 10.3.147.21
     str2-7260cx3-acs-fan-13:
       ansible_host: 10.3.147.14
+    str2-7260cx3-acs-fan-14:
+      ansible_host: 10.3.146.142
     str2-7260cx3-64-19:
       ansible_host: 10.3.146.150
     str2-7263CX3-azd-01:
@@ -91,6 +95,7 @@ sonic:
     sonic_dx010_100:
     sonic_nexus_3164:
     sonic_mlnx_4600C:
+    sonic_arista64_100:
 
 sonic_mlnx:
   vars:
@@ -193,3 +198,11 @@ sonic_dx010_100:
   hosts:
     str2-dx010-acs-6:
       ansible_host: 10.64.246.100
+
+sonic_arista64_100:
+  vars:
+    iface_speed: 100000
+  hosts:
+    str2-7260cx3-acs-9:
+      ansible_host: 10.3.146.137
+      hwsku: Arista-7260CX3-D108C8
