@@ -36,7 +36,8 @@ DUMMY_ASN2 = 64102
 
 
 @pytest.fixture
-def disable_enable_bbr(duthost):
+def disable_enable_bbr(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     bgp_bbr_config = Template(open("./bgp/templates/bgp_bbr_config.json.j2").read())
 
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
@@ -52,7 +53,8 @@ def disable_enable_bbr(duthost):
 
 
 @pytest.fixture(scope='module')
-def setup(duthost, tbinfo, nbrhosts):
+def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
+    duthost = duthosts[rand_one_dut_hostname]
     if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
 
@@ -250,19 +252,22 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         .format(str(route), json.dumps(failed_results, indent=2)))
 
 
-def test_bbr_enabled_dut_asn_in_aspath(duthost, nbrhosts, setup, announce_withdraw_route):
+def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, announce_withdraw_route):
+    duthost = duthosts[rand_one_dut_hostname]
     bbr_route, bbr_route_v6 = announce_withdraw_route
     for route in (bbr_route, bbr_route_v6):
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True)
 
 
-def test_bbr_enabled_dual_dut_asn_in_aspath(duthost, nbrhosts, setup, announce_withdraw_dual_dut_asn_route):
+def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, announce_withdraw_dual_dut_asn_route):
+    duthost = duthosts[rand_one_dut_hostname]
     bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn = announce_withdraw_dual_dut_asn_route
     for route in (bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn):
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
 
 
-def test_bbr_disabled_dut_asn_in_aspath(duthost, nbrhosts, disable_enable_bbr, setup, announce_withdraw_route):
+def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, disable_enable_bbr, setup, announce_withdraw_route):
+    duthost = duthosts[rand_one_dut_hostname]
     bbr_route, bbr_route_v6 = announce_withdraw_route
     for route in (bbr_route, bbr_route_v6):
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
