@@ -154,8 +154,8 @@ def main():
         if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
         else:
-        # When this script is run on the device, num_asic parameter
-        # is not passed.
+            # When this script is run on the device, num_asic parameter
+            # is not passed.
             from sonic_py_common import multi_asic
             num_asic = multi_asic.get_num_asics()
         for asic_id in range(num_asic):
