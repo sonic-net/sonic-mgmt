@@ -117,8 +117,11 @@ def session(new_params):
         ('ip route add 0.0.0.0/0 via %s table default' % str(new_params['mgmt_gw']), [r'#']),
         ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
-        ('echo NUM_ASIC=%s > /usr/share/sonic/device/x86_64-kvm_x86_64-r0/asic.conf' % (str(new_params['num_asic'])), [r'#']),
     ]
+    # For multi-asic VS testbed swss service will not be running. 
+    # Hence, remove the check for swss service for multi-asic VS.
+    if new_params['num_asic'] > 1:
+        seq.pop(0)
 
     curtime = datetime.datetime.now().isoformat()
     debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)

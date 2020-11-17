@@ -84,21 +84,6 @@ class SonicPortAliasMap():
             return portconfig
         return None
 
-    def get_num_asic(self):
-        num_asic = 1
-        platform = self.get_platform_type()
-        if platform is None:
-            return num_asic
-        asic_conf = os.path.join(FILE_PATH, platform, "asic.conf")
-        if os.path.exists(asic_conf):
-            with open(asic_conf) as f:
-                lines = f.readlines()
-            for line in lines:
-                key, value = line.split("=")
-                if key.strip().upper() == "NUM_ASIC":
-                    num_asic = value.strip()
-        return int(num_asic)
-
     def get_portmap(self, all_ports, asic_id=None):
         aliases = []
         portmap = {}
@@ -164,23 +149,27 @@ def main():
         portspeed = {}
         allmap = SonicPortAliasMap(m_args['hwsku'])
         all_ports = m_args['all_ports']
+        # When this script is invoked on sonic-mgmt docker, num_asic 
+        # parameter is passed.
         if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
         else:
-            num_asic = allmap.get_num_asic()
-        if num_asic == 1:
-            (aliases, portmap, aliasmap, portspeed) = allmap.get_portmap(all_ports)
-        else:
-            for asic_id in range(num_asic):
-                (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(all_ports, asic_id)
-                if aliases_asic is not None:
-                    aliases.extend(aliases_asic)
-                if portmap_asic is not None:
-                    portmap.update(portmap_asic)
-                if aliasmap_asic is not None:
-                    aliasmap.update(aliasmap_asic)
-                if portspeed_asic is not None:
-                    portspeed.update(portspeed_asic)
+        # When this script is run on the device, num_asic parameter
+        # is not passed.
+            from sonic_py_common import multi_asic
+            num_asic = multi_asic.get_num_asics()
+        for asic_id in range(num_asic):
+            if num_asic == 1:
+                asic_id = None
+            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(all_ports, asic_id)
+            if aliases_asic is not None:
+                aliases.extend(aliases_asic)
+            if portmap_asic is not None:
+                portmap.update(portmap_asic)
+            if aliasmap_asic is not None:
+                aliasmap.update(aliasmap_asic)
+            if portspeed_asic is not None:
+                portspeed.update(portspeed_asic)
         module.exit_json(ansible_facts={'port_alias': aliases,
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,

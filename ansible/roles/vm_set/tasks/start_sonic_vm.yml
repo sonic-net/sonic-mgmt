@@ -62,8 +62,3 @@
 - name: Fail if kickstart gives error for {{ dut_name }}
   fail: msg="Start sonic vm weren't succesfull"
   when: kickstart_output.kickstart_code != 0
-
-- name: Reboot sonic-vm to bring up as multi-asic vs {{ num_asic }}
-  command: "virsh reboot {{ dut_name }}"
-  become: yes
-  when: num_asic|int > 1
