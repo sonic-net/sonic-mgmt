@@ -2,13 +2,15 @@
 Test the auto-restart feature of containers
 """
 import logging
-import time
 from collections import defaultdict
 
 import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.dut_ports import decode_dut_port_name
+from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -152,8 +154,7 @@ def get_disabled_container_list(duthost):
     disabled_containers = []
 
     container_status, succeeded = duthost.get_feature_status()
-    if not succeeded:
-        pytest.fail("Failed to get status ('enabled'|'disabled') of containers. Exiting...")
+    pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
     for container_name, status in container_status.items():
         if status == "disabled":
@@ -187,8 +188,7 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
     # Get the exit code of 'kill' command
     exit_code = kill_cmd_result["rc"]
-    if exit_code != 0:
-        pytest.fail("Failed to stop program '{}' before test".format(program_name))
+    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
 
     logger.info("Program '{}' in container '{}' was stopped successfully"
                 .format(program_name, container_name))
@@ -280,6 +280,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logger.info("Restart the program '{}' in container '{}'".format(program_name, container_name))
     duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
 
+
 def check_all_critical_processes_status(duthost):
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
@@ -288,8 +289,11 @@ def check_all_critical_processes_status(duthost):
 
     return True
 
+def post_test_check(duthost, up_bgp_neighbors):
+    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
 
-def postcheck_critical_processes_status(duthost, container_autorestart_states):
+
+def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
     """
     @summary: Do the post check to see whether all the critical processes are alive after testing
               the autorestart feature.
@@ -299,89 +303,95 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states):
         if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
-    pytest_assert(wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                             CONTAINER_CHECK_INTERVAL_SECS,
-                             check_all_critical_processes_status, duthost), 
-                             "Post checking the healthy of critical processes failed.")
+    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
+                      post_test_check, duthost, up_bgp_neighbors)
 
 
-def test_containers_autorestart(duthosts, rand_one_dut_hostname, tbinfo):
+def run_test_on_single_container(duthost, container_name, tbinfo):
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    disabled_containers = get_disabled_container_list(duthost)
+
+    skip_condition = disabled_containers[:]
+    skip_condition.append("database")
+    if tbinfo["topo"]["type"] != "t0":
+        skip_condition.append("radv")
+
+    # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
+    pytest_require(container_name not in skip_condition,
+                   "Skipping test for container {}".format(container_name))
+
+    is_running = is_container_running(duthost, container_name)
+    pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
+
+    bgp_neighbors = duthost.get_bgp_neighbors()
+    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
+
+    logger.info("Start testing the container '{}'...".format(container_name))
+
+    restore_disabled_state = False
+    if container_autorestart_states[container_name] == "disabled":
+        logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
+        duthost.shell("sudo config feature autorestart {} enabled".format(container_name))
+        restore_disabled_state = True
+
+    # Currently we select 'rsyslogd' as non-critical processes for testing based on
+    # the assumption that every container has an 'rsyslogd' process running and it is not
+    # considered to be a critical process
+    program_status, program_pid = get_program_info(duthost, container_name, "rsyslogd")
+    verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd",
+                                                    program_status, program_pid)
+
+    critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
+    pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
+
+    for critical_process in critical_process_list:
+        # Skip 'dsserve' process since it was not managed by supervisord
+        # TODO: Should remove the following two lines once the issue was solved in the image.
+        if container_name == "syncd" and critical_process == "dsserve":
+            continue
+
+        program_status, program_pid = get_program_info(duthost, container_name, critical_process)
+        verify_autorestart_with_critical_process(duthost, container_name, critical_process,
+                                                 program_status, program_pid)
+        # Sleep 20 seconds in order to let the processes come into live after container is restarted.
+        # We will uncomment the following line once the "extended" mode is added
+        # time.sleep(20)
+        # We are currently only testing one critical process, that is why we use 'break'. Once
+        # we add the "extended" mode, we will remove this statement
+        break
+
+    for critical_group in critical_group_list:
+        group_program_info = get_group_program_info(duthost, container_name, critical_group)
+        for program_name in group_program_info:
+            verify_autorestart_with_critical_process(duthost, container_name, program_name,
+                                                     group_program_info[program_name][0],
+                                                     group_program_info[program_name][1])
+            # We are currently only testing one critical program for each critical group, which is
+            # why we use 'break' statement. Once we add the "extended" mode, we will remove this
+            # statement
+            break
+
+    if restore_disabled_state:
+        logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
+        duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
+
+    if not postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
+        config_reload(duthost)
+        pytest.fail("Some post check failed after testing feature {}".format(container_name))
+
+    logger.info("End of testing the container '{}'".format(container_name))
+
+
+def test_containers_autorestart(duthosts, enum_dut_feature, rand_one_dut_hostname, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    container_autorestart_states = duthost.get_container_autorestart_states()
-    disabled_containers = get_disabled_container_list(duthost)
+    dut_name, feature = decode_dut_port_name(enum_dut_feature)
+    pytest_require(dut_name == rand_one_dut_hostname and feature != "unknown",
+                   "Skip test on dut host {} (chosen {}) feature {}".format(dut_name, rand_one_dut_hostname, feature))
 
-    for container_name in container_autorestart_states.keys():
-        # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
-        if (container_name in disabled_containers or container_name == "database"
-                or (container_name == "radv" and tbinfo["topo"]["type"] != "t0")):
-            logger.warning("Skip testing the container '{}'".format(container_name))
-            continue
+    duthost = duthosts[dut_name]
+    run_test_on_single_container(duthost, feature, tbinfo)
 
-        is_running = is_container_running(duthost, container_name)
-        if not is_running:
-            pytest.fail("Container '{}' is not running. Exiting...".format(container_name))
-
-        logger.info("Start testing the container '{}'...".format(container_name))
-
-        restore_disabled_state = False
-        if container_autorestart_states[container_name] == "disabled":
-            logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
-            duthost.shell("sudo config feature autorestart {} enabled".format(container_name))
-            restore_disabled_state = True
-
-        # Currently we select 'rsyslogd' as non-critical processes for testing based on
-        # the assumption that every container has an 'rsyslogd' process running and it is not
-        # considered to be a critical process
-        program_status, program_pid = get_program_info(duthost, container_name, "rsyslogd")
-        verify_no_autorestart_with_non_critical_process(duthost, container_name, "rsyslogd",
-                                                        program_status, program_pid)
-
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
-        if not succeeded:
-            pytest.fail("Failed to get critical group and process lists of container '{}'".format(container_name))
-
-        for critical_process in critical_process_list:
-            # Skip 'dsserve' process since it was not managed by supervisord
-            # TODO: Should remove the following two lines once the issue was solved in the image.
-            if container_name == "syncd" and critical_process == "dsserve":
-                continue
-
-            program_status, program_pid = get_program_info(duthost, container_name, critical_process)
-            verify_autorestart_with_critical_process(duthost, container_name, critical_process,
-                                                     program_status, program_pid)
-            # Sleep 20 seconds in order to let the processes come into live after container is restarted.
-            # We will uncomment the following line once the "extended" mode is added
-            # time.sleep(20)
-            # We are currently only testing one critical process, that is why we use 'break'. Once
-            # we add the "extended" mode, we will remove this statement
-            break
-
-        for critical_group in critical_group_list:
-            group_program_info = get_group_program_info(duthost, container_name, critical_group)
-            for program_name in group_program_info:
-                verify_autorestart_with_critical_process(duthost, container_name, program_name,
-                                                         group_program_info[program_name][0],
-                                                         group_program_info[program_name][1])
-                # We are currently only testing one critical program for each critical group, which is
-                # why we use 'break' statement. Once we add the "extended" mode, we will remove this
-                # statement
-                break
-
-        # After these two containers are restarted, we need wait to give their dependent containers
-        # a chance to restart
-        if container_name in ["syncd", "swss"]:
-            logger.info("Sleep 20 seconds after testing the container '{}'...".format(container_name))
-            time.sleep(20)
-
-        if restore_disabled_state:
-            logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
-            duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
-
-        logger.info("End of testing the container '{}'".format(container_name))
-
-    postcheck_critical_processes_status(duthost, container_autorestart_states)
