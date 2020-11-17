@@ -9,7 +9,12 @@ def test_bgp_facts(duthosts, enum_dut_hostname, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
 
     duthost = duthosts[enum_dut_hostname]
-    bgp_facts =duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+
+    # Check if duthost is 'supervisor' card, and skip the test if dealing with supervisor card.
+    if duthosts.is_supervisor_node(duthost):
+        pytest.skip("bgp_facts not valid on supervisor card '%s'" % enum_dut_hostname)
+
+    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     config_facts = duthost.config_facts(host=duthost.hostname, source="running",namespace=namespace)['ansible_facts']
 
