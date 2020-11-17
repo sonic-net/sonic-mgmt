@@ -65,6 +65,13 @@ reboot_ctrl_dict = {
     }
 }
 
+def get_warmboot_finalizer_state(duthost):
+    try:
+        res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
+        finalizer_state = res['stdout'].strip()
+    except RunAnsibleModuleFail as err:
+        finalizer_state = err.results
+    return finalizer_state
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, reboot_helper=None, reboot_kwargs=None):
     """
@@ -143,23 +150,27 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
     logger.info('ssh has started up')
 
     logger.info('waiting for switch to initialize')
-    time.sleep(wait)
+
+
+    logger.info('waiting for warmboot-finalizer service to become activating')
+    finalizer_state = get_warmboot_finalizer_state(duthost)
+    while finalizer_state != 'activating':
+        time.sleep(1)
+        dut_datetime_after_ssh = duthost.get_up_time()
+        time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
+        if time_passed > wait:
+            raise Exception('warmboot-finalizer never reached state "activating"')
+        finalizer_state = get_warmboot_finalizer_state(duthost)
+
     DUT_ACTIVE.set()
 
     if reboot_type == 'warm':
         logger.info('waiting for warmboot-finalizer service to finish')
-        res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
-        finalizer_state = res['stdout'].strip()
+        finalizer_state = get_warmboot_finalizer_state(duthost)
         logger.info('warmboot finalizer service state {}'.format(finalizer_state))
-        assert finalizer_state == 'activating'
         count = 0
         while finalizer_state == 'activating':
-            try:
-                res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
-            except RunAnsibleModuleFail as err:
-                res = err.results
-
-            finalizer_state = res['stdout'].strip()
+            finalizer_state = get_warmboot_finalizer_state(duthost)
             logger.info('warmboot finalizer service state {}'.format(finalizer_state))
             time.sleep(delay)
             if count * delay > timeout:
