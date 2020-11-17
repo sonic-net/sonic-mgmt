@@ -163,7 +163,7 @@ class ContinuousReboot:
         logging.info("Check whether transceiver information of all ports are in redis")
         xcvr_info = self.duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
         parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
-        interfaces = self.conn_graph_facts["device_conn"]
+        interfaces = self.conn_graph_facts["device_conn"][self.duthost.hostname]
         for intf in interfaces:
             if intf not in parsed_xcvr_info:
                 raise ContinuousRebootError("TRANSCEIVER INFO of {} is not found in DB".format(intf))
@@ -429,7 +429,7 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
-def test_continuous_reboot(request, duthost, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -450,6 +450,7 @@ def test_continuous_reboot(request, duthost, ptfhost, localhost, conn_graph_fact
         Status of transceivers - ports in lab_connection_graph should be present
         Status of BGP neighbors - should be established
     """
+    duthost = duthosts[rand_one_dut_hostname]
     continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
     continuous_reboot.start_continuous_reboot(request, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()

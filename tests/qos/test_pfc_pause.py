@@ -84,8 +84,8 @@ def run_test_t0(fanouthosts,
         time.sleep(2)
 
         if send_pause:
-            peer_device = conn_graph_facts['device_conn'][dut_intf_paused]['peerdevice']
-            peer_port = conn_graph_facts['device_conn'][dut_intf_paused]['peerport']
+            peer_device = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerdevice']
+            peer_port = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerport']
             peer_port_name = eos_to_linux_intf(peer_port)
             peerdev_ans = fanouthosts[peer_device]
 

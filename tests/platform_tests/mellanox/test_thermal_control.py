@@ -21,13 +21,15 @@ COOLING_CUR_STATE_PATH = '/run/hw-management/thermal/cooling_cur_state'
 COOLING_CUR_STATE_THRESHOLD = 7
 PSU_PRESENCE_PATH = '/run/hw-management/thermal/psu{}_status'
 PSU_SPEED_PATH = '/run/hw-management/thermal/psu{}_fan1_speed_get'
+PSU_MAX_SPEED_PATH = '/run/hw-management/config/psu_fan_max'
 PSU_SPEED_TOLERANCE = 0.25
 
 LOG_EXPECT_CHANGE_MIN_COOLING_LEVEL_RE = '.*Changed minimum cooling level to {}.*'
 
 
 @pytest.mark.disable_loganalyzer
-def test_dynamic_minimum_table(duthost, mocker_factory):
+def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
+    duthost = duthosts[rand_one_dut_hostname]
     air_flow_dirs = ['p2c', 'c2p', 'unk']
     max_temperature = 45000 # 45 C
     cooling_cur_state = get_cooling_cur_state(duthost)
@@ -61,7 +63,8 @@ def test_dynamic_minimum_table(duthost, mocker_factory):
 
 
 @pytest.mark.disable_loganalyzer
-def test_set_psu_fan_speed(duthost, mocker_factory):
+def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
+    duthost = duthosts[rand_one_dut_hostname]
     platform_data = get_platform_data(duthost)
     psu_num = platform_data['psus']['number']
     hot_swappable = platform_data['psus']['hot_swappable']
@@ -75,14 +78,15 @@ def test_set_psu_fan_speed(duthost, mocker_factory):
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, 10, operator.eq), \
         'Current cooling state is {}'.format(get_cooling_cur_state(duthost))
 
-    logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_CHECK_INTERVAL))
-    time.sleep(THERMAL_CONTROL_TEST_CHECK_INTERVAL)
-    full_speeds = []
+    logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_WAIT_TIME))
+    time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
+    psu_max_speed = get_psu_max_speed(duthost)
+    logging.info('Max PSU fan speed is {}'.format(psu_max_speed))
     for index in range(psu_num):
         speed = get_psu_speed(duthost, index)
-        full_speeds.append(speed)
+        logging.info('Speed for PSU {} fan is {}'.format(index, speed))
+        _check_psu_fan_speed_in_range(speed, psu_max_speed, 10)
 
-    logging.info('Full speed={}'.format(full_speeds))
     logging.info('Mock FAN presence...')
     single_fan_mocker.mock_presence()
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, 10, operator.ne), \
@@ -91,28 +95,20 @@ def test_set_psu_fan_speed(duthost, mocker_factory):
     time.sleep(THERMAL_CONTROL_TEST_CHECK_INTERVAL)
     cooling_cur_state = get_cooling_cur_state(duthost)
     logging.info('Cooling level changed to {}'.format(cooling_cur_state))
-    current_speeds = []
+    if cooling_cur_state < 6: # PSU fan speed will never be less than 60%
+        cooling_cur_state = 6
     for index in range(psu_num):
         speed = get_psu_speed(duthost, index)
-        current_speeds.append(speed)
+        logging.info('Speed for PSU {} fan is {}'.format(index, speed))
+        _check_psu_fan_speed_in_range(speed, psu_max_speed, cooling_cur_state)
 
-    logging.info('Current speed={}'.format(current_speeds))
-    index = 0
-    if cooling_cur_state < 6:
-        cooling_cur_state = 6
-    expect_multiple = float(10) / cooling_cur_state
-    while index < psu_num:
-        full_speed = full_speeds[index]
-        current_speed = current_speeds[index]
-        index += 1
-        if not full_speed or not current_speed:
-            continue
 
-        actual_multiple = float(full_speed) / current_speed
-        if expect_multiple > actual_multiple:
-            assert actual_multiple > expect_multiple * (1 - PSU_SPEED_TOLERANCE)
-        elif expect_multiple < actual_multiple:
-            assert actual_multiple < expect_multiple * (1 + PSU_SPEED_TOLERANCE)
+def _check_psu_fan_speed_in_range(actual_speed, max_speed, cooling_level):
+    expect_speed = max_speed * cooling_level / 10.0
+    if expect_speed > actual_speed:
+        assert actual_speed > expect_speed * (1 - PSU_SPEED_TOLERANCE)
+    elif expect_speed < actual_speed:
+        assert actual_speed < expect_speed * (1 + PSU_SPEED_TOLERANCE)
 
 
 def get_psu_speed(dut, index):
@@ -127,6 +123,14 @@ def get_psu_speed(dut, index):
         return int(cmd_output['stdout'])
     except Exception as e:
         assert False, 'Bad content in {} - {}'.format(psu_speed_path, e)
+
+
+def get_psu_max_speed(dut):
+    cmd_output = dut.command('cat {}'.format(PSU_MAX_SPEED_PATH))
+    try:
+        return int(cmd_output['stdout'])
+    except Exception as e:
+        assert False, 'Bad content in {} - {}'.format(PSU_MAX_SPEED_PATH, e)
 
 
 def get_cooling_cur_state(dut):
