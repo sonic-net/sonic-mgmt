@@ -6,6 +6,7 @@ included in this file.
 
 import pytest
 from ixnetwork_restpy import SessionAssistant
+from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
 
 @pytest.fixture(scope = "module")
 def ixia_api_serv_ip(tbinfo):
@@ -145,3 +146,17 @@ def ixia_api_server_session(
 
     ixNetwork.NewConfig()
     session.Session.remove()
+
+@pytest.fixture(scope = "function")
+def ixia_api(ixia_api_serv_ip,
+             ixia_api_serv_port, 
+             ixia_api_serv_user, 
+             ixia_api_serv_passwd):
+
+    api_session = IxNetworkApi(address=ixia_api_serv_ip,
+                               port=ixia_api_serv_port,
+                               username=ixia_api_serv_user,
+                               password=ixia_api_serv_passwd)
+    
+    yield api_session
+    api_session.assistant.Session.remove()
