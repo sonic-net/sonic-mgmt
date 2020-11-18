@@ -151,20 +151,16 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
 
     logger.info('waiting for switch to initialize')
 
-
-    logger.info('waiting for warmboot-finalizer service to become activating')
-    finalizer_state = get_warmboot_finalizer_state(duthost)
-    while finalizer_state != 'activating':
-        time.sleep(1)
-        dut_datetime_after_ssh = duthost.get_up_time()
-        time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
-        if time_passed > wait:
-            raise Exception('warmboot-finalizer never reached state "activating"')
-        finalizer_state = get_warmboot_finalizer_state(duthost)
-
-    DUT_ACTIVE.set()
-
     if reboot_type == 'warm':
+        logger.info('waiting for warmboot-finalizer service to become activating')
+        finalizer_state = get_warmboot_finalizer_state(duthost)
+        while finalizer_state != 'activating':
+            time.sleep(1)
+            dut_datetime_after_ssh = duthost.get_up_time()
+            time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
+            if time_passed > wait:
+                raise Exception('warmboot-finalizer never reached state "activating"')
+            finalizer_state = get_warmboot_finalizer_state(duthost)
         logger.info('waiting for warmboot-finalizer service to finish')
         finalizer_state = get_warmboot_finalizer_state(duthost)
         logger.info('warmboot finalizer service state {}'.format(finalizer_state))
@@ -177,11 +173,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
                 raise Exception('warmboot-finalizer.service did not finish')
             count += 1
         logger.info('warmboot-finalizer service finished')
+    else:
+        time.sleep(wait)
 
+    DUT_ACTIVE.set()
     logger.info('{} reboot finished'.format(reboot_type))
-
     pool.terminate()
-
     dut_uptime = duthost.get_up_time()
     logger.info('DUT up since {}'.format(dut_uptime))
     assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device did not reboot"
