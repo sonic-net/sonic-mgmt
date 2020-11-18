@@ -347,6 +347,29 @@ class SonicHost(AnsibleHostBase):
                 result[fields[0]] = fields[1]
         return result
 
+    def is_supervisor_node(self):
+        """Check if the current node is a supervisor node in case of multi-DUT.
+
+        Returns:
+            Currently, we are using 'type' in the inventory to make the decision. If 'type' for the node is defined in
+            the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
+            logic if possible to derive it from the DUT.
+        """
+        if 'type' in self.host.options["inventory_manager"].get_host(self.hostname).get_vars():
+            node_type = self.host.options["inventory_manager"].get_host(self.hostname).get_vars()["type"]
+            if node_type is not None and node_type == 'supervisor':
+                return True
+        return False
+
+    def is_frontend_node(self):
+        """Check if the current node is a frontend node in case of multi-DUT.
+
+        Returns:
+            True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
+            node. If we add more types of nodes, then we need to exclude them from this method as well.
+        """
+        return not self.is_supervisor_node()
+
     def is_service_fully_started(self, service):
         """
         @summary: Check whether a SONiC specific service is fully started.
@@ -1076,12 +1099,12 @@ class K8sMasterHost(AnsibleHostBase):
 
     def __init__(self, ansible_adhoc, hostname, is_haproxy):
         """ Initialize an object for interacting with Ubuntu KVM using ansible modules
-        
+
         Args:
             ansible_adhoc (): The pytest-ansible fixture
             hostname (string): hostname of the Ubuntu KVM
             is_haproxy (boolean): True if node is haproxy load balancer, False if node is backend master server
-        
+
         """
         self.hostname = hostname
         self.is_haproxy = is_haproxy
@@ -1090,7 +1113,7 @@ class K8sMasterHost(AnsibleHostBase):
             'ansible_become_method': 'enable'
         }
         self.host.options['variable_manager'].extra_vars.update(evars)
-    
+
     def check_k8s_master_ready(self):
         """
         @summary: check if all Kubernetes master node statuses reflect target state "Ready"
@@ -1103,7 +1126,7 @@ class K8sMasterHost(AnsibleHostBase):
             if "NotReady" in line:
                 return False
         return True
-    
+
     def shutdown_api_server(self):
         """
         @summary: Shuts down API server container on one K8sMasterHost server
@@ -1120,7 +1143,7 @@ class K8sMasterHost(AnsibleHostBase):
     def start_api_server(self):
         """
         @summary: Starts API server container on one K8sMasterHost server
-        
+
         """
         self.shell('sudo systemctl start kubelet')
         logging.info("Starting API server on backend master server hostname: {}".format(self.hostname))
@@ -1149,7 +1172,7 @@ class K8sMasterHost(AnsibleHostBase):
 class K8sMasterCluster():
     """
     @summary: Class that encapsulates Kubernetes master cluster
-    
+
     For operating on a group of K8sMasterHost objects that compose one HA Kubernetes master cluster
     """
 
@@ -1158,7 +1181,7 @@ class K8sMasterCluster():
 
         Args:
             k8smasters: fixture that allows retrieval of K8sMasterHost objects
-        
+
         """
         self.backend_masters = []
         for hostname, k8smaster in k8smasters.items():
@@ -1166,27 +1189,27 @@ class K8sMasterCluster():
                 self.haproxy = k8smaster['host']
             else:
                 self.backend_masters.append(k8smaster)
-   
+
     def get_master_vip(self):
         """
         @summary: Retrieve VIP of Kubernetes master cluster
-        
+
         """
         return self.haproxy.mgmt_ip
 
     def shutdown_all_api_server(self):
         """
         @summary: shut down API server on all backend master servers
-        
+
         """
         for k8smaster in self.backend_masters:
             logger.info("Shutting down API Server on master node {}".format(k8smaster['host'].hostname))
             k8smaster['host'].shutdown_api_server()
-    
+
     def start_all_api_server(self):
         """
         @summary: Start API server on all backend master servers
-        
+
         """
         for k8smaster in self.backend_masters:
             logger.info("Starting API server on master node {}".format(k8smaster['host'].hostname))
@@ -1195,7 +1218,7 @@ class K8sMasterCluster():
     def check_k8s_masters_ready(self):
         """
         @summary: Ensure that Kubernetes master is in healthy state
-        
+
         """
         for k8smaster in self.backend_masters:
             assert k8smaster['host'].check_k8s_master_ready()
@@ -1203,11 +1226,11 @@ class K8sMasterCluster():
     def ensure_all_kubelet_running(self):
         """
         @summary: Ensures kubelet is started on all backend masters, start kubelet if necessary
-        
+
         """
         for k8smaster in self.backend_masters:
             k8smaster['host'].ensure_kubelet_running()
-            
+
 
 class EosHost(AnsibleHostBase):
     """
@@ -1649,8 +1672,8 @@ class DutHosts(object):
         """
         # TODO: Initialize the nodes in parallel using multi-threads?
         self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"]])
-        self.supervisor_nodes = self._Nodes([node for node in self.nodes if self.is_supervisor_node(node)])
-        self.frontend_nodes = self._Nodes([node for node in self.nodes if self.is_frontend_node(node)])
+        self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
+        self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
 
     def __getitem__(self, index):
         """To support operations like duthosts[0] and duthost['sonic1_hostname']
@@ -1706,35 +1729,6 @@ class DutHosts(object):
             on that MultiAsicSonicHost
         """
         return getattr(self.nodes, attr)
-
-    def is_supervisor_node(self, node):
-        """ Is node a supervisor node
-
-        Args:
-            node: MultiAsicSonicHost object represent a DUT in the testbed.
-
-        Returns:
-            Currently, we are using 'type' in the inventory to make the decision.
-                if 'type' for the node is defined in the inventory, and it is 'supervisor', then return True, else return False
-            In future, we can change this logic if possible to derive it from the DUT.
-        """
-        if 'type' in node.host.options["inventory_manager"].get_host(node.hostname).get_vars():
-            card_type = node.host.options["inventory_manager"].get_host(node.hostname).get_vars()["type"]
-            if card_type is not None and card_type == 'supervisor':
-                return True
-        return False
-
-    def is_frontend_node(self, node):
-        """ Is not a frontend node
-        Args:
-            node: MultiAsicSonicHost object represent a DUT in the testbed.
-
-        Returns:
-            True if it is not any other type of node.
-            Currently, the only other type of node supported is 'supervisor' node. If we add more types of nodes, then
-            we need to exclude them from this method as well.
-        """
-        return node not in self.supervisor_nodes
 
 
 class FanoutHost(object):
