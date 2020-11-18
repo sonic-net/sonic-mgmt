@@ -51,7 +51,7 @@ class TestWrArp:
         ptfhost.copy(src=VXLAN_CONFIG_FILE, dest='/tmp/')
 
     @pytest.fixture(scope='class', autouse=True)
-    def setupFerret(self, duthost, ptfhost):
+    def setupFerret(self, duthosts, rand_one_dut_hostname, ptfhost):
         '''
             Sets Ferret service on PTF host. This class-scope fixture runs once before test start
 
@@ -62,6 +62,7 @@ class TestWrArp:
             Returns:
                 None
         '''
+        duthost = duthosts[rand_one_dut_hostname]
         ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
 
         '''
@@ -125,13 +126,14 @@ class TestWrArp:
         ptfhost.shell('supervisorctl reread && supervisorctl update')
 
     @pytest.fixture(scope='class', autouse=True)
-    def clean_dut(self, duthost):
+    def clean_dut(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         yield
         logger.info("Clear ARP cache on DUT")
         duthost.command('sonic-clear arp')
 
     @pytest.fixture(scope='class', autouse=True)
-    def setupRouteToPtfhost(self, duthost, ptfhost):
+    def setupRouteToPtfhost(self, duthosts, rand_one_dut_hostname, ptfhost):
         '''
             Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
 
@@ -142,6 +144,7 @@ class TestWrArp:
             Returns:
                 None
         '''
+        duthost = duthosts[rand_one_dut_hostname]
         result = duthost.shell(cmd="ip route show table default | sed -n 's/default //p'")
         assert len(result['stderr_lines']) == 0, 'Could not find the gateway for management port'
 

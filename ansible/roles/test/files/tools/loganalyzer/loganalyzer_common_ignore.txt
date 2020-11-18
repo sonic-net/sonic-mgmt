@@ -1,5 +1,8 @@
 r, ".* ERR ntpd.*routing socket reports: No buffer space available.*"
+r, ".* INFO ntpd.*kernel reports TIME_ERROR: 0x41: Clock Unsynchronized.*"
 r, ".* ERR liblogging-stdlog: omfwd: error 11 sending via udp: Resource temporarily unavailable.*"
 r, ".* ERR syncd#syncd: brcm_sai_get_port_stats:.* port stats get failed with error.*"
 r, ".* NOTICE kernel:.*profile=""/usr/sbin/ntpd"" name=""sbin"" pid=.* comm=""ntpd"" requested_mask=.*"
 r, ".* ERR snmp#snmp-subagent.*"
+r, ".* ERR route_check.py.*"
+r, ".* INFO mgmt-framework#supervisord: rest-server.*"

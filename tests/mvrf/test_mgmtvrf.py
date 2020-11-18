@@ -7,12 +7,16 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from pkg_resources import parse_version
 
 pytestmark = [
     pytest.mark.topology("any")
 ]
 
 logger = logging.getLogger(__name__)
+
+SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
+SONIC_SSH_PORT = 22
 
 
 def restore_config_db(duthost):
@@ -24,25 +28,18 @@ def restore_config_db(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_mvrf(duthost, tbinfo, localhost):
+def setup_mvrf(duthosts, rand_one_dut_hostname, localhost):
     """
     Setup Management vrf configs before the start of testsuite
     """
+    duthost = duthosts[rand_one_dut_hostname]
     # Backup the original config_db without mgmt vrf config
     duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     try:
         logger.info("Configure mgmt vrf")
-        global var
-        global mvrf
-        mvrf = True
-        var = {}
-        var["dut_ip"] = duthost.setup()["ansible_facts"]["ansible_eth0"]["ipv4"]["address"]
-        var["ptf_ip"] = tbinfo["ptf_ip"]
-        var["filename"] = "README.md"
         duthost.command("sudo config vrf add mgmt")
-        SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
-        verify_show_command(duthost)
+        verify_show_command(duthost, mvrf=True)
     except Exception as e:
         logger.error("Exception raised in setup, exception: {}".format(repr(e)))
         restore_config_db(duthost)
@@ -51,18 +48,17 @@ def setup_mvrf(duthost, tbinfo, localhost):
     yield
 
     try:
-        mvrf = False
         logger.info("Unconfigure  mgmt vrf")
         duthost.copy(src="mvrf/config_vrf_del.sh", dest="/tmp/config_vrf_del.sh", mode=0755)
         duthost.shell("nohup /tmp/config_vrf_del.sh < /dev/null > /dev/null 2>&1 &")
-        localhost.wait_for(host=var["dut_ip"],
-                        port=22,
+        localhost.wait_for(host=duthost.mgmt_ip,
+                        port=SONIC_SSH_PORT,
                         state="stopped",
                         search_regex=SONIC_SSH_REGEX,
                         timeout=90)
 
-        localhost.wait_for(host=var["dut_ip"],
-                        port=22,
+        localhost.wait_for(host=duthost.mgmt_ip,
+                        port=SONIC_SSH_PORT,
                         state="started",
                         search_regex=SONIC_SSH_REGEX,
                         timeout=90)
@@ -76,7 +72,6 @@ def setup_mvrf(duthost, tbinfo, localhost):
 def verify_show_command(duthost, mvrf=True):
     show_mgmt_vrf = duthost.shell("show mgmt-vrf")["stdout"]
     mvrf_interfaces = {}
-    logger.debug("show mgmt vrf \n {}".format(show_mgmt_vrf))
     if mvrf:
         mvrf_interfaces["mgmt"] = "\d+:\s+mgmt:\s+<NOARP,MASTER,UP,LOWER_UP> mtu\s+\d+\s+qdisc\s+noqueue\s+state\s+UP"
         mvrf_interfaces["vrf_table"] = "vrf table 5000"
@@ -96,17 +91,21 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = {}
     prefix = ""
     if mvrf:
-        prefix = "sudo cgexec -g l3mdev:mgmt "
+        dut_kernel = duthost.setup()['ansible_facts']['ansible_kernel'].split('-')
+        if parse_version(dut_kernel[0]) > parse_version("4.9.0"):
+            prefix = "sudo ip vrf exec mgmt "
+        else:
+            prefix = "sudo cgexec -g l3mdev:mgmt "
     result = duthost.command(prefix + command, module_ignore_errors=ignore_errors)
     return result
 
 
 class TestMvrfInbound():
-    def test_ping(self, duthost, localhost):
+    def test_ping(self, duthost):
         duthost.ping()
 
-    def test_snmp_fact(self, localhost):
-        localhost.snmp_facts(host=var["dut_ip"], version="v2c", community="public")
+    def test_snmp_fact(self, localhost, duthost, creds):
+        localhost.snmp_facts(host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
 class TestMvrfOutbound():
@@ -119,28 +118,29 @@ class TestMvrfOutbound():
                 return p
 
     @pytest.fixture
-    def setup_http_server(self, localhost, duthost, ptfhost):
+    def setup_http_server(self, localhost, ptfhost):
         # Run a script on PTF to start a temp http server
         server_script_dest_path = "/tmp/temp_http_server.py"
         ptfhost.copy(src="mvrf/temp_http_server.py", dest=server_script_dest_path)
         logger.info("Starting http server on PTF")
         free_port = self.get_free_port(ptfhost)
         ptfhost.command("python {} {}".format(server_script_dest_path, free_port), module_async=True)
-        localhost.wait_for(host=var["ptf_ip"], port=int(free_port), state="started", timeout=30)
+        localhost.wait_for(host=ptfhost.mgmt_ip, port=int(free_port), state="started", timeout=30)
 
-        url = "http://{}:{}".format(var["ptf_ip"], free_port)
+        url = "http://{}:{}".format(ptfhost.mgmt_ip, free_port)
         from temp_http_server import MAGIC_STRING
 
         yield url, MAGIC_STRING
 
         ptfhost.file(path=server_script_dest_path, state="absent")
 
-    def test_ping(self, tbinfo, duthost):
+    def test_ping(self, duthost, ptfhost):
         logger.info("Test OutBound Ping")
-        command = "ping  -c 3 " + var["ptf_ip"]
+        command = "ping  -c 3 " + ptfhost.mgmt_ip
         execute_dut_command(duthost, command, mvrf=True)
 
-    def test_curl(self, duthost, setup_http_server):
+    def test_curl(self, duthosts, rand_one_dut_hostname, setup_http_server):
+        duthost = duthosts[rand_one_dut_hostname]
         logger.info("Test Curl")
 
         url, MAGIC_STRING = setup_http_server
@@ -156,7 +156,8 @@ class TestServices():
         ntp_stat = execute_dut_command(duthost, ntpstat_cmd, mvrf=True, ignore_errors=True)
         return ntp_stat["rc"] == 0
 
-    def test_ntp(self, duthost):
+    def test_ntp(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         force_ntp = "ntpd -gq"
         duthost.service(name="ntp", state="stopped")
         logger.info("Ntp restart in mgmt vrf")
@@ -164,23 +165,22 @@ class TestServices():
         duthost.service(name="ntp", state="restarted")
         pytest_assert(wait_until(100, 10, self.check_ntp_status, duthost), "Ntp not started")
 
-    def test_service_acl(self, duthost, localhost):
+    def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # SSH definitions
         logger.info("test Service acl")
-        SONIC_SSH_PORT = 22
-        SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
-        dut_ip = var["dut_ip"]
+
         duthost.copy(src="mvrf/config_service_acls.sh", dest="/tmp/config_service_acls.sh", mode=0755)
         duthost.shell("nohup /tmp/config_service_acls.sh < /dev/null > /dev/null 2>&1 &")
         time.sleep(5)
         logger.info("waiting for ssh to drop")
-        localhost.wait_for(host=dut_ip,
+        localhost.wait_for(host=duthost.mgmt_ip,
                            port=SONIC_SSH_PORT,
                            state="stopped",
                            search_regex=SONIC_SSH_REGEX,
                            timeout=90)
         logger.info("ssh stopped for few seconds, wait for the ssh to come up")
-        localhost.wait_for(host=dut_ip,
+        localhost.wait_for(host=duthost.mgmt_ip,
                            port=SONIC_SSH_PORT,
                            state="started",
                            search_regex=SONIC_SSH_REGEX,
@@ -190,28 +190,34 @@ class TestServices():
 
 
 class TestReboot():
-    def basic_check_after_reboot(self, duthost, localhost, tbinfo):
+    def basic_check_after_reboot(self, duthost, localhost, ptfhost, creds):
         verify_show_command(duthost)
         inbound_test = TestMvrfInbound()
         outbound_test = TestMvrfOutbound()
-        outbound_test.test_ping(tbinfo, duthost)
-        inbound_test.test_ping(duthost, localhost)
-        inbound_test.test_snmp_fact(localhost)
+        outbound_test.test_ping(duthost=duthost, ptfhost=ptfhost)
+        inbound_test.test_ping(duthost=duthost)
+        inbound_test.test_snmp_fact(localhost=localhost, duthost=duthost, creds=creds)
 
-    def test_warmboot(self, duthost, localhost, tbinfo):
+    @pytest.mark.disable_loganalyzer
+    def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        self.basic_check_after_reboot(duthost, localhost, tbinfo)
+        self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
-    def test_reboot(self, duthost, localhost, tbinfo):
+    @pytest.mark.disable_loganalyzer
+    def test_reboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        self.basic_check_after_reboot(duthost, localhost, tbinfo)
+        self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
-    def test_fastboot(self, duthost, localhost, tbinfo):
+    @pytest.mark.disable_loganalyzer
+    def test_fastboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
         pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        self.basic_check_after_reboot(duthost, localhost, tbinfo)
+        self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)

@@ -31,8 +31,6 @@ pytestmark = [
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
-    if not request.cls.chassis_facts:
-        logger.warning("Unable to get chassis_facts from platform.json, test results will not be comprehensive")
 
 
 @pytest.mark.usefixtures("gather_facts")
@@ -48,19 +46,21 @@ class TestSfpApi(PlatformApiTestBase):
 
     EXPECTED_XCVR_INFO_KEYS = [
         'type',
-        'hardware_rev',
-        'serial',
         'manufacturer',
         'model',
+        'hardware_rev',
+        'serial',
+        'vendor_oui',
+        'vendor_date',
         'connector',
         'encoding',
         'ext_identifier',
         'ext_rateselect_compliance',
+        'cable_type',
         'cable_length',
-        'nominal_bit_rate',
         'specification_compliance',
-        'vendor_date',
-        'vendor_oui'
+        'nominal_bit_rate',
+        'application_advertisement'
     ]
 
     EXPECTED_XCVR_BULK_STATUS_KEYS = [
@@ -122,12 +122,10 @@ class TestSfpApi(PlatformApiTestBase):
             if expected_sfps:
                 expected_value = expected_sfps[sfp_idx].get(key)
 
-        if not expected_value:
-            logger.warning("Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx))
-            return
-
-        self.expect(value == expected_value,
-                      "'{}' value is incorrect. Got '{}', expected '{}' for SFP {}".format(key, value, expected_value, sfp_idx))
+        if self.expect(expected_value is not None,
+                       "Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx)):
+            self.expect(value == expected_value,
+                          "'{}' value is incorrect. Got '{}', expected '{}' for SFP {}".format(key, value, expected_value, sfp_idx))
 
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
@@ -146,7 +144,7 @@ class TestSfpApi(PlatformApiTestBase):
             name = sfp.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve transceiver {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Transceiver {} name appears incorrect".format(i))
-                compare_value_with_platform_facts(self, 'name', name, i)
+                self.compare_value_with_platform_facts('name', name, i)
         self.assert_expectations()
 
     def test_get_presence(self, duthost, localhost, platform_api_conn):
@@ -176,6 +174,20 @@ class TestSfpApi(PlatformApiTestBase):
             status = sfp.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve transceiver {} status".format(i)):
                 self.expect(isinstance(status, bool), "Transceiver {} status appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_sfps):
+            position = sfp.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for sfp {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for sfp_id in range(self.num_sfps):
+            replaceable = sfp.is_replaceable(platform_api_conn, sfp_id)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(sfp_id)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp {}".format(sfp_id))
         self.assert_expectations()
 
     #
@@ -423,4 +435,20 @@ class TestSfpApi(PlatformApiTestBase):
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None, "Unable to retrieve transceiver {} power override data".format(i)):
                 self.expect(power_override is False, "Transceiver {} power override data is incorrect".format(i))
+        self.assert_expectations()
+
+    def test_thermals(self, platform_api_conn):
+        for sfp_id in range(self.num_sfps):
+            try:
+                num_thermals = int(sfp.get_num_thermals(platform_api_conn, sfp_id))
+            except Exception:
+                pytest.fail("SFP {}: num_thermals is not an integer".format(sfp_id))
+
+            thermal_list = sfp.get_all_thermals(platform_api_conn, sfp_id)
+            pytest_assert(thermal_list is not None, "Failed to retrieve thermals for sfp {}".format(sfp_id))
+            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect for sfp {}".format(sfp_id))
+
+            for thermal_index in range(num_thermals):
+                thermal = sfp.get_thermal(platform_api_conn, sfp_id, thermal_index)
+                self.expect(thermal and thermal == thermal_list[thermal_index], "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()

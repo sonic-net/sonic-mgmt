@@ -5,7 +5,8 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_snmp_pfc_counters(duthost, localhost, creds):
+def test_snmp_pfc_counters(duthosts, rand_one_dut_hostname, localhost, creds):
+    duthost = duthosts[rand_one_dut_hostname]
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 

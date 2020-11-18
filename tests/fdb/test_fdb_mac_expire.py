@@ -109,7 +109,7 @@ class TestFdbMacExpire:
         )
 
     @pytest.fixture(scope="class", autouse=True)
-    def copyFdbInfo(self, duthost, ptfhost):
+    def copyFdbInfo(self, duthosts, rand_one_dut_hostname, ptfhost):
         """
             Compies FDB info file to PTF host
 
@@ -120,6 +120,7 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         mgFacts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
         ptfhost.host.options['variable_manager'].extra_vars.update({
             "minigraph_vlan_interfaces": mgFacts["minigraph_vlan_interfaces"],
@@ -131,7 +132,7 @@ class TestFdbMacExpire:
         ptfhost.template(src="fdb/files/fdb.j2", dest=self.FDB_INFO_FILE)
 
     @pytest.fixture(scope="class", autouse=True)
-    def clearSonicFdbEntries(self, duthost):
+    def clearSonicFdbEntries(self, duthosts, rand_one_dut_hostname):
         """
             Clears SONiC FDB entries before and after test
 
@@ -141,6 +142,7 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.shell(argv=["sonic-clear", "fdb", "all"])
 
         yield
@@ -148,7 +150,7 @@ class TestFdbMacExpire:
         duthost.shell(argv=["sonic-clear", "fdb", "all"])
 
     @pytest.fixture(scope="class", autouse=True)
-    def validateDummyMacAbsent(self, duthost):
+    def validateDummyMacAbsent(self, duthosts, rand_one_dut_hostname):
         """
             Validates that test/dummy MAC entry is absent before the test runs
 
@@ -158,10 +160,11 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         pytest_assert(self.__getFdbTableCount(duthost, self.DUMMY_MAC_PREFIX) == 0, "Test dummy MAC is already present")
 
     @pytest.fixture(scope="class", autouse=True)
-    def prepareDut(self, request, duthost):
+    def prepareDut(self, request, duthosts, rand_one_dut_hostname):
         """
             Prepare DUT for FDB test
 
@@ -175,6 +178,7 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
 
         self.__deleteTmpSwitchConfig(duthost)

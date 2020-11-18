@@ -55,9 +55,10 @@ def verify_telemetry_dockerimage(duthost):
     return (len(matching) > 0)
 
 # Test functions
-def test_config_db_parameters(duthost):
+def test_config_db_parameters(duthosts, rand_one_dut_hostname):
     """Verifies required telemetry parameters from config_db.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
@@ -83,9 +84,10 @@ def test_config_db_parameters(duthost):
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
-def test_telemetry_enabledbydefault(duthost):
+def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
     """Verify telemetry should be enabled by default
     """
+    duthost = duthosts[rand_one_dut_hostname]
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
@@ -101,9 +103,10 @@ def test_telemetry_enabledbydefault(duthost):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthost, ptfhost, localhost):
+def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")

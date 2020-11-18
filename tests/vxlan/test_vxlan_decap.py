@@ -23,11 +23,13 @@ VNI_BASE = 336
 COUNT = 10
 
 
-def prepare_ptf(ptfhost, mg_facts, dut_facts):
-    """
-    @summary: Prepare the PTF docker container for testing
-    @param mg_facts: Minigraph facts
-    @param dut_facts: Host facts of DUT
+def prepare_ptf(ptfhost, mg_facts, duthost):
+    """Prepare arp responder configuration and store temporary vxlan decap related information to PTF docker
+
+    Args:
+        ptfhost (PTFHost): The ptfhost fixture, instance of PTFHost
+        mg_facts (dict): Collected minigraph facts
+        duthost (SonicHost): The duthost fixture, instance of SonicHost
     """
 
     logger.info("Prepare arp_responder")
@@ -47,7 +49,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
-        "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"]
+        "dut_mac": duthost.facts["router_mac"]
     }
     ptfhost.copy(content=json.dumps(vxlan_decap, indent=2), dest="/tmp/vxlan_decap.json")
 
@@ -90,15 +92,14 @@ def generate_vxlan_config_files(duthost, mg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost):
+def setup(duthosts, rand_one_dut_hostname, ptfhost):
+    duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Gather some facts")
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
-    dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
-    ptf_facts = ptfhost.setup(gather_subset="!all,!any,network")["ansible_facts"]
 
     logger.info("Prepare PTF")
-    prepare_ptf(ptfhost, mg_facts, dut_facts)
+    prepare_ptf(ptfhost, mg_facts, duthost)
 
     logger.info("Generate VxLAN config files")
     generate_vxlan_config_files(duthost, mg_facts)
@@ -119,7 +120,8 @@ def setup(duthost, ptfhost):
 
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
-def vxlan_status(setup, request, duthost):
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     #clear FDB and arp cache on DUT
     duthost.shell('sonic-clear arp; fdbclear')
     if request.param == "Enabled":
@@ -135,7 +137,8 @@ def vxlan_status(setup, request, duthost):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost, creds):
+def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds):
+    duthost = duthosts[rand_one_dut_hostname]
 
     vxlan_enabled, scenario = vxlan_status
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
