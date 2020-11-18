@@ -72,6 +72,7 @@ topology:
           prefix: 192.168.0.1/21
           prefix_v6: fc02:1000::1/64
           tag: 1000
+          mac: 00:aa:bb:cc:dd:ee
       two_vlan_a:
         Vlan100:
           id: 100
@@ -85,6 +86,16 @@ topology:
           prefix: 192.168.200.1/21
           prefix_v6: fc02:200::1/64
           tag: 200
+    tunnel_configs:
+      default_tunnel_config: tunnel_ipinip
+      tunnel_ipinip:
+        MuxTunnel0:
+          type: IPInIP
+          attach_to: Loopback0
+          dscp: uniform
+          ecn_encap: standard
+          ecn_decap: copy_from_outer
+          ttl_mode: pipe
 
 configuration_properties:
   common:

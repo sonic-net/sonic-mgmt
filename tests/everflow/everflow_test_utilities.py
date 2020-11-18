@@ -32,7 +32,7 @@ EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthost, tbinfo):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Gather all required test information.
 
@@ -44,9 +44,7 @@ def setup_info(duthost, tbinfo):
         dict: Required test information
 
     """
-    # TODO: Support all T1 and T0 topos in these tests.
-    if tbinfo["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
-        pytest.skip("Unsupported topology")
+    duthost = duthosts[rand_one_dut_hostname]
 
     tor_ports = []
     spine_ports = []
@@ -54,7 +52,6 @@ def setup_info(duthost, tbinfo):
     # Gather test facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
-    host_facts = duthost.setup()["ansible_facts"]
 
     # Get the list of T0/T2 ports
     # TODO: The ACL tests do something really similar, I imagine we could refactor this bit.
@@ -122,7 +119,7 @@ def setup_info(duthost, tbinfo):
     # Also given how much info is here it probably makes sense to make a data object/named
     # tuple to help with the typing.
     setup_information = {
-        "router_mac": host_facts["ansible_Ethernet0"]["macaddress"],
+        "router_mac": duthost.facts["router_mac"],
         "tor_ports": tor_ports,
         "spine_ports": spine_ports,
         "test_mirror_v4": test_mirror_v4,
@@ -268,7 +265,7 @@ class BaseEverflowTest(object):
         return request.param
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, duthost, config_method):
+    def setup_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session for Everflow.
 
@@ -278,6 +275,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         session_info = self._mirror_session_info("test_session_1", duthost.facts["asic_type"])
 
         self.apply_mirror_config(duthost, session_info, config_method)
@@ -287,7 +285,7 @@ class BaseEverflowTest(object):
         self.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, duthost, config_method):
+    def policer_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -297,6 +295,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         policer = "TEST_POLICER"
 
         # Create a policer that allows 100 packets/sec through
@@ -357,7 +356,7 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session, config_method):
+    def setup_acl_table(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, config_method):
         """
         Configure the ACL table for this set of test cases.
 
@@ -366,6 +365,7 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
+        duthost = duthosts[rand_one_dut_hostname]
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))

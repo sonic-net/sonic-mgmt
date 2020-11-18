@@ -28,7 +28,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start,
                     nexthop, nexthop_v6,
                     tor_subnet_size = 128, max_tor_subnet_number = 16,
-                    router_type = "leaf"):
+                    router_type = "leaf", tor_index=None):
     routes = []
 
     default_route_as_path = "6666 6667"
@@ -59,6 +59,8 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                 elif router_type == "tor":
                     # Skip non podset 0 for T0
                     if podset != 0:
+                        continue
+                    elif tor != tor_index:
                         continue
 
                 suffix = ( (podset * tor_number * max_tor_subnet_number * tor_subnet_size) + \
@@ -100,15 +102,12 @@ def fib_t0(ptfhost, tbinfo, localhost, topology=None):
     podset_number = 200
     tor_number = 16
     tor_subnet_number = 2
-    max_tor_subnet_number = 16
-    tor_subnet_size = 128
 
     common_config_topo = tbinfo['topo']['properties']['configuration_properties']['common']
     spine_asn = common_config_topo.get("spine_asn", 65534)
     leaf_asn_start = common_config_topo.get("leaf_asn_start", 64600)
     tor_asn_start = common_config_topo.get("tor_asn_start", 65500)
 
-    topo = tbinfo['topo']['properties']
     ptf_hostname = tbinfo['ptf']
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
 
@@ -171,13 +170,10 @@ def fib_t1_lag(ptfhost, tbinfo, localhost):
     podset_number = 200
     tor_number = 16
     tor_subnet_number = 2
-    max_tor_subnet_number = 16
-    tor_subnet_size = 128
 
     leaf_asn_start  = 64600
     tor_asn_start   = 65500
 
-    topo = tbinfo['topo']['properties']
     ptf_hostname = tbinfo['ptf']
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
 
@@ -230,13 +226,15 @@ def fib_t1_lag(ptfhost, tbinfo, localhost):
             router_type = 'spine'
         elif 'tor' in v['properties']:
             router_type = 'tor'
+        tornum = v.get('tornum', None)
+        tor_index = tornum - 1 if tornum is not None else None
         if router_type:
             routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
-                                        local_ip, local_ipv6, router_type=router_type)
+                                        local_ip, local_ipv6, router_type=router_type, tor_index=tor_index)
             routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
-                                        local_ip, local_ipv6, router_type=router_type)
+                                        local_ip, local_ipv6, router_type=router_type, tor_index=tor_index)
             announce_routes(ptfip, port, routes_v4)
             announce_routes(ptfip, port6, routes_v6)
 
