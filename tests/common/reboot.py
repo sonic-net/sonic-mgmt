@@ -68,7 +68,7 @@ reboot_ctrl_dict = {
 def get_warmboot_finalizer_state(duthost):
     try:
         res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
-        finalizer_state = res['stdout'].strip()
+        finalizer_state = res['stdout'].strip() if 'stdout' in res else ""
     except RunAnsibleModuleFail as err:
         finalizer_state = err.results
     return finalizer_state
