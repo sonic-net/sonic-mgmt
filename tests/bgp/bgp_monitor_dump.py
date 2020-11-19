@@ -6,12 +6,11 @@ import json
 DUMP_FILE = "/tmp/bgp_monitor_dump.log"
 
 while True:
-    try:
+    with open(DUMP_FILE, "a") as f:
         line = stdin.readline()
         obj = json.loads(line)
         if 'update' not in obj['neighbor']['message']:
             continue
-        f = open(DUMP_FILE, "a")
         announce = obj['neighbor']['message']['update']['announce']
         keys = ('ipv4 unicast', 'ipv6 unicast')
         for key in keys:
@@ -19,5 +18,3 @@ while True:
                 for _, route in announce[key].items():
                     for ip, _ in route.items():
                         f.write(ip + "\n")
-    finally:
-        f.close()
