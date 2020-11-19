@@ -223,11 +223,10 @@ class TestFdbMacExpire:
             )
 
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
-        hostFacts = duthost.setup()['ansible_facts']
 
         testParams = {
             "testbed_type": tbinfo["topo"]["name"],
-            "router_mac": hostFacts['ansible_Ethernet0']['macaddress'],
+            "router_mac": duthost.facts["router_mac"],
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
         }

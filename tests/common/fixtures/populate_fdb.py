@@ -73,7 +73,7 @@ class PopulateFdb:
         vlanConfigData = {
             "vlan_ports": mgVlanPorts,
             "vlan_interfaces": vlan_interfaces,
-            "dut_mac": self.duthost.setup()["ansible_facts"]["ansible_Ethernet0"]["macaddress"]
+            "dut_mac": self.duthost.facts["router_mac"]
         }
 
         with open(self.VLAN_CONFIG_FILE, 'w') as file:

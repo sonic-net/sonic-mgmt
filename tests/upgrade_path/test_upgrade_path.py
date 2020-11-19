@@ -109,7 +109,7 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds):
         "portchannel_ports_file": TMP_VLAN_PORTCHANNEL_FILE,
         "vlan_ports_file": TMP_VLAN_FILE,
         "ports_file": TMP_PORTS_FILE,
-        "dut_mac": duthost.setup()['ansible_facts']['ansible_Ethernet0']['macaddress'],
+        "dut_mac": duthost.facts["router_mac"],
         "dut_vlan_ip": "192.168.0.1",
         "default_ip_range": "192.168.100.0/18",
         "vlan_ip_range": mg_facts['minigraph_vlan_interfaces'][0]['subnet'],
