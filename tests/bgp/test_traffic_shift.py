@@ -138,9 +138,15 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         # So we have to parse the raw output instead json.
         if 4 == ip_ver:
             cmd = "show ip bgp neighbors {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v4, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
+            cmd_backup = ""
         else:
             cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
+            # For compatibility on EOS of old version
+            cmd_backup = "show ipv6 bgp neighbors {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
         output_lines = host.eos_command(commands=[cmd])['stdout_lines'][0]
+        if len(output_lines) == 0 and cmd_backup != "":
+            output_lines = host.eos_command(commands=[cmd])['stdout_lines'][0]
+        pytest_assert(len(output_lines) != 0, "Failed to retrieve routes from VM {}".format(hostname))
         routes = {}
         entry = None
         for line in output_lines:
@@ -190,9 +196,10 @@ def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, communit
     for i in range(0, 2):
         addr = mg_facts['minigraph_lo_interfaces'][i]['addr']
         if ipaddress.IPNetwork(addr).version == 4:
-            lo_addr_v4 = addr
+            lo_addr_v4 = ipaddress.IPNetwork(addr)
         else:
-            lo_addr_v6 = addr
+            # The IPv6 Loopback announced to neighbors is /64
+            lo_addr_v6 = ipaddress.IPNetwork(addr + "/64")
     if 4 == ip_ver:
         lo_addr = lo_addr_v4
     else:
@@ -201,7 +208,7 @@ def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, communit
     for hostname, routes in routes_on_all_eos.iteritems():
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
         for prefix, received_community in routes.iteritems():
-            if ipaddress.IPNetwork(prefix) != ipaddress.IPNetwork(lo_addr):
+            if ipaddress.IPNetwork(prefix) != lo_addr:
                 logger.warn("route for {} is found on {}, which is not in loopback address".format(prefix, hostname))
                 return False
             if received_community != community:
