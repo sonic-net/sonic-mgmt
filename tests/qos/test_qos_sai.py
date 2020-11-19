@@ -6,7 +6,7 @@ as generic drop counters.
 
 Parameters:
     --ptf_portmap <filename> (str): file name of port index to DUT interface alias map. Default is None.
-        In case of a filename is not provided, a file containing port indeces to aliases map will be generated.
+        In case a filename is not provided, a file containing a port indices to aliases map will be generated.
 
     --disable_test (bool): Disables experimental QoS SAI test cases. Default is True.
 
