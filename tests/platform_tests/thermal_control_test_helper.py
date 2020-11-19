@@ -87,13 +87,13 @@ def mocker(type_name):
 
 
 @pytest.fixture
-def mocker_factory(localhost):
+def mocker_factory(localhost, duthosts, rand_one_dut_hostname):
     """
     Fixture for thermal control data mocker factory.
     :return: A function for creating thermal control related data mocker.
     """
     mockers = []
-    duthost = None
+    duthost = duthosts[rand_one_dut_hostname]
 
     def _create_mocker(dut, mocker_name):
         """
@@ -102,7 +102,6 @@ def mocker_factory(localhost):
         :param mocker_name: Name of a mocker type.
         :return: Created mocker instance.
         """
-        duthost = dut
         platform = dut.facts['platform']
         mocker_object = None
 

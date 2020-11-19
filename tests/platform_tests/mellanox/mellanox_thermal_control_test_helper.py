@@ -4,7 +4,6 @@ import random
 import logging
 from tests.platform_tests.thermal_control_test_helper import *
 from tests.common.mellanox_data import get_platform_data
-from tests.common.reboot import reboot
 from minimum_table import get_min_table
 
 NOT_AVAILABLE = 'N/A'
