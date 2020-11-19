@@ -452,7 +452,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.setup()['ansible_facts']
+        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.seed = int(datetime.datetime.today().day)
         self.storm_handle = dict()
@@ -500,7 +500,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         else:
                             self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
 
-                    self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_Ethernet0']['macaddress'], self.pfc_wd, queue)
+                    self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd, queue)
                     self.run_test(port, queue, detect=(bitmask & 1),
                                   storm_start=not t_idx or storm_deferred or storm_restored,
                                   first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),

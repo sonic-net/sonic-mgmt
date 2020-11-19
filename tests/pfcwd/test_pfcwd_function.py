@@ -520,7 +520,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.setup()['ansible_facts']
+        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = request.config.getoption("--fake-storm")
 
@@ -529,7 +529,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
              logger.info("")
              logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
              self.setup_test_params(port, setup_info['vlan'], init=not idx)
-             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_Ethernet0']['macaddress'], self.pfc_wd)
+             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
              pfc_wd_restore_time_large = request.config.getoption("--restore-time")
              # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
              self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
