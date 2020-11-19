@@ -4,6 +4,7 @@ import json
 import logging
 import time
 
+from collections import defaultdict
 from collections import namedtuple
 
 import pytest
@@ -60,19 +61,17 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    setup_info = {}
-
     tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
     t2_neighbors = [neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T2')]
     tor1 = tor_neighbors[0]
     other_vms = tor_neighbors[1:] + t2_neighbors
 
-    neigh_peer_map = {}
+    neigh_peer_map = defaultdict()
     for bgp_neigh in mg_facts['minigraph_bgp']:
         name = bgp_neigh['name']
         peer_addr = bgp_neigh['peer_addr']
         if name not in neigh_peer_map:
-            neigh_peer_map[name] = {}
+            neigh_peer_map[name] = defaultdict()
         if ipaddress.IPAddress(peer_addr).version == 4:
             neigh_peer_map[name].update({'peer_addr': peer_addr})
         else:
@@ -130,55 +129,30 @@ def update_routes(action, ptfip, port, route):
 
 
 @pytest.fixture
-def announce_withdraw_route(setup, ptfhost):
+def prepare_routes(setup, ptfhost):
     tor1_exabgp_port = setup['tor1_exabgp_port']
     tor1_exabgp_port_v6 = setup['tor1_exabgp_port_v6']
-    bbr_route = setup['bbr_route']
-    bbr_route_v6 = setup['bbr_route_v6']
 
-    logger.info('Announce route {} and {} to the first T0'.format(str(bbr_route), str(bbr_route_v6)))
-    update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port, bbr_route)
-    update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port_v6, bbr_route_v6)
-    time.sleep(3)
+    bbr_routes = []
 
-    yield bbr_route, bbr_route_v6
+    def announce_routes(routes):
+        logger.info('Announce routes {} to the first T0'.format(str(routes)))
+        for route in routes:
+            bbr_routes.append(route)
+            if ipaddress.IPNetwork(route.prefix).version == 4:
+                update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port, route)
+            else:
+                update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port_v6, route)
+        time.sleep(3)
 
-    logger.info('Withdraw route {} and {} from the first T0'.format(str(bbr_route), str(bbr_route_v6)))
-    update_routes('withdraw', ptfhost.mgmt_ip, tor1_exabgp_port, bbr_route)
-    update_routes('withdraw', ptfhost.mgmt_ip, tor1_exabgp_port_v6, bbr_route_v6)
+    yield announce_routes
 
-
-@pytest.fixture
-def announce_withdraw_dual_dut_asn_route(setup, ptfhost):
-    tor1_exabgp_port = setup['tor1_exabgp_port']
-    tor1_exabgp_port_v6 = setup['tor1_exabgp_port_v6']
-    bbr_route_dual_dut_asn = setup['bbr_route_dual_dut_asn']
-    bbr_route_v6_dual_dut_asn = setup['bbr_route_v6_dual_dut_asn']
-
-    logger.info('Announce route {} and {} to the first T0'\
-        .format(str(bbr_route_dual_dut_asn), str(bbr_route_v6_dual_dut_asn)))
-    update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port, bbr_route_dual_dut_asn)
-    update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port_v6, bbr_route_v6_dual_dut_asn)
-
-    yield bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn
-
-    logger.info('Withdraw route {} and {} from the first T0'\
-        .format(str(bbr_route_dual_dut_asn), str(bbr_route_v6_dual_dut_asn)))
-    update_routes('withdraw', ptfhost.mgmt_ip, tor1_exabgp_port, bbr_route_dual_dut_asn)
-    update_routes('withdraw', ptfhost.mgmt_ip, tor1_exabgp_port_v6, bbr_route_v6_dual_dut_asn)
-
-
-def eos_get_route(eoshost, prefix):
-    cmd = 'show ip bgp' if ipaddress.IPNetwork(prefix).version == 4 else 'show ipv6 bgp'
-    return eoshost.eos_command(commands=[{
-        'command': '{} {}'.format(cmd, prefix),
-        'output': 'json'
-    }])['stdout'][0]
-
-
-def dut_get_route(duthost, prefix):
-    cmd = 'show bgp ipv4' if ipaddress.IPNetwork(prefix).version == 4 else 'show bgp ipv6'
-    return json.loads(duthost.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
+    logger.info('Withdraw routes {} from the first T0'.format(str(bbr_routes)))
+    for route in bbr_routes:
+        if ipaddress.IPNetwork(route.prefix).version == 4:
+            update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port, route)
+        else:
+            update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port_v6, route)
 
 
 def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
@@ -189,7 +163,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
     # Check route on tor1
     logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
-    tor1_route = eos_get_route(nbrhosts[tor1]['host'], route.prefix)
+    tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
     pytest_assert(route.prefix in tor1_route['vrfs']['default']['bgpRouteEntries'].keys(),
         'No route for {} found on {}'.format(route.prefix, tor1))
     tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
@@ -199,7 +173,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
     # Check route on DUT
     logger.info('Check route on DUT')
-    dut_route = dut_get_route(duthost, route.prefix)
+    dut_route = duthost.get_route(route.prefix)
     if accepted:
         pytest_assert(dut_route, 'No route for {} found on DUT'.format(route.prefix))
         dut_route_aspath = dut_route['paths'][0]['aspath']['string']
@@ -218,7 +192,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         dut_asn = setup['dut_asn']
         tor1_asn = setup['tor1_asn']
 
-        vm_route = eos_get_route(nbrhosts[node]['host'], route.prefix)
+        vm_route = nbrhosts[node]['host'].get_route(route.prefix)
         vm_route = {'failed': False}
         vm_route['tor_route'] = vm_route
         if accepted:
@@ -252,22 +226,28 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         .format(str(route), json.dumps(failed_results, indent=2)))
 
 
-def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, announce_withdraw_route):
+def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
-    bbr_route, bbr_route_v6 = announce_withdraw_route
-    for route in (bbr_route, bbr_route_v6):
+    bbr_route = setup['bbr_route']
+    bbr_route_v6 = setup['bbr_route_v6']
+    prepare_routes([bbr_route, bbr_route_v6])
+    for route in [bbr_route, bbr_route_v6]:
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True)
 
 
-def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, announce_withdraw_dual_dut_asn_route):
+def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
-    bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn = announce_withdraw_dual_dut_asn_route
-    for route in (bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn):
+    bbr_route_dual_dut_asn = setup['bbr_route_dual_dut_asn']
+    bbr_route_v6_dual_dut_asn = setup['bbr_route_v6_dual_dut_asn']
+    prepare_routes([bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn])
+    for route in [bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn]:
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
 
 
-def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, disable_enable_bbr, setup, announce_withdraw_route):
+def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, disable_enable_bbr, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
-    bbr_route, bbr_route_v6 = announce_withdraw_route
+    bbr_route = setup['bbr_route']
+    bbr_route_v6 = setup['bbr_route_v6']
+    prepare_routes([bbr_route, bbr_route_v6])
     for route in (bbr_route, bbr_route_v6):
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
