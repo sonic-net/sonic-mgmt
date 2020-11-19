@@ -1,7 +1,8 @@
+import re
 import copy
 import time
+
 import pytest
-import re
 
 from nat_helpers import SETUP_CONF
 from nat_helpers import GLOBAL_NAT_TIMEOUT
@@ -14,6 +15,7 @@ from nat_helpers import exec_command
 from nat_helpers import conf_dut_routes
 from nat_helpers import dut_interface_control
 from tests.common.config_reload import config_reload
+
 
 pytestmark = [
     pytest.mark.topology('t0', 't0-64', 't0-64-32')
@@ -136,7 +138,7 @@ def apply_global_nat_config(duthost):
     duthost.command("sudo config nat set timeout {}".format(GLOBAL_NAT_TIMEOUT))
     duthost.command("sudo config nat set tcp-timeout {}".format(GLOBAL_TCP_NAPT_TIMEOUT))
     duthost.command("sudo config nat set udp-timeout {}".format(GLOBAL_UDP_NAPT_TIMEOUT))
-    
+
     # Verify nat global values
     output = duthost.command("show nat config globalvalues")
     show_cmd_output = output['stdout'].strip()
@@ -153,18 +155,6 @@ def apply_global_nat_config(duthost):
     yield
     # reload config on teardown
     config_reload(duthost, config_source='minigraph')
-
-
-@pytest.fixture()
-def enable_nat_config(request, duthost):
-    """
-    enable NAT configuration on teardown
-    :param request: pytest request object
-    :param duthost: DUT host object
-    """
-    yield
-    if request.node.rep_call.failed:
-        duthost.command("config nat feature enable")
 
 
 @pytest.fixture()

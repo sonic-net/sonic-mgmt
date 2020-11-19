@@ -48,9 +48,9 @@
     - [test_nat_interfaces_flap_dynamic](#Test-case-test_nat_interfaces_flap_dynamic)
     - [test_nat_dynamic_zones](#Test-case-test_nat_dynamic_zones)
     - [test_nat_dynamic_zones_icmp](#Test-case-test_nat_dynamic_zones_icmp)
-    
-    
-    
+
+
+
 
 ## Revision
 
@@ -94,7 +94,7 @@ The customized testbed with applied T0 topo for each NAT test case looks as foll
       |                                |      |                               |
       |    PTF                         |      |              DUT              |
       |               _________________|      |                               |
-      |              |                 |      |_______________________________| 
+      |              |                 |      |_______________________________|
       |              |   Client's VRF  |_____________|
       |______________|_________________|
 
@@ -104,7 +104,7 @@ After end of the test session teardown procedure turns testbed to the initial st
 
 ## Python scripts to setup and run test
 
-NAT test suite is located in tests/nat folder. The are two separate files test_nat_dynamic.py and test_nat_static.py
+NAT test suite is located in tests/nat folder. The are two separate files test_dynamic_nat.py and test_static_nat.py
 
 ### Setup of DUT switch
 
@@ -210,7 +210,7 @@ Verify that NAT will happen when static NAPT configuration applied on DUT
 - Define network data and L4 ports
 - Apply Static NAPT config on DUT via CLI
 - Perform handshake
-- Send bidirectional traffic with DST IP/PORT according the configured NAPT rule 
+- Send bidirectional traffic with DST IP/PORT according the configured NAPT rule
 - Verify that traffic was SNAPT and DNAPT in both direction
 - Send traffic traffic with DST IP according the configured NAPT rule and different DST PORT
 - Verify that traffic was not DNAPTed
@@ -240,7 +240,7 @@ Verify that for NAT static basic configuraion NAT statistics is incremeting and 
 - Verify that traffic was SNAT and DNAT in both direction
 - Verify that NAT statistics is incremeting
 - Perform clearance procedure for NAT statistics
-- Make sure NAT statistics has been cleared 
+- Make sure NAT statistics has been cleared
 
 ### Test teardown
 
@@ -266,7 +266,7 @@ Verify that for NAPT static configuraion NAT statistics is incremeting and can b
 - Verify that traffic was SNAPT and DNAPT in both direction
 - Verify that NAT statistics is incremeting
 - Perform clearance procedure for NAT statistics
-- Make sure NAT statistics has been cleared 
+- Make sure NAT statistics has been cleared
 
 ### Test teardown
 
@@ -290,7 +290,7 @@ Verify that for NAT static basic configuraion NAT translations cannot be cleared
 - Define expected NAT translations
 - Apply Static NAT config on DUT via CLI
 - Perform handshake
-- Make sure NAT translations has been set 
+- Make sure NAT translations has been set
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT in both direction
 - Perform clearance procedure for static NAT translations
@@ -320,7 +320,7 @@ Verify that for static NAPT configuraion NAT translations cannot be cleared
 - Define expected NAT translations
 - Apply Static NAPT config on DUT via CLI
 - Perform handshake
-- Make sure NAPT translations has been set 
+- Make sure NAPT translations has been set
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT in both direction
 - Perform clearance procedure for static NAPT translations
@@ -350,19 +350,19 @@ Verify Create/Read/Update/Delete actions for NAT static basic rule
 - Define network data
 - Apply Static NAT config on DUT via CLI
 - Perform handshake
-- Make sure static basic NAT rule has been set 
+- Make sure static basic NAT rule has been set
 - Send bidirectional traffic
 - Verify that traffic was SNAT and DNAT in both direction
-- Remove NAT rule 
+- Remove NAT rule
 - Make sure static basic NAT rule has been deleted
 - Send bidirectional traffic
 - Verify that traffic was forwarded and not SNAT/DNAT in both direction
 - Add updated static basic NAT rule
-- Make sure updated static basic NAT rule has been set 
+- Make sure updated static basic NAT rule has been set
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was SNAT and DNAT in both direction
-- Remove NAT rule 
+- Remove NAT rule
 - Make sure static basic NAT rule has been deleted
 - Send bidirectional traffic
 - Verify that traffic was forwarded and not SNAT/DNAT in both direction
@@ -387,19 +387,19 @@ Verify Create/Read/Update/Delete actions for NAPT static rule
 - Define network data
 - Apply Static NAPT config on DUT via CLI
 - Perform handshake
-- Make sure static NAPT rule has been set 
+- Make sure static NAPT rule has been set
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT
-- Remove NAPT rule 
+- Remove NAPT rule
 - Make sure static NAPT rule has been deleted
 - Send bidirectional traffic
 - Verify that traffic was forwarded and not SNAPT/DNAPT
 - Add updated static NAPT rule
-- Make sure updated static NAPT rule has been set 
+- Make sure updated static NAPT rule has been set
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT
-- Remove NAT rule 
+- Remove NAT rule
 - Make sure static NAPT rule has been deleted
 - Send bidirectional traffic
 - Verify that traffic was forwarded and not SNAPT/DNAPT
@@ -471,7 +471,7 @@ Verify for static NAPT that with saved configuration after COLD/FAST reboot tran
 
 ### Test objective
 
-Verify for static basic NAT that there is no NAT when all interfaces zones configuration is set to 1 
+Verify for static basic NAT that there is no NAT when all interfaces zones configuration is set to 1
 
 ### Test set up
 
@@ -485,7 +485,7 @@ Verify for static basic NAT that there is no NAT when all interfaces zones confi
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was forwarded and not SNAT
-- Set inner interface (Vlan1000) zone config to 0 
+- Set inner interface (Vlan1000) zone config to 0
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was SNAT and DNAT in both direction
@@ -501,7 +501,7 @@ Verify for static basic NAT that there is no NAT when all interfaces zones confi
 
 ### Test objective
 
-Verify for static basic NAT that there is no NAT for ICMP when all interfaces zones configuration is set to 1 
+Verify for static basic NAT that there is no NAT for ICMP when all interfaces zones configuration is set to 1
 
 ### Test set up
 
@@ -514,7 +514,7 @@ Verify for static basic NAT that there is no NAT for ICMP when all interfaces zo
 - Apply Static NAT config on DUT via CLI
 - Send ICMP traffic
 - Verify that traffic was forwarded and not SNAT
-- Set inner interface (Vlan1000) zone config to 0 
+- Set inner interface (Vlan1000) zone config to 0
 - Send ICMP traffic
 - Verify that traffic was SNAT and DNAT in both direction
 
@@ -544,7 +544,7 @@ Verify for static NAPT that there is no NAT when all interfaces zones configurat
 - Send bidirectional traffic
 - Verify that traffic was refused/dropped and not DNAPT
 - Verify that traffic was forwarded and not SNAPT
-- Set inner interface (Vlan1000) zone config to 0 
+- Set inner interface (Vlan1000) zone config to 0
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT in both direction
@@ -619,10 +619,10 @@ Verify that dynamic NAT entries are stay in the translation table according NAT 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
-- Send bidirectional traffic 
+- Send bidirectional traffic
 - Verify that NAT entries are persist in the translation table according NAT protocol timeout settings, packet was SNAT and DNAT in both directions
 - Wait random time in range [1 second: half global protocol timout value]
-- Repeat previous 3 steps 4 times 
+- Repeat previous 3 steps 4 times
 
 
 ### Test teardown
@@ -646,9 +646,9 @@ Verify that with no dynamic NAT entries in the translation table ICMP id value i
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Send ICMP traffic
-- Verify that no dynamic NAT entries in the translation table, packet was SNAT and DNAT in both directions, ICMP id value is persist and id value is in dynamic pool range 
+- Verify that no dynamic NAT entries in the translation table, packet was SNAT and DNAT in both directions, ICMP id value is persist and id value is in dynamic pool range
 - Wait 15 seconds
-- Repeat previous 2 steps 4 times 
+- Repeat previous 2 steps 4 times
 
 ### Test teardown
 
@@ -660,7 +660,7 @@ Verify that with no dynamic NAT entries in the translation table ICMP id value i
 
 ### Test objective
 
-Verify there is no any NAT translation for dynamic NAT configuration with disabled NAT feature globally 
+Verify there is no any NAT translation for dynamic NAT configuration with disabled NAT feature globally
 
 ### Test set up
 
@@ -671,10 +671,10 @@ Verify there is no any NAT translation for dynamic NAT configuration with disabl
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
-- Disable NAT feature 
+- Disable NAT feature
 - Send bidirectional traffic
 - Verify that packet was not SNAT and DNAT in both directions
-- Enable NAT feature 
+- Enable NAT feature
 - Perform handshake
 - Send bidirectional traffic
 - Verify that packet was SNAT and DNAT in both directions
@@ -699,10 +699,10 @@ Verify there is no any NAT translation for dynamic NAT configuration with disabl
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
-- Disable NAT feature 
+- Disable NAT feature
 - Send bidirectional traffic
 - Verify that packet was not SNAT and DNAT in both directions
-- Enable NAT feature 
+- Enable NAT feature
 - Perform handshake
 - Send bidirectional traffic
 - Verify that packet was SNAT and DNAT in both directions
@@ -727,7 +727,7 @@ Verify there is no any NAT translation for dynamic NAT configuration with remove
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Remove NAT POOL bindings to ACL 
+- Remove NAT POOL bindings to ACL
 - Perform handshake
 - Send bidirectional traffic
 - Verify that packet was not SNAT and DNAT in both directions
@@ -752,7 +752,7 @@ Verify there is no any NAT translation for ICMP and dynamic NAT configuration wi
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Remove NAT POOL bindings to ACL 
+- Remove NAT POOL bindings to ACL
 - Perform handshake
 - Send ICMP traffic
 - Verify that packet was not SNAT and DNAT in both directions
@@ -777,7 +777,7 @@ Verify there is no any NAT translation for non-IPv4 traffic
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Send bidirectional GRE traffic 
+- Send bidirectional GRE traffic
 - Verify that packet was not SNAT and DNAT in both directions
 
 
@@ -959,13 +959,13 @@ Verify that the same dynamic NAT entry's (re-added) SRC PORT is changed if dynam
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
 - Send bidirectional traffic
-- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT 
+- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT
 - Set new dynamic pool range values
 - Wait till first dynamic NAT entry will be expired
 - Perform handshake
 - Send same bidirectional traffic set
-- Verify that new dynamic NAT entriy is created and traffic is SNAT and DNAT 
-- Make sure new dynamic NAT entries has only translated SRC PORT updated 
+- Verify that new dynamic NAT entriy is created and traffic is SNAT and DNAT
+- Make sure new dynamic NAT entries has only translated SRC PORT updated
 
 ### Test teardown
 
@@ -1014,7 +1014,7 @@ Verify full cone(one to one) NAT funcionality for dynamic NAT
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
 - Send traffic from the inner network with SRC PORT value in the configured dynamic pool range
-- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT 
+- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT
 - Make sure new dynamic NAT entry has translated SRC PORT equal to the SRC PORT of originated packet
 
 ### Test teardown
@@ -1038,8 +1038,8 @@ Verify that when NAT docker is disabled - iptable rules in the nat table and dyn
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
 - Make sure iptables rules are in the nat table
-- Send traffic from the inner network 
-- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT 
+- Send traffic from the inner network
+- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT
 - Stop NAT docker
 - Make sure corresponding iptables rules are cleared
 - Start NAT docker
@@ -1067,7 +1067,7 @@ Verify that when NAT docker is disabled - iptable rules in the nat table and dyn
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Make sure iptables rules are in the nat table
-- Send ICMP traffic from the inner network 
+- Send ICMP traffic from the inner network
 - Stop NAT docker
 - Make sure corresponding iptables rules are cleared
 - Start NAT docker
@@ -1084,7 +1084,7 @@ Verify that when NAT docker is disabled - iptable rules in the nat table and dyn
 
 ### Test objective
 
-Verify that NAT statistics counters for dynamic NAT entries are incremeting and can be cleared 
+Verify that NAT statistics counters for dynamic NAT entries are incremeting and can be cleared
 
 ### Test set up
 
@@ -1095,8 +1095,8 @@ Verify that NAT statistics counters for dynamic NAT entries are incremeting and 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
-- Send traffic from the inner network 
-- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT 
+- Send traffic from the inner network
+- Verify that dynamic NAT entriy is created and traffic is SNAT and DNAT
 - Make sure corresponding statistics counters for dynamic NAT entries incremented
 - Perform statistics clearence procedure
 - Make sure corresponding statistics counters for dynamic NAT entries has been cleared
@@ -1111,7 +1111,7 @@ Verify that NAT statistics counters for dynamic NAT entries are incremeting and 
 
 ### Test objective
 
-Verify that translation entries for dynamic NAT can be cleared 
+Verify that translation entries for dynamic NAT can be cleared
 
 ### Test set up
 
@@ -1123,8 +1123,8 @@ Verify that translation entries for dynamic NAT can be cleared
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
 - Make sure there is no any translation entries for dynamic NAT
-- Send traffic from the inner network 
-- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT and DNAT 
+- Send traffic from the inner network
+- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT and DNAT
 - Perform dynamic NAT translation entries clearence procedure
 - Make sure there is no any translation entries for dynamic NAT
 - Make sure there is no any statistics counters for dynamic NAT entries
@@ -1138,7 +1138,7 @@ Verify that translation entries for dynamic NAT can be cleared
 
 ### Test objective
 
-Verify that dynamic NAT translation entries and iptables rules are not cleared in case of interface flap 
+Verify that dynamic NAT translation entries and iptables rules are not cleared in case of interface flap
 
 ### Test set up
 
@@ -1149,14 +1149,14 @@ Verify that dynamic NAT translation entries and iptables rules are not cleared i
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
-- Send traffic from the inner network 
-- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT and DNAT 
+- Send traffic from the inner network
+- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT and DNAT
 - Disable the outer interface
 - Make sure corresponding iptables rules are not cleared
 - Make sure translation entries for dynamic NAT are not cleared
 - Enable the outer interface
-- Send traffic from the inner network 
-- Verify that traffic is SNAT and DNAT 
+- Send traffic from the inner network
+- Verify that traffic is SNAT and DNAT
 
 ### Test teardown
 
@@ -1168,7 +1168,7 @@ Verify that dynamic NAT translation entries and iptables rules are not cleared i
 
 ### Test objective
 
-Verify for dynamic NAT that there is no NAT when all interfaces zones configuration is set to 1 
+Verify for dynamic NAT that there is no NAT when all interfaces zones configuration is set to 1
 
 
 ### Test set up
@@ -1181,14 +1181,14 @@ Verify for dynamic NAT that there is no NAT when all interfaces zones configurat
 - Apply Dynamic NAT config on DUT via CLI
 - Perform handshake
 - Send bidirectional traffic
-- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT and DNAT 
+- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT and DNAT
 - Set all interfaces zones configuration to 1
 - Send bidirectional traffic
-- Verify that traffic is not SNAT and DNAT 
+- Verify that traffic is not SNAT and DNAT
 - Set inner interface (Vlan1000) zone configuration to 0
 - Perform handshake
 - Send bidirectional traffic
-- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT 
+- Verify that corresponding dynamic NAT entriy is created and traffic is SNAT
 
 ### Test teardown
 
@@ -1211,13 +1211,13 @@ Verify for dynamic NAT that there is no NAT when all interfaces zones configurat
 
 - Define network data
 - Apply Dynamic NAT config on DUT via CLI
-- Send traffic from the inner network 
+- Send traffic from the inner network
 - Verify that ICMP packets have correct translated SRC IP and ICMP id value in the configured dynamic pool range
 - Set all interfaces zones configuration to 1
-- Send same traffic set from the inner network 
+- Send same traffic set from the inner network
 - Verify that ICMP packets have not trasnlated and forwarded
 - Set inner interface (Vlan1000) zone configuration to 0
-- Send same traffic set from the inner network 
+- Send same traffic set from the inner network
 - Verify that ICMP packets have correct translated SRC IP and ICMP id value in the configured dynamic pool range
 
 ### Test teardown

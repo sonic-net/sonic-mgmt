@@ -41,7 +41,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Send bidirectional traffic and check if NAT translation happens
         for path in DIRECTION_PARAMS:
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
@@ -58,7 +58,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, nat_entry=nat_type)
+                                network_data.public_ip, network_data.private_ip, nat_entry=nat_type)
         # Send bidirectional traffic
         for path in DIRECTION_PARAMS:
             generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, path, nat_type)
@@ -75,15 +75,14 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Send bidirectional traffic
         for path in DIRECTION_PARAMS:
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
         # Send traffic and check that NAPT translation does not happen for another port
         src_port, dst_port = get_l4_default_ports(protocol_type)
         generate_and_verify_traffic_dropped(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type, src_port=dst_port,
-                                            dst_port=dst_port + 1, exp_src_port=dst_port, exp_dst_port=src_port)        
-
+                                            dst_port=dst_port + 1, exp_src_port=dst_port, exp_dst_port=src_port)
 
     @pytest.mark.nat_static
     def test_nat_clear_statistics_static_basic(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
@@ -95,7 +94,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Send bidirectional traffic
         for path in DIRECTION_PARAMS:
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
@@ -136,7 +135,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Send bidirectional traffic
         for path in DIRECTION_PARAMS:
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
@@ -182,7 +181,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # make sure static NAT translations have created
         translations = nat_translations(duthost, show=True)
         for entry in translations:
@@ -245,7 +244,7 @@ class TestStaticNat(object):
         nat_destination = nat_translated_source
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # make sure static NAT translations have created
         translations = nat_translations(duthost, show=True)
         for entry in translations:
@@ -307,7 +306,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Create with CLI
         crud_create = {"create": {"action": "add", "global_ip": network_data.public_ip, "local_ip": network_data.private_ip}}
         entries_table.update(crud_operations_basic(duthost, crud_create))
@@ -376,7 +375,7 @@ class TestStaticNat(object):
         src_port, dst_port = get_l4_default_ports(protocol_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Create with CLI
         crud_create = {"create": {"action": "add", "global_ip": network_data.public_ip, "local_ip": network_data.private_ip,
                                   "proto": protocol_type, "global_port": dst_port, "local_port": src_port
@@ -459,7 +458,7 @@ class TestStaticNat(object):
         src_port, dst_port = get_l4_default_ports(protocol_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Send bidirectional traffic
         for path in DIRECTION_PARAMS:
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
@@ -492,7 +491,7 @@ class TestStaticNat(object):
         src_port, dst_port = get_l4_default_ports(protocol_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Send bidirectional traffic
         for path in DIRECTION_PARAMS:
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
@@ -528,7 +527,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         src_port, dst_port = get_l4_default_ports(protocol_type)
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_info_negative_zones, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Traffic send and check that NAT translation will not be performed for SNAT(host-tor)
         generate_and_verify_not_translated_traffic(ptfadapter, setup_info_negative_zones, interface_type, 'host-tor', protocol_type, nat_type=nat_type)
         # Check static NAT when all NAT interfaces zones are corect
@@ -557,7 +556,7 @@ class TestStaticNat(object):
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_info_negative_zones, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type="ICMP", nat_entry=nat_type)
+                                network_data.public_ip, network_data.private_ip, protocol_type="ICMP", nat_entry=nat_type)
         # Traffic send and check that NAT translation will not perform for SNAT(host-tor)
         generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type)
         # Check static NAT when all NAT interfaces zones are corect
@@ -583,7 +582,7 @@ class TestStaticNat(object):
         src_port, dst_port = get_l4_default_ports(protocol_type)
         # Set NAT configuration for test
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_info_negative_zones, network_data, direction, interface_type, nat_type,
-                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
+                                network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Traffic send and check that NAT translation will not be performed for DNAT(leaf-tor) and SNAT(host-tor)
         generate_and_verify_traffic_dropped(ptfadapter, setup_info, interface_type, 'leaf-tor', protocol_type, nat_type, src_port=dst_port,
                                             dst_port=dst_port, exp_src_port=dst_port, exp_dst_port=src_port)

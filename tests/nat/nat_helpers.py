@@ -349,14 +349,14 @@ def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
         duthost.command("sudo config nat add static {0} {1} {2} {3} {4} -nat_type=dnat".
                         format(protocol_type.lower(), public_ip, global_port, private_ip, local_port))
     # Check that rule was applied
-    static_nat = get_cli_show_nat_config_output(duthost,"static", nat_type="static")
+    static_nat = get_cli_show_nat_config_output(duthost, "static", nat_type="static")
     pytest_assert('dnat' == static_nat['Nat Type'], "Default NAT type was changed")
     pytest_assert(public_ip == static_nat['Global IP'], "Global IP does not match {}".format(public_ip))
     pytest_assert(private_ip == static_nat['Local IP'], "Local IP does not match {}".format(private_ip))
     if nat_entry == 'static_napt':
         pytest_assert(protocol_type == static_nat['IP Protocol'], "Protocol does not match {}".format(protocol_type))
         pytest_assert(str(global_port) == static_nat['Global Port'], "Global Port does not match {}".format(global_port))
-        pytest_assert(str(local_port) == static_nat['Local Port'],  "Local Port does not match {}".format(local_port))
+        pytest_assert(str(local_port) == static_nat['Local Port'], "Local Port does not match {}".format(local_port))
     else:
         pytest_assert('all' == static_nat['IP Protocol'])
     nat_zones_config(duthost, setup_data, interface_type)

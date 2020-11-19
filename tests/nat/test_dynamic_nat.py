@@ -415,7 +415,7 @@ class TestDynamicNat(object):
         nat_type = 'dynamic'
         src_port, dst_port = get_l4_default_ports(protocol_type)
         # Configure rules with port range what will be including source port for protocols
-        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, port_range="100-5000", default=True,  handshake=True)
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, port_range="100-5000", default=True, handshake=True)
         # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,
                                     dst_port=dst_port, exp_dst_port=dst_port)
@@ -540,7 +540,7 @@ class TestDynamicNat(object):
         pytest_assert(not cleared_translations,
                       "Unexpected NAT translations output")
         # Configure default rules for Dynamic NAT
-        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True,  handshake=True)
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
         # Send traffic
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         source_l4_port, _ = get_l4_default_ports(protocol_type)
@@ -590,7 +590,7 @@ class TestDynamicNat(object):
         direction = 'host-tor'
         nat_type = 'dynamic'
         # Configure default rules for Dynamic NAT
-        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True,  handshake=True)
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
         # Send traffic
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Disable outer interface
@@ -660,7 +660,7 @@ class TestDynamicNat(object):
         for key in setup_info_negative_zones['interfaces_nat_zone']:
             setup_info_negative_zones['interfaces_nat_zone'][key]['zone_id'] = 1
         # Configure default rules for Dynamic NAT
-        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True,  handshake=True)
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
         # Send traffic
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Check dynamic NAT when all NAT interfaces zones are 0
