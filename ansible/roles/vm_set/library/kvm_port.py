@@ -37,6 +37,7 @@ def main():
 
     mgmt_port = None
     fp_ports = {}
+    cur_fp_idx = 0
 
     for l in output.split('\n'):
         fds = re.split('\s+', l.lstrip())
@@ -46,7 +47,8 @@ def main():
             if mgmt_port == None:
                 mgmt_port = fds[0]
             else:
-                fp_ports[fds[0]] = fds[0]
+                fp_ports[cur_fp_idx] = fds[0]
+                cur_fp_idx = cur_fp_idx + 1
 
     if mgmt_port == None:
         module.fail_json(msg="failed to find mgmt port")
