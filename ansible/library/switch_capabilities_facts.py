@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import swsssdk
-
+from sonic_py_common import multi_asic
 DOCUMENTATION = '''
 module:         switch_capability_facts
 version_added:  "1.0"
@@ -32,8 +32,9 @@ class SwitchCapabilityModule(object):
             Main method of the class
         """
         self.facts['switch_capabilities'] = {}
-
-        conn = swsssdk.SonicV2Connector(host='127.0.0.1')
+        namespace_list = multi_asic.get_namespace_list()
+        swsssdk.SonicDBConfig.load_sonic_global_db_config()
+        conn = swsssdk.SonicV2Connector(namespace=namespace_list[0])
         conn.connect(conn.STATE_DB)
         keys = conn.keys(conn.STATE_DB, 'SWITCH_CAPABILITY|*')
 
