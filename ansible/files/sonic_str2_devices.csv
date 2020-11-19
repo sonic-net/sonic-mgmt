@@ -25,6 +25,8 @@ str2-sn3800-azd-2,10.3.146.238/23,ACS-MSN3800,DevSonic
 str2-sn3800-02,10.3.146.232/23,Mellanox-SN3800-D112C8,DevSonic
 str2-n3164-acs-4,10.3.146.124/23,Nexus-3164,DevSonic
 str2-n3164-acs-3,10.3.146.132/23,Nexus-3164,DevSonic
+str2-n3164-acs-1,10.3.147.149/23,Nexus-3164,DevSonic
+str2-7260-26,10.3.146.160/23,Arista-7260CX3,FanoutLeaf
 str2-7050cx3-acs-01,10.3.146.85/23,Arista-7050CX3-32S-C32,DevSonic
 str2-7050cx3-acs-02,10.3.146.187/23,Arista-7050CX3-32S-C32,DevSonic
 str2-7050cx3-acs-03,10.3.146.185/23,Arista-7050CX3-32S-C32,DevSonic

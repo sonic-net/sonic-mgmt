@@ -79,6 +79,8 @@ fanout:
       ansible_host: 10.3.146.150
     str2-7263CX3-azd-01:
       ansible_host: 10.3.146.32
+    str2-7260-26:
+      ansible_host: 10.3.146.160
 
 sonic:
   vars:
@@ -142,6 +144,8 @@ sonic_nexus_3164:
       ansible_host: 10.3.146.124
     str2-n3164-acs-3:
       ansible_host: 10.3.146.132
+    str2-n3164-acs-1:
+      ansible_host: 10.3.147.149
 
 sonic_arista:
   vars:
