@@ -172,7 +172,8 @@ def test_fan_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
-    assert keys, 'Fan information not exists in DB'
+    if not keys:
+        pytest.skip('Fan information not exists in DB, skipping this test')
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
