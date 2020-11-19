@@ -54,10 +54,10 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
 
 
 @pytest.fixture(scope="module")
-def pkt_fields(duthosts, rand_one_dut_hostname):
+def pkt_fields(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     # Gather ansible facts
-    mg_facts = duthost.get_extended_minigraph_facts()
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ipv4_addr = None
     ipv6_addr = None
 

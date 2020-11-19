@@ -15,7 +15,7 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture()
-def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname):
+def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
     """
     Bring up outer interfaces on the DUT.
 
@@ -26,7 +26,7 @@ def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     yield
     if request.node.rep_call.failed:
-        mg_facts = duthost.get_extended_minigraph_facts()
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ports = mg_facts['minigraph_ports'].keys()
 
         # Enable outer interfaces

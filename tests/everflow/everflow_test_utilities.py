@@ -160,7 +160,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     # We are making sure regular traffic has a dedicated route and does not use
     # the default route.
 
-    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3])
+    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3], tbinfo)
 
     # Disable recursive route resolution as we have test case where we check
     # if better unresolved route is there then it should not be picked by Mirror state DB
@@ -209,7 +209,7 @@ def remove_route(duthost, prefix, nexthop):
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def get_neighbor_info(duthost, dest_port, resolved=True):
+def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
     """
     Get the IP and MAC of the neighbor on the specified destination port.
 
@@ -222,7 +222,7 @@ def get_neighbor_info(duthost, dest_port, resolved=True):
     if not resolved:
         return "20.20.20.100", None
 
-    mg_facts = duthost.get_extended_minigraph_facts()
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for bgp_peer in mg_facts["minigraph_bgp"]:
         if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
