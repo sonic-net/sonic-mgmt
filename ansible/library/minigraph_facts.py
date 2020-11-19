@@ -9,7 +9,7 @@ import copy
 import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
-
+from sonic_py_common import multi_asic
 
 from lxml import etree as ET
 from lxml.etree import QName
@@ -56,10 +56,12 @@ class minigraph_encoder(json.JSONEncoder):
 def parse_png(png, hname):
     neighbors = {}
     devices = {}
+    neighbors_namespace = defaultdict(str)
     console_dev = ''
     console_port = ''
     mgmt_dev = ''
     mgmt_port = ''
+    namespace_list = multi_asic.get_namespace_list()
     for child in png:
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
             for link in child.findall(str(QName(ns, "DeviceLinkBase"))):
@@ -75,11 +77,17 @@ def parse_png(png, hname):
                 if enddevice == hname:
                     if port_alias_to_name_map.has_key(endport):
                         endport = port_alias_to_name_map[endport]
-                    neighbors[endport] = {'name': startdevice, 'port': startport}
-                else:
+                    if startdevice.lower() in namespace_list:
+                        neighbors_namespace[endport] = startdevice.lower()
+                    else:
+                        neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace':''}
+                elif startdevice == hname:
                     if port_alias_to_name_map.has_key(startport):
                         startport = port_alias_to_name_map[startport]
-                    neighbors[startport] = {'name': enddevice, 'port': endport}
+                    if enddevice.lower() in namespace_list:
+                        neighbors_namespace[startport] = enddevice.lower()
+                    else:
+                        neighbors[startport] = {'name': enddevice, 'port': endport, 'namespace':''}
 
         if child.tag == str(QName(ns, "Devices")):
             for device in child.findall(str(QName(ns, "Device"))):
@@ -101,6 +109,9 @@ def parse_png(png, hname):
                     elif node.tag == str(QName(ns, "HwSku")):
                         hwsku = node.text
 
+                if name.lower() in namespace_list:
+                    continue
+
                 devices[name] = {'lo_addr': lo_addr, 'type': d_type, 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
 
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
@@ -119,6 +130,9 @@ def parse_png(png, hname):
                                 mgmt_port = node.text.split()[-1]
                             elif node.tag == str(QName(ns, "EndDevice")):
                                 mgmt_dev = node.text
+
+    for k, v in neighbors.iteritems():
+         v['namespace'] = neighbors_namespace[k]
 
     return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
 
