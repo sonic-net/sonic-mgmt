@@ -4,6 +4,7 @@ import random
 import logging
 from tests.platform_tests.thermal_control_test_helper import *
 from tests.common.mellanox_data import get_platform_data
+from tests.common.reboot import reboot
 from minimum_table import get_min_table
 
 NOT_AVAILABLE = 'N/A'
@@ -256,7 +257,9 @@ class MockerHelper:
                 # is enough, so if it still fails after the retry, it
                 # means there is probably an issue with our sysfs, we need
                 # mark it fail here
-                assert 0, "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
+                error_message = "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
+                logging.error(error_message)
+                raise RuntimeError(error_message)
 
 
 class FanDrawerData:
