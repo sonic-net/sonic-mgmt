@@ -147,12 +147,12 @@ $ sudo ./setup-br1-nat.sh <name of server's external facing port>
 5. From inside the `sonic-mgmt` docker set up in step 2, run:
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -m k8s_ubuntu_vtb create-master k8s_server_21 password.txt  
+$ ./testbed-cli.sh -m k8s_ubuntu_vtb create-master k8s_server_21 .password  
 ```
 #### To remove a HA Kubernetes master for Virtual DUT: 
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -m k8s_ubuntu_vtb destroy-master k8s_server_21 password.txt  
+$ ./testbed-cli.sh -m k8s_ubuntu_vtb destroy-master k8s_server_21 .password  
 ```
 
 ## Testing Scope

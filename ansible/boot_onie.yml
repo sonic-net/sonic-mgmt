@@ -1,6 +1,6 @@
 # Example usage:
 #
-# ansible-playbook boot_onie.yml -i inventory --vault-password-file ~/password.txt --limit devicename
+# ansible-playbook boot_onie.yml -i inventory --vault-password-file ~/.password --limit devicename
 
 - hosts: all
   gather_facts: no

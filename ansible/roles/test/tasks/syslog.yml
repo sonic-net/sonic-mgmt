@@ -10,7 +10,7 @@
 #
 # Usage:
 #
-#  sudo ansible-playbook test.yml -i str --limit 10.3.147.142 --sudo --vault-password-file ~/password.txt --tags syslog
+#  sudo ansible-playbook test.yml -i str --limit 10.3.147.142 --sudo --vault-password-file ~/.password --tags syslog
 #
 #
 

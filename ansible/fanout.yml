@@ -1,5 +1,5 @@
 #Example:
-# ansible-playbook fanout.yml -i str --limit str-7260-01 -b --vault-password-file ~/password.txt
+# ansible-playbook fanout.yml -i str --limit str-7260-01 -b --vault-password-file ~/.password
 - hosts: [fanout]
   gather_facts: no
   roles:

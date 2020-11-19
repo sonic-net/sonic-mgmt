@@ -7,10 +7,10 @@ the DUT based on the topology type.
 Before you run the command, first prepare [inventory](../lab) file and
 [testbed.csv](../testbed.csv) file. In the command line, `vms-sn2700-t0` 
 is the testbed name defined in `testbed.csv`, `lab` is the inventory file.
-`password.txt` is the vault password file.
+`.password` is the vault password file.
 
 ```
-./testbed-cli.sh deploy-mg vms-sn2700-t0 lab password.txt
+./testbed-cli.sh deploy-mg vms-sn2700-t0 lab .password
 ```
 
 **Note**

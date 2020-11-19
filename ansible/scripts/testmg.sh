@@ -12,7 +12,7 @@ vms-s6100-t1-lag"
 
 for tb in ${testbed}; do
     echo $tb
-    ./testbed-cli.sh test-mg $tb lab password.txt | grep -E 'changed=[1-9]+'
+    ./testbed-cli.sh test-mg $tb lab .password | grep -E 'changed=[1-9]+'
     if [ $? == 0 ]; then
         echo "generated minigraph for testbed $tb mismatch"
         exit 1

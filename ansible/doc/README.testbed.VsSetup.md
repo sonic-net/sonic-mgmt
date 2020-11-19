@@ -112,8 +112,8 @@ index 3e7b3c4e..edabfc40 100644
    hosts:
 ```
 
-2.  Create a dummy `password.txt` file under `/data/sonic-mgmt/ansible`
-    - **Note**: Here, `password.txt` is the Ansible Vault password file. Ansible allows users to use Ansible Vault to encrypt password files.
+2.  Create a dummy `.password` file under `/data/sonic-mgmt/ansible`
+    - **Note**: Here, `.password` is the Ansible Vault password file. Ansible allows users to use Ansible Vault to encrypt password files.
     
       By default, the testbed scripts require a password file. If you are not using Ansible Vault, you can create a file with a dummy password (e.g. `abc`) and pass the filename to the command line. The file name and location is created and maintained by the user.
 
@@ -134,7 +134,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 
 1. Start the VMs:
 ```
-$ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
+$ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 .password
 ```
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
@@ -172,13 +172,13 @@ Now we're finally ready to deploy the topology for our testbed! Run the followin
 ### vEOS
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb add-topo vms-kvm-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb add-topo vms-kvm-t0 .password
 ```
 
 ### cEOS
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos add-topo vms-kvm-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos add-topo vms-kvm-t0 .password
 ```
 
 Verify that the cEOS neighbors were created properly:
@@ -203,7 +203,7 @@ Once the topology has been created, we need to give the DUT an initial configura
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
 ```
-$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 lab password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 lab .password
 ```
 
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.

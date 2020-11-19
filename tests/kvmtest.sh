@@ -14,11 +14,11 @@ chmod 600 .ssh/id_rsa
 
 # Refresh dut in the virtual switch topology
 cd $SONIC_MGMT_DIR/ansible
-./testbed-cli.sh -m $inventory -t $testbed_file refresh-dut $tbname password.txt
+./testbed-cli.sh -m $inventory -t $testbed_file refresh-dut $tbname .password
 sleep 120
 
 # Create and deploy default vlan configuration (one_vlan_a) to the virtual switch
-./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab password.txt
+./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab .password
 sleep 180
 
 export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
@@ -91,7 +91,7 @@ popd
 
 # Create and deploy two vlan configuration (two_vlan_a) to the virtual switch
 cd $SONIC_MGMT_DIR/ansible
-./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab password.txt -e vlan_config=two_vlan_a
+./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab .password -e vlan_config=two_vlan_a
 sleep 180
 
 # Run tests_2vlans on vlab-01 virtual switch

@@ -174,19 +174,19 @@ Run the TestbedProcessing.py script:
 
 ### VMS Commands
 Start VMS (using vms_1):
-> ./testbed-cli.sh start-vms vms_1 password.txt
+> ./testbed-cli.sh start-vms vms_1 .password
 
 Stop VMS (using vms_1): 
-> ./testbed-cli.sh stop-vms vms_1 password.txt
+> ./testbed-cli.sh stop-vms vms_1 .password
 
 ### Deploy (PTF32) Topology Container 
 In this guide, ptf32-1 will be added using the testbed-cli.sh script as an example. However, other topologies can be added as well.
 
 Remove topology ptf32-1: 
-> ./testbed-cli.sh remove-topo ptf32-1 password.txt
+> ./testbed-cli.sh remove-topo ptf32-1 .password
 
 Add topology ptf32-1: 
-> ./testbed-cli.sh add-topo ptf32-1 password.txt
+> ./testbed-cli.sh add-topo ptf32-1 .password
 
 You can check to see if it was removed or added using the "docker ps" or "docker container ls" command.
 
