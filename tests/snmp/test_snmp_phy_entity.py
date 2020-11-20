@@ -234,7 +234,9 @@ def test_psu_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
-    assert keys, 'PSU information not exists in DB'
+    if not keys:
+        pytest.skip('PSU information not exists in DB, skipping this test')
+
     for key in keys:
         psu_info = redis_hgetall(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
@@ -305,7 +307,9 @@ def test_thermal_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
-    assert keys, 'Thermal information not exists in DB'
+    if not keys:
+        pytest.skip('Thermal information not exists in DB, skipping this test')
+
     for key in keys:
         thermal_info = redis_hgetall(duthost, STATE_DB, key)
         if is_null_str(thermal_info['temperature']):
@@ -341,7 +345,9 @@ def test_transceiver_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
-    assert keys, 'Transceiver information not exists in DB'
+    if not keys:
+        pytest.skip('Transceiver information not exists in DB, skipping this test')
+
     name_to_snmp_facts = {}
     for oid, values in snmp_physical_entity_info.items():
         values['oid'] = oid
