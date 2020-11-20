@@ -29,7 +29,7 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subne
     get_peer_ixia_chassis
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.topology("t0")
+@pytest.mark.topology("tgen")
 
 def test_testbed(conn_graph_facts, duthosts, rand_one_dut_hostname, fanout_graph_facts,
     ixia_api_server_session, fanouthosts):
