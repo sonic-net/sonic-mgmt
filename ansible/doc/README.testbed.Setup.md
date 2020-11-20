@@ -166,7 +166,8 @@ Once you are in the docker container, you need to modify the testbed configurati
     
     - Copy these image files to `~/veos-vm/images` on your testbed server:
         - `Aboot-veos-serial-8.0.0.iso`
-        - `vEOS-lab-4.25.0F.vmdk`
+        - `vEOS-lab-4.20.15M.vmdk`
+        - NOTE: do not use `vEOS-lab-4.25.0F.vmdk` since it does not have a default password and scripts will have to be updated too
     - update ansible/group_vars/vm_host/main.yml with the location of the veos files or veos file name if you downloaded a diferent version
     
     - Update the VM IP addresses in the [`ansible/veos`](../veos) inventory file. These IP addresses should be in the management subnet defined above.
