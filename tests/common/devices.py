@@ -403,6 +403,34 @@ class SonicHost(AnsibleHostBase):
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
 
+    def get_monit_services_status(self):
+        """
+        @summary: Get metadata (service name, service status and service type) of services
+                  which were monitored by Monit.
+        @return: A dictionary in which key is the service name and values are service status
+                 and service type.
+        """
+        monit_services_status = {}
+
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True)
+
+        exit_code = services_status_result["rc"]
+        if exit_code != 0:
+            return monit_services_status
+
+        for index, service_info in enumerate(services_status_result["stdout_lines"]):
+            if "status" in service_info and "monitoring status" not in service_info:
+                service_type_name = services_status_result["stdout_lines"][index - 1]
+                service_type = service_type_name.split("'")[0].strip()
+                service_name = service_type_name.split("'")[1].strip()
+                service_status = service_info[service_info.find("status") + len("status"):].strip()
+
+                monit_services_status[service_name] = {}
+                monit_services_status[service_name]["service_status"] = service_status
+                monit_services_status[service_name]["service_type"] = service_type
+
+        return monit_services_status
+
     def get_critical_group_and_process_lists(self, container_name):
         """
         @summary: Get critical group and process lists by parsing the
