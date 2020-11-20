@@ -1,0 +1,188 @@
+#TopoBucket,OrderBucket,Module,
+2,1,qos/acl/test_acls.py,D1D2:2 D1T1:2 D2T1:1
+2,2,qos/acl/test_acls_l3_forwarding.py,D1D2:2 D1T1:1 D2T1:1
+1,2,qos/test_copp.py,D1T1:1
+2,1,qos/test_copp_mgmt.py,D1T1:2 D1D2:1
+1,2,qos/test_cos.py,D1T1:2
+1,2,qos/test_qos_save_reboot.py,D1T1:1
+# using bucket-4 instead of bucket-1 because of links needed,,,
+1,2,qos/test_wred.py,D1T1:3
+1,1,qos/test_acl_dscp.py,D1T1:3 TGCARD=novus10
+3,1,routing/BFD/test_bfd_mhop.py,D1D2:6 D1T1:2 D2T1:2 D1D3:4 D3T1:2
+2,2,routing/BFD/test_bfd_scale.py,D1D2:6 D1T1:1 D2T1:1
+2,1,routing/BFD/test_bfd_single_hop.py,D1D2:6 D1T1:2 D2T1:2
+2,0,routing/BGP/test_bgp.py,D1D2:1 D1T1:1 D2T1:1
+4,2,routing/BGP/test_bgp_4node.py,D1D2:1 D2D3:1 D3D4:1
+2,1,routing/BGP/test_bgp_fast_reboot.py,D1D2:1 D1T1:2
+2,2,routing/BGP/test_bgp_rr_traffic.py,D1D2:1 D1T1:1 D2T1:1
+2,1,routing/BGP/test_bgp_save_reboot.py,D1D2:1 D1T1:2
+4,1,routing/BGP/test_bgp_sp.py,D1D2:4 D1D3:4 D1D4:4 D2D3:4 D2D4:4 D3D4:4
+2,0,routing/L3PerfSclEnhancement/test_L3SclEnh_DefVrf_IP.py,D1D2:2 D1T1:2 D2T1:2 TGEN=ixia
+2,0,routing/L3PerfSclEnhancement/test_L3SclEnh_UserVrf.py,D1D2:2 D1T1:2 D2T1:2 TGEN=ixia
+4,1,routing/L3MCLAG/test_l3mclag.py,D1D2:3 D1D3:3 D1D4:3 D2D3:3 D2D4:3 D1T1:1 D2T1:1 D3T1:1 D4T1:1 TGCARD=novus10
+4,1,routing/L3MCLAG/test_l3mclag_gr.py,D1D2:3 D1D3:3 D1D4:3 D2D3:3 D2D4:3 D1T1:2 D2T1:2 D3T1:2 D4T1:2 TGCARD=novus10
+4,1,routing/L3MCLAG/test_po_gshut.py,D1D2:4 D1D3:4 D2D3:4 D1D4:4 D2D4:4 D1T1:2 D2T1:2 D3T1:2 D4T1:2 TGEN=ixia
+1,1,routing/NAT/test_nat.py,D1T1:2 CHIP=!TH3
+1,1,routing/NAT/test_nat_reboot_long_run.py,D1T1:2 CHIP=!TH3
+3,2,routing/NAT/test_nat_tcp.py,D1D2:1 D2D3:1 CHIP=!TH3
+2,1,routing/NAT/test_nat_vlan_routing_int.py,D1D2:4 D1T1:2 D2T1:1 CHIP=!TH3
+2,0,routing/VRF/test_vrf.py,D1D2:4 D1T1:2 D2T1:2
+2,1,routing/VRF/test_vrf_scale.py,D1D2:4 D1T1:2 D2T1:2
+4,1,routing/VRRP/test_vrrp.py,D1D3:4 D2D3:4 D1D4:4 D2D4:4 D3T1:1 D4T1:1 D1D2:1
+4,1,routing/VRRP/test_vrrp_vrf.py,D1D3:4 D2D3:4 D1D4:4 D2D4:4 D3T1:1 D4T1:1 D1D2:1 TGCARD=novus10|stc  
+4,1,routing/VRRP/test_vrrp_scale.py,D1D2:4 D1T1:2 D2T1:2
+4,1,routing/VRRPv3/test_vrrpv3.py,D1D3:4 D2D3:4 D1D4:4 D2D4:4 D3T1:1 D4T1:1 D1D2:1
+4,1,routing/VRRPv3/test_vrrpv3_scale.py,D1D3:3 D2D3:3 D1D4:3 D2D4:3 D3T1:1 D4T1:1
+2,2,routing/error_handling/test_error_handling.py,D1D2:1
+2,1,routing/error_handling/test_error_handling_long_run.py,D1D2:1 D1T1:2
+1,2,routing/test_arp.py,D1T1:2
+2,1,routing/test_ip.py,D1T1:2 D2T1:2 D1D2:4
+1,1,routing/test_l3_performance.py,D1T1:2
+4,1,routing/test_l3_performance_4_dut.py,D1D2:1 D1D3:1 D2D4:1 D3D4:1 D1T1:1 D4T1:1
+2,1,routing/test_l3_scale_ecmp_paths.py,D1D2:4 D1T1:4 D2T1:1
+1,2,routing/test_ndp.py,D1T1:2
+# using bucket-4 instead of bucket-2 because of links needed,,,
+2,1,sanity/test_sanity_l2.py,D1D2:4 D1T1:3 D2T1:1
+2,2,sanity/test_sanity_l3.py,D1D2:1 D1T1:1 D2T1:1 TGCARD=novus10
+1,2,security/test_security_fast_reboot.py,D1
+1,2,security/test_security_save_reboot.py,D1
+1,2,security/test_tacacs.py,D1
+2,0,switching/test_l2fwd.py,D1D2:6 D1T1:2 D2T1:2
+2,0,switching/test_l2fwd_scale.py,D1D2:6 D1T1:2 D2T1:2
+4,1,switching/MCLAG/test_l2mclag.py,D1D2:4 D1D3:4 D2D3:4 D1D4:4 D2D4:4 D1T1:2 D2T1:2 D3T1:1 D4T1:1
+4,1,switching/MCLAG/test_mclag_fallback.py,D1D2:4 D1D3:4 D2D3:4 D1D4:4 D2D4:4 D1T1:2 D2T1:2 D3T1:1 D4T1:1
+2,1,switching/test_portchannel.py,D1D2:4 D1T1:1 D2T1:1
+2,2,switching/test_portchannel_with_vlan_variations.py,D1D2:4 D1T1:1 D2T1:1
+3,1,switching/STP/test_rpvst.py,D1D2:3 D2D3:3 D1D3:3
+3,1,switching/STP/test_pvst.py,D1D2:3 D2D3:3 D1D3:3
+2,2,switching/test_vlan.py,D1D2:2 D1T1:2 D2T1:2 CHIP=TH2|TH1|TD3|TD2
+1,1,system/crm/test_crm.py,D1T1:2 TGCARD=novus10|stc  
+2,2,system/cloud_advanced/ifa/test_ifa.py,D1T1:1 D2T1:2 D1D2:2 D1MODEL=Accton-AS7326-56X D2MODEL=Accton-AS7326-56X
+2,2,system/cloud_advanced/ifa/test_ifa_rest.py,D1T1:1 D1MODEL=Accton-AS7326-56X
+2,1,system/DPB/test_dpb.py,D1D2:5 D2T1:2 
+1,2,system/test_ansible.py,D1
+1,1,system/test_bare_bone_oc_yang_version.py,D1
+1,2,system/test_box_services.py,D1
+1,1,system/test_bootup.py,D1
+1,2,system/test_branding.py,D1
+1,2,system/test_chef.py,D1
+4,2,system/chef_evpn/test_chef_evpn.py,D1D2:2 D1D3:0 D1D4:2 D3D4:2 D3D2:2 D2D4:0
+1,2,system/test_device_mgmt.py,D1
+2,1,system/test_erspan.py,D1D2:1 D1T1:2 D2T1:1 TGCARD=novus10
+2,2,system/test_interface.py,D1D2:2 D1T1:2
+2,2,system/test_lldp.py,D1D2:1
+1,2,system/test_ntp.py,D1
+1,0,system/pddf/test_pddf.py,D1T1:4 D1MODEL=Accton-AS5835-54X|Accton-AS4630-54PE|Accton-AS7712-32X
+1,0,system/pddf/test_pddf_bmc.py,D1 D1MODEL=Quanta-IX8-56X
+2,1,system/test_pfc.py,D1T1:2 D1D2:2 D2T1:2
+1,0,system/test_reboot.py,D1
+1,2,system/test_snmp.py,D1T1:2
+2,2,system/test_ssh.py,D1D2:2
+2,2,system/test_system_fast_reboot.py,D1T1:2 D1D2:2 D2T1:1 TGCARD=novus10
+1,2,system/test_system_save_reboot.py,D1 CHIP=TH2|TH1|TD3|TD2
+1,2,system/test_system_warm_reboot.py,D1T1:1
+1,2,system/threshold/test_threshold.py,D1T1:4
+1,2,system/threshold/test_threshold_rest.py,D1T1:4
+1,2,routing/test_arp_static_route_long_run.py,D1T1:2
+2,1,routing/BGP/test_bgp_unnumbered.py,D1D2:4 D1T1:2 D2T1:2
+1,1,routing/BGP/test_bgp_warm_reboot.py,D1T1:2
+2,1,switching/test_portchannel_long_run.py,D1D2:4 D1T1:1 D2T1:1
+1,1,switching/test_vlan_long_run.py,D1T1:2
+2,1,system/test_erspan_long_run.py,D1D2:1 D1T1:2 D2T1:1
+2,1,routing/test_ipv6_link_local.py,D1D2:4 D1T1:1 D2T1:1
+2,1,system/test_pfc_long_run.py,D1T1:2 D1D2:2 D2T1:2
+2,2,system/test_span.py,D1T1:2 D2T1:1 D1D2:4
+2,1,switching/test_igmp_snooping.py,D1D2:4 D1T1:3 D2T1:2 TGEN=stc
+2,1,system/test_sflow.py,D1T1:1 D2T1:2 D1D2:1 TGCARD=novus10
+4,1,multicast/PIM/test_pim.py,D1D3:3 D2D3:2 D1D4:2 D2D4:2 D1D2:1 D3D4:2
+2,0,routing/OSPF/test_ospfv2_functional.py,D1D2:6 D1T1:4 D2T1:4 TGCARD=novus10
+2,1,qos/acl/test_acl_rate_limit.py,D1T1:2 D1D2:2 D2T1:1 CHIP=!TH3
+2,1,qos/test_qos_scheduling.py,D1D2:1 D1T1:2 D2T1:2 TGEN=ixia
+2,1,system/cloud_advanced/test_tail_time_stamping.py,D1T1:2 D2T1:1 CHIP=TH2|TD3|TH3 TGCARD=novus10
+1,1,system/test_management_vrf.py,D1
+1,1,system/cloud_advanced/test_system_save_reboot_cloud_advance.py,D1 D1CHIP=TD3
+2,1,switching/test_static_portchannel.py,D1D2:4 D1T1:1 D2T1:1
+1,1,qos/test_qos_port_priority_shaping.py,D1T1:4
+3,0,switching/MCLAG/Interaction/test_mclag_igmpsnooping.py,D1D2:3 D1D3:1 D2D3:1 D1T1:1 D2T1:1 D3T1:1
+3,1,routing/Dynamic_5549/test_dynamic_discovery_5549.py,D1D2:4 D2D3:4 D1T1:2 D3T1:2
+3,1,routing/Dynamic_5549/test_dynamic_discovery_5549_scale.py,D1D2:4 D2D3:4 D1T1:2 D3T1:2
+6,1,routing/evpn/test_ft_evpn.py,D1D3:4 D1D4:4 D1D5:2 D1D6:4 D2D3:4 D2D4:4 D2D5:4 D2D6:4 D3T1:2 D4T1:2 D5T1:2 D6T1:2 D5CHIP=TD3 D6CHIP=TD3 D7CHIP=TD3 D8CHIP=TD3
+6,1,routing/evpn/test_ft_evpn_5549.py,D1D3:4 D1D4:4 D1D5:2 D1D6:4 D2D3:4 D2D4:4 D2D5:4 D2D6:4 D3T1:2 D4T1:2 D5T1:2 D6T1:2 D5CHIP=TD3 D6CHIP=TD3 D7CHIP=TD3 D8CHIP=TD3
+7,1,routing/PBR/test_evpn_pbr.py,D1D3:4 D1D4:4 D1D5:4 D1D6:4 D2D3:4 D2D4:4 D2D5:4 D2D6:4 D3T1:2 D4T1:2 D5T1:2 D6T1:2 D4D7:4 D3CHIP=TD3 D4CHIP=TD3 D5CHIP=TD3 D6CHIP=TD3
+3,1,switching/UDLD/test_pvst_udld.py,D1D2:3 D1D3:3 D2D3:3 D1T1:2 D2T1:2 D3T1:2
+3,1,switching/UDLD/test_rpvst_udld.py,D1D2:3 D1D3:3 D2D3:3 D1T1:2 D2T1:2 D3T1:2
+3,1,switching/UDLD/test_udld_loop.py,D1D2:1 D2D3:2
+2,1,security/test_rbac.py,D1 D2
+2,1,security/test_rbac_rest.py,D1 D2
+7,1,routing/lvtep/test_evpn_rlvtep.py,D1D3:4 D1D4:4 D1D5:2 D1D6:4 D2D3:4 D2D4:4 D2D5:4 D2D6:4 D7T1:2 D3T1:2 D4T1:2 D5T1:2 D6T1:2 D3D4:3 D3D7:1 D4D7:1 D3CHIP=TD3 D4CHIP=TD3 D5CHIP=TD3 D6CHIP=TD3
+7,1,routing/lvtep/test_evpn_rlvtep_5549.py,D1D3:4 D1D4:4 D1D5:2 D1D6:4 D2D3:4 D2D4:4 D2D5:4 D2D6:4 D7T1:2 D3T1:2 D4T1:2 D5T1:2 D6T1:2 D3D4:3 D3D7:1 D4D7:1 D3CHIP=TD3 D4CHIP=TD3 D5CHIP=TD3 D6CHIP=TD3
+7,1,routing/lvtep/test_delay_restore.py,D1D3:4 D1D4:4 D1D5:2 D1D6:4 D2D3:4 D2D4:4 D2D5:4 D2D6:4 D7T1:2 D3T1:2 D4T1:2 D5T1:2 D6T1:2 D3D4:3 D3D7:1 D4D7:1 D3CHIP=TD3 D4CHIP=TD3 D5CHIP=TD3 D6CHIP=TD3
+1,1,routing/test_ip_helper.py,D1T1:4 TGCARD=novus10
+1,1,system/test_snapshot.py,D1T1:4 D1MODEL=Accton-AS7816-64X
+2,1,system/cloud_advanced/mod/test_drop_monitor.py,D1T1:2 D1D2:2 D2T1:2 D1MODEL=Accton-AS7326-56X D2MODEL=Accton-AS7326-56X TGEN=stc
+3,1,routing/IP_unnumbered/test_ip_unnumbered.py,D1D2:4 D2D3:4 D1T1:2 D3T1:2
+3,4,routing/IP_unnumbered/test_ip_unnumbered_scale.py,D1D2:4 D2D3:4 D1T1:2 D3T1:2
+2,1,security/Radius/test_radius.py,D1D2:4
+3,1,system/chef_evpn/test_chef_mclag.py,D1D2:2 D1D3:1 D2D3:1 D2CHIP=TD3 D3CHIP=TD3
+1,1,ui_cli/test_uicli_system.py,D1T1:1
+1,1,ui_cli/test_uicli_acl.py,D1T1:1
+1,1,ui_cli/test_uicli_bgp.py,D1T1:1
+1,1,ui_cli/test_uicli_cloud.py,D1T1:1 CHIP=TD3
+1,1,ui_cli/test_uicli_platform.py,D1T1:1
+1,1,ui_cli/test_uicli_qos.py,D1T1:1
+1,1,ui_cli/test_uicli_routing.py,D1T1:1
+1,1,ui_cli/test_uicli_security.py,D1T1:1
+1,1,ui_cli/test_uicli_switching.py,D1T1:1
+1,1,ui_cli/test_uicli_tree.py,D1T1:1
+1,1,ui_rest/test_uirest_ietf.py,D1T1:1
+1,1,ui_rest/test_uirest_openconfig_acl.py,D1T1:1
+1,1,ui_rest/test_uirest_openconfig_cloud.py,D1T1:1 CHIP=TD3
+1,1,ui_rest/test_uirest_openconfig_interfaces.py,D1T1:1
+1,1,ui_rest/test_uirest_openconfig_routing.py,D1T1:1
+1,1,ui_rest/test_uirest_openconfig_switching.py,D1T1:1
+1,1,ui_rest/test_uirest_openconfig_system.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_acl.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_bgp.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_cloud.py,D1T1:1 CHIP=TD3
+1,1,ui_rest/test_uirest_sonic_interface.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_ospf.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_routing.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_security.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_switching.py,D1T1:1
+1,1,ui_rest/test_uirest_sonic_system.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_ietf.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_openconfig_acl.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_openconfig_cloud.py,D1T1:1 CHIP=TD3
+1,1,ui_gnmi/test_uignmi_openconfig_interfaces.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_openconfig_routing.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_openconfig_switching.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_openconfig_system.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_acl.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_bgp.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_cloud.py,D1T1:1 CHIP=TD3
+1,1,ui_gnmi/test_uignmi_sonic_interface.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_ospf.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_routing.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_security.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_switching.py,D1T1:1
+1,1,ui_gnmi/test_uignmi_sonic_system.py,D1T1:1
+1,1,dell,D1
+1,1,system/test_snmp_cli.py,D1T1:2 TGCARD=novus10
+5,0,switching/MCLAG/Interaction/test_mclag_pvst.py,D1D2:4 D1D3:3 D1D4:1 D1D5:1 D2D4:3 D2D3:1 D3D4:3 D3D5:1 D4D5:1 D1T1:1 D2T1:1 D3T1:1 D4T1:1 D5T1:1
+5,0,switching/MCLAG/Interaction/test_mclag_pvst_2_tier.py,D1D2:4 D1D3:3 D1D4:1 D1D5:1 D2D4:3 D2D3:1 D3D4:3 D3D5:1 D4D5:1 D1T1:1 D2T1:1 D3T1:1 D4T1:1 D5T1:1
+2,1,routing/test_dhcp_relay_link_selection.py,D1D2:2
+2,1,switching/test_portchannel_fallback.py,D1D2:4 D1T1:1 D2T1:1
+5,0,switching/MCLAG/Interaction/test_mclag_rpvst.py,D1D2:4 D1D3:3 D1D4:1 D1D5:1 D2D4:3 D2D3:1 D3D4:3 D3D5:1 D4D5:1 D1T1:1 D2T1:1 D3T1:1 D4T1:1 D5T1:1
+5,0,switching/MCLAG/Interaction/test_mclag_rpvst_2_tier.py,D1D2:4 D1D3:3 D1D4:1 D1D5:1 D2D4:3 D2D3:1 D3D4:3 D3D5:1 D4D5:1 D1T1:1 D2T1:1 D3T1:1 D4T1:1 D5T1:1 TGEN=stc
+2,2,routing/PBR/test_pbr.py,D1D2:4 D1T1:2 D2T1:2
+2,1,security/Radius/test_radius.py,D1D2:4
+3,1,system/Syslog_srcintf/test_syslog.py,D1D2:4 D2D3:4
+1,1,system/test_tpcm.py,D1
+5,0,switching/MCLAG/Interaction/test_mclag_rpvst_scale.py, D1D2:4 D1D3:40 D1D4:1 D1D5:1 D2D4:40 D2D3:1 D3D4:3 D3D5:1 D4D5:1 D1T1:1 D2T1:1 D3T1:1 D4T1:1 D5T1:1
+1,1,qos/test_ingress_egress_qos_maps.py,D1T1:2
+2,1,routing/IP_unnumbered_vrf_vlan/test_unnumbered_vrf.py,D1D2:4 D1T1:2 D2T1:2
+2,1,routing/BGP/test_bgp_rest.py,D1D2:4
+4,1,routing/L3MCLAG/test_mclag_maintenance_mode.py,D1D2:4 D1D3:4 D2D3:4 D1D4:4 D2D4:4 D1T1:2 D2T1:2 D3T1:2 D4T1:2 TGEN=ixia
+2,1,switching/STP/test_stp_loopguard.py,D1D2:4 D1T1:2 D2T1:2
+2,1,routing/test_l3_scale_ecmp_paths.py,D1D2:4 D1T1:4 D2T1:1
+2,1,routing/ECMP/test_ecmp.py,D1T1:2 D2T1:2 D1D2:2 CHIP=TD3
