@@ -40,18 +40,3 @@ def test_ft_system_uptime():
     else:
         st.report_fail("sytem_uptime_fail",vars.D1)
     st.report_pass("test_case_passed")
-
-@pytest.mark.dhcp_relay_docker
-def test_ft_dhcp_relay_docker_image():
-    """"
-    Author: Ramakrishnudu.Mangala <ramakrishnudu.mangala@broadcom.com>
-    Verify DHCP Relay docker file is there in docker image.
-    Test Bed :TB_16
-    """
-    vars = st.get_testbed_vars()
-    st.log("verifying the docker images on DUT")
-    if not basic_obj.verify_docker_ps(vars.D1, "docker-dhcp-relay:latest") :
-        if not basic_obj.verify_docker_ps(vars.D1, "docker-dhcp-relay-dbg:latest"):
-            st.report_fail("operation_failed")
-    st.log("Verify DHCP Relay docker file is there in docker image")
-    st.report_pass("test_case_passed")

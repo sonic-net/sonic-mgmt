@@ -22,7 +22,7 @@ else:
 sonic_platforms = {
     "x86_64-accton_as9716_32d-r0": {
         "breakout": {
-            "0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124": [ "1x400", "4x100", "4x50", "2x100", "2x200", "4x25", "4x10" ]
+            "0,8,16,24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,200,208,216,240,248": [ "1x400", "4x100", "4x50", "2x100", "2x200", "4x25", "4x10" ]
         }
     },
     "x86_64-accton_as7326_56x-r0": {
@@ -63,7 +63,12 @@ sonic_platforms = {
     },
     "x86_64-quanta_ix9_bwde-r0": {
         "breakout": {
-             "0,8,16,24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,200,208,216,224,232,240,248": [ "1x400", "4x100", "4x25", "4x10", "4x50", "2x200", "2x100" ]
+             "0,8,16,24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,200,208,216,240,248": [ "1x400", "4x100", "4x25", "4x10", "4x50", "2x200", "2x100" ]
+        }
+    },
+    "x86_64-quanta_ix8a_bwde-r0": {
+        "breakout": {
+            "48,76": [ "4x10", "4x25", "1x100", "1x40" ]
         }
     }
 }
@@ -140,7 +145,7 @@ if not SIM_HOST:
         try:
             sai_xml_path = sai_profile_kvs['SAI_INIT_CONFIG_FILE']
         except KeyError:
-            print >> sys.stderr, "Failed to get SAI XML from sai profile"
+            print("Failed to get SAI XML from sai profile")
             sys.exit(1)
 
         bcm_file = "config.bcm"
@@ -151,6 +156,12 @@ if not SIM_HOST:
 
 #####################################################################################################
 
+def get_platform_file(platform, hwsku):
+    if not SIM_HOST:
+        platform_file = get_platform_path() + '/' + hwsku + '/' + "platform.json"
+    else:
+        platform_file = "platform.json"
+    return platform_file
 
 def get_ini_file(platform, hwsku):
     if not SIM_HOST:
@@ -282,8 +293,8 @@ def break_in_ini(port, ini_file, opt):
     new_file = ini_file + NEW_FILE_EXT
     step = get_bkout_step(opt)
 
-    f_in = open(bak_file, 'r') 
-    f_out = open(new_file, 'w') 
+    f_in = open(bak_file, 'r')
+    f_out = open(new_file, 'w')
 
     first_port = True
     title = []
@@ -299,7 +310,7 @@ def break_in_ini(port, ini_file, opt):
             # Where the ordering of the columns can vary
             if len(title) == 0:
                 title = line.split()[1:]
-                print title
+                print(title)
             f_out.write(line)
             continue
 
@@ -406,27 +417,27 @@ def break_in_ini(port, ini_file, opt):
 
 
                 if not get_is_bkout(opt) and first_port:
-                    print "===>" + new_intf
+                    print("===>" + new_intf)
                     new_intf += "\n"
                     f_out.write(new_intf)
                     first_port = False
                 if get_is_bkout(opt):
-                    print "===>" + new_intf
+                    print("===>" + new_intf)
                     new_intf += "\n"
                     f_out.write(new_intf)
 
         else:
             f_out.write(line)
 
-    print "--------------------------------------------------------"
+    print("--------------------------------------------------------")
     f_in.close()
     f_out.close()
 
-    print lanes
+    print(lanes)
     return lanes
 
-# 
-# Parse logic port, phyical port, speed from bcm 
+#
+# Parse logic port, phyical port, speed from bcm
 #
 def parse_port_bcm(bcm_str):
     lp = bcm_str.split("=")[0].split("_")[1]
@@ -434,15 +445,15 @@ def parse_port_bcm(bcm_str):
     sp = bcm_str.split("=")[1].split(":")[1]
 
     return lp, pp, sp
-    
+
 #
 # portmap_84=81:100
-# 
+#
 # portmap_84=81:25
 # portmap_85=82:25
 # portmap_86=83:25
 # portmap_87=84:25
-# 
+#
 #
 def break_in_bcm(port, lanes, bcm_file, opt, platform):
     print("Breaking %s to %s in bcm ..." % (port, opt))
@@ -453,12 +464,11 @@ def break_in_bcm(port, lanes, bcm_file, opt, platform):
     new_file = bcm_file + NEW_FILE_EXT
     step = get_bkout_step(opt)
 
-    f_in = open(bak_file, 'r') 
-    f_out = open(new_file, 'w') 
+    f_in = open(bak_file, 'r')
+    f_out = open(new_file, 'w')
 
     first_port = True
-    fec_removed = False
-    print lanes
+    print(lanes)
     for oline in f_in.readlines():
         line = oline.lstrip()
 
@@ -466,9 +476,6 @@ def break_in_bcm(port, lanes, bcm_file, opt, platform):
             f_out.write(oline)
             continue
 
-        ### when running in unbreakout mode, the FEC setting per breakout should be removed
-        if not get_is_bkout(opt) and line.startswith("port_fec") and fec_removed:
-           continue
         if not line.startswith("portmap"):
             f_out.write(oline)
             continue
@@ -477,12 +484,8 @@ def break_in_bcm(port, lanes, bcm_file, opt, platform):
         lp, pp, sp =  parse_port_bcm(line)
         if pp not in lanes:
             f_out.write(oline)
-            fec_removed = False
             continue
 
-        if not get_is_bkout(opt):
-           fec_removed = True
- 
         if not get_is_bkout(opt) and not first_port:
             print("--- portmap_{} removed".format(lp))
             continue
@@ -496,30 +499,25 @@ def break_in_bcm(port, lanes, bcm_file, opt, platform):
                 new_intf = "portmap_%d.%s=%d:%d:%d" % ((int(nlp) + (i / step)), unit, (int(pp)+i), get_bkout_subport_speed(opt), get_bkout_step(opt))
             else:
                 new_intf = "portmap_%d=%d:%d:%d" % ((int(lp) + (i / step)), (int(pp)+i), get_bkout_subport_speed(opt), get_bkout_step(opt))
-                fec_intf = "port_fec_"+ str(int(lp) + (i/step)) +"=3"
 
             if not get_is_bkout(opt) and first_port:
                 f_out.write(new_intf)
                 f_out.write("\n")
-                print "===>" + new_intf
+                print("===>" + new_intf)
                 first_port = False
             if get_is_bkout(opt):
                 f_out.write(new_intf)
                 f_out.write("\n")
-                ### generate default FEC only for IX9 platform
-                if opt == "4x100" and platform == "x86_64-quanta_ix9_bwde-r0": 
-                   f_out.write(fec_intf) 
-                   f_out.write("\n") 
-                print "===>" + new_intf
+                print("===>" + new_intf)
 
-    print "--------------------------------------------------------"
+    print("--------------------------------------------------------")
     f_in.close()
     f_out.close()
 
 #
 # breakout ports in json file
-# 
-def break_in_cfg(port, cfg_file, lanes, opt):
+#
+def break_in_cfg(port, cfg_file, lanes, opt, platform):
     if not os.access(os.path.dirname(cfg_file), os.W_OK):
         print("Skipping config_db.json updates for a write permission issue")
         return
@@ -531,7 +529,7 @@ def break_in_cfg(port, cfg_file, lanes, opt):
     shutil.copy(cfg_file, bak_file)
 
     new_file = cfg_file + NEW_FILE_EXT
- 
+
     with open(bak_file) as f:
         data = json.load(f)
 
@@ -542,7 +540,7 @@ def break_in_cfg(port, cfg_file, lanes, opt):
     ### Process in 'INTERFACE'
     ###
     if 'INTERFACE' in data:
-        for key, value in sorted(data['INTERFACE'].iteritems()):
+        for key, value in sorted(data['INTERFACE'].items()):
             pkey = key.split('|')[0]
             if port == pkey:
                 data['INTERFACE'].pop(key)
@@ -562,7 +560,7 @@ def break_in_cfg(port, cfg_file, lanes, opt):
         if data['PORT'].get(x) != None:
             port_instance = data['PORT'].get(x)
             data['PORT'].pop(x)
-            print "    ", x, port_instance
+            print("    ", x, port_instance)
 
     idx = port.split()[0].split(INTERFACE_KEY,1)[1]
     porti = re.sub('.*?([0-9]*)$',r'\1', port_instance['alias'].split(":")[0])
@@ -582,6 +580,18 @@ def break_in_cfg(port, cfg_file, lanes, opt):
         port_instance['speed'] = str(get_bkout_subport_speed(opt)) + "000"
         port_instance['valid_speeds'] = str(get_bkout_subport_speed(opt)) + "000"
 
+        if platform == "x86_64-accton_as9716_32d-r0" or platform == "x86_64-quanta_ix9_bwde-r0":
+            # 200G PAM4: fec rs
+            # 100G PAM4: fec rs
+            # 100G  NRZ: fec none
+            if get_bkout_subport_speed(opt) >= 200:
+                port_instance['fec'] = 'rs'
+            elif get_bkout_subport_speed(opt) == 100:
+                if step == 2:
+                    port_instance['fec'] = 'rs'
+                else:
+                    port_instance['fec'] = 'none'
+
         new_port = INTERFACE_KEY + str(int(idx) + (i/step))
         xxx = copy.deepcopy(port_instance)
         data['PORT'][new_port] = xxx
@@ -589,12 +599,12 @@ def break_in_cfg(port, cfg_file, lanes, opt):
 
     for i in range(0, min(len(lanes), get_bkout_lanes(opt)), step):
         new_port = INTERFACE_KEY + str(int(idx) + (i/step))
-        print "===>", new_port, data['PORT'][new_port]
+        print("===>", new_port, data['PORT'][new_port])
 
     with open(new_file, 'w') as outfile:
         json.dump(data, outfile, indent=4, sort_keys=True)
 
-    print "--------------------------------------------------------"
+    print("--------------------------------------------------------")
 
 def break_a_port(port, opt, platform, hwsku):
     ini_file = get_ini_file(platform, hwsku)
@@ -603,29 +613,29 @@ def break_a_port(port, opt, platform, hwsku):
 
     lanes = break_in_ini(port, ini_file, opt)
     break_in_bcm(port, lanes, bcm_file, opt, platform)
-    break_in_cfg(port, cfg_file, lanes, opt)
+    break_in_cfg(port, cfg_file, lanes, opt, platform)
 
 def usage():
-    print "Usage: " + sys.argv[0] + " interface 4x100|4x25"
-    print "Breakout None-breaokout a port"
-    print "Options:"
-    print "  -p port"
-    print "  -o breakout option"
+    print("Usage: " + sys.argv[0] + " interface 4x100|4x25")
+    print("Breakout None-breaokout a port")
+    print("Options:")
+    print("  -p port")
+    print("  -o breakout option")
     for k in bko_dict:
-        print "         %s" % k
-    print "   "
-    print "Example:"
-    print "  Breakout port Ethernet4 to 4x10G"
-    print "    %s -p Ethernet4 -o 4x10" % (sys.argv[0])
-    print "  None-Breakout port Ethernet4 to 40G"
-    print "    %s -p Ethernet4 -o 1x40" % (sys.argv[0])
-    print "   "
-    print "Note:"
-    print "  Make sure understand which ports are able to breakout before execute command."
-    print "  Make backup below config files"
-    print "  - /usr/share/sonic/device/[platform]/[hwsku]/[config.bcm]"
-    print "  - /usr/share/sonic/device/[platform]/[hwsku]/port_config.ini"
-    print "  - /etc/sonic/config_db.json"
+        print("         %s" % k)
+    print("   ")
+    print("Example:")
+    print("  Breakout port Ethernet4 to 4x10G")
+    print("    %s -p Ethernet4 -o 4x10" % (sys.argv[0]))
+    print("  None-Breakout port Ethernet4 to 40G")
+    print("    %s -p Ethernet4 -o 1x40" % (sys.argv[0]))
+    print("   ")
+    print("Note:")
+    print("  Make sure understand which ports are able to breakout before execute command.")
+    print("  Make backup below config files")
+    print("  - /usr/share/sonic/device/[platform]/[hwsku]/[config.bcm]")
+    print("  - /usr/share/sonic/device/[platform]/[hwsku]/port_config.ini")
+    print("  - /etc/sonic/config_db.json")
 
     sys.exit(1)
 
@@ -635,8 +645,14 @@ def platform_checking(platform, hwsku, port, opt):
     #
     rc = True
 
+    platform_file = get_platform_file(platform, hwsku)
+    if os.path.exists(platform_file):
+        print("Dynamic Port Breakout is enable for this platform...")
+        print("Can not use port_breakout.py ...")
+        return False
+
     if not port.startswith(INTERFACE_KEY):
-        print "Wrong port name %s ..." % (port)
+        print("Wrong port name %s ..." % (port))
         return False
 
 
@@ -644,10 +660,10 @@ def platform_checking(platform, hwsku, port, opt):
         idx   = port.split()[0].split(INTERFACE_KEY,1)[1]
         for keys in sonic_platforms[platform]['breakout']:
             if idx in keys.split(',') and opt in sonic_platforms[platform]['breakout'][keys]:
-                print "Breakout port %s to %s in platform %s is allowed." % (port, opt, platform)
+                print("Breakout port %s to %s in platform %s is allowed." % (port, opt, platform))
                 return True
             else:
-                print "Error: Breakout port %s to %s in platform %s is NOT allowed !!!" % (port, opt, platform)
+                print("Error: Breakout port %s to %s in platform %s is NOT allowed !!!" % (port, opt, platform))
                 rc = False
 
 
@@ -655,9 +671,9 @@ def platform_checking(platform, hwsku, port, opt):
     # Platforms not in sonic_platforms, or not defined 'breakout'
     #
     if rc is True:
-        print "Warnning:"
-        print "Breakout port on platform %s is dangerous !!!" % (platform)
-        print "Please double-check make sure port %s can be configured to %s" % (port, opt)
+        print("Warnning:")
+        print("Breakout port on platform %s is dangerous !!!" % (platform))
+        print("Please double-check make sure port %s can be configured to %s" % (port, opt))
 
     return rc
 
@@ -681,7 +697,7 @@ def check_vaildation(platform, hwsku, port, opt):
         print("Can not work on port:%s" % (port))
         return False
 
-    f_in = open(ini_file, 'r') 
+    f_in = open(ini_file, 'r')
 
     ini_ports = []
     ini_lanes = []
@@ -783,14 +799,14 @@ def process_args(argv):
         sys.exit(0)
 
     if port == None or opt == None:
-        print "Error: must give -p [port] and -o [option]"
+        print("Error: must give -p [port] and -o [option]")
 
         usage()
         sys.exit(1)
 
     return verbose, port, opt
-        
-### Breakout interface 
+
+### Breakout interface
 def main(argv):
     global bko_dict
 
@@ -818,7 +834,7 @@ def main(argv):
 
     if not bko_opt_valid(opt):
         print("Invalid breakout option :%s" % (opt))
-        print("Supported breakout option :%s" % (bko_dict.keys()))
+        print("Supported breakout option :%s" % (list(bko_dict.keys())))
         return
 
     """
@@ -829,37 +845,6 @@ def main(argv):
 
     if platform_checking(platform, hwsku, port, opt) is False:
         return
-
-    ####################### SPYTEST ########################
-    spytest = bool(__file__ == "/etc/spytest/remote-port_breakout.py")
-    (already, toggle) = (False, spytest)
-    if already:
-        f_in = open(get_ini_file(platform, hwsku), 'r')
-        bkout_name = get_bkout_subport_name(opt)
-        for line in f_in.readlines():
-            [line_port,line_lanes,line_name] = (line+" . . . ").split(None, 2)
-            if line_port == port and line_name.startswith(bkout_name):
-                print("Port %s already breakout %s ..." % (port, opt))
-                f_in.close()
-                return
-        f_in.close()
-    if toggle:
-        (done, is_bko) = (False, get_is_bkout(opt))
-        for key, value in bko_dict.items():
-            if done or is_bko == get_is_bkout(key):
-                continue # check with next entry
-            elif platform_checking(platform, hwsku, port, key) == False:
-                msg = "Toggle: breakout option ({}) invalid for this platform."
-                print(msg.format(key))
-            elif check_vaildation(platform, hwsku, port, key) == False:
-                msg = "Toggle: breakout option ({}) checking failed."
-                print(msg.format(key))
-            else:
-                break_a_port(port, key, platform, hwsku)
-                done = True
-        if not done:
-            return
-    ####################### SPYTEST ########################
 
     if check_vaildation(platform, hwsku, port, opt) == False:
         print("breakout options checking failed.")

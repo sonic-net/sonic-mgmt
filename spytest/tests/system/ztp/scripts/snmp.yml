@@ -1,0 +1,7 @@
+snmp_rocommunity:  NotConfigured
+snmp_rocommunity6:  NotConfigured
+snmp_location:  NotConfigured
+snmp_syscontact:  NotConfigured
+v1_trap_dest: NotConfigured
+v2_trap_dest: NotConfigured
+v3_trap_dest: NotConfigured

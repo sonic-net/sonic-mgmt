@@ -1,0 +1,208 @@
+/*{ "//": [
+  "(C) Copyright Broadcom Corporation 2012-2013", 
+  "",
+  "Licensed under the Apache License, Version 2.0 (the "License");",
+  "you may not use this file except in compliance with the License.",
+  "You may obtain a copy of the License at",
+  "",
+  "    http://www.apache.org/licenses/LICENSE-2.0",
+  "",
+  "Unless required by applicable law or agreed to in writing, software",
+  "distributed under the License is distributed on an "AS IS" BASIS,",
+  "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied."
+  "See the License for the specific language governing permissions and",
+  "limitations under the License.",  ] }*/
+{
+  "name": "sonic_d1",
+  "description": "Role for a SONiC Switch",
+  "json_class": "Chef::Role",
+  "default_attributes": {
+    "vlans":{
+      "VLAN 121":{
+        "vlan_id":121,
+        "neigh_suppression":"disable",
+        "participation_list":[
+          "D1D2P2"
+        ],
+        "action":"create"
+      }
+    },
+    "LOOPBACK_INTERFACE": {
+      "loopback1-config": {
+         "ifname": "Loopback1",
+          "ipv4_family": [
+            "1.1.1.1/32"
+          ],
+          "ipv6_family": [
+            "3ffe::1:200:f8ff:fe75:0101/128"
+          ]
+      },
+      "loopback2-config": {
+         "ifname": "Loopback2",
+         "ipv4_family": [
+           "1.1.1.2/32"
+         ],
+         "ipv6_family": [
+           "3ffe::1:400:f8ff:fe75:1101/128"
+         ]
+      }
+    },
+    "lags":{
+      "PortChannel14":{
+        "minimum_links":"2",  
+        "fallback":true,
+        "links":[
+          "D1D4P1",
+          "D1D4P2"
+        ]
+      }
+    },
+    "VRF": {
+      "Vrf0001": {
+        "vrf-name":"Vrf-01",
+        "participation_list": [
+          "D1D2P1"
+        ]
+      }
+    },
+    "interfaces": {
+      "D1D2P1": {
+        "admin_status": "up",
+        "ipv4_family": [
+              "4.4.44.101/24"
+        ],
+        "ipv6_family": [
+          "use-link-local-only",
+          "2002::101/64"
+        ]
+      },
+      "Vlan121": {
+        "admin_status": "up",
+        "ipv4_family": [
+              "4.4.45.101/24"
+        ]
+      },
+      "PortChannel14": {
+        "admin_status": "up",
+        "ipv4_family": [
+              "4.4.46.101/24"
+        ]
+      }
+    },
+    "router-global-config": {
+      "static-routes": {
+        "default-vrf-config": {
+          "ip": {
+            "route": [
+              {
+                "prefix": "2.2.2.0/30",
+                "gateway": "4.4.44.102"
+              },
+              {
+                "prefix": "2.2.2.0/30",
+                "gateway": "4.4.45.102"
+              },
+              {
+                "prefix": "4.4.4.0/30",
+                "gateway": "4.4.46.104"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "bgprouters-config": {
+      "bgp": {
+        "router-bgp-def": {
+          "asn": 101,
+          "bgp_config": {
+            "router-id": "1.1.1.101"
+          },
+          "bgp_neighbors": [
+            {
+              "peer-group": "",
+              "remote-as": "102",
+              "neighbor-address": "4.4.45.102",
+              "update-source": "Vlan121"
+            },
+            {
+              "peer-group": "",
+              "remote-as": "104",
+              "neighbor-address": "4.4.46.104",
+              "update-source": "PortChannel14"
+            }
+          ],
+          "address_family_group": [
+            {
+              "address-family": "ipv4-unicast",
+              "bgp_neighbors": [
+                {
+                  "neighbor-address": "4.4.44.102",
+                  "activate": true
+                }
+              ],
+              "address-family": "ipv6-unicast",
+              "bgp_neighbors": [
+                {
+                  "neighbor-address": "2002::102",
+                  "activate": true
+                }
+              ]
+            }
+          ]
+        },
+        "router-bgp-vrf": {
+          "asn": 101,
+          "vrf": "Vrf-01",
+          "bgp_config": {
+            "router-id": "1.1.1.109"
+          },
+          "bgp_neighbors": [
+            {
+              "peer-group": "",
+              "remote-as": "102",
+              "neighbor-address": "4.4.44.102",
+              "update-source": "D1D2P1"
+            },
+            {
+              "peer-group": "",
+              "remote-as": "102",
+              "neighbor-address": "2002::102",
+              "update-source": "D1D2P1"
+            }
+          ],
+          "address_family_group": [
+            {
+              "address-family": "ipv4-unicast",
+              "bgp_neighbors": [
+                {
+                  "neighbor-address": "4.4.44.102",
+                  "activate": true
+                }
+              ],
+              "address-family": "ipv6-unicast",
+              "bgp_neighbors": [
+                {
+                  "neighbor-address": "2002::102",
+                  "activate": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "override_attributes": {},
+  "chef_type": "role",
+  "run_list": [
+    "recipe[sonic::vlan]",
+    "recipe[sonic::lag]",
+    "recipe[sonic::vrf]",
+    "recipe[sonic::interface]",
+    "recipe[sonic::loopback]",
+    "recipe[sonic::router]",
+    "recipe[sonic::bgprouter]"
+  ],
+  "env_run_lists": {}
+}

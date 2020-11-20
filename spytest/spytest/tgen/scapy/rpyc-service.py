@@ -3,7 +3,6 @@ import sys
 import logging
 import warnings
 from signal import signal, SIGINT
-from sys import exit
 
 root = os.path.join(os.path.dirname(__file__))
 sys.path.append(os.path.abspath(root))
@@ -48,7 +47,7 @@ def handler(signal_received, frame):
     global scapyServiceObj
     del scapyServiceObj
     print('SIGINT or CTRL-C detected. Exiting gracefully')
-    exit(0)
+    sys.exit(0)
 
 # install packages needed
 install_packages = False

@@ -1,6 +1,6 @@
 import pytest
 import time
-from spytest import st
+from spytest import st, poll_wait
 from spytest.dicts import SpyTestDict
 import utilities.utils as common_obj
 import apis.system.reboot as reboot_obj
@@ -17,10 +17,13 @@ def ntp_module_hooks(request):
     vars = st.get_testbed_vars()
     global_vars()
     yield
+    ntp_obj.delete_ntp_servers(vars.D1)
+
 @pytest.fixture(scope="function", autouse=True)
 def ntp_func_hooks(request):
     global_vars()
     yield
+    
 def global_vars():
     global data
     data = SpyTestDict()
@@ -44,7 +47,7 @@ def config_ntp_server_on_config_db_file(dut, iplist):
     else:
         st.log("ntpd is exited and restarting ntp service")
         basic_obj.service_operations(vars.D1, data.ntp_service, action="restart")
-    if not ntp_obj.verify_ntp_server_details(dut,iplist,remote=iplist):
+    if not poll_wait(ntp_obj.verify_ntp_server_details, 10, dut, iplist, remote=iplist):
         st.log("ip not matching")
         st.report_fail("operation_failed")
     if not ntp_obj.verify_ntp_service_status(dut, 'active (running)', iteration=65, delay=2):

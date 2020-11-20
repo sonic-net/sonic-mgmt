@@ -1,0 +1,49 @@
+/*{ "//": [
+  "(C) Copyright Broadcom Corporation 2012-2013",
+  "",
+  "Licensed under the Apache License, Version 2.0 (the "License");",
+  "you may not use this file except in compliance with the License.",
+  "You may obtain a copy of the License at",
+  "",
+  "    http://www.apache.org/licenses/LICENSE-2.0",
+  "",
+  "Unless required by applicable law or agreed to in writing, software",
+  "distributed under the License is distributed on an "AS IS" BASIS,",
+  "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied."
+  "See the License for the specific language governing permissions and",
+  "limitations under the License.",  ] }*/
+{
+  "name": "sonic_d3_mc",
+  "description": "Role for a SONiC Switch",
+  "json_class": "Chef::Role",
+  "default_attributes": {
+    "lags":{
+      "PortChannel001":{
+        "minimum_links":"2",
+        "fallback":true,
+        "links":[
+          "D3D1P1",
+          "D3D2P1"
+        ]
+      }
+    },
+    "interfaces": {
+      "D3D1P1": {
+        "admin_status": "up"
+      },
+      "D3D2P1": {
+        "admin_status": "up"
+      },
+      "PortChannel001": {
+        "admin_status": "up"
+      }
+    }
+},
+  "override_attributes": {},
+  "chef_type": "role",
+  "run_list": [
+    "recipe[sonic::lag]",
+    "recipe[sonic::interface]"
+  ],
+  "env_run_lists": {}
+}

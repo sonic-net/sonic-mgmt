@@ -1,0 +1,83 @@
+/*{ "//": [
+  "Copyright 2019 Broadcom. All rights reserved.
+  "The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.",
+  "",
+  "Licensed under the Apache License, Version 2.0 (the "License");",
+  "you may not use this file except in compliance with the License.",
+  "You may obtain a copy of the License at",
+  "",
+  "    http://www.apache.org/licenses/LICENSE-2.0",
+  "",
+  "Unless required by applicable law or agreed to in writing, software",
+  "distributed under the License is distributed on an "AS IS" BASIS,",
+  "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied."
+  "See the License for the specific language governing permissions and",
+  "limitations under the License.",  ] }*/
+{
+  "name": "sonic_d1",
+  "description": "Role for a SONiC Switch",
+  "json_class": "Chef::Role",
+  "default_attributes": {
+    "interfaces": {
+      "D1D2P1": {
+        "admin_status": "up",
+        "ipv4_family": [
+              "4.4.44.101/24"
+        ],
+        "ipv6_family": [
+          "use-link-local-only",
+          "2002::101/64"
+        ]
+      }
+     },
+    "bgprouters-config": {
+      "bgp": {
+        "router-bgp": {
+          "asn": 101,
+          "bgp_config": {
+            "router-id": "4.4.4.101"
+          },
+          "bgp_neighbors": [
+            {
+              "peer-group": "",
+              "neighbor-address": "4.4.44.102",
+    	      "update-source": "D1D2P1",
+              "remote-as": "102"
+            },
+            {
+              "peer-group": "",
+              "neighbor-address": "2002::102",
+	          "update-source": "D1D2P1",
+              "remote-as": "102"
+            }
+          ],
+          "address_family_group": [
+            {
+              "address-family": "ipv4-unicast",
+              "bgp_neighbors": [
+                {
+                  "neighbor-address": "4.4.44.102",
+                  "activate": true
+                }
+              ],
+              "address-family": "ipv6-unicast",
+              "bgp_neighbors": [
+                {
+                  "neighbor-address": "2002::102",
+                  "activate": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "override_attributes": {},
+  "chef_type": "role",
+  "run_list": [
+    "recipe[sonic::interface]",
+    "recipe[sonic::bgprouter]"
+  ],
+  "env_run_lists": {}
+}

@@ -1,21 +1,28 @@
-from spytest.framework import get_tgen_utils
 
 def get_counter_name(mode,tg_type,comp_type,direction):
-    return get_tgen_utils().get_counter_name(mode,tg_type,comp_type,direction)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.get_counter_name(mode,tg_type,comp_type,direction)
 def validate_tgen_traffic(**kwargs):
-    return get_tgen_utils().validate_tgen_traffic(**kwargs)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.validate_tgen_traffic(**kwargs)
 def validate_packet_capture(**kwargs):
-    return get_tgen_utils().validate_packet_capture(**kwargs)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.validate_packet_capture(**kwargs)
 def verify_ping(src_obj,port_handle,dev_handle,dst_ip,ping_count=5,exp_count=5):
-    return get_tgen_utils().verify_ping(src_obj,port_handle,dev_handle,dst_ip,ping_count=5,exp_count=5)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.verify_ping(src_obj,port_handle,dev_handle,dst_ip,ping_count=5,exp_count=5)
 def tg_bgp_config(**kwargs):
-    return get_tgen_utils().tg_bgp_config(**kwargs)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.tg_bgp_config(**kwargs)
 def tg_igmp_config(**kwargs):
-    return get_tgen_utils().tg_igmp_config(**kwargs)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.tg_igmp_config(**kwargs)
 def get_traffic_stats(tg_obj, **kwargs):
-    return get_tgen_utils().get_traffic_stats(tg_obj, **kwargs)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.get_traffic_stats(tg_obj, **kwargs)
 def port_traffic_control(action, *args, **kwargs):
-    return get_tgen_utils().port_traffic_control(action, *args, **kwargs)
+    from spytest.tgen import tgen_utils
+    return tgen_utils.port_traffic_control(action, *args, **kwargs)
 
 def get_handle_byname(name, port=None, tg=None):
     from spytest.framework import get_work_area
@@ -32,9 +39,18 @@ def get_handles_byname(*args):
         rv["tg_ph_list"].append(tg_ph)
     return rv
 
-def get_chassis(vars, index=0):
-    from spytest.tgen.tg import tgen_obj_dict
-    return tgen_obj_dict[vars['tgen_list'][index]]
+def get_chassis(vars=None, index=0):
+    if not vars:
+        from spytest import st
+        tg_names = st.get_tg_names()
+    else:
+        tg_names = vars['tgen_list']
+    from spytest.tgen.tg import get_chassis as tgen_get_chassis
+    return tgen_get_chassis(tg_names[index])
+
+def is_soft_tgen(vars=None):
+    tg = get_chassis(vars)
+    return (tg.tg_type == "scapy")
 
 def get_handles(vars, tg_port_list=list()):
     """

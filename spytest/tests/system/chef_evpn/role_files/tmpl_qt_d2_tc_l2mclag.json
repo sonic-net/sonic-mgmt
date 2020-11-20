@@ -1,0 +1,87 @@
+/*{ "//": [
+  "(C) Copyright Broadcom Corporation 2012-2013",
+  "",
+  "Licensed under the Apache License, Version 2.0 (the "License");",
+  "you may not use this file except in compliance with the License.",
+  "You may obtain a copy of the License at",
+  "",
+  "    http://www.apache.org/licenses/LICENSE-2.0",
+  "",
+  "Unless required by applicable law or agreed to in writing, software",
+  "distributed under the License is distributed on an "AS IS" BASIS,",
+  "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied."
+  "See the License for the specific language governing permissions and",
+  "limitations under the License.",  ] }*/
+{
+  "name": "sonic_d2_mc",
+  "description": "Role for a SONiC Switch",
+  "json_class": "Chef::Role",
+  "default_attributes": {
+    "vlans":{
+      "VLAN 121":{
+        "vlan_id":121,
+        "neigh_suppression":"disable",
+        "participation_list":[
+          "PortChannel001",
+          "PortChannel002"
+        ],
+        "action":"create"
+      }
+    },
+    "lags":{
+      "PortChannel001":{
+        "minimum_links":"1",
+        "fallback":true,
+        "links":[
+          "D2D3P1"
+        ]
+      },
+      "PortChannel002":{
+        "minimum_links":"1",
+        "fallback":true,
+        "links":[
+          "D2D1P2"
+        ]
+      }
+    },
+    "interfaces": {
+      "D2D1P1": {
+        "admin_status": "up",
+        "ipv4_family": [
+              "11.11.11.2/24"
+        ]
+      },
+      "D2D3P1": {
+        "admin_status": "up"
+      },
+      "PortChannel001": {
+        "admin_status": "up"
+      },
+      "PortChannel002": {
+        "admin_status": "up"
+      }
+    },
+    "MCLAG": {
+      "mclag-config": {
+        "1" : {
+          "domain_id": 1,
+          "local_ip": "11.11.11.2",
+          "peer_ip": "11.11.11.1",
+          "peer_link": "PortChannel002",
+          "mclag_interface":[
+            "PortChannel001"
+          ]
+        }
+      }
+	}
+},
+  "override_attributes": {},
+  "chef_type": "role",
+  "run_list": [
+    "recipe[sonic::lag]",
+    "recipe[sonic::vlan]",
+    "recipe[sonic::interface]",
+    "recipe[sonic::mclag]"
+  ],
+  "env_run_lists": {}
+}

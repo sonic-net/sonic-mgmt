@@ -47,6 +47,8 @@ def security_variables():
 def security_module_prolog():
     tacacs_config()
     tacacs_config_verify()
+    if not st.is_feature_supported("radius"):
+        return
     config_global_radius()
     radius_config()
     st.log("Verifying radius server details before save-reboot")
@@ -54,15 +56,16 @@ def security_module_prolog():
 
 
 def security_module_epilog():
-    radius.config_server(vars.D1, ip_address=security_data.radius_host_ip, action="delete", cli_type="click")
+    tacacs.set_tacacs_server(vars.D1, 'delete', security_data.tacacs_host_ip)
+    if not st.is_feature_supported("radius", vars.D1):
+        return
+    radius.config_server(vars.D1, ip_address=security_data.radius_host_ip, action="delete")
     radius.config_global_server_params(vars.D1, skip_error_check=False,
                                        params={"key": {"value": security_data.global_diff_passkey, "no_form": True},
                                                "timeout": {"value": security_data.global_timeout, "no_form": True},
                                                "auth_type": {"value": security_data.global_auth_type, "no_form": True},
                                                "retransmit": {"value": security_data.global_retransmit,
-                                                              "no_form": True}},
-                                       cli_type="click")
-    tacacs.set_tacacs_server(vars.D1, 'delete', security_data.tacacs_host_ip)
+                                                              "no_form": True}})
 
 
 def verify_security_default_config(dut):
@@ -75,14 +78,13 @@ def config_global_radius():
                                               params={"key": {"value": security_data.global_diff_passkey},
                                                       "auth_type": {"value": security_data.global_auth_type},
                                                       "timeout": {"value": security_data.global_timeout},
-                                                      "retransmit": {"value": security_data.global_retransmit}},
-                                              cli_type="click"):
+                                                      "retransmit": {"value": security_data.global_retransmit}}):
         st.report_fail("security_global_params_config_failed")
 
 
 def radius_config():
     radius.config_server(vars.D1, ip_address=security_data.radius_host_ip, key=security_data.radius_host_passkey,
-                         priority=security_data.radius_host_priority, action="add", cli_type="click")
+                         priority=security_data.radius_host_priority, action="add")
 
 
 def checking_radius_config(ip):
@@ -91,8 +93,7 @@ def checking_radius_config(ip):
                                                              "global_timeout": security_data.global_timeout,
                                                              "global_passkey": security_data.global_diff_passkey},
                                                  "servers": [{'priority': security_data.radius_host_priority, 'address': ip,
-                                                              'passkey': security_data.radius_host_passkey}]},
-                                cli_type="click"):
+                                                              'passkey': security_data.radius_host_passkey}]}):
         st.report_fail("radius_server_config_not_successful")
     else:
         st.log("Radius configuration successful")
@@ -122,5 +123,6 @@ def test_ft_security_config_mgmt_verifying_config_with_save_reboot():
     st.log("performing Config save and reloading the device")
     reboot.config_save_reload(vars.D1)
     tacacs_config_verify()
-    checking_radius_config(security_data.radius_host_ip)
+    if st.is_feature_supported("radius", vars.D1):
+        checking_radius_config(security_data.radius_host_ip)
     st.report_pass("security_config_retained_after_save_reboot")

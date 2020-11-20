@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 class _Exception(Exception):
     def __init__(self, data, exp, msg):
+       super(_Exception, self).__init__(msg)
        self.exp = exp
        self.msg = msg
        self.data = data

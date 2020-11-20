@@ -1,0 +1,304 @@
+{
+    "VLAN_INTERFACE": {
+        "Vlan1": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan2": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan3": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan4": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan5": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan6": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan7": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan8": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan9": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan10": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan11": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan12": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan13": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan14": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan15": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan16": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan17": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan18": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan19": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan20": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan21": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan22": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan23": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan24": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan25": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan26": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan27": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan28": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan29": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan30": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan31": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan32": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan33": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan34": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan35": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan36": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan37": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan38": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan39": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan40": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan41": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan42": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan43": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan44": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan45": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan46": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan47": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan48": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan49": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan50": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan51": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan52": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan53": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan54": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan55": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan56": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan57": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan58": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan59": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan60": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan61": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan62": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan63": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan64": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan65": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan66": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan67": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan68": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan69": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan70": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan71": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan72": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan73": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan74": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan75": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan76": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan77": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan78": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan79": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan80": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan81": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan82": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan83": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan84": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan85": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan86": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan87": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan88": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan89": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan90": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan91": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan92": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan93": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan94": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan95": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan96": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan97": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan98": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan99": {
+            "ipv6_use_link_local_only": "enable"
+        }, 
+        "Vlan100": {
+            "ipv6_use_link_local_only": "enable"
+        }
+    }
+}

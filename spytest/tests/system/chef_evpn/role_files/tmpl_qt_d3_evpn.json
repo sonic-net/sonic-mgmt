@@ -1,0 +1,141 @@
+/*{ "//": [
+  "(C) Copyright Broadcom Corporation 2012-2013",
+  "",
+  "Licensed under the Apache License, Version 2.0 (the "License");",
+  "you may not use this file except in compliance with the License.",
+  "You may obtain a copy of the License at",
+  "",
+  "    http://www.apache.org/licenses/LICENSE-2.0",
+  "",
+  "Unless required by applicable law or agreed to in writing, software",
+  "distributed under the License is distributed on an "AS IS" BASIS,",
+  "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied."
+  "See the License for the specific language governing permissions and",
+  "limitations under the License.",  ] }*/
+{
+  "name": "sonic_d3_mc",
+  "description": "Role for a SONiC Switch",
+  "json_class": "Chef::Role",
+  "default_attributes": {
+    "LOOPBACK_INTERFACE": {
+      "loopback1-config": {
+         "ifname": "Loopback1",
+          "ipv4_family": [
+            "4.4.4.1/32"
+          ]
+      },
+	  "loopback2-config": {
+         "ifname": "Loopback2",
+          "ipv4_family": [
+            "4.4.4.2/32"
+          ]
+      }
+    },
+	"vlans":{
+      "VLAN 100":{
+        "vlan_id":100,
+        "neigh_suppression":"disable",
+        "participation_list":[
+          "D3D1P2"
+        ],
+        "action":"create"
+      }
+    },
+    "interfaces": {
+      "D3D1P1": {
+        "admin_status": "up",
+        "ipv4_family": [
+              "14.14.3.1/31"
+        ]
+      }
+    },
+	"VXLAN": {
+      "vtep1-config": {
+        "vtep_name": "vtepLeaf2",
+        "source_ip": "4.4.4.2",
+        "vxlan_vni_map": [
+          {
+            "vlan_id": 100,
+            "vni": "100"
+          }
+        ]
+      }
+    },
+    "EVPN_NVO": {
+      "nvo1-config": {
+        "nvo_name": "nvoLeaf2",
+        "source_vtep": "vtepLeaf2"
+      }
+    },
+    "router-global-config": {
+      "static-routes": {
+        "default-vrf-config": {
+          "ip": {
+            "route": [
+              {
+                "prefix": "1.1.1.1/32",
+                "gateway": "14.14.3.0"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "bgprouters-config": {
+      "bgp": {
+        "router-bgp-def": {
+          "asn": 400,
+          "bgp_config": {
+            "router-id": "4.4.4.1"
+          },
+          "bgp_neighbors": [
+            {
+              "remote-as": "100",
+              "neighbor-address": "1.1.1.1",
+              "update-source": "4.4.4.1",
+              "ebgp-multihop": "2"
+            }
+          ],
+          "address_family_group": [
+            {
+              "address-family": "ipv4-unicast",
+              "network": [
+                {
+                  "number": "4.4.4.2",
+                  "mask": "255.255.255.255"
+                }
+              ],
+              "bgp_neighbors": [
+                {
+                  "redistribute": "connected"
+                }
+              ]
+            },
+            {
+              "address-family": "l2vpn-evpn",
+              "bgp_neighbors": [
+                {
+                  "neighbor-address": "1.1.1.1",
+                  "activate": true
+                }
+              ],
+              "advertise-all-vni": true
+            }
+          ]
+        }
+      }
+    }
+},
+  "override_attributes": {},
+  "chef_type": "role",
+  "run_list": [
+    "recipe[sonic::loopback]",
+    "recipe[sonic::vlan]",
+    "recipe[sonic::interface]",
+    "recipe[sonic::router]",
+    "recipe[sonic::bgprouter]",
+	"recipe[sonic::vxlan]",
+    "recipe[sonic::evpn_nvo]"
+  ],
+  "env_run_lists": {}
+}

@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+
+# This script must return 0 on success, and non-0 on error.
+# Failure causes should be printed to stderr
+from argparse import ArgumentParser
+
+parser = ArgumentParser(description="Script to generate user certicates")
+parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+parser.add_argument('--dry-run', '-d', help='Don\'t actually do anything, just show what would be done. Default: %(default)s', default=False, action='store_true')
+parser.add_argument('--certdir', '-c', help='Where certificates should be saved. Default ${HOME}/.cert',  metavar='DIR')
+parser.add_argument('username',        help='Name used by user to login',                                 metavar='LOGIN')
+
+args = parser.parse_args()
+
+# This script must be run with root privileges
+import os
+import sys
+if os.geteuid() != 0:
+    # We're not root so, like, whatever dude!
+    sys.exit('Permission denied')
+
+import pwd
+try:
+    creds = pwd.getpwnam(args.username)
+except KeyError as ex:
+    sys.exit('Unknown user: {}'.format(args.username))
+
+certdir = os.path.join(creds.pw_dir, '.cert')
+
+if args.dry_run:
+    print('mkdir -p {}'.format(certdir))
+else:
+    os.makedirs(certdir, mode=0o750, exist_ok=True)
+
+import subprocess
+
+cmd = ['/usr/bin/openssl', 'req', '-newkey', 'rsa:2048', '-nodes',
+       '-keyout', os.path.join(certdir, 'key.pem'),
+       '-subj', "/O=SONiC/OU=CLI/CN={}".format(args.username) ]
+if args.dry_run:
+    print(' '.join(cmd))
+else:
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    outs, errs = p.communicate()
+    if p.returncode != 0:
+        sys.exit("[1] {}".format(errs.decode('ascii')))
+
+cmd = ['/usr/bin/openssl', 'x509', '-req', '-days',  '365000',
+       '-out', os.path.join(certdir, 'certificate.pem'),
+       '-CA', '/host/cli-ca/cert.pem', '-CAkey', '/host/cli-ca/key.pem',
+       '-CAcreateserial', '-sha256' ]
+if args.dry_run:
+    print(' '.join(cmd))
+else:
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    outs, errs = p.communicate(outs)
+    if p.returncode != 0:
+        sys.exit("[2] {}".format(errs)) # no need to invoke decode() because we used universal_newlines=True
+
+    if outs:
+        sys.stdout.write(outs)
+
+# Change ownership and permission for all the
+# files and dirs that we just generated
+if args.dry_run:
+    print('chown --recursive {}:{} {}'.format(creds.pw_name, creds.pw_name, certdir))
+    print('chmod --recursive 640 {}'.format(certdir))
+else:
+    os.chown(certdir, creds.pw_uid, creds.pw_gid)
+    os.chmod(certdir, 0o750)
+    for root, dirs, files in os.walk(certdir):
+        for name in dirs:
+            fname = os.path.join(root, name)
+            os.chown(fname, creds.pw_uid, creds.pw_gid)
+            os.chmod(fname, 0o750)
+
+        for name in files:
+            fname = os.path.join(root, name)
+            os.chown(fname, creds.pw_uid, creds.pw_gid)
+            os.chmod(fname, 0o640)
+
+# no need to explicitly sys.exit(0). Python does that by default.
