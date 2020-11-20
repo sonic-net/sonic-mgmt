@@ -206,12 +206,12 @@ def remove_exabgp_supervisord_conf(name):
     except Exception:
         pass
 
-def setup_exabgp_processor(default_dump_script):
+def setup_exabgp_processor(use_default_dump_script):
     try:
         os.mkdir("/usr/share/exabgp", 0755)
     except OSError:
         pass
-    if default_dump_script:
+    if use_default_dump_script:
         with open(DEFAULT_DUMP_SCRIPT, 'w') as out_file:
             out_file.write(dump_py)
     with open("/usr/share/exabgp/http_api.py", 'w') as out_file:

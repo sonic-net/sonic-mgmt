@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 TS_NORMAL = "System Mode: Normal"
 TS_MAINTENANCE = "System Mode: Maintenance"
-TS_ERROR = "System Mode: Not consistent"
+TS_INCONSISTENT = "System Mode: Not consistent"
 
 DUMP_FILE = "/tmp/bgp_monitor_dump.log"
 CUSTOM_DUMP_SCRIPT = "bgp/bgp_monitor_dump.py"
@@ -84,7 +84,9 @@ def get_traffic_shift_state(host):
             return TS_NORMAL
         if TS_MAINTENANCE == out.strip():
             return TS_MAINTENANCE
-    return TS_ERROR
+        if TS_INCONSISTENT == out.strip():
+            return TS_INCONSISTENT
+    pytest.fail("TSC return unexpected state {}".format(out))
 
 def parse_exabgp_dump(host):
     """
