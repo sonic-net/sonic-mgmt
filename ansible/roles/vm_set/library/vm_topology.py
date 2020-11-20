@@ -677,7 +677,7 @@ class VMTopology(object):
                     ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.remove_dut_if_from_docker(ptf_if, fp_port)
             else:
-                fp_port = self.duts_fp_ports[self.duts_name[0]][intf]
+                fp_port = self.duts_fp_ports[self.duts_name[0]][str(intf)]
                 ptf_if = PTF_FP_IFACE_TEMPLATE % intf
                 self.remove_dut_if_from_docker(ptf_if, fp_port)
 
