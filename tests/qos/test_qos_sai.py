@@ -1,20 +1,23 @@
-"""
-    QoS SAI feature in SONiC.
+"""SAI thrift-based tests for the QoS feature in SONiC.
 
-    Parameters:
-        --ptf_portmap <filename> (str): file name of port index to DUT interface alias map. Default is None.
-            In case of a filename is not provided, a file containing port indeces to aliases map will be generated.
+This set of test cases verifies QoS, buffer behavior, and buffer drop counter behavior. These are dataplane
+tests that depend on the SAI thrift library in order to pause ports/queues and read buffer drop counters as well
+as generic drop counters.
 
-        --disable_test (bool): Disables experimental QoS SAI test cases. Deafult is True
+Parameters:
+    --ptf_portmap <filename> (str): file name of port index to DUT interface alias map. Default is None.
+        In case a filename is not provided, a file containing a port indices to aliases map will be generated.
 
-        --qos_swap_syncd (bool): Used to install the RPC syncd image before running the tests. Default is True.
+    --disable_test (bool): Disables experimental QoS SAI test cases. Default is True.
 
-        --qos_dst_ports (list) Indeces of available DUT test ports to serve as destination ports. Note, This is not port
-            index on DUT, rather an index into filtered (excludes lag member ports) DUT ports. Plan is to randomize port
-            selection. Default is [0, 1, 3]
+    --qos_swap_syncd (bool): Used to install the RPC syncd image before running the tests. Default is True.
 
-        --qos_src_ports (list) Indeces of available DUT test ports to serve as source port. Similar note as in
-            qos_dst_ports applies. Default is [2]
+    --qos_dst_ports (list) Indices of available DUT test ports to serve as destination ports. Note: This is not port
+        index on DUT, rather an index into filtered (excludes lag member ports) DUT ports. Plan is to randomize port
+        selection. Default is [0, 1, 3].
+
+    --qos_src_ports (list) Indices of available DUT test ports to serve as source port. Similar note as in
+        qos_dst_ports applies. Default is [2].
 """
 
 import logging
@@ -32,10 +35,16 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 class TestQosSai(QosSaiBase):
+    """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
+
+    Note:
+        This test implicitly verifies that buffer drop counters (i.e. SAI_PORT_IN/OUT_DROPPED_PKTS)
+        are working as expected by verifying the drop counters everywhere that normal drop counters
+        are verified.
     """
-        TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
-    """
+
     SUPPORTED_PGSHARED_WATERMARK_SKUS = ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8']
     SUPPORTED_HEADROOM_SKUS = [
         'Arista-7060CX-32S-C32',
