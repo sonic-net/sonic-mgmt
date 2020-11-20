@@ -408,6 +408,8 @@ def test_turn_off_psu_and_check_psu_info(duthost, localhost, creds, psu_controll
     :param psu_controller: PSU controller
     :return:
     """
+    if not psu_controller:
+        pytest.skip('psu_controller is None')
     psu_status = psu_controller.get_psu_status()
     if len(psu_status) < 2:
         pytest.skip('At least 2 PSUs required for rest of the testing in this case')
