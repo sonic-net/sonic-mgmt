@@ -7,6 +7,7 @@ from tests.common.utilities import wait, wait_until
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
+MONIT_STABILIZE_MAX_TIME = 420
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 
 def check_services(dut):
@@ -171,6 +172,80 @@ def check_dbmemory(dut):
     logger.info("Done checking database memory")
     return check_result
 
+def check_monit_services_status(check_result, monit_services_status):
+    """
+    @summary: Check whether each type of service which was monitored by Monit was in correct status or not.
+              If a service was in "Not monitored" status, sanity check will skip it since this service
+              was temporarily set to not be monitored by Monit.
+    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
+    """
+    check_result["services_status"] = {}
+    for service_name, service_info in monit_services_status.items():
+        check_result["services_status"].update({service_name: service_info["service_status"]})
+        if service_info["service_status"] == "Not monitored":
+            continue
+        if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
+            or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
+            or (service_info["service_type"] == "Program" and service_info["service_status"] != "Status ok")):
+            check_result["failed"] = True
+
+    return check_result
+
+def check_monit(dut):
+    """
+    @summary: Check whether the Monit is running and whether the services which were monitored by Monit are 
+              in the correct status or not.
+    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
+    """
+    logger.info("Checking status of each Monit service...")
+    networking_uptime = dut.get_networking_uptime().seconds
+    timeout = max((MONIT_STABILIZE_MAX_TIME - networking_uptime), 0)
+    interval = 20
+    logger.info("networking_uptime = {} seconds, timeout = {} seconds, interval = {} seconds" \
+                .format(networking_uptime, timeout, interval))
+
+    check_result = {"failed": False, "check_item": "monit"}
+
+    if timeout == 0:
+        monit_services_status = dut.get_monit_services_status()
+        if not monit_services_status:
+            logger.info("Monit was not running.")
+            check_result["failed"] = True
+            check_result["failed_reason"] = "Monit was not running"
+            logger.info("Checking status of each Monit service was done!")
+            return check_result
+
+        check_result = check_monit_services_status(check_result, monit_services_status)
+    else:
+        start = time.time()
+        elapsed = 0
+        is_monit_running = False
+        while elapsed < timeout:
+            check_result["failed"] = False
+            monit_services_status = dut.get_monit_services_status()
+            if not monit_services_status:
+                wait(interval, msg="Monit was not started and wait {} seconds to retry. Remaining time: {}." \
+                    .format(interval, timeout - elapsed))
+                elapsed = time.time() - start
+                continue
+
+            is_monit_running = True
+            check_result = check_monit_services_status(check_result, monit_services_status)
+            if check_result["failed"]:
+                wait(interval, msg="Services were not monitored and wait {} seconds to retry. Remaining time: {}. Services status: {}" \
+                    .format(interval, timeout - elapsed, str(check_result["services_status"])))
+                elapsed = time.time() - start
+            else:
+                break
+
+        if not is_monit_running:
+            logger.info("Monit was not running.")
+            check_result["failed"] = True
+            check_result["failed_reason"] = "Monit was not running"
+
+    logger.info("Checking status of each Monit service was done!")
+    return check_result
+
 def check_processes(dut):
     logger.info("Checking process status on %s..." % dut.hostname)
 
@@ -193,6 +268,7 @@ def check_processes(dut):
         start = time.time()
         elapsed = 0
         while elapsed < timeout:
+            check_result["failed"] = False
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
@@ -228,6 +304,8 @@ def do_checks(duthosts, check_items):
             elif item == "bgp":
                 if dut in duthosts.frontend_nodes:
                     results[dut.hostname].append(check_bgp_status(dut))
+            elif item == "monit":
+                results[dut.hostname].append(check_monit(dut))
 
     return results
 
