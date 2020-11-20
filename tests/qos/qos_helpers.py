@@ -2,6 +2,7 @@ from netaddr import IPAddress, IPNetwork
 from qos_fixtures import lossless_prio_dscp_map, leaf_fanouts
 import json
 import re
+import os
 import ipaddress
 import random
 
@@ -192,7 +193,8 @@ def setup_testbed(fanouthosts, ptfhost, leaf_fanouts, ptf_local_path, ptf_remote
         peerdev_ans = fanouthosts[peer_device]
         cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
         peerdev_ans.host.shell(cmd)
-        peerdev_ans.host.copy(src=PFC_GEN_LOCAL_PATH, dest=PFC_GEN_REMOTE_PATH, force=True)
+        file_src = os.path.join(os.path.dirname(__file__), PFC_GEN_LOCAL_PATH)
+        peerdev_ans.host.copy(src=file_src, dest=PFC_GEN_REMOTE_PATH, force=True)
 
     """ Stop PFC storm at the leaf fanout switches """
     for peer_device in leaf_fanouts:
