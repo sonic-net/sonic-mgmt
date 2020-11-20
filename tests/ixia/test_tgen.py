@@ -27,7 +27,7 @@ from abstract_open_traffic_generator.port import Options as PortOptions
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
 
-@pytest.mark.topology("t0")
+@pytest.mark.topology("tgen")
 @pytest.mark.disable_loganalyzer
 
 @pytest.fixture(scope = "function")
