@@ -13,14 +13,15 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_sfp_presence(duthost, conn_graph_facts):
+def test_check_sfp_presence(duthosts, rand_one_dut_hostname, conn_graph_facts):
     """This test case is to check SFP presence status with CLI and sysfs.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     ports_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
     check_intf_presence_command = 'show interface transceiver presence {}'
 
     logging.info("Use show interface status information")
-    for intf in conn_graph_facts["device_conn"]:
+    for intf in conn_graph_facts["device_conn"][duthost.hostname]:
         check_presence_output = duthost.command(check_intf_presence_command.format(intf))
         assert check_presence_output["rc"] == 0, "Failed to read interface %s transceiver presence" % intf
         logging.info(str(check_presence_output["stdout_lines"][2]))

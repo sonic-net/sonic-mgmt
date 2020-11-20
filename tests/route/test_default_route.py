@@ -10,11 +10,12 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def test_default_route_set_src(duthost):
+def test_default_route_set_src(duthosts, rand_one_dut_hostname):
     """
     check if ipv4 and ipv6 default src address match Loopback0 address
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
@@ -44,11 +45,12 @@ def test_default_route_set_src(duthost):
     pytest_assert(rtinfo['set_src'] == lo_ipv6.ip, \
             "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
 
-def test_default_ipv6_route_next_hop_global_address(duthost):
+def test_default_ipv6_route_next_hop_global_address(duthosts, rand_one_dut_hostname):
     """
     check if ipv6 default route nexthop address uses global address
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
     pytest_assert(rtinfo['nexthops'] > 0, "cannot find ipv6 nexthop for default route")

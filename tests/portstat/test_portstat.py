@@ -86,7 +86,8 @@ def parse_portstat(content_lines):
 
 
 @pytest.fixture(scope='function', autouse=True)
-def reset_portstat(duthost):
+def reset_portstat(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info('Clear out all tags')
     duthost.command('portstat -D', become=True, module_ignore_errors=True)
 
@@ -97,7 +98,8 @@ def reset_portstat(duthost):
 
 
 @pytest.mark.parametrize('command', ['portstat -c', 'portstat --clear'])
-def test_portstat_clear(duthost, command):
+def test_portstat_clear(duthosts, rand_one_dut_hostname, command):
+    duthost = duthosts[rand_one_dut_hostname]
     wait(30, 'Wait for DUT to receive/send some packets')
     before_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
     pytest_assert(before_portstat, 'No parsed command output')
@@ -126,7 +128,8 @@ def test_portstat_clear(duthost, command):
                           'Value of TX_OK after clear should be lesser')
 
 @pytest.mark.parametrize('command', ['portstat -D', 'portstat --delete-all'])
-def test_portstat_delete_all(duthost, command):
+def test_portstat_delete_all(duthosts, rand_one_dut_hostname, command):
+    duthost = duthosts[rand_one_dut_hostname]
 
     stats_files = ('test_1', 'test_2', 'test_test')
 
@@ -151,7 +154,8 @@ def test_portstat_delete_all(duthost, command):
 
 @pytest.mark.parametrize('command',
                          ['portstat -d -t', 'portstat -d --tag', 'portstat --delete -t', 'portstat --delete --tag'])
-def test_portstat_delete_tag(duthost, command):
+def test_portstat_delete_tag(duthosts, rand_one_dut_hostname, command):
+    duthost = duthosts[rand_one_dut_hostname]
 
     stats_files = ('test_1', 'test_2', 'test_delete_me')
     file_to_delete = stats_files[2]
@@ -182,7 +186,8 @@ def test_portstat_delete_tag(duthost, command):
 
 
 @pytest.mark.parametrize('command', ['portstat -a', 'portstat --all'])
-def test_portstat_display_all(duthost, command):
+def test_portstat_display_all(duthosts, rand_one_dut_hostname, command):
+    duthost = duthosts[rand_one_dut_hostname]
 
     base_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
     all_portstats = parse_portstat(duthost.command(command)['stdout_lines'])
@@ -194,7 +199,8 @@ def test_portstat_display_all(duthost, command):
 
 
 @pytest.mark.parametrize('command', ['portstat -p 1', 'portstat --period 1'])
-def test_portstat_period(duthost, command):
+def test_portstat_period(duthosts, rand_one_dut_hostname, command):
+    duthost = duthosts[rand_one_dut_hostname]
 
     output = duthost.command(command)
     pytest_assert('The rates are calculated within 1 seconds period' in output['stdout_lines'][0])
@@ -203,7 +209,8 @@ def test_portstat_period(duthost, command):
 @pytest.mark.parametrize('command', ['portstat -h', 'portstat --help', 'portstat', 'portstat -v',
                                      'portstat --version', 'portstat -j', 'portstat --json',
                                      'portstat -r', 'portstat --raw'])
-def test_portstat_no_exceptions(duthost, command):
+def test_portstat_no_exceptions(duthosts, rand_one_dut_hostname, command):
+    duthost = duthosts[rand_one_dut_hostname]
 
     logger.info('Verify that the commands do not cause tracebacks')
     duthost.command(command)

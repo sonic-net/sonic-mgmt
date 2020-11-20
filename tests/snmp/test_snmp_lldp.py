@@ -1,17 +1,12 @@
 import pytest
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.device_type('vs')
 ]
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_check_topo(tbinfo):
-    if tbinfo['topo']['type'] == 'ptf':
-        pytest.skip('Unsupported topology')
-
 @pytest.mark.bsl
-def test_snmp_lldp(duthost, localhost, creds):
+def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -25,6 +20,7 @@ def test_snmp_lldp(duthost, localhost, creds):
     For remote values check for availability for at least 80% of minigraph neighbors
     (similar to lldp test)
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 

@@ -39,6 +39,14 @@ class AdvancedReboot:
             "Please set rebootType var."
         )
 
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            self.kvmTest = True
+            device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
+            if 'vs' not in device_marks:
+                pytest.skip('Testcase not supported for kvm')
+        else:
+            self.kvmTest = False
+
         self.request = request
         self.duthost = duthost
         self.ptfhost = ptfhost
@@ -70,6 +78,14 @@ class AdvancedReboot:
         self.cleanupOldSonicImages = self.request.config.getoption("--cleanup_old_sonic_images")
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
         self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
+        self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
+
+        # Set default reboot limit if it is not given
+        if self.rebootLimit is None:
+            if self.kvmTest:
+                self.rebootLimit = 150 # Default reboot limit for kvm
+            else:
+                self.rebootLimit = 30 # Default reboot limit for physical devices
 
     def getHostMaxLen(self):
         '''
@@ -256,6 +272,7 @@ class AdvancedReboot:
         Download and install new image to DUT
         '''
         if self.newSonicImage is None:
+            self.newImage = False
             return
 
         self.currentImage = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
@@ -270,12 +287,19 @@ class AdvancedReboot:
         logger.info('Cleanup sonic images that is not current and/or next')
         if self.cleanupOldSonicImages:
             self.duthost.shell('sonic_installer cleanup -y')
+        if self.binaryVersion == self.currentImage:
+            logger.info("Skipping image installation: new SONiC image is installed and set to current")
+            self.newImage = False
+            return
 
+        self.newImage = True
         logger.info('Installing new SONiC image')
         self.duthost.shell('sonic_installer install -y {0}'.format(tempfile))
 
         logger.info('Remove config_db.json so the new image will reload minigraph')
         self.duthost.shell('rm -f /host/old_config/config_db.json')
+        logger.info('Remove downloaded tempfile')
+        self.duthost.shell('rm -f {}'.format(tempfile))
 
     def __setupTestbed(self):
         '''
@@ -385,7 +409,9 @@ class AdvancedReboot:
 
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
+        count = 0
         for rebootOper in self.rebootData['sadList']:
+            count += 1
             try:
                 result = self.__runPtfRunner(rebootOper)
             finally:
@@ -394,7 +420,7 @@ class AdvancedReboot:
                 self.__clearArpAndFdbTables()
             if not result:
                 return result
-            if len(self.rebootData['sadList']) > 1:
+            if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
         return result
 
@@ -493,11 +519,15 @@ class AdvancedReboot:
 
         self.__runScript(['remove_ip.sh'], self.ptfhost)
 
+        if self.postRebootCheckScript:
+            logger.info('Run the post reboot check script')
+            self.__runScript([self.postRebootCheckScript], self.duthost)
+
         if not self.stayInTargetImage:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthost, ptfhost, localhost, tbinfo, creds):
+def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -506,6 +536,7 @@ def get_advanced_reboot(request, duthost, ptfhost, localhost, tbinfo, creds):
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
     '''
+    duthost = duthosts[rand_one_dut_hostname]
     instances = []
 
     def get_advanced_reboot(**kwargs):

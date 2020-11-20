@@ -86,6 +86,7 @@ class ContinuousReboot:
         self.fast_reboot_count = 0
         self.fast_reboot_pass = 0
         self.fast_reboot_fail = 0
+        self.pre_existing_cores = 0
 
 
     def reboot_and_check(self):
@@ -100,6 +101,7 @@ class ContinuousReboot:
         # Wait until uptime reaches allowed value
         self.wait_until_uptime()
         # Perform additional post-reboot health-check
+        self.verify_no_coredumps()
         self.verify_image()
         self.check_services()
         self.check_reboot_type()
@@ -161,7 +163,7 @@ class ContinuousReboot:
         logging.info("Check whether transceiver information of all ports are in redis")
         xcvr_info = self.duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
         parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
-        interfaces = self.conn_graph_facts["device_conn"]
+        interfaces = self.conn_graph_facts["device_conn"][self.duthost.hostname]
         for intf in interfaces:
             if intf not in parsed_xcvr_info:
                 raise ContinuousRebootError("TRANSCEIVER INFO of {} is not found in DB".format(intf))
@@ -208,6 +210,14 @@ class ContinuousReboot:
             if self.advancedReboot.binaryVersion != self.current_image:
                 raise ContinuousRebootError("Image installation failed.\
                     Expected: {}. Found: {}".format(self.advancedReboot.binaryVersion, self.current_image))
+
+
+    @handle_test_error
+    def verify_no_coredumps(self):
+        coredumps_count = self.duthost.shell('ls /var/core/ | wc -l')['stdout']
+        if int(coredumps_count) > int(self.pre_existing_cores):
+            raise ContinuousRebootError("Core dumps found. Expected: {} Found: {}".format(self.pre_existing_cores,\
+                coredumps_count))
 
 
     def check_test_params(self):
@@ -263,6 +273,9 @@ class ContinuousReboot:
             self.is_new_image = True
             logging.info("Image to be installed on DUT - {}".format(image_path))
         self.advancedReboot.imageInstall()
+        if self.advancedReboot.newImage:
+            # The image upgrade will delete all the preexisting cores
+            self.pre_existing_cores = 0
 
 
     def test_set_up(self):
@@ -271,6 +284,9 @@ class ContinuousReboot:
             issu_capability = self.duthost.command("show platform mlnx issu")["stdout"]
             if "disabled" in issu_capability:
                 pytest.skip("ISSU is not supported on this DUT, skip this test case")
+
+        self.pre_existing_cores = self.duthost.shell('ls /var/core/ | wc -l')['stdout']
+        logging.info("Found {} preexisting core files inside /var/core/".format(self.pre_existing_cores))
 
         input_data = {
             'install_list': self.image_list, # this list can be modified at runtime to enable testing different images
@@ -356,6 +372,7 @@ class ContinuousReboot:
         pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".\
             format(self.test_failures, self.reboot_count))
 
+
     def wait_until_uptime(self):
         logging.info("Wait until DUT uptime reaches {}s".format(self.continuous_reboot_delay))
         while self.duthost.get_uptime().total_seconds() < self.continuous_reboot_delay:
@@ -412,7 +429,7 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
-def test_continuous_reboot(request, duthost, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -433,6 +450,7 @@ def test_continuous_reboot(request, duthost, ptfhost, localhost, conn_graph_fact
         Status of transceivers - ports in lab_connection_graph should be present
         Status of BGP neighbors - should be established
     """
+    duthost = duthosts[rand_one_dut_hostname]
     continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
     continuous_reboot.start_continuous_reboot(request, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()

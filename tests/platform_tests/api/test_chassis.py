@@ -135,6 +135,18 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(status is not None, "Unable to retrieve chassis status")
         pytest_assert(isinstance(status, bool), "Chassis status appears incorrect")
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        position = chassis.get_position_in_parent(platform_api_conn)
+        if self.expect(position is not None, "Failed to perform get_position_in_parent"):
+            self.expect(isinstance(position, int), "Position value must be an integer value")
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        replaceable = chassis.is_replaceable(platform_api_conn)
+        if self.expect(replaceable is not None, "Failed to perform is_replaceable"):
+            self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value")
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in ChassisBase class
     #
@@ -145,19 +157,6 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
         self.compare_value_with_device_facts('base_mac', base_mac, False)
-
-    def test_get_serial_number(self, duthost, localhost, platform_api_conn):
-        # Ensure the serial number is sane
-        # Note: It appears that when retrieving some variable-length fields,
-        # the value is padded with trailing '\x00' bytes because the field
-        # length is longer than the actual value, so we strip those bytes
-        # here before comparing. We may want to change the EEPROM parsing
-        # logic to ensure that trailing '\x00' bytes are removed when retreiving
-        # a variable-length value.
-        serial = chassis.get_serial_number(platform_api_conn).rstrip('\x00')
-        pytest_assert(serial is not None, "Failed to retrieve serial number")
-        pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
-        self.compare_value_with_device_facts('serial', serial)
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
