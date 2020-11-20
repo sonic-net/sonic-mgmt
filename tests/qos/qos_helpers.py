@@ -209,4 +209,5 @@ def setup_testbed(fanouthosts, ptfhost, leaf_fanouts, ptf_local_path, ptf_remote
         ptfhost.file(path=file, mode="absent")
 
     """ Copy the PFC test script to the PTF container """
-    ptfhost.copy(src=ptf_local_path, dest=ptf_remote_path, force=True)
+    file_src = os.path.join(os.path.dirname(__file__), ptf_local_path)
+    ptfhost.copy(src=file_src, dest=ptf_remote_path, force=True)
