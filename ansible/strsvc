@@ -1,0 +1,42 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+        acs-repo.corp.microsoft.com:
+    strsvc:
+      children:
+        sonic:
+        fanout:
+    ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+      hosts:
+        svc1-1:
+          ansible_host: 10.206.144.19
+
+fanout:
+  hosts:
+    svcstr-7260cx3-acs-1:
+      ansible_host: 10.206.144.8
+    svcstr-7260cx3-acs-2:
+      ansible_host: 10.206.144.9
+    svcstr-7260cx3-acs-3:
+      ansible_host: 10.206.144.10 
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 24
+  children:
+    sonic_nexus_3164:
+
+sonic_nexus_3164:
+  vars:
+    hwsku: Nexus-3164
+    iface_speed: 40000
+  hosts:
+    svcstr-n3164-acs-1:
+      ansible_host: 10.206.144.15
+    svcstr-n3164-acs-2:
+      ansible_host: 10.206.144.14
