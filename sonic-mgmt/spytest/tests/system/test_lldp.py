@@ -81,11 +81,13 @@ def lldp_snmp_pre_config():
     lldp_total_value = lldp_value_remote
     lldp_value_remote = lldp_value_remote[0]
     lldp_value_gran = lldp_value['chassis_mgmt_ip']
+    # TODO : Check after Issue #259 is fixed
+    '''
     if not data.ipaddress_d2[0] == lldp_value_gran:
         st.error("LLDP info IP and device IP are not matching")
         st.report_fail("operation_failed")
     # TODO : Need to check the below once the infra defect SONIC-5374 is Fixed
-    '''
+    
     mac_output = basic_obj.get_platform_syseeprom(vars.D1, 'Serial Number', 'Value')
     lldp_value_mac = lldp_value['chassis_id_value']
     st.log("lldp_value_gran is :{}".format(lldp_value_gran))
