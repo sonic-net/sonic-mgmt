@@ -180,12 +180,10 @@ def gen_testbed_t0(duthost):
 
     return vlan_members, ptf_intfs, vlan_ip_addrs, vlan_mac_addrs
 
-def setup_testbed(fanouthosts, ptfhost, leaf_fanouts, ptf_local_path, ptf_remote_path):
+def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):
     """
     @Summary: Set up the testbed
     @param leaf_fanouts: Leaf fanout switches
-    @param ptf_local_path: local path of PTF script
-    @param ptf_remote_dest: remote path of PTF script
     """
 
     """ Copy the PFC generator to leaf fanout switches """
@@ -200,14 +198,3 @@ def setup_testbed(fanouthosts, ptfhost, leaf_fanouts, ptf_local_path, ptf_remote
     for peer_device in leaf_fanouts:
         peerdev_ans = fanouthosts[peer_device]
         stop_pause(peerdev_ans, PFC_GEN_FILE)
-
-    """ Remove existing python scripts on PTF """
-    result = ptfhost.find(paths=['~/'], patterns="*.py")['files']
-    files = [ansible_stdout_to_str(x['path']) for x in result]
-
-    for file in files:
-        ptfhost.file(path=file, mode="absent")
-
-    """ Copy the PFC test script to the PTF container """
-    file_src = os.path.join(os.path.dirname(__file__), ptf_local_path)
-    ptfhost.copy(src=file_src, dest=ptf_remote_path, force=True)
