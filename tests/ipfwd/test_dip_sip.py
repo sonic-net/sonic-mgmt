@@ -17,6 +17,14 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="module", autouse="True")
+def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    patch_lldpctl(localhost, duthost)
+    yield
+    unpatch_lldpctl(localhost, duthost)
+
+
 def lag_facts(dut, mg_facts):
     facts = {}
 
