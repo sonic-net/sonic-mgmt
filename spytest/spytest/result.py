@@ -107,7 +107,7 @@ class Result(object):
         s = self.msgs[name]
         try:
             rv = s.format(*args)
-        except:
+        except Exception:
             raise ValueError("expected arguments not provided")
 
         return rv
@@ -272,7 +272,7 @@ class Result(object):
                         if rmindex:
                             row.pop(0)
                         rows.append(row)
-        except:
+        except Exception:
             #print("failed to open {} to read".format(filepath))
             pass
 
@@ -372,7 +372,7 @@ class Result(object):
                 if pass_rate >= r:
                     color = c
                     break
-        except: pass
+        except Exception: pass
         return color
 
     @staticmethod
@@ -381,6 +381,6 @@ class Result(object):
         try:
             pass_rate = float(str(pass_rate).replace("%", ""))
             if pass_rate > threshold: color = "red"
-        except: pass
+        except Exception: pass
         return color
 

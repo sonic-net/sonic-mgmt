@@ -26,12 +26,12 @@ NOBGPINFO
   ^$$
 
 BGPINFO
+  ^\s*${INTERFACE}\s+${VRF}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${VRF}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s+${Flags}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s+${Flags}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${VRF}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
-  ^\s*${INTERFACE}\s+${VRF}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
   ^\s*${IPADDR}\s*$$ -> Record
   ^$$
 

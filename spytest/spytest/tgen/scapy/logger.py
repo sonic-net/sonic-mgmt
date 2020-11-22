@@ -35,7 +35,7 @@ class LogFormatter(object):
         lvl = get_log_lvl_name(record.levelname)
         try:
             msg = record.getMessage()
-        except:
+        except Exception:
             msg = "Exception getting message from record"
         if self.node_name:
             return "{} {} {} {}".format(time_stamp, self.node_name, lvl, msg)
@@ -107,7 +107,7 @@ class Logger(object):
             fh.close()
             data = map(str.strip, data)
             return "\n".join(data)
-        except:
+        except Exception:
              return ""
 
     def todo(self, etype, name, value):

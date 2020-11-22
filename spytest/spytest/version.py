@@ -3,21 +3,21 @@ def get_git_repo():
     try:
         import git
         return git.Repo(search_parent_directories=True)
-    except:
+    except Exception:
         return None
 
 def get_git_branch(repo=None):
     try:
         repo = repo or get_git_repo()
         return repo.active_branch.name
-    except:
+    except Exception:
         return "UNKNOWN"
 
 def get_git_commit(repo=None):
     try:
         repo = repo or get_git_repo()
         return repo.head.object.hexsha
-    except:
+    except Exception:
         return "UNKNOWN"
 
 def get_git_ver():

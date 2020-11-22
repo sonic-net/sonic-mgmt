@@ -58,7 +58,7 @@ def gnmiSend( action="GET", xpath="", target_addr="", inSecure=True, parameters=
     if( action == "GET" ) :
         param = ['-xpath', xpath, "-alsologtostderr"]
         if target_addr != "" : param.extend(['-target_addr', target_addr] )
-        if inSecure == True : param.append( "-insecure" )
+        if inSecure is True : param.append( "-insecure" )
         if parameters != "" : param.extend( parameters.split() )
         #print( "@gnmiSend parameters: %s"%param)
         ret_val = _gnmi_get(param, display=False)
@@ -74,7 +74,7 @@ def gnmiSend( action="GET", xpath="", target_addr="", inSecure=True, parameters=
             param = ["-replace" , xpath ]
 
         param.extend(["-target_addr", target_addr , "-alsologtostderr"])
-        if inSecure == True : param.append( "-insecure" )
+        if inSecure is True : param.append( "-insecure" )
         if parameters != "" : param.extend( parameters.split() )
 
         #print( "@gnmiSend to _gnmi_set parameters: %s"%param)

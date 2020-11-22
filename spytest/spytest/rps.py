@@ -121,7 +121,7 @@ class RPS(object):
             prefix = "RPS: "
         msg2 = "{}{}".format(prefix, msg)
         try: self.logger.dut_log(self.dut, msg2, lvl)
-        except: self.logger.log(lvl, msg2)
+        except Exception: self.logger.log(lvl, msg2)
 
     def has_multi_support(self):
         return self.multi_support

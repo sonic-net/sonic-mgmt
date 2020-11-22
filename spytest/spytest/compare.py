@@ -10,14 +10,14 @@ def cmp_pass_rate(old, new):
         new = float(new.replace("%", ""))
         if new > old: return "+"
         if new < old: return "-"
-    except: pass
+    except Exception: pass
     return ""
 
 def time_parse(timestr):
     try:
         (h,m,s) = timestr.split(':')
         secs = int(h) * 3600 + int(m) * 60 + int(s)
-    except:
+    except Exception:
         secs = 0
     return secs
 
@@ -30,9 +30,9 @@ def cmp_exec_time(old, new):
 
 def cmp_int(old, new):
     try: old = int(old)
-    except: old = 0
+    except Exception: old = 0
     try: new = int(new)
-    except: new = 0
+    except Exception: new = 0
     if (new - old) > 0: return "-"
     if (old - new) > 0: return "+"
     return ""

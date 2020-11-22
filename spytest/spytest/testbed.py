@@ -131,7 +131,7 @@ class Testbed(object):
                 retval["errors"] = self.get_error(dut_id, None)
                 mgmt_ifname = env.get("SPYTEST_MGMT_IFNAME", "eth0")
                 mgmt_ifname = self.get_device_param(dut_id, "mgmt_ifname", mgmt_ifname)
-                mgmt_ifname = dinfo.access.get("mgmt_ifname" , mgmt_ifname)
+                dinfo.access.mgmt_ifname = mgmt_ifname
                 restore_build = self.get_build(dut_id, "restore")
                 current_build = self.get_build(dut_id, "current")
                 if restore_build:
@@ -265,7 +265,7 @@ class Testbed(object):
         models = dict()
         for dev in self.get_device_names("DUT"):
             tinfo = self.get_rps(dev)
-            if tinfo == None:
+            if tinfo is None:
                 continue
             if tinfo.ip not in models:
                 models[tinfo.ip] = tinfo.model
@@ -276,7 +276,7 @@ class Testbed(object):
                 self.valid = False
         for dev in self.get_device_names("DUT"):
             tinfo = self.get_rps(dev)
-            if tinfo == None or tinfo.model == "vsonic":
+            if tinfo is None or tinfo.model == "vsonic":
                 continue
             if tinfo.ip not in outlets:
                 outlets[tinfo.ip] = []
@@ -392,7 +392,7 @@ class Testbed(object):
                 dinfo.params = SpyTestDict()
             valid = ["__all__", devname]
             try: valid.append(dinfo.__name0__)
-            except: pass
+            except Exception: pass
             if d in valid:
                 msg = "Change Device {} Param {} from '{}' to '{}'"
                 msg = msg.format(devname, k, dinfo.params.get(k, ""), v)
@@ -1768,13 +1768,13 @@ class Testbed(object):
     def get_verifier(self, default="NA"):
         try:
             return self.topology.properties.verifier
-        except:
+        except Exception:
             return default
 
     def get_config_profile(self, default="NA"):
         try:
             return self.topology.properties.profile
-        except:
+        except Exception:
             return default
 
     def save_visjs(self, used=[]):
@@ -1890,8 +1890,8 @@ class Testbed(object):
 
         # save current config files
         for d, dinfo in d2.devices.items():
-            if not expand_yaml: continue
-            if dinfo["type"] != "DUT": continue
+            if not expand_yaml or dinfo["type"] != "DUT":
+                continue
             dut = dinfo.__name__
             current_configs[dut] = self.get_config(dut, "current")
             restore_configs[dut] = self.get_config(dut, "restore")
@@ -1906,8 +1906,8 @@ class Testbed(object):
 
         # change config profile and replace global config files
         for d, dinfo in d2.devices.items():
-            if not expand_yaml: continue
-            if dinfo["type"] != "DUT": continue
+            if not expand_yaml or dinfo["type"] != "DUT":
+                continue
             dut = dinfo.__name__
             dinfo.properties.config = "config-{}".format(dinfo.alias)
             obj = SpyTestDict()
@@ -1951,7 +1951,7 @@ class Testbed(object):
             new_filename = os.path.join(fp2, filename)
             shutil.move(fp.name, new_filename)
             return new_filename
-        except:
+        except Exception:
             return fp.name
 
     @staticmethod
@@ -1961,6 +1961,6 @@ class Testbed(object):
             obj = oyaml.get_data()
             assert(isinstance(obj.current, list))
             return obj.current
-        except:
+        except Exception:
             return None
 

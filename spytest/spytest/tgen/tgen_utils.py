@@ -17,7 +17,7 @@ def _validate_parameters(tr_details):
     for tr_pair in range(1,len(tr_details)+1):
         tr_pair = str(tr_pair)
         for param in mandatory_params:
-            if tr_details[tr_pair].get(param) == None:
+            if tr_details[tr_pair].get(param) is None:
                 st.error('{} parameter missing in traffic pair: {}'.format(param,tr_pair))
                 return False
         if len(tr_details[tr_pair]['tx_ports']) != len(tr_details[tr_pair]['tx_obj']) != len(tr_details[tr_pair]['exp_ratio']):
@@ -167,7 +167,7 @@ def _fetch_stats(obj, port, mode, comp_type, direction, stream_elem=None):
                     tx_counter = float(stats[mode][stream_elem][direction][counter_name])
                 else:
                     tx_counter = int(stats[port][mode][direction][counter_name])
-            except:
+            except Exception:
                 st.error('Could not get traffic_stats from the TGEN, Please check if traffic was started')
                 tx_counter = 0
             if stats.get('waiting_for_stats', '1') == '0' and (direction == 'rx' or tx_counter != 0):
@@ -314,7 +314,7 @@ def _verify_streamlevel_stats(tr_details,mode,comp_type,tolerance_factor,delay_f
                         return False
                     try:
                         exp_val = float(rx_stats['traffic_item'][strelem]['tx'][tx_counter_name])
-                    except:
+                    except Exception:
                         st.error('Could not get tx counter from the TGEN, Please check if traffic was started')
                         return False
 
@@ -323,7 +323,7 @@ def _verify_streamlevel_stats(tr_details,mode,comp_type,tolerance_factor,delay_f
 
                     try:
                         real_rx_val = float(rx_stats['traffic_item'][strelem]['rx'][rx_counter_name])
-                    except:
+                    except Exception:
                         st.error('Could not get rx counter from the TGEN, Please check if traffic was started')
                         return False
 
@@ -516,7 +516,7 @@ def validate_tgen_traffic(**kwargs):
 
     _log_call("validate_tgen_traffic", **kwargs)
 
-    if kwargs.get('traffic_details') == None:
+    if kwargs.get('traffic_details') is None:
         st.log('Mandatory param traffic_details is missing')
         return False
 
@@ -575,7 +575,7 @@ def _verify_packet_capture(pkt_dict, offset_list, value_list,port_handle, max_co
 
             try:
                 found_value = pkt_dict[port_handle]['frame'][str(pkt_num)]['frame_pylist'][start_range:end_range]
-            except:
+            except Exception:
                 found_value = []
 
             if found_value == value:
@@ -652,7 +652,7 @@ def _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle,retu
             st.log('Parsing packet: {}, port_handle: {}'.format(pkt_num,port_handle))
             try:
                 p_d = pkt_dict[port_handle]['frame']['data'][str(pkt_num)]
-            except:
+            except Exception:
                 st.error('The given indexed packet not found in the capture buffer')
                 st.report_tgen_fail('tgen_failed_capture_buffer')
             #p_d = pkt_dict

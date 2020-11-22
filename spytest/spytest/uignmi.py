@@ -44,7 +44,7 @@ class UIGnmi(object):
                                 if key not in replaced_mode_values:
                                     changed_value = self._uignmi_get_valueset_for_param(all_params, path_plus_op, key, value, "path")
                                     replaced_mode_values[key] = changed_value
-        except:
+        except Exception:
             pass
         return
 
@@ -71,7 +71,7 @@ class UIGnmi(object):
                                     else:
                                         changed_value = self._uignmi_get_valueset_for_param(all_params, path_plus_op, key, type_or_upd_value, "parameter")
                                     replaced_cmd_params[key] = changed_value
-        except:
+        except Exception:
             pass
         return
 
@@ -89,7 +89,7 @@ class UIGnmi(object):
                                 if key not in replaced_mode_values:
                                     changed_value = self._uignmi_get_valueset_for_param(all_params, path_plus_op, key, value, "path")
                                     replaced_mode_values[key] = changed_value
-        except:
+        except Exception:
             pass
         return
 
@@ -116,7 +116,7 @@ class UIGnmi(object):
                                     else:
                                         changed_value = self._uignmi_get_valueset_for_param(all_params, path_plus_op, key, type_or_upd_value, "parameter")
                                     replaced_cmd_params[key] = changed_value
-        except:
+        except Exception:
             pass
         return
 
@@ -134,7 +134,7 @@ class UIGnmi(object):
                                 if key not in replaced_mode_values:
                                     changed_value = self._uignmi_get_valueset_for_param(all_params, path_plus_op, key, value, "path")
                                     replaced_mode_values[key] = changed_value
-        except:
+        except Exception:
             pass
         return
 
@@ -161,7 +161,7 @@ class UIGnmi(object):
                                     else:
                                         changed_value = self._uignmi_get_valueset_for_param(all_params, path_plus_op, key, type_or_upd_value, "parameter")
                                     replaced_cmd_params[key] = changed_value
-        except:
+        except Exception:
             pass
         return
 
@@ -298,7 +298,7 @@ class UIGnmi(object):
 
                 if not no_need_to_add:
                     changed_steps.append(copied_step)
-            except:
+            except Exception:
                 pass
 
         if not changed_steps:
@@ -537,7 +537,7 @@ class UIGnmi(object):
                         try:
                             minLen = int(min_part)
                             maxLen = int(max_part)
-                        except:
+                        except Exception:
                             pass
                     else:
                         maxLen = 64
@@ -556,7 +556,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type.startswith("PASSWORD_STR"):
                 minLen = 1
@@ -581,7 +581,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ip_address_patterns:
                 min_ipv4_mask = "1"
@@ -624,7 +624,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["MAC_ADDR", "FBS_MAC_ADDR", "ACL_MAC_ADDR"]:
                 iter_count = 0
@@ -645,7 +645,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["HEX_TYPE"]:
                 iter_count = 0
@@ -666,7 +666,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["PTP_V6SCOPE_TYPE"]:
                 iter_count = 0
@@ -687,7 +687,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["TACACS_KEY", "RADIUS_KEY"]:
                 minLen = 1
@@ -712,7 +712,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["RADIUS_VRF"]:
                 minLen = 1
@@ -737,7 +737,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["FILE_TYPE"]:
                 iter_count = 0
@@ -759,7 +759,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["AA_NN"]:
                 iter_count = 0
@@ -780,7 +780,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["KDUMP_MEMORY"]:
                 iter_count = 0
@@ -801,7 +801,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["AUTH_KEY_TYPE"]:
                 iter_count = 0
@@ -822,7 +822,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["SHA_AUTH_KEY_TYPE"]:
                 iter_count = 0
@@ -843,7 +843,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["ENGINE_ID_TYPE"]:
                 iter_count = 0
@@ -864,7 +864,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["OID_IDENTIFIER"]:
                 minLen = 1
@@ -889,7 +889,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["SNMP_IDENTIFIER"]:
                 minLen = 1
@@ -914,7 +914,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["LINE"]:
                 minLen = 1
@@ -939,7 +939,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["VLAN_RANGE"]:
                 minv = 1
@@ -963,7 +963,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["STR_ASN_LST"]:
                 req_pattern = all_params["RANGE_1_4294967295"].get("pattern", None)
@@ -986,7 +986,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["VRF_NAME"]:
                 minLen = 1
@@ -1019,7 +1019,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["DESCRIPTION"]:
                 minLen = 1
@@ -1044,7 +1044,7 @@ class UIGnmi(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["VTEP_NAME"]:
                 minLen = 1

@@ -23,7 +23,8 @@ class ScapyClient(object):
         sys.path.append(os.path.join(root))
 
     def log_call(self, fname, **kwargs):
-        self.logger.info("TODO {} {}".format(fname, **kwargs))
+        opts = ', '.join(['{}={!r}'.format(k, v) for k, v in kwargs.items()])
+        self.logger.info("TODO {} {}".format(fname, opts))
 
     def save_log(self, name, data):
         self.logger.info("TODO {} {}".format(name, data))
@@ -85,9 +86,9 @@ class ScapyClient(object):
             self.conn = self.conn2.root
 
         try: dbg_lvl = int(os.getenv("SPYTEST_SCAPY_DBG_LVL", "1"))
-        except: dbg_lvl = 1
+        except Exception: dbg_lvl = 1
         try: max_pps = int(os.getenv("SPYTEST_SCAPY_MAX_PPS", "100"))
-        except: max_pps = 100
+        except Exception: max_pps = 100
         model = os.getenv("SCAPY_TGEN_PORTMAP", "eth1")
         self.node_name = os.getenv("PYTEST_XDIST_WORKER", "")
         self.execute(self.conn.server_control, "set-name", self.node_name)

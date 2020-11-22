@@ -35,7 +35,7 @@ class Utils(object):
         try:
             with open(fname, 'r') as fd:
                 return fd.read()
-        except:
+        except Exception:
             pass
         return default
 
@@ -58,7 +58,7 @@ class Utils(object):
                 for line in islice(fd, count):
                     lines.append(line)
             return "".join(lines)
-        except:
+        except Exception:
             pass
         return default
 
@@ -69,14 +69,14 @@ class Utils(object):
                 for line in deque(fd, maxlen=count):
                     lines.append(line)
             return "".join(lines)
-        except:
+        except Exception:
             pass
         return default
 
     def wc_l(self, fname):
         try:
             return sum(1 for i in open(fname, 'rb'))
-        except:
+        except Exception:
             return -1
 
     def cmdexec(self, cmd, msg=None):
@@ -274,7 +274,7 @@ class Utils(object):
     def get_env_int(name, default):
         try:
             return int(os.getenv(name, default))
-        except:
+        except Exception:
             pass
         return default
 

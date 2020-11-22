@@ -134,9 +134,6 @@ def get_mac_count(dut, cli_type=""):
     if cli_type == 'click':
         field = "mac_count"
         command = "show mac count"
-        if not st.is_feature_supported("show-mac-count-command", dut):
-            st.community_unsupported(command, dut)
-            return 0
         output = st.show(dut, command, type=cli_type)
     elif cli_type == 'klish':
         field =  "count"
@@ -396,8 +393,8 @@ def get_mac_agetime(dut, cli_type=""):
     if cli_type == 'click':
         command = "show mac aging_time"
         if st.is_feature_supported("show-mac-aging-time-command", dut):
-            return st.config(dut, "show mac aging-time")
-        if not st.is_feature_supported("show-mac-aging_time-command", dut):
+            command = "show mac aging-time"
+        if st.is_feature_supported("show-mac-aging_time-command", dut):
             st.community_unsupported(command, dut)
             return 300
     elif cli_type == 'klish':

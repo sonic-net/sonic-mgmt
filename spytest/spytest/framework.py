@@ -143,7 +143,7 @@ def build_module_logname(nodeid):
     try:
         cur_test = env.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
         modid, _ = cur_test.split("::")
-    except:
+    except Exception:
         modid = nodeid
     return paths.get_mlog_name(modid)
 
@@ -455,7 +455,7 @@ class Context(object):
         try:
             if self.net:
                 self.net.unregister_devices()
-        except:
+        except Exception:
             pass
 
     def email(self, subject=None):
@@ -844,6 +844,7 @@ class WorkArea(object):
         if self.cfg.pdb_on_error:
             pdb.set_trace()
             HELP = " NOTE: execute 'up' command thrice to go to the failure line ==== "
+            utils.unused(HELP)
 
     def report_env_fail2(self, msgid, *args):
         self.last_error = "EnvFail"
@@ -1191,7 +1192,7 @@ class WorkArea(object):
         while not self.cfg.pde:
             rv = self.hooks.get_system_status(dut, skip_error_check=True)
             if rv or self.cfg.filemode: return True
-            if rv == None:
+            if rv is None:
                 # run with system-status feature when device build has not support for it
                 return self._wait_for_ports(dut)
             time.sleep(3)
@@ -2660,7 +2661,7 @@ class WorkArea(object):
             return retval
         try:
             return [retval[int(index)]]
-        except:
+        except Exception:
             return []
 
     def get_dut_links_local(self, dut, peer=None, index=None, native=None):
@@ -4334,7 +4335,7 @@ def log_report_slave(report, wa):
                 # to avoid showing confusing ConfigFail when marker identifies as unsupported
                 pass
             elif current_test.hook == "test_function":
-                desc = wa._context.set_default_error("ConfigFail", "pretest_config_failed")
+                wa._context.set_default_error("ConfigFail", "pretest_config_failed")
             elif wa.abort_module_msg:
                 [res, desc] = ['SKIPPED', wa.abort_module_msg]
                 desc = wa._context.report(res, "msg", desc)
@@ -4514,7 +4515,7 @@ def consolidate_results(progress=None, thread=False, count=None):
             row.append("") # SQA Defect ID
             row.append(engineer)
         Result.write_report_csv(analisys_csv, consolidated, ReportType.ANALISYS, row_index=False)
-    except:
+    except Exception:
         if wa: wa.error("Failed to analisys report")
         else: print("Failed to analisys report")
 
@@ -4668,7 +4669,7 @@ def generate_email_report_files(files, nodes, report_html):
                 last_completed = utils.date_parse(last_completed)
                 exec_time = utils.time_diff(first_started, last_completed, True)
                 report_data[key][count+1] = str(exec_time)
-            except:
+            except Exception:
                 report_data[key][count+1] = "NA"
         elif "Session Init Time" in key:
             max_init_time = 0
@@ -4733,10 +4734,9 @@ def generate_email_report(count=None):
     if count <= 1 and not batch.is_batch():
         report_txt = paths.get_report_txt(logs_path)
         report_htm = paths.get_report_htm(logs_path)
-        return generate_email_report_files([report_txt], [], report_htm)
+        generate_email_report_files([report_txt], [], report_htm)
+        return
 
-    report_txt = paths.get_report_txt(logs_path, True)
-    report_htm = paths.get_report_htm(logs_path, True)
     (files, nodes, report_txt) = ([],[], paths.get_report_txt())
     for index in range(0, count):
         node = batch.build_node_name(index)
@@ -4744,7 +4744,8 @@ def generate_email_report(count=None):
         files.append(report_file)
         nodes.append(node)
 
-    return generate_email_report_files(files, nodes, report_htm)
+    report_htm = paths.get_report_htm(logs_path, True)
+    generate_email_report_files(files, nodes, report_htm)
 
 def generate_module_report(results_csv, tcresults_csv, offset=0):
     [_, logs_path, _] = _get_logs_path()
@@ -4843,7 +4844,7 @@ def generate_module_report(results_csv, tcresults_csv, offset=0):
                 if col not in total: total[col] = module[col]
                 elif col in ["UI", "RO", "Node"]: total[col] = ""
                 else: total[col] = total[col] + module[col]
-            except: pass
+            except Exception: pass
         total["Pass Rate"] = get_pass_rate(total["Pass"], total["Not Supported"], total["Func Count"])
 
     def sort_func(y):
@@ -4851,7 +4852,7 @@ def generate_module_report(results_csv, tcresults_csv, offset=0):
             col = env.get("SPYTEST_MODULE_REPORT_SORTER", "CDT")
             if col not in y[1]: col = "CDT"
             return float(str(y[1][col]).replace("%",""))
-        except:
+        except Exception:
             return 0
 
     # sort the modules on total execution time
@@ -4919,7 +4920,6 @@ def generate_features_report(results_csv, tcresults_csv, offset=0):
     for row in func_rows:
         name = row[offset]
         func = row[offset+1]
-        res = row[offset+2]
         secs = utils.time_parse(row[offset+3])
         syslogs = utils.integer_parse(row[offset+5])
         syslogs = syslogs if syslogs else 0
@@ -5005,7 +5005,7 @@ def generate_features_report(results_csv, tcresults_csv, offset=0):
         try:
             func_secs = func_time[func]
             syslogs = func_syslogs[func]
-        except:
+        except Exception:
             #print("=========== Failed to find function {} time -- ignore".format(func))
             func_secs = 0
             syslogs = 0
@@ -5015,7 +5015,7 @@ def generate_features_report(results_csv, tcresults_csv, offset=0):
             epilog_secs = module["EpilogTime"]
             module_syslogs = module["SysLogs"]
             num_duts = module["DCNT"]
-        except:
+        except Exception:
             #print("=========== Failed to find module {} time -- ignore".format(func))
             prolog_secs = 0
             epilog_secs = 0
@@ -5166,7 +5166,6 @@ def _report_data_generation(execution_start, execution_end,
     sysinfo_rows = Result.read_report_csv(sysinfo_csv)
     links, indexes = get_header_info(ReportType.SYSINFO, ["Module"], False)
     for row in sysinfo_rows:
-        sysinfo_htm = paths.get_sysinfo_htm()
         mlog = paths.get_mlog_path(row[indexes["Module"]])
         links["Module"].append(mlog)
     sysinfo_htm = paths.get_sysinfo_htm(logs_path)
@@ -5567,9 +5566,9 @@ def pyfunc_call(pyfuncitem, after):
 
 def fixture_callback(request, scope, isend):
     if scope == "session":
-        if isend:
-            return _delete_work_area()
-        return _create_work_area(request)
+        if isend: return _delete_work_area()
+        _create_work_area(request)
+        return None
 
     wa = get_work_area()
     if not wa:

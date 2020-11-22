@@ -32,7 +32,7 @@ def fix(text, msg="invalid json text", load=False, object_pairs_hook=OrderedDict
     try:
         obj = json.loads(text, object_pairs_hook=object_pairs_hook)
         return obj if load else text
-    except:
+    except Exception:
         pass
 
     # remove trailing object comma

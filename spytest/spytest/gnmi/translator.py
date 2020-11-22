@@ -2,7 +2,7 @@ import re, copy
 
 try:
     from urllib.parse import unquote, quote
-except:
+except Exception:
     from urlparse import unquote
 
 RestDataPrefix = '/restconf/data'
@@ -30,7 +30,7 @@ def unescape(txt=''):
         tmp = str(txt)
         try:
             txt = unquote(tmp, encoding='utf-8', errors='replace').replace(u"\u200b", '')
-        except:
+        except Exception:
             txt = unquote(tmp)
     return txt
 
@@ -63,7 +63,7 @@ def getAttrValLists(path, var):
             else:
                 vals[i] = ''
     return attrs, vals
-     
+
 def toRest(path='', var={}, method='get', json=None):
     ''' Covert template path to Rest path '''
     method = toMethod(method)
@@ -75,7 +75,7 @@ def toRest(path='', var={}, method='get', json=None):
         val = escapeKeyValue(unescape(vals[i]))
         try:
 	        val = quote(val, safe=':')
-        except:
+        except Exception:
             pass
         path = path.replace('{{{}}}'.format(attr), val, 1)
     return "{}{}".format(RestOperPrefix if isOper else RestDataPrefix, path), method, body

@@ -118,7 +118,7 @@ def init_type_nodes():
         wa.backup_nodes = 0
     else:
         try: wa.backup_nodes = int(backup_nodes)
-        except: wa.backup_nodes = None
+        except Exception: wa.backup_nodes = None
 
     rerun_nodes = env.get("SPYTEST_BATCH_RERUN_NODES")
     if rerun_nodes is None:
@@ -131,7 +131,7 @@ def init_type_nodes():
         wa.rerun_nodes = 0
     else:
         try: wa.rerun_nodes = int(rerun_nodes)
-        except: wa.rerun_nodes = None
+        except Exception: wa.rerun_nodes = None
 
 def is_deadnode_recovery():
     return bool(env.get("SPYTEST_BUCKETS_DEADNODE_RECOVERY", "1") != "0")
@@ -261,6 +261,7 @@ class SpyTestScheduling(object):
         self.order_support = True
         self.topo_support = True
         self.node_modules = {}
+        self.collection = []
         self.collection_is_completed = False
         self.main_modules = SpyTestDict()
         self.rerun_modules = SpyTestDict()
@@ -713,7 +714,7 @@ def _read_pid(wa):
     for slave in wa.slaves.values():
         filepath = paths.get_pid_log(os.path.join(wa.logs_path, slave.name))
         try: slave.pid = utils.read_lines(filepath)[0]
-        except: pass
+        except Exception: pass
 
 def _show_testbed_devices(show=False):
 
@@ -1000,7 +1001,7 @@ def parse_node_index(name, default=None):
     gw = re.search(r'{}([0-9]+)'.format(prefix), name)
     if not gw: gw = re.search(r'gw([0-9]+)', name)
     try: return int(gw.group(1))
-    except: return default
+    except Exception: return default
 
 def build_node_name(index, prefix=""):
     if get_node_prefix() == "gw":
@@ -1077,7 +1078,7 @@ def finish_node(node, error, reader):
     # mark the slave as excluded if node_dead file is present
     file_path = os.path.join(wa.logs_path, slave.name, "node_dead")
     try: excluded_devices = utils.read_lines(file_path)[0].split()
-    except: excluded_devices = []
+    except Exception: excluded_devices = []
     if excluded_devices: slave.excluded = 1
 
     slave.completed = None if error else True
@@ -1226,7 +1227,7 @@ def _create_bucket_testbeds(tb_objs, buckets, logs_path):
     for i,bucket in enumerate(buckets):
         trace("============> create mini testbed files for {} bucket".format(bucket))
         try: min_bucket = buckets[i+1] + 1
-        except: min_bucket = 1
+        except Exception: min_bucket = 1
         if bucket not in topologies:
             msg = "bucket {} is not found in supported, using higher bucket {} testbed"
             warn(msg.format(bucket, prev_bucket))
@@ -1317,10 +1318,7 @@ def create_slave(i, j, node_type, prefix=""):
     slave.assigned = 0
     slave.nes_partial = []
     slave.nes_full = []
-    if is_deadnode_recovery():
-        slave.load_infra_tests = True
-    else:
-        slave.load_infra_tests = False
+    slave.load_infra_tests = is_deadnode_recovery()
     slave.pid = 0
     if i >= wa.count:
         slave.started = False

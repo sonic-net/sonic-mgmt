@@ -112,7 +112,7 @@ if not SIM_HOST:
         ###
         ### Run bash command and print output to stdout
         ###
-        if display_cmd == True:
+        if display_cmd is True:
             print("Running command: " + command)
 
         proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
@@ -686,7 +686,7 @@ def check_vaildation(platform, hwsku, port, opt):
     ini_file = get_ini_file(platform, hwsku)
 
     ports =  get_bkout_ports(port, opt)
-    if ports == None:
+    if ports is None:
         print("Wrong interface name:%s" % (port))
         return False
 
@@ -787,18 +787,18 @@ def process_args(argv):
         try:
             with open(cust) as fp:
                 sonic_platforms.update(json.load(fp))
-        except:
+        except Exception:
             pass
     else:
         print("# Custom Platform JSON not found")
 
-    if list == True:
+    if list is True:
         print("Supported platform list:")
         for plat in sonic_platforms:
             print("* {}".format(plat))
         sys.exit(0)
 
-    if port == None or opt == None:
+    if port is None or opt is None:
         print("Error: must give -p [port] and -o [option]")
 
         usage()
@@ -846,7 +846,7 @@ def main(argv):
     if platform_checking(platform, hwsku, port, opt) is False:
         return
 
-    if check_vaildation(platform, hwsku, port, opt) == False:
+    if check_vaildation(platform, hwsku, port, opt) is False:
         print("breakout options checking failed.")
         return
 

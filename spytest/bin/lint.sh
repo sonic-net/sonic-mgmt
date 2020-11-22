@@ -46,7 +46,7 @@ IGNORE2="$IGNORE2 --disable=W0703" #broad-except
 
 IGNORE2="$IGNORE2 --disable=C0112" #empty-docstring
 IGNORE2="$IGNORE2 --disable=C0113" #unneeded-not
-IGNORE2="$IGNORE2 --disable=C0121" #singleton-comparison
+#IGNORE2="$IGNORE2 --disable=C0121" #singleton-comparison
 IGNORE2="$IGNORE2 --disable=C0123" #unidiomatic-typecheck
 IGNORE2="$IGNORE2 --disable=C0200" #consider-using-enumerate
 IGNORE2="$IGNORE2 --disable=C0201" #consider-iterating-dictionary
@@ -99,7 +99,7 @@ ERR_FILE=lint_errors.log
 if [ "$LINT_DAILY" == "1" ]; then
   REPORT=daily_lint_report.log
   ERR_FILE=daily_lint_errors.log
-  IGNORE2="$IGNORE2 --disable=W0611" #unused-import
+  #IGNORE2="$IGNORE2 --disable=W0611" #unused-import
   IGNORE2="$IGNORE2 --disable=W0612" #unused-variable
   IGNORE2="$IGNORE2 --disable=W0106" #expression-not-assigned
   exclude="__init__.py ddm/ tests/ut/ tests/systb/ scheduler/ tests/dell"

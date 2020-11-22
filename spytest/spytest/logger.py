@@ -15,7 +15,7 @@ def get_thread_name():
     try:
         num = int(name.replace("Thread-", ""))
         name = "T%04d: " % (num)
-    except:
+    except Exception:
         pass
     return name
 

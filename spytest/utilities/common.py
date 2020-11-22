@@ -102,7 +102,7 @@ def write_file(filename, data, mode="w"):
     if not filename: return data
     ensure_parent(filename)
     try:    data2 = to_ascii(data)
-    except: data2 = data
+    except Exception: data2 = data
     fh = open(filename, mode)
     fh.write(data2)
     fh.close()
@@ -346,21 +346,21 @@ def sprint_vtable(header, rows, max_width=0):
         t.add_row(row)
     return str(t)
 
-def sprint_htable(header, row):
+def sprint_htable(header, rows):
     t = PrettyTable(["Name", "value"])
     t.hrules = True
-    for index in range(0, len(row)):
-        t.add_row([header[index], row[index]])
+    for index, row in enumerate(rows):
+        t.add_row([header[index], row])
     return str(t)
 
 def date_parse(datestr):
     try:
         return datetime.datetime.strptime(datestr, '%Y-%m-%d %H:%M:%S')
-    except:
+    except Exception:
         pass
     try:
         return datetime.datetime.strptime(datestr, '%Y-%m-%d %H:%M:%S.%f')
-    except:
+    except Exception:
         pass
     return None
 
@@ -368,7 +368,7 @@ def time_parse(timestr):
     try:
         (h,m,s) = timestr.split(':')
         secs = int(h) * 3600 + int(m) * 60 + int(s)
-    except:
+    except Exception:
         secs = 0
     return secs
 
@@ -483,7 +483,7 @@ def read_csv(filepath):
         with open_file(filepath) as fd:
             for row in csv.reader(fd):
                 rows.append(row)
-    except:
+    except Exception:
         pass
 
     return rows
@@ -492,10 +492,10 @@ def write_csv_writer(cols, rows, writer, append=False):
     if not append:
         writer.writeheader()
 
-    for i in range(0, len(rows)):
+    for row in rows:
         d = OrderedDict()
-        for j in range(0, len(cols)):
-            d[cols[j]] = rows[i][j]
+        for j, col in enumerate(cols):
+            d[col] = row[j]
         writer.writerow(d)
 
 def write_csv_file(cols, rows, filepath, append=False):
@@ -541,8 +541,8 @@ def write_html_table2(cols, rows, filepath=None, links=None, colors=None, color_
 
     if links:
         l_rows = []
-        for index in range(0, len(rows)):
-            l_row = list(rows[index])
+        for index, row in enumerate(rows):
+            l_row = list(row)
             if links[index]:
                 l_row[0]="<a href='{}'>{}</a>".format(links[index],l_row[0])
             l_rows.append(l_row)
@@ -714,7 +714,7 @@ def stack_trace(entries):
             msg = "[{}] {}:{} {} {}".format(index, fname, line, func, text)
             index = index + 1
             retval.append(msg)
-    except:
+    except Exception:
         retval.append("Failed to parse stack trace {}".format(str(entries)))
 
     return retval
@@ -726,7 +726,7 @@ def poll_wait(method, timeout, *args, **kwargs):
 def time_span_to_sec(time_span):
     try:
         return sum(x * int(t) for x, t in zip([3600, 60, 1], time_span.split(":")))
-    except:
+    except Exception:
         return 0
 
 def to_string(data):
@@ -804,7 +804,7 @@ def integer_parse(s, default=None):
     #return re.match(r"[-+]?\d+$", s) is not None
     try:
         return int(s)
-    except:
+    except Exception:
         return default
 
 def min(n1, n2):
@@ -930,6 +930,9 @@ def set_repeat(path, name, topo):
     filename = frame[0].f_code.co_filename
     os.environ["SPYTEST_REPEAT_NAME_{}".format(filename)] = name
     os.environ["SPYTEST_REPEAT_TOPO_{}".format(filename)] = topo
+
+def unused(*args):
+    pass
 
 if __name__ == "__main__":
     # indent the json file

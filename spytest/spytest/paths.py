@@ -135,7 +135,7 @@ def parse_nodeid(nodeid):
     try:
         module, func = nodeid.split("::", 1)
         module = get_mlog_basename(module)
-    except:
+    except Exception:
         module, func = "", nodeid
         func = get_mlog_basename(func)
     return module, func

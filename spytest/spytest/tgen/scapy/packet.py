@@ -24,7 +24,7 @@ from utils import Utils
 from logger import Logger
 
 try: print("SCAPY VERSION = {}".format(Conf().version))
-except: print("SCAPY VERSION = UNKNOWN")
+except Exception: print("SCAPY VERSION = UNKNOWN")
 
 if sys.version_info[0] >= 3:
     unicode = str
@@ -125,7 +125,7 @@ class ScapyPacket(object):
         self.dry = dry
         self.logger = logger or Logger()
         try: self.logger.info("SCAPY VERSION = {}".format(Conf().version))
-        except: self.logger.info("SCAPY VERSION = UNKNOWN")
+        except Exception: self.logger.info("SCAPY VERSION = UNKNOWN")
         self.utils = Utils(self.dry, logger=self.logger)
         self.max_rate_pps = self.utils.get_env_int("SPYTEST_SCAPY_MAX_RATE_PPS", 100)
         self.dbg = dbg
@@ -198,7 +198,7 @@ class ScapyPacket(object):
 
     def close_sock(self, sock):
         try: sock.close()
-        except: pass
+        except Exception: pass
         return None
 
     def cleanup(self):
@@ -272,7 +272,7 @@ class ScapyPacket(object):
 
             if self.tx_sock:
                 try: return self.tx_sock.send(data)
-                except: pass
+                except Exception: pass
             try:
                 sendp(data, iface=iface, verbose=False)
             except Exception as exp:
@@ -286,7 +286,7 @@ class ScapyPacket(object):
     def show_pkt(self, pkt):
         try:
             self.logger.debug(pkt.show2(dump=True))
-        except:
+        except Exception:
             self.logger.debug(pkt.command())
             pkt.show2()
 
@@ -312,7 +312,7 @@ class ScapyPacket(object):
         try:
             crc1 = '{:08x}'.format(socket.htonl(zlib.crc32(pkt_bytes) & 0xFFFFFFFF))
             crc = binascii.unhexlify(crc1)
-        except:
+        except Exception:
             crc1='{:08x}'.format(socket.htonl(zlib.crc32(pkt_bytes) & 0xFFFFFFFF))
             crc = binascii.unhexlify('00' * 4)
         bstr = bytes(strpkt+crc)
@@ -347,21 +347,21 @@ class ScapyPacket(object):
         val = d.pop(prop, "{}".format(default))
         try:
             return int(str(val))
-        except:
+        except Exception:
             self.logger.info(traceback.format_exc())
 
     def pop_hex(self, d, prop, default):
         val = d.pop(prop, "{}".format(default))
         try:
             return int(str(val), 16)
-        except:
+        except Exception:
             self.logger.info(traceback.format_exc())
 
     def get_int(self, d, prop, default):
         val = d.get(prop, "{}".format(default))
         try:
             return int(str(val))
-        except:
+        except Exception:
             self.logger.info(traceback.format_exc())
 
     def ensure_int(self, name, value, min_val, max_val):
@@ -1294,7 +1294,7 @@ class ScapyPacket(object):
         as_seq = None
         if as_path and "as_seq:" in as_path:
             try: as_seq = int(as_path.replace("as_path:", ""))
-            except: as_seq = None
+            except Exception: as_seq = None
 
         remote_as = self.utils.intval(intf.bgp_kws, "remote_as", 65001)
         local_as = self.utils.intval(intf.bgp_kws, "local_as", 65007)

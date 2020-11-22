@@ -21,7 +21,7 @@ def download(build_url, local_path):
                 retval = "Error: Failed to execute '{}' ('{}')\n".format(curl_cmd, err.strip())
             else:
                 retval = retval + out.strip() + err.strip()
-        except:
+        except Exception:
             print("Error: Exception occurred while executing the command '{}'".format(curl_cmd))
             return None
 
@@ -46,7 +46,7 @@ def download(build_url, local_path):
                 retval = "Error: Failed to execute '{}' ('{}')\n".format(filetype_cmd, err.strip())
             else:
                 retval = retval + out.strip() + err.strip()
-        except:
+        except Exception:
             pass
 
         if not re.search(r":\s+data", retval):

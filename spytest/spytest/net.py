@@ -244,7 +244,7 @@ class Net(object):
             return self._switch_connection(devname, 0)
 
         # switch to ssh
-        if recover == False:
+        if recover is False:
             return self._switch_connection(devname, 1)
             #if self._switch_connection(devname, 1):
             #    hndl = self._get_handle(devname, 1)
@@ -313,7 +313,6 @@ class Net(object):
 
     def register_devices(self, _topo):
         for devname in _topo["duts"]:
-            device_model = "sonic"
             dut = _topo["duts"][devname]
             self._init_dev(devname)
             self.set_console_only(bool(not self.tryssh), False)
@@ -326,9 +325,8 @@ class Net(object):
             if "alias" in dut:
                 access.update({"alias0": dut["alias"]})
                 access.update({"alias": dut["alias"]})
-            if "device_model" in dut:
-                device_model = dut["device_model"]
-                access.update({"device_model": device_model})
+            device_model = dut.get("device_model", "sonic")
+            access.update({"device_model": device_model})
             self._copy_value(dut, access, ["username", "password", "altpassword"])
             if "auth" in dut:
                 access.update({"testbed_auth": dut["auth"]})
@@ -376,7 +374,7 @@ class Net(object):
                 if not msg: continue
                 self.dut_log(devname, "'{}'".format(msg))
             self.dut_log(devname, "======================================")
-        except:
+        except Exception:
             self.dut_log(devname, "{}: DATA Rcvd: {}".format(line, "UNKNOWN"))
         return retval
 
@@ -422,10 +420,10 @@ class Net(object):
                     try:
                         prompts = access["prompts"]
                         access["current_prompt_mode"] = prompts.get_mode_for_prompt(output)
-                    except:
+                    except Exception:
                         access["current_prompt_mode"] = "unknown-prompt"
                     return output
-            except:
+            except Exception:
                 msg1 = utils.stack_trace(traceback.format_exc())
                 msg2 = "Failed to read prompt .. handle: '{}', try: {}".format(hndl, i)
                 self._trace_received(device, "find_prompt", hndl, msg1, msg2, line)
@@ -434,7 +432,7 @@ class Net(object):
                 if not hndl: break
                 if hndl and not hndl.is_alive():
                     hndl = None
-            except: pass
+            except Exception: pass
 
             if sleep > 0:
                 msg = "Waiting for {} secs before retry..".format(wait_time)
@@ -445,12 +443,12 @@ class Net(object):
                 msg = "Trying CTRL+C: attempt {}..".format(i)
                 self.dut_log(device, msg, lvl=logging.WARNING)
                 try: hndl.send_command_timing("\x03")
-                except: self.dut_log(device, "Failed to send CTRL+C", lvl=logging.ERROR)
+                except Exception: self.dut_log(device, "Failed to send CTRL+C", lvl=logging.ERROR)
             elif i % 2 == 1:
                 msg = "Trying CTRL+Q: attempt {}..".format(i)
                 self.dut_log(device, msg, lvl=logging.WARNING)
                 try: hndl.send_command_timing("\x11")
-                except: self.dut_log(device, "Failed to send CTRL+Q", lvl=logging.ERROR)
+                except Exception: self.dut_log(device, "Failed to send CTRL+Q", lvl=logging.ERROR)
 
         # dump sysrq traces
         if hndl and env.get("SPYTEST_SYSRQ_ENABLE", "0") != "0":
@@ -556,10 +554,10 @@ class Net(object):
                     try:
                         prompts = access["prompts"]
                         access["current_prompt_mode"] = prompts.get_mode_for_prompt(output)
-                    except:
+                    except Exception:
                         access["current_prompt_mode"] = "unknown-prompt"
                     return output
-            except:
+            except Exception:
                 msg1 = utils.stack_trace(traceback.format_exc())
                 msg2 = "Failed to read prompt .. handle: '{}', try: {}".format(hndl, i)
                 self._trace_received(device, "find_prompt", hndl, msg1, msg2, line)
@@ -568,7 +566,7 @@ class Net(object):
                 if not hndl: break
                 if hndl and not hndl.is_alive():
                     hndl = None
-            except: pass
+            except Exception: pass
             if sleep > 0: time.sleep(sleep*(i+1))
 
         # dump sysrq traces
@@ -708,7 +706,7 @@ class Net(object):
             if hndl:
                 try:
                     hndl.send_command_timing("\x03")
-                except:
+                except Exception:
                     pass
                 hndl.disconnect()
                 self._set_handle(devname, None)
@@ -717,7 +715,7 @@ class Net(object):
         def trace_callback(self, devname, msg):
             try:
                 self.dut_log(devname, msg, prefix="LIVE: ")
-            except:
+            except Exception:
                 pass
         if not self.trace_callback_support:
             return
@@ -999,11 +997,11 @@ class Net(object):
                         prompt = self._exit_docker(devname, prompt)
 
                     self._enter_linux(devname, prompt)
-                    prompt = self.init_normal_prompt(devname)
+                    self.init_normal_prompt(devname)
                     output = self._send_command(access, "whoami", skip_error_check=True, ufcli=False)
                     if "Unknown command" in output:
                         self._exit_vtysh(devname, onconnect=1)
-                        prompt = self.init_normal_prompt(devname)
+                        self.init_normal_prompt(devname)
                         output = self._send_command(access, "whoami")
                     whoami = output.split(nl)[0].strip()
                     if connection_param["username"] != whoami:
@@ -1013,7 +1011,7 @@ class Net(object):
                         prompt_terminator = r"([#|\$]\s*$|{})".format(regex_login)
                         self._send_command(access, "exit", prompt_terminator)
                         self._enter_linux(devname)
-                        prompt = self.init_normal_prompt(devname)
+                        self.init_normal_prompt(devname)
                 except Exception as exp:
                     msg = "Please report this issue ({})".format(exp)
                     self.logger.error(msg)
@@ -1114,7 +1112,7 @@ class Net(object):
         try:
             self.dut_log(devname, msg)
             return self.wa.hooks.show_version(devname)
-        except:
+        except Exception:
             msg = utils.stack_trace(traceback.format_exc())
             self.dut_log(devname, msg, lvl=logging.WARNING)
 
@@ -1250,7 +1248,7 @@ class Net(object):
             self.rest_init(devname, access.get("username"), access.get("password"), access.get("altpassword"), True)
             self.gnmi_init(devname, True)
             self.check_pending_downloads(devname)
-        except:
+        except Exception:
             msg1 = "Failed to read ip address of {}".format(mgmt_ifname)
             msg2 = "Failed to read ip address of {}..Retrying".format(mgmt_ifname)
             msg = msg2 if try_again > 0 else msg1
@@ -1375,7 +1373,7 @@ class Net(object):
         # trace the CLI commands in CSV file, to be used to measure coverage
         # module,function,cli-mode,command
         try: self.wa._trace_cli(access["dut_name"], access["current_prompt_mode"], cmd)
-        except: pass
+        except Exception: pass
 
     def _cli_lock(self, access, cmd, line=None):
         detect = env.get("SPYTEST_DETECT_CONCURRENT_ACCESS", "0")
@@ -1413,7 +1411,7 @@ class Net(object):
             access["cli_lock"].release()
             if detect == "2":
                 self.dut_log(devname, pmsg, lvl=logging.DEBUG)
-        except:
+        except Exception:
             self.dut_log(devname, fmsg, lvl=logging.DEBUG)
 
     def _traceback_exception(self, devname, entries, line=None, ex=None, msg=None):
@@ -1707,12 +1705,6 @@ class Net(object):
 
         dbg = self.debug_find_prompt
 
-        if self.is_use_last_prompt():
-            if not prompt:
-                prompt = access["last-prompt"]
-            elif prompt != access["last-prompt"]:
-                prompt = None
-
         prompt = self._find_prompt(access)
         if not prompt:
             prompt = self._find_prompt(access)
@@ -1729,7 +1721,7 @@ class Net(object):
             try:
                 hndl.send_command_timing("exit")
                 new_prompt = self._find_prompt(access)
-            except:
+            except Exception:
                 pass
         else:
             try:
@@ -1738,7 +1730,7 @@ class Net(object):
                 hndl.send_command_timing("\x03")
                 hndl.send_command_timing("exit")
                 new_prompt = self._find_prompt(access)
-            except:
+            except Exception:
                 pass
 
         msg = "prompt after change({})".format(new_prompt.replace("\\", ""))
@@ -1766,12 +1758,6 @@ class Net(object):
 
         dbg = self.debug_find_prompt
 
-        if self.is_use_last_prompt():
-            if not prompt:
-                prompt = access["last-prompt"]
-            elif prompt != access["last-prompt"]:
-                prompt = None
-
         prompt = self._find_prompt(access)
         if not prompt:
             prompt = self._find_prompt(access)
@@ -1782,20 +1768,18 @@ class Net(object):
         if re.compile(lldp_prompt).match(prompt2):
             try:
                 cli_prompt = self._get_cli_prompt(devname)
-                output = self._send_command(access, "exit", cli_prompt)
+                self._send_command(access, "exit", cli_prompt)
                 self._set_last_prompt(access, cli_prompt)
-            except:
-                output = ""
+            except Exception:
                 self._set_last_prompt(access, None)
             return (True, None)
 
         if sonic_mgmt_hostname in prompt2:
             try:
                 cli_prompt = self._get_cli_prompt(devname)
-                prompt = self._exit_docker(devname, prompt)
+                self._exit_docker(devname, prompt)
                 self._set_last_prompt(access, cli_prompt)
-            except:
-                output = ""
+            except Exception:
                 self._set_last_prompt(access, None)
             return (True, None)
 
@@ -1868,10 +1852,10 @@ class Net(object):
             hndl.altpassword = altpwd
             output = hndl.extended_login(output)
             return (True, output)
-        except:
+        except Exception:
             msg1 = utils.stack_trace(traceback.format_exc())
-            msg2 = "Failed to change default password"
-            msg2 = "Unexpected messages on console - trying to recover"
+            msg2 = "Failed to change default password."
+            msg2 = msg2 + " Unexpected messages on console - trying to recover"
             self._trace_received(device, "change_default_pwd", hndl, msg1, msg2, line)
             return (False, "")
 
@@ -1886,12 +1870,6 @@ class Net(object):
             self._send_command(access, end_exit, prompt_terminator)
             self._set_last_prompt(access, None)
             return
-
-        if self.is_use_last_prompt():
-            if not prompt:
-                prompt = access["last-prompt"]
-            elif prompt != access["last-prompt"]:
-                prompt = None
 
         prompt = self._find_prompt(access)
         if not prompt:
@@ -1918,7 +1896,7 @@ class Net(object):
         try:
             prompts = access["prompts"]
             access["current_prompt_mode"] = prompts.get_mode_for_prompt(prompt)
-        except:
+        except Exception:
             access["current_prompt_mode"] = "unknown-prompt"
 
     def _exec_mode_change(self, devname, l_cmd, to_prompt, from_prompt):
@@ -1948,16 +1926,10 @@ class Net(object):
                                       trace_dut_log=trace_dut_log,
                                       delay_factor=delay_factor, ufcli=ufcli)
 
-        # get current prompt or reuse the prompt
-        last_prompt = access["last-prompt"]
-        if self.is_use_last_prompt():
-            prompt = last_prompt
-        else:
-            prompt = None
+        # get current prompt
         prompt = self._find_prompt(access)
         if prompt is None:
             prompt = self._find_prompt(access)
-            prompt2 = prompt.replace("\\", "")
             prompt = self._enter_linux(devname, prompt)
             if prompt is None:
                 prompt = self._find_prompt(access)
@@ -1978,7 +1950,7 @@ class Net(object):
                 try:
                     prompt = self._exit_docker(devname, prompt)
                     prompt2 = prompt.replace("\\", "")
-                except:
+                except Exception:
                     pass
                 self._set_last_prompt(access, prompt)
             elif prompt.startswith(hostname):
@@ -1991,7 +1963,7 @@ class Net(object):
                     self._set_last_prompt(access, cli_prompt)
                     prompt = self._find_prompt(access)
                     prompt2 = prompt.replace("\\", "")
-                except:
+                except Exception:
                     self._set_last_prompt(access, None)
 
             if prompt == self._get_cli_prompt(devname):
@@ -2005,7 +1977,7 @@ class Net(object):
                     cli_prompt = self._get_cli_prompt(devname)
                     output = self._send_command(access, "exit", cli_prompt)
                     self._set_last_prompt(access, cli_prompt, "lldp")
-                except:
+                except Exception:
                     output = ""
                     self._set_last_prompt(access, None)
                 return output
@@ -2030,7 +2002,7 @@ class Net(object):
                     cli_prompt = self._get_cli_prompt(devname)
                     self._send_command(access, "exit", cli_prompt)
                     self._set_last_prompt(access, cli_prompt)
-                except:
+                except Exception:
                     self._set_last_prompt(access, None)
             elif prompt2.startswith(sonic_mgmt_hostname):
                 msg = "trying to change from sonic-mgmt({}) while executing {}"
@@ -2038,8 +2010,7 @@ class Net(object):
                 self.dut_log(devname, msg)
                 try:
                     prompt = self._exit_docker(devname, prompt)
-                    prompt2 = prompt.replace("\\", "")
-                except:
+                except Exception:
                     pass
                 self._set_last_prompt(access, prompt)
             elif prompt.startswith(hostname):
@@ -2050,7 +2021,7 @@ class Net(object):
                     cli_prompt = self._get_cli_prompt(devname)
                     self._send_command(access, end_exit, cli_prompt)
                     self._set_last_prompt(access, cli_prompt)
-                except:
+                except Exception:
                     self._set_last_prompt(access, None)
             return self._send_command(access, cmd, expect, skip_error_check,
                                       trace_dut_log=trace_dut_log,
@@ -2063,7 +2034,7 @@ class Net(object):
             try:
                 prompt = self._exit_docker(devname, prompt)
                 prompt2 = prompt.replace("\\", "")
-            except:
+            except Exception:
                 pass
             self._set_last_prompt(access, prompt)
 
@@ -2085,7 +2056,7 @@ class Net(object):
                     cli_prompt = self._get_cli_prompt(devname)
                     output = self._send_command(access, "exit", cli_prompt)
                     self._set_last_prompt(access, cli_prompt)
-                except:
+                except Exception:
                     output = ""
                     self._set_last_prompt(access, None)
                 return output
@@ -2422,10 +2393,9 @@ class Net(object):
         largs = [method]
         if devname:
             return self._apply_remote(devname, "apply-base-config", largs)
-        else:
-            for dev_name in self.topo["duts"]:
-                self._apply_remote(dev_name, "apply-base-config", largs)
-            return True
+        for dev_name in self.topo["duts"]:
+            self._apply_remote(dev_name, "apply-base-config", largs)
+        return True
 
     def config_db_reload(self, devname, save=False, max_time=0):
         devname = self._check_devname(devname)
@@ -2522,7 +2492,7 @@ class Net(object):
         try:
             obj = json.loads(data)
             indented = json.dumps(obj, indent=4)
-        except:
+        except Exception:
             self.logger.warning("invalid json - trying to fix")
             # remove trailing object comma
             regex = re.compile(
@@ -2535,7 +2505,7 @@ class Net(object):
             try:
                 obj = json.loads(data)
                 indented = json.dumps(obj, indent=4)
-            except:
+            except Exception:
                 raise ValueError("invalid json data")
 
         # write json content into file
@@ -2567,7 +2537,7 @@ class Net(object):
             self._enter_linux_exit_vtysh(devname)
 
             check_file_cmd = "ls -lrt {}".format(dst_file)
-            output = self.config(devname, check_file_cmd, skip_error_check=True)
+            self.config(devname, check_file_cmd, skip_error_check=True)
 
             # execute the command.
             config_cmd = "config load -y {}".format(dst_file)
@@ -2651,7 +2621,7 @@ class Net(object):
                 msg = "Failed to take device into login - try loading image"
                 self.dut_log(devname, msg, lvl=logging.ERROR)
                 # pass through installation
-            except:
+            except Exception:
                 msg = "Failed to recover from {} with reboot".format(prompt)
                 self.dut_log(devname, msg, lvl=logging.ERROR)
                 os._exit(15)
@@ -3123,7 +3093,7 @@ class Net(object):
                 retry_count = retry_count + 1
                 self.wait(10)
         elif onie:
-            output = self._send_command(access, reboot_cmd, regex_onie_resque, True, reboot_delay_factor)
+            self._send_command(access, reboot_cmd, regex_onie_resque, True, reboot_delay_factor)
             return True
         else:
             if internal:
@@ -3257,7 +3227,7 @@ class Net(object):
         try:
             obj = json.loads(data)
             indented = json.dumps(obj, indent=4) if do_indent else data
-        except:
+        except Exception:
             self.logger.warning("invalid json - trying to fix")
             # remove trailing object comma
             regex = re.compile(
@@ -3270,7 +3240,7 @@ class Net(object):
             try:
                 obj = json.loads(data)
                 indented = json.dumps(obj, indent=4) if do_indent else data
-            except:
+            except Exception:
                 raise ValueError("invalid json data")
 
         access = self._get_dev_access(devname)
@@ -3348,7 +3318,7 @@ class Net(object):
                     if utils.md5(src_file) == md5sum2.split(" ")[0].strip():
                         skip_transfer = True
                         self.skip_trans_helper[devname][src_file] = remote_file
-                except:
+                except Exception:
                     pass
             if not skip_transfer:
                 done = False
@@ -3798,7 +3768,7 @@ class Net(object):
                             self.dut_log(devname, msg, lvl=logging.INFO)
                         self.dut_log(devname, "=" * 50, lvl=logging.INFO)
                         retval = nl.join(retval)
-                    except:
+                    except Exception:
                         retval = "Error: Exception occurred while reading the syslog captured file '{}'".format(local_file_path)
                     return retval
                 else:
@@ -3953,7 +3923,7 @@ class Net(object):
             try:
                 self._apply_remote(devname, "get-tech-support", [name])
                 break
-            except:
+            except Exception:
                 continue
 
     def save_sairedis(self, devname, phase, name):
@@ -3982,7 +3952,7 @@ class Net(object):
                 match = r"\s*{}\s*(\d+)\s*{}".format(prefix, suffix)
                 z0 = re.match(match, line)
                 if z0: return int(z0.groups()[0])
-        except: pass
+        except Exception: pass
         return default
 
     def do_memory_checks(self, devname, phase, name):
@@ -4032,7 +4002,7 @@ class Net(object):
                 z = re.match(r"\s*%Cpu\(s\):.*,\s+([-+]?\d*\.\d+|\d+)\s+id,\s+", line)
                 if z:
                     try: CpuUtilization = round(100.0 - float(z.groups()[0]), 2)
-                    except: CpuUtilization = 0.0
+                    except Exception: CpuUtilization = 0.0
                     break
             output = self._exec(devname, "pstree -p", mode="normal-user", skip_error_check=True, trace_dut_log=1)
             utils.write_file(file_path, output, "a")
@@ -4179,7 +4149,7 @@ class Net(object):
             try:
                 self._fetch_mgmt_ip(devname)
                 addr = self._get_mgmt_ip(devname)
-            except:
+            except Exception:
                 addr = ""
         return addr
 
@@ -4379,7 +4349,7 @@ class Net(object):
             return ""
 
         try: logs_path = self.wa.get_logs_path()
-        except: logs_path = None
+        except Exception: logs_path = None
 
         output = ""
         try:
@@ -4412,7 +4382,7 @@ class Net(object):
         output = ""
         try:
             output = self._run_ansible_script(playbook, host, username, password, access["filemode"], **kwargs)
-        except:
+        except Exception:
             password = access["altpassword"]
             output = self._run_ansible_script(playbook, host, username, password, access["filemode"], **kwargs)
         return output
@@ -4444,7 +4414,7 @@ class Net(object):
             prompt = self._find_prompt(access)
             if prompt == cli_prompt and re.search("^up", output):
                 return True
-        except:
+        except Exception:
             return False
         return False
 
@@ -4676,9 +4646,8 @@ class Net(object):
         if ocType == 'gnmi':
             path, action, data = toGNMI(template, var, action or method, data=data or json)
             return self.gnmi_send(dut, path, action=action, data=data, **kwargs)
-        else:
-            path, method, json = toRest(template, var, method or action, json=json or data)
-            return self.rest_send(dut, api=path, method=method, json=json, retAs='', verify=False, **kwargs)
+        path, method, json = toRest(template, var, method or action, json=json or data)
+        return self.rest_send(dut, api=path, method=method, json=json, retAs='', verify=False, **kwargs)
 
     def gnmi_init(self, dut, cached=False):
         if not cached:
@@ -4988,9 +4957,6 @@ class Net(object):
                 msg = "Unable to change the prompt mode to {}.".format(opts.exec_mode)
                 self.dut_log(devname, msg, lvl=logging.ERROR)
                 raise ValueError(msg)
-            if frommode in prompts.sudo_include_prompts:
-                if not cmd.startswith("sudo "):
-                    cmd = "sudo " + cmd
             expected_prompt = prompts.get_prompt_for_mode(frommode, ifname_type)
         else:
             (_, op, expect_mode) = self._change_mode(devname, False, cmd, opts)
@@ -5154,7 +5120,7 @@ class Net(object):
         if "sshpass" not in output:
             output = self._send_command(access, update_install_cmd, cli_prompt, ufcli=False,
                                         skip_error_check=True)
-            self.dut_log(devname, "Command '{}' Output: '{}'.".format(check_cmd, update_install_cmd))
+            self.dut_log(devname, "Command '{}' Output: '{}'.".format(check_cmd, output))
 
         # Construct the sshpass command.
         exec_command = "sshpass -p '{}' ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout={} {}@{} {}"
@@ -5385,7 +5351,7 @@ class Net(object):
                         #try:
                         #    output = self.config(devname, config_step_cmd, type="klish",
                         #                             skip_error_check=True, conf=is_step_conf)
-                        #except:
+                        #except Exception:
                         #    pass
                         hndl_before_cmd = self._get_handle(devname)
                         output = self.config(devname, current_cmd, type="klish",
@@ -5514,7 +5480,7 @@ class Net(object):
                         #try:
                         #    output = self.config(devname, config_step_cmd, type="klish",
                         #                             skip_error_check=True, conf=is_step_conf)
-                        #except:
+                        #except Exception:
                         #    pass
                         hndl_before_cmd = self._get_handle(devname)
                         output = self.config(devname, current_cmd, type="klish",
@@ -5634,7 +5600,7 @@ class Net(object):
                         #try:
                         #    output = self.show(devname, action_step_cmd, type="klish",
                         #                           skip_error_check=True, skip_tmpl=skip_tmpl_value)
-                        #except:
+                        #except Exception:
                         #    pass
                         hndl_before_cmd = self._get_handle(devname)
                         if current_cmd.startswith("show"):
@@ -6223,46 +6189,42 @@ class Net(object):
             self.logger.debug("OUTPUT : {}".format(output))
             for rm_cmd in rm_cmds:
                 self._run_gnmi_command(rm_cmd)
-            if output.get("error"):
-                for err_code_str in container_crash_err_strngs:
-                    if err_code_str in output.get("error"):
-                        self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
-                        docker_crash = True
-                        break
-                if not docker_crash:
-                    self.logger.info(output.get("error"))
-                    return False
-                if docker_crash:
-                    timeout = 300
-                    curr_time = 0
-                    wait_time = 10
-                    iteration = 1
-                    check_flag = True
-                    itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
-                    while curr_time < timeout:
-                        status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
-                        self.logger.info(itr_msg.format(iteration, wait_time))
-                        if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
-                            self.wait(wait_time)
-                            curr_time += wait_time
-                            check_flag = False
-                            iteration +=1
-                            if iteration > 3 and "true" in status_output:
-                                return False
-                            continue
-                        else:
-                            check_flag = True
-                            break
-                    if not check_flag:
-                        self.logger.info("ERROR code observed with telemetry docker...")
+            if not output.get("error"):
+                return output
+            for err_code_str in container_crash_err_strngs:
+                if err_code_str in output.get("error"):
+                    self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
+                    docker_crash = True
+                    break
+            if not docker_crash:
+                self.logger.info(output.get("error"))
+                return False
+            timeout = 300
+            curr_time = 0
+            wait_time = 10
+            iteration = 1
+            check_flag = True
+            itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
+            while curr_time < timeout:
+                status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
+                self.logger.info(itr_msg.format(iteration, wait_time))
+                if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
+                    self.wait(wait_time)
+                    curr_time += wait_time
+                    check_flag = False
+                    iteration +=1
+                    if iteration > 3 and "true" in status_output:
                         return False
-                    if curr_time >= timeout:
-                        self.logger.info("Max retries reached")
-                        return False
+                    continue
                 else:
-                    self.logger.info(output.get("error"))
-                    return False
-            return output
+                    check_flag = True
+                    break
+            if not check_flag:
+                self.logger.info("ERROR code observed with telemetry docker...")
+                return False
+            if curr_time >= timeout:
+                self.logger.info("Max retries reached")
+                return False
         else:
             self.logger.info("Could not find JSON CONTENT for SET operation")
             return False
@@ -6286,48 +6248,43 @@ class Net(object):
             container_crash_err_strngs = ["transport is closing", "connection refused", "Error response from daemon:"]
             docker_crash = False
             output = self._run_gnmi_command(command)
-            if output.get("error"):
-                for err_code_str in container_crash_err_strngs:
-                    if err_code_str in output.get("error"):
-                        self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
-                        docker_crash = True
-                        break
-                if not docker_crash:
-                    self.logger.info(output.get("error"))
-                    return False
-                if docker_crash:
-                    timeout = 300
-                    curr_time = 0
-                    wait_time = 10
-                    iteration = 1
-                    check_flag = True
-                    itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
-                    while curr_time < timeout:
-                        status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
-                        self.logger.info(itr_msg.format(iteration, wait_time))
-                        if ("true" not in status_output) or (
-                                "transport is closing" in output.get("error") and "true" in status_output):
-                            self.wait(wait_time)
-                            curr_time += wait_time
-                            check_flag = False
-                            iteration += 1
-                            if iteration > 3 and "true" in status_output:
-                                return False
-                            continue
-                        else:
-                            check_flag = True
-                            break
-                    if not check_flag:
-                        self.logger.info("ERROR code observed with telemetry docker...")
-                        return False
-                    if curr_time >= timeout:
-                        self.logger.info("Max retries reached")
-                        return False
-                else:
-                    self.logger.info(output.get("error"))
-                    return False
-            else:
+            if not output.get("error"):
                 return output
+            for err_code_str in container_crash_err_strngs:
+                if err_code_str in output.get("error"):
+                    self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
+                    docker_crash = True
+                    break
+            if not docker_crash:
+                self.logger.info(output.get("error"))
+                return False
+            timeout = 300
+            curr_time = 0
+            wait_time = 10
+            iteration = 1
+            check_flag = True
+            itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
+            while curr_time < timeout:
+                status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
+                self.logger.info(itr_msg.format(iteration, wait_time))
+                if ("true" not in status_output) or (
+                        "transport is closing" in output.get("error") and "true" in status_output):
+                    self.wait(wait_time)
+                    curr_time += wait_time
+                    check_flag = False
+                    iteration += 1
+                    if iteration > 3 and "true" in status_output:
+                        return False
+                    continue
+                else:
+                    check_flag = True
+                    break
+            if not check_flag:
+                self.logger.info("ERROR code observed with telemetry docker...")
+                return False
+            if curr_time >= timeout:
+                self.logger.info("Max retries reached")
+                return False
         except Exception as e:
             self.logger.error(e)
             return False
@@ -6350,46 +6307,42 @@ class Net(object):
             docker_status_cmd = "docker inspect -f '{{.State.Running}}' telemetry"
             output = self._run_gnmi_command(command)
             self.logger.debug("OUTPUT : {}".format(output))
-            if output.get("error"):
-                for err_code_str in container_crash_err_strngs:
-                    if err_code_str in output.get("error"):
-                        self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
-                        docker_crash = True
-                        break
-                if not docker_crash:
-                    self.logger.info(output.get("error"))
-                    return False
-                if docker_crash:
-                    timeout = 300
-                    curr_time = 0
-                    wait_time = 10
-                    iteration = 1
-                    check_flag = True
-                    itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
-                    while curr_time < timeout:
-                        status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
-                        self.logger.info(itr_msg.format(iteration, wait_time))
-                        if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
-                            self.wait(wait_time)
-                            curr_time += wait_time
-                            check_flag = False
-                            iteration +=1
-                            if iteration > 3 and "true" in status_output:
-                                return False
-                            continue
-                        else:
-                            check_flag = True
-                            break
-                    if not check_flag:
-                        self.logger.info("ERROR code observed with telemetry docker...")
+            if not output.get("error"):
+                return output
+            for err_code_str in container_crash_err_strngs:
+                if err_code_str in output.get("error"):
+                    self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
+                    docker_crash = True
+                    break
+            if not docker_crash:
+                self.logger.info(output.get("error"))
+                return False
+            timeout = 300
+            curr_time = 0
+            wait_time = 10
+            iteration = 1
+            check_flag = True
+            itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
+            while curr_time < timeout:
+                status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
+                self.logger.info(itr_msg.format(iteration, wait_time))
+                if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
+                    self.wait(wait_time)
+                    curr_time += wait_time
+                    check_flag = False
+                    iteration +=1
+                    if iteration > 3 and "true" in status_output:
                         return False
-                    if curr_time >= timeout:
-                        self.logger.info("Max retries reached")
-                        return False
+                    continue
                 else:
-                    self.logger.info(output.get("error"))
-                    return False
-            return output
+                    check_flag = True
+                    break
+            if not check_flag:
+                self.logger.info("ERROR code observed with telemetry docker...")
+                return False
+            if curr_time >= timeout:
+                self.logger.info("Max retries reached")
+                return False
         except Exception as e:
             self.logger.error(e)
             return False
@@ -6401,7 +6354,6 @@ class Net(object):
         insecure = kwargs.get('insecure', '')
         username = kwargs.get('username', credentials[0])
         password = kwargs.get('password', credentials[3])
-        # gnmi_utils_path = kwargs.get("gnmi_utils_path", ".")
         gnmi_utils_path = "/tmp"
         cert = kwargs.get('cert')
         action = kwargs.get("action", "get")
@@ -6481,14 +6433,15 @@ class Net(object):
         kwargs.update({"action":action})
         kwargs.update({"skip_tmpl":True})
         if action == "get":
-            return self._gnmi_get(devname, xpath, **kwargs)
+            rv = self._gnmi_get(devname, xpath, **kwargs)
         elif action == "set":
-            return self._gnmi_set(devname, xpath, **kwargs)
+            rv = self._gnmi_set(devname, xpath, **kwargs)
         elif action == "delete":
-            return self._gnmi_delete(devname, xpath, **kwargs)
+            rv = self._gnmi_delete(devname, xpath, **kwargs)
         else:
             self.logger.info("Invalid operation for GNMI -- {}".format(action))
-            return False
+            rv = False
+        return rv
 
     def _run_gnmi_command(self, command):
         result = dict()

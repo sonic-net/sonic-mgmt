@@ -6,7 +6,7 @@ import json
 import textfsm
 try:
     import clitable
-except:
+except Exception:
     import textfsm.clitable as clitable
 
 import spytest.env as env

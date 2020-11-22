@@ -86,7 +86,7 @@ def iterdict(d):
             v = iterdict(v)
         try:
             new_dict[k] = int(v)
-        except:
+        except Exception:
             new_dict[k] = v
     return new_dict
 
@@ -117,7 +117,7 @@ def write_offset(file_path, retval, add, append=""):
         offset = add + int(lines[0].split()[0])
         with open(file_path, "w") as infile:
             infile.write("{} {}".format(offset, append))
-    except: pass
+    except Exception: pass
 
 def execute_from_file(file_path):
     execute_cmds(read_lines(file_path))
@@ -140,7 +140,7 @@ def execute_check_cmd(cmd, trace_cmd=True, trace_out=True, skip_error=False):
             retval = "Error: Failed to execute '{}' ('{}')\n".format(cmd, err.strip())
         if out.strip() != "":
             retval = retval + out.strip()
-    except:
+    except Exception:
         retval = "Error: Exception occurred while executing the command '{}'".format(cmd)
     if trace_out and retval.strip() != "":
         print(retval)
@@ -160,7 +160,7 @@ def execute_cmd_retry(cmd, count=3):
             out_msg = "Error: Failed to execute '{}' ('{}')\n".format(cmd, err.strip())
             print("Trying {} again {}".format(cmd, retry))
             execute_check_cmd("sleep 5", trace_cmd=False)
-    except:
+    except Exception:
         out_msg = "Error: Exception occurred while executing the command '{}'".format(cmd)
     if out_msg.strip() != "":
         print(out_msg)
@@ -174,7 +174,7 @@ def run_as_system_cmd(cmd, show=True):
         retcode = os.system(cmd)
         if retcode != 0:
             print("Error: Failed to execute '{}'. Return code is '{}'".format(cmd, retcode))
-    except:
+    except Exception:
         print("Error: Exception occurred while executing the command '{}'".format(cmd))
     return retcode
 
@@ -238,7 +238,7 @@ def json_fix(filepath):
     data = open(filepath, 'rU').read()
     try:
         obj = json.loads(data)
-    except:
+    except Exception:
         print("invalid json - trying to fix")
         # remove trailing object comma
         regex = re.compile(r'(,)\s*}(?=([^"\\]*(\\.|"([^"\\]*\\.)*[^"\\]*"))*[^"]*$)')
@@ -248,7 +248,7 @@ def json_fix(filepath):
         data = regex.sub("]", data)
         try:
             obj = json.loads(data)
-        except:
+        except Exception:
             raise ValueError("invalid json data")
 
     dst_file = "{}.new".format(filepath)
@@ -852,7 +852,7 @@ def syslog_read_msgs(lvl, phase):
     try:
         lines = lines_count.split()
         syslog_lines = int(lines[0].split()[0])
-    except: syslog_lines = 0
+    except Exception: syslog_lines = 0
 
     if not syslog_lines:
         print("NO-SYSLOGS-CAPTURED")
@@ -895,7 +895,7 @@ def do_sairedis(op):
 def invalid_ip(addr):
     try:
         socket.inet_aton(addr)
-    except:
+    except Exception:
         return True
     return False
 
@@ -905,7 +905,7 @@ def mgmt_ip_setting(mgmt_type, ip_addr_mask, gw_addr):
         if ip_addr_mask and gw_addr:
             try:
                 (ipaddr, mask_str) = ip_addr_mask.split("/")
-            except:
+            except Exception:
                 print("IP and Mask should be provided with '/' delimited.")
                 return
             try:
@@ -913,7 +913,7 @@ def mgmt_ip_setting(mgmt_type, ip_addr_mask, gw_addr):
                 if mask < 0 or mask > 32:
                     print("Invalid MASK provided.")
                     return
-            except:
+            except Exception:
                 print("Invalid MASK provided.")
                 return
             if invalid_ip(ipaddr) or invalid_ip(gw_addr):

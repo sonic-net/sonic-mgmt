@@ -270,7 +270,7 @@ class ScapyPort(object):
                 self.error("invalid", "handle", handle)
             self.driver.deleteInterface(self.interfaces[handle])
             del self.interfaces[handle]
-        elif mode == None and send_ping and ping_dst:
+        elif mode is None and send_ping and ping_dst:
             handle = kws.get('protocol_handle', None)
             if isinstance(handle, list):
                 handle = handle[0]
@@ -281,14 +281,14 @@ class ScapyPort(object):
             rv = self.driver.ping(self.interfaces[handle], ping_dst, 0)
             res[self.port_handle] = SpyTestDict()
             res[self.port_handle].ping_details = rv
-        elif mode == None and arp_send_req:
+        elif mode is None and arp_send_req:
             handle = kws.get('protocol_handle', None)
             if isinstance(handle, list):
                 handle = handle[0]
             if not self.interface_validate(handle):
                 self.error("invalid", "protocol_handle", handle)
             index = self.interfaces[handle].index
-            rv = self.driver.send_arp(self.interfaces[handle], index)
+            self.driver.send_arp(self.interfaces[handle], index)
             res[self.port_handle] = SpyTestDict()
         else:
             self.error("unsupported", "interface_config: mode", mode)

@@ -31,7 +31,7 @@ def get_ip_address(ifname, default="0.0.0.0"):
             s.fileno(), 0x8915,  # SIOCGIFADDR
             struct.pack('256s', ifname[:15])
         )[20:24])
-    except:
+    except Exception:
         return default
 
 class NameServer(threading.Thread):
@@ -66,7 +66,7 @@ class CustomDaemon(Pyro4.Daemon):
         try:
             print("client disconnects:", conn.sock.getpeername())
             print("    resources: ", [r.name for r in conn.tracked_resources])
-        except:
+        except Exception:
             pass
 
 @Pyro4.behavior(instance_mode="session", instance_creator=lambda clazz: clazz.create_instance())

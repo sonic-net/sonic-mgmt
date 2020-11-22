@@ -32,7 +32,7 @@ def dtrace(*args):
 
 def get_delay_factor(current):
     try: factor = float(os.getenv("SPYTEST_NETMIKO_DELAY_FACTOR", "1"))
-    except: factor = 1.0
+    except Exception: factor = 1.0
     return current * factor
 
 class SonicBaseConnection(CiscoBaseConnection):
@@ -212,7 +212,7 @@ class SonicBaseConnection(CiscoBaseConnection):
             return
         try:
             self.cached_read_data.append(output)
-        except:
+        except Exception:
             self.cached_read_data = [output]
 
     def clear_cached_read_data(self):
@@ -311,7 +311,7 @@ class SonicBaseConnection(CiscoBaseConnection):
         trace("================== strip_ansi_escape_codes ============================")
         try:
             self.trace_callback(self.trace_callback_arg1, self.trace_callback_arg2, rv)
-        except:
+        except Exception:
             trace(rv)
         trace("=======================================================================")
         return rv

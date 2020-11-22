@@ -504,7 +504,7 @@ def hex2int(value, w=0):
 def int2hex(data):
     try:
         return hex(int(data))
-    except:
+    except Exception:
         return hex(int(data.replace('L', '').upper()[2:].zfill(8), 16))
 
 def fail_on_error(output):
@@ -568,7 +568,7 @@ def ip4_ip6_to_integer(ip_address):
             ip_integer = int(hexlify(ip_hex), 16)
 
             return (ip_integer, 4 if version == socket.AF_INET else 6)
-        except:
+        except Exception:
             pass
     raise ValueError("invalid IP address")
 
@@ -591,9 +591,9 @@ def subnetwork_to_ip4_ip6_range(subnetwork):
                 return (ip_lower,
                         ip_upper,
                         4 if version == socket.AF_INET else 6)
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
     raise ValueError("invalid subnetwork")
 
@@ -636,7 +636,7 @@ def retry_parallel(func,dict_list=[],dut_list=[],api_result=True,retry_count=3,d
 def hex_conversion(data):
     try:
         return hex(int(data))
-    except:
+    except Exception:
         return hex(int(data.replace('L', '').upper()[2:].zfill(8), 16))
 
 def get_portchannel_name_for_rest(interface_name):

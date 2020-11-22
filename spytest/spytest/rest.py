@@ -25,13 +25,14 @@ class Rest(object):
         self.altpassword = None
         self.curr_pwd = None
         self.cli_data = SpyTestDict()
+        self.headers = {}
 
     def reinit(self, ip, username, password, altpassword):
         self.ip = ip
         self.base_url = "{}://{}".format(self.protocol, ip)
         try:
             self._set_auth(username, password, altpassword)
-        except:
+        except Exception:
             pass
         return self
 
@@ -252,7 +253,6 @@ class Rest(object):
     def cli(self, request, sections=None, operations=None):
         retval = SpyTestDict()
         map_operations={"create":"post", "read":"get", "update":"put", "modify":"patch", "delete":"delete"}
-        if operations: operations = utils.make_list(operations)
         for ent in utils.make_list(request):
             key = ent.path.replace("/restconf/data", map_operations[ent.operation])
             key = key.replace("-", "_").replace(":", "_").replace("/", "_")
