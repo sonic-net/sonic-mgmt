@@ -449,6 +449,38 @@ def clear_neigh_entries(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
+def patch_lldpctl():
+    def patch_lldpctl(localhost, duthost):
+        output = localhost.shell('ansible --version')
+        if 'ansible 2.8.12' in output['stdout']:
+            """
+                Work around a known lldp module bug in ansible version 2.8.12:
+                When neighbor sent more than one unknown tlv. Ansible will throw
+                exception.
+                This function applies the patch before test.
+            """
+            duthost.shell('sudo sed -i -e \'s/lldp lldpctl "$@"$/lldp lldpctl "$@" | grep -v "unknown-tlvs"/\' /usr/bin/lldpctl')
+
+    return patch_lldpctl
+
+
+@pytest.fixture(scope="module")
+def unpatch_lldpctl():
+    def unpatch_lldpctl(localhost, duthost):
+        output = localhost.shell('ansible --version')
+        if 'ansible 2.8.12' in output['stdout']:
+            """
+                Work around a known lldp module bug in ansible version 2.8.12:
+                When neighbor sent more than one unknown tlv. Ansible will throw
+                exception.
+                This function removes the patch after the test is done.
+            """
+            duthost.shell('sudo sed -i -e \'s/lldp lldpctl "$@"$/lldp lldpctl "$@" | grep -v "unknown-tlvs"/\' /usr/bin/lldpctl')
+
+    return unpatch_lldpctl
+
+
+@pytest.fixture(scope="module")
 def disable_container_autorestart():
     def disable_container_autorestart(duthost, testcase="", feature_list=None):
         '''

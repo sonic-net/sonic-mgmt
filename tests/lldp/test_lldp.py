@@ -8,6 +8,15 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+
+@pytest.fixture(scope="module", autouse="True")
+def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    patch_lldpctl(localhost, duthost)
+    yield
+    unpatch_lldpctl(localhost, duthost)
+
+
 def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """
     duthost = duthosts[rand_one_dut_hostname]
