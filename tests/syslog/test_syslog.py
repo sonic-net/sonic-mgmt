@@ -1,5 +1,6 @@
 import logging
 import pytest
+import json
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -42,9 +43,25 @@ def config_dut(tbinfo, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Configuring the DUT")
     local_syslog_srv_ip = tbinfo["ptf_ip"]
-    logger.info("test_syslog_srv_ip %s", local_syslog_srv_ip)
+
+    # Add static route to PTF docker for rsyslog to work
+    logger.info("Adding static route to PTF")
+    config_file_object = duthost.shell("cat /etc/sonic/config_db.json")
+    if config_file_object["rc"]:
+        assert("Failed to open config file on '/etc/sonic/config_db.json'")
+    config_file_content = config_file_object["stdout"]
+    mgmt_interface_data = json.loads(config_file_content)["MGMT_INTERFACE"]
+    for key, value in mgmt_interface_data.iteritems():
+        if key.count('.') == 3:
+            gw = value["gwaddr"]
+            break
+    if not gw:
+        assert("No IPv4 default GW found for eth0")
+    duthost.shell("sudo ip route add {}/32 via {} dev eth0".format(local_syslog_srv_ip, gw))
+    logger.debug("Added new route to PTF witch command: sudo ip route add {}/32 via {} dev eth0".format(local_syslog_srv_ip, gw))
 
     # Add Rsyslog destination for testing
+    logger.info("test_syslog_srv_ip %s", local_syslog_srv_ip)
     duthost.shell("sudo config syslog add {}".format(local_syslog_srv_ip))
     logger.debug("Added new rsyslog server IP {}".format(local_syslog_srv_ip))
 
@@ -53,6 +70,8 @@ def config_dut(tbinfo, duthosts, rand_one_dut_hostname):
     # Remove the syslog configuration
     duthost.shell("sudo config syslog del {}".format(local_syslog_srv_ip))
 
+    # Remove static route to PTF docker
+    duthost.shell("sudo ip route del {}/32 via {} dev eth0".format(local_syslog_srv_ip, gw))
 
 def test_syslog(duthosts, rand_one_dut_hostname, ptfhost, config_dut):
     duthost = duthosts[rand_one_dut_hostname]
