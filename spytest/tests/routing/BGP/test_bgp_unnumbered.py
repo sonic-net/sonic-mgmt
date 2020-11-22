@@ -295,7 +295,7 @@ def test_ft_bgp_unnumbered_rmap():
     bgp_obj.config_bgp_network_advertise(vars.D1, data.d1_local_as, network_ipv6, addr_family='ipv6', config='yes', network_import_check=True)
     st.wait(60)
     n1 = ip_obj.verify_ip_route(vars.D2, family='ipv6', shell='sonic', ip_address='6002:1::/64')
-    if (n1 == False):
+    if (n1 is False):
         st.error("Failed to advertise the ipv6 network to the peer")
         result += 1
     bgp_obj.get_ip_bgp_route(vars.D2, family="ipv6", network="6002:1/64")
@@ -305,7 +305,7 @@ def test_ft_bgp_unnumbered_rmap():
     bgp_obj.advertise_bgp_network(vars.D1, data.d1_local_as, network_ipv6, 'Ubgp-rmap', family='ipv6')
     # verify route-map to advertised network
     n1 = ip_obj.verify_ip_route(vars.D2, family='ipv6', shell='sonic', ip_address='6002:1::/64')
-    if (n1 == True):
+    if (n1 is True):
         st.error("Advertised network is not filtered by the configured route map")
         result += 1
     else:
@@ -504,61 +504,7 @@ def test_ft_bgp_unnumbered_nondefault_vrf():
         st.report_fail("test_case_failed")
 
 
-@pytest.mark.bgp_unnum_regression
-def test_ft_bgp_unnumbered_pc_after_reboot():
-    # ################ Author Details ################
-    # Name: Karthik Kumar Goud Battula
-    # Email: karthikkumargoud.battula@broadcom.com
-    # ################################################
-    result = 0
-    utils.exec_all(True, [[ip_obj.config_interface_ip6_link_local, vars.D1, [vars.D1D3P1, vars.D1D3P2], "disable"],
-                          [ip_obj.config_interface_ip6_link_local, vars.D3, [vars.D3D1P1, vars.D3D1P2], "disable"]])
-    pc_obj.config_portchannel(vars.D1, vars.D3, "PortChannel8", [vars.D1D3P1, vars.D1D3P2],
-                              [vars.D3D1P1, vars.D3D1P2], config='add', thread=True)
-    utils.exec_all(True, [[ip_obj.config_interface_ip6_link_local, vars.D1, "PortChannel8"],
-                          [ip_obj.config_interface_ip6_link_local, vars.D3, "PortChannel8"]])
-    dict1 = {'config': 'yes', 'router_id': data.d1_rid, 'addr_family': 'ipv6', 'local_as': data.d1_local_as,
-             'remote_as': 'external', 'config_type_list': ["remote-as", "activate"], 'interface': data.portchannel_name,
-             'neighbor': data.portchannel_name}
-    dict2 = {'config': 'yes', 'router_id': data.d2_rid, 'addr_family': 'ipv6', 'local_as': data.d2_local_as,
-             'remote_as': 'external', 'config_type_list': ["remote-as", "activate"], 'interface': data.portchannel_name,
-             'neighbor': data.portchannel_name}
-    dict3 = {'config': 'yes', 'router_id': data.d1_rid, 'addr_family': 'ipv6', 'local_as': data.d1_local_as,
-             'remote_as': 'external', 'config_type_list': ["remote-as", "activate"], 'interface': "PortChannel8",
-             'neighbor': "PortChannel8"}
-    dict4 = {'config': 'yes', 'router_id': data.d2_rid, 'addr_family': 'ipv6', 'local_as': data.d2_local_as,
-             'remote_as': 'external', 'config_type_list': ["remote-as", "activate"], 'interface': "PortChannel8",
-             'neighbor': "PortChannel8"}
-    parallel.exec_parallel(True, [vars.D1, vars.D2], bgp_obj.config_bgp, [dict1, dict2])
-    parallel.exec_parallel(True, [vars.D1, vars.D3], bgp_obj.config_bgp, [dict3, dict4])
-    if not utils.poll_wait(bgp_obj.verify_bgp_summary, data.wait_timer, vars.D1, family='ipv6', shell=bgp_cli_type,
-                           neighbor="PortChannel8", state='Established'):
-        st.log("Failed to form BGP unnumbered peering")
-        result += 1
-    if not utils.poll_wait(bgp_obj.verify_bgp_summary, data.wait_timer, vars.D1, family='ipv6', shell=bgp_cli_type,
-                           neighbor=data.portchannel_name, state='Established'):
-        st.log("Failed to form BGP unnumbered peering")
-        result += 1
-    st.log("saving the BGP config in vtysh shell")
-    reboot_obj.config_save([vars.D1], "vtysh")
-    reboot_obj.config_save([vars.D1], "sonic")
-    st.reboot(vars.D1)
-    if not utils.poll_wait(bgp_obj.verify_bgp_summary, data.wait_timer, vars.D1, family='ipv6', shell=bgp_cli_type,
-                           neighbor="PortChannel8", state='Established'):
-        st.log("Failed to form BGP unnumbered peering")
-        result += 1
-    if not utils.poll_wait(bgp_obj.verify_bgp_summary, data.wait_timer, vars.D1, family='ipv6', shell=bgp_cli_type,
-                           neighbor=data.portchannel_name, state='Established'):
-        st.log("Failed to form BGP unnumbered peering ")
-        result += 1
-    utils.exec_all(True, [[ip_obj.config_interface_ip6_link_local, vars.D1, "PortChannel8", "disable"],
-                          [ip_obj.config_interface_ip6_link_local, vars.D3, "PortChannel8", "disable"]])
-    pc_obj.config_portchannel(vars.D1, vars.D3, "PortChannel8", [vars.D1D3P1, vars.D1D3P2],
-                              [vars.D3D1P1, vars.D3D1P2], config='del', thread=True)
-    if result == 0:
-        st.report_pass("BGP_established_over_portchannel_after_reboot")
-    else:
-        st.report_fail("BGP_failed_to_establish_over_portchannel_after_reboot")
+
 
 @pytest.mark.bgp_unnum_regression
 def test_ft_bgp_unnumbered_warmboot():

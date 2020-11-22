@@ -1,8 +1,8 @@
 
+import re
 
 from spytest import st,utils
 from spytest.tgen.tgen_utils import validate_tgen_traffic
-import re
 
 from dpb_vars import data
 import apis.switching.portchannel as pc
@@ -13,18 +13,17 @@ import apis.system.basic as basic_api
 import apis.system.interface as intf_api
 import apis.system.lldp as lldp_api
 import apis.switching.pvst as stp_api
-from utilities import parallel
-from utilities.utils import retry_api
 import apis.routing.bgp as bgp_api
 import apis.system.port as port_api
 import apis.routing.vrrp as vrrp_api
 import apis.switching.udld as udld_api
 import apis.routing.ip_bgp as ipbgp_api
 import apis.qos.acl_dscp as acl_dscp_api
-from apis.routing import arp
 import apis.common.asic_bcm as asic_api
-import utilities.common as utils_api
 
+from utilities import parallel
+from utilities.utils import retry_api
+import utilities.common as utils_api
 
 
 def dpb_base_config():
@@ -153,7 +152,7 @@ def config_po_vlan(config='yes'):
 
 def get_intf_count(portlist=None):
     intf_count = 0
-    if portlist == None: portlist = data.d1d2_ports
+    if portlist is None: portlist = data.d1d2_ports
     intf_api.clear_interface_counters(data.dut1,Interface_Type=all)
     st.wait(5)
     for dut_port in portlist:
@@ -178,7 +177,7 @@ def verify_forwd_counters(portlist=None):
     ret_val = True
     traf_intf_count = 0
     traf_not_intf_count = 0
-    if portlist == None: portlist = data.d1d2_ports
+    if portlist is None: portlist = data.d1d2_ports
     intf_api.clear_interface_counters(data.dut1,Interface_Type=all)
     st.wait(5)
     for dut_port in portlist:
@@ -239,7 +238,7 @@ def verify_vlan(vlan_list=data.d1tg_vlan_id,port_list=None):
     st.log("Verify-Vlan-Config: Make sure the ports are part of the Vlan {} on both the nodes".format(vlan_list))
     ###################################################################
 
-    if port_list == None: port_list = [data.d1ports,data.d2ports]
+    if port_list is None: port_list = [data.d1ports,data.d2ports]
 
     ret_val= True
     for i,j in zip([data.dut1,data.dut2],port_list):
@@ -251,10 +250,10 @@ def verify_vlan(vlan_list=data.d1tg_vlan_id,port_list=None):
 
 def get_intf_counters(portlist=None,debug=None,tx_pkt=None,wait=None):
     ret_val = True
-    if portlist == None: portlist = data.d1d2_ports
-    if debug == None: debug = 'yes'
-    if tx_pkt == None: tx_pkt = 1000
-    if wait == None: wait = 5
+    if portlist is None: portlist = data.d1d2_ports
+    if debug is None: debug = 'yes'
+    if tx_pkt is None: tx_pkt = 1000
+    if wait is None: wait = 5
 
     intf_api.clear_interface_counters(data.dut1,Interface_Type=all)
     st.wait(wait)
@@ -567,8 +566,8 @@ def verify_flood_counters(portlist=None,intf_count=None):
     This proc is to verify the traffic is getting flooded over all the ports
     '''
     ret_val= True
-    if portlist == None: portlist = data.d1d2_ports
-    if intf_count == None: intf_count = 5
+    if portlist is None: portlist = data.d1d2_ports
+    if intf_count is None: intf_count = 5
     intf_api.clear_interface_counters(data.dut1,Interface_Type=all)
     #intf_api.clear_interface_counters(data.dut2,Interface_Type=all)
     st.wait(5)
@@ -593,8 +592,8 @@ def verify_flood_counters(portlist=None,intf_count=None):
 
 def verify_lldp(portlist=None,dut=None):
     ret_val = True
-    if portlist == None: portlist = data.d1d2_ports[:-1]
-    if dut == None: dut = data.dut1
+    if portlist is None: portlist = data.d1d2_ports[:-1]
+    if dut is None: dut = data.dut1
     for dut_port in portlist:
         lldp_info = lldp_api.get_lldp_neighbors(dut,interface=dut_port)
         if not lldp_info:
@@ -607,8 +606,8 @@ def verify_stp(portlist=None,dut=None):
     ret_val = True
     Sf = 0
     Sd = 0
-    if portlist == None: portlist = data.d1d2_ports
-    if dut == None: dut = data.dut1
+    if portlist is None: portlist = data.d1d2_ports
+    if dut is None: dut = data.dut1
     for dut_port in portlist:
         state = stp_api.show_stp_vlan_iface(data.dut1,vlan=data.d1tg_vlan_id,iface=dut_port)[0]['port_state']
         if state == 'FORWARDING':
@@ -694,7 +693,7 @@ def config_ospf(config='yes'):
 
 def verify_ospf(dut1_ospf_intf=None):
 
-    if dut1_ospf_intf == None: dut1_ospf_intf = [data.access_vlan_intf,data.d1d2_ports[-1]]
+    if dut1_ospf_intf is None: dut1_ospf_intf = [data.access_vlan_intf,data.d1d2_ports[-1]]
 
     for data.vlan in dut1_ospf_intf:
         result = retry_api(ospf_api.verify_ospf_neighbor_state, data.dut1, ospf_links = [data.vlan],
@@ -780,7 +779,7 @@ def config_bgp(config='yes'):
 
 def verify_bgp(dut1_bgp_neigh=None):
 
-    if dut1_bgp_neigh == None: dut1_bgp_neigh = [data.d2tg_ip_list[-1],data.d4tg_ip_list[-1]]
+    if dut1_bgp_neigh is None: dut1_bgp_neigh = [data.d2tg_ip_list[-1],data.d4tg_ip_list[-1]]
 
     for data.neigh in dut1_bgp_neigh:
         result = retry_api(bgp_api.verify_bgp_neighbor,data.dut1,neighbor_ip=data.neigh,state='Established')
@@ -885,8 +884,8 @@ def config_vrrp(config='yes'):
 
 
 def verify_master_backup(master_dut=None,backup_dut=None):
-    if master_dut == None: master_dut=data.dut1
-    if backup_dut == None: backup_dut=data.dut2
+    if master_dut is None: master_dut=data.dut1
+    if backup_dut is None: backup_dut=data.dut2
     st.wait(5)
 
     #########################################################
@@ -903,10 +902,10 @@ def verify_master_backup(master_dut=None,backup_dut=None):
     return True
 
 def verify_vrrp_track(vrrp_curr_prio = None,vrrp_track_intf= None,vrrp_track_prio= None,vrrp_track_state= None):
-    if vrrp_curr_prio == None: vrrp_curr_prio = 105
-    if vrrp_track_intf == None: vrrp_track_intf=[data.d1d2_ports[2]]
-    if vrrp_track_prio == None: vrrp_track_prio = ['10']
-    if vrrp_track_state == None: vrrp_track_state = ['Up']
+    if vrrp_curr_prio is None: vrrp_curr_prio = 105
+    if vrrp_track_intf is None: vrrp_track_intf=[data.d1d2_ports[2]]
+    if vrrp_track_prio is None: vrrp_track_prio = ['10']
+    if vrrp_track_state is None: vrrp_track_state = ['Up']
 
     result = retry_api(vrrp_api.verify_vrrp,data.dut1, vrid=data.vrrp_id, interface=data.d1tg_vlan_intf,current_prio=vrrp_curr_prio,track_interface_list=vrrp_track_intf, track_priority_list=vrrp_track_prio,track_state_list =vrrp_track_state,retry_count=3, delay=2)
     if result is False:
@@ -1088,7 +1087,7 @@ def router_config_5549(config='yes'):
 
 def verify_bgp_5549(dut1_bgp_neigh=None):
 
-    if dut1_bgp_neigh == None: dut1_bgp_neigh = [data.d2tg_ip_list[-1],data.d4tg_ip_list[-1]]
+    if dut1_bgp_neigh is None: dut1_bgp_neigh = [data.d2tg_ip_list[-1],data.d4tg_ip_list[-1]]
 
     for data.neigh in dut1_bgp_neigh:
         result = retry_api(ipbgp_api.check_bgp_session,data.dut1,nbr_list=[data.neigh],state_list=["Established"])

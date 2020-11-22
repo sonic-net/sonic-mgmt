@@ -3348,7 +3348,7 @@ def config_ebgp_mhop_over_l2lag():
     lo_name, peer_v4, peer_v6, lag_name1, lag_name2, lag_name3, lag_name4, \
     dut1_lo_ip, dut3_lo_ip, dut4_lo_ip, dut1_lo_ipv6, dut3_lo_ipv6, dut4_lo_ipv6 = return_vars(user_vrf_name)
 
-    if data.shopunconfig == False:
+    if data.shopunconfig is False:
         utils.exec_all(True, [[bgp.config_router_bgp_mode, dut1, dut1_as, 'disable',user_vrf_name],
                           [bgp.config_router_bgp_mode, dut3, dut3_as, 'disable',user_vrf_name]])
 
@@ -3419,7 +3419,7 @@ def verify_bfd_lag6():
         else:
             st.log("PASSED : dut1 L1 LAG interface %s has come up" % lag)
 
-    if data.shop2mhopconfig == False:
+    if data.shop2mhopconfig is False:
         config_ebgp_mhop_over_l2lag()
 
     D1_tg1_mac = basic.get_ifconfig(dut1, D1_ports[3])[0]['mac']
@@ -3747,7 +3747,7 @@ def verify_bfd_lag7():
         else:
             st.log("PASSED : dut1 L1 LAG interface %s has come up" % lag)
 
-    if data.shop2mhopconfig == False:
+    if data.shop2mhopconfig is False:
         config_ebgp_mhop_over_l2lag()
 
     ############################################################################################
@@ -3796,7 +3796,7 @@ def verify_bfd_lag7():
                 st.log("FAILED : BFD session parameters mismatch for %s and %s" % (
                     dut3_lagip_list[0], dut3_lagipv6_list[0]))
                 ret_val = False
-        if ret_val == False:
+        if ret_val is False:
             break
         if testreloads == 'config_reload':
             bgp.enable_docker_routing_config_mode(dut1)
@@ -3820,7 +3820,7 @@ def verify_bfd_lag7():
             bgp.clear_ip_bgp_vrf_vtysh(dut1, user_vrf_name)
             st.log("clear ipv6 bgp neighbors")
             bgp.clear_ip_bgp_vrf_vtysh(dut1, user_vrf_name, family='ipv6')
-    if ret_val == False:
+    if ret_val is False:
         debug_bfd_ping(user_vrf_name)
     return ret_val
 
@@ -3955,7 +3955,7 @@ def verify_bfd_lag9(args):
             hdrMsg("Step RT1: fast reboot scenario started")
             ###########################################################################################
             st.reboot(dut1, 'fast')
-    if ret_val == False:
+    if ret_val is False:
         debug_bfd_ping(user_vrf_name)
     return ret_val
 
@@ -4072,7 +4072,7 @@ def verify_traffic_hash(dut, port_list, pkts_per_port,tx_port):
             if counter_dict['iface'] == port:
                 try:
                     intf_count_dict[port] = int(counter_dict['tx_ok'].replace(',',''))
-                except:
+                except Exception:
                     st.log('Failed: invalid_traffic_stats')
                     ret_val = False
                 if not (intf_count_dict[port] >= pkts_per_port):

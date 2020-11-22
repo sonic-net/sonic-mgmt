@@ -63,7 +63,7 @@ def getAttrValLists(path, var):
             else:
                 vals[i] = ''
     return attrs, vals
-
+     
 def toRest(path='', var={}, method='get', json=None):
     ''' Covert template path to Rest path '''
     method = toMethod(method)

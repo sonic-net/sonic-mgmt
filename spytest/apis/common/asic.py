@@ -28,7 +28,7 @@ def dump_ipmc_table(dut):
     bcm_show(dut, 'bcmcmd "ipmc table show"')
 
 def dump_kernel_fdb(dut,vlan_id=None):
-    if vlan_id == None:
+    if vlan_id is None:
         st.show(dut, 'sudo bridge fdb show', skip_tmpl=True)
     else:
         st.show(dut, 'sudo bridge fdb show vlan {}'.format(vlan_id), skip_tmpl=True)

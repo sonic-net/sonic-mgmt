@@ -118,7 +118,7 @@ def test_interface(tg):
 def test_nat(tg):
     tg.tg_interface_config(count=1,arp_send_req=1,intf_ip_addr="12.12.0.2",port_handle="port-1/1",netmask="255.255.0.0",mode="config",gateway_step="0.0.0.0",gateway="12.12.0.1")
     tg.tg_interface_config(count=1,arp_send_req=1,intf_ip_addr="125.56.90.1",port_handle="port-1/2",netmask="255.255.255.0",mode="config",gateway_step="0.0.0.0",gateway="125.56.90.12")
-    mac_src = "00:00:23:11:14:08"
+    #mac_src = "00:00:23:11:14:08"
     mac_src = "e2:8d:ab:ee:fb:6c"
     mac_src2 = raw_input()
     if mac_src2: mac_src = mac_src2
@@ -239,9 +239,7 @@ def test_main2(ipaddr, port=8009):
         raw_input("press any key")
 
 if __name__ == '__main__':
-    ipaddr = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
     ipaddr = sys.argv[1] if len(sys.argv) > 1 else "10.250.0.188"
-    ipaddr = sys.argv[1] if len(sys.argv) > 1 else "172.17.0.3"
     port = sys.argv[2] if len(sys.argv) > 2 else 8009
     #test_main2(ipaddr, port)
     tg = test_main(ipaddr, port)

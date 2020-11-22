@@ -202,7 +202,7 @@ class RouteMap:
                     command += 'match as-path {}\n'.format(items['name'])
                 elif items['type'] == 'community':
                     command += 'match community {}'.format(items['community'])
-                    if items['exact_match'] == True:
+                    if items['exact_match'] is True:
                         command += ' exact-match\n'
                     else:
                         command += '\n'

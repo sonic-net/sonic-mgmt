@@ -105,7 +105,7 @@ def check_dhcp_relay_config():
 #     try:
 #         pool_ip = ip_obj.get_interface_ip_address(vars.D3, interface_name=vars.D3D2P1, family="ipv4")
 #         pool_ip = pool_ip[0]['ipaddr']
-#     except:
+#     except Exception:
 #         st.report_fail('IP_address_assignment_failed', vars.D3)
 #     pool_ip = pool_ip.split("/")
 #     pool_ip = pool_ip[0][-1]

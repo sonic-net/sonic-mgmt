@@ -300,7 +300,7 @@ def create_acl_rule(dut, skip_verify=True, acl_type=None, host_1=None, host_2=No
                         l4_protocol = "tcp"
                     elif l4_protocol == 1:
                         l4_protocol = "icmp"
-                except:
+                except Exception:
                     pass
                 if l4_protocol:
                     config["config"]["protocol"] = "IP_{}".format(l4_protocol.upper())
@@ -1035,7 +1035,7 @@ def show_ip_access_list(dut, table_name=None, acl_type="ip", cli_type="", acl_ru
             return output
         try:
             acl_sets = get_resp["openconfig-acl:acl"]["acl-sets"]["acl-set"]
-        except:
+        except Exception:
             return []
         for acl_set in acl_sets:
             if acl_set.get("acl-entries"):

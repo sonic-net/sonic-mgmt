@@ -156,7 +156,7 @@ def portchannel_func_hooks(request):
         ensure_no_exception(exceptions)
 
 def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_verify = False, rx_port = '', tx_port = '', dut2 =''):
-    if traffic_loss_verify == True:
+    if traffic_loss_verify is True:
         [output, exceptions] = exec_all(True, [[intfobj.show_interface_counters_all, dut], [intfobj.show_interface_counters_all, dut2]])
         ensure_no_exception(exceptions)
         static_data.intf_counters_1, static_data.intf_counters_2 = output
@@ -169,18 +169,18 @@ def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_ver
                 try:
                     tx_ok_counter = counter_dict['tx_ok'].replace(',', '')
                     static_data.intf_count_dict[port] = int(tx_ok_counter) if tx_ok_counter.isdigit() else 0
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 if not (static_data.intf_count_dict[port] >= pkts_per_port):
                     intfobj.show_interface_counters_detailed(vars.D1, vars.D1T1P1)
                     st.report_fail("traffic_not_hashed", dut)
-    if traffic_loss_verify == True:
+    if traffic_loss_verify is True:
         for counter_dict in static_data.intf_counters_1:
             if counter_dict['iface'] == rx_port:
                 try:
                     rx_ok_counter = counter_dict['rx_ok'].replace(',', '')
                     static_data.rx_traffic = int(rx_ok_counter) if rx_ok_counter.isdigit() else 0
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 break
         for counter_dict in static_data.intf_counters_2:
@@ -188,7 +188,7 @@ def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_ver
                 try:
                     tx_ok_counter = counter_dict['tx_ok'].replace(',', '')
                     static_data.tx_traffic = int(tx_ok_counter) if tx_ok_counter.isdigit() else 0
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 break
         if not (static_data.tx_traffic >= 0.95* static_data.rx_traffic):
@@ -491,7 +491,7 @@ def test_ft_verify_static_portchannel_vlan_routing_l3_traffic():
                 [ipobj.create_static_route, vars.D2, static_data.ip_addr_pc1, static_data.static_ip1]])[1]
     ensure_no_exception(exceptions)
     st.wait(5)
-    
+
     if not arpobj.add_static_arp(vars.D2, static_data.ip42, static_data.remote_mac2, interface=vars.D2T1P1):
         st.report_fail("msg", "Failed to configure static ARP")
     # ping from dut to partner

@@ -417,7 +417,7 @@ def test_evpn_vlan_underlay_014():
 
         st.log("## Step - Verify routes pointing to Vlan interfaces between Lvtep ##")
         result = verify_lvtep_vlanint_routes()
-        if result == False :
+        if result is False :
             st.error("FAIL: Routes to remote svtep from leaf1 not found .")
 
         st.log("# Step - Verify tunnel stays up and send traffic over vxlan tunnel. #")

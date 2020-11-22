@@ -364,7 +364,7 @@ def enable_ipv6():
 
 
 def configure_portchannel(dut1, dut2, po_id, vlan, dut1_po_members, dut2_po_members, min_links=None):
-    if min_links == None:
+    if min_links is None:
         utils.exec_all(True, [[po_obj.create_portchannel, dut1, po_id], [po_obj.create_portchannel, dut2, po_id]])
     else:
         utils.exec_all(True, [[po_obj.create_portchannel, dut1, po_id, False, min_links],
@@ -397,7 +397,7 @@ def configure_portchannel(dut1, dut2, po_id, vlan, dut1_po_members, dut2_po_memb
                                  [vlan_obj.add_vlan_member, dut2, vlan, po_id]])
 
 def configure_empty_portchannel(dut1, dut2, po_id, min_links=None):
-    if min_links == None:
+    if min_links is None:
         utils.exec_all(True, [[po_obj.create_portchannel, dut1, po_id], [po_obj.create_portchannel, dut2, po_id]])
     else:
         utils.exec_all(True, [[po_obj.create_portchannel, dut1, po_id, False, min_links],
@@ -891,9 +891,9 @@ def l2fwd_base_traffic_unconfig():
 
 def run_verify_traffic(tg_ph_src=None,tg_ph_dest=None,src_stream_list='ALL',dest_stream_list='ALL',direction="both",verify_mode='port',call_func_list=None):
     res_flag = True
-    if tg_ph_src == None:
+    if tg_ph_src is None:
         tg_ph_src = tg_src_ph
-    if tg_ph_dest == None:
+    if tg_ph_dest is None:
         tg_ph_dest = tg_dest_ph
 
     tgen_port = {tg_src_ph:data.src_tgn_port,
@@ -934,11 +934,11 @@ def start_stop_traffic(tg_id=None,tg_src_list=None,tg_dest_list=None,duration=da
     :param stop_stream_list: list of stream_ids to be stopped after starting all streams on a port using porthandle.
     :return:
     '''
-    if tg_id == None:
+    if tg_id is None:
         tg_id = tg_h
-    if tg_src_list == None:
+    if tg_src_list is None:
         tg_src_list = tg_src_ph
-    if tg_dest_list == None:
+    if tg_dest_list is None:
         tg_dest_list = tg_dest_ph
 
     tg_src_list = [tg_src_list] if type(tg_src_list) is str else tg_src_list

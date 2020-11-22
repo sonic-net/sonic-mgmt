@@ -16,7 +16,7 @@ def retry_rest_api(func, *args, **kwargs):
             ret_val = func(*args, **kwargs)
             if ret_val:
                 return ret_val
-        except:
+        except Exception:
             pass
         if retry_count != (i+1):
             st.log("waiting for {} seconds before retyring again".format(delay))

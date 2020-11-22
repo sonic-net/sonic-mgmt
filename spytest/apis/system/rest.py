@@ -335,7 +335,7 @@ def fix_set_url(url, data):
             value = part.split("/")[0].replace("=","").replace(",", "").replace("%2F","/")
             try:
                 new_data_dict[new_keys[index]] = int(value)
-            except:
+            except Exception:
                 new_data_dict[new_keys[index]] = value
     new_data = {new_key: {portions[-1]:[new_data_dict]}}
     return new_url, new_data
@@ -478,7 +478,7 @@ def compare_dict(get_response, match,post=False):
         for key, value in match.items():
             try:
                 post_data[key.split(":")[1]] = match[key]
-            except:
+            except Exception:
                 st.log("Invalid post data")
                 return False
         if not compare_dict(list(get_response.values())[0], post_data,post=False):

@@ -387,7 +387,7 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
     #json_path = os.getcwd()
     apply_file = False
 
-    if apply_file == False:
+    if apply_file is False:
         ipfeature.clear_ip_configuration(st.get_dut_names())
         vapi.clear_vlan_configuration(st.get_dut_names())
         st.banner("Started doing the needed config.")
@@ -601,7 +601,7 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
     tg1.tg_interface_config(port_handle=tg_ph_2, handle=h2['handle'], mode='destroy')
 
     #import pdb;pdb.set_trace()
-    if apply_file == False:
+    if apply_file is False:
         ip_addr = data.dut1_start_ip_addr
         ip_addr2 = data.dut2_start_ip_addr
         st.log("Un-Config previously config")
@@ -650,7 +650,7 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
         st.vtysh_config(dut2, my_cmd)
 
     st.debug("ret1: {} , ret2: {}".format(ret1, ret2))
-    if ret1 == True and ret2 == True:
+    if ret1 is True and ret2 is True:
         ret = True
         st.log("Test Case PASSED")
     else:
@@ -672,18 +672,18 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
     # L3 INTF SCALING TEST CASE 1.1 START
     json_path = os.getcwd()
     apply_file = False
-    if use_config_file == True:
+    if use_config_file is True:
         apply_file = True
 
     json_apply_path = json_path+"/routing/128_ecmp_config_db.json"
     #frr_apply_path = json_path+"/routing/64_ecmp_sr_config.frr"
-    if apply_file == True:
+    if apply_file is True:
         st.apply_files(dut, [json_apply_path])
         #st.apply_files(dut, [json_apply_path, frr_apply_path])
     max_range = data.base_val+max_ecmp
     base_range = data.base_val
 
-    if apply_file == False:
+    if apply_file is False:
         ipfeature.clear_ip_configuration(st.get_dut_names())
         command = "config vlan add {}".format(data.vlan_val)
         st.config(dut, command)
@@ -749,7 +749,7 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
     st.show(dut, "show arp")
     #Port Counters
     ret = check_intf_traffic_counters()
-    if ret == True:
+    if ret is True:
         count = count+1
         st.log("Test Case 1.14 PASSED")
 
@@ -785,7 +785,7 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
       #output = st.show(dut, "show arp")
       #Port Counters
       ret = check_intf_traffic_counters()
-      if ret == True:
+      if ret is True:
           count = count+1
           st.log("Test Case 1.14 PASSED")
       else:
@@ -810,10 +810,10 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
     tg1.tg_interface_config(port_handle=tg_ph_1, handle=h3['handle'], mode='destroy')
     tg1.tg_interface_config(port_handle=tg_ph_1, handle=h4['handle'], mode='destroy')
     #import pdb;pdb.set_trace()
-    if use_config_file == True:
+    if use_config_file is True:
         st.clear_config(dut1)
     # This code will not be needed if apply_file is True as config gets cleared already
-    if apply_file == False:
+    if apply_file is False:
         ip_addr = data.start_ip_addr
 
         base_range = data.base_val - 1
@@ -855,7 +855,7 @@ def test_ft_l3_Xecmp_scaling_tc():
     #use_config_file = False
     use_config_file = False
     ret = l3_ecmp_scaling_tc(max_ecmp_4, use_config_file)
-    if ret==True:
+    if ret is True:
         st.log("Test Case PASSED")
         st.report_pass("operation_successful")
     else:
@@ -872,7 +872,7 @@ def nest_l3_32ecmp_scaling_tc():
     use_config_file = True
     ipfeature.clear_ip_configuration([dut])
     ret = l3_ecmp_scaling_tc(max_ecmp_32, use_config_file)
-    if ret==True:
+    if ret is True:
         st.log("Test Case 1.13 PASSED")
         st.report_pass("operation_successful")
     else:
@@ -885,7 +885,7 @@ def test_l3_64ecmp_scaling_tc():
     max_ecmp_64 = data.max_ecmp/2
     use_config_file = True
     ret = l3_ecmp_scaling_tc(max_ecmp_64, use_config_file)
-    if ret==True:
+    if ret is True:
         st.log("Test Case 1.14 PASSED")
         st.report_pass("operation_successful")
     else:
@@ -899,7 +899,7 @@ def test_l3_128ecmp_scaling_tc():
     use_config_file = True
     ret = l3_ecmp_scaling_tc(max_ecmp_128, use_config_file)
 
-    if ret==True:
+    if ret is True:
         st.log("Test Case 1.15 PASSED")
         st.report_pass("operation_successful")
     else:
@@ -916,7 +916,7 @@ def test_max_v4_route_with_max_paths():
     max_routes = 100
     ret = l3_max_route_max_path_scaling_tc(max_ecmp_16, max_routes, use_config_file)
     st.debug("ret : {}".format(ret))
-    if ret==True:
+    if ret is True:
         st.log("Test Case PASSED")
         st.report_pass("operation_successful")
     else:
@@ -935,7 +935,7 @@ def test_max_v6_route_with_max_paths():
     max_routes = 100
     ret = l3_max_route_max_path_scaling_tc(max_ecmp_16, max_routes, use_config_file, family)
     st.debug("ret : {}".format(ret))
-    if ret==True:
+    if ret is True:
         st.log("Test Case PASSED")
         st.report_pass("operation_successful")
     else:
@@ -951,7 +951,7 @@ def test_max_v4_route_with_max_paths_variant():
     use_config_file = False
     max_routes = 65000
     ret = l3_max_route_max_path_scaling_tc(max_ecmp, max_routes, use_config_file)
-    if ret==True:
+    if ret is True:
         st.log("Test Case PASSED")
         st.report_pass("operation_successful")
     else:
@@ -969,7 +969,7 @@ def test_max_v6_route_with_max_paths_variant():
     family = "ipv6"
     max_routes = 32000
     ret = l3_max_route_max_path_scaling_tc(max_ecmp, max_routes, use_config_file, family)
-    if ret==True:
+    if ret is True:
         st.log("Test Case PASSED")
         st.report_pass("operation_successful")
     else:
@@ -997,7 +997,7 @@ def test_l3_ecmp_4paths_on_bo_tc():
     ipfeature.clear_ip_configuration([dut])
     max_range = data.base_val+4
     base_range = data.base_val-1
-    if apply_file == False:
+    if apply_file is False:
         command = "config vlan range add 100 105"
         st.config(dut, command)
         command = "config vlan member add 100 {}".format(member4)
@@ -1077,7 +1077,7 @@ def test_l3_ecmp_4paths_on_bo_tc():
     st.show(dut, "show arp")
     #Port Counters
     ret = check_intf_traffic_bo_counters()
-    if ret == True:
+    if ret is True:
         st.log("Test Case PASSED")
     tg2.tg_traffic_control(action='stop', handle=tr1['stream_id'])
     tg1.tg_interface_config(port_handle=tg_ph_1, handle=h0['handle'], mode='destroy')
@@ -1086,7 +1086,7 @@ def test_l3_ecmp_4paths_on_bo_tc():
     tg3.tg_interface_config(port_handle=tg_ph_3, handle=h3['handle'], mode='destroy')
     tg4.tg_interface_config(port_handle=tg_ph_4, handle=h4['handle'], mode='destroy')
 
-    if apply_file == False:
+    if apply_file is False:
         base_range = data.base_val-1
         ip_addr = data.start_ip_addr
         max_range = data.base_val+4
@@ -1107,7 +1107,7 @@ def test_l3_ecmp_4paths_on_bo_tc():
         command = "config vlan range del 100 105"
         st.config(dut, command)
 
-    if ret == True:
+    if ret is True:
         st.log("Test Case PASSED")
         st.report_pass("operation_successful")
     else:

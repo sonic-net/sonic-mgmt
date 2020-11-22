@@ -1,5 +1,7 @@
-import pytest
 import os
+import pytest
+import random
+
 from spytest import st
 from spytest.dicts import SpyTestDict
 import apis.system.connection as con_obj
@@ -8,11 +10,10 @@ import apis.system.ztp as ztp_obj
 import utilities.utils as utils_obj
 import apis.switching.vlan as vlan_obj
 from apis.system.snmp import verify_snmp_details_using_docker
-from apis.system.reboot import config_save
+#from apis.system.reboot import config_save
 from apis.routing.ip import config_ip_addr_interface, ping
 from apis.system.interface import interface_noshutdown
 from apis.system.port import breakout, get_interface_details_by_alt_name
-import random
 
 files_path = os.path.join(os.path.dirname(__file__), 'files')
 files_path = os.path.abspath(files_path)

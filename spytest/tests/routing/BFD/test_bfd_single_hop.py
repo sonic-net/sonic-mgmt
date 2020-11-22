@@ -576,7 +576,7 @@ def test_FtOpSoRoBfdFn011_20(bfd_fixture_010):
             st.wait(2)
             counters_4 = bfd.get_bfd_peer_counters(dut1, vrf_name= vrfname, peer=dut3_ip_list[0],interface=access_vlan_name)
             counters_4_v6 = bfd.get_bfd_peer_counters(dut1, vrf_name= vrfname, peer=dut3_ipv6_list[0],interface=access_vlan_name)
-            if counters_4 == False or counters_4_v6 == False:
+            if counters_4 is False or counters_4_v6 is False:
                 tc_result = False
             elif len(counters_4) != 0 or len(counters_4_v6) != 0:
                 st.error("BFD counter entries are still shown after disabling BFD")
@@ -1490,7 +1490,7 @@ def test_FtOpSoRoBfdFn001_60_61(bfd_fixture_019):
         st.report_tc_pass("FtOpSoRoBfdFn060", "bfd_peer_success", "after save and reload")
         st.report_tc_pass("FtOpSoRoBfdVrfFn029", "bfd_peer_success", "after config reload")
 
-    if pass_status == False:
+    if pass_status is False:
         remove_bgp_and_config()
         dict1 = {"local_asn": dut1_as, 'neighbor_ip': [dut3_ip_list[0], dut3_ipv6_list[0]], 'config': 'yes'}
         dict2 = {"local_asn": dut3_as, 'neighbor_ip': [dut1_ip_list[0], dut1_ipv6_list[0]], 'config': 'yes'}
@@ -1541,7 +1541,7 @@ def test_FtOpSoRoBfdFn001_60_61(bfd_fixture_019):
     else:
         st.report_tc_pass("FtOpSoRoBfdVrfFn026", "bfd_peer_success", "after clear BGP ")
 
-    if pass_status == False:
+    if pass_status is False:
         remove_bgp_and_config()
         dict1 = {"local_asn": dut1_as, 'neighbor_ip': [dut3_ip_list[0], dut3_ipv6_list[0]], 'config': 'yes'}
         dict2 = {"local_asn": dut3_as, 'neighbor_ip': [dut1_ip_list[0], dut1_ipv6_list[0]], 'config': 'yes'}
@@ -1601,7 +1601,7 @@ def test_FtOpSoRoBfdFn001_60_61(bfd_fixture_019):
         st.report_tc_pass("FtOpSoRoBfdVrfFn036", "bfd_peer_success", "after fast-reboot ")
 
 
-    if pass_status == False:
+    if pass_status is False:
         remove_bgp_and_config()
         dict1 = {"local_asn": dut1_as, 'neighbor_ip': [dut3_ip_list[0], dut3_ipv6_list[0]], 'config': 'yes'}
         dict2 = {"local_asn": dut3_as, 'neighbor_ip': [dut1_ip_list[0], dut1_ipv6_list[0]], 'config': 'yes'}
@@ -1700,7 +1700,7 @@ def test_FtOpSoRoBfdFn001_60_61(bfd_fixture_019):
     else:
         st.report_tc_pass("FtOpSoRoBfdVrfFn030", "bfd_peer_success", "after BGP docker restart")
 
-    if pass_status == False:
+    if pass_status is False:
         remove_bgp_and_config()
         dict1 = {"local_asn": dut1_as, 'neighbor_ip': [dut3_ip_list[0], dut3_ipv6_list[0]], 'config': 'yes'}
         dict2 = {"local_asn": dut3_as, 'neighbor_ip': [dut1_ip_list[0], dut1_ipv6_list[0]], 'config': 'yes'}
@@ -3465,7 +3465,7 @@ def test_bfd_vrf_warm_reboot_cold_restart(bfd_fixture_019):
             if result is False:
                 st.error('Failed: bfd_fail_reason BFD-VRF parameters are incorrect for one or more BFD ipv4 peers after reboot')
                 set_result = False
-        if set_result == False and ireload == 0:
+        if set_result is False and ireload == 0:
             st.report_fail('bfd_fail_reason',
                            "BFD parameters are incorrect for one or more BFD ipv4 peers before warm reboot")
 
@@ -3476,7 +3476,7 @@ def test_bfd_vrf_warm_reboot_cold_restart(bfd_fixture_019):
             st.log("Performing warm reboot")
             st.reboot(vars.D1, "warm")
 
-    if set_result == False:
+    if set_result is False:
         st.report_fail('bfd_fail_reason',
                        "BFD parameters are incorrect for one or more BFD ipv4 peers after warm and cold reboot")
     else:

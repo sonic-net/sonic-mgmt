@@ -1844,7 +1844,7 @@ def verify_mclag_fallback_state(po_name):
 
 def verify_mclag_fallback(po_name,fb_cfg_states,fb_op_states,report_failure='YES',comparison_flag=True):
     ver_flag = True
-    if comparison_flag == True:
+    if comparison_flag is True:
         print_log("Check If Operational state for the PO:{} is {}-{}".format(po_name,fb_op_states[0],fb_op_states[1]), 'MED')
     else:
         print_log("Check If Operational state for the PO:{} is NOT {}-{}".format(po_name, fb_op_states[0], fb_op_states[1]),

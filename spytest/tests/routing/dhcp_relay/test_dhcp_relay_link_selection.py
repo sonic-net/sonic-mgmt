@@ -14,7 +14,7 @@ from apis.routing.arp import show_arp, show_ndp
 from apis.system.reboot import config_save
 from apis.routing.bgp import config_bgp, advertise_bgp_network, verify_bgp_summary
 from apis.system.basic import dhcp_server_config, get_ifconfig_inet, get_ifconfig_inet6
-from apis.system.rest import rest_operation, config_rest, get_rest, delete_rest
+from apis.system.rest import config_rest, get_rest, delete_rest
 from apis.qos.copp import bind_class_action_copp_policy
 import os
 

@@ -92,7 +92,7 @@ def verify_bgp_route_count(dut, family='ipv4', shell="sonic", **kwargs):
         match = {'neighbor': kwargs['neighbor']}
         try:
             entries = filter_and_select(output, None, match)[0]
-        except:
+        except Exception:
             st.log("ERROR 1")
         if entries['state']:
             if kwargs['state'] == 'Established':

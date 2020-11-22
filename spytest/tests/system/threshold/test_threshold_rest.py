@@ -178,7 +178,7 @@ def tf_config_common_call(call_type, th_value, **kwargs):
                 if result2:
                     st.log("--> Success: Interface Validation of {} {}  REST DATA".format(threshold_type, buffer_type))
             get_value = get_threshold_from_rest_output(resp, threshold_type, buffer_type, port_alias, index)
-            if get_value == None:
+            if get_value is None:
                 return 0
             st.log("REST GET Threshold Value {} {} on Port:{}, Index:{}".format(get_value, type(get_value),
                                                                                 port_alias, index))

@@ -14,7 +14,7 @@ import textwrap
 import datetime
 import fnmatch
 import subprocess
-from inspect import currentframe
+import inspect
 from collections import OrderedDict
 
 import yaml
@@ -243,7 +243,7 @@ def get_proc_name():
     return sys._getframe(1).f_code.co_name
 
 def get_line_number():
-    cf = currentframe()
+    cf = inspect.currentframe()
     return cf.f_back.f_lineno
 
 def trace(fmt, *args):
@@ -894,7 +894,6 @@ def get_random_seed():
     return int(os.getenv("SPYTEST_RAMDOM_SEED", "100"))
 
 def inject_module(mdl, depth=0, asvar=None):
-    import inspect
     if "__all__" in mdl.__dict__:
         names = mdl.__dict__["__all__"]
     else:
@@ -925,7 +924,6 @@ def import_file_path(path, depth=0, asvar=None, inject=True):
 
 def set_repeat(path, name, topo):
     import_file_path(path, 1)
-    import inspect
     frame = inspect.stack()[1]
     filename = frame[0].f_code.co_filename
     os.environ["SPYTEST_REPEAT_NAME_{}".format(filename)] = name

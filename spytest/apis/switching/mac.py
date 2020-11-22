@@ -170,7 +170,7 @@ def get_mac_address_count(dut, vlan=None, port=None, type=None, mac_search=None,
         ###Decrement by 1 as output has "Total number of entries" as one list element in click output
         if cli_type == 'click':
             dec_flag = 1
-    if entries == list or entries == None:
+    if entries == list or entries is None:
         ### If entries is null, no need to apply filter, return 0
         return 0
 
@@ -633,9 +633,13 @@ def verify_mac_dampening_disabled_ports(dut, **kwargs):
     else:
         cmd = "show mac dampening-disabled-ports"
     parsed_output = st.show(dut,cmd,type=cli_type)
+
     if len(parsed_output) == 0:
         st.error("OUTPUT is Empty")
         return False
+
+    if 'return_output' in kwargs:
+        return parsed_output
 
     match = {"port_list": kwargs['port_list']}
     entries = filter_and_select(parsed_output, ["port_list"], match)

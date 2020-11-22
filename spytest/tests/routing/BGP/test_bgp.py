@@ -1012,7 +1012,7 @@ class TestBGPRif(TestBGPCommon):
 
         n1 = ipapi.verify_ip_route(topo.dut_list[1], ip_address='126.5.5.0/24')
         n2 = ipapi.verify_ip_route(topo.dut_list[0], ip_address='126.5.5.0/24')
-        if (n1 == True) or (n2 == False):
+        if (n1 is True) or (n2 is False):
             st.error('Route check failed for the scenario, route-map non matching prefexis from the Spine DUT')
             utils.exec_all(True, [[st.generate_tech_support, topo.dut_list[0], 'ft_bgp_ebgp_confed'], [st.generate_tech_support, topo.dut_list[1], 'ft_bgp_ebgp_confed']])
             tc_fail_flag = 1

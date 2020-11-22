@@ -232,22 +232,54 @@ def config_stp_vlan_interface(dut, vlan, iface, value, mode='cost', **kwargs):
         elif cli_type in ["rest-put", "rest-patch"]:
             cli_type = "rest-patch" if cli_type == "rest-put" else cli_type
             rest_urls = st.get_datastore(dut, "rest_urls")
-            map = {"cost" : "cost", "priority" : "port-priority"}
-            url = rest_urls['{}_vlan_interface_parameters_config'.format(CONFIGURED_STP_PROTOCOL[dut])].format(vlan, iface, map[mode])
+            url = rest_urls['{}_vlan_interface_parameters_config'.format(CONFIGURED_STP_PROTOCOL[dut])]
             if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
-                if mode == "cost":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:cost": 0}""")
-                    payload["openconfig-spanning-tree-ext:cost"] = value
-                else:
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:port-priority": 0}""")
-                    payload["openconfig-spanning-tree-ext:port-priority"] = value
+                node = "openconfig-spanning-tree-ext:vlan"
+                payload = json.loads("""{"openconfig-spanning-tree-ext:vlan": [
+                                            {
+                                              "vlan-id": 0,
+                                              "interfaces": {
+                                                "interface": [
+                                                  {
+                                                    "name": "string",
+                                                    "config": {
+                                                      "name": "string"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ]
+                                        }""")
             elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
-                if mode == "cost":
-                    payload = json.loads("""{"openconfig-spanning-tree:cost": 0}""")
-                    payload["openconfig-spanning-tree:cost"] = value
-                else:
-                    payload = json.loads("""{"openconfig-spanning-tree:port-priority": 0}""")
-                    payload["openconfig-spanning-tree:port-priority"] = value
+                node = "openconfig-spanning-tree:vlan"
+                payload = json.loads("""{"openconfig-spanning-tree:vlan": [
+                                        {
+                                          "vlan-id": 0,
+                                          "interfaces": {
+                                            "interface": [
+                                              {
+                                                "name": "string",
+                                                "config": {
+                                                  "name": "string"
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      ]
+                                    }""")
+
+            if mode == "cost":
+                payload[node][0]["vlan-id"] = vlan
+                payload[node][0]["interfaces"]["interface"][0]["name"] = iface
+                payload[node][0]["interfaces"]["interface"][0]["config"]["name"] = iface
+                payload[node][0]["interfaces"]["interface"][0]["config"]["cost"] = value
+            else:
+                payload[node][0]["vlan-id"] = vlan
+                payload[node][0]["interfaces"]["interface"][0]["name"] = iface
+                payload[node][0]["interfaces"]["interface"][0]["config"]["name"] = iface
+                payload[node][0]["interfaces"]["interface"][0]["config"]["port-priority"] = value
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                 return False
         else:

@@ -5,7 +5,7 @@ from spytest import st
 from utilities.common import filter_and_select, dicts_list_values,integer_parse
 from utilities.utils import get_dict_from_redis_cli, get_interface_number_from_name
 from apis.common import redis
-from apis.system.rest import config_rest, delete_rest, get_rest, rest_status
+from apis.system.rest import config_rest, delete_rest, get_rest
 
 def config_snapshot_interval(dut,**kwargs):
     """

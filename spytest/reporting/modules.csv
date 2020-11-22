@@ -186,3 +186,5 @@
 2,1,switching/STP/test_stp_loopguard.py,D1D2:4 D1T1:2 D2T1:2
 2,1,routing/test_l3_scale_ecmp_paths.py,D1D2:4 D1T1:4 D2T1:1
 2,1,routing/ECMP/test_ecmp.py,D1T1:2 D2T1:2 D1D2:2 CHIP=TD3
+5,1,routing/ECMP/test_ecmp_vxlan.py,D1D3:3 D1D4:3 D1D5:3 D2D3:3 D2D4:3 D2D5:3 D3T1:2 D4T1:2 D5T1:2 D3CHIP=TD3 D4CHIP=TD3 D5CHIP=TD3
+2,1,routing/ECMP/test_ecmp.py,D1T1:2 D2T1:2 D1D2:2 CHIP=TD3

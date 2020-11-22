@@ -26,16 +26,17 @@ import utilities.common as utils
 import utilities.parallel as pll
 import apis.routing.evpn as Evpn
 
+pll_exec = True
+dbg_exec = False
+TECHSUPPORT = True
+techsupport_enable = True
+
 ###Resource file variables
 data = SpyTestDict()
 data.tgen_rate_pps = '1000'
 data.traffic_run_time = 5
 #data.counters_threshold = 10
 
-test_po_links = 2
-po_link_min_req = 2
-stp_deconf_flag = 0
-po_reconfig_flag = 0
 ### L2/L3 profile params
 data.l2_prof_vlan_flag = 1
 data.config_profile = 'l3'
@@ -71,6 +72,12 @@ data.tc_specific_vlan_count = 6
 data.tc_specific_mac_count = 6
 data.tc_specific_vlan_range = str(data.tc_specific_vlan) + ' ' + str(data.tc_specific_vlan + data.tc_specific_vlan_count - 1)
 data.platform_list = []
+data.disabled_port_list = {}
+test_po_links = 2
+po_link_min_req = 2
+stp_deconf_flag = 0
+po_reconfig_flag = 0
+
 
 def print_log(message,alert_type="LOW"):
     '''
@@ -294,7 +301,7 @@ def enable_ipv6():
     #utils.exec_all(True, [[ip_obj.show_ipv6, dut] for dut in data.my_dut_list])
 
 def configure_portchannel(dut1,dut2,po_id,vlan,dut1_po_members,dut2_po_members,min_links=None):
-    if min_links == None:
+    if min_links is None:
         utils.exec_all(True, [[po_obj.create_portchannel, dut1, po_id], [po_obj.create_portchannel, dut2, po_id]])
     else:
         utils.exec_all(True, [[po_obj.create_portchannel, dut1, po_id, False, min_links], [po_obj.create_portchannel, dut2, po_id, False, min_links]])
@@ -734,6 +741,118 @@ def config_diff_traffic_type():
             data.strm_port[stream['stream_id']] = {'src': data.dest_tgn_port, 'dst': data.src_tgn_port}
             data.strm_macs[stream['stream_id']] = {'src': src, 'dst': dst}
 
+def create_mac_move_streams(pkt_rate=10):
+    print_log("Configure traffic streams for Mac Move Dampening TC",'MED')
+
+    vlan = data.base_vlan
+    st_key = 'AA:11'
+    src_mac = data.stream_data['AA']['src_mac']
+    dst_mac =  data.stream_data['AA']['dst_mac']
+    tg_src = tg_dest_ph1
+    tg_dst = tg_src_ph1
+    # data.stream_data1[st_key] = {}
+    print_log(
+        "Create L2 Mac Move stream: DutN--->Dut1 , over access physical port with SA:{} ---> DA:{} \n" \
+        .format(src_mac, dst_mac), 'MED')
+    stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="continuous", rate_pps=pkt_rate, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac )
+
+    '''stream_tg1 = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', transmit_mode='multi_burst',
+                                       length_mode='fixed', port_handle2=tg_ph_2, rate_pps=rate,
+                                       mac_src='00.00.00.11.12.53',
+                                       mac_dst=dstMAC, ip_src_addr=srpIP, ip_dst_addr=dstIP, l3_protocol='ipv4',
+                                       pkts_per_burst='4', burst_loop_count=pktrate)
+
+    tr1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create', transmit_mode='single_burst',
+                               pkts_per_burst=2000, \
+                               length_mode='fixed', rate_pps=2000, l3_protocol='ipv4', mac_src=data.tg_mac1, \
+                               mac_dst=dut_rt_int_mac1, ip_src_addr=data.ip4_addr[0],
+                               ip_dst_addr=data.ip4_addr[9])'''
+    ### Burst mode stream shouldn't have duration param. If provided ixia ignores burst mode and configures continuous traffic.
+    ### Spirent HLT doc mentions burst mode not supported and found it not working
+
+    '''stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="multi_burst", rate_pps=data.tgen_rate_pps, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac, \
+                                    length_mode='fixed',pkts_per_burst=5,burst_loop_count=4)'''
+
+    data.stream_data.update({st_key: {'streamBA': stream['stream_id']}})
+    data.strm_port[stream['stream_id']] = {'dst': data.src_tgn_port1, 'src': data.dest_tgn_port1}
+    data.strm_macs[stream['stream_id']] = {'src': src_mac, 'dst': dst_mac}
+
+    vlan = data.base_trunk_vlan
+    st_key = 'BB:22'
+    src_mac = data.stream_data['BB']['src_mac']
+    dst_mac = data.stream_data['BB']['dst_mac']
+    tg_src = tg_dest_ph1
+    tg_dst = tg_src_ph1
+    # data.stream_data1[st_key] = {}
+    print_log(
+        "Create L2 Mac Move stream: DutN--->Dut1 , over trunk physical port with SA:{} ---> DA:{} \n" \
+            .format(src_mac, dst_mac), 'MED')
+    stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="continuous", rate_pps=pkt_rate, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac)
+    '''stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="single_burst", rate_pps=data.tgen_rate_pps, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac, \
+                                    length_mode='fixed', pkts_per_burst=pkt_per_burst)'''
+    data.stream_data.update({st_key: {'streamBA': stream['stream_id']}})
+    data.strm_port[stream['stream_id']] = {'dst': data.src_tgn_port1, 'src': data.dest_tgn_port1}
+    data.strm_macs[stream['stream_id']] = {'src': src_mac, 'dst': dst_mac}
+
+    vlan = data.base_lagT_vlan
+    st_key = 'CC:33'
+    src_mac = data.stream_data['CC']['src_mac']
+    dst_mac = data.stream_data['CC']['dst_mac']
+    tg_src = tg_dest_ph1
+    tg_dst = tg_src_ph1
+    # data.stream_data1[st_key] = {}
+    print_log(
+        "Create L2 Mac Move stream: DutN--->Dut1 , over trunk LAG port with SA:{} ---> DA:{} \n" \
+            .format(src_mac, dst_mac), 'MED')
+    stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="continuous", rate_pps=pkt_rate, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac)
+    '''stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="single_burst", rate_pps=data.tgen_rate_pps, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac, \
+                                    length_mode='fixed', pkts_per_burst=pkt_per_burst)'''
+    data.stream_data.update({st_key: {'streamBA': stream['stream_id']}})
+    data.strm_port[stream['stream_id']] = {'dst': data.src_tgn_port1, 'src': data.dest_tgn_port1}
+    data.strm_macs[stream['stream_id']] = {'src': src_mac, 'dst': dst_mac}
+
+    vlan = data.base_lagA_vlan
+    st_key = 'DD:44'
+    src_mac = data.stream_data['DD']['src_mac']
+    dst_mac = data.stream_data['DD']['dst_mac']
+    tg_src = tg_dest_ph1
+    tg_dst = tg_src_ph1
+    # data.stream_data1[st_key] = {}
+    print_log(
+        "Create L2 Mac Move stream: DutN--->Dut1 , over access LAG port with SA:{} ---> DA:{} \n" \
+            .format(src_mac, dst_mac), 'MED')
+    stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="continuous", rate_pps=pkt_rate, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac)
+    '''stream = tg_h.tg_traffic_config(mode='create', port_handle=tg_src, port_handle2=tg_dst,
+                                    transmit_mode="single_burst", rate_pps=data.tgen_rate_pps, frame_size='128', \
+                                    l2_encap='ethernet_ii_vlan', vlan="enable", vlan_id=vlan, \
+                                    mac_src=src_mac, mac_dst=dst_mac, \
+                                    length_mode='fixed', pkts_per_burst=pkt_per_burst)'''
+    data.stream_data.update({st_key: {'streamBA': stream['stream_id']}})
+    data.strm_port[stream['stream_id']] = {'dst': data.src_tgn_port1, 'src': data.dest_tgn_port1}
+    data.strm_macs[stream['stream_id']] = {'src': src_mac, 'dst': dst_mac}
+
+
 def l2fwd_base_traffic_config():
     # reset statistics and delete if any existing streamblocks --- this now return all 4 tgen handles and resets it
     tg_ph1 = tg_src_ph
@@ -870,9 +989,9 @@ def l2fwd_base_traffic_unconfig():
 
 def run_verify_traffic(tg_ph_src=None,tg_ph_dest=None,src_stream_list='ALL',dest_stream_list='ALL',direction="both",verify_mode='port',call_func_list=None):
     res_flag = True
-    if tg_ph_src == None:
+    if tg_ph_src is None:
         tg_ph_src = tg_src_ph
-    if tg_ph_dest == None:
+    if tg_ph_dest is None:
         tg_ph_dest = tg_dest_ph
 
     tgen_port = {tg_src_ph:data.src_tgn_port,
@@ -916,11 +1035,11 @@ def start_stop_traffic(tg_id=None,tg_src_list=None,tg_dest_list=None,duration=da
     :param stop_stream_list: list of stream_ids to be stopped after starting all streams on a port using porthandle.
     :return:
     '''
-    if tg_id == None:
+    if tg_id is None:
         tg_id = tg_h
-    if tg_src_list == None:
+    if tg_src_list is None:
         tg_src_list = tg_src_ph
-    if tg_dest_list == None:
+    if tg_dest_list is None:
         tg_dest_list = tg_dest_ph
 
     tg_src_list = [tg_src_list] if type(tg_src_list) is str else tg_src_list
@@ -1529,7 +1648,7 @@ def test_l2fwd_vlan_range():
         traffic_forward_fail += 1
     ### System MACs will be learned on Access links from LLDP protocol packets
     ### Add number of access links to get total MAC expected.
-    access_link_num = data.access_port_count + data.lagA_count
+    #access_link_num = data.access_port_count + data.lagA_count
     #data.dut_macs_unidirection = [(i/2)+access_link_num for i in data.dut_mac_count_list]
     data.dut_macs_unidirection = [(i/2) for i in data.dut_mac_count_list]
     if not verify_mac_table(data.ver_dut_list, data.dut_macs_unidirection,mac_search=data.mac_srch_str):
@@ -3274,7 +3393,7 @@ def test_stp_mac_move(cleanup_stp_mac_move):
     10.Disable STP in vlan 1 and vlan 102 so that there is loop
     11.Send Traffic and verify flooding is there
     12.Shut tunk phyPort and lagA to break loop
-    13.Verify no flooding with traffic and MAC table
+    13.Verify no floodingf with traffic and MAC table
     14.Enable  tunk phyPort and lagA
     15.Remove port-vlan assosciations from tunk phyPort and lagT for the access vlans to break loop
     16.Verify no flooding with traffic and MAC table
@@ -3284,7 +3403,10 @@ def test_stp_mac_move(cleanup_stp_mac_move):
     traffic_forward_fail = 0
     flooding_fail = 0
     mac_aging_fail = 0
-    tc_list = ['FtOpSoSwL2FwdIt004', 'FtOpSoSwL2FwdIt005', 'FtOpSoSwL2FwdIt006', 'FtOpSoSwL2FwdFn013', 'FtOpSoSwL2FwdFn014','FtOpSoSwL2FwdNe002']
+    mac_dampen_threshold_fail = 0
+    mac_dampen_fail = 0
+    tc_list = ['FtOpSoSwL2FwdIt004', 'FtOpSoSwL2FwdIt005', 'FtOpSoSwL2FwdIt006', 'FtOpSoSwL2FwdFn013', \
+               'FtOpSoSwL2FwdFn014','FtOpSoSwL2FwdNe002','FtOpSoSwMacDampeningDefaultThreshold']
     print_log("START of TC ==> test_stp_mac_move\n TCs:<{}>".format(tc_list), "HIGH")
     stp_wait_time = 15
     ### Increasing age time from 40 to 55 as traffic/start stop some times takes extra time and with minimal age time MACs age out before verification.
@@ -3429,7 +3551,7 @@ def test_stp_mac_move(cleanup_stp_mac_move):
     tc_list = ['FtOpSoSwL2FwdFn014']
     print_log("START of TC:test_stp_mac_move ==>Sub-Test:Verify MAC age out after MAC move.\n TCs:<{}>" \
         .format(tc_list), "HIGH")
-    ### Configure MAC aging after MAC move and verify MACs age out
+    ### Configure MAC aging after MAC move and verify MACs age out after l2 loop stops
     utils.exec_all(True, [[mac_obj.config_mac_agetime, dut, stp_mac_age] for dut in [d1, d2]])
     tc_list = ['FtOpSoSwL2FwdIt005', 'FtOpSoSwL2FwdIt006', 'FtOpSoSwL2FwdFn013','FtOpSoSwL2FwdFn014']
     print_log("START of TC:test_stp_mac_move ==>Sub-Test:Verify MAC re-learn on original ports.\n TCs:<{}>" \
@@ -3485,8 +3607,8 @@ def test_stp_mac_move(cleanup_stp_mac_move):
     utils.exec_all(True, [[mac_obj.clear_mac, dut] for dut in [d1, d2]])
     ### Start traffic and Verify flooding
     ## When single direction traffic used to ensure all packets flood, there is a lot of mac events and affecting next TCs MAC table verification
-    #start_stop_traffic(src_stream_list=data.base_src_streams, dest_stream_list=data.base_dst_streams,duration=traffic_time, direction='single')
-    start_stop_traffic(src_stream_list=data.base_src_streams, dest_stream_list=data.base_dst_streams, duration=traffic_time)
+    start_stop_traffic(src_stream_list=data.base_src_streams, dest_stream_list=data.base_dst_streams,duration=traffic_time, direction='single')
+    #start_stop_traffic(src_stream_list=data.base_src_streams, dest_stream_list=data.base_dst_streams, duration=traffic_time)
     print_log("test_stp_mac_move:==> Verify flooding in physical ports and LAGs after disbale STP in vlans {} & {}".\
                   format(data.base_access_vlan,data.base_lagA_vlan),'MED')
     #expect_flood_packets = int(data.tgen_rate_pps) * 2 * (traffic_time )
@@ -3502,6 +3624,7 @@ def test_stp_mac_move(cleanup_stp_mac_move):
     else:
         print_log('PASS:Traffic flooding expect_tx_pkt > {} is seen in Dut:{}, Port:{}'.format(
             expect_flood_packets, d1, d1_access_port), 'MED')
+
     print_log("Verify flooding in access LAG", 'MED')
     if not retry_func(verify_flooding_on_dut, dut=d2, portList=[lagA_po_name], threshold=expect_flood_packets,
                       delay=3, retry_count=3):
@@ -3512,7 +3635,31 @@ def test_stp_mac_move(cleanup_stp_mac_move):
     else:
         print_log('PASS:Traffic flooding expect_tx_pkt > {} is seen in Dut:{}, Port:{}'.format(
             expect_flood_packets, d2, lagA_po_name), 'MED')
-    
+
+    if flooding_fail > 0 :
+        st.generate_tech_support(dut=None,name='stp_mac_move_flooding_fail')
+
+    ### Verify Dampening Outputs when loop present
+    results = utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.verify_mac_dampening_threshold,count=5)[0]
+    if False in results:
+        print_log("Mac Move Dampening default threshold FAILED", 'MED')
+        mac_dampen_threshold_fail += 1
+    else:
+        print_log("Mac Move Dampening default threshold PASSED", 'MED')
+
+    dict1 = {'port_list': [vars.D1T1P2, vars.D1D2P1, vars.D1D2P2, lagA_po_name, lagT_po_name]}
+    dict2 = {'port_list': [vars.D2T1P2, vars.D2D1P2, vars.D2D1P1, lagA_po_name, lagT_po_name]}
+    results = pll.exec_parallel(pll_exec, data.ver_dut_list, mac_obj.verify_mac_dampening_disabled_ports,
+                                              [dict1, dict2])[0]
+    if False in results:
+        print_log("Mac Move Dampening disabled ports FAILED, Expected ports not seen in disabled list", 'MED')
+        mac_dampen_fail += 1
+    else:
+        print_log("Mac Move Dampening disabled ports PASSED", 'MED')
+
+    if mac_dampen_threshold_fail == 0 and mac_dampen_fail == 0 :
+        st.report_tc_pass('FtOpSoSwMacDampeningDefaultThreshold', "test_case_passed")
+
     print_log("test_stp_mac_move:==> Verify MACs age out after DUT2 trunk port and DUT1 access LAG is shut",'MED')
     ###Shutdown trunk phyPort and lagA
     dut_port_dict = {}
@@ -3550,6 +3697,7 @@ def test_stp_mac_move(cleanup_stp_mac_move):
         loop_break = 0
         final_result = False
         flooding_fail += 1
+    ### Verify Dampening in effect in case of loop with default Mac Dampening threshold count & interval
 
     if loop_break:
         st.wait(2 * stp_mac_age,"Wait for twice MAC age-time")
@@ -3566,6 +3714,7 @@ def test_stp_mac_move(cleanup_stp_mac_move):
         st.wait(2 * stp_mac_age + 20, "MAC Dampening: Wait for remaining time of 180+10 sec for port to get re-enabled for MAC Learning")
 
     ###Enable back the ports and Revert port-vlan assosciation,
+    print_log("Enable back the ports and Revert port-vlan assosciation which  introduced the loop",'MED')
     utils.exec_all(True, [[intf_obj.interface_operation, dut, dut_port_dict[dut], 'startup'] for dut in
                           dut_port_dict.keys()])
     ### Start traffic to create traffic loop and modify port-vlan assosciation to see loop is broke.
@@ -3583,10 +3732,21 @@ def test_stp_mac_move(cleanup_stp_mac_move):
         api_list.append([vlan_obj.delete_vlan_member, d2, data.base_lagA_vlan, lagT_po_name, True])
         utils.exec_all(True, api_list)
         stp_deconf_flag += 1
-    ###Introduce delay before next MAC verification as per SONIC-13217
-    ##  This is to make sure MAC move events generated in loop scenario is settled
-    mac_dampening_timer = 180
-    st.wait(mac_dampening_timer,"MAC Dampening: Wait for {} seconds for MAC learning to get re-enabled".format(mac_dampening_timer))
+
+    dict1 = {'port_list': [vars.D1T1P2, vars.D1D2P1, vars.D1D2P2, lagA_po_name, lagT_po_name]}
+    dict2 = {'port_list': [vars.D2T1P2, vars.D2D1P2, vars.D2D1P1, lagA_po_name, lagT_po_name]}
+    results = pll.exec_parallel(pll_exec, data.ver_dut_list, mac_obj.verify_mac_dampening_disabled_ports,
+                                [dict1, dict2])[0]
+    if False in results:
+        print_log("Mac Move Dampening disabled ports FAILED, Expected ports not seen in disabled list", 'MED')
+        mac_dampen_fail += 1
+    else:
+        print_log("Mac Move Dampening disabled ports PASSED", 'MED')
+        ###Introduce delay before next MAC verification as per SONIC-13217
+        ##  This is to make sure MAC move events generated in loop scenario is settled
+        mac_dampening_timer = 180
+        st.wait(mac_dampening_timer,"MAC Dampening: Wait for {} seconds for MAC learning to get re-enabled".format(mac_dampening_timer))
+        verify_mac_dampening_disabled_ports(0)
 
     utils.exec_all(True, [[mac_obj.clear_mac, dut] for dut in [d1, d2]])
     utils.exec_all(True, [[mac_obj.get_mac, dut] for dut in [d1, d2]])
@@ -3639,8 +3799,12 @@ def test_stp_mac_move(cleanup_stp_mac_move):
             fail_msg += 'MAC aging Failed:'
         if flooding_fail > 0:
             fail_msg += 'Flooding Verification Failed:'
+        if mac_dampen_threshold_fail > 0:
+            fail_msg += 'Mac Dampening default threshold Failed:'
+        if mac_dampen_fail > 0:
+            fail_msg += 'Mac Dampening Disabled Ports Verification Failed:'
         st.report_fail("test_case_failure_message", fail_msg.strip(':'))
-        #st.report_fail("operation_failed")
+
 
 
 def test_FtOpSoSwL2FwdFnCeta31752(lag_function_fixture):
@@ -3712,6 +3876,412 @@ def test_FtOpSoSwL2FwdFnCeta31752(lag_function_fixture):
         st.report_pass("test_case_id_passed", "test_FtOpSoSwL2FwdFnCeta31752")
     else:
         st.report_fail("test_case_id_failed", "test_FtOpSoSwL2FwdFnCeta31752")
+
+
+@pytest.fixture(scope="function")
+def cleanup_mac_move_dampening():
+    yield
+    global deconf_flag
+    print_log("CLEANUP for test_l2fwd_mac_move_dampening",'HIGH')
+    ### Configure back default mac -age &  mac dampenign threshold values
+    utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.configure_macmove_threshold, count=5, interval=5)
+
+    for dut in data.my_dut_list:
+        mac_obj.config_mac_agetime(dut, data.default_macage)
+        retval = mac_obj.get_mac_agetime(dut)
+        if retval != data.default_macage:
+            print_log("Failed to configure Mac aging time to {}.".format(data.default_macage),"ERROR")
+            st.report_fail("mac_aging_time_failed_config")
+    ### Stop any traffic
+    mac_mov_burst_streams = [data.stream_data['AA:11']['streamBA'], data.stream_data['BB:22']['streamBA'], \
+                             data.stream_data['CC:33']['streamBA'], data.stream_data['DD:44']['streamBA']]
+    tg_h.tg_traffic_control(action='stop', handle=data.base_src_streams + mac_mov_burst_streams)
+
+def verify_mac_dampening_disabled_ports(expect=1):
+    ret_val = True
+    if expect == 0:
+        dict1 = {'port_list': ['None']}
+        dict2 = {'port_list': ['None']}
+        results = pll.exec_parallel(pll_exec, data.ver_dut_list,
+                                                  mac_obj.verify_mac_dampening_disabled_ports, [dict1, dict2])[0]
+        if False in results:
+            print_log("Mac Move Dampening disabled ports FAILED, Expect no ports to be disabled", 'MED')
+            #mac_dampen_fail += 1
+            ret_val = False
+            fail_msg = "Mac Move Dampening disabled ports seen with dampening timer expiry, FAILED"
+            st.report_fail("test_case_failure_message", fail_msg)
+        else:
+            print_log("Mac Move Dampening disabled ports PASSED", 'MED')
+    else:
+        lagT_po_key = data.po_metadata[(data.my_dut_list[0], 'trunk')]['base_id']
+        lagT_po_name = data.portchannel[lagT_po_key]['name']
+        lagA_po_key = data.po_metadata[(data.my_dut_list[0], 'access')]['base_id']
+        lagA_po_name = data.portchannel[lagA_po_key]['name']
+
+        result_dict = utils.exec_foreach(pll_exec, data.ver_dut_list, mac_obj.verify_mac_dampening_disabled_ports,return_output=1)[0]
+
+        data.disabled_port_list['d1'] = result_dict[0][0]['port_list']
+        data.disabled_port_list['d2'] = result_dict[1][0]['port_list']
+
+        expect_ports = { 'd1': { 'mac1': [vars.D1T1P2, vars.D1D2P1],
+                                 'mac2': [vars.D1T1P2, vars.D1D2P2],
+                                 'mac3': [vars.D1T1P2, lagA_po_name],
+                                 'mac4': [vars.D1T1P2, lagT_po_name]
+                                },
+                         'd2': { 'mac1': [vars.D2T1P1, vars.D2D1P1],
+                                 'mac2': [vars.D2T1P1, vars.D2D1P2],
+                                 'mac3': [vars.D2T1P1, lagA_po_name],
+                                 'mac4': [vars.D2T1P1, lagT_po_name]
+                                }
+                         }
+
+        for mac in expect_ports['d1'].keys():
+            mac_exp_ports = expect_ports['d1'][mac]
+            if mac_exp_ports[0] in data.disabled_port_list['d1'] or  mac_exp_ports[1] in data.disabled_port_list['d1']:
+                st.log("FOUND either one of expected ports:{} in parsed list:{} in D1".format(mac_exp_ports,data.disabled_port_list['d1']))
+            else:
+                st.log("FAIL: Not Found any of expected ports:{} in parsed list:{} in D1".format(mac_exp_ports, data.disabled_port_list['d1']))
+                ret_val = False
+
+        for mac in expect_ports['d2'].keys():
+            mac_exp_ports = expect_ports['d2'][mac]
+            if mac_exp_ports[0] in data.disabled_port_list['d2'] or  mac_exp_ports[1] in data.disabled_port_list['d2']:
+                st.log("FOUND either one of expected ports:{} in parsed list:{} in D2".format(mac_exp_ports,data.disabled_port_list['d2']))
+            else:
+                st.log("FAIL: Not Found any of expected ports:{} in parsed list:{} in D2".format(mac_exp_ports, data.disabled_port_list['d2']))
+                ret_val = False
+
+
+        if not ret_val:
+            print_log("Mac Move Dampening disabled ports FAILED", 'MED')
+            fail_msg = "Mac Move Dampening: Expected Mac learning disabled ports NOT FOUND"
+            st.report_fail("test_case_failure_message", fail_msg)
+        else:
+            print_log("Mac Move Dampening disabled ports PASSED", 'MED')
+
+    return ret_val
+
+
+def verify_mac_learning(expect='disable'):
+    port_disable_fail = 0
+
+    lagT_po_key = data.po_metadata[(data.my_dut_list[0], 'trunk')]['base_id']
+    lagT_po_name = data.portchannel[lagT_po_key]['name']
+    lagA_po_key = data.po_metadata[(data.my_dut_list[0], 'access')]['base_id']
+    lagA_po_name = data.portchannel[lagA_po_key]['name']
+
+    start_stop_traffic(src_stream_list=data.base_src_streams, dest_stream_list=data.base_dst_streams, duration=1)
+
+    if expect == 'disable':
+        if vars.D1T1P2 in data.disabled_port_list['d1']:
+            if not verify_mac_table([data.my_dut_list[0]], [0], port=vars.D1T1P2):
+                port_disable_fail += 1
+        else:
+            if not verify_mac_table([data.my_dut_list[0]], [0], port=vars.D1D2P1):
+                port_disable_fail += 1
+            if not verify_mac_table([data.my_dut_list[0]], [0], port=vars.D1D2P2):
+                port_disable_fail += 1
+            if not verify_mac_table([data.my_dut_list[0]], [0], port=lagT_po_name):
+                port_disable_fail += 1
+            if not verify_mac_table([data.my_dut_list[0]], [0], port=lagA_po_name):
+                port_disable_fail += 1
+        if port_disable_fail > 0 :
+            print_log("FAIL: Mac learning seen on mac dampening disabled ports", 'MED')
+            fail_msg = "Mac Move Dampening: Mac learning seen on learning disabled ports verification FAILED"
+            st.report_fail("test_case_failure_message", fail_msg)
+        else:
+            print_log("PASS: Mac learning not seen on mac dampening disabled ports", 'MED')
+
+    elif expect == 'enable':
+        if not verify_mac_table(data.ver_dut_list, data.dut_mac_count_list, mac_search='00:'):
+            print_log("FAIL: Mac Re-learning not seen on mac dampening disabled ports", 'MED')
+            fail_msg = "Mac Re-learning not seen on disabled ports after dampening timer expiry, FAILED"
+            st.report_fail("test_case_failure_message", fail_msg)
+        else:
+            print_log("PASS: Mac Re-learning seen on disabled ports after dampening timer expiry", 'MED')
+
+
+def test_l2fwd_mac_move_dampening(cleanup_mac_move_dampening):
+    final_result = True
+    #mac_count_fail = 0
+    traffic_forward_fail = 0
+    mac_dampen_fail = 0
+    mac_dampen_threshold_fail = 0
+    #mac_aging_fail = 0
+    tc_list = ['FtOpSoSwMacDampeningNonDefaultThreshold','FtOpSoSwMacDampeningDisabledPortMacRelearn','FtOpSoSwMacDampeningTimerProgression']
+    print_log("START of TC ==> test_l2fwd_mac_move_dampening\n TCs:<{}>".format(tc_list), "HIGH")
+
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac, dut] for dut in data.my_dut_list])
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac_dampening, dut] for dut in data.my_dut_list])
+
+    print_log("Configure Mac Move Dampening threshold 100",'MED')
+    utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.configure_macmove_threshold, count=100, interval=5)
+    results = utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.verify_mac_dampening_threshold, count=100)[0]
+    if False in results:
+        print_log("Mac Move Dampening threshold config FAILED",'MED')
+        mac_dampen_threshold_fail += 1
+        fail_msg = "Mac Move Dampening threshold config verification FAILED"
+        st.report_fail("test_case_failure_message", fail_msg)
+    else:
+        print_log("Mac Move Dampening threshold config PASSED", 'MED')
+
+    mac_age_time = 100
+    for dut in data.my_dut_list:
+        mac_obj.config_mac_agetime(dut, mac_age_time)
+        retval = mac_obj.get_mac_agetime(dut)
+        if retval != mac_age_time:
+            print_log("Failed to configure Mac aging time to {}.".format(mac_age_time),"ERROR")
+            st.report_fail("mac_aging_time_failed_config")
+
+    ### Create Burst mode stream on DutN with SA same as Dut1 SA -- 10 pkts/sec for 5 sec
+    create_mac_move_streams()
+    ### Clear port counters
+    utils.exec_all(pll_exec, [[port_obj.clear_interface_counters, dut] for dut in data.my_dut_list])
+    ### Send MacMov traffic and verify Mac learning not disabled as threshold count is 100 but mac move is only 50
+    mac_mov_burst_streams = [ data.stream_data['AA:11']['streamBA'], data.stream_data['BB:22']['streamBA'], \
+                          data.stream_data['CC:33']['streamBA'], data.stream_data['DD:44']['streamBA'] ]
+    if not run_verify_traffic(src_stream_list=data.base_src_streams+mac_mov_burst_streams, direction="single"):
+        final_result = False
+        traffic_forward_fail += 1
+        fail_msg = "Mac Move Dampening Base traffic forwarding FAILED"
+        st.report_fail("test_case_failure_message", fail_msg)
+
+    dict1 = {'port_list': ['None'] }
+    dict2 = {'port_list': ['None'] }
+    results = pll.exec_parallel(pll_exec, data.ver_dut_list, mac_obj.verify_mac_dampening_disabled_ports, [dict1, dict2])[0]
+    if False in results:
+        print_log("Mac Move Dampening disabled ports FAILED, Expect no ports to be disabled",'MED')
+        mac_dampen_fail += 1
+        fail_msg = "Mac Move Dampening disabled ports seen with higher threshold, FAILED"
+        st.report_fail("test_case_failure_message", fail_msg)
+    else:
+        print_log("Mac Move Dampening disabled ports PASSED", 'MED')
+
+    print_log("Configure Mac Move Dampening threshold 50", 'MED')
+    utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.configure_macmove_threshold, count=50, interval=10)
+    results = utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.verify_mac_dampening_threshold, count=50)[0]
+    if False in results:
+        print_log("Mac Move Dampening threshold config FAILED",'MED')
+        mac_dampen_threshold_fail += 1
+        fail_msg = "Mac Move Dampening threshold re-config verification FAILED"
+        st.report_fail("test_case_failure_message", fail_msg)
+    else:
+        print_log("Mac Move Dampening threshold config PASSED", 'MED')
+
+    ### Send MacMov traffic and verify Mac learning disabled for ports.
+    start_stop_traffic(src_stream_list=data.base_src_streams+mac_mov_burst_streams, direction="single")
+    ### START TIMER
+    start_time = time.time()
+    verify_mac_dampening_disabled_ports()
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac, dut] for dut in data.my_dut_list])
+    verify_mac_learning()
+
+    st.report_tc_pass('FtOpSoSwMacDampeningNonDefaultThreshold', "test_case_passed")
+
+    ### [ Wait for 180 sec and see new MAC learned.  ]
+    current_time = time.time()
+    time_elapsed = current_time - start_time
+    st.wait(180-time_elapsed,"MAC Move Dampening: Wait for 180 Sec for mac learning to enable")
+    verify_mac_dampening_disabled_ports(0)
+    verify_mac_learning(expect='enable')
+
+    st.report_tc_pass('FtOpSoSwMacDampeningDisabledPortMacRelearn', "test_case_passed")
+
+
+    print_log("Verify Mac Dampening timer increased to 360 sec",'HIGH')
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac, dut] for dut in data.my_dut_list])
+    ### Send MacMov traffic within 10 sec and verify Mac learning disabled for 360 sec
+    start_stop_traffic(src_stream_list=data.base_src_streams + mac_mov_burst_streams, direction="single")
+    ### START TIMER
+    start_time = time.time()
+    verify_mac_dampening_disabled_ports()
+
+    ### Wait for mac age time (70 sec) and see macs cleared-- verfy new mac not learned
+    st.wait(2* mac_age_time,'Wait for twice mac age time {} and verify learned MACs cleared and no new MAC learning on disabled ports'.format(mac_age_time))
+    #utils.exec_all(True, [[mac_obj.clear_mac, dut] for dut in data.ver_dut_list])
+    verify_mac_dampening_disabled_ports()
+    verify_mac_learning()
+
+    ### Wait for remaining time till 360 sec and see MACs learned
+    current_time = time.time()
+    time_elapsed = current_time - start_time
+    st.wait(360 - time_elapsed, "MAC Move Dampening: Wait for 360 Sec for mac learning to re-enable")
+    verify_mac_dampening_disabled_ports(0)
+
+    print_log("Verify Mac Dampening timer increased to 720 sec",'HIGH')
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac, dut] for dut in data.my_dut_list])
+    ### Send MacMov traffic within 10 sec and verify Mac learning disabled for 720 sec
+    start_stop_traffic(src_stream_list=data.base_src_streams + mac_mov_burst_streams, direction="single")
+    ### START TIMER
+    start_time = time.time()
+    verify_mac_dampening_disabled_ports()
+    ### Verify MAC table
+    data.dut_macs_unidirection = [(i / 2) for i in data.dut_mac_count_list]
+    if not verify_mac_table(data.ver_dut_list, data.dut_macs_unidirection, mac_search='00:12:'):
+        final_result = False
+        fail_msg = "Mac Move Dampening: Mac Re-learning after 360 sec dampening timer expiry FAILED"
+        st.report_fail("test_case_failure_message", fail_msg)
+
+    ### Wait for 200 sec and verfy new mac not learned
+    st.wait(2 * mac_age_time,
+            'Wait for twice mac age time {} and verify learned MACs cleared and no new MAC learning on disabled ports'.format(
+                mac_age_time))
+
+    st.banner("Verify Ports are still in disabled state")
+    verify_mac_dampening_disabled_ports()
+    verify_mac_learning()
+
+    ### Wait for 400 sec and verfy new mac not learned
+    current_time = time.time()
+    time_elapsed = current_time - start_time
+    st.wait(400-time_elapsed,'MAC Move Dampening: Learning disabled for 720 sec, Wait for 400 Sec to verify mac learning is still disabled')
+    st.banner("Verify Ports are still in disabled state")
+    verify_mac_dampening_disabled_ports()
+    verify_mac_learning()
+
+    ### Clear Mac Dampening ports, verify show output and see new MAC learned.
+    dict1 = {'interface': vars.D1D2P1}
+    dict2 = {'interface': vars.D2D1P2}
+    pll.exec_parallel(pll_exec, data.ver_dut_list, mac_obj.clear_mac_dampening,[dict1, dict2])
+    #utils.exec_foreach(pll_exec, data.ver_dut_list, mac_obj.clear_mac_dampening, interface='PortChannel1')
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac_dampening, dut] for dut in data.my_dut_list])
+    st.banner("Verify Mac Dampening disabled Ports are cleared")
+    verify_mac_dampening_disabled_ports(0)
+    verify_mac_learning(expect='enable')
+
+    if final_result:
+        st.report_pass("test_case_passed")
+    else:
+        fail_msg = "Mac Move Dampening: with different timers and threshold FAILED"
+        st.report_fail("test_case_failure_message", fail_msg)
+
+def add_rem_port_vlan_configs(config='add'):
+    d1 = data.my_dut_list[0]
+    d2 = data.my_dut_list[1]
+    d1_access_port = st.get_dut_links_local(d1, peer=d2)[0]
+    trunk_link = data.access_port_count
+    d1_trunk_port = st.get_dut_links_local(d1, peer=d2)[trunk_link]
+    lagT_po_key = data.po_metadata[(d1, 'trunk')]['base_id']
+    lagT_po_name = data.portchannel[lagT_po_key]['name']
+    lagA_po_key = data.po_metadata[(d1, 'access')]['base_id']
+    lagA_po_name = data.portchannel[lagA_po_key]['name']
+
+    if config == 'add':
+        ### Configure base_access_vlan on tgen and access phy port
+        vlan_obj.add_vlan_member(d1, data.base_access_vlan, vars.D1T1P2, True)
+        vlan_obj.add_vlan_member(d1, data.base_access_vlan, d1_access_port)
+        ### Configure base_trunk_vlan on tgen and trunk phy port
+        vlan_obj.add_vlan_member(d1, data.base_trunk_vlan, vars.D1T1P2, True)
+        vlan_obj.add_vlan_member(d1, data.base_trunk_vlan, d1_trunk_port,True)
+        ### Configure base_lagT_vlan on tgen and trunk PO
+        vlan_obj.add_vlan_member(d1, data.base_lagT_vlan, vars.D1T1P2, True)
+        vlan_obj.add_vlan_member(d1, data.base_lagT_vlan, lagT_po_name,True)
+        ### Configure base_lagA_vlan on tgen and access PO
+        vlan_obj.add_vlan_member(d1, data.base_lagA_vlan, vars.D1T1P2, True)
+        vlan_obj.add_vlan_member(d1, data.base_lagA_vlan, lagA_po_name)
+    elif config == 'del':
+        ### UnConfigure base_access_vlan from tgen and access phy port
+        vlan_obj.delete_vlan_member(d1, data.base_access_vlan, vars.D1T1P2, True)
+        vlan_obj.delete_vlan_member(d1, data.base_access_vlan, d1_access_port)
+        ### Configure base_trunk_vlan on tgen and trunk phy port
+        vlan_obj.delete_vlan_member(d1, data.base_trunk_vlan, vars.D1T1P2, True)
+        vlan_obj.delete_vlan_member(d1, data.base_trunk_vlan, d1_trunk_port, True)
+        ### Configure base_lagT_vlan on tgen and trunk PO
+        vlan_obj.delete_vlan_member(d1, data.base_lagT_vlan, vars.D1T1P2, True)
+        vlan_obj.delete_vlan_member(d1, data.base_lagT_vlan, lagT_po_name, True)
+        ### Configure base_lagA_vlan on tgen and access PO
+        vlan_obj.delete_vlan_member(d1, data.base_lagA_vlan, vars.D1T1P2, True)
+        vlan_obj.delete_vlan_member(d1, data.base_lagA_vlan, lagA_po_name)
+
+
+@pytest.fixture(scope="function")
+def cleanup_reload_with_mac_dampening():
+    yield
+    global deconf_flag
+    print_log("CLEANUP for test_l2fwd_mac_move_dampening",'HIGH')
+    ### Configure back default mac -age &  mac dampenign threshold values
+    utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.configure_macmove_threshold, count=5, interval=5)
+
+    if deconf_flag:
+        add_rem_port_vlan_configs()
+
+    boot_obj.config_save(data.my_dut_list)
+
+    ### Stop any traffic
+    mac_mov_burst_streams = [data.stream_data['AA:11']['streamBA'], data.stream_data['BB:22']['streamBA'], \
+                             data.stream_data['CC:33']['streamBA'], data.stream_data['DD:44']['streamBA']]
+    tg_h.tg_traffic_control(action='stop', handle=data.base_src_streams + mac_mov_burst_streams)
+
+
+def test_reload_with_mac_dampening(cleanup_reload_with_mac_dampening):
+    final_result = False
+    global deconf_flag
+    deconf_flag = 1
+    tc_list = ['FtOpSoSwMacDampeningReload','FtOpSoSwMacDampeningChangePortVlan']
+    print_log("START of TC ==> test_l2fwd_mac_move_dampening\n TCs:<{}>".format(tc_list), "HIGH")
+
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac, dut] for dut in data.my_dut_list])
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac_dampening, dut] for dut in data.my_dut_list])
+
+    print_log("Configure Mac Move Dampening threshold 50",'MED')
+    utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.configure_macmove_threshold, count=50, interval=10)
+    results = utils.exec_foreach(pll_exec, data.my_dut_list, mac_obj.verify_mac_dampening_threshold, count=50)[0]
+    if False in results:
+        print_log("Mac Move Dampening threshold config FAILED",'MED')
+        fail_msg = "Mac Move Dampening Threshold config failed"
+        st.report_fail("test_case_failure_message", fail_msg)
+    else:
+        print_log("Mac Move Dampening threshold config PASSED", 'MED')
+
+    ### Create Burst mode stream on DutN with SA same as Dut1 SA -- 10 pkts/sec for 5 sec
+    create_mac_move_streams()
+    ### Clear port counters
+    utils.exec_all(pll_exec, [[port_obj.clear_interface_counters, dut] for dut in data.my_dut_list])
+    ### Send MacMov traffic and verify Mac learning disabled
+    mac_mov_burst_streams = [ data.stream_data['AA:11']['streamBA'], data.stream_data['BB:22']['streamBA'], \
+                          data.stream_data['CC:33']['streamBA'], data.stream_data['DD:44']['streamBA'] ]
+
+    start_stop_traffic(src_stream_list=data.base_src_streams+mac_mov_burst_streams, direction="single")
+    verify_mac_dampening_disabled_ports()
+
+    ### Remove port vlan assosciation on D1 and verify port removed from disabled list
+    add_rem_port_vlan_configs('del')
+    verify_mac_dampening_disabled_ports(0)
+    st.report_tc_pass('FtOpSoSwMacDampeningChangePortVlan', "test_case_passed")
+
+    ### Add back port vlan assosciation and verify MAC learning proper
+    add_rem_port_vlan_configs('add')
+    deconf_flag = 0
+    verify_mac_learning('enable')
+
+    ### Start MAC move traffic again so that ports are disabled
+    tg_h.tg_traffic_control(action='run', handle=data.base_src_streams + mac_mov_burst_streams)
+    verify_mac_dampening_disabled_ports()
+
+    boot_obj.config_save_reload(data.ver_dut_list)
+    start_time = time.time()
+    verify_mac_dampening_disabled_ports()
+    tg_h.tg_traffic_control(action='stop', handle=data.base_src_streams + mac_mov_burst_streams)
+
+    utils.exec_all(pll_exec, [[mac_obj.clear_mac, dut] for dut in data.my_dut_list])
+    print_log("Verify MAC is not learned on disabled ports",'MED')
+    verify_mac_learning()
+
+    ### [ Wait for 180 sec and see new MAC learned.  ]
+    current_time = time.time()
+    time_elapsed = current_time - start_time
+    st.wait(180 - time_elapsed, "MAC Move Dampening: Wait for 180 Sec for mac learning to enable")
+    verify_mac_dampening_disabled_ports(expect=0)
+    verify_mac_learning(expect='enable')
+
+    st.report_tc_pass('FtOpSoSwMacDampeningReload', "test_case_passed")
+
+    if final_result:
+        st.report_pass("test_case_passed")
+    else:
+        fail_msg = "Verify Mac Move Dampening after reload FAILED"
+        st.report_fail("test_case_failure_message", fail_msg)
+
 
 
 @pytest.mark.l2fwd_reload

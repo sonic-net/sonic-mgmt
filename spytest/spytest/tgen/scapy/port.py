@@ -276,7 +276,7 @@ class ScapyPort(object):
                 handle = handle[0]
             if not self.interface_validate(handle):
                 self.error("invalid", "protocol_handle", handle)
-            index = self.interfaces[handle].index
+            #index = self.interfaces[handle].index
             #rv = self.driver.ping(self.interfaces[handle], ping_dst, index)
             rv = self.driver.ping(self.interfaces[handle], ping_dst, 0)
             res[self.port_handle] = SpyTestDict()

@@ -15,7 +15,6 @@ import apis.switching.vlan as vlan_api
 import apis.routing.bgp as bgp_api
 import apis.routing.ip_bgp as ip_bgp
 import apis.routing.vrf as vrf_api
-#from spytest.utils import filter_and_select
 import utilities.utils as utils_obj
 from utilities import parallel
 
@@ -55,7 +54,6 @@ def verify_intf_counters(**kwargs):
         return False
     
     for pair,rat1,var in zip(rx[1:]+tx, ratio[0][1:]+ratio[1], [rx_var]*len(rx[1:])+[tx_var]*len(tx)):
-        #print pair,rat1,var
         dut,port = pair
         out=[]
         if saved_flag:
@@ -156,8 +154,6 @@ def ecmp_base_config():
         st.error('ECMP routes are not proper in the leafs.')
         return False
     
-    #st.exec_all([[create_stream], [dut_configs]], first_on_main=True)
-    
     ###################################################
     st.banner("BASE Config End ")
     ###################################################
@@ -180,10 +176,8 @@ def ecmp_base_unconfig():
 
 def config_ip(config='yes'):
     if config == 'yes':
-        #api_name = ip.config_ip_addr_interface
         action = 'enable'
     else:
-        #api_name = ip.delete_ip_interface
         action = 'disable'
     st.log("Enable IPv6 over portchannel interfaces between Leaf and Spine")
     
@@ -387,7 +381,6 @@ def config_leafInterface(config='yes'):
             vlan_vni = data.vni_vlan[0]
             ovrly_int = data.dut3_loopback_ip[1]
             local_as = data.dut3_AS
-            #vlan_list = [vlan_vni] + client_dict["tenant_l2_vlan_list"] + client_dict["tenant_l3_vlan_list"]
             vlan_list = [vlan_vni] + data.leaf1_dict['tenant_vlan_list']
             vlan_api.create_vlan(dut, vlan_list)
             vrf_api.config_vrf(dut,vrf_name=data.vrf1)
@@ -399,7 +392,6 @@ def config_leafInterface(config='yes'):
             evpn.create_evpn_instance(dut, nvo_name, vtep_name)
             evpn.map_vlan_vni(dut, vtep_name, vlan_vni, vlan_vni)
             evpn.map_vrf_vni(dut, vrf_name=data.vrf1, vni=vlan_vni, vtep_name=vtep_name)
-            #for vlan in client_dict["tenant_l2_vlan_list"]:
             for vlan in data.leaf1_dict['tenant_vlan_list']:
                 evpn.map_vlan_vni(dut, vtep_name, vlan, vlan)
             bgp_api.config_bgp(dut, local_as=local_as, vrf_name=data.vrf1, config='yes', config_type_list=["redist"], redistribute='connected')
@@ -422,7 +414,6 @@ def config_leafInterface(config='yes'):
             vlan_vni = data.vni_vlan[0]
             ovrly_int = data.dut4_loopback_ip[1]
             local_as = data.dut4_AS
-            #vlan_list = [vlan_vni] + client_dict["tenant_l2_vlan_list"] + client_dict["tenant_l3_vlan_list"]
             vlan_list = [vlan_vni] + data.leaf2_dict['tenant_vlan_list']
             vlan_api.create_vlan(dut, vlan_list)
             vrf_api.config_vrf(dut,vrf_name=data.vrf1)
@@ -433,7 +424,6 @@ def config_leafInterface(config='yes'):
             evpn.create_overlay_intf(dut, vtep_name, ovrly_int)
             evpn.create_evpn_instance(dut, nvo_name, vtep_name)
             evpn.map_vlan_vni(dut, vtep_name, vlan_vni, vlan_vni)
-            #for vlan in client_dict["tenant_l2_vlan_list"]:
             for vlan in data.leaf2_dict['tenant_vlan_list']:
                 evpn.map_vlan_vni(dut, vtep_name, vlan, vlan)
             evpn.map_vrf_vni(dut, vrf_name=data.vrf1, vni=vlan_vni, vtep_name=vtep_name)
@@ -457,7 +447,6 @@ def config_leafInterface(config='yes'):
             vlan_vni = data.vni_vlan[0]
             ovrly_int = data.dut5_loopback_ip[1]
             local_as = data.dut5_AS
-            #vlan_list = [vlan_vni] + client_dict["tenant_l2_vlan_list"] + leaf3_dict["tenant_l3_vlan_list"]
             vlan_list = [vlan_vni] + data.leaf3_dict['tenant_vlan_list']
             vlan_api.create_vlan(dut, vlan_list)
             vrf_api.config_vrf(dut,vrf_name=data.vrf1)
@@ -478,11 +467,9 @@ def config_leafInterface(config='yes'):
 
             evpn.config_bgp_evpn(dut, vrf_name=data.vrf1, config='yes', config_type_list=["advertise_ipv4_vrf"],  local_as=local_as, advertise_ipv4='unicast')
             evpn.config_bgp_evpn(dut, vrf_name=data.vrf1, config='yes', config_type_list=["advertise_ipv6_vrf"],  local_as=local_as, advertise_ipv6='unicast')
-            #for vlan in client_dict["tenant_l2_vlan_list"]:
             for vlan in data.leaf3_dict['tenant_vlan_list']:
                 evpn.map_vlan_vni(dut, vtep_name, vlan, vlan)
-                #vlan_api.add_vlan_member(dut, vlan , data.d5t1_ports[0], True)
-
+    
     else:
         def leaf1():
             dut = data.dut3
@@ -490,12 +477,9 @@ def config_leafInterface(config='yes'):
             nvo_name = data.nvo_names[0]
             vlan_vni = data.vni_vlan[0]
             ovrly_int = data.dut3_loopback_ip[1]
-            #vlan_list = [vlan_vni] + client_dict["tenant_l2_vlan_list"] + client_dict["tenant_l3_vlan_list"]
             vlan_list = [vlan_vni] + data.leaf1_dict['tenant_vlan_list']
-            #for vlan in client_dict["tenant_l2_vlan_list"]:
             for vlan in data.leaf1_dict['tenant_vlan_list']:
                 evpn.map_vlan_vni(dut, vtep_name, vlan, vlan, config = 'no')
-
             evpn.map_vrf_vni(dut, vrf_name=data.vrf1, vni=vlan_vni, vtep_name=vtep_name, config = 'no')
             evpn.map_vlan_vni(dut, vtep_name, vlan_vni, vlan_vni, config = 'no')
             evpn.create_evpn_instance(dut, nvo_name, vtep_name, config = 'no')
@@ -511,12 +495,9 @@ def config_leafInterface(config='yes'):
             nvo_name = data.nvo_names[1]
             vlan_vni = data.vni_vlan[0]
             ovrly_int = data.dut4_loopback_ip[1]
-            #vlan_list = [vlan_vni] + client_dict["tenant_l2_vlan_list"] + client_dict["tenant_l3_vlan_list"]
             vlan_list = [vlan_vni] + data.leaf2_dict['tenant_vlan_list']
-            #for vlan in client_dict["tenant_l2_vlan_list"]:
             for vlan in data.leaf2_dict['tenant_vlan_list']:
                 evpn.map_vlan_vni(dut, vtep_name, vlan, vlan, config = 'no')
-
             evpn.map_vrf_vni(dut, vrf_name=data.vrf1, vni=vlan_vni, vtep_name=vtep_name, config = 'no')
             evpn.map_vlan_vni(dut, vtep_name, vlan_vni, vlan_vni, config = 'no')
             evpn.create_evpn_instance(dut, nvo_name, vtep_name, config = 'no')
@@ -532,13 +513,10 @@ def config_leafInterface(config='yes'):
             nvo_name = data.nvo_names[2]
             vlan_vni = data.vni_vlan[0]
             ovrly_int = data.dut5_loopback_ip[1]
-            #vlan_list = [vlan_vni] + client_dict["tenant_l2_vlan_list"] + leaf3_dict["tenant_l3_vlan_list"]
             vlan_list = [vlan_vni] + data.leaf3_dict['tenant_vlan_list']
-            #for vlan in client_dict["tenant_l2_vlan_list"]:
             for vlan in data.leaf3_dict['tenant_vlan_list']:
                 evpn.map_vlan_vni(dut, vtep_name, vlan, vlan, config='no')
                 vlan_api.delete_vlan_member(dut,vlan, data.d5t1_ports[0],True)
-
             evpn.map_vrf_vni(dut, vrf_name=data.vrf1, vni=vlan_vni, vtep_name=vtep_name, config='no')
             evpn.map_vlan_vni(dut, vtep_name, vlan_vni, vlan_vni, config='no')
             evpn.create_evpn_instance(dut, nvo_name, vtep_name, config='no')
@@ -550,72 +528,42 @@ def config_leafInterface(config='yes'):
 
     st.exec_all([[leaf1],[leaf2],[leaf3]])
 
-'''
-stream_dict = {}
-tg_dict = {}
-han_dict = {}
-'''
-
 def tenant_vni_config(config = 'yes'):
     ################################################
     st.log("Configure L3 VNI Clients on each leaf node.")
     ################################################
-    '''
-    def sag_config(dut,intf,sag_ip_gw,sag_ip6_gw,config="add"):
-        if config == "add":
-            sag_mode = "enable"
-        else:
-            sag_mode = "disable"
-    '''
-    
     if config == 'yes' :
         def leaf1():
             dut = data.dut3
-            #config_vlan_and_member(dut, data.leaf1_dict["tenant_vlan_list"][:1]+data.leaf1_dict["tenant_vlan_list"][2:], data.d3t1_ports[0],config = 'add')
             vlan_api.add_vlan_member(dut, data.leaf1_dict["tenant_vlan_list"][0], data.d3t1_ports[0], True)
             vlan_api.add_vlan_member(dut, data.leaf1_dict["tenant_vlan_list"][1], data.d3t1_ports[1], True)
-            for vlan,vlan_int,ip1,ip6 in zip(data.leaf1_dict["tenant_vlan_list"],data.leaf1_dict["tenant_vlan_int"],
-                                            data.leaf1_dict["tenant_ip_list"],data.leaf1_dict["tenant_ipv6_list"]):
+            for vlan_int,ip1,ip6 in zip(data.leaf1_dict["tenant_vlan_int"], data.leaf1_dict["tenant_ip_list"],data.leaf1_dict["tenant_ipv6_list"]):
                 vrf_api.bind_vrf_interface(dut, vrf_name=data.vrf1, intf_name=vlan_int)
                 ip.config_ip_addr_interface(dut, vlan_int, ip1, data.mask_24)
                 ip.config_ip_addr_interface(dut, vlan_int, ip6, data.mask_v6, family='ipv6')
-                #evpn.map_vlan_vni(dut, vtep_name, vlan, vlan)
-                #evpn.map_vrf_vni(dut, vrf_name=vrf1, vni=vlan, vtep_name=vtep_name)
             data.dut3_gw_mac = basic.get_ifconfig(dut, data.leaf1_dict["tenant_vlan_int"][0])[0]['mac']
         def leaf2():
             dut = data.dut4
-            #config_vlan_and_member(dut, data.leaf2_dict["tenant_vlan_list"][:1]+data.leaf2_dict["tenant_vlan_list"][2:], data.d4t1_ports[0],config = 'add')
             vlan_api.add_vlan_member(dut, data.leaf2_dict["tenant_vlan_list"][0], data.d4t1_ports[0], True)
             vlan_api.add_vlan_member(dut, data.leaf2_dict["tenant_vlan_list"][1], data.d4t1_ports[1], True)
-            for vlan,vlan_int,ip1,ip6 in zip(data.leaf2_dict["tenant_vlan_list"],data.leaf2_dict["tenant_vlan_int"],
-                                            data.leaf2_dict["tenant_ip_list"],data.leaf2_dict["tenant_ipv6_list"]):
-                #vlan_api.add_vlan_member(dut,vlan,[data.d4t1_ports[0]],True)
+            for vlan_int,ip1,ip6 in zip(data.leaf2_dict["tenant_vlan_int"], data.leaf2_dict["tenant_ip_list"], data.leaf2_dict["tenant_ipv6_list"]):
                 vrf_api.bind_vrf_interface(dut, vrf_name=data.vrf1, intf_name=vlan_int)
                 ip.config_ip_addr_interface(dut, vlan_int, ip1, data.mask_24)
                 ip.config_ip_addr_interface(dut, vlan_int, ip6, data.mask_v6, family='ipv6')
             data.dut4_gw_mac = basic.get_ifconfig(dut, data.leaf2_dict["tenant_vlan_int"][0])[0]['mac']
         def leaf3():
             dut = data.dut5
-            #config_vlan_and_member(dut,data.leaf3_dict["tenant_vlan_list"],data.d5t1_ports[0],config = 'add')
             vlan_api.add_vlan_member(dut, data.leaf3_dict["tenant_vlan_list"][0], data.d5t1_ports[0], True)
             vlan_api.add_vlan_member(dut, data.leaf3_dict["tenant_vlan_list"][1], data.d5t1_ports[1], True)
-            for vlan,vlan_int,ip1,ip6 in zip(data.leaf3_dict["tenant_vlan_list"],data.leaf3_dict["tenant_vlan_int"],
-                                            data.leaf3_dict["tenant_ip_list"],data.leaf3_dict["tenant_ipv6_list"]):
+            for vlan_int,ip1,ip6 in zip(data.leaf3_dict["tenant_vlan_int"], data.leaf3_dict["tenant_ip_list"], data.leaf3_dict["tenant_ipv6_list"]):
                 vrf_api.bind_vrf_interface(dut, vrf_name=data.vrf1, intf_name=vlan_int)
                 ip.config_ip_addr_interface(dut, vlan_int, ip1, data.mask_24)
                 ip.config_ip_addr_interface(dut, vlan_int, ip6, data.mask_v6, family='ipv6')
-                #evpn.map_vlan_vni(dut, vtep_name, vlan, vlan)
-                #evpn.map_vrf_vni(dut, vrf_name=vrf1, vni=vlan, vtep_name=vtep_name)
-            
             data.dut5_gw_mac = basic.get_ifconfig(dut, data.leaf3_dict["tenant_vlan_int"][0])[0]['mac']
-            
-            # SAG Config - Same vlan interface as Leaf2
-            #vtep_name = data.vtep_names[2]
-    
     else:
         def leaf1():
             dut = data.dut3
-            for vlan, vlan_int, ip1, ip6 in zip(data.leaf1_dict["tenant_vlan_list"], data.leaf1_dict["tenant_vlan_int"], data.leaf1_dict["tenant_ip_list"], data.leaf1_dict["tenant_ipv6_list"]):
+            for vlan_int, ip1, ip6 in zip(data.leaf1_dict["tenant_vlan_int"], data.leaf1_dict["tenant_ip_list"], data.leaf1_dict["tenant_ipv6_list"]):
                 ip.delete_ip_interface(dut, vlan_int, ip1, data.mask_24)
                 ip.delete_ip_interface(dut, vlan_int, ip6, data.mask_v6, family='ipv6')
                 vrf_api.bind_vrf_interface(dut, vrf_name=data.vrf1, intf_name=vlan_int,config='no')
@@ -623,7 +571,7 @@ def tenant_vni_config(config = 'yes'):
             vlan_api.delete_vlan_member(dut, data.leaf1_dict["tenant_vlan_list"][1], data.d3t1_ports[1], True)
         def leaf2():
             dut = data.dut4
-            for vlan, vlan_int, ip1, ip6 in zip(data.leaf2_dict["tenant_vlan_list"], data.leaf2_dict["tenant_vlan_int"], data.leaf2_dict["tenant_ip_list"], data.leaf2_dict["tenant_ipv6_list"]):
+            for vlan_int, ip1, ip6 in zip(data.leaf2_dict["tenant_vlan_int"], data.leaf2_dict["tenant_ip_list"], data.leaf2_dict["tenant_ipv6_list"]):
                 ip.delete_ip_interface(dut, vlan_int, ip1, data.mask_24)
                 ip.delete_ip_interface(dut, vlan_int, ip6, data.mask_v6, family='ipv6')
                 vrf_api.bind_vrf_interface(dut, vrf_name=data.vrf1, intf_name=vlan_int,config='no')
@@ -631,25 +579,10 @@ def tenant_vni_config(config = 'yes'):
             vlan_api.delete_vlan_member(dut, data.leaf2_dict["tenant_vlan_list"][1], data.d4t1_ports[1], True)
         def leaf3():
             dut = data.dut5
-            vtep_name = data.vtep_names[1]
-            
-            '''
-            # SAG Config - Same vlan interface as Leaf2
-            vtep_name = data.vtep_names[2]
-            vlan = data.leaf2_dict["tenant_vlan_list"][2]
-            vlan_int = data.leaf2_dict["tenant_vlan_int"][2]
-            ip = data.leaf2_dict["tenant_ip_list"][2]
-            ip6 = data.leaf2_dict["tenant_ipv6_list"][2]
-            #sag_config(dut, vlan_int, ip, ip6, "remove")
-            '''
-            #evpn.map_vlan_vni(dut, vtep_name, vlan, vlan)
-            #evpn.map_vrf_vni(dut, vrf_name=vrf1, vni=vlan, vtep_name=vtep_name)
-            for vlan, vlan_int, ip1, ip6 in zip(data.leaf3_dict["tenant_vlan_list"], data.leaf3_dict["tenant_vlan_int"], data.leaf3_dict["tenant_ip_list"], data.leaf3_dict["tenant_ipv6_list"]):
+            for vlan_int, ip1, ip6 in zip(data.leaf3_dict["tenant_vlan_int"], data.leaf3_dict["tenant_ip_list"], data.leaf3_dict["tenant_ipv6_list"]):
                 ip.delete_ip_interface(dut, vlan_int, ip1, data.mask_24)
                 ip.delete_ip_interface(dut, vlan_int, ip6, data.mask_v6, family='ipv6')
                 vrf_api.bind_vrf_interface(dut, vrf_name=data.vrf1, intf_name=vlan_int, config='no')
-            #config_vlan_and_member(dut, data.leaf3_dict["tenant_vlan_list"], data.d5t1_ports[0], config='del')
-            #config_vlan_and_member(dut, [vlan], [data.d5t1_ports[0]], config='no')
             vlan_api.delete_vlan_member(dut, data.leaf3_dict["tenant_vlan_list"][0], data.d5t1_ports[0], True)
             vlan_api.delete_vlan_member(dut, data.leaf3_dict["tenant_vlan_list"][1], data.d5t1_ports[1], True)
     [res, exceptions] = st.exec_all([[leaf1], [leaf2],[leaf3]])

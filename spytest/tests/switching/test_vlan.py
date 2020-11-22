@@ -458,7 +458,7 @@ def test_ft_stormcontrol_portchannel_intf():
     try:
         time = int(counter2 / sc_data.rate_pps)
         counters_avg = counter / time
-    except:
+    except Exception:
         counters_avg = 0
     st.log("Average of counters are : {}".format(counters_avg))
     st.log("Higher packet count value is : {}".format(sc_data.higher_pkt_count))
@@ -544,7 +544,7 @@ def test_ft_stormcontrol_incremental_bps_max_vlan():
             try:
                 time = int(counter2 / sc_data.rate_pps)
                 counters_avg = counter / time
-            except:
+            except Exception:
                 counters_avg = 0
             st.log("Average of counters are : {}".format(counters_avg))
             st.log("Higher packet count value is : {}".format(sc_data.higher_pkt_cnt))

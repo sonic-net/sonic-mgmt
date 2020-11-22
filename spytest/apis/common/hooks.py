@@ -18,7 +18,7 @@ class Hooks(object):
             try:
                 version_data = self.show_version(dut)
                 break
-            except:
+            except Exception:
                 st.error("Failed to read version info")
                 version_data = ""
                 st.wait(1)
@@ -45,7 +45,7 @@ class Hooks(object):
         retval["mgmt_ipv4"] = st.get_mgmt_ip(dut)
         try:
             retval["mgmt_mac"] = mac.get_sbin_intf_mac(dut, retval["mgmt_ifname"])
-        except:
+        except Exception:
             retval["mgmt_mac"] = "unknown"
 
         output = st.show(dut,'ls /etc/sonic/bcmsim.cfg',skip_tmpl=True)

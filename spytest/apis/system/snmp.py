@@ -351,7 +351,7 @@ def walk_snmp_operation(**kwargs):
             output = pprocess.stdout.readline()
             try:
                 output = output.decode(errors='ignore')
-            except:
+            except Exception:
                 pass  # already decoded in python3
             if pprocess.poll() is not None and output.strip() == '':
                 snmp_error_stderr = pprocess.communicate()[1].encode().decode()

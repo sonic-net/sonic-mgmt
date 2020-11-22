@@ -2921,7 +2921,7 @@ def get_mclag_lvtep_common_mac():
             mac = "00:00:01:02:03:04"
             hdrMsg("FAIL : show mclag output is not as per template, traffic failure will be seen with this invalid common router MAC pls debug")
     elif isinstance(output1,bool) or isinstance(output2,bool):
-        if output1 == False or output2 == False:
+        if output1 is False or output2 is False:
             mac = "00:00:01:02:03:04"
             hdrMsg("FAIL : show mclag returns empty output, traffic failure will be seen with this invalid common router MAC pls debug")
     return mac
@@ -3727,7 +3727,7 @@ def create_stream_lvtep_5549():
 
     stream = tg.tg_traffic_config(mode='create', port_handle=tg_dict['d3_tg_ph1'],
                                   transmit_mode="continuous", rate_pps=tg_dict['tgen_rate_pps'], frame_size='1000',
-                                  l2_encap='ethernet_ii_vlan', vlan="enable",
+                                  l2_encap='ethernet_ii_vlan', vlan="enable",port_handle2=tg_dict['d7_tg_ph1'],
                                   vlan_id=evpn_dict["l3_vni_sag"]["l3_vni_sagvlan_list"][0],vlan_id_count='1',
                                   vlan_id_mode="increment", vlan_id_step='1',
                                   mac_src='00:00:00:33:33:33', mac_dst='00:00:00:77:33:33')
@@ -3736,7 +3736,7 @@ def create_stream_lvtep_5549():
 
     stream = tg.tg_traffic_config(mode='create', port_handle=tg_dict['d7_tg_ph1'],
                                   transmit_mode="continuous", rate_pps=tg_dict['tgen_rate_pps'], frame_size='1000',
-                                  l2_encap='ethernet_ii_vlan', vlan="enable",
+                                  l2_encap='ethernet_ii_vlan', vlan="enable",port_handle2=tg_dict['d3_tg_ph1'],
                                   vlan_id=evpn_dict["l3_vni_sag"]["l3_vni_sagvlan_list"][0], vlan_id_count='1',
                                   vlan_id_mode="increment", vlan_id_step='1',
                                   mac_dst='00:00:00:33:33:33', mac_src='00:00:00:77:33:33')

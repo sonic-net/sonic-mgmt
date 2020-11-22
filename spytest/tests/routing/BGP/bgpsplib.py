@@ -701,7 +701,7 @@ class BGPSP:
                 if len(sp_topo_path) == length_limit :
                     leaf_dut = True
 
-                if leaf_dut == True :
+                if leaf_dut is True :
                     st.log("      Linear found Dut {} ".format(curr_dut))
                     st.log("      Linear found sp path {} ".format(sp_topo_path))
                     st.log("      Linear found longest path {} ".format(longest_path))
@@ -891,7 +891,7 @@ class BGPSP:
 
                         sp_topo_path.pop()
 
-                    if leaf_dut == True :
+                    if leaf_dut is True :
                         sp_topo_path.pop()
 
                 if  len(longest_path) == length_limit :

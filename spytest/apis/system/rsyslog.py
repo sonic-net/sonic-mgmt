@@ -4,7 +4,7 @@ from apis.system.rest import config_rest, delete_rest, get_rest
 
 def config_remote_syslog_server(dut, **kwargs):
     """
-    Configuring syslog server 
+    Configuring syslog server
     :param dut:
     :param host:
     :param source_intf:
@@ -29,7 +29,7 @@ def config_remote_syslog_server(dut, **kwargs):
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
     if config.lower() == 'yes':
         config = ''
-    if host == None:
+    if host is None:
         st.error("Mandatory parameter hostname/IP address not found")
         return False
     if cli_type == 'klish':
@@ -78,7 +78,7 @@ def config_remote_syslog_server(dut, **kwargs):
 
 def verify_remote_syslog_server(dut, **kwargs):
     """
-    Verifying syslog server 
+    Verifying syslog server
     :param dut:
     :param host:
     :param source_intf:
@@ -97,14 +97,14 @@ def verify_remote_syslog_server(dut, **kwargs):
     remote_port =  kwargs.get('remote_port',None)
     vrf =  kwargs.get('vrf',None)
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
-    if host == None:
+    if host is None:
         st.error("Mandatory parameter hostname/IP address not sent")
         return False
     if cli_type == 'klish':
         st.log("show logging servers")
         command = "show logging servers"
         output = st.show(dut,command,type = "klish",config = "false",skip_error_check = "True")
-        entry = filter_and_select(output, None, {"host": host}) 
+        entry = filter_and_select(output, None, {"host": host})
         for val in entry:
             if val['host'] != host:
                 st.log("Host is not as expected {}".format(host))
@@ -130,7 +130,7 @@ def verify_remote_syslog_server(dut, **kwargs):
             if payload['openconfig-system-ext:source-interface'] != str(source_intf):
                 st.log("Source Interface is not as expected {}".format(source_intf))
                 return False
-        if remote_port != None: 
+        if remote_port != None:
             if payload['remote-port'] != int(remote_port):
                 st.log("Remote port is not as expected {}".format(remote_port))
                 return False

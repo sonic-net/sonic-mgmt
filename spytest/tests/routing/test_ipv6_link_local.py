@@ -569,7 +569,7 @@ def verify_traffic_hash(dut, port_list, pkts_per_port, traffic_loss_verify=False
             if counter_dict['iface'] == port:
                 try:
                     data.intf_count_dict[port] = int(counter_dict['tx_ok'].replace(',',''))
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 if not (data.intf_count_dict[port] >= pkts_per_port):
                     intf_obj.show_interface_counters_detailed(vars.D1, vars.D1T1P1)
@@ -579,14 +579,14 @@ def verify_traffic_hash(dut, port_list, pkts_per_port, traffic_loss_verify=False
             if counter_dict['iface'] == rx_port:
                 try:
                     data.rx_traffic = int(counter_dict['rx_ok'].replace(',', ''))
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 break
         for counter_dict in data.int_cntr_2:
             if counter_dict['iface'] == tx_port:
                 try:
                     data.tx_traffic = int(counter_dict['tx_ok'].replace(',', ''))
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 break
         if not (data.tx_traffic >= 0.95* data.rx_traffic):

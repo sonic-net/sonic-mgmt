@@ -549,7 +549,7 @@ def check_for_stp_convergence(root_intf_check=True, root_to_exclude_intf_dict={}
     utils.banner_log("Checking for STP convergence : ROOT BRIDGE BASED ON CONFIGURED BRIDGE PRIORITY")
     data.dut_to_vlan_dict = {}
     data.dut_to_intf_dict = {}
-    if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+    if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
         for dut, dut_data in data.stp_data.items():
             data.dut_to_vlan_dict[dut] = dut_data["vlan"]
             data.dut_to_intf_dict[dut] = dut_data["intf_list"]
@@ -598,7 +598,7 @@ def check_for_stp_convergence(root_intf_check=True, root_to_exclude_intf_dict={}
     if root_intf_check:
         utils.banner_log("Checking for STP convergence : ROOT BRIDGE INTERFACE STATE VERIFICATION ")
         if len(root_to_exclude_intf_dict):
-            if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+            if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
                 dut_to_intf_dict = {k:v for k,v in data.dut_to_intf_dict.items()}
                 intf_list = []
                 for elem in data.dut_to_intf_dict[root_to_exclude_intf_dict['dut']]:
@@ -621,7 +621,7 @@ def check_for_stp_convergence(root_intf_check=True, root_to_exclude_intf_dict={}
                 else:
                     st.log("ROOT BRIDGE INTERFACE STATE VERIFICATION : PASSED")
         else:
-            if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+            if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
                 st.log("data.dut_to_vlan_dict : {}".format(data.dut_to_vlan_dict))
                 st.log("data.dut_to_intf_dict : {}".format(data.dut_to_intf_dict))
                 if not stp.poll_root_bridge_interfaces(data.dut_to_vlan_dict, data.dut_to_intf_dict):
@@ -1051,7 +1051,7 @@ def module_config(vars, stp_protocol, topology_2_tier, topology_scale=False, ini
     if xstp:
         # Configuring of STP on vlans on all the DUTs
         utils.banner_log("Configuring STP vlan parameters on all DUTs")
-        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
             if data.topology_2_tier:
                 data.stp_data = {data.MCLAG_2_A: {"vlan":data.normal_vlans[0], "priority": 0, "intf_list": data.MCLAG_2_A_Complete_Port_List}, data.MCLAG_2_S: {"vlan":data.normal_vlans[0], "priority": 0, "intf_list": data.MCLAG_2_S_Complete_Port_List}, data.MCLAG_1_A: {"vlan":data.normal_vlans[1], "priority": 0, "intf_list": data.MCLAG_1_A_Complete_Port_List}, data.MCLAG_1_S: {"vlan":data.normal_vlans[1], "priority": 0, "intf_list": data.MCLAG_1_S_Complete_Port_List}, data.MCLAG_CLIENT: {"vlan":data.normal_vlans[2], "priority": 0, "intf_list": data.MCLAG_CLIENT_Complete_Port_List}}
             else:
@@ -1639,7 +1639,7 @@ def lib_stp_mclag_disable_enable_stp():
             stp.config_stp_parameters(data.MCLAG_1_A, priority=0)
             stp.config_stp_parameters(data.MCLAG_1_S, priority=0)
 
-        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
             stp.config_stp_root_bridge_by_vlan(data.stp_data)
         else:
             data.stp_data1 = {data.MCLAG_1_A: {"vlan":data.normal_vlans[0], "priority": 0, "intf_list": data.MCLAG_1_A_Complete_Port_List}, data.MCLAG_1_S: {"vlan":data.normal_vlans[0], "priority": 0, "intf_list": data.MCLAG_1_S_Complete_Port_List}}
@@ -2119,7 +2119,7 @@ def lib_stp_mclag_unconfig_config_mclag():
                     res_1 = False
         else:
             root_bridge = stp.get_default_root_bridge([data.MCLAG_1_A, data.MCLAG_1_S])
-            if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+            if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
                 stp_data = {data.MCLAG_2_A: {"vlan":data.normal_vlans[0]}, root_bridge: {"vlan":data.normal_vlans[1]}, data.MCLAG_CLIENT: {"vlan":data.normal_vlans[2]}}
                 for dut, dut_data in stp_data.items():
                     if stp.poll_for_root_switch(dut, dut_data["vlan"], iteration=10, delay=4):
@@ -2254,7 +2254,7 @@ def lib_stp_mclag_peer_link_tests():
         root_bridge = [dut for dut in [data.MCLAG_1_A, data.MCLAG_1_S] if dut == root_bridge][0]
 
         st.log("ROOT BRIDGE BASED ON MCLAG SYSTEM MAC IS : {} and MCLAG SYSTEM MAC IS : {}".format(root_bridge, min_mac_addr))
-        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
             stp_data = {data.MCLAG_2_A: {"vlan":data.normal_vlans[0]}, root_bridge: {"vlan":data.normal_vlans[1]}, data.MCLAG_CLIENT: {"vlan":data.normal_vlans[2]}}
             for dut, dut_data in stp_data.items():
                 if stp.poll_for_root_switch(dut, dut_data["vlan"], iteration=10, delay=4):
@@ -2279,7 +2279,7 @@ def lib_stp_mclag_peer_link_tests():
                 log_error("UNSUCCESSFULL : {} is not root switch for vlan {}".format(root_bridge, data.normal_vlans[2]))
                 res_1 = False
 
-        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root == False):
+        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
             if not check_traffic("both", "forward", False):
                 res_1 = False
 

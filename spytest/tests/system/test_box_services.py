@@ -1,7 +1,6 @@
 import pytest
 from spytest import st
 import apis.system.box_services as boxserv_obj
-import apis.system.basic as basic_obj
 
 pytest.fixture(scope="module", autouse=True)
 def box_service_module_hooks(request):

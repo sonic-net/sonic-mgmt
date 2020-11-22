@@ -249,7 +249,7 @@ def add_del_member_using_thread(dut_list, portchannel_list, member_list, flag = 
 
 def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_verify = False, rx_port = '',
                                  tx_port = '', dut2 =''):
-    if traffic_loss_verify == True:
+    if traffic_loss_verify is True:
         sub_list = []
         sub_list.append([intf_obj.show_interface_counters_all, dut])
         sub_list.append([intf_obj.show_interface_counters_all, dut2])
@@ -265,18 +265,18 @@ def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_ver
                 try:
                     tx_ok_counter = counter_dict['tx_ok'].replace(',', '')
                     data.intf_count_dict[port] = int(tx_ok_counter) if tx_ok_counter.isdigit() else 0
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 if not (data.intf_count_dict[port] >= pkts_per_port):
                     intf_obj.show_interface_counters_detailed(vars.D1, vars.D1T1P1)
                     st.report_fail("traffic_not_hashed", dut)
-    if traffic_loss_verify == True:
+    if traffic_loss_verify is True:
         for counter_dict in data.intf_counters_1:
             if counter_dict['iface'] == rx_port:
                 try:
                     rx_ok_counter = counter_dict['rx_ok'].replace(',', '')
                     data.rx_traffic = int(rx_ok_counter) if rx_ok_counter.isdigit() else 0
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 break
         for counter_dict in data.intf_counters_2:
@@ -284,7 +284,7 @@ def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_ver
                 try:
                     tx_ok_counter = counter_dict['tx_ok'].replace(',', '')
                     data.tx_traffic = int(tx_ok_counter) if tx_ok_counter.isdigit() else 0
-                except:
+                except Exception:
                     st.report_fail('invalid_traffic_stats')
                 break
         if not (data.tx_traffic >= 0.95* data.rx_traffic):
@@ -331,7 +331,7 @@ def verify_portchannel_cum_member_status(dut, portchannel, members_list, iter_co
 def check_lldp_neighbors(dut, port, ipaddress, hostname):
     try:
         lldp_value = lldp_obj.get_lldp_neighbors(dut, interface=port)[0]
-    except:
+    except Exception:
         st.error("No LLDP entries are found")
         return False
     lldp_value_dut2 = lldp_value['chassis_mgmt_ip']
@@ -339,7 +339,7 @@ def check_lldp_neighbors(dut, port, ipaddress, hostname):
         if not ipaddress[0] == lldp_value_dut2 :
             st.error("Entries are not matching")
             return False
-    except:
+    except Exception:
         st.error("Entries are not matching")
         return False
     lldp_value_hostname = lldp_value['chassis_name']
@@ -497,7 +497,7 @@ def test_ft_portchannel_behavior_with_tagged_traffic():
     st.log('Verify whether the portchannel is down or not')
     try:
         data.portchannel_status_output = portchannel_obj.get_portchannel(vars.D1, portchannel_name=data.portchannel_name)[0]
-    except:
+    except Exception:
         data.return_value = 3
         st.report_fail('portchannel_verification_failed', data.portchannel_name, vars.D1)
     if not ((data.portchannel_status_output['protocol'] == 'LACP(A)(Dw)') or (data.portchannel_status_output['protocol']

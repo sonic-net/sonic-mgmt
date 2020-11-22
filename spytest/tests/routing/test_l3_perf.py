@@ -868,7 +868,7 @@ def measure_v4_route_scale_time(route_count, show_flag):
 
     retval = bgpfeature.verify_bgp_summary(dut, neighbor=data.neigh_ip_addr, state='Established')
 
-    if retval == True:
+    if retval is True:
         output = bcm_show(dut, 'bcmcmd "l3 defip show" | wc -l')
         st.log(output)
         default_route = parse_route_output(output)
@@ -918,7 +918,7 @@ def test_l3_perf_tc_11_4():
 
 @pytest.mark.l3_scale_ut
 def test_l3_perf_tc_14_3():
-  if (data.result_14_3 == True):
+  if (data.result_14_3 is True):
     #measure_v4_route_scale_time(80000, True)
     st.report_pass("test_case_passed")
 
@@ -1015,7 +1015,7 @@ def test_l3_perf_tc_11_7():
 def test_l3_perf_tc_13_1():
     vars = st.get_testbed_vars()
     dut2 = vars.D2
-    if (data.l3_intf == False):
+    if (data.l3_intf is False):
         output = bcm_show(dut2, 'bcmcmd "l3 intf show" | wc -l')
         st.log(output)
         default_intf_count = parse_route_output(output)
@@ -1066,7 +1066,7 @@ def test_l3_perf_tc_14_2():
     vars = st.get_testbed_vars()
     dut2 = vars.D2
 
-    if (data.l3_intf == False):
+    if (data.l3_intf is False):
         output = bcm_show(dut2, 'bcmcmd "l3 intf show" | wc -l')
         st.log(output)
         default_intf_count = parse_route_output(output)

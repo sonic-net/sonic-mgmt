@@ -405,7 +405,7 @@ def test_protocol_field_set_packets():
     #verify captured packets have DMAC as 01005e010101 ,Dest_ip as 225.1.1.1 and protocol to 2(IGMP)
     ret_val =  tgapi.validate_packet_capture(tg_type=tg2.tg_type,pkt_dict=packet_dict,header_list=['ETH:Destination','IP:Destination','IP:Protocol'],\
                                        offset_list=[0,30,23],value_list=['01:00:5E:01:01:01','225.1.1.1','02'])
-    if ret_val == False:
+    if ret_val is False:
         st.log("No IGMP packets received on tg2")
         st.report_fail("operation_failed")
     else:

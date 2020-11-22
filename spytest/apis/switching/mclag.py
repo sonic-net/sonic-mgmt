@@ -6,7 +6,7 @@ from spytest.utils import filter_and_select
 import spytest.utils as utils
 from apis.common import redis
 from utilities.utils import get_interface_number_from_name
-from apis.system.rest import get_rest,config_rest
+from apis.system.rest import get_rest
 
 def config_domain(dut,domain_id,**kwargs):
     '''

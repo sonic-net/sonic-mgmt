@@ -10,7 +10,7 @@ from apis.system.snmp import verify_snmp_details_using_docker
 from apis.system.interface import interface_noshutdown
 from apis.system.port import breakout, get_interface_details_by_alt_name
 from apis.routing.ip import config_ip_addr_interface, ping
-from apis.system.reboot import config_save
+#from apis.system.reboot import config_save
 
 files_path = os.path.join(os.path.dirname(__file__), 'files')
 files_path = os.path.abspath(files_path)

@@ -2040,7 +2040,7 @@ class TOPOLOGY:
                 if len(nw_topo_path) == length_limit :
                     leaf_dut = True
 
-                if leaf_dut == True :
+                if leaf_dut is True :
                     st.log("      Linear found Dut {} ".format(curr_dut))
                     st.log("      Linear found sp path {} ".format(nw_topo_path))
                     st.log("      Linear found longest path {} ".format(longest_path))
@@ -2244,7 +2244,7 @@ class TOPOLOGY:
 
                         nw_topo_path.pop()
 
-                    if leaf_dut == True :
+                    if leaf_dut is True :
                         nw_topo_path.pop()
 
                 if  len(longest_path) == length_limit :
@@ -4126,14 +4126,14 @@ class TOPOLOGY:
 
         index = 0
         for res, err in out :
-            if res == False :
+            if res is False :
                if result :
                    resstr = "{}".format(err)
                    result = False
                else :
                    resstr += " - {}".format(err)
 
-               st.log("{} thread {} Failed with result:{} errstr:{} except:{}".format(
+               st.log("{} thread {} Failed with result:{} errstr:{} except Exception:{}".format(
                                         prefixstr, index, res, err, exceptions[index]))
             index += 1
 

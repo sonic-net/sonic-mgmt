@@ -121,7 +121,7 @@ class SonicBaseConnection(CiscoBaseConnection):
         Added extended_login to the base function for handling the password change in ssh scenario.
         """
         output = self._test_channel_read()
-        output = self.extended_login(output)
+        self.extended_login(output)
         self.set_base_prompt()
         self.disable_paging()
         self.set_terminal_width()
@@ -380,7 +380,7 @@ class SonicBaseConnection(CiscoBaseConnection):
         max_loops = max_loops * 4
         # trying to use agressive loop delay
 
-        loop_sleep = loop_delay * delay_factor
+        #loop_sleep = loop_delay * delay_factor
 
         # trying to use constant loop sleep
         loop_sleep = loop_delay

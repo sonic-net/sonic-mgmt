@@ -1046,7 +1046,7 @@ def debug_mroute(dut,type=None):
     :param type:
     :return:
     """
-    if type == None:
+    if type is None:
         cmd = 'debug mroute'
     else:
         cmd = 'debug mroute detail'

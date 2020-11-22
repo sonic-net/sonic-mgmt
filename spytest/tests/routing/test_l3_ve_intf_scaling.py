@@ -165,7 +165,7 @@ def l3_intf_scaling_tc_6_1_to_6_5():
     res1 = True
     json_apply_path = json_path+"/routing/th2-270_ve_config_db.json"
     #st.apply_files(dut, ["$PWD/tests/routing/1k_ve_config_db.json"])
-    if apply_file == True:
+    if apply_file is True:
         st.apply_files(dut, [json_apply_path])
     # L3 INTF SCALING TEST CASE 1.1 START
     st.wait(30)

@@ -3,6 +3,7 @@ import utilities.common as utils
 
 # None - Configured, False - Alias, True - Native
 use_native=True # use only native
+tgen_link_status_supported = False
 
 def log_info(fmt, *args):
     st.log(fmt % args)
@@ -128,7 +129,6 @@ def verify_topology(hooks, check_type, threads=True):
                 results.append(result)
                 continue
 
-            tgen_link_status_supported = False
             if tgen_link_status_supported:
                 # shutdown local link and get remote link stats in partner
                 hooks.shutdown(dut, [local])
@@ -195,7 +195,7 @@ def links_status(hooks, threads, check_type):
         if v1 is None or v2 is None or e1 is not None or e2 is not None or seen_exp:
             print(v1, v2, e1, e2, seen_exp)
             return [True, header, [], True, show_alias]
-    except:
+    except Exception:
         print("Observed exception during the thread call return handling")
         return [True, header, [], True, show_alias]
 
@@ -274,7 +274,7 @@ def tg_links_status(check_type):
             return dict()
     try:
         return tg_links_status_using_native_calls()
-    except:
+    except Exception:
         return tg_links_status_using_hltapi()
 
 def duts_links_status(hooks, threads):

@@ -1,11 +1,7 @@
 # This file contains the list of API's which performs LDAP operations.
 from spytest import st
-from spytest import st
 from spytest.utils import filter_and_select
-from tabulate import tabulate
 from apis.system.rest import config_rest, get_rest, delete_rest
-import apis.system.basic as basic_obj
-import time
 
 
 debug = False
@@ -296,7 +292,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         if 'timelimit' in kwargs:
-            url1 = rest_urls['ldap_server_time']        
+            url1 = rest_urls['ldap_server_time']
             server_time = {"openconfig-aaa-ldap-ext:search-time-limit": kwargs['timelimit']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_time, timeout = time_out):
@@ -307,7 +303,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server search time limit {}".format(kwargs['timelimit']))
                     return False
         if 'bind_timelimit' in kwargs:
-            url1 = rest_urls['ldap_server_bindtime']        
+            url1 = rest_urls['ldap_server_bindtime']
             server_bindtime = {"openconfig-aaa-ldap-ext:bind-time-limit": kwargs['bind_timelimit']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_bindtime, timeout = time_out):
@@ -318,7 +314,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server bind time limit {}".format(kwargs['bind_timelimit']))
                     return False
         if 'idle_timelimit' in kwargs:
-            url1 = rest_urls['ldap_server_idletime']        
+            url1 = rest_urls['ldap_server_idletime']
             server_idletime = {"openconfig-aaa-ldap-ext:idle-time-limit": kwargs['idle_timelimit']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_idletime, timeout = time_out):
@@ -329,7 +325,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server idle time limit {}".format(kwargs['idle_timelimit']))
                     return False
         if 'retry' in kwargs:
-            url1 = rest_urls['ldap_server_retry']        
+            url1 = rest_urls['ldap_server_retry']
             server_retry = {"openconfig-aaa-ldap-ext:retransmit-attempts": kwargs['retry']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_retry, timeout = time_out):
@@ -340,7 +336,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server retransmit attempt {}".format(kwargs['retry']))
                     return False
         if 'port' in kwargs:
-            url1 = rest_urls['ldap_server_port']        
+            url1 = rest_urls['ldap_server_port']
             server_port = {"openconfig-aaa-ldap-ext:port": kwargs['port']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_port, timeout = time_out):
@@ -351,7 +347,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server port {}".format(kwargs['port']))
                     return False
         if 'scope' in kwargs:
-            url1 = rest_urls['ldap_server_scope']        
+            url1 = rest_urls['ldap_server_scope']
             server_scope = {"openconfig-aaa-ldap-ext:scope": kwargs['scope']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_scope, timeout = time_out):
@@ -362,7 +358,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server scope {}".format(kwargs['scope']))
                     return False
         if 'ldap_version' in kwargs:
-            url1 = rest_urls['ldap_server_version']        
+            url1 = rest_urls['ldap_server_version']
             server_version = {"openconfig-aaa-ldap-ext:version": kwargs['ldap_version']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_version, timeout = time_out):
@@ -373,7 +369,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server version {}".format(kwargs['ldap_version']))
                     return False
         if 'base_dn' in kwargs:
-            url1 = rest_urls['ldap_server_basedn']        
+            url1 = rest_urls['ldap_server_basedn']
             server_basedn = {"openconfig-aaa-ldap-ext:base": kwargs['base_dn']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_basedn, timeout = time_out):
@@ -384,7 +380,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server base DN {}".format(kwargs['base_dn']))
                     return False
         if 'ssl' in kwargs:
-            url1 = rest_urls['ldap_server_ssl']        
+            url1 = rest_urls['ldap_server_ssl']
             server_ssl = {"openconfig-aaa-ldap-ext:ssl": kwargs['ssl']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_ssl, timeout = time_out):
@@ -395,7 +391,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server SSL {}".format(kwargs['ssl']))
                     return False
         if 'bind_dn' in kwargs:
-            url1 = rest_urls['ldap_server_binddn']        
+            url1 = rest_urls['ldap_server_binddn']
             server_binddn = {"openconfig-aaa-ldap-ext:bind-dn": kwargs['bind_dn']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_binddn, timeout = time_out):
@@ -406,7 +402,7 @@ def config_ldap_server_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server bind DN {}".format(kwargs['bind_dn']))
                     return False
         if 'bind_pwd' in kwargs:
-            url1 = rest_urls['ldap_server_bindpw']        
+            url1 = rest_urls['ldap_server_bindpw']
             server_bindpwd = {"openconfig-aaa-ldap-ext:bind-pw": kwargs['bind_pwd']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_bindpwd, timeout = time_out):
@@ -459,7 +455,7 @@ def config_ldap_server_pam_global_attributes(dut, **kwargs):
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         if 'pam_filter' in kwargs:
-            url1 = rest_urls['ldap_server_pam_filter']        
+            url1 = rest_urls['ldap_server_pam_filter']
             server_pam_filter = {"openconfig-aaa-ldap-ext:pam-filter": kwargs['pam_filter']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_pam_filter, timeout = time_out):
@@ -470,7 +466,7 @@ def config_ldap_server_pam_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server pam filter {}".format(kwargs['pam_filter']))
                     return False
         if 'pam_login_attribute' in kwargs:
-            url1 = rest_urls['ldap_server_pam_login_attri']        
+            url1 = rest_urls['ldap_server_pam_login_attri']
             server_pam_login_attri = {"openconfig-aaa-ldap-ext:pam-login-attribute": kwargs['pam_login_attribute']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_pam_login_attri, timeout = time_out):
@@ -481,7 +477,7 @@ def config_ldap_server_pam_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server pam login attribute {}".format(kwargs['pam_login_attribute']))
                     return False
         if 'pam_group_dn' in kwargs:
-            url1 = rest_urls['ldap_server_pam_groupdn']        
+            url1 = rest_urls['ldap_server_pam_groupdn']
             server_pam_login_groupdn = {"openconfig-aaa-ldap-ext:pam-group-dn": kwargs['pam_group_dn']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_pam_login_groupdn, timeout = time_out):
@@ -492,7 +488,7 @@ def config_ldap_server_pam_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server pam group DN {}".format(kwargs['pam_group_dn']))
                     return False
         if 'pam_member_attribute' in kwargs:
-            url1 = rest_urls['ldap_server_pam_mem_attri']        
+            url1 = rest_urls['ldap_server_pam_mem_attri']
             server_pam_member_attri = {"openconfig-aaa-ldap-ext:pam-member-attribute": kwargs['pam_member_attribute']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_pam_member_attri, timeout = time_out):
@@ -564,7 +560,7 @@ def config_ldap_server_nss_sudo_global_attributes(dut, **kwargs):
             st.error("Failed to configure ldap sudo server parent object")
             return False
         if 'nss_base_passwd' in kwargs:
-            url1 = rest_urls['ldap_server_nss_basepwd']        
+            url1 = rest_urls['ldap_server_nss_basepwd']
             server_nss_basepwd = {"openconfig-aaa-ldap-ext:nss-base-passwd": kwargs['nss_base_passwd']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_basepwd, timeout = time_out):
@@ -575,7 +571,7 @@ def config_ldap_server_nss_sudo_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server NSS based password {}".format(kwargs['nss_base_passwd']))
                     return False
         if 'nss_base_group' in kwargs:
-            url1 = rest_urls['ldap_server_nss_base_group']        
+            url1 = rest_urls['ldap_server_nss_base_group']
             server_nss_basegrp = {"openconfig-aaa-ldap-ext:nss-base-group": kwargs['nss_base_group']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_basegrp, timeout = time_out):
@@ -586,7 +582,7 @@ def config_ldap_server_nss_sudo_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server NSS based group {}".format(kwargs['nss_base_group']))
                     return False
         if 'nss_base_shadow' in kwargs:
-            url1 = rest_urls['ldap_server_nss_base_shadow']        
+            url1 = rest_urls['ldap_server_nss_base_shadow']
             server_nss_baseshadow = {"openconfig-aaa-ldap-ext:nss-base-shadow": kwargs['nss_base_shadow']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_baseshadow, timeout = time_out):
@@ -597,7 +593,7 @@ def config_ldap_server_nss_sudo_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server NSS based shadow {}".format(kwargs['nss_base_shadow']))
                     return False
         if 'nss_base_netgroup' in kwargs:
-            url1 = rest_urls['ldap_server_nss_base_netgroup']        
+            url1 = rest_urls['ldap_server_nss_base_netgroup']
             server_nss_bases_netgrp = {"openconfig-aaa-ldap-ext:nss-base-netgroup": kwargs['nss_base_netgroup']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_bases_netgrp, timeout = time_out):
@@ -608,7 +604,7 @@ def config_ldap_server_nss_sudo_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server NSS based net group {}".format(kwargs['nss_base_netgroup']))
                     return False
         if 'nss_base_sudoers' in kwargs:
-            url1 = rest_urls['ldap_server_nss_base_sudoers']        
+            url1 = rest_urls['ldap_server_nss_base_sudoers']
             server_nss_bases_sudoers = {"openconfig-aaa-ldap-ext:nss-base-sudoers": kwargs['nss_base_sudoers']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_bases_sudoers, timeout = time_out):
@@ -619,7 +615,7 @@ def config_ldap_server_nss_sudo_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server NSS based sudoers {}".format(kwargs['nss_base_sudoers']))
                     return False
         if 'nss_initgroups_ignoreusers' in kwargs:
-            url1 = rest_urls['ldap_server_nss_ignore_group']        
+            url1 = rest_urls['ldap_server_nss_ignore_group']
             server_nss_initgrp_ignoreusr = {"openconfig-aaa-ldap-ext:nss-initgroups-ignoreusers": kwargs['nss_initgroups_ignoreusers']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_initgrp_ignoreusr, timeout = time_out):
@@ -630,7 +626,7 @@ def config_ldap_server_nss_sudo_global_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server NSS init Group ignore users {}".format(kwargs['nss_initgroups_ignoreusers']))
                     return False
         if 'sudoers_base' in kwargs:
-            url1 = rest_urls['ldap_server_sudoers_base']        
+            url1 = rest_urls['ldap_server_sudoers_base']
             server_sudoer_base = {"openconfig-aaa-ldap-ext:sudoers-base": kwargs['sudoers_base']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_sudoer_base, timeout = time_out):
@@ -652,7 +648,7 @@ def config_ldap_client_srcintf_vrf(dut, **kwargs):
 
     Configure ldap client ip address and vrf name
     :param dut:
-    :param port 
+    :param port
     :param loopback
     :param management
     :param portchannel
@@ -708,7 +704,7 @@ def config_ldap_client_srcintf_vrf(dut, **kwargs):
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url1 = rest_urls['ldap_server_srcintf']
-        if 'port' in kwargs:        
+        if 'port' in kwargs:
             server_srcint_eth = {"openconfig-aaa-ldap-ext:source-interface": 'Ethernet'+kwargs['port']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_srcint_eth, timeout = time_out):
@@ -718,7 +714,7 @@ def config_ldap_client_srcintf_vrf(dut, **kwargs):
                 if not delete_rest(dut, rest_url=url1, timeout = time_out):
                     st.error("Failed to Unconfigure ldap server source interface Ethernet {}".format(kwargs['port']))
                     return False
-        if 'loopback' in kwargs:        
+        if 'loopback' in kwargs:
             server_srcint_loop = {"openconfig-aaa-ldap-ext:source-interface": 'Loopback'+kwargs['loopback']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_srcint_loop, timeout = time_out):
@@ -728,7 +724,7 @@ def config_ldap_client_srcintf_vrf(dut, **kwargs):
                 if not delete_rest(dut, rest_url=url1, timeout = time_out):
                     st.error("Failed to Unconfigure ldap server source interface loopback {}".format(kwargs['loopback']))
                     return False
-        if 'management' in kwargs:        
+        if 'management' in kwargs:
             server_srcint_mgmt = {"openconfig-aaa-ldap-ext:source-interface": 'eth'+kwargs['management']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_srcint_mgmt, timeout = time_out):
@@ -738,7 +734,7 @@ def config_ldap_client_srcintf_vrf(dut, **kwargs):
                 if not delete_rest(dut, rest_url=url1, timeout = time_out):
                     st.error("Failed to Unconfigure ldap server source interface mgmt eth {}".format(kwargs['management']))
                     return False
-        if 'vlan' in kwargs:        
+        if 'vlan' in kwargs:
             server_srcint_vlan = {"openconfig-aaa-ldap-ext:source-interface": 'Vlan'+kwargs['vlan']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_srcint_vlan, timeout = time_out):
@@ -748,7 +744,7 @@ def config_ldap_client_srcintf_vrf(dut, **kwargs):
                 if not delete_rest(dut, rest_url=url1, timeout = time_out):
                     st.error("Failed to Unconfigure ldap server source interface vlan {}".format(kwargs['vlan']))
                     return False
-        if 'portchannel' in kwargs:        
+        if 'portchannel' in kwargs:
             server_srcint_po = {"openconfig-aaa-ldap-ext:source-interface": 'PortChannel'+kwargs['portchannel']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_srcint_po, timeout = time_out):
@@ -758,8 +754,8 @@ def config_ldap_client_srcintf_vrf(dut, **kwargs):
                 if not delete_rest(dut, rest_url=url1, timeout = time_out):
                     st.error("Failed to Unconfigure ldap server source interface portchannel {}".format(kwargs['portchannel']))
                     return False
-        if 'vrf' in kwargs: 
-            url2 = rest_urls['ldap_server_vrf']       
+        if 'vrf' in kwargs:
+            url2 = rest_urls['ldap_server_vrf']
             server_vrf = {"openconfig-aaa-ldap-ext:vrf-name": kwargs['vrf']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url2, json_data=server_vrf, timeout = time_out):
@@ -866,7 +862,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
             st.error("Failed to configure ldap nss server parent object")
             return False
         if 'timelimit' in kwargs:
-            url1 = rest_urls['ldap_nss_server_time']        
+            url1 = rest_urls['ldap_nss_server_time']
             server_time = {"openconfig-aaa-ldap-ext:search-time-limit": kwargs['timelimit']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_time, timeout = time_out):
@@ -877,7 +873,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server search time limit {}".format(kwargs['timelimit']))
                     return False
         if 'bind_timelimit' in kwargs:
-            url1 = rest_urls['ldap_nss_server_bindtime']        
+            url1 = rest_urls['ldap_nss_server_bindtime']
             server_bindtime = {"openconfig-aaa-ldap-ext:bind-time-limit": kwargs['bind_timelimit']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_bindtime, timeout = time_out):
@@ -888,7 +884,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server bind time limit {}".format(kwargs['bind_timelimit']))
                     return False
         if 'idle_timelimit' in kwargs:
-            url1 = rest_urls['ldap_nss_server_idletime']        
+            url1 = rest_urls['ldap_nss_server_idletime']
             server_idletime = {"openconfig-aaa-ldap-ext:idle-time-limit": kwargs['idle_timelimit']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_idletime, timeout = time_out):
@@ -899,7 +895,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server idle time limit {}".format(kwargs['idle_timelimit']))
                     return False
         if 'retry' in kwargs:
-            url1 = rest_urls['ldap_nss_server_retry']        
+            url1 = rest_urls['ldap_nss_server_retry']
             server_retry = {"openconfig-aaa-ldap-ext:retransmit-attempts": kwargs['retry']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_retry, timeout = time_out):
@@ -910,7 +906,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server retransmit attempt {}".format(kwargs['retry']))
                     return False
         if 'port' in kwargs:
-            url1 = rest_urls['ldap_nss_server_port']        
+            url1 = rest_urls['ldap_nss_server_port']
             server_port = {"openconfig-aaa-ldap-ext:port": kwargs['port']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_port, timeout = time_out):
@@ -921,7 +917,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server port {}".format(kwargs['port']))
                     return False
         if 'scope' in kwargs:
-            url1 = rest_urls['ldap_nss_server_scope']        
+            url1 = rest_urls['ldap_nss_server_scope']
             server_scope = {"openconfig-aaa-ldap-ext:scope": kwargs['scope']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_scope, timeout = time_out):
@@ -932,7 +928,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server scope {}".format(kwargs['scope']))
                     return False
         if 'ldap_version' in kwargs:
-            url1 = rest_urls['ldap_nss_server_version']        
+            url1 = rest_urls['ldap_nss_server_version']
             server_version = {"openconfig-aaa-ldap-ext:version": kwargs['ldap_version']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_version, timeout = time_out):
@@ -943,7 +939,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap server version {}".format(kwargs['ldap_version']))
                     return False
         if 'base_dn' in kwargs:
-            url1 = rest_urls['ldap_nss_server_basedn']        
+            url1 = rest_urls['ldap_nss_server_basedn']
             server_basedn = {"openconfig-aaa-ldap-ext:base": kwargs['base_dn']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_basedn, timeout = time_out):
@@ -954,7 +950,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server base DN {}".format(kwargs['base_dn']))
                     return False
         if 'ssl' in kwargs:
-            url1 = rest_urls['ldap_nss_server_ssl']        
+            url1 = rest_urls['ldap_nss_server_ssl']
             server_ssl = {"openconfig-aaa-ldap-ext:ssl": kwargs['ssl']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_ssl, timeout = time_out):
@@ -965,7 +961,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server SSL {}".format(kwargs['ssl']))
                     return False
         if 'bind_dn' in kwargs:
-            url1 = rest_urls['ldap_nss_server_binddn']        
+            url1 = rest_urls['ldap_nss_server_binddn']
             server_binddn = {"openconfig-aaa-ldap-ext:bind-dn": kwargs['bind_dn']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_binddn, timeout = time_out):
@@ -976,7 +972,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server bind DN {}".format(kwargs['bind_dn']))
                     return False
         if 'bind_pwd' in kwargs:
-            url1 = rest_urls['ldap_nss_server_bindpw']        
+            url1 = rest_urls['ldap_nss_server_bindpw']
             server_bindpwd = {"openconfig-aaa-ldap-ext:bind-pw": kwargs['bind_pwd']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_bindpwd, timeout = time_out):
@@ -987,7 +983,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server bind password {}".format(kwargs['bind_pwd']))
                     return False
         if 'nss_base_passwd' in kwargs:
-            url1 = rest_urls['ldap_nss_server_nss_basepwd']        
+            url1 = rest_urls['ldap_nss_server_nss_basepwd']
             server_nss_basepwd = {"openconfig-aaa-ldap-ext:nss-base-passwd": kwargs['nss_base_passwd']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_basepwd, timeout = time_out):
@@ -998,7 +994,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server NSS based password {}".format(kwargs['nss_base_passwd']))
                     return False
         if 'nss_base_group' in kwargs:
-            url1 = rest_urls['ldap_nss_server_nss_base_group']        
+            url1 = rest_urls['ldap_nss_server_nss_base_group']
             server_nss_basegrp = {"openconfig-aaa-ldap-ext:nss-base-group": kwargs['nss_base_group']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_basegrp, timeout = time_out):
@@ -1009,7 +1005,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server NSS based group {}".format(kwargs['nss_base_group']))
                     return False
         if 'nss_base_shadow' in kwargs:
-            url1 = rest_urls['ldap_nss_server_nss_base_shadow']        
+            url1 = rest_urls['ldap_nss_server_nss_base_shadow']
             server_nss_baseshadow = {"openconfig-aaa-ldap-ext:nss-base-shadow": kwargs['nss_base_shadow']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_baseshadow, timeout = time_out):
@@ -1020,7 +1016,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server NSS based shadow {}".format(kwargs['nss_base_shadow']))
                     return False
         if 'nss_base_netgroup' in kwargs:
-            url1 = rest_urls['ldap_nss_server_nss_base_netgroup']        
+            url1 = rest_urls['ldap_nss_server_nss_base_netgroup']
             server_nss_bases_netgrp = {"openconfig-aaa-ldap-ext:nss-base-netgroup": kwargs['nss_base_netgroup']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_bases_netgrp, timeout = time_out):
@@ -1031,7 +1027,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server NSS based net group {}".format(kwargs['nss_base_netgroup']))
                     return False
         if 'nss_base_sudoers' in kwargs:
-            url1 = rest_urls['ldap_nss_server_nss_base_sudoers']        
+            url1 = rest_urls['ldap_nss_server_nss_base_sudoers']
             server_nss_bases_sudoers = {"openconfig-aaa-ldap-ext:nss-base-sudoers": kwargs['nss_base_sudoers']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_bases_sudoers, timeout = time_out):
@@ -1042,7 +1038,7 @@ def config_ldap_server_nss_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap nss server NSS based sudoers {}".format(kwargs['nss_base_sudoers']))
                     return False
         if 'nss_initgroups_ignoreusers' in kwargs:
-            url1 = rest_urls['ldap_nss_server_nss_ignore_group']        
+            url1 = rest_urls['ldap_nss_server_nss_ignore_group']
             server_nss_initgrp_ignoreusr = {"openconfig-aaa-ldap-ext:nss-initgroups-ignoreusers": kwargs['nss_initgroups_ignoreusers']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_nss_initgrp_ignoreusr, timeout = time_out):
@@ -1469,7 +1465,7 @@ def config_ldap_server_sudo_specific_attributes(dut, **kwargs):
                     st.error("Failed to Unconfigure ldap sudo server bind password {}".format(kwargs['bind_pwd']))
                     return False
         if 'base_sudoers' in kwargs:
-            url1 = rest_urls['ldap_server_sudoers_base']        
+            url1 = rest_urls['ldap_server_sudoers_base']
             server_sudoer_base = {"openconfig-aaa-ldap-ext:sudoers-base": kwargs['base_sudoers']}
             if config == 'yes':
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=server_sudoer_base):
@@ -1789,4 +1785,4 @@ def verify_ldap_server_details(dut, **kwargs):
             st.error("DUT {} -> Match Not Found {}".format(dut,input_dict))
             ret_val = False
     return ret_val
-    
+

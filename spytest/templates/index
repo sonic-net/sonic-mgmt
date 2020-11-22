@@ -141,10 +141,8 @@ show_mac_address_table.tmpl, .*, sonic, show mac address-table
 show_mac_count.tmpl, .*, sonic, show mac count
 show_mac_aging_time.tmpl, .*, sonic, show mac aging-time
 show_ip_access_lists.tmpl, .*, sonic, show (ip|ipv6|mac){1} access-lists
-show_mac_dampening_disabled_ports.tmpl, .*, sonic, show mac dampening-disabled-ports
-show_mac_dampening_disabled_ports.tmpl, .*, sonic, show mac dampening_disabled_ports
-show_mac_dampening_threshold.tmpl, .*, sonic, show mac dampening-threshold
-show_mac_dampening_threshold.tmpl, .*, sonic, show mac dampening_threshold
+show_mac_dampening_disabled_ports.tmpl, .*, sonic, show mac (dampening-disabled-ports|dampening_disabled_ports)
+show_mac_dampening_threshold.tmpl, .*, sonic, show mac (dampening-threshold|dampening_threshold)
 show_mac.tmpl, .*, sonic, show mac
 clear_counters.tmpl, .*, sonic, show interfaces counters -c
 show_arp.tmpl, .*, sonic,show arp

@@ -1,7 +1,5 @@
-import json
-import re
 from spytest.dicts import SpyTestDict
-from spytest import st, utils, tgapi
+from spytest import st, tgapi
 import apis.routing.evpn as Evpn
 import apis.switching.vlan as Vlan
 import apis.switching.portchannel as pch
@@ -10,13 +8,10 @@ import apis.routing.bgp as Bgp
 import apis.routing.ip as ip
 import apis.routing.vrf as vrf
 from apis.system import basic
-from utilities import parallel
 import apis.routing.sag as sag
 import apis.switching.mclag as mclag
 from tabulate import tabulate
 import apis.system.port as port_api
-import apis.system.reboot as reboot_api
-import apis.routing.arp as Arp
 from utilities.utils import retry_api
 import apis.switching.mclag as mc_lag
 import apis.routing.ospf as ospf
@@ -523,7 +518,7 @@ def leaf1_setup_l3vni():
     #               vrf_name=evpn_dict['leaf1']['vrf_name_list'][0],connect=1,diRection='out',addr_family=family)
     Bgp.config_bgp(dut=evpn_dict["leaf_node_list"][0], local_as=evpn_dict["leaf1"]["local_as"], config='yes',
                    config_type_list=["activate"], neighbor=evpn_dict["mlag_node"]["l3_tenant_ipv6_list"][0],
-                   addr_family="ipv6",vrf_name=evpn_dict['leaf1']['vrf_name_list'][0]) 
+                   addr_family="ipv6",vrf_name=evpn_dict['leaf1']['vrf_name_list'][0])
     st.log("Configure SAG in DUT3 node")
     sag.config_sag_mac(dut=evpn_dict["leaf_node_list"][0],mac=evpn_dict["l3_vni_sag"]["l3_vni_sagip_mac"][0],
                        config="add")
@@ -559,7 +554,7 @@ def leaf2_setup_l3vni():
                            intf_name="Vlan"+evpn_dict["leaf2"]["tenant_l3_vlan_list"][0], skip_error="yes")
     st.log("Bind SAG interface to VRF in DUT4")
     vrf.bind_vrf_interface(dut=evpn_dict["leaf_node_list"][1], vrf_name=evpn_dict["leaf2"]["vrf_name_list"][0],
-                           intf_name=evpn_dict["l3_vni_sag"]["l3_vni_sagvlanname_list"][0],skip_error="yes") 
+                           intf_name=evpn_dict["l3_vni_sag"]["l3_vni_sagvlanname_list"][0],skip_error="yes")
     st.log("Assign IP anycast address to L3 SAG tenant interface in DUT4")
     sag.config_sag_ip(evpn_dict["leaf_node_list"][1],interface=evpn_dict["l3_vni_sag"]["l3_vni_sagvlanname_list"][0],
             gateway=evpn_dict["l3_vni_sag"]["l3_vni_sagip_list"][0], mask="24",config="add")
@@ -579,7 +574,7 @@ def leaf2_setup_l3vni():
                                 interface_name="Vlan" +evpn_dict["leaf2"]["tenant_l3_vlan_list"][0],
                                 ip_address=evpn_dict["leaf2"]["l3_tenant_ip_list"][0],
                                 subnet=evpn_dict["leaf2"]["l3_vni_ipmask_list"][0])
- 
+
     st.log("Assign IPv6 address to L3VNI interface in DUT4 node")
     ip.config_ip_addr_interface(dut=evpn_dict["leaf_node_list"][1],
                                 interface_name=evpn_dict["leaf2"]["l3_vni_name_list"][0],
@@ -1119,7 +1114,7 @@ def create_stream():
                                   port_handle=tg_dict['d3_tg_ph1'],transmit_mode='continuous',
                                   l3_protocol='ipv4', ip_src_addr=evpn_dict["leaf1"]["tenant_v4_ip"][2],
                                   ip_dst_addr=evpn_dict["leaf3"]["v4_prefix"][0],
-                                  mac_discovery_gw=evpn_dict["leaf1"]["l3_tenant_ip_list"][2], 
+                                  mac_discovery_gw=evpn_dict["leaf1"]["l3_tenant_ip_list"][2],
                                   port_handle2=tg_dict['d5_tg_ph1'])
     stream7 = stream['stream_id']
     stream_dict["v4orphan_1"] = [stream7]
@@ -1400,7 +1395,7 @@ def leaf1_setup_5549():
     ############################################################################################
     ip.config_interface_ip6_link_local(dut=evpn_dict["leaf_node_list"][0],
                                        interface_list=evpn_dict["leaf1"]["pch_intf_list"])
-                                                       
+
     ############################################################################################
     hdrMsg("\n########## Enable router bgp and configure router id in DUT3 ##############\n")
     ############################################################################################
@@ -1581,7 +1576,7 @@ def leaf1_bgpgr_config():
                                     config="add", preserve_state="yes")
     Bgp.clear_ip_bgp_vtysh(vars.D3)
 
-    
+
 def leaf2_bgpgr_config():
     Bgp.config_bgp_graceful_restart(vars.D4,local_asn=evpn_dict["leaf2"]["local_as"],
                                     config="add", preserve_state="yes")
@@ -1611,7 +1606,7 @@ def leaf3_emulate_bgp():
                    vrf_name=evpn_dict['leaf3']['vrf_name_list'][0],connect="3")
     Bgp.config_bgp(evpn_dict["leaf_node_list"][2],addr_family="ipv6",local_as=evpn_dict['leaf3']['local_as'],
                    neighbor=evpn_dict["leaf3"]["tenant_v6_ip"][1],config_type_list=["neighbor","connect","activate"],
-                   remote_as=1500,connect="3",vrf_name=evpn_dict['leaf3']['vrf_name_list'][0])    
+                   remote_as=1500,connect="3",vrf_name=evpn_dict['leaf3']['vrf_name_list'][0])
 
 
 def tgen_emulate_bgp():
@@ -1644,32 +1639,32 @@ def tgen_emulate_bgp():
                                                  as_path='as_seq:'+evpn_dict["leaf3"]["rem_as_list"][2])
     tg.tg_emulation_bgp_control(handle=bgp_r1['handle'], mode='start')
     tg.tg_emulation_bgp_control(handle=bgp_r2['handle'], mode='start')
-    host3 = tg.tg_interface_config(port_handle=tg_dict["d6_tg_ph2"], mode='config', 
+    host3 = tg.tg_interface_config(port_handle=tg_dict["d6_tg_ph2"], mode='config',
                                    ipv6_intf_addr=evpn_dict["mlag_node"]["tenant_v6_ip_2"][0],
                                    vlan_id=evpn_dict["mlag_node"]["tenant_l3_vlan_list"][0], vlan='1',
                                    src_mac_addr=evpn_dict["mlag_node"]["tenant_mac_v6"],arp_send_req='1',
                                    ipv6_prefix_length='96', ipv6_gateway=evpn_dict["mlag_node"]["l3_tenant_ipv6_list"][1])
-    host4 = tg.tg_interface_config(port_handle=tg_dict["d5_tg_ph1"], mode='config', 
+    host4 = tg.tg_interface_config(port_handle=tg_dict["d5_tg_ph1"], mode='config',
                                    ipv6_intf_addr=evpn_dict["leaf3"]["tenant_v6_ip"][1],
-                                   vlan_id=evpn_dict["leaf3"]["tenant_l3_vlan_list"][1], vlan='1', 
+                                   vlan_id=evpn_dict["leaf3"]["tenant_l3_vlan_list"][1], vlan='1',
                                    src_mac_addr=evpn_dict["leaf3"]["tenant_mac_v6_2"][0],arp_send_req='1',
                                    ipv6_prefix_length='96', ipv6_gateway=evpn_dict["leaf3"]["l3_tenant_ipv6_list"][1])
-    bgp_r3 = tg.tg_emulation_bgp_config(handle=host3['handle'], mode='enable', active_connect_enable='1', 
+    bgp_r3 = tg.tg_emulation_bgp_config(handle=host3['handle'], mode='enable', active_connect_enable='1',
                                         local_as=evpn_dict["mlag_node"]["rem_as_list"][2],
-                                        remote_as=evpn_dict["mlag_node"]["local_as"], 
+                                        remote_as=evpn_dict["mlag_node"]["local_as"],
                                         remote_ipv6_addr=evpn_dict["mlag_node"]["l3_tenant_ipv6_list"][1],
                                         ip_version='6')
-    bgp_r4 = tg.tg_emulation_bgp_config(handle=host4['handle'], mode='enable', active_connect_enable='1', 
+    bgp_r4 = tg.tg_emulation_bgp_config(handle=host4['handle'], mode='enable', active_connect_enable='1',
                                         local_as=evpn_dict["leaf3"]["rem_as_list"][2],
-                                        remote_as=evpn_dict["leaf3"]["local_as"], 
+                                        remote_as=evpn_dict["leaf3"]["local_as"],
                                         remote_ipv6_addr=evpn_dict["leaf3"]["l3_tenant_ipv6_list"][1],
                                         ip_version='6')
     bgp_rout3 = tg.tg_emulation_bgp_route_config(handle=bgp_r3['handle'], mode='add', num_routes=data.ipv6_routes_per_port,
-                                                 prefix=evpn_dict["mlag_node"]["v6_prefix"][0], 
+                                                 prefix=evpn_dict["mlag_node"]["v6_prefix"][0],
                                                  as_path='as_seq:'+evpn_dict["mlag_node"]["rem_as_list"][2],ip_version='6')
     bgp_rout4 = tg.tg_emulation_bgp_route_config(handle=bgp_r4['handle'], mode='add', num_routes=data.ipv6_routes_per_port,
-                                                 prefix=evpn_dict["leaf3"]["v6_prefix"][0], 
-                                                 as_path='as_seq:'+evpn_dict["leaf3"]["rem_as_list"][2],ip_version='6') 
+                                                 prefix=evpn_dict["leaf3"]["v6_prefix"][0],
+                                                 as_path='as_seq:'+evpn_dict["leaf3"]["rem_as_list"][2],ip_version='6')
     tg.tg_emulation_bgp_control(handle=bgp_r3['handle'], mode='start')
     tg.tg_emulation_bgp_control(handle=bgp_r4['handle'], mode='start')
 
@@ -1772,7 +1767,7 @@ def get_mclag_lvtep_common_mac():
             hdrMsg("FAIL : show mclag output is not as per template, traffic failure will be "
                    "seen with this invalid common router MAC pls debug")
     elif isinstance(output1,bool) or isinstance(output2,bool):
-        if output1 == False or output2 == False:
+        if output1 is False or output2 is False:
             mac = "00:00:01:02:03:04"
             hdrMsg("FAIL : show mclag returns empty output, traffic failure will be seen with "
                    "this invalid common router MAC pls debug")

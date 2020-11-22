@@ -67,8 +67,8 @@ def pfc_module_hooks(request):
     ensure_no_exception(exceptions)
     if not all(output):
         st.report_fail('msg', 'PFC Module configuration failed')
-    
-    
+
+
     st.debug("Toggle the asymmetric PFC config")
     [output, exceptions] = exec_all(True, [[pfc_obj.config_pfc_asymmetric, vars.D1, 'on', pfc_data.ports_list_dut1], [pfc_obj.config_pfc_asymmetric, vars.D2, 'on', pfc_data.ports_list_dut2]])
     ensure_no_exception(exceptions)
@@ -162,7 +162,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error("Failed to configure VLANs")
             return False
-        
+
         dict1 = {'vlan':  pfc_data.vlan, 'port_list': [vars.D1T1P1, vars.D1T1P2, vars.D1D2P1, vars.D1D2P2], 'tagging_mode': True}
         dict2 = {'vlan':  pfc_data.vlan, 'port_list': [vars.D2T1P1, vars.D2T1P2, vars.D2D1P1, vars.D2D1P2], 'tagging_mode': True}
         [output, exceptions] = exec_parallel(True, [vars.D1, vars.D2], vlan_obj.add_vlan_member, [dict1, dict2])
@@ -170,7 +170,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error("Failed to add ports to VLAN")
             return False
-        
+
         dict1 = {'vlan':  pfc_data.vlan_1, 'port_list': [vars.D1T1P1, vars.D1D2P1], 'tagging_mode': True}
         dict2 = {'vlan':  pfc_data.vlan_1, 'port_list': [vars.D2D1P1, vars.D2T1P1], 'tagging_mode': True}
         [output, exceptions] = exec_parallel(True, [vars.D1, vars.D2], vlan_obj.add_vlan_member, [dict1, dict2])
@@ -178,7 +178,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error("Failed to add ports to VLAN")
             return False
-        
+
         dict1 = {'vlan':  pfc_data.vlan_2, 'port_list': [vars.D1T1P2, vars.D1D2P2], 'tagging_mode': True}
         dict2 = {'vlan':  pfc_data.vlan_2, 'port_list': [vars.D2D1P2, vars.D2T1P1], 'tagging_mode': True}
         [output, exceptions] = exec_parallel(True, [vars.D1, vars.D2], vlan_obj.add_vlan_member, [dict1, dict2])
@@ -186,8 +186,8 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error("Failed to add ports to VLAN")
             return False
-    
-    
+
+
     if kwargs.get('mac_config', True):
         st.banner("MAC Addresses configuration")
         [output, exceptions] = exec_all(True, [[config_mac, vars.D1, pfc_data.destination_mac_dut1_tg1, pfc_data.vlan, vars.D1D2P1], [config_mac, vars.D2, pfc_data.destination_mac_dut1_tg1, pfc_data.vlan, vars.D2T1P1]])
@@ -240,7 +240,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error('Failed to map pfc_priority_to_queue')
             return False
-        
+
         dict1 = {'obj_name': "AZURE_ASYM", 'pfc_priority_to_queue_map_dict': pfc_data.map_dict}
         dict2 = {'obj_name': "AZURE_ASYM", 'pfc_priority_to_queue_map_dict': pfc_data.map_dict}
         [output, exceptions] = exec_parallel(True, [vars.D1, vars.D2], cos_obj.config_pfc_priority_to_queue_map, [dict1, dict2])
@@ -248,7 +248,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error('Failed to map pfc_priority_to_queue')
             return False
-        
+
         dict1 = {'obj_name': "AZURE", 'tc_to_queue_map_dict': pfc_data.map_dict}
         dict2 = {'obj_name': "AZURE", 'tc_to_queue_map_dict': pfc_data.map_dict}
         [output, exceptions] = exec_parallel(True, [vars.D1, vars.D2], cos_obj.config_tc_to_queue_map, [dict1, dict2])
@@ -256,7 +256,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error('Failed to map tc_to_queue')
             return False
-        
+
         dict1 = {'obj_name': "AZURE", 'tc_to_pg_map_dict': pfc_data.map_dict}
         dict2 = {'obj_name': "AZURE", 'tc_to_pg_map_dict': pfc_data.map_dict}
         [output, exceptions] = exec_parallel(True, [vars.D1, vars.D2], cos_obj.config_tc_to_pg_map, [dict1, dict2])
@@ -264,7 +264,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error('Failed to map tc_to_pg')
             return False
-        
+
         dict1 = {'obj_name': "AZURE", 'dscp_to_tc_map_dict': {str(pfc_data.dscp_list[0]): str(pfc_data.lossless_priorities[0]), str(pfc_data.dscp_list[1]): str(pfc_data.all_lossy_priority)}}
         dict2 = {'obj_name': "AZURE", 'dscp_to_tc_map_dict': {str(pfc_data.dscp_list[0]): str(pfc_data.lossless_priorities[0]), str(pfc_data.dscp_list[1]): str(pfc_data.all_lossy_priority)}}
         [output, exceptions] = exec_parallel(True, [vars.D1, vars.D2], cos_obj.config_dscp_to_tc_map, [dict1, dict2])
@@ -272,7 +272,7 @@ def pfc_module_dut_prolog(**kwargs):
         if not all(output):
             st.error('Failed to map dscp_to_tc')
             return False
-    
+
         st.banner("Applying mapping configuration to ports")
         qos_map1 = [{'port': vars.D1T1P1, 'obj_name': 'AZURE', 'map': 'tc_to_queue_map'},
                     {'port': vars.D1T1P2, 'obj_name': 'AZURE', 'map': 'tc_to_queue_map'},
@@ -314,7 +314,7 @@ def config_sym_asym_pfc_buffer(lossy_priorities, lossless_priorities):
     if not pfc_obj.config_pfc_buffer_prameters(vars.D2, pfc_data.hwsku2, ports_dict, core_buffer_config=False):
         st.error('Failed to configure lossy priorities buffer configuration on DUT2')
         return False
-    
+
     if not pfc_obj.config_pfc_lossless_queues(vars.D2, lossless_priorities, pfc_data.ports_list_dut2):
         st.error('Failed to configure lossless priorities on DUT2')
         return False
@@ -505,20 +505,20 @@ def portchannel_config_epilog():
     if not all(output):
         st.report_fail("msg", "Failed to delete VLAN member ship")
     ensure_no_exception(exceptions)
-    
+
     if not delete_mac(vars.D1, pfc_data.destination_mac_dut1_tg1, pfc_data.vlan):
         st.report_fail("msg", "Failed to delete static MAC: {}".format(pfc_data.destination_mac_dut1_tg1))
     if not delete_mac(vars.D1, pfc_data.destination_mac_dut1_tg2, pfc_data.vlan):
         st.report_fail("msg", "Failed to delete static MAC: {}".format(pfc_data.destination_mac_dut1_tg1))
-    
+
     if not portchannel_obj.clear_portchannel_configuration([vars.D1, vars.D2]):
         st.report_fail("msg", "Failed to clear PortChannel configuration")
-    
+
     [output, exceptions] = exec_all(True, [ExecAllFunc(vlan_obj.add_vlan_member, vars.D1, pfc_data.vlan, [vars.D1D2P1, vars.D1D2P2], tagging_mode=True), ExecAllFunc(vlan_obj.add_vlan_member, vars.D2, pfc_data.vlan, [vars.D2D1P1, vars.D2D1P2], tagging_mode=True)])
     if not all(output):
         st.report_fail("msg", "Failed to add ports to VLAN")
     ensure_no_exception(exceptions)
-    
+
     [output, exceptions] = exec_all(True, [ExecAllFunc(vlan_obj.add_vlan_member, vars.D1, pfc_data.vlan_1, vars.D1D2P1, tagging_mode=True), ExecAllFunc(vlan_obj.add_vlan_member, vars.D2, pfc_data.vlan_1, vars.D2D1P1, tagging_mode=True)])
     if not all(output):
         st.report_fail("msg", "Failed to add ports to VLAN")
@@ -545,12 +545,12 @@ def pfc_enable(enable_pfc = True):
         ensure_no_exception(exceptions)
         if not all(output):
             st.report_fail('msg', 'Failed to configure queues: {} as loss_less queues'.format(pfc_data.lossless_priorities))
-        
+
         [output, exceptions] = exec_all(True, [[pfc_obj.config_pfc_lossless_queues, vars.D1, pfc_data.lossless_priorities, pfc_data.ports_list_dut1], [pfc_obj.config_pfc_lossless_queues, vars.D2, pfc_data.lossless_priorities, pfc_data.ports_list_dut2]])
         ensure_no_exception(exceptions)
         if not all(output):
             st.report_fail('msg', 'Failed to configure queues: {} as loss_less queues'.format(pfc_data.lossless_priorities))
-        
+
     else:
         dict1 = {'hwsku': pfc_data.hwsku1, 'ports_dict': {port: {'lossy_queues': pfc_data.lossless_priorities} for port in pfc_data.ports_list_dut1}}
         dict2 = {'hwsku': pfc_data.hwsku2, 'ports_dict': {port: {'lossy_queues': pfc_data.lossless_priorities} for port in pfc_data.ports_list_dut2}}
@@ -558,7 +558,7 @@ def pfc_enable(enable_pfc = True):
         ensure_no_exception(exceptions)
         if not all(output):
             st.report_fail('msg', 'Failed to configure queues: {} as lossy queues'.format(pfc_data.lossless_priorities))
-        
+
         [output, exceptions] = exec_all(True, [ExecAllFunc(pfc_obj.config_pfc_lossless_queues, vars.D1, pfc_data.lossless_priorities, pfc_data.ports_list_dut1, config=False), ExecAllFunc(pfc_obj.config_pfc_lossless_queues, vars.D2, pfc_data.lossless_priorities, pfc_data.ports_list_dut2, config=False)])
         ensure_no_exception(exceptions)
         if not all(output):
@@ -643,7 +643,7 @@ def pfc_wd_verify(intf, queue, wd_stats_list, is_action_forward = True):
                 temp_result_list.append(True)
                 temp_result_list.append("PFC Watch dog statistics verification is successful")
                 return temp_result_list
-        except:
+        except Exception:
             temp_result_list.append(False)
             temp_result_list.append("PFC Watch dog statistics verification is failed - {}".format(wd_stats))
             return temp_result_list
@@ -996,10 +996,10 @@ def traffic_test_for_pfcwd(dut, stream_list, detection_time_list, interface_list
             st.log(" is_action_forward_list[cnt]  - {}".format(is_action_forward_list[cnt]))
             pfcwd_detect = pfc_wd_verify(interface, queue_list[cnt], wd_stats_list, is_action_forward_list[cnt])
             st.log("pfcwd_detect   - {}".format(pfcwd_detect))
-            if pfcwd_detect[0] == True:
+            if pfcwd_detect[0] is True:
                 temp_result = True
                 iter_count = 6
-            if ((temp_result == False) and (iter_count >= 5)):
+            if ((temp_result is False) and (iter_count >= 5)):
                 st.error(pfcwd_detect[1])
                 return False
             st.wait(pfc_data.wait_2)
@@ -1021,7 +1021,7 @@ def test_ft_pfc_asym():
         result_dict['ft_pfc_asym_10g'] = False
         get_debug_info()
         exec_all(True, [[st.generate_tech_support, vars.D1, 'ft_pfc_asym_10g'], [st.generate_tech_support, vars.D2, 'ft_pfc_asym_10g']])
-    
+
     if not config_sym_asym_pfc_buffer(pfc_data.lossless_priorities, pfc_data.asym_test_priorities):
         st.report_fail('msg', 'Failed to configure lossy-lossless priorities configuration on DUT2')
     pfc_data.tg.tg_traffic_config(mode='modify', stream_id=pfc_data.streams['d1tg1_stream'], vlan_user_priority=pfc_data.asym_lossless_priority)

@@ -2,26 +2,14 @@
 # Author: Sunil Rajendra (sunil.rajendra@broadcom.com)
 
 import pytest
-#from spytest import st
 from spytest import st,utils,tgapi
-#from ecmp_vars_vxlan import data
-#from ecmp_utils_vxlan import *
-#from ecmp_utils import *
-#import apis.system.reboot as reboot
 import apis.routing.ip as ip
-#import apis.routing.bgp as bgp
-#import apis.switching.mac as mac
 import apis.system.interface as intf
 from ecmp_utils import *
 
 def initialize_topology_vars():
     global vars, tg, d3_tg_ph1, d3_tg_ph2, d4_tg_ph1, d4_tg_ph2, d5_tg_ph1, d5_tg_ph2, tg_all, dut_list
-    #global d4_tg_port1, d5_tg_port1,d6_tg_port1,d7_tg_port1, d7_tg_ph1, d7_tg_ph2, d5_tg_port2, d6_tg_port2, d7_tg_port2, d3_tg_port1, d3_tg_port2
-    
-    #vars = st.ensure_min_topology("D1D3:3","D1D4:3","D1D5:3","D1D6:3","D2D3:3","D2D4:3","D2D5:3","D2D6:4","D4D7:4","D3T1:2","D6T1:1","D3CHIP=TD3","D4CHIP=TD3","D5CHIP=TD3","D6CHIP=TD3")
     vars = st.ensure_min_topology("D1D3:3", "D1D4:3", "D1D5:3", "D2D3:3", "D2D4:3", "D2D5:3", "D3T1:2", "D4T1:2", "D5T1:2", "D3CHIP=TD3","D4CHIP=TD3","D5CHIP=TD3")
-    #vars = st.ensure_min_topology("D1D2:2", "D1D3:2", "D1D4:2", "D2T1:2", "D3T1:2", "D4T1:2", "D2CHIP=TD3", "D3CHIP=TD3", "D4CHIP=TD3")
-    #create_glob_vars()
     vars = st.get_testbed_vars()
     if st.get_ui_type() == 'click':
         st.report_unsupported("test_execution_skipped", "Skipping cli mode CLICK")
@@ -61,11 +49,8 @@ def initialize_topology_vars():
     d5_tg_ph1, d5_tg_ph2 = tg.get_port_handle(vars.T1D5P1), tg.get_port_handle(vars.T1D5P2)
     tg_all = [d3_tg_ph1, d3_tg_ph2, d4_tg_ph1, d4_tg_ph2, d5_tg_ph1, d5_tg_ph2]
     
-    #d4_tg_port1,d5_tg_port1,d6_tg_port1,d7_tg_port1,d3_tg_port1,d3_tg_port2 = vars.T1D4P1, vars.T1D5P1, vars.T1D6P1, vars.T1D7P1,vars.T1D3P1,vars.T1D3P2
-    #d5_tg_port2,d6_tg_port2,d7_tg_port2 = vars.T1D5P2, vars.T1D6P2, vars.T1D7P2
 
 def create_tg_hosts():
-    #global tg, d3_tg_ph1, stream_dict
     global tg_l1_h1, tg_l1_h2, tg_l2_h1, tg_l2_h2, tg_l3_h1, tg_l1_h1_6, tg_l1_h2_6, tg_l2_h1_6, tg_l2_h2_6, tg_l3_h1_6
     global tg_l3l1_1, tg_l3l1_6_1
     # Configuring hosts.
@@ -89,7 +74,6 @@ def create_tg_streams():
 @pytest.fixture(scope='module', autouse=True)
 def prologue_epilogue(request):
     initialize_topology_vars()
-    #result = ecmp_base_config()
     [res, exceptions] = utils.exec_all(True, [[create_tg_hosts], [ecmp_base_config]], True)
     create_tg_streams()
     if res[1] is False:
@@ -188,7 +172,7 @@ def test_ecmp_vxlan_func003():
     res2=verify_intf_counters(rx=[[leaf3, vars.D5T1P1]], tx=l3_spine_ports, ratio = [[1], [0.25, 0.25, 0.25, 0.25]], saved_flag=True)
     #res3=verify_intf_counters(rx=[[leaf3, vars.D5T1P1]], tx=spine_leaf_ports, ratio = [[1], [0.25, 0.25, 0.25, 0.25, 0, 0, 0, 0]], saved_flag=True)
     res3=verify_intf_counters(rx=[[leaf3, vars.D5T1P1]], tx=spine_leaf_ports, ratio = [[1], [0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125]], saved_flag=True, tolerance=25)
-    st.log("Step T12: res1={}, res2={}, res3={} - all should be True".format(res1, res2, res3))
+    st.log("Step T3: res1={}, res2={}, res3={} - all should be True".format(res1, res2, res3))
     if res1 is False or res2 is False or res3 is False:
         fail_msg = "ERROR: Step T3 Initial ECMP failed."
         fail_msgs += fail_msg

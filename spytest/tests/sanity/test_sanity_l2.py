@@ -9,7 +9,6 @@ import utilities.utils as utils_obj
 import apis.system.interface as intf_obj
 import apis.common.asic as asicapi
 import apis.routing.ip as ip_obj
-from apis.system.sflow import enable_disable_config, verify_config
 from utilities.common import filter_and_select, sprint_vtable, random_vlan_list, make_list
 
 @pytest.fixture(scope="module", autouse=True)
@@ -974,3 +973,4 @@ def test_base_line_mac_move_across_vlans():
         st.report_fail("test_case_failed")
     else:
         st.report_fail("test_case_not_executed")
+

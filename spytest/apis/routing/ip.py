@@ -255,7 +255,7 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
                 if is_secondary_ip == 'yes':
                     url = rest_urls['sub_interface_config'].format(interface_name)
                     ip_config = {"openconfig-interfaces:subinterfaces": {"subinterface": [{"index": int(index), "config": {"index": int(index)},
-                             "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, 
+                             "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address,
                              "config": {"ip": ip_address,"prefix-length": int(subnet),"openconfig-interfaces-ext:secondary":True}}]}}}]}}
                 else:
                     url = rest_urls['sub_interface_config'].format(interface_name)
@@ -542,12 +542,12 @@ def delete_static_route(dut, next_hop, static_ip, family='ipv4', shell="vtysh", 
     command = ''
     if cli_type == "vtysh":
         if family.lower() == "ipv4" or family.lower() == "":
-            if next_hop == None:
+            if next_hop is None:
                 command = "no ip route {}".format(static_ip)
             else:
                 command = "no ip route {} {}".format(static_ip, next_hop)
         elif family.lower() == "ipv6":
-            if next_hop == None:
+            if next_hop is None:
                 command = "no ipv6 route {}".format(static_ip)
             else:
                 command = "no ipv6 route {} {}".format(static_ip, next_hop)
@@ -1861,7 +1861,7 @@ def config_unnumbered_interface(dut, **kwargs):
             try:
                 st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
                 return True
-            except:
+            except Exception:
                 st.log("Error handled..by API")
                 return False
         else:
@@ -2754,21 +2754,23 @@ def config_ip_loadshare_hash(dut, **kwargs):
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
     # For now this is supported only in klish.
     cli_type = 'klish' if cli_type == 'click' else cli_type
-    
+
     if "val" not in kwargs:
         st.error("Please provide the value for the key.")
         return False
-    
+
     config = kwargs.pop('config', 'yes')
     key = kwargs.pop('key', 'ipv4')
     key = 'ipv4' if key=='ip' else key
     val = kwargs.pop('val', '')
     val = [val] if type(val) is str else val
     skiperr = True if kwargs.get('skip_error') else False
-    
+
     config_type = ''
     if config.lower() != 'yes':
         config_type = 'no '
+        if key == 'seed':
+            val = ['']
     command = []
     if cli_type == 'klish':
         for v in val:
@@ -2855,7 +2857,7 @@ def verify_ip_loadshare(dut, **kwargs):
     st.log("output={}, kwargs={}".format(output,kwargs))
     for key in ['cli_type', 'skip_error']:
         kwargs.pop(key, None)
-    
+
     for key in kwargs.keys():
         val_list = [kwargs[key]] if type(kwargs[key]) is str else kwargs[key]
         if key in output[0]:

@@ -1202,7 +1202,7 @@ class TGIxia(TGBase):
                     logger.info("removing cached {}".format(topo_handle))
                     ret_ds=self.tg_topology_config(topology_handle=topo_handle, mode='destroy')
                     logger.info(ret_ds)
-                    tgen_wait(2)
+                    tgen_wait(15)
 
         logger.debug("TG CLEAN ALL FINISHED")
 

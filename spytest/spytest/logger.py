@@ -251,7 +251,7 @@ class Logger(object):
             self.module_logger.propagate = False
         else:
             self.module_logger = self.logger
-        rv = self.add_file_handler(self.module_logger, logfile_path)
+            rv = self.add_file_handler(self.module_logger, logfile_path)
         self.module_log_handler = rv
 
     def alert(self, msg, lvl=logging.INFO, exc_info=False):

@@ -1,7 +1,7 @@
 Value List port_list (\S+)
 
 Start
-  ^.*Ports disabled due to MAC Dampening: -> Routes
-
-Routes
-  ^${port_list}$$
+  ^\s*Ports\s+disabled\s+due\s+to\s+MAC\s+Dampening:\s*$$
+  ^\S+@\S+:.*$$ -> Record
+  ^\s*${port_list}\s*$$
+  

@@ -737,7 +737,7 @@ def unconfig_ip_v4_v6():
     co_utils.exec_all(pll_exec, api_list)
 
 
-    
+
 def unconfig_mclag():
     co_utils.exec_foreach(pll_exec, data.mclag_peers, mclag.config_mclag_system_mac, domain_id=mclag_domain,
                           mac=mclag_sys_mac, config='del')
@@ -2360,7 +2360,7 @@ def remove_client_configs():
 
 def verify_mclag_fallback(po_name,fb_cfg_states,fb_op_states,report_failure='YES',comparison_flag=True):
     ver_flag = True
-    if comparison_flag == True:
+    if comparison_flag is True:
         print_log("Check If Mclag fallback Operational state for the PO:{} is {}-{}".format(po_name,fb_op_states[0],fb_op_states[1]), 'MED')
     else:
         print_log("Check If Mclag fallback Operational state for the PO:{} is NOT {}-{}".format(po_name, fb_op_states[0], fb_op_states[1]),

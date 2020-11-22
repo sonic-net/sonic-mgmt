@@ -299,7 +299,7 @@ def gnmi_debug(dut):
 def clear_gnmi_utils():
     try:
         os.system("rm -f /tmp/gnmi_*")
-    except:
+    except Exception:
         pass
 
 

@@ -1678,7 +1678,7 @@ def test_FtOpSoRoEvpn5549LvtepFt32336(Tgencleanup_fixture):
     st.log("Step 7: Start L2 IPv6 BUM traffic b/w LVTEP orphon port & SVTEP with L3 SAG tenant")
     start_traffic(stream_han_list=stream_dict["l2_32336"])
     if tg_dict["tg"].tg_type == 'ixia':
-        st.wait(5,"wait for 5 seconds before verifying stream results")
+        st.wait(7,"wait for 7 seconds before verifying stream results")
 
     hdrMsg("\n####### Step 8: Verify L2 BUM traffic verification #########\n")
     loss_prcnt = get_traffic_loss_inpercent(tg_dict['d3_tg_ph1'],stream_dict["l2_32336"][0],dest_tg_ph=tg_dict['d6_tg_ph1'])
@@ -2206,13 +2206,30 @@ def test_FtOpSoRoEvpn5549LvtepFt32314(Lvtep_5549_32314_fixture):
     hdrMsg("\n####### Start and Verify BiDirectional L2 traffic within MCLAG peers ##############\n")
     ############################################################################################
     start_traffic(stream_han_list=stream_dict["l2_32314"])
+    if tg_dict["tg"].tg_type == 'ixia':
+        st.wait(5,"wait for 5 seconds before verifying stream results")
 
-    if verify_traffic(tx_port=vars.T1D3P1, rx_port=vars.T1D7P1):
-        st.log("PASS: Traffic verification passed ")
+    loss_prcnt = get_traffic_loss_inpercent(tg_dict['d3_tg_ph1'],stream_dict["l2_32314"][0],dest_tg_ph=tg_dict['d7_tg_ph1'])
+    loss_prcnt1 = get_traffic_loss_inpercent(tg_dict['d7_tg_ph1'],stream_dict["l2_32314"][1],dest_tg_ph=tg_dict['d3_tg_ph1'])
+    traffic_status = True
+
+    if loss_prcnt < 0.11:
+        st.log("PASS: Traffic verification passed from LVTEP-N1 to LVTEP MLAG client")
     else:
-        success = False
-        st.error("FAIL: Traffic verification failed ")
+        success=False
+        traffic_status = False
+        hdrMsg("test_FtOpSoRoEvpn5549LvtepFt32314 FAIL: Traffic verification failed b/w LVTEP-N1 to LVTEP MLAG client")
+
+    if loss_prcnt1 < 0.11:
+        st.log("PASS: Traffic verification passed from LVTEP MLAG client to LVTEP-N1")
+    else:
+        success=False
+        traffic_status = False
+        hdrMsg("test_FtOpSoRoEvpn5549LvtepFt32314 FAIL: Traffic verification failed b/w LVTEP MLAG client to LVTEP-N1")
+
+    if not traffic_status:
         debug_traffic(evpn_dict["leaf_node_list"][0], evpn_dict["leaf_node_list"][1])
+
     current_stream_dict["stream"] = stream_dict["l2_32314"]
 
     if success:

@@ -7,7 +7,7 @@ from apis.common import redis
 import apis.system.interface as intapi
 import apis.system.logging as logapi
 import apis.common.asic as asicapi
-from apis.system.rest import config_rest, delete_rest, get_rest, rest_status
+from apis.system.rest import config_rest, delete_rest, get_rest
 
 
 def config_threshold(dut, **kwargs):

@@ -3596,7 +3596,7 @@ def verify_ospf_router_config(dut, vrf='', match=None, cli_type=''):
     cli_type = get_ospf_cli_type(dut, cli_type=cli_type)
     if cli_type in ["rest-patch", "rest-put"]: cli_type = 'klish'
 
-    match_list = [ {} ] if match == None else match
+    match_list = [ {} ] if match is None else match
     if not isinstance(match_list, list):
         match_list = [match]
 
@@ -3649,7 +3649,7 @@ def verify_ospf_router_config(dut, vrf='', match=None, cli_type=''):
                             match_count += 1
                             break
 
-                    if match_result == False :
+                    if match_result is False :
                         st.log("OSPF - Router config didnot match {}".format(cfg_match))
 
                 if match_count == len(match_list) :
@@ -3667,14 +3667,14 @@ def verify_ospf_router_config(dut, vrf='', match=None, cli_type=''):
 def verify_no_ospf_router_config(dut, vrf='', match=None, cli_type=''):
 
     result = False
-    match_list = [ {} ] if match == None else match
+    match_list = [ {} ] if match is None else match
     if not isinstance(match_list, list):
         match_list = [match]
 
     match_count = 0
     for cfg_match in match_list :
         match_result = verify_ospf_router_config(dut, vrf=vrf, match=cfg_match, cli_type=cli_type)
-        if match_result == False :
+        if match_result is False :
             st.log("OSPF - Router config {} not present".format(cfg_match))
             match_count += 1
 
@@ -3702,7 +3702,7 @@ def verify_ospf_interface_config(dut, interfaces, native_intfs, vrf='', match=No
     if not isinstance(native_intfs, list):
         native_intfs = [native_intfs]
 
-    match_list = [ {} ] if match == None else match
+    match_list = [ {} ] if match is None else match
     if not isinstance(match_list, list):
         match_list = [match]
 
@@ -3767,7 +3767,7 @@ def verify_ospf_interface_config(dut, interfaces, native_intfs, vrf='', match=No
                                 match_count += 1
                                 break
 
-                        if match_result == False :
+                        if match_result is False :
                             st.log("OSPF - Interface {} config didnot match {}".format(interface, cfg_match))
 
                     if match_count != len(match_list) :
@@ -3792,14 +3792,14 @@ def verify_ospf_interface_config(dut, interfaces, native_intfs, vrf='', match=No
 def verify_no_ospf_interface_config(dut, interface, native_intfs, vrf='', match=None, cli_type=''):
 
     result = False
-    match_list = [ {} ] if match == None else match
+    match_list = [ {} ] if match is None else match
     if not isinstance(match_list, list):
         match_list = [match]
 
     match_count = 0
     for cfg_match in match_list :
         match_result = verify_ospf_interface_config(dut, interface, native_intfs, vrf=vrf, match=cfg_match, cli_type=cli_type)
-        if match_result == False:
+        if match_result is False:
             st.log("OSPF - Interface config {} not present".format(cfg_match))
             match_count += 1
 
@@ -3916,7 +3916,7 @@ def ospf_dut_or_container_restart(duts, rest_type='bgp', rest_sub_type='cold',
     for retry in range (0, 12) :
         all_dut_up = True
         for res_dut in restarted_duts.keys() :
-            if restarted_duts[res_dut] == False :
+            if restarted_duts[res_dut] is False :
                 all_dut_up = False
                 break
         if all_dut_up :
@@ -3926,7 +3926,7 @@ def ospf_dut_or_container_restart(duts, rest_type='bgp', rest_sub_type='cold',
         st.log("OSPF - Restart status check retry count {}.".format(retry))
 
         for dut in restarted_duts :
-            if restarted_duts[dut] == False :
+            if restarted_duts[dut] is False :
                 result = False
                 if rest_type in ['bgp'] :
                     result = get_system_status(dut, service='bgp')
@@ -3955,7 +3955,7 @@ def ospf_dut_or_container_restart(duts, rest_type='bgp', rest_sub_type='cold',
            all_dut_restarted = False
            continue
 
-        if restarted_duts[dut] == False :
+        if restarted_duts[dut] is False :
            st.log("OSPF - {} BGP container didnot come up".format(dut))
            all_dut_restarted = False
            continue

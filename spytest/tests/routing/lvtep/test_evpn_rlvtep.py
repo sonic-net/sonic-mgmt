@@ -923,6 +923,8 @@ def test_FtOpSoRoEvpnRouterLvtepFt32320(Tgencleanup_fixture):
 
     hdrMsg(" \n####### Step 7: Start bidirectional traffic ##############\n")
     start_traffic(stream_han_list=stream_dict["l2_3281"])
+    if tg_dict["tg"].tg_type == 'ixia':
+        st.wait(2,"wait for 2 seconds before verifying stream results")
 
     hdrMsg("\n####### Step 8: Verify traffic ##############\n")
     loss_prcnt = get_traffic_loss_inpercent(tg_dict['d7_tg_ph1'],stream_dict["l2_3281"][0],dest_tg_ph=tg_dict['d6_tg_ph1'])
@@ -1133,7 +1135,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32337_2(Tgencleanup_fixture):
     leaf2_rx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][1], evpn_dict["leaf2"]["mlag_pch_intf_list"][0], "rx_bps")
 
     hdrMsg("\n####### Step 11: Verify BUM traffic Rx over MLAG client link ##############\n")
-    if verify_traffic_pass(leaf1_rx,"rx_bps",evpn_dict['cli_mode']): 
+    if verify_traffic_pass(leaf1_rx,"rx_bps",evpn_dict['cli_mode']):
         result=False
         for interface1 in evpn_dict["leaf1"]["intf_list_spine"]:
             ktx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0], interface1, "tx_bps")
@@ -1164,7 +1166,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32337_2(Tgencleanup_fixture):
             st.log("test_FtOpSoRoEvpnRouterLvtepFt32337_2 FAIL:LVTEP N1 is not sending the BUM traffic to N2 over peer link, shows rate as :{}".format(ktx[0]['tx_bps']))
             success=False
 
-    elif verify_traffic_pass(leaf2_rx,"rx_bps",evpn_dict['cli_mode']): 
+    elif verify_traffic_pass(leaf2_rx,"rx_bps",evpn_dict['cli_mode']):
         result=False
         for interface1 in evpn_dict["leaf2"]["intf_list_spine"]:
             ktx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][1], interface1, "tx_bps")
@@ -1198,7 +1200,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32337_2(Tgencleanup_fixture):
             success=False
 
     hdrMsg("\n####### Step 11: Verify BUM traffic Rx over VxLAN tunnel ##############\n")
-    if verify_traffic_pass(leaf1_rx,"rx_bps",evpn_dict['cli_mode']): 
+    if verify_traffic_pass(leaf1_rx,"rx_bps",evpn_dict['cli_mode']):
         leaf1_rx = 0;leaf2_rx = 0
         for interface1 in evpn_dict["leaf1"]["intf_list_spine"]:
             leaf1_rx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0], interface1, "rx_bps")
@@ -1240,7 +1242,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32337_2(Tgencleanup_fixture):
                         shows rate as : {}".format(ktx[0]['tx_bps']))
                     success=False
 
-    elif verify_traffic_pass(leaf2_rx,"rx_bps",evpn_dict['cli_mode']): 
+    elif verify_traffic_pass(leaf2_rx,"rx_bps",evpn_dict['cli_mode']):
         leaf1_rx = 0;leaf2_rx = 0
         for interface1 in evpn_dict["leaf2"]["intf_list_spine"]:
             leaf2_rx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][1], interface1, "rx_bps")
@@ -1390,7 +1392,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32339_2(Tgencleanup_fixture):
     leaf1_rx = 0;leaf2_rx = 0
     for interface1 in evpn_dict["leaf1"]["intf_list_spine"]:
         ktx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0], interface1, "rx_bps")
-        if verify_traffic_pass(ktx,"rx_bps",evpn_dict['cli_mode']): 
+        if verify_traffic_pass(ktx,"rx_bps",evpn_dict['cli_mode']):
             st.log("INFO: Leaf 1 BUM Rx port over Vxlan tunnel is : {}".format(interface1))
             ktx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0],evpn_dict["leaf1"]["mlag_pch_intf_list"][0], "tx_bps")
             tx_val = ktx[0]['tx_bps'].split(" ")
@@ -1599,12 +1601,11 @@ def test_FtOpSoRoEvpnRouterLvtepFt32335(Tgencleanup_fixture):
                             timeout="2",direction=["Upstream"]*4+["Downstream"],interface=[evpn_dict["leaf2"]["intf_list_spine"][3],
                             evpn_dict["leaf2"]["intf_list_spine"][7],evpn_dict["leaf2"]["pch_intf_list"][0],
                             evpn_dict["leaf2"]["pch_intf_list"][1],evpn_dict["leaf2"]["mlag_pch_intf_list"][0]],
-                            direction_state=["Up","Up","Up","Up","Up"],retry_count=5, delay=1):
+                            direction_state=["Up","Up","Up","Up","Up"],retry_count=5,delay=1,startup_remain_time="0"):
         st.log("PASS: Linktrack status is Up in LVTEP N2")
     else:
         success=False
         hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL: Linktrack status is not Up in LVTEP N2")
-
     ############################################################################################
     hdrMsg(" \n####### Step 7: Start bidirectional traffic ##############\n")
     ############################################################################################
@@ -1652,7 +1653,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32335(Tgencleanup_fixture):
     if not Mac.verify_mac_address_table(evpn_dict["leaf_node_list"][1],"00:10:16:01:01:01",
                             vlan=evpn_dict["l3_vni_sag"]["l3_vni_sagvlan_list"][0],
                             port=evpn_dict["leaf2"]["mlag_pch_intf_list"][0],type="Dynamic"):
-                            
+
         hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL: Local mac not learnt in Leaf2")
         success=False
         mac_status=False
@@ -1696,7 +1697,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32335(Tgencleanup_fixture):
     leaf1_rx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0], evpn_dict["leaf1"]["mlag_pch_intf_list"][0], "rx_bps")
     leaf2_rx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][1], evpn_dict["leaf2"]["mlag_pch_intf_list"][0], "rx_bps")
 
-    if verify_traffic_pass(leaf1_rx,"rx_bps",evpn_dict['cli_mode']): 
+    if verify_traffic_pass(leaf1_rx,"rx_bps",evpn_dict['cli_mode']):
         result=False
         for interface1 in evpn_dict["leaf1"]["intf_list_spine"]:
             ktx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0], interface1, "tx_bps")
@@ -1715,13 +1716,13 @@ def test_FtOpSoRoEvpnRouterLvtepFt32335(Tgencleanup_fixture):
 
         hdrMsg("\n####### Step 11: Verify L2 traffic Tx over MLAG peer link in LVTEP N1 ##############\n")
         tx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0], evpn_dict["leaf1"]["iccpd_pch_intf_list"][0], "tx_bps")
-        if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']): 
+        if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']):
             st.log("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL:LVTEP N1 is sending the L2 traffic to N2 on peer link @ the rate : {}".format(tx[0]['tx_bps']))
             success=False
         else:
             st.log("PASS: LVTEP N1 is not sending the BUM traffic to N2 over peer link, shows rate as : {}".format(tx[0]['tx_bps']))
             tx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][1], evpn_dict["leaf2"]["intf_list_tg"][0], "tx_bps")
-            if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']): 
+            if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']):
                 st.log("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL:LVTEP N2 forward L2 traffic to orphon port at the rate: {}".format(tx[0]['tx_bps']))
                 success=False
             else:
@@ -1769,7 +1770,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32335(Tgencleanup_fixture):
         for interface1 in evpn_dict["leaf1"]["intf_list_spine"]:
             port.noshutdown(evpn_dict["leaf_node_list"][0],[interface1])
 
-    elif verify_traffic_pass(leaf2_rx,"rx_bps",evpn_dict['cli_mode']): 
+    elif verify_traffic_pass(leaf2_rx,"rx_bps",evpn_dict['cli_mode']):
         result=False
         for interface1 in evpn_dict["leaf2"]["intf_list_spine"]:
             ktx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][1], interface1, "tx_bps")
@@ -1790,13 +1791,13 @@ def test_FtOpSoRoEvpnRouterLvtepFt32335(Tgencleanup_fixture):
 
         hdrMsg("\n####### Step 11: Verify L2 unicast traffic Tx over MLAG peer link in LVTEP N2 ##############\n")
         tx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][1], evpn_dict["leaf2"]["iccpd_pch_intf_list"][0], "tx_bps")
-        if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']): 
+        if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']):
             st.log("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL: LVTEP N2 is sending the BUM traffic to N1 over peer link at the rate of : {}".format(tx[0]['tx_bps']))
             success=False
         else:
             st.log("PASS: LVTEP N2 is not sending the L2 unicast traffic to N1 over peer link, shows rate as : {}".format(tx[0]['tx_bps']))
             tx = Evpn.get_port_counters(evpn_dict["leaf_node_list"][0], evpn_dict["leaf1"]["intf_list_tg"][0], "tx_bps")
-            if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']): 
+            if verify_traffic_pass(tx,"tx_bps",evpn_dict['cli_mode']):
                 st.log("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL:LVTEP N1 L2 traffic forwarding to orphon port @ the rate: {}".format(tx[0]['tx_bps']))
                 success=False
             else:
@@ -2508,11 +2509,25 @@ def test_FtOpSoRoEvpnRouterLvtepFt32330_3(Tgencleanup_fixture):
     ############################################################################################
     hdrMsg("\n####### Step 37: Verify L3 traffic b/w LVTEP to SVTEP with auto RD configured #########\n")
     ############################################################################################
-    if verify_traffic(tx_port=vars.T1D7P1,rx_port=vars.T1D6P1):
-        st.log("PASS: Traffic verification passed b/w LVTEP to SVTEP with auto RD")
+    loss_prcnt = get_traffic_loss_inpercent(tg_dict['d7_tg_ph1'],stream_dict["ipv4_3281"][0],dest_tg_ph=tg_dict['d6_tg_ph1'])
+    loss_prcnt1 = get_traffic_loss_inpercent(tg_dict['d6_tg_ph1'],stream_dict["ipv4_3281"][1],dest_tg_ph=tg_dict['d7_tg_ph1'])
+    traffic_status = True
+
+    if loss_prcnt < 0.11:
+        st.log("PASS: Traffic verification passed from LVTEP to SVTEP with auto RD")
     else:
         success=False
-        hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32330_3 FAIL: Traffic verification failed b/w LVTEP to SVTEP with auto RD")
+        traffic_status = False
+        hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32330_3 FAIL: Traffic verification failed from LVTEP to SVTEP with auto RD")
+
+    if loss_prcnt1 < 0.11:
+        st.log("PASS: Traffic verification passed from SVTEP to SVTEP with auto RD")
+    else:
+        success=False
+        traffic_status = False
+        hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32330_3 FAIL: Traffic verification failed from SVTEP to SVTEP with auto RD")
+
+    if not traffic_status:
         debug_traffic(evpn_dict["leaf_node_list"][0],evpn_dict["leaf_node_list"][3])
 
     st.log("Step 39: Remove IP address b/w Leaf 1 and Leaf 2 router port for ICCPD control path")
@@ -2565,11 +2580,25 @@ def test_FtOpSoRoEvpnRouterLvtepFt32330_3(Tgencleanup_fixture):
     ############################################################################################
     hdrMsg("\n####### Step 46: Verify L3 traffic b/w LVTEP to SVTEP after iccpd control path flap #########\n")
     ############################################################################################
-    if verify_traffic(tx_port=vars.T1D7P1,rx_port=vars.T1D6P1):
-        st.log("PASS: Traffic verification passed b/w LVTEP to SVTEP after iccpd control path flap")
+    loss_prcnt = get_traffic_loss_inpercent(tg_dict['d7_tg_ph1'],stream_dict["ipv4_3281"][0],dest_tg_ph=tg_dict['d6_tg_ph1'])
+    loss_prcnt1 = get_traffic_loss_inpercent(tg_dict['d6_tg_ph1'],stream_dict["ipv4_3281"][1],dest_tg_ph=tg_dict['d7_tg_ph1'])
+    traffic_status = True
+
+    if loss_prcnt < 0.11:
+        st.log("PASS: Traffic verification passed from LVTEP to SVTEP after iccpd control path flap")
     else:
         success=False
-        hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32330_3 FAIL: Traffic verification failed b/w LVTEP to SVTEP after iccpd control path flap")
+        traffic_status = False
+        hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32330_3 FAIL: Traffic verification failed from LVTEP to SVTEP after iccpd control path flap")
+
+    if loss_prcnt1 < 0.11:
+        st.log("PASS: Traffic verification passed from SVTEP to SVTEP after iccpd control path flap")
+    else:
+        success=False
+        traffic_status = False
+        hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32330_3 FAIL: Traffic verification failed from SVTEP to SVTEP after iccpd control path flap")
+
+    if not traffic_status:
         debug_traffic(evpn_dict["leaf_node_list"][0],evpn_dict["leaf_node_list"][3])
 
     st.log("Step 48: Remove IP address b/w Leaf 1 and Leaf 2 VLAN L3 interface establish ICCPD control path")
@@ -3965,7 +3994,7 @@ def test_FtOpSoRoEvpnRouterLvtepFtCeta28533(request):
                         [ip.config_ip_addr_interface, evpn_dict["leaf_node_list"][1],
                         evpn_dict["leaf2"]["tenant_l2_vlan_name_list"][0], "10.1.1.15",'24']])
 
-    hdrMsg("step 5 delete port channel for MLAG client interface b/w leaf 2 and client switch") 
+    hdrMsg("step 5 delete port channel for MLAG client interface b/w leaf 2 and client switch")
     utils.exec_all(True, [[pch.delete_portchannel_member, evpn_dict["leaf_node_list"][1],
                            evpn_dict["leaf2"]["mlag_pch_intf_list"][0], evpn_dict["leaf2"]["mlag_intf_list"][0]],
                           [pch.delete_portchannel_member, evpn_dict["mlag_client"][0],
@@ -4258,7 +4287,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32327(Tgencleanup_fixture):
             st.log("test_FtOpSoRoEvpnRouterLvtepFt32327 FAIL: BUM traffic is not passed as per local bias in LVTEP node 1 before shut, \
                           Leaf1 Tx {} and Leaf1 Rx {}".format(str(leaf1_tx),str(leaf1_rx[0]['rx_bps'])))
             success=False
-        
+
     elif int(float(leaf2_rx[0]['rx_bps'])) > 350:
         for interface1 in evpn_dict["leaf2"]["intf_list_spine"]:
             tx = get_interfaces_counters(evpn_dict["leaf_node_list"][1],
@@ -4341,7 +4370,7 @@ def test_FtOpSoRoEvpnRouterLvtepFt32327(Tgencleanup_fixture):
             st.log("test_FtOpSoRoEvpnRouterLvtepFt32327 FAIL: BUM traffic is not passed as per local bias in LVTEP node 2 after up, \
                             Leaf2 Tx {} and Leaf2 Rx {}".format(str(leaf2_tx),str(leaf2_rx[0]['rx_bps'])))
             success=False
-    
+
     if lvtep_bum_forwarder_port1 == lvtep_bum_forwarder_port2:
         st.log("INFO: LVTEP BUM forwarder port is same across link flap ")
     else:
@@ -4605,7 +4634,7 @@ def verify_arp_with_sag(suppress="disable",sanycast="enable"):
     else:
         st.log("Step 11 PASSED - Verify LVTEP ARP or remote ARP route in SVTEP N2")
 
-    if success == False:
+    if success is False:
         debug_ip_neigh()
 
     hdrMsg("\n Step 13 Trigger the ARP ressolution in LVTEP connected Host 1_1 with src ip 120.1.1.101 and gw ip 120.1.1.60 \n")
@@ -4723,7 +4752,7 @@ def verify_arp_with_sag(suppress="disable",sanycast="enable"):
             st.log("PASS at step 16 - Proxy ARP Reply is sent by LVTEP to Host 1 for target address 120.1.1.6")
 
 
-    if success == False:
+    if success is False:
         debug_ip_neigh()
 
     hdrMsg("\n Step 17 Trigger the ARP ressolution from SVTEP connected Host 2_1 with src ip 120.1.1.61 and gw ip 120.1.1.170 \n")
@@ -4843,7 +4872,7 @@ def verify_arp_with_sag(suppress="disable",sanycast="enable"):
         else:
             st.log("PASS at step 20 - Proxy ARP Reply for target address 120.1.1.170 is sent by SVTEP to Host 2_1")
 
-    if success == False:
+    if success is False:
         debug_ip_neigh()
 
     hdrMsg("\n####### step 21 Verify the ping from TG Host 1 connected to LVTEP to SAG IP 120.1.1.1  ####\n")
@@ -5116,7 +5145,7 @@ def verify_nd_with_sag(suppress="disable",sanycast="enable"):
     else:
         st.log("Step 8 PASSED - Verify Leaf 4 remote ND route in LVTEP N2")
 
-    if success == False:
+    if success is False:
         debug_ip_neigh()
 
     hdrMsg("\n####### Step 10 Send ND request from Host 1_1 with src ip 1201::101 & gw 1201::60 connected to LVTEP ##############\n")
@@ -5246,7 +5275,7 @@ def verify_nd_with_sag(suppress="disable",sanycast="enable"):
         else:
             st.log("PASS at Step 12 Verify Proxy ND Reply is sent by LVTEP for ND request sent by Host 1_1")
 
-    if success == False:
+    if success is False:
         debug_ip_neigh()
 
     hdrMsg("\n####### Step 13 Send ND request from Host 2_1 with src ip 1201::61 & gw 1201::100 which belongs Host 1 connected to LVTEP ####\n")
@@ -5364,7 +5393,7 @@ def verify_nd_with_sag(suppress="disable",sanycast="enable"):
         else:
             st.log("PASS at Step 14 - Verify Proxy ND Reply is sent by SVTEP towards Host 2_1 for target address 1201::10")
 
-    if success == False:
+    if success is False:
         debug_ip_neigh()
 
     hdrMsg("\n####### Step 15 Verify the ping from TG Host 1 src ip 1201::100 to LVTEP to SAG IP 1201::1 ##############\n")

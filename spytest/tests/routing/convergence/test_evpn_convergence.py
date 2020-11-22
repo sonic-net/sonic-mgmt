@@ -1,16 +1,11 @@
 import pytest
-import datetime
-from spytest import st, utils
-from spytest.dicts import SpyTestDict
-import apis.routing.evpn as Evpn
-from apis.system import basic
-import apis.system.reboot as reboot
-import apis.routing.ip as Ip
-from utilities import parallel
-from evpn_convergence import *
-import evpn_convergence
 from tabulate import tabulate
 
+from spytest import st
+from spytest.dicts import SpyTestDict
+import apis.system.reboot as reboot_api
+from evpn_convergence import *
+from utilities import parallel
 
 scale = SpyTestDict()
 trigger_list = ['link_down_active','link_up_active','link_down_stdby','link_up_stdby',
@@ -105,7 +100,7 @@ def test_convergence_l2_unknown(evpn_underlay_hooks):
                 st.banner('Testcase -{} : Trigger - {},Iteration -{}'.format(tc,trigger,(iter+1)))
                 ###################################################
                 convergence_time = convergence_measure(tc,trigger=trigger,streams=stream_dict[tc],iteration=(iter+1))
-                if type(convergence_time) is bool and convergence_time == False:
+                if type(convergence_time) is bool and convergence_time is False:
                     data[trigger]['convergence_{}'.format(iter)] = None
                 else:
                     data[trigger]['convergence_{}'.format(iter)] = float(convergence_time)
@@ -130,7 +125,7 @@ def test_convergence_l2_unknown(evpn_underlay_hooks):
                                evpn_dict["leaf2"]["intf_list_spine"][4], evpn_dict["leaf2"]["intf_list_spine"][7]]]])
                 if 'link_down_uplink' not in trigger :
                     st.log("verify BGP EVPN neighborship for all nodes ")
-                    result = st.exec_all([[leaf1_verify_evpn],[leaf2_verify_evpn]])
+                    st.exec_all([[leaf1_verify_evpn],[leaf2_verify_evpn]])
             if tc_result:
                 st.report_tc_pass(tc,'test_case_passed')
             data['table_{}'.format(tc)].append(data['table_{}'.format(trigger)])
@@ -177,7 +172,7 @@ def test_convergence_l3_scale(evpn_underlay_hooks):
                 st.banner('Testcase -{} : Trigger - {},Iteration -{}'.format(tc,trigger,(iter+1)))
                 ###################################################
                 convergence_time = convergence_measure(tc,trigger=trigger,streams=stream_dict[tc],iteration=(iter+1))
-                if type(convergence_time) is bool and convergence_time == False:
+                if type(convergence_time) is bool and convergence_time is False:
                     data[trigger]['convergence_{}'.format(iter)] = None
                 else:
                     data[trigger]['convergence_{}'.format(iter)] = float(convergence_time)
@@ -202,7 +197,7 @@ def test_convergence_l3_scale(evpn_underlay_hooks):
                                evpn_dict["leaf2"]["intf_list_spine"][4], evpn_dict["leaf2"]["intf_list_spine"][7]]]])
                 if 'link_down_uplink' not in trigger :
                     st.log("verify BGP EVPN neighborship for all nodes ")
-                    result = st.exec_all([[leaf1_verify_evpn],[leaf2_verify_evpn]])
+                    st.exec_all([[leaf1_verify_evpn],[leaf2_verify_evpn]])
             if tc_result:
                 st.report_tc_pass(tc,'test_case_passed')
             data['table_{}'.format(tc)].append(data['table_{}'.format(trigger)])
@@ -303,7 +298,7 @@ def no_test_convergence_orphan_traffic(evpn_underlay_hooks):
                 st.banner('Testcase -{} : Trigger - {},Iteration -{}'.format(tc,trigger,(iter+1)))
                 ###################################################
                 convergence_time = convergence_measure(tc,trigger=trigger,streams=stream_dict[tc],iteration=(iter+1))
-                if type(convergence_time) is bool and convergence_time == False:
+                if type(convergence_time) is bool and convergence_time is False:
                     data[trigger]['convergence_{}'.format(iter)] = None
                 else:
                     data[trigger]['convergence_{}'.format(iter)] = float(convergence_time)

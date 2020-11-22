@@ -305,7 +305,7 @@ def dhcp_relay_vlan_config_clean(family="ipv4"):
     try:
         delete_vlan_member(vars.D2, data.vlan, [vars.D2D3P1], skip_error_check=True)
         delete_vlan(vars.D2, [data.vlan])
-    except:
+    except Exception:
         st.log("VLAN already deleted")
 
 
@@ -340,7 +340,7 @@ def dhcp_relay_portchannel_config(family="ipv4"):
             create_portchannel(vars.D2, [data.portchannel], static=True)
             add_del_portchannel_member(vars.D2, data.portchannel, vars.D2D3P2, flag="add", skip_verify=True,
                                        skip_err_check=False)
-        except:
+        except Exception:
             st.log("portchannel already exist")
 
     if family == "ipv4":
@@ -694,7 +694,7 @@ def test_dhcp_relay_ip_address_config_remove_add():
     st.log("About to config valid relay IP helper address in Relay agent")
     try:
         dhcp_relay.dhcp_relay_config_add(vars.D2, vlan=data.vlan_int, IP=data.dhcp_server_ip)
-    except:
+    except Exception:
         st.log("IP helper address already conigured")
     st.log("About to remove IP config on server connected port in relay agent DUT")
     ip.delete_ip_interface(vars.D2, interface_name=data.dhcp_relay_params, ip_address=data.RA_ipaddress_1,
@@ -827,7 +827,7 @@ def check_dhcpv6_client(interface_name=None):
     try:
         pool_ip = ip.get_interface_ip_address(vars.D3, interface_name, family="ipv6")
         pool_ip = pool_ip[0]['ipaddr']
-    except:
+    except Exception:
         dhcp_relay.dhcp_client_stop(vars.D3, interface_name, family="ipv6")
         st.report_fail('IP_address_assignment_failed', vars.D2)
     pool_ip = pool_ip.split("/")
@@ -911,7 +911,7 @@ def util_create_vrf(vrf_name, intf_name):
     st.log("Create vrf from DUT")
     try:
         config_vrf(vars.D2, vrf_name=data.vrf_name, config='yes', skip_error=False)
-    except:
+    except Exception:
         st.log("Already VRF exists")
     st.log("bind DUT interface {} to non-default VRF {}".format(intf_name, vrf_name))
     bind_vrf_interface(vars.D2, intf_name=intf_name, vrf_name=vrf_name, config='yes', skip_error=False)

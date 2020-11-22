@@ -239,14 +239,14 @@ def check_intf_traffic_counters():
     entry1 = filter_and_select(output, ["rx_bps"], {'iface': vars.D1T1P2})
     entry2 = filter_and_select(output, ["tx_bps"], {'iface': vars.D1T1P1})
     ret = compare_intf_traffic_stats(entry1, entry2, 2)
-    if ret == True:
+    if ret is True:
         return True
     DUT_rx_value = papi.get_interface_counters(dut1, vars.D1T1P2, "rx_bps")
     DUT_tx_value = papi.get_interface_counters(dut1, vars.D1T1P1, "tx_bps")
     ret = compare_intf_traffic_stats(entry1, entry2, data.counters_threshold)
 
 
-    if  ret == False:
+    if  ret is False:
         output = papi.get_interface_counters_all(dut1)
         entry1 = filter_and_select(output, ["rx_bps"], {'iface': vars.D1T1P2})
         entry2 = filter_and_select(output, ["tx_bps"], {'iface': vars.D1T1P1})
@@ -315,13 +315,13 @@ def verify_bgp_session_summary(dut, vrf_flag, family='ipv4',  shell="sonic", **k
     """
     (dut) = (data.dut)
     if family.lower() == 'ipv4':
-        if vrf_flag == False:
+        if vrf_flag is False:
             output = show_bgp_ipv4_summary_default_vrf(dut)
         else:
             output = show_bgp_ipv4_summary_non_default_vrf(dut)
 
     elif family.lower() == 'ipv6':
-        if vrf_flag == False:
+        if vrf_flag is False:
             output = show_bgp_ipv6_summary_default_vrf(dut)
         else:
             output = show_bgp_ipv6_summary_non_default_vrf(dut)
@@ -367,7 +367,7 @@ def create_bgp_neighbor_route_map_config(dut, local_asn, neighbor_ip, routemap, 
     st.vtysh_config(dut, command)
     command = "set ipv6 next-hop prefer-global"
     st.vtysh_config(dut, command)
-    if vrf_flag == False:
+    if vrf_flag is False:
         command = "router bgp {}".format(local_asn)
     else:
         command = "router bgp {} vrf {}".format(local_asn, data.vrf)
@@ -391,7 +391,7 @@ def verify_bgp_route_count(dut,family='ipv4',shell="sonic",**kwargs):
         match = {'neighbor': kwargs['neighbor']}
         try:
             entries = filter_and_select(output, None, match)[0]
-        except:
+        except Exception:
             st.log("ERROR 1")
         if entries['state']:
             if kwargs['state'] == 'Established':
@@ -421,7 +421,7 @@ def delete_bgp_router(dut, router_id, as_num, vrf_flag):
     :rtype:
     """
     st.log("delete bgp router info")
-    if vrf_flag == False:
+    if vrf_flag is False:
         my_cmd = "no router bgp {}".format(as_num)
         st.vtysh_config(dut, my_cmd)
         my_cmd = "no bgp router-id {}".format(router_id)
@@ -441,7 +441,7 @@ def pre_configure_ipv6_route_scale(vrf_flag):
     ipfeature.config_ip_addr_interface(dut, data.member3, data.my_ipv6_addr, data.ipv6_prefixlen, family="ipv6")
     #bgpfeature.create_bgp_router(dut, data.as_num, data.router_id)
     create_bgp_neighbor_route_map_config(dut, data.as_num, data.neigh_ipv6_addr, data.routemap, vrf_flag)
-    if vrf_flag == True:
+    if vrf_flag is True:
         bgpfeature.create_bgp_router(dut, "10", '')
         out = vrf_api.config_vrf(dut = dut, vrf_name = data.vrf, skip_error = True)
         vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = data.member3, skip_error = True, config = 'yes')
@@ -486,7 +486,7 @@ def pre_configure_ipv6_route_scale(vrf_flag):
     # Verified at neighbor.
     st.log("BGP neighborship established.")
     st.wait(10)
-    if vrf_flag == False:
+    if vrf_flag is False:
         show_bgp_ipv6_summary_default_vrf(dut)
         retval = bgpfeature.verify_bgp_summary(dut, family='ipv6', neighbor=data.neigh_ipv6_addr, state='Established')
     else:
@@ -518,7 +518,7 @@ def post_configure_ipv6_route_scale(vrf_flag):
 
     #h1a=tg1.tg_interface_config(protocol_handle=h1['ethernet_handle'], mode='destroy')
     #h2a=tg2.tg_interface_config(protocol_handle=h2['ethernet_handle'], mode='destroy')
-    if vrf_flag == True:
+    if vrf_flag is True:
         temp_flag = False
         delete_bgp_router(dut, '', "10", temp_flag)
         bgpfeature.config_bgp(dut = dut, vrf_name = data.vrf, router_id = '', local_as = data.as_num, neighbor = data.neigh_ipv6_addr, remote_as = data.remote_as_num, keep_alive='60', holdtime='180', config = 'no', config_type_list =['neighbor','activate','nexthop_self'])
@@ -538,7 +538,7 @@ def test_ipv6_tc3_1():
     vrf_flag = False
     retval = pre_configure_ipv6_route_scale(vrf_flag)
 
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -559,7 +559,7 @@ def test_ipv6_tc3_3():
     st.wait(10)
     retval = bgpfeature.verify_bgp_summary(dut, family='ipv6', neighbor=data.neigh_ipv6_addr, state='Established')
 
-    if retval == True:
+    if retval is True:
         st.log("bgp_router_created")
         st.log("IPV6 Scale Test Case 3.3 PASSED")
     else:
@@ -572,7 +572,7 @@ def test_ipv6_tc3_3():
     res=data.tg2.tg_traffic_control(action='run', handle=data.tr2['stream_id'])
 
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -588,7 +588,7 @@ def test_ipv6_tc3_4():
     if res2:
         st.log("Interface Scaling Test Case 1.4 PASSED PING TEST")
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -607,7 +607,7 @@ def test_ipv6_tc3_5():
     if res2:
         st.log("Interface Scaling Test Case 3.5 PASSED PING TEST")
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -626,7 +626,7 @@ def test_ipv6_tc3_6():
     if res2:
         st.log("Interface Scaling Test Case 3.6 PASSED PING TEST")
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -645,7 +645,7 @@ def test_ipv6_tc3_7():
     if res3:
         st.log("Interface Scaling Test Case 3.7 PASSED PING TEST")
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -686,7 +686,7 @@ def test_ipv6_tc3_8():
         if res2:
             st.log("Interface Scaling Test Case 3.8 PASSED PING TEST")
         retval = check_intf_traffic_counters()
-        if retval == True:
+        if retval is True:
             st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -710,7 +710,7 @@ def test_ipv6_tc3_9():
         if res2:
             st.log("Interface Scaling Test Case 3.9 PASSED PING TEST")
         retval = check_intf_traffic_counters()
-        if retval == True:
+        if retval is True:
             st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -733,7 +733,7 @@ def create_l3_route(route_count, vrf_flag):
     tc_fail_flag = 0
     ipfeature.config_ip_addr_interface(dut, member3, data.my_ip_addr, data.ip_prefixlen, family="ipv4")
 
-    if vrf_flag == True:
+    if vrf_flag is True:
         out = vrf_api.config_vrf(dut = dut, vrf_name = data.vrf, skip_error = True)
         vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = member3, skip_error = True, config = 'yes')
         vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = member4, skip_error = True, config = 'yes')
@@ -786,7 +786,7 @@ def create_l3_route(route_count, vrf_flag):
         emulation_dst_handle=bgp_rtr1['route'][0]['handle'], circuit_endpoint_type='ipv4',
         mode='create', transmit_mode='continuous', length_mode='fixed', rate_pps=512000, enable_stream_only_gen='0')
 
-    if vrf_flag == False:
+    if vrf_flag is False:
         retval = bgpfeature.verify_bgp_summary(dut, neighbor=data.neigh_ip_addr, state='Established')
     else:
         retval = verify_bgp_session_summary(dut, vrf_flag='True', neighbor=data.neigh_ip_addr, state='Established')
@@ -835,7 +835,7 @@ def create_l3_route_ipv6(vrf_flag, route_count):
     #bgpfeature.create_bgp_router(dut, data.as_num, data.router_id)
     bgpfeature.create_bgp_router(dut, "10", '')
     create_bgp_neighbor_route_map_config(dut, data.as_num, data.neigh_ipv6_addr, data.routemap, vrf_flag)
-    if vrf_flag == True:
+    if vrf_flag is True:
         bgpfeature.create_bgp_router(dut, "10", '')
         out = vrf_api.config_vrf(dut = dut, vrf_name = data.vrf, skip_error = True)
         vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = member3, skip_error = True, config = 'yes')
@@ -867,7 +867,7 @@ def create_l3_route_ipv6(vrf_flag, route_count):
 
     st.log("BGP neighborship established.")
 
-    if vrf_flag == False:
+    if vrf_flag is False:
         retval = bgpfeature.verify_bgp_summary(dut, family='ipv6', neighbor=data.neigh_ipv6_addr, state='Established')
     else:
         verify_bgp_session_summary(dut, family='ipv6', vrf_flag='True', neighbor=data.neigh_ipv6_addr, state='Established')
@@ -895,7 +895,7 @@ def create_l3_route_ipv6(vrf_flag, route_count):
 
     tg1.tg_interface_config(port_handle=tg_ph_1, handle=h1['handle'], mode='destroy')
     ipfeature.delete_ip_interface(dut, member3, data.my_ipv6_addr, subnet=data.ipv6_prefixlen, family="ipv6")
-    if vrf_flag == True:
+    if vrf_flag is True:
         temp_flag = False
         delete_bgp_router(dut, '', "10", temp_flag)
         bgpfeature.config_bgp(dut = dut, vrf_name = data.vrf, router_id = '', local_as = data.as_num, neighbor = data.neigh_ipv6_addr, remote_as = data.remote_as_num, keep_alive='60', holdtime='180', config = 'no', config_type_list =['neighbor','activate','nexthop_self'])
@@ -926,7 +926,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
     st.config(dut, command)
     ipfeature.config_ip_addr_interface(dut, member3, data.my_ip_addr, data.ip_prefixlen, family="ipv4")
     ipfeature.config_ip_addr_interface(dut, member4, data.intf_ip_addr, data.ip_prefixlen, family="ipv4")
-    if vrf_flag == True:
+    if vrf_flag is True:
         out = vrf_api.config_vrf(dut = dut, vrf_name = data.vrf, skip_error = True)
         vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = member3, skip_error = True, config = 'yes')
         vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = member4, skip_error = True, config = 'yes')
@@ -989,14 +989,14 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
     st.config(dut, command)
     #pdb.set_trace()
     tr1=tg2.tg_traffic_config(port_handle=tg_ph_2, emulation_src_handle=h2['handle'], emulation_dst_handle=bgp_rtr1['route'][0]['handle'], circuit_endpoint_type='ipv4', mode='create', transmit_mode='continuous', length_mode='fixed', rate_pps=512000, enable_stream_only_gen='0')
-    if vrf_flag == False:
+    if vrf_flag is False:
         retval = bgpfeature.verify_bgp_summary(dut, neighbor=data.neigh_ip_addr, state='Established')
     else:
         retval = verify_bgp_session_summary(dut, vrf_flag='True', neighbor=data.neigh_ip_addr, state='Established')
     #pdb.set_trace()
 
-    if retval == True:
-        if vrf_flag == False:
+    if retval is True:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.1 PASSED")
             data.result[0] = True
         else:
@@ -1005,7 +1005,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
     else:
         #tc_fail_flag not needed for this test case
         #tc_fail_flag = 1
-        if vrf_flag == False:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.1 FAILED")
         else:
             st.log("IPV4 Scale Test Case 2.1 FAILED")
@@ -1013,10 +1013,10 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
 
     #IPV4 ROUTE SCALE TEST CASE 1.5 START
     st.wait(10)
-    if vrf_flag == False:
+    if vrf_flag is False:
         retval = ipfeature.ping(dut, data.neigh_ip_addr, count='20')
 
-        if retval == True:
+        if retval is True:
             st.log("IPV4 Scale Test Case 1.5 PASSED")
             data.result[4] = True
         else:
@@ -1030,8 +1030,8 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
     st.wait(20)
     #bgp_rtr2 = tg_bgp_config(tg = tg1,      handle    = bgp_rtr1['conf']['handle'],        ctrl_var  = ctrl_stop)
     retval = check_intf_traffic_counters()
-    if retval == True:
-        if vrf_flag == False:
+    if retval is True:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.4 PASSED")
             data.result[3] = True
         else:
@@ -1039,7 +1039,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
             data.vrf_result[3] = True
     else:
         tc_fail_flag = 1
-        if vrf_flag == False:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.4 FAILED")
         else:
             st.log("IPV4 Scale Test Case 2.4 FAILED")
@@ -1054,8 +1054,8 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
         st.log("Route Scaling Test Case 1.6 PASSED PING TEST")
     st.wait(60)
     retval = check_intf_traffic_counters()
-    if retval == True:
-        if vrf_flag == False:
+    if retval is True:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.6 PASSED")
             data.result[5] = True
         else:
@@ -1063,7 +1063,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
             data.vrf_result[4] = True
     else:
         tc_fail_flag = 1
-        if vrf_flag == False:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.6 FAILED")
         else:
             st.log("IPV4 Scale Test Case 2.5 FAILED")
@@ -1071,7 +1071,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
     #bgp_rtr2 = tg_bgp_config(tg = tg1,      handle    = bgp_rtr1['conf']['handle'],        ctrl_var  = ctrl_stop)
 
 
-    if vrf_flag == False:
+    if vrf_flag is False:
         #IPV4 ROUTE SCALE TEST CASE 1.9 START
         clear_arp_entries(dut)
         res2=verify_ping(src_obj=tg1, port_handle=tg_ph_1, dev_handle=h2['handle'], dst_ip='10.10.10.1',\
@@ -1081,7 +1081,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
         #bgp_rtr2 = tg_bgp_config(tg = tg1,      handle    = bgp_rtr1['conf']['handle'],        ctrl_var  = ctrl_stop)
         st.wait(30)
         retval = check_intf_traffic_counters()
-        if retval == True:
+        if retval is True:
             st.log("IPV4 Scale Test Case 1.9 PASSED")
             data.result[8] = True
             st.log("Traffic Passed")
@@ -1098,7 +1098,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
 
         st.wait(30)
         retval = check_intf_traffic_counters()
-        if retval == True:
+        if retval is True:
             st.log("IPV4 Scale Test Case 1.10 PASSED")
             data.result[9] = True
             st.log("Traffic Passed")
@@ -1118,8 +1118,8 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
 
 
     retval = check_intf_traffic_counters()
-    if retval == True:
-        if vrf_flag == False:
+    if retval is True:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.7 PASSED")
             data.result[6] = True
         else:
@@ -1127,13 +1127,13 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
             data.vrf_result[5] = True
     else:
         tc_fail_flag = 1
-        if vrf_flag == False:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.7 FAILED")
         else:
             st.log("IPV4 Scale Test Case 2.6 FAILED")
 
     #IPV4 ROUTE SCALE TEST CASE 1.8 START
-    if vrf_flag == False:
+    if vrf_flag is False:
         clear_ip_bgp_v4_unicast(dut)
         st.wait(45)
         res2=verify_ping(src_obj=tg1, port_handle=tg_ph_1, dev_handle=h2['handle'], dst_ip='10.10.10.1',\
@@ -1141,7 +1141,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
         if res2:
             st.log("Route Scaling Test Case 1.8 PASSED PING TEST")
         retval = check_intf_traffic_counters()
-        if retval == True:
+        if retval is True:
             st.log("IPV4 Scale Test Case 1.8 PASSED")
             data.result[7] = True
             st.log("Traffic Passed")
@@ -1159,8 +1159,8 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
 
     st.wait(30)
     retval = check_intf_traffic_counters()
-    if retval == True:
-        if vrf_flag == False:
+    if retval is True:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.3 PASSED")
             data.result[2] = True
         else:
@@ -1168,20 +1168,20 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
             data.vrf_result[2] = True
     else:
         tc_fail_flag = 1
-        if vrf_flag == False:
+        if vrf_flag is False:
             st.log("IPV4 Scale Test Case 1.3 FAILED")
         else:
             st.log("IPV4 Scale Test Case 2.3 FAILED")
 
 
-    if long_run_flag == False:
+    if long_run_flag is False:
         res=tg2.tg_traffic_control(action='stop', handle=tr1['stream_id'])
         st.log("TR_CTRL: "+str(res))
         bgp_rtr2 = tg_bgp_config(tg = tg1,      handle    = bgp_rtr1['conf']['handle'],        ctrl_var  = ctrl_stop)
         tg2.tg_traffic_control(action='reset',port_handle=tg_ph_2)
         tg1.tg_interface_config(port_handle=tg_ph_1, handle=h1['handle'], mode='destroy')
         tg2.tg_interface_config(port_handle=tg_ph_2, handle=h2['handle'], mode='destroy')
-        if vrf_flag == True:
+        if vrf_flag is True:
             bgpfeature.config_bgp(dut = dut, vrf_name = data.vrf, router_id = '', local_as = data.as_num, neighbor = data.neigh_ip_addr, remote_as = data.remote_as_num, config = 'no', config_type_list =['neighbor','activate','nexthop_self'])
             vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = member3, skip_error = True, config = 'no')
             vrf_api.bind_vrf_interface(dut = dut, vrf_name = data.vrf, intf_name = member4, skip_error = True, config = 'no')
@@ -1215,7 +1215,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
 
         st.wait(30)
         retval = check_intf_traffic_counters()
-        if retval == True:
+        if retval is True:
             st.log("IPV4 Scale Test Case 1.12 PASSED")
             data.result[11] = True
             st.log("Traffic Passed")
@@ -1224,7 +1224,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
     else:
         st.log("Fast reboot failed")
 
-    if warm_reboot_flag == True:
+    if warm_reboot_flag is True:
         #IPV4 ROUTE SCALE TEST CASE 1.11 START
         cmd = "config save -y"
         st.config(dut, cmd)
@@ -1239,7 +1239,7 @@ def ipv4_tc1_1to1_10(vrf_flag, long_run_flag, warm_reboot_flag):
 
             st.wait(30)
             retval = check_intf_traffic_counters()
-            if retval == True:
+            if retval is True:
                 st.log("IPV4 Scale Test Case 1.11 PASSED")
                 data.result[10] = True
                 st.log("Traffic Passed")
@@ -1410,7 +1410,7 @@ def test_ipv6_tc4_1():
     vrf_flag = True
     retval = pre_configure_ipv6_route_scale(vrf_flag)
 
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -1430,7 +1430,7 @@ def test_ipv6_tc4_3():
     st.wait(10)
     retval = verify_bgp_session_summary(dut, family='ipv6', vrf_flag='True', neighbor=data.neigh_ipv6_addr, state='Established')
 
-    if retval == True:
+    if retval is True:
         st.log("bgp_router_created")
         st.log("IPV6 Scale Test Case 4.3 PASSED")
     else:
@@ -1443,7 +1443,7 @@ def test_ipv6_tc4_3():
     res=data.tg2.tg_traffic_control(action='run', handle=data.tr2['stream_id'])
 
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -1459,7 +1459,7 @@ def test_ipv6_tc4_4():
     # Withdraw the routes.
     retval = verify_bgp_session_summary(dut, family='ipv6', vrf_flag='True', neighbor=data.neigh_ipv6_addr, state='Established')
 
-    if retval == True:
+    if retval is True:
         st.log("bgp_router_created")
         st.log("IPV6 Scale Test Case 4.4 PASSED")
     else:
@@ -1472,7 +1472,7 @@ def test_ipv6_tc4_4():
     res=data.tg2.tg_traffic_control(action='run', handle=data.tr2['stream_id'])
 
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -1488,7 +1488,7 @@ def test_ipv6_tc4_5():
     if res2:
         st.log("Interface Scaling Test Case 4.5 PASSED PING TEST")
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
@@ -1508,7 +1508,7 @@ def test_ipv6_tc4_6():
     if res2:
         st.log("Interface Scaling Test Case 3.5 PASSED PING TEST")
     retval = check_intf_traffic_counters()
-    if retval == True:
+    if retval is True:
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")

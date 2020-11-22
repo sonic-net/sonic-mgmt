@@ -877,7 +877,7 @@ def verify_interface_counters(dut, params, cli_type=""):
             st.log("Mirror Counters:{}".format(mirror_counters))
             float(source_counters.split()[0].replace(",", ""))
             float(destination_counters.split()[0].replace(",", ""))
-        except:
+        except Exception:
             st.report_fail("counters_are_not_initilaized")
         source_counters = int(source_counters.replace(",", ""))
         destination_counters = int(destination_counters.replace(",", ""))
@@ -1504,7 +1504,7 @@ def get_native_interface_name(dut, if_name, cli_type=''):
             ntv_if_list.append(curr_if)
             continue
 
-        if show_if_entries == None :
+        if show_if_entries is None :
             output = interface_status_show(dut, cli_type=cli_type)
             show_if_entries = filter_and_select(output, [name_field, alias_field])
 

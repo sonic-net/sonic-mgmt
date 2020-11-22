@@ -67,7 +67,7 @@ def db_map_read(dut):
         db_instances = db_dict.get("INSTANCES")
         for db_name, db_data in db_dict.get("DATABASES").items():
             db_port_map[db_name] = db_instances[db_data["instance"]].get("port")
-    except:
+    except Exception:
         db_port_map = db_default_port_map
 
 def _prefix(dut, db, suffix="cli"):

@@ -313,7 +313,6 @@ class ScapyPacket(object):
             crc1 = '{:08x}'.format(socket.htonl(zlib.crc32(pkt_bytes) & 0xFFFFFFFF))
             crc = binascii.unhexlify(crc1)
         except Exception:
-            crc1='{:08x}'.format(socket.htonl(zlib.crc32(pkt_bytes) & 0xFFFFFFFF))
             crc = binascii.unhexlify('00' * 4)
         bstr = bytes(strpkt+crc)
         self.sendp(bstr, iface, stream_name, left)
@@ -1423,10 +1422,10 @@ class ScapyPacket(object):
         for _ in range(num_routes):
             remote_ipv6_addr = intf.bgp_kws.get("remote_ipv6_addr", "")
             if remote_ipv6_addr:
-                cmd = textwrap.dedent("""
-                    ip netns exec ns_{0} exabgpcli --env {1} \
-                        announce route {2}/128 next-hop self
-                """.format(ns, envfile, prefix))
+                #cmd = textwrap.dedent("""
+                    #ip netns exec ns_{0} exabgpcli --env {1} \
+                        #announce route {2}/128 next-hop self
+                #""".format(ns, envfile, prefix))
                 cmd = textwrap.dedent("""
                     ip netns exec ns_{0} curl -s --form \
                         "command=announce route {1}/128 next-hop self" \
@@ -1434,10 +1433,10 @@ class ScapyPacket(object):
                 """.format(ns, prefix, 5000))
                 prefix = self.utils.incrementIPv6(prefix, "0:0:0:1::")
             else:
-                cmd = textwrap.dedent("""
-                    ip netns exec ns_{0} exabgpcli --env {1} \
-                        announce route {2}/24 next-hop self
-                """.format(ns, envfile, prefix))
+                #cmd = textwrap.dedent("""
+                    #ip netns exec ns_{0} exabgpcli --env {1} \
+                        #announce route {2}/24 next-hop self
+                #""".format(ns, envfile, prefix))
                 cmd = textwrap.dedent("""
                     ip netns exec ns_{0} curl -s --form \
                         "command=announce route {1}/24 next-hop self" \
@@ -1496,8 +1495,8 @@ if __name__ == '__main__':
     iface = sys.argv[1] if len(sys.argv) > 1 else None
     packet = ScapyPacket(iface, 3, bool(not iface), False)
 
-    kwargs = ut_stream_get(0)
-    kwargs = ut_stream_get(0, mac_dst_mode='list', mac_dst=["00.00.00.00.00.02", "00.00.00.00.00.04", "00.00.00.00.00.06"])
+    #kwargs = ut_stream_get(0)
+    #kwargs = ut_stream_get(0, mac_dst_mode='list', mac_dst=["00.00.00.00.00.02", "00.00.00.00.00.04", "00.00.00.00.00.06"])
     kwargs = ut_stream_get(0, mac_src_mode='list', mac_src="00.00.00.00.00.02 00.00.00.00.00.04 00.00.00.00.00.06")
     s = ScapyStream(0, None, None, **kwargs)
     pwa = packet.build_first(s)

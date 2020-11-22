@@ -1722,7 +1722,7 @@ def test_ft_change_policy():
         result = copp_obj.verify_policy_type_copp(dut=vars.D1,copp_fgroup=entry1['copp_fgroup'],copp_agroup=entry1['copp_agroup'], \
             cir=entry1['cir'],cbs=entry1['cir'],trap_queue=entry1['trap_queue'])
 
-    if result == False:
+    if result is False:
         success = False
         hdrMsg("STEP 5: Test case Fails so dumping debug commands")
         copp_obj.debug_copp_config(vars.D1)
@@ -1745,7 +1745,7 @@ def test_ft_change_policy():
         result = copp_obj.verify_policy_type_copp(dut=vars.D1,copp_fgroup=entry1['copp_fgroup'],copp_agroup=entry1['copp_agroup'], \
             cir=entry1['cir'],cbs=entry1['cir'],trap_queue=entry1['trap_queue'])
 
-    if result == False:
+    if result is False:
         success = False
         hdrMsg("STEP 9: Test case Fails so dumping debug commands")
         copp_obj.debug_copp_config(vars.D1)
@@ -2059,7 +2059,7 @@ def stop_traffic_dump_debug(tg_stream_handle,result=True):
     hdrMsg("STEP : Stopping the control traffic")
     tg.tg_traffic_control(action='stop', stream_handle=[tg_stream_handle])
 
-    if result == False:
+    if result is False:
         hdrMsg("STEP : Test case Fails so dumping debug commands")
         copp_obj.debug_copp_config(vars.D1)
 

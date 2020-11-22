@@ -516,7 +516,7 @@ def check_test_status(family):
             st.log("Successfully generated threshold logs for [{}]".format(family))
             return None
         else:
-            slog_obj.show_logging(vars.D1, lines=20)
+            slog_obj.show_logging(vars.D1, lines=100)
             st.log("Test [{}] FAILED [{}]".format(family, crm_test_result[family]))
             st.log("Failed to generate threshold logs for [{}]".format(family))
             return family

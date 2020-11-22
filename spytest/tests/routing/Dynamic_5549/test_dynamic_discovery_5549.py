@@ -78,7 +78,7 @@ def prologue_epilogue():
     #loc_lib.reset_streams()
 
 @pytest.fixture(scope="function")
-def fixture_test_03_04_08_18_24(request,prologue_epilogue): 
+def fixture_test_03_04_08_18_24(request,prologue_epilogue):
     yield
     st.log('Unconfigure BFD on BGP unnumbered session')
     dict1 = {'config':'no', 'local_as':dut1_as,'config_type_list': ['bfd'],'interface': 'PortChannel1','remote_as':dut2_as}
@@ -227,7 +227,7 @@ def test_03_04_08_18_24(fixture_test_03_04_08_18_24):
         st.error("Link local address not present over port channel")
         result+=1
     else:
-        if utils.poll_wait(ip_obj.verify_ip_route, 2, data.dut3, type='B', nexthop = pc_dut2_linklocal[0], interface = 'PortChannel3', ip_address = dut1_tg1_network_v6[0], family = "ipv6") == False:
+        if utils.poll_wait(ip_obj.verify_ip_route, 2, data.dut3, type='B', nexthop = pc_dut2_linklocal[0], interface = 'PortChannel3', ip_address = dut1_tg1_network_v6[0], family = "ipv6") is False:
             st.log('As expected, All IPv6 BGP routes are denied after applying route map on BGP unnumbered session')
         else:
             st.error('IPv6 BGP routes not denied after applying route map')
@@ -881,7 +881,7 @@ def fixture_test_17_22(request,prologue_epilogue):
     parallel.exec_parallel(True, [data.dut1, data.dut2], bgp_obj.config_bgp, [dict1, dict2])
     dict1 = {'config':'no','addr_family':'ipv4','local_as':dut1_as,'remote_as':dut2_as,'neighbor': dut2_dut1_ip[0],'config_type_list': ['no_neigh'],'no_neigh':'no'}
     dict2 = {'config':'no','addr_family':'ipv4','local_as':dut2_as,'remote_as':dut1_as,'neighbor': dut1_dut2_ip[0],'config_type_list': ['no_neigh'],'no_neigh':'no'}
-    parallel.exec_parallel(True, [data.dut1, data.dut2], bgp_obj.config_bgp, [dict1, dict2])    
+    parallel.exec_parallel(True, [data.dut1, data.dut2], bgp_obj.config_bgp, [dict1, dict2])
     utils.exec_all(True, [[ip_obj.config_ip_addr_interface,data.dut1,'PortChannel1', dut1_dut2_ipv6[0],'127','ipv6','remove'],[ip_obj.config_ip_addr_interface,data.dut2,'PortChannel1', dut2_dut1_ipv6[0], '127', 'ipv6', 'remove']])
     utils.exec_all(True, [[ip_obj.config_ip_addr_interface,data.dut1,'PortChannel1', dut1_dut2_ip[0],'31','ipv4','remove'],[ip_obj.config_ip_addr_interface,data.dut2,'PortChannel1', dut2_dut1_ip[0], '31', 'ipv4', 'remove']])
 

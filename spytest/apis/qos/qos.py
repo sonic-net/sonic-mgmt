@@ -1,9 +1,8 @@
 import re
-from spytest.utils import filter_and_select
-from spytest import st
 import json
-from utilities.utils import get_interface_number_from_name
+from spytest import st
 import apis.system.interface as Intf
+from utilities.utils import get_interface_number_from_name
 
 def verify_qos_queue_counters(dut,port,queue_name,param_list,val_list,tol_list,**kwargs):
     '''
@@ -28,7 +27,7 @@ def verify_qos_queue_counters(dut,port,queue_name,param_list,val_list,tol_list,*
 
     success = True
     cli_type = st.get_ui_type(dut,**kwargs)
-    fil_out = Intf.show_queue_counters(dut, port, queue_name)
+    fil_out = Intf.show_queue_counters(dut, port, queue_name, cli_type=cli_type)
     if not fil_out:
         st.error('queue: {} not found in show output'.format(queue_name))
         return False

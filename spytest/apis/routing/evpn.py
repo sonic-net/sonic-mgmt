@@ -1,10 +1,12 @@
+import re
+
 from spytest.utils import filter_and_select
 from spytest import st, utils
-import re
+
 import apis.system.port as port1
-from utilities.utils import get_interface_number_from_name
-from utilities.rest import retry_rest_api
 from apis.system.rest import get_rest,delete_rest,config_rest
+
+from utilities.utils import get_interface_number_from_name
 
 def config_bgp_evpn(dut, **kwargs):
     """
@@ -800,7 +802,7 @@ def verify_bgp_l2vpn_evpn_vni_id(dut,**kwargs):
                     st.log("No-Match: Match key {} NOT found => {} : {}".format(key,kwargs[key],rlist[key]))
             st.log("\n")
 
-    if ret_val == False:
+    if ret_val is False:
         st.log("Fail: Not Matched all args in passed dict {} from parsed dict".format(kwargs))
 
     return ret_val
@@ -921,7 +923,7 @@ def verify_bgp_l2vpn_evpn_summary(dut,**kwargs):
                     dict1[key] = kwargs[key]
                     del kwargs[key]
 
-        if no_common_key > 0 and ret_val1 == False:
+        if no_common_key > 0 and ret_val1 is False:
             st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
             return ret_val1
 
@@ -1080,7 +1082,7 @@ def verify_bgp_l2vpn_evpn_route(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -1175,7 +1177,7 @@ def verify_bgp_l2vpn_evpn_vni(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -1277,7 +1279,7 @@ def verify_bgp_l2vpn_evpn_rd(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -1374,7 +1376,7 @@ def verify_bgp_l2vpn_evpn_route_type_prefix(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -1824,7 +1826,7 @@ verify_bgp_l2vpn_evpn_route_type_macip(dut=data.dut1,evpn_type_2_prefix="[2]:[0]
                     dict1[key] = kwargs[key]
                     del kwargs[key]
 
-        if no_common_key > 0 and ret_val1 == False:
+        if no_common_key > 0 and ret_val1 is False:
             st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
             return ret_val1
 
@@ -2033,7 +2035,7 @@ def verify_vxlan_evpn_remote_vni_id(dut, **kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -2126,7 +2128,7 @@ def verify_vxlan_evpn_remote_mac_id(dut,**kwargs):
                     count = count + 1
                     st.log("Match: Match key {} found => {} out of {}".format(key,kwargs[key],rlist['total_count']))
         if 'min_total_count' in kwargs:
-            del kwargs['min_total_count'] 
+            del kwargs['min_total_count']
         if no_common_key == count:
             ret_val1 = True
             for key in kwargs:
@@ -2146,7 +2148,7 @@ def verify_vxlan_evpn_remote_mac_id(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -2272,7 +2274,7 @@ def verify_vxlan_vlanvnimap(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -2395,7 +2397,7 @@ def verify_vxlan_vrfvnimap(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -2467,7 +2469,7 @@ def verify_bgp_l2vpn_evpn_route_detail_type_prefix(dut,**kwargs):
                                 vni=i["attr-sets"]["tag"]
                                 out_dict["vni_id"] = vni
                                 rd=i["route-distinguisher"]
-                                rd=rd.split(":")[0] 
+                                rd=rd.split(":")[0]
                                 out_dict["rd"]=rd
                             for key in out_dict.keys():
                                 if key in kwargs:
@@ -2676,7 +2678,7 @@ def verify_bgp_l2vpn_evpn_route_type_multicast(dut,**kwargs):
                 if key in kwargs:
                     dict1[key] = kwargs[key]
                     del kwargs[key]
-        if no_common_key > 0 and ret_val1 == False:
+        if no_common_key > 0 and ret_val1 is False:
             st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
             return ret_val1
         ret_val = "True"
@@ -3010,7 +3012,7 @@ def verify_mac(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -3141,7 +3143,7 @@ def verify_linktrack_summary(dut,**kwargs):
 
     if len(result) == 0:
         st.error("Output is Empty")
-        return False  
+        return False
     if "return_output" in kwargs:
         return True
 
@@ -3165,7 +3167,7 @@ def verify_linktrack_summary(dut,**kwargs):
                     st.log("No-Match: Match key {} NOT found => {} : {}".format(key,kwargs[key],rlist[key]))
             st.log("\n")
 
-    if ret_val == False:
+    if ret_val is False:
         st.log("Fail: Not Matched all args in passed dict {} from parsed dict".format(kwargs))
 
     return ret_val
@@ -3267,7 +3269,7 @@ def verify_linktrack_group_name(dut,**kwargs):
     no_common_key = 0
     ret_val1 = False
     dict1 = {}
-    common_key_list = ['name','description','timeout']
+    common_key_list = ['name','description','timeout','startup_remain_time']
 
     for key in kwargs:
         if key in common_key_list:
@@ -3298,7 +3300,7 @@ def verify_linktrack_group_name(dut,**kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -3360,7 +3362,7 @@ def get_port_counters(dut, port, counter,**kwargs):
                     value = float(entries[0][cntr])
                     entries[0][cntr] = str(value) + " MB/s"
                 elif float(entries[0][cntr]) < 1.0 and float(entries[0][cntr]) >= 0.001:
-                    value = float(entries[0][cntr])*1024 
+                    value = float(entries[0][cntr])*1024
                     entries[0][cntr] = str(value) + " KB/s"
                 elif float(entries[0][cntr]) < 0.001:
                     entries[0][cntr] = get_port_rate_inklish(dut,prt=prt,cntr=cntr)
@@ -3382,7 +3384,7 @@ def get_port_rate_inklish(dut,prt,cntr):
                 entries[0][cntr] = str(value) + " MB/s"
                 return str(value) + " MB/s"
             elif float(entries[0][cntr]) < 1.0 and float(entries[0][cntr]) >= 0.001:
-                value = float(entries[0][cntr])*1024 
+                value = float(entries[0][cntr])*1024
                 entries[0][cntr] = str(value) + " KB/s"
                 return str(value) + " KB/s"
             elif float(entries[0][cntr]) < 0.001:
@@ -3544,7 +3546,7 @@ def verify_neigh_suppress(dut, **kwargs):
                 dict1[key] = kwargs[key]
                 del kwargs[key]
 
-    if no_common_key > 0 and ret_val1 == False:
+    if no_common_key > 0 and ret_val1 is False:
         st.error("DUT {} -> Match Not Found {}".format(dut,dict1))
         return ret_val1
 
@@ -3592,7 +3594,7 @@ def show_mclag_uniqueip(dut, **kwargs):
 
 def show_ip_neigh(dut, **kwargs):
     """
-    API to display ip neighbor 
+    API to display ip neighbor
     :param dut:
     :param cli_type:
     :return:
@@ -3667,7 +3669,7 @@ def config_vxlan_qos_mode(dut, vtep_name,**kwargs):
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls["config_vxlan_qos"]
         if qosMode == "uniform":
-            payload = {"openconfig-interfaces:interface" : [{"name": vtep_name,"config":{"name": vtep_name, 
+            payload = {"openconfig-interfaces:interface" : [{"name": vtep_name,"config":{"name": vtep_name,
                        "type": "IF_NVE"}, "openconfig-vxlan:vxlan-if": {"config": {"qos-mode": "UNIFORM"}}}]}
         elif qosMode == "pipe" and "pipe_dscp" in kwargs:
             payload = {"openconfig-interfaces:interface" : [{"name": vtep_name,"config":{"name": vtep_name,
@@ -3677,7 +3679,7 @@ def config_vxlan_qos_mode(dut, vtep_name,**kwargs):
             payload = {"openconfig-interfaces:interface" : [{"name": vtep_name,"config":{"name": vtep_name,
                        "type": "IF_NVE"}, "openconfig-vxlan:vxlan-if": {"config": {"qos-mode": "PIPE",
                        "dscp" : 0}}}]}
-        return config_rest(dut, http_method='post', rest_url=url, json_data=payload,timeout=10)               
+        return config_rest(dut, http_method='post', rest_url=url, json_data=payload,timeout=10)
     elif cli_type == "rest-patch":
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls["modify_vxlan_qos"].format(vtep_name)
@@ -3685,7 +3687,7 @@ def config_vxlan_qos_mode(dut, vtep_name,**kwargs):
             payload = {"openconfig-vxlan:config":{"qos-mode": qosMode.upper()}}
         elif qosMode == "pipe" and "pipe_dscp" in kwargs:
             payload = {"openconfig-vxlan:config": {"qos-mode": qosMode.upper(),"dscp": int(kwargs["pipe_dscp"])}}
-        else:    
+        else:
             payload = {"openconfig-vxlan:config": {"qos-mode": qosMode.upper(),"dscp": 0}}
         return config_rest(dut, http_method='patch', rest_url=url, json_data=payload,timeout=10)
     else:
@@ -3736,7 +3738,7 @@ def verify_vxlan_qos_mode(dut, vtep_name, qos_mode,**kwargs):
             else:
                 st.error("Match NOT found for key {}; expected val: {} but "
                          "obtained val: {}".format(key, verify_dict[key], dut_out[key]))
-                success = False   
+                success = False
     elif cli_type in ["rest-put", "rest-patch"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         if "pipe_dscp" not in kwargs:
@@ -3754,11 +3756,11 @@ def verify_vxlan_qos_mode(dut, vtep_name, qos_mode,**kwargs):
                     success = False
             else:
                 st.error("VxLAN QOS mode value NOT found in rest output")
-                return False     
+                return False
         else:
             url = rest_urls["get_vxlan_qos_pipe_val"].format(vtep_name)
             rest_out = get_rest(dut,rest_url=url,timeout=30)
-            if rest_out["status"] == 200: 
+            if rest_out["status"] == 200:
                 if int(kwargs["pipe_dscp"]) == rest_out["output"]["openconfig-vxlan:dscp"]:
                     st.log("Match found for PIPE DSCP; expected val: {} and "
                            "obtained val: {}".format(int(kwargs["pipe_dscp"]),
@@ -3767,8 +3769,8 @@ def verify_vxlan_qos_mode(dut, vtep_name, qos_mode,**kwargs):
                     st.error("Match NOT found for PIPE DSCP; expected val: {} "
                              "but got: {}".format(int(kwargs["pipe_dscp"]),
                                                   rest_out["output"]["openconfig-vxlan:dscp"]))
-                    success = False 
+                    success = False
             else:
                 st.error("PIPE DSCP value not found in rest output")
-                return False 
+                return False
     return success

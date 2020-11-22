@@ -14,7 +14,7 @@ from apis.system.port import get_interface_counters_all,clear_interface_counters
 import apis.system.reboot as reboot_api
 import apis.qos.cos as cos_api
 import apis.system.sflow as sflow
-import apis.qos.copp as copp_obj
+
 sf_data = SpyTestDict()
 
 @pytest.fixture(scope="module", autouse=True)
@@ -156,7 +156,7 @@ def sf_tg_traffic_start_stop(traffic_mode, traffic_action):
             sf_data.tg.tg_traffic_config(mode='modify', stream_id=sf_data.stream_sf_data['4'],
                                          mac_dst="00:00:00:00:00:01",rate_percent=100)
 
-    if traffic_action == True:
+    if traffic_action is True:
         sf_data.tg.tg_traffic_control(action='run', stream_handle=sf_data.stream_sf_data.values())
     else:
         sf_data.tg.tg_traffic_control(action='stop', stream_handle=sf_data.stream_sf_data.values())

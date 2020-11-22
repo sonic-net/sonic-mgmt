@@ -184,7 +184,7 @@ def config_vrf(dut, **kwargs):
             try:
                 st.config(dut, my_cmd)
                 return True
-            except:
+            except Exception:
                 st.log("Error handled..by API")
                 return False
         else:

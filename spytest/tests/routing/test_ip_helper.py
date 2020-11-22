@@ -8,7 +8,7 @@ from  apis.switching.vlan import create_vlan, add_vlan_member, clear_vlan_config
 import apis.routing.ip_helper as ip_helper_obj
 from apis.switching.portchannel import *
 from apis.system.interface import clear_interface_counters, show_interface_counters_detailed
-from apis.routing.vrf import config_vrf, bind_vrf_interface, verify_vrf_verbose, get_vrf_verbose, verify_vrf
+from apis.routing.vrf import config_vrf, bind_vrf_interface, verify_vrf_verbose, get_vrf_verbose
 from apis.system.reboot import config_save, verify_warm_restart
 from apis.system.basic import service_operations_by_systemctl, verify_service_status, poll_for_system_status
 
@@ -249,7 +249,7 @@ def ip_helper_tplg():
 
 # Packet capture and counters validation
 def send_and_validate_helper_traffic(client_intf, server_intf, stream_id, tg_txhandler, tg_rxhandler, header_li, value_li, stream_duration='1', validation_param_val=None, helper_intf=None):
-    if helper_intf == None:
+    if helper_intf is None:
         helper_intf = client_intf
 
     # Reset TG ports Tx and Rx statistics
@@ -344,7 +344,7 @@ def send_and_validate_helper_traffic(client_intf, server_intf, stream_id, tg_txh
             validation_param_val['ip_helper_stats']         = helper_stats[0]
             st.log("validation parma vals = {}".format(validation_param_val))
 
-        elif (int(tx_pkt_count) > 0 and int(counters_client_intf[0]['pkt_rx_broadcast']) > 0 and (rx_cap_result == True) and
+        elif (int(tx_pkt_count) > 0 and int(counters_client_intf[0]['pkt_rx_broadcast']) > 0 and (rx_cap_result is True) and
              (int(tx_pkt_count) == int(counters_client_intf[0]['pkt_rx_broadcast']))and
              ip_helper_obj.verify(vars.D1, statistics=helper_intf, verify_list=[{'packets_received': str(tx_pkt_count)}, {'packets_relayed': str(tx_pkt_count)}])):
             return True
@@ -402,7 +402,7 @@ def util_unconfig_portchnl_interface(pc_members, portchnl_name):
     st.log("Create port channel {} and add port {} to the same".format(portchnl_name, pc_members))
     delete_portchannel_member(vars.D1, portchnl_name, pc_members)
     delete_portchannel(vars.D1,  portchnl_name)
-   
+
 
 # VLAN utils
 def util_create_vlan_and_add_port(intf_list, vlan_list):
@@ -412,7 +412,7 @@ def util_create_vlan_and_add_port(intf_list, vlan_list):
     for port,vlan in zip(intf_list, vlan_list):
         st.log("Adding port {} to VLAN-{}".format(port, vlan))
         add_vlan_member(vars.D1, vlan, port)
-        
+
 def util_delete_vlan_and_port(intf_list, vlan_list):
     for port, vlan in zip(intf_list, vlan_list):
         st.log("Deleting port {} to VLAN-{}".format(port, vlan))
@@ -683,7 +683,7 @@ def test_ip_helper_default_protocols_on_portchnl_routing_intf():
 
     st.log("Remove port channel configuration")
     util_unconfig_portchnl_interface([client_dut_intf['c1_intf'], client_dut_intf['c2_intf']], data.port_channel)
-    
+
     st.log("On DUT Disable IP helper globally")
     ip_helper_obj.config(vars.D1, helper_status='disable')
 
@@ -707,7 +707,7 @@ def test_ip_helper_default_protocols_on_vlan_routing_intf():
                           ]
 
     each_test_result    = {"tg1_to_tg3": {}, "tg1_to_tg4": {}, "tg2_to_tg3": {}, "tg2_to_tg4": {}}
-   
+
 
     st.log("Creating VLANs")
     util_create_vlan_and_add_port([vars.D1T1P1, vars.D1T1P2, vars.D1T1P3, vars.D1T1P4], data.vlan_list)
@@ -1345,7 +1345,7 @@ def test_ip_helper_with_max_helper_address_on_interface():
         test_key = "traffic_to_server_" + helper_ip
         if (stats_param_val['tx_pkt_count_on_tg_port'] > 0 and stats_param_val['rx_bcast_count'] > 0 and
             (stats_param_val['tx_pkt_count_on_tg_port'] == stats_param_val['rx_bcast_count'] == int(stats_param_val['ip_helper_stats']['packets_relayed'])) and
-            stats_param_val['rx_cap_reslt'] == True):
+            stats_param_val['rx_cap_reslt'] is True):
             st.log("{} packets received to server {}".format(protocol_name, helper_ip))
             each_helper_result[test_key] = "Pass"
         else:
@@ -1407,7 +1407,7 @@ def poll_for_warm_restart_orchagent_status(dut, iteration=20, delay=2):
             return False
         itercount += delay
         st.wait(delay)
-        
+
 
 def poll_for_warm_restart_aclsvcd_status(dut, iteration=20, delay=2):
     itercount = 1

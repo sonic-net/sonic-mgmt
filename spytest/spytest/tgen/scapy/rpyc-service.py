@@ -49,12 +49,10 @@ def handler(signal_received, frame):
     print('SIGINT or CTRL-C detected. Exiting gracefully')
     sys.exit(0)
 
-# install packages needed
-install_packages = False
-if install_packages:
-    os.system("apt-get install -y iputils-arping")
-    #os.system("pip install pybrctl")
-    #os.system("pip install pyroute2")
+## install packages needed
+#os.system("apt-get install -y iputils-arping")
+##os.system("pip install pybrctl")
+##os.system("pip install pyroute2")
 
 protocol_config={"allow_pickle" : True, "sync_request_timeout": 300, "allow_public_attrs": True, "allow_all_attrs": True, "instantiate_oldstyle_exceptions" : True}
 signal(SIGINT, handler)
