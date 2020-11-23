@@ -94,7 +94,7 @@ class IcosBaseConnection(CiscoBaseConnection):
 
     def extended_login(self, output):
         if "(current) UNIX password:" in output:
-            output = self.send_command(self.password, expect_string="Enter new UNIX password:", strip_command=False, strip_prompt=False)
+            output = self.send_command(selfpassword.txt, expect_string="Enter new UNIX password:", strip_command=False, strip_prompt=False)
             retval = self.change_password(self.username, self.altpassword, output)
             output += retval[1]
             if retval[0]:
@@ -102,7 +102,7 @@ class IcosBaseConnection(CiscoBaseConnection):
                     self.disconnect()
                     raise socket.error("Spytest: socket is closed abruptly")
                 else:
-                    retval2 = self.change_password(self.username, self.password)
+                    retval2 = self.change_password(self.username, selfpassword.txt)
                     output += retval2[1]
         return output
 

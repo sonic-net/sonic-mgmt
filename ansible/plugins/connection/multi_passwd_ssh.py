@@ -32,7 +32,7 @@ def _password_retry(func):
     """
     @wraps(func)
     def wrapped(self, *args, **kwargs):
-        password = self.get_option("password") or self._play_context.password
+        password = self.get_option("password") or self._play_contextpassword.txt
         conn_passwords = [password]
         altpassword = self.get_option("altpassword")
         if altpassword:
@@ -42,7 +42,7 @@ def _password_retry(func):
             conn_password = conn_passwords.pop(0)
             # temporarily replace `password` for this trial
             self.set_option("password", conn_password)
-            self._play_context.password = conn_password
+            self._play_contextpassword.txt = conn_password
             try:
                 return func(self, *args, **kwargs)
             except AnsibleAuthenticationFailure:
@@ -52,7 +52,7 @@ def _password_retry(func):
             finally:
                 # reset `password` to its original state
                 self.set_option("password", password)
-                self._play_context.password = password
+                self._play_contextpassword.txt = password
             # retry here, need create a new pipe for sshpass
             self.sshpass_pipe = os.pipe()
     return wrapped

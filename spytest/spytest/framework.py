@@ -2092,7 +2092,7 @@ class WorkArea(object):
         elif not self.cfg.filemode:
             if "port" not in rinfo: rinfo.port = 23
             rps = RPS(rinfo.model, rinfo.ip, rinfo.port, rinfo.outlet,
-                      rinfo.username, rinfo.password, desc=str(dut))
+                      rinfo.username, rinfopassword.txt, desc=str(dut))
             if "pdu_id" in rinfo: rps.set_pdu_id(rinfo.pdu_id)
             if recon: self.net.do_pre_rps(dut, op.lower())
             if not rps.do_op(op, on_delay, off_delay):
@@ -2121,7 +2121,7 @@ class WorkArea(object):
 
             if "port" not in rinfo: rinfo.port = 23
             rps = RPS(rinfo.model, rinfo.ip, rinfo.port, rinfo.outlet,
-                      rinfo.username, rinfo.password, desc=str(d))
+                      rinfo.username, rinfopassword.txt, desc=str(d))
             if "pdu_id" in rinfo: rps.set_pdu_id(rinfo.pdu_id)
             if rps.has_multi_support():
                 key = "_".join(map(str,[rinfo.model, rinfo.ip, rinfo.port]))

@@ -16,7 +16,7 @@
 #  Every topology contains a ptf container which will be used as placeholder for the injected interfaces from VMs, or direct connections to PTF host
 #
 # To add a topology please use following command
-# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e dut_name=str-msn2700-01 -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e ptf_imagename="docker_ptf"
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file=~/password.txt -l server_3 -e vm_set_name=first -e dut_name=str-msn2700-01 -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e ptf_imagename="docker_ptf"
 #
 # Parameters
 # -l server_3                - this playbook have to be limited to run only on one server

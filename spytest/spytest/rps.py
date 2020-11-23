@@ -31,7 +31,7 @@ class RPS(object):
         self.outlet = outlet
         self.pdu_id = None
         self.username = username
-        self.password = password
+        selfpassword.txt = password
         self.desc = desc
         self.timeout = 600
         self.dbg_lvl = dbg_lvl
@@ -41,7 +41,7 @@ class RPS(object):
         self.login_prompt_timeout = 60
         if self.model == "Raritan":
             self.login_prompt = "Login:"
-            self.password_prompt = "Password:"
+            selfpassword.txt_prompt = "Password:"
             self.base_prompt = ">"
             self.base_prompt = "clp:/->"
             self.fail_msg = "Login failed."
@@ -49,14 +49,14 @@ class RPS(object):
             self.disc_delay = 10
         elif self.model == "ServerTech":
             self.login_prompt = "Username:"
-            self.password_prompt = "Password:"
+            selfpassword.txt_prompt = "Password:"
             self.base_prompt = "Sentry:|Switched CDU:|Switched PDU:"
             self.fail_msg = "Access denied"
             self.multi_support = False
             self.disc_delay = 10
         elif self.model == "Avocent":
             self.login_prompt = "login:"
-            self.password_prompt = "Password:"
+            selfpassword.txt_prompt = "Password:"
             self.base_prompt = "cli->"
             self.base_prompt2 = "cli->"
             self.confirm_prompt = " (yes, no)"
@@ -66,7 +66,7 @@ class RPS(object):
             self.multi_support = True
         elif self.model == "AvocentRoot":
             self.login_prompt = "login:"
-            self.password_prompt = "Password:"
+            selfpassword.txt_prompt = "Password:"
             self.base_prompt2 = "#"
             self.base_prompt = "cli->"
             self.confirm_prompt = " (yes, no)"
@@ -76,7 +76,7 @@ class RPS(object):
             self.multi_support = True
         elif self.model == "vsonic":
             self.login_prompt = ""
-            self.password_prompt = ""
+            selfpassword.txt_prompt = ""
             self.base_prompt2 = "#"
             self.base_prompt = "#"
             self.confirm_prompt = ""
@@ -133,9 +133,9 @@ class RPS(object):
             else:
                 base_prompt = self.base_prompt
 
-        if self.password:
-            self._write(self.username, self.password_prompt)
-            if not self._write(self.password, base_prompt, self.fail_msg):
+        if selfpassword.txt:
+            self._write(self.username, selfpassword.txt_prompt)
+            if not self._write(selfpassword.txt, base_prompt, self.fail_msg):
                 self.logmsg("Invalid password", lvl=logging.WARNING)
                 return False
         else:

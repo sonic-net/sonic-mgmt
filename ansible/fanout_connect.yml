@@ -1,5 +1,5 @@
 #Example:
-# ansible-playbook fanout_connect.yml -i veos --limit server_1 --vault-password-file .password -e "dut=str-msn2700-01"
+# ansible-playbook fanout_connect.yml -i veos --limit server_1 --vault-password-file password.txt -e "dut=str-msn2700-01"
 - hosts: servers:&vm_host
   gather_facts: no
   tasks:

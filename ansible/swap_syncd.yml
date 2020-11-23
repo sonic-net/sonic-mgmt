@@ -1,7 +1,7 @@
 # Swap docker-syncd to docker-syncd-rpc for oneimage deployed switch
 # A temporary solution during period that sonic_docker is not ready for oneimage
 # Example usage:
-#   ansible-playbook swap_syncd.yml -i str --vault-password-file ~/.password --limit devicename
+#   ansible-playbook swap_syncd.yml -i str --vault-password-file ~/password.txt --limit devicename
 
 - hosts: all
   gather_facts: no

@@ -129,7 +129,7 @@ def DeviceConnection(**kws):
             hndl = _DeviceConnection(ip_port, logger, **kwargs)
             if "altpassword" in kwargs and run_passwd_cmd:
                 hndl.change_password(kwargs["username"], kwargs["altpassword"])
-                hndl.password = kwargs["altpassword"]
+                hndlpassword.txt = kwargs["altpassword"]
                 hndl.altpassword = kwargs["password"]
             return hndl
         except DeviceAuthenticationFailure as e1:

@@ -189,11 +189,11 @@ Once you are in the docker container, you need to modify the testbed configurati
 1. Start the VMs:
     ```
     # /data/sonic-mgmt/ansible
-    ./testbed-cli.sh start-vms server_1 .password
+    ./testbed-cli.sh start-vms server_1 password.txt
     ```
-    Please note: `.password` is the ansible vault password file name/path. Ansible allows users to use `ansible-vault` to encrypt password files. By default, this shell script **requires** a password file. If you are not using `ansible-vault`, just create an empty file and pass the file name to the command line. **The file name and location is created and maintained by the user.**
+    Please note: `password.txt` is the ansible vault password file name/path. Ansible allows users to use `ansible-vault` to encrypt password files. By default, this shell script **requires** a password file. If you are not using `ansible-vault`, just create an empty file and pass the file name to the command line. **The file name and location is created and maintained by the user.**
     ```
-    echo "" > ./.password
+    echo "" > ./password.txt
     ```
 
 2. Check that all the VMs are up and running:
@@ -218,7 +218,7 @@ Our fanout switches deploy using the Arista switch's eosadmin shell login. If yo
 ## Deploy Topology
 
 - Update `testbed.csv` with your data. At the least, you should update the PTF management interface settings.
-- To deploy a topology run: ```./testbed-cli.sh add-topo vms-t1 ~/.password```
-- To remove a topology run: ```./testbed-cli.sh remove-topo vms-t1 ~/.password```
+- To deploy a topology run: ```./testbed-cli.sh add-topo vms-t1 ~/password.txt```
+- To remove a topology run: ```./testbed-cli.sh remove-topo vms-t1 ~/password.txt```
 
 **NOTE:** The last step in `testbed-cli.sh` is trying to re-deploy the Vlan range in the root fanout switch to match the VLAN range specified in the topology. In other words, it's trying to change the "allowed" Vlan for the Arista switch ports. If you have a different type of switch, this may or may not work. Please review the steps and update accordingly if necessary. If you comment out the last step, you may manually swap Vlan ranges in the root fanout to make the testbed topology switch work.

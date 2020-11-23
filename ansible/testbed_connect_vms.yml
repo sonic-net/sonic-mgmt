@@ -2,7 +2,7 @@
 #
 #
 # To renumber a topology please use following command
-# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_connect_vms.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e duts_name=str-msn-2700-05 -e ptf_imagename="docker_ptf"
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_connect_vms.yml --vault-password-file=~/password.txt -l server_3 -e vm_set_name=first -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e duts_name=str-msn-2700-05 -e ptf_imagename="docker_ptf"
 #
 # Parameters
 # -l server_3                - this playbook have to be limited to run only on one server

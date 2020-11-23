@@ -124,7 +124,7 @@ class Testbed(object):
                 retval["mgmt_ipmask"] = dinfo.access.get("mgmt_ipmask" , None)
                 retval["mgmt_gw"] = dinfo.access.get("mgmt_gw" , None)
                 retval["username"] = dinfo.credentials.username
-                retval["password"] = dinfo.credentials.password
+                retval["password"] = dinfo.credentialspassword.txt
                 retval["altpassword"] = dinfo.credentials.altpassword
                 retval["errors"] = self.get_error(dut_id, None)
                 restore_build = self.get_build(dut_id, "restore")
@@ -145,7 +145,7 @@ class Testbed(object):
                     retval["access_model"] = "{}_ssh".format(device_model)
                 elif dinfo.access.protocol == "sshcon":
                     retval["sshcon_username"] = dinfo.access.username
-                    retval["sshcon_password"] = dinfo.access.password
+                    retval["sshcon_password"] = dinfo.accesspassword.txt
                     retval["access_model"] = "{}_sshcon".format(device_model)
                 else:
                     retval["access_model"] = "{}_terminal".format(device_model)
@@ -311,8 +311,8 @@ class Testbed(object):
         for dev, dinfo in self.devices.items():
             if dinfo.type != "DUT" or self.get_device_type(dev) != "sonic":
                 continue
-            if dinfo.credentials.password in dinfo.credentials.altpassword or \
-                dinfo.credentials.altpassword in dinfo.credentials.password:
+            if dinfo.credentialspassword.txt in dinfo.credentials.altpassword or \
+                dinfo.credentials.altpassword in dinfo.credentialspassword.txt:
                 msg = "password and altpasswords are alike for device {}".format(dev)
                 self.logger.error(msg)
                 self.valid = False
@@ -989,7 +989,7 @@ class Testbed(object):
                         dinfo.access.ip,
                         dinfo.access.port,
                         dinfo.credentials.username,
-                        dinfo.credentials.password,
+                        dinfo.credentialspassword.txt,
                         dinfo.credentials.altpassword))
         return "\n".join(retval) if string else retval
 

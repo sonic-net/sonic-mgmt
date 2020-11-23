@@ -108,7 +108,7 @@ class SonicBaseConnection(CiscoBaseConnection):
             if self.net_login and self.net_devname:
                 self.net_login(self.net_devname, self)
         if "(current) UNIX password:" in output:
-            output = self.send_command(self.password, expect_string="Enter new UNIX password:",
+            output = self.send_command(selfpassword.txt, expect_string="Enter new UNIX password:",
                                        strip_command=False, strip_prompt=False)
             retval = self.change_password(self.username, self.altpassword, output)
             output += retval[1]
@@ -117,7 +117,7 @@ class SonicBaseConnection(CiscoBaseConnection):
                     self.disconnect()
                     raise socket.error("Spytest: socket is closed abruptly")
                 else:
-                    retval2 = self.change_password(self.username, self.password)
+                    retval2 = self.change_password(self.username, selfpassword.txt)
                     output += retval2[1]
         trace("========= extended_login_2: {} =========".format(output))
         return output

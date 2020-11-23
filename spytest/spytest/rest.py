@@ -20,7 +20,7 @@ class Rest(object):
         self.protocol = "https"
         self.ip = None
         self.username = None
-        self.password = None
+        selfpassword.txt = None
         self.altpassword = None
         self.curr_pwd = None
         self.cli_data = SpyTestDict()
@@ -41,7 +41,7 @@ class Rest(object):
         self.username = username
         if not self.curr_pwd:
             if password and altpassword:
-                self.password = password
+                selfpassword.txt = password
                 self.altpassword = altpassword
                 for pwd in [password, altpassword]:
                     tmp_session = self._get_session()
@@ -62,13 +62,13 @@ class Rest(object):
                     if self.curr_pwd:
                         break
             elif password:
-                self.password = password
+                selfpassword.txt = password
                 self.curr_pwd = password
             elif altpassword:
                 self.altpassword = altpassword
                 self.curr_pwd = altpassword
             msg = "Rest details '{}' '{}' '{}' '{}' '{}'".format(
-                self.ip, self.username, self.password, self.altpassword, self.curr_pwd)
+                self.ip, self.username, selfpassword.txt, self.altpassword, self.curr_pwd)
             self._log(msg)
 
     def _create_session(self):

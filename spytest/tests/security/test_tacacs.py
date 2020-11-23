@@ -33,7 +33,7 @@ def tacacs_module_hooks(request):
     data.priority_server2 = ensure_service_params(vars.D1, "tacacs", "hosts", 1, "priority")
     data.time_out = '10'
     data.username = 'test'
-    data.password = 'test'
+    datapassword.txt = 'test'
     data.protocol = 'ssh'
     data.ssh_port = '22'
     data.login_type = "tacacs+"
@@ -42,8 +42,8 @@ def tacacs_module_hooks(request):
     data.local_password = 'YourPaSsWoRd'
     data.local_password2 = 'broadcom'
     data.username1 = 'test'
-    data.password1 = 'test'
-    data.rw_user = {'username': data.username, 'password': data.password, 'mode': 'rw'}
+    datapassword.txt1 = 'test'
+    data.rw_user = {'username': data.username, 'password': datapassword.txt, 'mode': 'rw'}
     data.ro_username = ensure_service_params(vars.D1, "radius", "ro_user", "username")
     ensure_device_ipaddress()
     st.log("Configuring authentication login parameter as tacacs+ and local")
@@ -147,7 +147,7 @@ def test_ft_tacacs_enable_disable_failthrough():
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log(
         "Trying to SSH to the device using TACACS+ credetails when login method set to TACACS+ and local and fail through mode is not enabled")
-    if not ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol):
+    if not ssh_obj.connect_to_device(data.ip_address, data.username, datapassword.txt, data.protocol):
         debug_info("test_ft_tacacs_enable_disable_failthrough", data.tacacs_ser_ip_1)
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log("Setting login authentication to local and tacacs+")
@@ -159,7 +159,7 @@ def test_ft_tacacs_enable_disable_failthrough():
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log(
         "Trying to SSH to the device using TACACS+ credetails when login method set to local and TACACS+ and fail through mode is not enabled")
-    if ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol, data.ssh_port):
+    if ssh_obj.connect_to_device(data.ip_address, data.username, datapassword.txt, data.protocol, data.ssh_port):
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log("Configuring AAA login to tacacs+ and local and enabling failthrough mode")
     tacacs_obj.set_aaa_authentication_properties(vars.D1, 'login', 'tacacs+ local')
@@ -171,7 +171,7 @@ def test_ft_tacacs_enable_disable_failthrough():
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log(
         "Trying to SSH to the device using TACACS+ credetails when login method set to TACACS+ and local and fail through mode is enabled")
-    if not ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol, data.ssh_port):
+    if not ssh_obj.connect_to_device(data.ip_address, data.username, datapassword.txt, data.protocol, data.ssh_port):
         debug_info("test_ft_tacacs_enable_disable_failthrough", data.tacacs_ser_ip_1)
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.report_pass("test_case_passed")
@@ -189,7 +189,7 @@ def test_ft_tacacs_ssh_login_highest_priorityserver():
     Scenario-3: Verify that if the current TACACS server is unresponsive  the NAS will failover  to the next configured TACACS server  according to configured server priorities  and so on.
     """
     st.log("Login to the device via SSH using the credentials of highest priority server")
-    if not ssh_obj.connect_to_device(data.ip_address, data.username1, data.password1, data.protocol):
+    if not ssh_obj.connect_to_device(data.ip_address, data.username1, datapassword.txt1, data.protocol):
         debug_info("test_ft_tacacs_ssh_login_highest_priorityserver", data.tacacs_ser_ip_2)
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     tacacs_obj.set_tacacs_server(vars.D1, 'delete', data.tacacs_ser_ip_1)
@@ -210,9 +210,9 @@ def test_ft_rbac_ro_tacacs_cred_ssh():
     Author: Sai Durga (pchvsai.durga@broadcom,com)
     FtOpSoScRBACFn008	Verify that non-admin tacacs user doesn?t have all permissions except show (get) commands when SSH to the system with username/password.
     '''
-    if not st.exec_ssh(vars.D1, data.ro_username, data.password, ['show vlan config']):
+    if not st.exec_ssh(vars.D1, data.ro_username, datapassword.txt, ['show vlan config']):
         st.report_fail("cmd_not_executed")
-    if not st.exec_ssh(vars.D1, data.ro_username, data.password, ['sudo config vlan add 1000']):
+    if not st.exec_ssh(vars.D1, data.ro_username, datapassword.txt, ['sudo config vlan add 1000']):
         st.report_fail("admin_user_root_privilege", "non", "got")
     st.report_pass("admin_user_root_privilege", "non", "doesnot got")
 
@@ -239,7 +239,7 @@ def test_ft_tacacs_modify_server_parameters():
     tacacs_obj.set_tacacs_server(vars.D1, 'add', invalid_ip_addr, invalid_l4_port, invalid_timeout, invalid_pass_key,
                                  data.auth_type, data.priority_server2)
     st.log("Trying to SSH to the device when TACACS+ server is configured with invalid parameters")
-    if ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol, data.ssh_port):
+    if ssh_obj.connect_to_device(data.ip_address, data.username, datapassword.txt, data.protocol, data.ssh_port):
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log("Deleting the TACACS+ server which is invalid")
     tacacs_obj.set_tacacs_server(vars.D1, 'delete', invalid_ip_addr)
@@ -247,7 +247,7 @@ def test_ft_tacacs_modify_server_parameters():
     tacacs_obj.set_tacacs_server(vars.D1, 'add', data.tacacs_ser_ip_1, data.tcp_port, data.timeout, data.passkey,
                                  data.auth_type, data.priority)
     st.log("Trying to SSH to the device with TACACS+ server which is configured with the valid parameters")
-    if not ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol, data.ssh_port):
+    if not ssh_obj.connect_to_device(data.ip_address, data.username, datapassword.txt, data.protocol, data.ssh_port):
         debug_info("test_ft_tacacs_modify_server_parameters", data.tacacs_ser_ip_1)
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.report_pass("test_case_passed")

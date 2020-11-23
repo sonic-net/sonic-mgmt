@@ -27,7 +27,7 @@ class ConfigureVMs(object):
         self.ip = ip
         self.cmds = cmds
         self.login = login
-        self.password = password
+        selfpassword.txt = password
         self.module = module
         self.conn = None
 
@@ -41,7 +41,7 @@ class ConfigureVMs(object):
         self.conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.conn.connect(self.ip,
                           username=self.login,
-                          password=self.password,
+                          password=selfpassword.txt,
                           allow_agent=False,
                           look_for_keys=False)
         self.shell = self.conn.invoke_shell()

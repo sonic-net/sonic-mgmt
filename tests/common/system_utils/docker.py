@@ -81,8 +81,8 @@ def download_image(dut, registry, image_name, image_version="latest"):
             image_version (str): The version of the image to download.
     """
 
-    if registry.username and registry.password:
-        dut.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registry.password))
+    if registry.username and registrypassword.txt:
+        dut.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registrypassword.txt))
 
     dut.command("docker pull {}/{}:{}".format(registry.host, image_name, image_version))
 

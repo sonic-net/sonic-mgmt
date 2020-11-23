@@ -238,7 +238,7 @@ class DUTMonitorClient(object):
     def __init__(self, host, user, password):
         self.running = False
         self.user = user
-        self.password = password
+        selfpassword.txt = password
         self.host = host
         self.init()
         self.run_channel = None
@@ -282,7 +282,7 @@ class DUTMonitorClient(object):
         logger.debug("Trying to establish connection ...")
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh.connect(self.host, username=self.user, password=self.password, timeout=5)
+        self.ssh.connect(self.host, username=self.user, password=selfpassword.txt, timeout=5)
 
     def close(self):
         """

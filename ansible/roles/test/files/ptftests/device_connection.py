@@ -24,7 +24,7 @@ class DeviceConnection:
         '''
         self.hostname = hostname
         self.username = username
-        self.password = password
+        selfpassword.txt = password
 
     def execCommand(self, cmd, timeout=DEFAULT_CMD_EXECUTION_TIMEOUT_SEC):
         '''
@@ -47,7 +47,7 @@ class DeviceConnection:
         stdOut = stdErr = []
         retValue = 1
         try:
-            client.connect(self.hostname, username=self.username, password=self.password, allow_agent=False)
+            client.connect(self.hostname, username=self.username, password=selfpassword.txt, allow_agent=False)
             si, so, se = client.exec_command(cmd, timeout=timeout)
             stdOut = so.readlines()
             stdErr = se.readlines()

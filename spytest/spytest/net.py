@@ -1380,7 +1380,7 @@ class Net(object):
 
         try:
             hndl = self._get_handle(device)
-            hndl.password = pwd
+            hndlpassword.txt = pwd
             hndl.altpassword = altpwd
             output = hndl.extended_login(output)
             return (True, output)

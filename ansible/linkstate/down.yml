@@ -1,4 +1,4 @@
-# ansible-playbook -i linkstate/testbed_inv.py -e target_host=vms3-t0-s6100 --vault-password-file=~/.password linkstate/down.yml
+# ansible-playbook -i linkstate/testbed_inv.py -e target_host=vms3-t0-s6100 --vault-password-file=~/password.txt linkstate/down.yml
 
 - hosts: lab
   gather_facts: no
