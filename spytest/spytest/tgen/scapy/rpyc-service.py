@@ -3,7 +3,6 @@ import sys
 import logging
 import warnings
 from signal import signal, SIGINT
-from sys import exit
 
 root = os.path.join(os.path.dirname(__file__))
 sys.path.append(os.path.abspath(root))
@@ -48,14 +47,12 @@ def handler(signal_received, frame):
     global scapyServiceObj
     del scapyServiceObj
     print('SIGINT or CTRL-C detected. Exiting gracefully')
-    exit(0)
+    sys.exit(0)
 
-# install packages needed
-install_packages = False
-if install_packages:
-    os.system("apt-get install -y iputils-arping")
-    #os.system("pip install pybrctl")
-    #os.system("pip install pyroute2")
+## install packages needed
+#os.system("apt-get install -y iputils-arping")
+##os.system("pip install pybrctl")
+##os.system("pip install pyroute2")
 
 protocol_config={"allow_pickle" : True, "sync_request_timeout": 300, "allow_public_attrs": True, "allow_all_attrs": True, "instantiate_oldstyle_exceptions" : True}
 signal(SIGINT, handler)

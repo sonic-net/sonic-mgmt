@@ -1,0 +1,7 @@
+Value iface (\S+)
+Value port (\S+)
+Value supported_modes (\S+,(\s\S+)*)
+Value default_mode (\S+) 
+
+Start
+  ^\s*${port}\s+${iface}\s+${supported_modes}\s*${default_mode}\s*$$ -> Record

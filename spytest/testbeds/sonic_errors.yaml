@@ -1,8 +1,11 @@
-################################################
+###############################################################################
 # error_identifier:
-#     command: <regex to match command>
-#     search: <regex to search in the output>
-#     action: <list of actions to be taken>
+#     command:  <regex to match command>
+#     search:   <regex to search in the output>
+#     action:   <list of actions to be taken>
+#     result:   optional if we need to exit from test
+#     severity: severity level of error. if level > 3 the action is ignored
+#               when caller chooses to skip the error checking
 # actions supported
 #    raise: raise exception to the caller
 #    reboot: reboot the system
@@ -11,80 +14,106 @@
 #    The output is matched for error identifiers
 #    in the same order specified. The matching
 #    will stop once an error identifier matches
-################################################
+###############################################################################
 
 default:
+    containing_zebra_connection_failed:
+      command: ".*"
+      search: ".*vtysh: error reading from zebra: Connection reset by peer.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, critical_zebra_connection_failed]
+      severity: 2
+
     containing_swss_service_failed:
       command: ".*"
       search: ".*Job for swss.service failed.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_swss_service_failed]
+      severity: 2
 
     containing_syncd_exited:
       command: ".*"
       search: ".*Process syncd exited unxepectedly.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_syncd_exited]
+      severity: 1
 
     containing_orchagent_exited:
       command: ".*"
       search: ".*Process orchagent exited unxepectedly.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_orchagent_exited]
+      severity: 1
 
     containing_vlanmgrd_exited:
       command: ".*"
       search: ".*Process vlanmgrd exited unxepectedly.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_vlanmgrd_exited]
+      severity: 1
 
     containing_abort:
       command: ".*"
       search: ".*terminated by SIGABRT.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_terminated_by_sigabrt]
+      severity: 2
 
     containing_err_syncd:
       command: ".*"
       search: ".*syncd_main: Runtime error.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_err_syncd]
+      severity: 3
 
     containing_core_dump:
       command: ".*"
       search: ".*core dumped.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_core_dumped]
+      severity: 3
 
     containing_kernel_panic:
       command: ".*"
       search: ".*Kernel panic - not syncing.*"
       action: [raise, core-dump, tech-support]
       result: [DUTFail, critical_core_dumped]
+      severity: 3
+
+    containing_exception:
+      command: ".*"
+      search: ".*Exception is Error 111 connecting.*"
+      action: [raise, core-dump, tech-support]
+      result: [DUTFail, system_not_ready]
+      severity: 3
 
     containing_no_response_from_container:
       command: ".*"
       search: ".*Error response from daemon.*"
       action: [raise]
       result: [DUTFail, container_not_running]
+      severity: 4
 
     containing_failed_diag_cmd:
       command: ".*"
       search: ".*Failed to execute the diagnostic command.*"
       action: [raise]
       result: [DUTFail, config_cmd_error]
+      severity: 4
 
     containing_error_mgmt_rest_server:
       command: ".*"
       search: ".*Error: Could not connect to Management REST Server.*"
       action: [raise]
       result: [DUTFail, config_cmd_error]
+      severity: 5
 
     containing_python_traceback:
       command: ".*"
       search: ".*Traceback \\(most recent call last\\):.*"
       action: [raise]
       result: [DUTFail, config_cmd_error]
+      severity: 5
 
     containing_restartcheck_failed:
       command: ".*reboot.*"
@@ -100,6 +129,21 @@ default:
     unrecognized_command:
       command: ".*"
       search: ".*Error: Unrecognized command.*"
+      action: [raise]
+
+    error_internal:
+      command: ".*"
+      search: ".*Error: Internal error.*"
+      action: [raise]
+
+    error_failed_to_execute:
+      command: ".*"
+      search: ".*Error: failed to execute .*"
+      action: [raise]
+
+    error_missing_argument:
+      command: ".*"
+      search: ".*Error: Missing argument .*"
       action: [raise]
 
     containing_error:
@@ -135,5 +179,10 @@ default:
     unknown_command:
       command: ".*"
       search: ".*Unknown command:.*"
+      action: [raise]
+
+    containing_vtysh_error_reading:
+      command: ".*"
+      search: ".*vtysh: error reading from.*"
       action: [raise]
 

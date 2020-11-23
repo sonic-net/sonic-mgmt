@@ -1,0 +1,10 @@
+Value VLAN (Vlan\d+)
+Value STATUS (Not Configured|Configured|on|off)
+Value NETDEVICE (\S+)
+Value Fillup TOTAL_COUNT (\d+)
+
+Start
+  ^\s*${VLAN}\s+${STATUS}\s*$$ -> Record
+  ^\|\s+${VLAN}\s+\|\s+${STATUS}\s+\|\s+${NETDEVICE}\s+\| -> Record
+  ^Total count :\s+${TOTAL_COUNT}
+

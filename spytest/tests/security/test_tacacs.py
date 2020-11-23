@@ -4,7 +4,6 @@ from spytest.dicts import SpyTestDict
 import apis.security.tacacs as tacacs_obj
 import apis.system.connection as ssh_obj
 import apis.routing.ip as ping_obj
-import apis.system.basic as bc_obj
 import apis.system.basic as basic_obj
 from apis.security.rbac import ssh_call
 from apis.switching.vlan import clear_vlan_configuration
@@ -46,10 +45,10 @@ def tacacs_module_hooks(request):
     data.rw_user = {'username': data.username, 'password': data.password, 'mode': 'rw'}
     data.ro_username = ensure_service_params(vars.D1, "radius", "ro_user", "username")
     ensure_device_ipaddress()
-    st.log("Configuring authentication login parameter as tacacs+ and local")
-    tacacs_obj.set_aaa_authentication_properties(vars.D1, 'login', 'tacacs+ local')
     tacacs_obj.set_tacacs_server(vars.D1, 'add', data.tacacs_ser_ip_1, data.tcp_port, data.timeout, data.passkey,
                                  data.auth_type, data.priority)
+    st.log("Configuring authentication login parameter as tacacs+ and local")
+    tacacs_obj.set_aaa_authentication_properties(vars.D1, 'login', 'tacacs+ local')
     yield
     config_default_tacacs_properties(vars.D1)
     st.log("Deleting all TACACS+ servers from the device")
@@ -66,16 +65,16 @@ def tacacs_module_hooks(request):
 @pytest.fixture(scope="function", autouse=True)
 def tacacs_func_hooks(request):
     # add things at the start every test case
-    # use 'request.function.func_name' to compare
+    # use 'st.get_func_name(request)' to compare
     # if any thing specific a particular test case
     yield
     # add things at the end every test case
-    # use 'request.function.func_name' to compare
+    # use 'st.get_func_name(request)' to compare
     # if any thing specific a particular test case
 
 
 def ensure_device_ipaddress():
-    data.ip_address_list = bc_obj.get_ifconfig_inet(vars.D1, 'eth0')
+    data.ip_address_list = basic_obj.get_ifconfig_inet(vars.D1, 'eth0')
     if not data.ip_address_list:
         st.report_fail("DUT_does_not_have_IP_address")
     data.ip_address = data.ip_address_list[0]
@@ -96,7 +95,7 @@ def verify_tacacs_server_reachability(dut, tacacs_ser_ip):
 
 def verifying_tacacs_config(dut, tacacs_ser_ip):
     if not tacacs_obj.verify_tacacs_server(dut, tacacs_ser_ip):
-        st.report_fail("Tacacs_server_configs_are_not_successful")
+        st.report_fail("Tacacs_server_configs_are_not_successful", tacacs_ser_ip)
 
 
 def debug_info(test_case, server_ip):
@@ -139,7 +138,7 @@ def test_ft_tacacs_enable_disable_failthrough():
     Scenario-2: Verify the functionality of failthrough mechanism when DUT have multiple server with default priority.
     """
     tacacs_obj.set_tacacs_server(vars.D1, 'add', data.tacacs_ser_ip_2, data.tcp_port, data.timeout, data.passkey,
-                                 data.auth_type, data.priority_server2)
+                                 data.auth_type, data.priority_server2, username=data.username, password=data.password)
     st.log(
         "Trying to SSH to the device using local credetails when login method set to TACACS+ and local and fail through mode is not enabled")
     if ssh_obj.connect_to_device(data.ip_address, data.local_username, data.local_password, data.protocol,
@@ -151,9 +150,10 @@ def test_ft_tacacs_enable_disable_failthrough():
         debug_info("test_ft_tacacs_enable_disable_failthrough", data.tacacs_ser_ip_1)
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log("Setting login authentication to local and tacacs+")
-    tacacs_obj.set_aaa_authentication_properties(vars.D1, 'login', 'local tacacs+')
+    tacacs_obj.set_aaa_authentication_properties(vars.D1, 'login', 'local tacacs+', username=data.username, password=data.password)
     st.log(
         "Trying to SSH to the device using local credetails when login method set to local and TACACS+ and fail through mode is not enabled")
+    st.wait(2, "to sync the Setting login authentication to local and tacacs+ changes")
     if not ssh_obj.connect_to_device(data.ip_address, data.local_username, data.local_password,
                                      alt_password=data.local_password2):
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
@@ -163,7 +163,9 @@ def test_ft_tacacs_enable_disable_failthrough():
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log("Configuring AAA login to tacacs+ and local and enabling failthrough mode")
     tacacs_obj.set_aaa_authentication_properties(vars.D1, 'login', 'tacacs+ local')
-    tacacs_obj.set_aaa_authentication_properties(vars.D1, 'failthrough', 'enable')
+    st.wait(2, "sync the tacacs server after config changes")
+    tacacs_obj.set_aaa_authentication_properties(vars.D1, 'failthrough', 'enable', username=data.username, password=data.password)
+    st.wait(2, "sync the tacacs server after config changes")
     st.log(
         "Trying to SSH to the device using local credetails when login method set to TACACS+ and local and fail through mode is enabled")
     if not ssh_obj.connect_to_device(data.ip_address, data.local_username, data.local_password,
@@ -232,6 +234,8 @@ def test_ft_tacacs_modify_server_parameters():
     invalid_pass_key = "key123"
     invalid_timeout = '10'
     invalid_ip_addr = '10.10.10.1'
+    tacacs_params = st.get_service_info(vars.D1, "tacacs")
+    tacacs_obj.set_tacacs_server(vars.D1, 'delete', tacacs_params.hosts[1].ip)
     tacacs_obj.set_tacacs_properties(vars.D1, 'passkey', 'secretstring')
     st.log("Configuring global tacacs server key with special characters")
     tacacs_obj.set_tacacs_properties(vars.D1, 'passkey', data.passkey)
@@ -240,12 +244,15 @@ def test_ft_tacacs_modify_server_parameters():
                                  data.auth_type, data.priority_server2)
     st.log("Trying to SSH to the device when TACACS+ server is configured with invalid parameters")
     if ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol, data.ssh_port):
+        st.log("Deleting the TACACS+ server which is invalid for failed scenario")
+        tacacs_obj.set_tacacs_server(vars.D1, 'delete', invalid_ip_addr)
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log("Deleting the TACACS+ server which is invalid")
     tacacs_obj.set_tacacs_server(vars.D1, 'delete', invalid_ip_addr)
     st.log("Creating valid TACACS+ server")
     tacacs_obj.set_tacacs_server(vars.D1, 'add', data.tacacs_ser_ip_1, data.tcp_port, data.timeout, data.passkey,
                                  data.auth_type, data.priority)
+    st.wait(2, "sync the tacacs server after config changes")
     st.log("Trying to SSH to the device with TACACS+ server which is configured with the valid parameters")
     if not ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol, data.ssh_port):
         debug_info("test_ft_tacacs_modify_server_parameters", data.tacacs_ser_ip_1)
@@ -264,8 +271,9 @@ def test_ft_tacacs_maximum_servers():
     Scenario-4: Verify that Maximum number of TACACS IPv6 servers can be configured on DUT.
     Scenario-5: Verify the Save and Reload Functionality for TACACS IPv6 feature.
     """
+    tacacs_obj.set_aaa_authentication_properties(vars.D1, 'login', 'default')
     tacacs_params = st.get_service_info(vars.D1, "tacacs")
-    for i in range(2, 8):
+    for i in range(1, 8):
         ip_addr = ensure_service_params(vars.D1, "tacacs", "hosts", i, "ip")
         priority = ensure_service_params(vars.D1, "tacacs", "hosts", i, "priority")
         tacacs_obj.set_tacacs_server(vars.D1, 'add', ip_addr, data.tcp_port,
@@ -274,4 +282,3 @@ def test_ft_tacacs_maximum_servers():
     if not tacacs_obj.verify_tacacs_details(vars.D1, tacacs_params.hosts):
         st.report_fail("Tacacs_server_configs_are_not_successful", tacacs_params.hosts)
     st.report_pass("test_case_passed")
-

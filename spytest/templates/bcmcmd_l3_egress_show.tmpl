@@ -1,0 +1,14 @@
+Value Entry (\d+)
+Value Mac (\w+:\w+:\w+:\w+:\w+:\w+)
+Value Vlan (\d+)
+Value Intf (\d+)
+Value Port (\d+)
+Value Mod (\d+)
+Value MplsLabel (\S+)
+Value ToCpu (\w+)
+Value Drop (\w+)
+Value RefCount (\d+)
+Value L3Mc (\w+)
+
+Start
+  ^\s*${Entry}\s+${Mac}\s+${Vlan}\s+${Intf}\s+${Port}\s+${Mod}\s+${MplsLabel}\s+${ToCpu}\s+${Drop}\s+${RefCount}\s+${L3Mc}\s*$$ -> Record

@@ -1,25 +1,59 @@
 # This file contains the list of API's which performs BGP operations.
 # Author : Chaitanya Vella (Chaitanya-vella.kumar@broadcom.com)
-from spytest import st
-import json
 import re
+import json
+
+from spytest import st, putils
+
 import apis.system.reboot as reboot
-from spytest.utils import filter_and_select
-import spytest.utils as utils
-from utilities.utils import fail_on_error, get_interface_number_from_name
+from apis.system.rest import config_rest, delete_rest
+
+from utilities.utils import fail_on_error, get_interface_number_from_name, is_valid_ip_address
+from utilities.common import filter_and_select
+
+def get_forced_cli_type(cmd_type):
+    cmn_type = st.getenv("SPYTEST_BGP_API_UITYPE", "")
+    if cmd_type == "show":
+        return st.getenv("SPYTEST_BGP_SHOW_API_UITYPE", cmn_type)
+    if cmd_type == "config":
+        return st.getenv("SPYTEST_BGP_CFG_API_UITYPE", cmn_type)
+    return cmn_type
+
+def get_cfg_cli_type(dut, **kwargs):
+    cli_type = get_forced_cli_type("config")
+    cli_type = cli_type or st.get_ui_type(dut, **kwargs)
+    if cli_type in ["click", "vtysh"]:
+        cli_type = "vtysh"
+    else:
+        cli_type = "klish"
+    return cli_type
+
+def get_show_cli_type(dut, **kwargs):
+    cli_type = get_forced_cli_type("show")
+    cli_type = cli_type or st.get_ui_type(dut, **kwargs)
+    if cli_type in ["click", "vtysh"]:
+        cli_type = "vtysh"
+    else:
+        cli_type = "klish"
+    return cli_type
 
 
-def enable_docker_routing_config_mode(dut):
+
+def enable_docker_routing_config_mode(dut, **kwargs):
     """
 
     :param dut:
     :return:
     """
-    data = {"DEVICE_METADATA": {"localhost": {"docker_routing_config_mode": "split"}}}
-    split_config = json.dumps(data)
-    json.loads(split_config)
-    st.apply_json(dut, split_config)
-    reboot.config_save(dut)
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    if cli_type in ["click", "vtysh"]:
+        data = {"DEVICE_METADATA": {"localhost": {"docker_routing_config_mode": "split"}}}
+        split_config = json.dumps(data)
+        json.loads(split_config)
+        st.apply_json(dut, split_config)
+        reboot.config_save(dut)
+    elif cli_type == 'klish':
+        pass
 
 
 def enable_router_bgp_mode(dut, **kwargs):
@@ -29,56 +63,94 @@ def enable_router_bgp_mode(dut, **kwargs):
     :param local_asn:
     :return:
     """
-    st.log("Enabling router BGP mode ..")
-    if 'local_asn' in kwargs:
-        command = "router bgp {}".format(kwargs['local_asn'])
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    if cli_type in ['vtysh', 'click']:
+        cli_type ='vtysh'
+        st.log("Enabling router BGP mode ..")
+        if 'local_asn' in kwargs:
+            command = "router bgp {}".format(kwargs['local_asn'])
+        else:
+            command = "router bgp"
+
+        if 'vrf_name' in kwargs and kwargs['vrf_name'] != 'default-vrf':
+            command += ' vrf ' + kwargs['vrf_name']
+        if 'router_id' in kwargs:
+            command += '\n bgp router-id {}'.format(kwargs['router_id'])
+    elif cli_type == 'klish':
+        st.log("Enabling router BGP mode ..")
+        if 'local_asn' in kwargs:
+            command = "router bgp {}".format(kwargs['local_asn'])
+        if 'vrf_name' in kwargs and kwargs['vrf_name'] != 'default-vrf':
+            command += ' vrf ' + kwargs['vrf_name']
+        if 'router_id' in kwargs:
+            command +=  ' router-id {}'.format(kwargs['router_id'])
     else:
-        command = "router bgp"
-
-    if 'vrf_name' in kwargs and kwargs['vrf_name'] != 'default-vrf':
-        command += ' vrf ' + kwargs['vrf_name']
-    if 'router_id' in kwargs:
-        command += '\n bgp router-id {}'.format(kwargs['router_id'])
-
-    st.config(dut, command, type='vtysh')
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    st.config(dut, command, type=cli_type)
     return True
 
 
-def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', cli_type="vtysh", skip_error_check=True):
+def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', cli_type="", skip_error_check=True):
     """
-
     :param dut:
     :param local_asn:
     :param config_mode:
     :param vrf:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     st.log("Config router BGP mode .. {}".format(config_mode))
     mode = "no" if config_mode.lower() == 'disable' else ""
-    if vrf.lower() == 'default':
-        command = "{} router bgp {}".format(mode, local_asn)
+    if cli_type in ['vtysh', 'click']:
+        cli_type = 'vtysh'
+        if vrf.lower() == 'default':
+            command = "{} router bgp {}".format(mode, local_asn)
+        else:
+            command = "{} router bgp {} vrf {}".format(mode, local_asn, vrf)
+    elif cli_type == 'klish':
+        if vrf.lower() == 'default':
+            if not mode:
+                command = "router bgp {}".format(local_asn)
+            else:
+                command = "no router bgp"
+        else:
+            if not mode:
+                command = "router bgp {} vrf {}".format(local_asn, vrf)
+            else:
+                command = "no router bgp vrf {}".format(vrf)
     else:
-        command = "{} router bgp {} vrf {}".format(mode, local_asn, vrf)
-    output = st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
     return True
 
 
 def unconfig_router_bgp(dut, **kwargs):
     """
-
     :param dut
     :return:
     """
     st.log("Unconfiguring Bgp in {}".format(dut))
-    cli_type = "vtysh" if not kwargs.get("cli_type") else kwargs.get("cli_type")
-    command = "no router bgp"
-    if 'vrf_name' in kwargs and 'local_asn' in kwargs:
-        command += '  ' + kwargs['local_asn'] + ' vrf ' + kwargs['vrf_name']
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    if cli_type in ['vtysh', 'click']:
+        cli_type = 'vtysh'
+        command = "no router bgp"
+        if 'vrf_name' in kwargs and 'local_asn' in kwargs:
+            command += '  ' + kwargs['local_asn'] + ' vrf ' + kwargs['vrf_name']
+    elif cli_type == 'klish':
+        if kwargs.get("vrf_name"):
+            command = "no router bgp vrf {}".format(kwargs.get("vrf_name"))
+        else:
+            command = "no router bgp"
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
     st.config(dut, command, type=cli_type)
     return True
 
 
-def cleanup_router_bgp(dut_list, cli_type="vtysh", skip_error_check=True):
+def cleanup_router_bgp(dut_list, cli_type="", skip_error_check=True):
     """
 
     :param dut_list:
@@ -86,13 +158,18 @@ def cleanup_router_bgp(dut_list, cli_type="vtysh", skip_error_check=True):
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     for dut in dut_li:
-        st.log("Cleanup BGP mode ..")
-        command = "no router bgp"
-        st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+        cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+        if cli_type in ["vtysh", "klish"]:
+            st.log("Cleanup BGP mode ..")
+            command = "no router bgp"
+            st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+        else:
+            st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+            return False
     return True
 
 
-def _cleanup_bgp_config(dut_list, cli_type="vtysh"):
+def _cleanup_bgp_config(dut_list, cli_type=""):
     """
 
     :param dut_list:
@@ -101,22 +178,39 @@ def _cleanup_bgp_config(dut_list, cli_type="vtysh"):
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     for dut in dut_li:
         command = "show running bgp"
-        output = st.config(dut, command, type=cli_type, conf=False)
+        output = st.show(dut, command, type="vtysh", skip_error_check=True)
         st.log("Cleanup BGP configuration on %s.." % dut)
         config = output.splitlines()
         line = 0
         count = len(config)
+        bgp_inst = []
+        cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
         while line < count:
             _str = config[line]
             if re.match(r'router bgp .*', _str, re.IGNORECASE):
-                st.config(dut, "no {}".format(_str), type=cli_type)
+                if cli_type =="klish":
+                    _newstr =' '.join([i for i in _str.split(" ") if not i.isdigit()])
+                    if "vrf" in _str:
+                        bgp_inst.insert(0, _newstr)
+                    else:
+                        bgp_inst.append(_newstr)
+                else:
+                    if "vrf" in _str:
+                        bgp_inst.insert(0, _str)
+                    else:
+                        bgp_inst.append(_str)
+
                 while config[line] != "!":
                     line += 1
             line += 1
+
+        for inst in bgp_inst:
+            st.config(dut, "no {}".format(inst), type=cli_type)
+
     return True
 
 
-def cleanup_bgp_config(dut_list, cli_type="vtysh", thread=True):
+def cleanup_bgp_config(dut_list, cli_type="", thread=True):
     """
 
     :param dut_list:
@@ -124,8 +218,7 @@ def cleanup_bgp_config(dut_list, cli_type="vtysh", thread=True):
     :return:
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
-    [out, exceptions] = utils.exec_foreach(thread, dut_li, _cleanup_bgp_config, cli_type=cli_type)
-    st.log(exceptions)
+    [out, _] = putils.exec_foreach(thread, dut_li, _cleanup_bgp_config, cli_type=cli_type)
     return False if False in out else True
 
 
@@ -140,9 +233,7 @@ def config_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, con
     :param hold:
     :return:
     """
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
-    cli_type = "vtysh" if cli_type in ['click',"vtysh"] else "klish"
-
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     command = "router bgp {}\n".format(local_asn)
     if cli_type == 'vtysh':
         if config ==  'yes':
@@ -165,12 +256,15 @@ def config_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, con
         if config ==  'no' and router_id:
             command += "no router-id \n"
         command += "exit"
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
 
     st.config(dut, command.split("\n") if cli_type == 'klish' else command, type=cli_type)
     return True
 
 
-def create_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180):
+def create_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, cli_type=""):
     """
 
     :param dut:
@@ -181,17 +275,30 @@ def create_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180):
     :return:
     """
     st.log("Creating BGP router ..")
-    config_router_bgp_mode(dut, local_asn)
-    # Add validation for IPV4 address
-    if router_id:
-        command = "bgp router-id {}".format(router_id)
-        st.config(dut, command, type='vtysh')
-    command = "timers bgp {} {}".format(keep_alive, hold)
-    st.config(dut, command, type='vtysh')
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    if cli_type == 'vtysh':
+        command = ""
+        config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+        # Add validation for IPV4 address
+        if router_id:
+            command = "bgp router-id {}\n".format(router_id)
+        command += "timers bgp {} {}\n".format(keep_alive, hold)
+    elif cli_type == 'klish':
+        command = list()
+        config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+        # Add validation for IPV4 address
+        if router_id:
+            command.append("router-id {}".format(router_id))
+        command.append("timers {} {}".format(keep_alive, hold))
+        command.append("exit")
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    st.config(dut, command, type=cli_type)
     return True
 
 
-def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, hold=180, password=None, family="ipv4",vrf='default'):
+def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, hold=180, password=None, family="ipv4",vrf='default', cli_type=""):
     """
 
     :param dut:
@@ -204,33 +311,51 @@ def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, 
     :param family:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     st.log("Creating BGP neighbor ..")
-    # Add validation for IPV4 / IPV6 address
-    config_router_bgp_mode(dut, local_asn, vrf=vrf)
+    config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type)
 
-    command = "neighbor {} remote-as {}".format(neighbor_ip, remote_asn)
-    st.config(dut, command, type='vtysh')
-    command = "neighbor {} timers {} {}".format(neighbor_ip, keep_alive, hold)
-    st.config(dut, command, type='vtysh')
-    if password:
-        command = " neighbor {} password {}".format(neighbor_ip, password)
+    if cli_type == 'vtysh':
+        command = "neighbor {} remote-as {}".format(neighbor_ip, remote_asn)
         st.config(dut, command, type='vtysh')
-    # Gather the IP type using the validation result
-    # ipv6 = False
-    if family == "ipv6":
-        command = "address-family ipv6 unicast"
+        command = "neighbor {} timers {} {}".format(neighbor_ip, keep_alive, hold)
         st.config(dut, command, type='vtysh')
-        command = "neighbor {} activate".format(neighbor_ip)
-        st.config(dut, command, type='vtysh')
-    if family == "ipv4":
-        command = "address-family ipv4 unicast"
-        st.config(dut, command, type='vtysh')
-        command = "neighbor {} activate".format(neighbor_ip)
-        st.config(dut, command, type='vtysh')
+        if password:
+            command = " neighbor {} password {}".format(neighbor_ip, password)
+            st.config(dut, command, type='vtysh')
+        # Gather the IP type using the validation result
+        # ipv6 = False
+        if family == "ipv6":
+            command = "address-family ipv6 unicast"
+            st.config(dut, command, type='vtysh')
+            command = "neighbor {} activate".format(neighbor_ip)
+            st.config(dut, command, type='vtysh')
+        if family == "ipv4":
+            command = "address-family ipv4 unicast"
+            st.config(dut, command, type='vtysh')
+            command = "neighbor {} activate".format(neighbor_ip)
+            st.config(dut, command, type='vtysh')
+    elif cli_type == 'klish':
+        commands = list()
+        commands.append("neighbor {}".format(neighbor_ip))
+        commands.append("remote-as {}".format(remote_asn))
+        commands.append("timers {} {}".format(keep_alive, hold))
+        if password:
+            commands.append("password {}\n".format(password))
+        if family:
+            commands.append("address-family {} unicast".format(family))
+            commands.append("activate")
+            commands.append("exit")
+        commands.append("exit")
+        commands.append("exit")
+        st.config(dut, commands, type=cli_type)
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
     return True
 
 
-def config_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, family="ipv4", keep_alive=60, hold=180, config='yes', vrf='default', cli_type="vtysh", skip_error_check=True, connect_retry=120):
+def config_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, family="ipv4", keep_alive=60, hold=180, config='yes', vrf='default', cli_type="", skip_error_check=True, connect_retry=120):
     """
 
     :param dut:
@@ -242,7 +367,7 @@ def config_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, family="ipv4", 
     :param family:
     :return:
     """
-
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     cfgmode = 'no' if config != 'yes' else ''
     if family !='ipv4' and family != 'ipv6':
         return False
@@ -272,10 +397,12 @@ def config_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, family="ipv4", 
             commands.append("address-family {} unicast".format(family))
             commands.append("activate")
             commands.append("exit")
+            commands.append("exit") #exit neighbor
+        commands.append("exit") #exit router-bgp
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.error("UNSUPPORTED CLI TYPE")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
 
@@ -290,9 +417,10 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
     :param kwargs:
     :return:
     """
-    st.log("Configuring the BGP neighbor password ..")
+    st.log("Configuring the BGP neighbor properties ..")
     properties = kwargs
-    cli_type = kwargs.get("cli_type", "vtysh")
+    peergroup = properties.get('peergroup', None)
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     skip_error_check = kwargs.get("skip_error_check", True)
     # Add validation for IPV4 / IPV6 address
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
@@ -325,13 +453,17 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
         return True
     elif cli_type == "klish":
         commands = list()
-        neigh_name = get_interface_number_from_name(neighbor_ip)
-        if isinstance(neigh_name, dict):
-            commands.append("neighbor interface {} {}".format(neigh_name["type"], neigh_name["number"]))
+        if not peergroup:
+            neigh_name = get_interface_number_from_name(neighbor_ip)
+            if isinstance(neigh_name, dict):
+                commands.append("neighbor interface {} {}".format(neigh_name["type"], neigh_name["number"]))
+            else:
+                commands.append("neighbor {}".format(neigh_name))
         else:
-            commands.append("neighbor {}".format(neigh_name))
+            commands.append("peer-group {}".format(neighbor_ip))
         if "password" in properties:
-            commands.append("{} password {}".format(no_form, properties["password"]))
+            password = "" if no_form == 'no' else properties["password"]
+            commands.append("{} password {}".format(no_form, password))
         if "keep_alive" in properties and "hold_time" in properties:
             commands.append("{} timers {} {}".format(no_form, properties["keep_alive"],properties["hold_time"]))
         if "neighbor_shutdown" in properties:
@@ -348,11 +480,11 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.error("UNSUPPORTE CLI TYPE")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
 
-def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', cli_type="vtysh", skip_error_check=True):
+def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', cli_type="", skip_error_check=True):
     """
 
     :param dut:
@@ -361,6 +493,7 @@ def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', 
     :param remote_asn:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     st.log("Deleting BGP neighbor ..")
     # Add validation for IPV4 / IPV6 address
     config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type)
@@ -373,14 +506,15 @@ def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', 
         commands.append("no remote-as {}".format(remote_asn))
         commands.append("exit")
         commands.append("no neighbor {}".format(neighbor_ip))
+        commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
     else:
-        st.error("UNSUPPORTE CLI TYPE")
+        st.error("UNSUPPORTE CLI TYPE -- {}".format(cli_type))
         return False
     return True
 
 
-def change_bgp_neighbor_admin_status(dut, local_asn, neighbor_ip, operation=1):
+def change_bgp_neighbor_admin_status(dut, local_asn, neighbor_ip, operation=1, cli_type=""):
     """
 
     :param dut:
@@ -389,22 +523,37 @@ def change_bgp_neighbor_admin_status(dut, local_asn, neighbor_ip, operation=1):
     :param operation:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     st.log("Shut/no-shut BGP neighbor ..")
     config_router_bgp_mode(dut, local_asn)
-    if operation == 0:
-        command = "neighbor {} shutdown".format(neighbor_ip)
-        st.config(dut, command, type='vtysh')
-    elif operation == 1:
-        command = "no neighbor {} shutdown".format(neighbor_ip)
-        st.config(dut, command, type='vtysh')
+    if cli_type == 'vtysh':
+        if operation == 0:
+            command = "neighbor {} shutdown".format(neighbor_ip)
+            st.config(dut, command, type=cli_type)
+        elif operation == 1:
+            command = "no neighbor {} shutdown".format(neighbor_ip)
+            st.config(dut, command, type=cli_type)
+        else:
+            st.error("Invalid operation provided.")
+            return False
+    elif cli_type == 'klish':
+        command = list()
+        command.append("neighbor {}".format(neighbor_ip))
+        if operation == 0:
+            command.append("shutdown")
+        elif operation == 1:
+            command.append("no shutdown")
+        else:
+            st.error("Invalid operation provided.")
+            return False
+        st.config(dut, command, type=cli_type)
     else:
-        st.error("Invalid operation provided.")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
-
     return True
 
 
-def advertise_bgp_network(dut, local_asn, network, route_map='', config='yes', family='ipv4', cli_type="vtysh", skip_error_check=True):
+def advertise_bgp_network(dut, local_asn, network, route_map='', config='yes', family='ipv4', cli_type="", skip_error_check=True, network_import_check=False):
     """
 
     :param dut:
@@ -412,6 +561,7 @@ def advertise_bgp_network(dut, local_asn, network, route_map='', config='yes', f
     :param network:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     st.log("Advertise BGP network ..")
     # Add validation for IPV4 / IPV6 address
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
@@ -429,20 +579,28 @@ def advertise_bgp_network(dut, local_asn, network, route_map='', config='yes', f
         st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
     elif cli_type == "klish":
         commands = list()
+        if network_import_check:
+            commands.append("no network import-check")
         commands.append("address-family {} unicast".format(family))
         if route_map.lower() == '':
             commands.append("{} network {}".format(mode, network))
+            commands.append("exit")
+            commands.append("exit")
         else:
             commands.append("{} network {} route-map {}".format(mode, network, route_map))
+            commands.append("exit")
+            commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
     else:
-        st.error("UNSUPPORTED CLI TYPE")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
     return True
 
 
-def config_bgp_network_advertise(dut, local_asn, network, route_map='', addr_family='ipv4', config='yes', cli_type="vtysh", skip_error_check=True):
+def config_bgp_network_advertise(dut, local_asn, network, route_map='', addr_family='ipv4', config='yes', cli_type="",
+                                 skip_error_check=True, network_import_check=False):
 
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     cfgmode = 'no' if config != 'yes' else ''
     if cli_type == "vtysh":
         command  = "router bgp {}".format(local_asn)
@@ -455,22 +613,26 @@ def config_bgp_network_advertise(dut, local_asn, network, route_map='', addr_fam
     elif cli_type == "klish":
         commands = list()
         commands.append("router bgp {}".format(local_asn))
+        if network_import_check:
+            commands.append("no network import-check")
         commands.append("address-family {} {}".format(addr_family, "unicast"))
         cmd = "route-map {}".format(route_map) if route_map else ""
         commands.append("{} network {} {}".format(cfgmode, network, cmd).strip())
         commands.append("exit")
+        commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.error("UNSUPPORTED CLI TYPE")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
-def show_bgp_ipv4_summary_vtysh(dut,vrf='default', cli_type="vtysh"):
+def show_bgp_ipv4_summary_vtysh(dut, vrf='default', **kwargs):
     """
 
     :param dut:
     :return:
     """
+    cli_type = get_show_cli_type(dut, **kwargs)
     if cli_type == "vtysh":
         if vrf == 'default':
             command = "show ip bgp summary"
@@ -479,20 +641,21 @@ def show_bgp_ipv4_summary_vtysh(dut,vrf='default', cli_type="vtysh"):
         return st.show(dut, command, type='vtysh')
     elif cli_type == "klish":
         if vrf == 'default':
-            command = "show ip bgp summary"
+            command = "show bgp ipv4 unicast summary"
         else:
-            command = "show ip bgp vrf {} summary".format(vrf)
+            command = "show bgp ipv4 unicast vrf {} summary".format(vrf)
         return st.show(dut, command, type=cli_type)
     else:
-        st.log("UNSUPPORTED CLI TYPE")
-        return False
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return []
 
-def show_bgp_ipv6_summary_vtysh(dut,vrf='default', cli_type="vtysh"):
+def show_bgp_ipv6_summary_vtysh(dut, vrf='default', **kwargs):
     """
 
     :param dut:
     :return:
     """
+    cli_type = get_show_cli_type(dut, **kwargs)
     if cli_type == "vtysh":
         if vrf == 'default':
             command = "show bgp ipv6 summary"
@@ -501,33 +664,66 @@ def show_bgp_ipv6_summary_vtysh(dut,vrf='default', cli_type="vtysh"):
         return st.show(dut, command, type='vtysh')
     elif cli_type == "klish":
         if vrf == 'default':
-            command = "show ip bgp summary"
+            command = "show bgp ipv6 unicast summary"
         else:
-            command = "show ip bgp vrf {} ipv6 summary".format(vrf)
+            command = "show bgp ipv6 unicast vrf {} summary".format(vrf)
         return st.show(dut, command, type=cli_type)
     else:
-        st.log("UNSUPPORTED CLI TYPE")
-        return False
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return []
 
 
-def show_bgp_ipv4_summary(dut):
+def show_bgp_ipv4_summary(dut, **kwargs):
     """
 
     :param dut:
     :return:
     """
-    command = "show bgp ipv4 summary"
-    return st.show(dut, command)
+    #added kwargs.update() as Klish output currently does not list RIB entries. RFE SONIC-23559
+    kwargs.update({"cli_type": "vtysh"})
+    cli_type = get_show_cli_type(dut, **kwargs)
+    if cli_type == "vtysh":
+        command = "show bgp ipv4 summary"
+    elif cli_type == "klish":
+        command = 'show bgp ipv4 unicast summary'
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return []
+    return st.show(dut, command, type=cli_type)
 
 
-def show_bgp_ipv6_summary(dut):
+def show_bgp_ipv6_summary(dut, **kwargs):
     """
 
     :param dut:
     :return:
     """
-    command = "show bgp ipv6 summary"
-    return st.show(dut, command)
+    # added kwargs.update() as Klish output currently does not list RIB entries. RFE SONIC-23559
+    kwargs.update({"cli_type": "vtysh"})
+    cli_type = get_show_cli_type(dut, **kwargs)
+    if cli_type == "vtysh":
+        command = "show bgp ipv6 summary"
+    elif cli_type == "klish":
+        command = 'show bgp ipv6 unicast summary'
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return []
+    return st.show(dut, command, type=cli_type)
+
+def get_bgp_nbr_count(dut, **kwargs):
+    cli_type = get_show_cli_type(dut, **kwargs)
+    vrf = kwargs.get('vrf','default')
+    family = kwargs.get('family','ipv4')
+    if family == 'ipv6':
+        output = show_bgp_ipv6_summary_vtysh(dut, vrf=vrf, cli_type=cli_type)
+    else:
+        output = show_bgp_ipv4_summary_vtysh(dut, vrf=vrf, cli_type=cli_type)
+    estd_nbr = 0
+    for i in range(0,len(output)):
+        if output[i]['estd_nbr'] != '':
+            estd_nbr = int(output[i]['estd_nbr'])
+            break
+    return estd_nbr
 
 
 def verify_ipv6_bgp_summary(dut, **kwargs):
@@ -543,7 +739,9 @@ def verify_ipv6_bgp_summary(dut, **kwargs):
 
     EX; verify_ipv6_bgp_summary(vars.D1, 'neighbor'= '3341::2')
     """
-    output = show_bgp_ipv6_summary(dut)
+    cli_type = get_show_cli_type(dut, **kwargs)
+    kwargs.pop("cli_type", None)
+    output = show_bgp_ipv6_summary(dut,cli_type=cli_type)
     for each in kwargs.keys():
         match = {each: kwargs[each]}
         entries = filter_and_select(output, None, match)
@@ -560,11 +758,12 @@ def show_bgp_neighbor(dut, neighbor_ip):
     :param neighbor_ip:
     :return:
     """
+    #No usage in scripts, so no klish support added
     command = "show bgp neighbor {}".format(neighbor_ip)
     return st.show(dut, command)
 
 
-def show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=None,vrf='default'):
+def show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=None,vrf='default', **kwargs):
     """
 
     :param dut:
@@ -573,42 +772,69 @@ def show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=None,vrf='default'):
     :param address_family:
     :return:
     """
-    if vrf == 'default':
-        command = "show ip bgp neighbors"
-    else:
-        command = "show ip bgp vrf {} neighbors".format(vrf)
-    if neighbor_ip:
-        command += " {}".format(neighbor_ip)
-    return st.show(dut, command, type='vtysh')
+    cli_type = get_show_cli_type(dut, **kwargs)
+    if cli_type == 'vtysh':
+        if vrf == 'default':
+            command = "show ip bgp neighbors"
+        else:
+            command = "show ip bgp vrf {} neighbors".format(vrf)
+        if neighbor_ip:
+            command += " {}".format(neighbor_ip)
+    if cli_type == 'klish':
+        if vrf == 'default':
+            command = "show bgp ipv4 unicast neighbors"
+        else:
+            command = "show bgp ipv4 unicast vrf {} neighbors".format(vrf)
+        if neighbor_ip:
+            command += " {}".format(neighbor_ip)
+    return st.show(dut, command, type=cli_type)
 
 
-def show_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip=None,vrf='default'):
+def show_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip=None,vrf='default', **kwargs):
     """
 
     :param dut:
     :param neighbor_ip:
     :return:
     """
-    if vrf == 'default':
-        command = "show bgp ipv6 neighbors"
-    else:
-        command = "show bgp vrf {} ipv6 neighbors".format(vrf)
-    if neighbor_ip:
-        command += " {}".format(neighbor_ip)
-    return st.show(dut, command, type='vtysh')
+    cli_type = get_show_cli_type(dut, **kwargs)
+    if cli_type == 'vtysh':
+        if vrf == 'default':
+            command = "show bgp ipv6 neighbors"
+        else:
+            command = "show bgp vrf {} ipv6 neighbors".format(vrf)
+        if neighbor_ip:
+            command += " {}".format(neighbor_ip)
+    if cli_type == 'klish':
+        if vrf == 'default':
+            command = "show bgp ipv6 unicast neighbors"
+        else:
+            command = "show bgp ipv6 unicast vrf {} neighbors".format(vrf)
+        if neighbor_ip:
+            command += " {}".format(neighbor_ip)
+    return st.show(dut, command, type=cli_type)
 
 
-def clear_ip_bgp(dut):
+def clear_ip_bgp(dut, **kwargs):
     """
 
     :param dut:
     :return:
     """
-    command = "sonic-clear ip bgp"
-    st.config(dut, command)
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    if cli_type in ["click", "vtysh"]:
+        # command = "sonic-clear ip bgp"
+        command = "clear ip bgp *"
+        st.config(dut, command, type=cli_type, conf=False)
+    elif cli_type == 'klish':
+        command = 'clear bgp ipv4 unicast *'
+        st.config(dut, command, type=cli_type)
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    return True
 
-
-def clear_bgp_vtysh(dut, address_family="all"):
+def clear_bgp_vtysh(dut, **kwargs):
     """
 
     :param dut:
@@ -616,26 +842,69 @@ def clear_bgp_vtysh(dut, address_family="all"):
     :param address_family: ipv4|ipv6|all
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    address_family = kwargs.get('address_family', 'all')
     af_list = ['ipv4','ipv6']
     if address_family == 'ipv4':
-        af_list = ['ipv4']
+        if cli_type == 'vtysh':
+            af_list = ['ipv4']
+        elif cli_type == 'klish':
+            af_list = ['ipv4 unicast']
     elif address_family == 'ipv6':
-        af_list = ['ipv6']
+        if cli_type == 'vtysh':
+            af_list = ['ipv6']
+        elif cli_type == 'klish':
+            af_list = ['ipv6 unicast']
+    else:
+        if cli_type == "vtysh":
+            af_list=["ipv4", "ipv6"]
+        elif cli_type == "klish":
+            af_list = ["ipv4 unicast", "ipv6 unicast"]
     for each_af in af_list:
-        command = "clear ip bgp {} *".format(each_af)
+        if cli_type == 'vtysh':
+            command = "clear ip bgp {} *".format(each_af)
+        elif cli_type == 'klish':
+            command = "clear bgp {} *".format(each_af)
+        st.config(dut, command, type=cli_type, conf=False)
+
+
+def clear_ip_bgp_vtysh(dut, value="*", **kwargs):
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    if cli_type == 'vtysh':
+        command = "clear ip bgp ipv4 {}".format(value)
         st.config(dut, command, type='vtysh', conf=False)
+    elif cli_type == 'klish':
+        command = "clear bgp ipv4 unicast {}".format(value)
+        st.config(dut, command, type='klish', conf=False)
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
 
-def clear_ip_bgp_vtysh(dut, value="*"):
-    command = "clear ip bgp {}".format(value)
-    st.config(dut, command, type='vtysh', conf=False)
 
-def clear_ipv6_bgp_vtysh(dut, value="*"):
-    command = "clear bgp ipv6 {}".format(value)
-    st.config(dut, command, type='vtysh', conf=False)
+def clear_ipv6_bgp_vtysh(dut, value="*", **kwargs):
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    if cli_type == 'vtysh':
+        command = "clear ip bgp ipv6 {}".format(value)
+    elif cli_type == 'klish':
+        command = "clear bgp ipv6 unicast {}".format(value)
+    st.config(dut, command, type= cli_type, conf=False)
 
-def clear_ip_bgp_vrf_vtysh(dut,vrf,family='ipv4',value="*"):
-    command = "clear bgp vrf {} {} {}".format(vrf,family,value)
-    st.config(dut, command, type='vtysh', conf=False)
+def clear_ip_bgp_vrf_vtysh(dut,vrf,family='ipv4',value="*", **kwargs):
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    if cli_type == 'vtysh':
+        command = "clear bgp vrf {} {} {}".format(vrf,family,value)
+        st.config(dut, command, type='vtysh', conf=False)
+    elif cli_type == 'klish':
+        if family == 'ipv4':
+            family = 'ipv4 unicast'
+        elif family == 'ipv6':
+            family = 'ipv6 unicast'
+        command = "clear bgp {} vrf {} {}".format(family, vrf, value)
+        st.config(dut, command, type='klish', conf=False)
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+
 
 def create_bgp_aggregate_address(dut, **kwargs):
     """
@@ -648,10 +917,11 @@ def create_bgp_aggregate_address(dut, **kwargs):
     :param summary:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     if "local_asn" not in kwargs and "address_range" not in kwargs and "config" not in kwargs and "family" not in kwargs:
         st.error("Mandatory parameters not provided")
     skip_error_check = kwargs.get("skip_error_check", True)
-    cli_type=kwargs.get("cli_type","vtysh")
+    # cli_type=kwargs.get("cli_type","vtysh")
     config_router_bgp_mode(dut, kwargs["local_asn"], cli_type=cli_type)
     if cli_type == "vtysh":
         command = "address-family {}\n".format(kwargs["family"])
@@ -677,12 +947,13 @@ def create_bgp_aggregate_address(dut, **kwargs):
             command = "no aggregate-address {}".format(kwargs["address_range"])
         commands.append(command)
         commands.append("exit")
+        commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
     else:
-        st.error("Unsupported CLI TYPE")
+        st.error("Unsupported CLI TYPE -- {}".format(cli_type))
         return False
 
-def create_bgp_update_delay(dut, local_asn, time=0, cli_type="vtysh", skip_error_check=True):
+def create_bgp_update_delay(dut, local_asn, time=0, cli_type="", skip_error_check=True):
     """
 
     :param dut:
@@ -690,6 +961,7 @@ def create_bgp_update_delay(dut, local_asn, time=0, cli_type="vtysh", skip_error
     :param time:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
     command = "update-delay {}".format(time)
     st.config(dut, command,type=cli_type, skip_error_check=skip_error_check)
@@ -702,12 +974,13 @@ def create_bgp_always_compare_med(dut, local_asn):
     :param local_asn:
     :return:
     """
+    #No usage in scripts
     config_router_bgp_mode(dut, local_asn)
     command = "bgp always-compare-med"
     st.config(dut, command, type='vtysh')
 
 
-def create_bgp_best_path(dut, local_asn, user_command):
+def create_bgp_best_path(dut, local_asn, user_command, cli_type=""):
     """
 
     :param dut:
@@ -715,19 +988,28 @@ def create_bgp_best_path(dut, local_asn, user_command):
     :param user_command:
     :return:
     """
-    config_router_bgp_mode(dut, local_asn)
-    command = "bgp bestpath {}".format(user_command)
-    st.config(dut, command, type='vtysh')
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+    if cli_type == 'vtysh':
+        command = "bgp bestpath {}".format(user_command)
+    elif cli_type == 'klish':
+        command = list()
+        command.append("bestpath {}".format(user_command))
+        command.append("exit")
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    st.config(dut, command, type=cli_type)
 
 
-def create_bgp_client_to_client_reflection(dut, local_asn, config='yes', cli_type="vtysh", skip_error_check=True):
+def create_bgp_client_to_client_reflection(dut, local_asn, config='yes', cli_type="", skip_error_check=True):
     """
 
     :param dut:
     :param local_asn:
     :return:
     """
-
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     cfgmode = 'no' if config != 'yes' else ''
     if cli_type == "vtysh":
         command  = "router bgp {}".format(local_asn)
@@ -746,14 +1028,15 @@ def create_bgp_client_to_client_reflection(dut, local_asn, config='yes', cli_typ
         commands = list()
         commands.append("router bgp {}".format(local_asn))
         commands.append("{} client-to-client reflection".format(cfgmode))
+        commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.error("UNSUPPORTED CLI TYPE")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
 
-def create_bgp_route_reflector_client(dut, local_asn, addr_family, nbr_ip, config='yes', cli_type="vtysh", skip_error_check=True):
+def create_bgp_route_reflector_client(dut, local_asn, addr_family, nbr_ip, config='yes', cli_type="", skip_error_check=True):
     """
 
     :param dut:
@@ -762,47 +1045,61 @@ def create_bgp_route_reflector_client(dut, local_asn, addr_family, nbr_ip, confi
     :param nbr_ip:
     :return:
     """
-
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     cfgmode = 'no' if config != 'yes' else ''
     if cli_type == "vtysh":
         command  = "router bgp {}".format(local_asn)
         command += "\n address-family {} {}".format(addr_family, "unicast")
         command += "\n {} neighbor {} route-reflector-client".format(cfgmode, nbr_ip)
-        '''
-        config_router_bgp_mode(dut, local_asn)
 
-        command = "address-family {} unicast".format(addr_family)
-        st.config(dut, command, type='vtysh')
-
-        if config == 'yes':
-            command = "neighbor {} route-reflector-client".format(nbr_ip)
-        elif config == 'no' :
-            command = "no neighbor {} route-reflector-client".format(nbr_ip)
-        else:
-            return False
-        '''
         st.config(dut, command, type=cli_type)
         return True
     elif cli_type == "klish":
-        neigh_name = get_interface_number_from_name(nbr_ip)
+        addr_family_type = "unicast"
+        neigh_name = nbr_ip
+        # if re.findall(r'Ethernet|Vlan|PortChannel', nbr_ip):
+        #     neigh_name = get_interface_number_from_name(nbr_ip)
         commands = list()
         commands.append("router bgp {}".format(local_asn))
-        if isinstance(neigh_name, dict):
-            commands.append("{} neighbor interface {} {}".format(cfgmode, neigh_name["type"], neigh_name["number"]))
+
+        # if re.findall(r'Ethernet|Vlan|PortChannel', nbr_ip):
+        #     neigh_name = get_interface_number_from_name(nbr_ip)
+        #     commands.append("{} neighbor interface {} {}".format(cfgmode, neigh_name["type"], neigh_name["number"]))
+        # elif is_valid_ip_address(neigh_name, addr_family):
+        #     commands.append("{} neighbor {}".format(cfgmode, nbr_ip))
+        # else:
+        #     commands.append("{} peer-group {}".format(cfgmode, nbr_ip))
+        # if config == "yes":
+        #     if addr_family == 'l2vpn' : addr_family_type = "evpn"
+        #     commands.append("address-family {} {}".format(addr_family, addr_family_type))
+        #     commands.append("{} route-reflector-client".format(cfgmode))
+        #     commands.append("exit")
+        # else:
+        #     commands.append("exit")
+        if re.findall(r'Ethernet|Vlan|PortChannel|Eth', nbr_ip):
+            neigh_name = get_interface_number_from_name(nbr_ip)
+            commands.append("neighbor interface {} {}".format( neigh_name["type"], neigh_name["number"]))
+        elif addr_family == 'l2vpn' :
+             commands.append("neighbor {}".format(nbr_ip))
+        elif is_valid_ip_address(neigh_name, addr_family):
+            commands.append("neighbor {}".format(nbr_ip))
         else:
-            commands.append("{} neighbor {}".format(cfgmode, neigh_name))
-        if config == "yes":
-            commands.append("address-family {} {}".format(addr_family, "unicast"))
-            commands.append("{} route-reflector-client".format(cfgmode))
-            commands.append("exit")
+            commands.append("peer-group {}".format(nbr_ip))
+        if addr_family == 'l2vpn' : addr_family_type = "evpn"
+        commands.append("address-family {} {}".format(addr_family, addr_family_type))
+        commands.append("{} route-reflector-client".format(cfgmode))
+        commands.append("exit")
+        commands.append("exit")
+        commands.append("exit")
+
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.error("UNSUPPORTED CLI TYPE")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
 
-def create_bgp_next_hop_self(dut, local_asn, addr_family, nbr_ip, force='no', config='yes', cli_type="vtysh", skip_error_check=True):
+def create_bgp_next_hop_self(dut, local_asn, addr_family, nbr_ip, force='no', config='yes', cli_type="", skip_error_check=True):
     """
 
     :param dut:
@@ -812,6 +1109,7 @@ def create_bgp_next_hop_self(dut, local_asn, addr_family, nbr_ip, force='no', co
     :param config:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     cfgmode = 'no' if config != 'yes' else ''
     if cli_type == "vtysh":
         command  = "router bgp {}".format(local_asn)
@@ -838,16 +1136,22 @@ def create_bgp_next_hop_self(dut, local_asn, addr_family, nbr_ip, force='no', co
     elif cli_type == "klish":
         commands = list()
         commands.append("router bgp {}".format(local_asn))
-        commands.append("{} neighbor {}".format(cfgmode, nbr_ip))
-        commands.append("address-family {} {}".format(addr_family, "unicast"))
+        if is_valid_ip_address(nbr_ip, addr_family):
+            commands.append("{} neighbor {}".format(cfgmode, nbr_ip))
+        else:
+            commands.append("{} peer-group {}".format(cfgmode, nbr_ip))
+        #commands.append("address-family {} {}".format(addr_family, "unicast"))
         if config == "yes":
             force_cmd = "force" if force == 'yes' else ""
+            commands.append("address-family {} {}".format(addr_family, "unicast"))
             commands.append("next-hop-self {}".format(force_cmd))
+            commands.append("exit")
+            commands.append("exit")
         commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.log("UNSUPPORTED CLI TYPE")
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
 
@@ -860,6 +1164,7 @@ def create_bgp_cluster_id(dut, local_asn, cluster_id, cluster_ip):
     :param cluster_ip:
     :return:
     """
+    #No usage in test scripts
     config_router_bgp_mode(dut, local_asn)
     command = "bgp cluster-id {}".format(cluster_id)
     st.config(dut, command, type='vtysh')
@@ -876,6 +1181,7 @@ def create_bgp_confideration(dut, local_asn, confd_id_as, confd_peers_as):
     :param confd_peers_as:
     :return:
     """
+    # No usage in test scripts
     config_router_bgp_mode(dut, local_asn)
     command = "bgp confideration identifier {}".format(confd_id_as)
     st.config(dut, command, type='vtysh')
@@ -894,12 +1200,13 @@ def create_bgp_dampening(dut, local_asn, half_life_time, timer_start, timer_star
     :param max_duration:
     :return:
     """
+    # No usage in test scripts
     config_router_bgp_mode(dut, local_asn)
     command = "bgp dampening {} {} {} {}".format(half_life_time, timer_start, timer_start_supress, max_duration)
     st.config(dut, command, type='vtysh')
 
 
-def config_bgp_default(dut, local_asn, user_command, config='yes', cli_type="vtysh", skip_error_check=True):
+def config_bgp_default(dut, local_asn, user_command, config='yes', cli_type="", skip_error_check=True):
     """
 
     :param dut:
@@ -907,6 +1214,7 @@ def config_bgp_default(dut, local_asn, user_command, config='yes', cli_type="vty
     :param user_command:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     cfgmode = 'no' if config != 'yes' else ''
     if cli_type == "vtysh":
         command  = "router bgp {}".format(local_asn)
@@ -924,46 +1232,68 @@ def config_bgp_default(dut, local_asn, user_command, config='yes', cli_type="vty
         commands = list()
         commands.append("router bgp {}".format(local_asn))
         commands.append("{} default {}".format(cfgmode, user_command))
+        commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.error("UNSUPPORTED CLI TYPE")
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
 
 
-def config_bgp_always_compare_med(dut, local_asn, config='yes'):
+def config_bgp_always_compare_med(dut, local_asn, config='yes', cli_type=""):
     """
 
     :param dut:
     :param local_asn:
     :return:
     """
-    config_router_bgp_mode(dut, local_asn)
-    if config == 'yes' :
-        command = "bgp always-compare-med"
-    else :
-        command = "no bgp always-compare-med"
-
-    st.config(dut, command, type='vtysh')
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+    if cli_type == "vtysh":
+        if config == 'yes' :
+            command = "bgp always-compare-med"
+        else :
+            command = "no bgp always-compare-med"
+    elif cli_type == 'klish':
+        command = list()
+        if config == 'yes' :
+            command.append("always-compare-med")
+        else :
+            command.append("no always-compare-med")
+        command.append('exit')
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    st.config(dut, command, type=cli_type)
     return True
 
 
-def config_bgp_deterministic_med(dut, local_asn, config='yes'):
+def config_bgp_deterministic_med(dut, local_asn, config='yes',cli_type=''):
     """
 
     :param dut:
     :param local_asn:
     :return:
     """
-    config_router_bgp_mode(dut, local_asn)
-
-    if config == 'yes' :
-       command = "bgp deterministic-med"
-    else :
-       command = "no bgp deterministic-med"
-
-    st.config(dut, command, type='vtysh')
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+    if cli_type == "vtysh":
+        if config == 'yes' :
+           command = "bgp deterministic-med"
+        else :
+           command = "no bgp deterministic-med"
+    elif cli_type == "klish":
+        command = list()
+        if config == 'yes' :
+           command.append("deterministic-med")
+        else :
+           command.append("no deterministic-med")
+        command.append('exit')
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    st.config(dut, command, type=cli_type)
 
     return True
 
@@ -975,6 +1305,7 @@ def config_bgp_disable_ebgp_connected_route_check(dut, local_asn):
     :param local_asn:
     :return:
     """
+    #No script usage
     config_router_bgp_mode(dut, local_asn)
     command = "bgp disable-ebgp-connected-route-check"
     st.config(dut, command, type='vtysh')
@@ -988,18 +1319,27 @@ def config_bgp_graceful_restart(dut, **kwargs):
     :param user_command:
     :return:
     """
+    preserve_state = kwargs.get('preserve_state',None)
+    vrf = kwargs.get('vrf', "default")
+    skip_error_check = kwargs.get("skip_error_check", True)
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     if "local_asn" not in kwargs and "config" not in kwargs :
         st.error("Mandatory params not provided")
         return False
-    cli_type= kwargs.get("cli_type", "vtysh")
-    config_router_bgp_mode(dut, kwargs["local_asn"], cli_type=cli_type)
     if kwargs.get("config") not in ["add","delete"]:
         st.log("Unsupported ACTION")
         return False
-    mode = "no " if kwargs.get("config") != "add" else ""
-    bgp_mode = "bgp " if cli_type == "vtysh" else ""
-    skip_error_check = kwargs.get("skip_error_check", True)
-    command = "{}{}graceful-restart".format(mode, bgp_mode)
+    config_router_bgp_mode(dut, kwargs["local_asn"],vrf=vrf, cli_type=cli_type)
+    mode = "no" if kwargs.get("config") != "add" else ""
+    bgp_mode = "bgp" if cli_type == "vtysh" else ""
+    if cli_type == 'vtysh':
+        command = "{} {} graceful-restart\n".format(mode, bgp_mode)
+    if cli_type == 'klish':
+        command = "{} graceful-restart enable\n".format(mode)
+    if preserve_state != None:
+        command += "{} {} graceful-restart preserve-fw-state\n".format(mode, bgp_mode)
+    if cli_type == 'klish':
+        command += "exit\n"
     if not(mode == 'no ' and cli_type == 'vtysh'):
         if "user_command" in kwargs:
            command += " {}".format(kwargs["user_command"])
@@ -1012,13 +1352,14 @@ def config_bgp_graceful_shutdown(dut, local_asn, config="add", cli_type="vtysh",
     :param local_asn:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
     mode = "no" if config != "add" else ""
     bgp_mode = "bgp" if cli_type == "vtysh" else ""
     command = "{} {} graceful-shutdown".format(mode, bgp_mode)
     st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
 
-def config_bgp_listen(dut, local_asn, neighbor_address, subnet, peer_grp_name, limit, config='yes', cli_type="vtysh", skip_error_check=True):
+def config_bgp_listen(dut, local_asn, neighbor_address, subnet, peer_grp_name, limit, config='yes', cli_type="", skip_error_check=True):
    """
 
    :param dut:
@@ -1027,6 +1368,7 @@ def config_bgp_listen(dut, local_asn, neighbor_address, subnet, peer_grp_name, l
    :param limit:
    :return:
    """
+   cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
    config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
    # Verify IPV4/IPV6 address pattern for neighbor address
    mode = "" if config.lower() == 'yes' else "no"
@@ -1044,12 +1386,14 @@ def config_bgp_listen(dut, local_asn, neighbor_address, subnet, peer_grp_name, l
                cmd = ['peer-group {}'.format(peer_grp_name), 'exit']
            command = "{} listen range {}/{} peer-group {}".format(mode, neighbor_address, subnet, peer_grp_name)
            cmd.append(command)
+           cmd.append("exit")
            st.config(dut, cmd, type=cli_type, skip_error_check=skip_error_check)
        if limit:
-           command = "{} listen limit {}".format(mode, limit)
+           command = ["{} listen limit {}".format(mode, limit)]
+           command.append('exit')
            st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
    else:
-       st.error("UNSUPPORTED CLI TYPE")
+       st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
        return False
 
 def config_bgp_listen_range(dut,local_asn,**kwargs):
@@ -1061,10 +1405,10 @@ def config_bgp_listen_range(dut,local_asn,**kwargs):
     :param limit:
     :return:
     """
-
-    cli_type = kwargs.get('cli_type', st.get_ui_type())
+    cli_type = st.get_ui_type(dut, **kwargs)
+    #cli_type = _get_cli_type(cli_type)
     neighbor_address = kwargs.get('neighbor_address', '')
-    subnet = kwargs.get('subnet', '')
+    subnet = str(kwargs.get('subnet', ''))
     peer_grp_name = kwargs.get('peer_grp_name', '')
     limit = kwargs.get('limit', '')
     config = kwargs.get('config','yes')
@@ -1088,7 +1432,7 @@ def config_bgp_listen_range(dut,local_asn,**kwargs):
             else:
                 cmd = cmd + 'router bgp {}\n'.format(local_asn)
             cmd = cmd + "{} bgp listen limit {}".format(mode, limit)
-        st.config(dut, cmd, type='vtysh', skip_error_check=skip_error_check)
+        st.config(dut, cmd, type= 'vtysh', skip_error_check=skip_error_check)
         return True
     elif cli_type == "klish":
         if neighbor_address:
@@ -1107,6 +1451,30 @@ def config_bgp_listen_range(dut,local_asn,**kwargs):
             cmd = cmd + "exit\n"
         st.config(dut, cmd, type=cli_type, skip_error_check=skip_error_check, conf = True)
         return True
+    elif cli_type in ['rest-patch','rest-put']:
+        http_method = kwargs.pop('http_method',cli_type)
+        rest_urls = st.get_datastore(dut,'rest_urls')
+        if neighbor_address:
+            dynamic_prefix = neighbor_address+'/'+subnet
+            if mode == '':
+                rest_url = rest_urls['bgp_dynamic_neigh_prefix'].format(vrf)
+                ocdata = {"openconfig-network-instance:dynamic-neighbor-prefixes":{"dynamic-neighbor-prefix":[{"prefix": dynamic_prefix,"config":{"prefix": dynamic_prefix,"peer-group": peer_grp_name}}]}}
+                response = config_rest(dut, http_method=http_method, rest_url=rest_url, json_data=ocdata)
+            elif mode == 'no':
+                rest_url = rest_urls['bgp_dynamic_neigh_prefix'].format(vrf)
+                response = delete_rest(dut, rest_url=rest_url)
+        if limit:
+            if mode == '':
+                rest_url = rest_urls['bgp_max_dynamic_neighbors'].format(vrf)
+                ocdata = {"openconfig-bgp-ext:max-dynamic-neighbors":int(limit)}
+                response = config_rest(dut, http_method=http_method, rest_url=rest_url, json_data=ocdata)
+            elif mode == 'no':
+                rest_url = rest_urls['bgp_max_dynamic_neighbors'].format(vrf)
+                response = delete_rest(dut, rest_url=rest_url)
+        if not response:
+            st.log(response)
+            return False
+        return True
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
         return False
@@ -1120,26 +1488,62 @@ def config_bgp_log_neighbor_changes(dut, local_asn):
     :param local_asn:
     :return:
     """
+    #No script usage
     config_router_bgp_mode(dut, local_asn)
     command = "bgp log-neighbor-changes"
     st.config(dut, command, type='vtysh')
 
 
-def config_bgp_max_med(dut, local_asn, user_command, config='yes'):
+def config_bgp_max_med(dut, local_asn, config='yes',**kwargs):
     """
 
     :param dut:
     :param local_asn:
     :param user_command:
     :return:
+    :usage: config_bgp_max_med(dut=dut7,cli_type='klish',config="yes",local_asn="300", on_start_time=10,on_start_med=40,administrative_med=65)
+    :usage: config_bgp_max_med(dut=dut7,cli_type='click',config="no",local_asn="300",administrative_med=65)
     """
-    config_router_bgp_mode(dut, local_asn)
-    if config == 'yes' :
-       command = "bgp max-med {}".format(user_command)
-    else :
-       command = "no bgp max-med {}".format(user_command)
+    cli_type = get_cfg_cli_type(dut, **kwargs)
 
-    st.config(dut, command, type='vtysh')
+    command = ''
+
+    if cli_type == 'vtysh' :
+        config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+        if config == 'yes' :
+            if 'on_start_time' in kwargs and 'on_start_med' in kwargs:
+                 command += "bgp max-med on-startup {} {}\n".format(kwargs['on_start_time'],kwargs['on_start_med'])
+            elif 'on_start_time' in kwargs:
+                 command += "bgp max-med on-startup {}\n".format(kwargs['on_start_time'])
+            if 'administrative_med' in kwargs:
+                 command += "bgp max-med administrative {}\n".format(kwargs['administrative_med'])
+        else :
+            if 'on_start_time' in kwargs and 'on_start_med' in kwargs:
+                 command += "no bgp max-med on-startup {} {}\n".format(kwargs['on_start_time'],kwargs['on_start_med'])
+            elif 'on_start_time' in kwargs:
+                 command += "no bgp max-med on-startup {}\n".format(kwargs['on_start_time'])
+            if 'administrative_med' in kwargs:
+                 command += "no bgp max-med administrative {}\n".format(kwargs['administrative_med'])
+        command += 'exit\n'
+        st.config(dut, command.split("\n"),  type=cli_type)
+    elif cli_type == 'klish':
+        config_router_bgp_mode(dut, local_asn,cli_type=cli_type)
+        if config == 'yes' :
+            if 'on_start_time' and 'on_start_med' in kwargs:
+                 command += "max-med on-startup {} {}\n".format(kwargs['on_start_time'],kwargs['on_start_med'])
+            elif 'on_start_time' in kwargs:
+                 command += "max-med on-startup {}\n".format(kwargs['on_start_time'])
+            if 'administrative_med' in kwargs:
+                 command += "max-med administrative {}\n".format(kwargs['administrative_med'])
+        else :
+            if 'on_start_time' in kwargs and 'on_start_med' in kwargs:
+                 command += "no max-med on-startup {} {}\n".format(kwargs['on_start_time'],kwargs['on_start_med'])
+            elif 'on_start_time' in kwargs:
+                 command += "no max-med on-startup {}\n".format(kwargs['on_start_time'])
+            if 'administrative_med' in kwargs:
+                 command += "no max-med administrative {}\n".format(kwargs['administrative_med'])
+        command += 'exit\n'
+        st.config(dut, command.split("\n"),  type=cli_type)
     return True
 
 
@@ -1151,12 +1555,13 @@ def config_route_map_delay_timer(dut, local_asn, timer):
     :param timer:
     :return:
     """
+    # No script usage
     config_router_bgp_mode(dut, local_asn)
     command = "bgp route-map delay-timer {}".format(timer)
     st.config(dut, command, type='vtysh')
 
 
-def enable_address_family_mode(dut, local_asn, mode_type, mode):
+def enable_address_family_mode(dut, local_asn, mode_type, mode,cli_type=''):
     """
 
     :param dut:
@@ -1165,9 +1570,10 @@ def enable_address_family_mode(dut, local_asn, mode_type, mode):
     :param mode:
     :return:
     """
-    config_router_bgp_mode(dut, local_asn)
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
     command = "address-family {} {}".format(mode_type, mode)
-    st.config(dut, command, type='vtysh')
+    st.config(dut, command, type=cli_type)
 
 
 def config_address_family_neighbor_ip(dut, local_asn, mode_type, mode, neighbor_ip, user_command):
@@ -1181,6 +1587,7 @@ def config_address_family_neighbor_ip(dut, local_asn, mode_type, mode, neighbor_
     :param user_command:
     :return:
     """
+    #No script usage
     enable_address_family_mode(dut, local_asn, mode_type, mode)
     # Verify neighbor IP address
     command = "neighbor {} {}".format(neighbor_ip, user_command)
@@ -1199,8 +1606,12 @@ def create_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, keep_alive=6
     :param password:
     :return:
     """
-    cli_type = kwargs.get('cli_mode', st.get_ui_type())
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     neighbor_ip = kwargs.get('neighbor_ip',None)
+    ebgp_multihop = kwargs.get('ebgp_multihop',None)
+    update_src = kwargs.get('update_src',None)
+    update_src_intf = kwargs.get('update_src_intf',None)
+    connect = kwargs.get('connect', None)
     st.log("Creating BGP peer-group ..")
     cmd = ''
     if cli_type == 'vtysh' or cli_type == 'click':
@@ -1215,31 +1626,130 @@ def create_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, keep_alive=6
             cmd = cmd + " neighbor {} password {}\n".format(peer_grp_name, password)
         cmd = cmd + "\n address-family {} unicast\n".format(family)
         cmd = cmd + "\n neighbor {} activate\n".format(peer_grp_name)
+        if connect != None:
+            cmd = cmd + 'neighbor {} timers connect {}\n'.format(peer_grp_name, connect)
+        if ebgp_multihop != None:
+            cmd = cmd + 'neighbor {} ebgp-multihop {}\n'.format(peer_grp_name, ebgp_multihop)
+        if update_src != None:
+            cmd = cmd + 'neighbor {} update-source {}\n'.format(peer_grp_name, update_src)
+        if update_src_intf != None:
+            cmd = cmd + 'neighbor {} update-source {}\n'.format(peer_grp_name, update_src_intf)
+        if neighbor_ip != None:
+            cmd = cmd + 'neighbor {} peer-group {}\n'.format(neighbor_ip, peer_grp_name)
         st.config(dut, cmd, type='vtysh', skip_error_check=skip_error_check)
         return True
     elif cli_type == "klish":
-        cmd = ''
+        neigh_name = get_interface_number_from_name(neighbor_ip)
         if vrf != 'default':
             cmd = cmd + 'router bgp {} vrf {}\n'.format(local_asn, vrf)
         else:
             cmd = cmd + 'router bgp {}\n'.format(local_asn)
         cmd = cmd + "peer-group {}\n".format(peer_grp_name)
-        cmd = cmd + "exit\n"
         if neighbor_ip != None:
-            cmd = cmd + "neighbor {}\n".format(neighbor_ip)
-        cmd = cmd + "peer-group {}\n".format(peer_grp_name)
+            cmd = cmd + "exit\n"
+            if neigh_name:
+                if isinstance(neigh_name, dict):
+                    cmd = cmd + 'neighbor interface {} {}\n'.format(neigh_name["type"], neigh_name["number"])
+                else:
+                    cmd = cmd + 'neighbor {}\n'.format(neigh_name)
+            cmd = cmd + "peer-group {}\n".format(peer_grp_name)
+        if connect != None:
+            cmd = cmd + 'timers connect {}\n'.format(connect)
+        if ebgp_multihop != None:
+            cmd = cmd + 'ebgp-multihop {}\n'.format(ebgp_multihop)
+        if update_src != None:
+            cmd = cmd + 'update-source {}\n'.format(update_src)
+        if update_src_intf != None:
+            update_src_intf = get_interface_number_from_name(update_src_intf)
+            if isinstance(update_src_intf, dict):
+                cmd = cmd + 'update-source interface {} {}'.format(update_src_intf['type'],update_src_intf['number'])
         cmd = cmd + "remote-as {}\n".format(remote_asn)
+        cmd = cmd + "address-family {} unicast\n".format(family)
+        cmd = cmd + "activate\n"
         cmd = cmd + "timers {} {}\n".format(keep_alive, hold)
         cmd = cmd + "exit\n"
         cmd = cmd + "exit\n"
+        cmd = cmd + "exit\n"
         st.config(dut, cmd, type=cli_type, skip_error_check=skip_error_check, conf = True)
+        return True
+    elif cli_type in ['rest-patch','rest-put']:
+        http_method = kwargs.pop('http_method',cli_type)
+        rest_urls = st.get_datastore(dut,'rest_urls')
+        rest_url_peergroup = rest_urls['bgp_peergroup_config'].format(vrf)
+        rest_url_neighbor = rest_urls['bgp_neighbor_config'].format(vrf)
+        if peer_grp_name != None:
+            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"config":{"peer-group-name":peer_grp_name,"local-as":int(local_asn)}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('Peergroup config failed')
+                st.log(response)
+                return False
+        if neighbor_ip != None:
+            ocdata = {'openconfig-network-instance:neighbors':{"neighbor":[{'neighbor-address':neighbor_ip,'config':{'neighbor-address':neighbor_ip,'peer-group':peer_grp_name,'enabled': bool(1)}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_neighbor, json_data=ocdata)
+            if not response:
+                st.log('Peergroup config with Neighbor IP failed')
+                st.log(response)
+                return False
+        if remote_asn != None:
+            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"config":{"peer-as":int(remote_asn)}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('Remote-as config in the Peergroup failed')
+                st.log(response)
+                return False
+        if family != None:
+            if family == 'ipv4':
+                ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"afi-safis":{"afi-safi":[{"afi-safi-name":"IPV4_UNICAST","config":{"afi-safi-name":"IPV4_UNICAST","enabled": bool(1)}}]}}]}}
+            elif family == 'ipv6':
+                ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"afi-safis":{"afi-safi":[{"afi-safi-name":"IPV6_UNICAST","config":{"afi-safi-name":"IPV6_UNICAST","enabled": bool(1)}}]}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('Address family activation in the Peergroup failed')
+                st.log(response)
+                return False
+        if keep_alive != None:
+            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"timers":{"config":{"hold-time":str(hold),"keepalive-interval":str(keep_alive)}}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('Keepalive and Hold timer config in the Peergroup failed')
+                st.log(response)
+                return False
+        if ebgp_multihop != None:
+            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"ebgp-multihop":{"config":{"enabled":bool(1),"multihop-ttl":int(ebgp_multihop)}}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('EBGP multihop config in the peergroup failed')
+                st.log(response)
+                return False
+        if update_src != None:
+            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"transport":{"config":{"local-address":update_src}}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('BGP update source config in the peergroup failed')
+                st.log(response)
+                return False
+        if update_src_intf != None:
+            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"transport":{"config":{"local-address":update_src_intf}}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('BGP update source interface config in the peergroup failed')
+                st.log(response)
+                return False
+        if connect != None:
+            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"timers":{"config":{"connect-retry":str(connect)}}}]}}
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
+            if not response:
+                st.log('BGP update source interface config in the peergroup failed')
+                st.log(response)
+                return False
         return True
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
         return False
 
 
-def remove_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, vrf='default'):
+def remove_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, vrf='default',**kwargs):
     """
 
     :param dut:
@@ -1248,19 +1758,43 @@ def remove_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, vrf='default
     :param remote_asn:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+    cmd = ''
+    neighbor_ip = kwargs.get('neighbor_ip',None)
     st.log("Removing BGP peer-group ..")
-    # Add validation for IPV4 / IPV6 address
-    config_router_bgp_mode(dut, local_asn,vrf=vrf)
-    command = "no neighbor {} remote-as {}".format(peer_grp_name, remote_asn)
-    st.config(dut, command, type='vtysh')
-    command = "no neighbor {} peer-group".format(peer_grp_name)
-    st.config(dut, command, type='vtysh')
+    if cli_type == 'vtysh' or cli_type == 'click':
+        # Add validation for IPV4 / IPV6 address
+        config_router_bgp_mode(dut, local_asn,vrf=vrf)
+        command = "no neighbor {} remote-as {}".format(peer_grp_name, remote_asn)
+        st.config(dut, command, type='vtysh')
+        command = "no neighbor {} peer-group".format(peer_grp_name)
+        st.config(dut, command, type='vtysh')
+    elif cli_type == 'klish':
+        neigh_name = get_interface_number_from_name(neighbor_ip)
+        if vrf.lower() != 'default':
+            cmd = cmd + "router bgp {} vrf {}\n".format(local_asn, vrf)
+        else:
+            cmd = cmd + "router bgp {}\n".format(local_asn)
+        if neighbor_ip != None:
+            if neigh_name:
+                if isinstance(neigh_name, dict):
+                    cmd = cmd + 'neighbor interface {} {}\n'.format(neigh_name["type"], neigh_name["number"])
+                else:
+                    cmd = cmd + 'neighbor {}\n'.format(neigh_name)
+            cmd = cmd + "no peer-group {}\n".format(peer_grp_name)
+            cmd = cmd + "exit\n"
+            cmd = cmd + "no peer-group {}\n".format(peer_grp_name)
+            cmd = cmd + "exit\n"
+        st.config(dut, cmd, type='klish')
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
 
-def config_bgp_peer_group(dut, local_asn, peer_grp_name, config="yes", vrf="default", cli_type="klish", skip_error_check=True):
-    config_router_bgp_mode(dut, local_asn, vrf=vrf)
+def config_bgp_peer_group(dut, local_asn, peer_grp_name, config="yes", vrf="default", cli_type="'", skip_error_check=True):
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type)
     no_form = "" if config == "yes" else "no"
     if cli_type == "klish":
-        config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type)
         commands = list()
         commands.append("{} peer-group {}".format(no_form, peer_grp_name))
         if config == "yes":
@@ -1272,10 +1806,10 @@ def config_bgp_peer_group(dut, local_asn, peer_grp_name, config="yes", vrf="defa
         st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
         return True
     else:
-        st.log("UNSUPPORTED CLI TYPE")
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
 
-def create_bgp_neighbor_use_peergroup(dut, local_asn, peer_grp_name, neighbor_ip, family="ipv4", vrf='default', cli_type="vtysh", skip_error_check=True):
+def create_bgp_neighbor_use_peergroup(dut, local_asn, peer_grp_name, neighbor_ip, family="ipv4", vrf='default', cli_type="", skip_error_check=True):
     """
 
     :param dut:
@@ -1287,6 +1821,7 @@ def create_bgp_neighbor_use_peergroup(dut, local_asn, peer_grp_name, neighbor_ip
     :return:
     """
     st.log("Creating BGP peer using peer-group ..")
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     # Add validation for IPV4 / IPV6 address
     config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type)
     if cli_type == "vtysh":
@@ -1295,23 +1830,30 @@ def create_bgp_neighbor_use_peergroup(dut, local_asn, peer_grp_name, neighbor_ip
         # Gather the IP type using the validation result
         if family == "ipv6":
             command = "address-family ipv6 unicast"
-            st.config(dut, command, type='vtysh')
+            st.config(dut, command, type=cli_type)
             command = "neighbor {} activate".format(neighbor_ip)
-            st.config(dut, command, type='vtysh')
+            st.config(dut, command, type=cli_type)
     elif cli_type == "klish":
         commands = list()
         commands.append("peer-group {}".format(peer_grp_name))
+        commands.append("address-family {} unicast".format(family))
+        commands.append("activate")
         commands.append("exit")
-        commands.append("neighbor {}".format(neighbor_ip))
-        commands.append("peer-group {}".format(peer_grp_name))
         if family == "ipv6":
-            commands.append("address-family ipv6 unicast")
+            commands.append("address-family ipv4 unicast")
             commands.append("activate")
             commands.append("exit")
         commands.append("exit")
+        commands.append("neighbor {}".format(neighbor_ip))
+        commands.append("peer-group {}".format(peer_grp_name))
+        commands.append("exit")
+        commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
 
-def create_bgp_neighbor_interface(dut, local_asn, interface_name, remote_asn,family,config='yes', cli_type="vtysh"):
+def create_bgp_neighbor_interface(dut, local_asn, interface_name, remote_asn,family,config='yes', cli_type=""):
     """
 
     :param dut:
@@ -1322,6 +1864,7 @@ def create_bgp_neighbor_interface(dut, local_asn, interface_name, remote_asn,fam
     :param cli_type:
     :return:
     """
+    cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     st.log("Creating bgp neighbor on interface")
     if config.lower() == 'yes':
         mode = ""
@@ -1346,8 +1889,13 @@ def create_bgp_neighbor_interface(dut, local_asn, interface_name, remote_asn,fam
             commands.append("address-family {} unicast".format(family))
             commands.append('{} activate'.format(mode))
             commands.append("exit")
+            ###Added
+            commands.append("exit")
         else:
             commands.append("exit")
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
     if commands:
         if config == "yes":
             commands.append("exit")
@@ -1394,45 +1942,79 @@ def config_bgp_multi_neigh_use_peergroup(dut, **kwargs):
     :param password:
     :return:
     """
+
+    cli_type = get_cfg_cli_type(dut, **kwargs)
+
     if 'local_asn' not in kwargs or 'peer_grp_name' not in kwargs or 'remote_asn' not in kwargs \
             or 'neigh_ip_list' not in kwargs:
         st.error("Mandatory parameters are missing.")
         return False
 
-    af = 'ipv4'
-    if 'family' in kwargs:
-        af = kwargs['family']
+    af = kwargs.get('family', 'ipv4')
+    vrf = kwargs.get('vrf', 'default')
 
     neigh_ip_li = list(kwargs['neigh_ip_list']) if isinstance(kwargs['neigh_ip_list'], list) else \
         [kwargs['neigh_ip_list']]
 
-    command = "router bgp {} \n".format(kwargs['local_asn'])
-    command += "no bgp default ipv4-unicast \n"
-    command += "neighbor {} peer-group \n".format(kwargs['peer_grp_name'])
-    command += "neighbor {} remote-as {} \n".format(kwargs['peer_grp_name'], kwargs['remote_asn'])
-    if 'keep_alive' in kwargs and 'hold' in kwargs:
-        command += "neighbor {} timers {} {} \n".format(kwargs['peer_grp_name'], kwargs['keep_alive'], kwargs['hold'])
-    if 'password' in kwargs:
-        command += "neighbor {} password {} \n".format(kwargs['peer_grp_name'], kwargs['password'])
-    for each_neigh in neigh_ip_li:
-        command += "neighbor {} peer-group {} \n".format(each_neigh, kwargs['peer_grp_name'])
-    if 'activate' in kwargs or 'redistribute' in kwargs  or 'routemap' in kwargs:
-        command += "address-family {} unicast \n".format(af)
-        if 'activate' in kwargs:
-            command += "neighbor {} activate \n".format(kwargs['peer_grp_name'])
-        if 'redistribute' in kwargs:
-            redis_li = list(kwargs['redistribute']) if isinstance(kwargs['redistribute'], list) else [kwargs['redistribute']]
-            for each_ in redis_li:
-                command += "redistribute {} \n".format(each_)
-        if 'routemap' in kwargs:
-            if 'routemap_dir' in kwargs:
-                command += "neighbor {} route-map {} {} \n".format(kwargs['peer_grp_name'], kwargs['routemap'], kwargs['routemap_dir'])
-            else:
-                command += "neighbor {} route-map {} in \n".format(kwargs['peer_grp_name'], kwargs['routemap'])
+    config_router_bgp_mode(dut, kwargs['local_asn'], vrf=vrf)
 
+    if cli_type == 'vtysh':
+        command = "no bgp default ipv4-unicast \n"
+        command += "neighbor {} peer-group \n".format(kwargs['peer_grp_name'])
+        command += "neighbor {} remote-as {} \n".format(kwargs['peer_grp_name'], kwargs['remote_asn'])
+        if 'keep_alive' in kwargs and 'hold' in kwargs:
+            command += "neighbor {} timers {} {} \n".format(kwargs['peer_grp_name'], kwargs['keep_alive'], kwargs['hold'])
+        if 'password' in kwargs:
+            command += "neighbor {} password {} \n".format(kwargs['peer_grp_name'], kwargs['password'])
+        for each_neigh in neigh_ip_li:
+            command += "neighbor {} peer-group {} \n".format(each_neigh, kwargs['peer_grp_name'])
+        if 'activate' in kwargs or 'redistribute' in kwargs  or 'routemap' in kwargs:
+            command += "address-family {} unicast \n".format(af)
+            if 'activate' in kwargs:
+                command += "neighbor {} activate \n".format(kwargs['peer_grp_name'])
+            if 'redistribute' in kwargs:
+                redis_li = list(kwargs['redistribute']) if isinstance(kwargs['redistribute'], list) else [kwargs['redistribute']]
+                for each_ in redis_li:
+                    command += "redistribute {} \n".format(each_)
+            if 'routemap' in kwargs:
+                if 'routemap_dir' in kwargs:
+                    command += "neighbor {} route-map {} {} \n".format(kwargs['peer_grp_name'], kwargs['routemap'], kwargs['routemap_dir'])
+                else:
+                    command += "neighbor {} route-map {} in \n".format(kwargs['peer_grp_name'], kwargs['routemap'])
+            command += "exit\n"
         command += "exit\n"
-    command += "exit\n"
-    st.config(dut, command, type='vtysh')
+        st.config(dut, command, type='vtysh')
+    elif cli_type == 'klish':
+        cmd = "peer-group {} \n".format(kwargs['peer_grp_name'])
+        cmd += "remote-as {} \n".format(kwargs['remote_asn'])
+        if 'keep_alive' in kwargs and 'hold' in kwargs:
+            cmd += "timers {} {} \n".format(kwargs['keep_alive'], kwargs['hold'])
+        if 'password' in kwargs:
+            cmd += 'password {} \n'.format(kwargs['password'])
+        if 'activate' in kwargs:
+            cmd += "address-family {} unicast \n".format(af)
+            cmd += "activate \n"
+            if 'redistribute' in kwargs:
+                redis_li = list(kwargs['redistribute']) if isinstance(kwargs['redistribute'], list) else [kwargs['redistribute']]
+                for each_ in redis_li:
+                    cmd += "redistribute {} \n".format(each_)
+            if 'routemap' in kwargs:
+                if 'routemap_dir' in kwargs:
+                    cmd += "route-map {} {} \n".format(kwargs['routemap'], kwargs['routemap_dir'])
+                else:
+                    cmd += "route-map {} in \n".format(kwargs['routemap'])
+            cmd += "exit \n"
+        for each_neigh in neigh_ip_li:
+            cmd += 'exit \n'
+            cmd += 'neighbor {} \n'.format(each_neigh)
+            cmd += 'peer-group {} \n'.format(kwargs['peer_grp_name'])
+        cmd += 'exit \n'
+        cmd += 'exit \n'
+        st.config(dut, cmd, type='klish')
+    else:
+        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+
     return True
 
 
@@ -1445,23 +2027,27 @@ def verify_bgp_summary(dut, family='ipv4', shell="sonic", **kwargs):
     :param kwargs:
     :return:
     """
-    if shell not in ["vtysh", "klish"]:
+    if shell not in ["vtysh", "klish", "rest-patch", "rest-put"]:
         if 'vrf' in kwargs and shell=='sonic':
             vrf = kwargs.pop('vrf')
             cmd = "show bgp vrf {} {} summary".format(vrf,family.lower())
-            output = st.show(dut,cmd)
         else:
             cmd = "show bgp {} summary".format(family.lower())
+
+        if not st.is_feature_supported("show-bgp-summary-click-command", dut):
+            output = st.show(dut,cmd, type="vtysh")
+        else:
             output = st.show(dut,cmd)
 
-    if shell in ["vtysh", "klish"]:
+    cli_type = get_show_cli_type(dut, **kwargs)
+    if shell in ["vtysh", "klish", "rest-patch", "rest-put"]:
         vrf = kwargs.pop('vrf') if 'vrf' in kwargs else "default"
         if family.lower() == 'ipv4':
-            output = show_bgp_ipv4_summary_vtysh(dut, vrf=vrf, cli_type=shell)
+            output = show_bgp_ipv4_summary_vtysh(dut, vrf=vrf, cli_type=cli_type)
         elif family.lower() == 'ipv6':
-            output = show_bgp_ipv6_summary_vtysh(dut, vrf=vrf, cli_type=shell)
+            output = show_bgp_ipv6_summary_vtysh(dut, vrf=vrf, cli_type=cli_type)
         else:
-            st.log("Invalid family {} or shell {}".format(family, shell))
+            st.log("Invalid family {} or shell {}".format(family, cli_type))
             return False
 
     st.debug(output)
@@ -1469,6 +2055,10 @@ def verify_bgp_summary(dut, family='ipv4', shell="sonic", **kwargs):
     if 'neighbor' in kwargs and 'state' in kwargs:
         neigh_li = list(kwargs['neighbor']) if isinstance(kwargs['neighbor'], list) else [kwargs['neighbor']]
         for each_neigh in neigh_li:
+            #For dynamic neighbor, removing *, as it is not displayed in klish
+            if shell == 'klish' or cli_type =='klish':
+                st.log('For dynamic neighbor, removing *, as it is not displayed in klish')
+                each_neigh = each_neigh.lstrip('*')
             match = {'neighbor': each_neigh}
             try:
                 entries = filter_and_select(output, None, match)[0]
@@ -1516,6 +2106,7 @@ def verify_bgp_neighbor(dut, neighbor_ip, **kwargs):
     :param kwargs:
     :return:
     """
+    #No usage in scripts, so no klish support added
     output = show_bgp_neighbor(dut, neighbor_ip)
     st.debug(output)
     for each in kwargs.keys():
@@ -1529,7 +2120,7 @@ def verify_bgp_neighbor(dut, neighbor_ip, **kwargs):
 
 def verify_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip, **kwargs):
     """
-
+    No usage in scripts. Template needs changes for this to work
     :param dut:
     :param neighbor_ip:
     :param kwargs:
@@ -1548,7 +2139,7 @@ def verify_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip, **kwargs):
 
 def verify_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip, **kwargs):
     """
-
+    No usage in scripts. Template needs changes for this to work
     :param dut:
     :param neighbor_ip:
     :param kwargs:
@@ -1565,24 +2156,6 @@ def verify_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip, **kwargs):
     return True
 
 
-def verify_bgp_neighbor_by_property(dut, neighbor_ip, property, value, address_family="ipv4"):
-    """
-
-    :param dut:
-    :param neighbor_ip:
-    :param property:
-    :param value:
-    :param address_family:
-    :return:
-    """
-    command = "show bgp {} neighbor {} | grep {}".format(address_family, neighbor_ip, property)
-    neighbor_details = st.config(dut, command)
-    match = neighbor_details.find(value)
-    if match < 1:
-        return False
-    return True
-
-
 def config_address_family_redistribute(dut, local_asn, mode_type, mode, value, config='yes',vrf='default',skip_error_check=True, **kwargs):
     """
     :param dut:
@@ -1594,8 +2167,9 @@ def config_address_family_redistribute(dut, local_asn, mode_type, mode, value, c
     :param vrf
     :return:
     """
-    cli_type = kwargs.get('cli_type', st.get_ui_type())
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     cfgmode = 'no' if config != 'yes' else ''
+    route_map = kwargs.get('route_map')
     cmd = ''
     if cli_type == 'vtysh' or cli_type == 'click':
         if vrf.lower() != 'default':
@@ -1603,7 +2177,10 @@ def config_address_family_redistribute(dut, local_asn, mode_type, mode, value, c
         else:
             cmd = cmd + "router bgp {}\n".format(local_asn)
         cmd = cmd + "\n address-family {} {}".format(mode_type, mode)
-        cmd = cmd + "\n {} redistribute {}".format(cfgmode, value)
+        if route_map:
+            cmd = cmd + "\n {} redistribute {} route-map {}".format(cfgmode, value, route_map)
+        else:
+            cmd = cmd + "\n {} redistribute {}".format(cfgmode, value)
         st.config(dut, cmd, type='vtysh', skip_error_check=skip_error_check)
         return True
     elif cli_type == "klish":
@@ -1612,7 +2189,10 @@ def config_address_family_redistribute(dut, local_asn, mode_type, mode, value, c
         else:
             cmd = cmd + 'router bgp {}\n'.format(local_asn)
         cmd = cmd + 'address-family {} {}\n'.format(mode_type, mode)
-        cmd = cmd + '{} redistribute {}\n'.format(cfgmode, value)
+        if route_map:
+            cmd = cmd + "{} redistribute {} route-map {}\n".format(cfgmode, value, route_map)
+        else:
+            cmd = cmd + "{} redistribute {}\n".format(cfgmode, value)
         cmd = cmd + 'exit\nexit\n'
         st.config(dut, cmd, type=cli_type, skip_error_check=skip_error_check, conf = True)
         return True
@@ -1644,9 +2224,7 @@ def config_bgp(dut, **kwargs):
 	config_bgp(dut = dut1,local_as = '100', neighbor = '20.20.20.2', config = 'yes', config_type_list =["nexthop_self"])
 	config_bgp(dut = dut1,local_as = '100', neighbor = '20.20.20.2', config = 'yes', config_type_list =["ebgp_mhop"],ebgp_mhop ='2')
     """
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
-    cli_type = "vtysh" if cli_type in ['click', "vtysh"] else "klish"
-
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     st.log('Configure BGP')
     config = kwargs.get('config', "yes")
     vrf_name = kwargs.get('vrf_name', "default")
@@ -1656,21 +2234,22 @@ def config_bgp(dut, **kwargs):
     local_as = kwargs.get('local_as', None)
     remote_as = kwargs.get('remote_as', None)
     peergroup =  kwargs.get('peergroup', '')
-    pswd = kwargs.get('pswd', None)
-    activate = kwargs.get('activate', None)
-    nexthop_self = kwargs.get('nexthop_self', None)
+    #pswd = kwargs.get('pswd', None)
+    #activate = kwargs.get('activate', None)
+    #nexthop_self = kwargs.get('nexthop_self', None)
     addr_family = kwargs.get('addr_family', 'ipv4')
     keepalive = kwargs.get('keepalive', '')
     holdtime = kwargs.get('holdtime', '')
     conf_peers = kwargs.get('conf_peers', '')
     conf_identf = kwargs.get('conf_identf', '')
     update_src = kwargs.get('update_src', None)
+    update_src_intf = kwargs.get("update_src_intf", "") if "update_src_intf" in config_type_list else ""
     interface = kwargs.get('interface', None)
     connect = kwargs.get('connect', None)
     ebgp_mhop = kwargs.get('ebgp_mhop', None)
-    failover = kwargs.get('failover', None)
+    #failover = kwargs.get('failover', None)
     shutdown = kwargs.get('shutdown', None)
-    max_path = kwargs.get('max_path', None)
+    #max_path = kwargs.get('max_path', None)
     redistribute = kwargs.get('redistribute', None)
     network = kwargs.get('network', None)
     password = kwargs.get('password', None)
@@ -1680,9 +2259,9 @@ def config_bgp(dut, **kwargs):
     distribute_list = kwargs.get('distribute_list', None)
     filter_list = kwargs.get('filter_list', None)
     prefix_list = kwargs.get('prefix_list', None)
-    import_vrf = kwargs.get('import_vrf', None)
+    #import_vrf = kwargs.get('import_vrf', None)
     import_vrf_name = kwargs.get('import_vrf_name', None)
-    fast_external_failover = kwargs.get('fast_external_failover', None)
+    #fast_external_failover = kwargs.get('fast_external_failover', None)
     bgp_bestpath_selection = kwargs.get('bgp_bestpath_selection', None)
     removeBGP = kwargs.get('removeBGP', 'no')
     diRection = kwargs.get('diRection', 'in')
@@ -1731,8 +2310,11 @@ def config_bgp(dut, **kwargs):
                 my_cmd += '{} neighbor {} next-hop-self\n'.format(config_cmd, neighbor)
             elif type1 == 'pswd':
                 my_cmd += '{} neighbor {} password {}\n'.format(config_cmd, neighbor, password)
-            elif type1 == 'update_src':
-                my_cmd += '{} neighbor {} update-source {}\n'.format(config_cmd, neighbor, update_src)
+            elif type1 == 'update_src' or type1 == 'update_src_intf':
+                if update_src != None:
+                    my_cmd += '{} neighbor {} update-source {}\n'.format(config_cmd, neighbor, update_src)
+                elif update_src_intf != None:
+                    my_cmd += '{} neighbor {} update-source {}\n'.format(config_cmd, neighbor, update_src_intf)
             elif type1 == 'interface':
                 my_cmd += '{} neighbor {} interface {}\n'.format(config_cmd, neighbor, interface)
             elif type1 == 'connect':
@@ -1795,7 +2377,7 @@ def config_bgp(dut, **kwargs):
                 my_cmd += 'exit\n'
             elif type1 == 'default_originate':
                 my_cmd += 'address-family {} unicast\n'.format(addr_family)
-                if kwargs.has_key('routeMap'):
+                if 'routeMap' in kwargs:
                     my_cmd += '{} neighbor {} default-originate route-map {}\n'.format(config_cmd, neighbor, routeMap)
                 else:
                     my_cmd += '{} neighbor {} default-originate\n'.format(config_cmd, neighbor)
@@ -1814,8 +2396,14 @@ def config_bgp(dut, **kwargs):
             elif type1 == 'removeBGP':
                 st.log("Removing the bgp config from the device")
             else:
-                st.log('Invalid BGP config parameter')
-        st.config(dut, my_cmd, type=cli_type)
+                st.log('Invalid BGP config parameter: {}'.format(type1))
+        output = st.config(dut, my_cmd, type=cli_type)
+        if "% Configure the peer-group first" in output:
+            st.error(output)
+            return False
+        if "% Specify remote-as or peer-group commands first" in output:
+            st.error(output)
+            return False
         if vrf_name != 'default' and removeBGP == 'yes':
             my_cmd = '{} router bgp {} vrf {}'.format(config_cmd, local_as, vrf_name)
             st.config(dut, my_cmd, type=cli_type)
@@ -1828,28 +2416,32 @@ def config_bgp(dut, **kwargs):
     elif cli_type == "klish":
         commands = list()
         neigh_name = get_interface_number_from_name(neighbor)
+        if interface:
+            intf_name = get_interface_number_from_name(interface)
         shutdown = kwargs.get("shutdown", None) if "shutdown" in config_type_list else None
         activate = kwargs.get("activate", None) if "activate" in config_type_list else None
-        nexthop_self = kwargs.get("nexthop_self", None) if "nexthop_self" in config_type_list else None
+        nexthop_self = kwargs.get("nexthop_self", True) if "nexthop_self" in config_type_list else None
         pswd = True if "pswd" in config_type_list else False
         update_src = kwargs.get("update_src", "") if "update_src" in config_type_list else ""
+        update_src_intf = get_interface_number_from_name(update_src_intf)
         bfd = True if "bfd" in config_type_list else False
         route_map = True if "routeMap" in config_type_list else False
         default_originate = True if "default_originate" in config_type_list else False
         removePrivateAs = True if "removePrivateAs" in config_type_list else False
-        no_neighbor = "no" if kwargs.get("no_neigh") else ""
+        no_neighbor = "no" if kwargs.get("config") == "no"  else ""
         sub_list = ["neighbor", "routeMap", "shutdown", "activate", "nexthop_self", "pswd", "update_src",
                     "bfd", "default_originate", "removePrivateAs", "no_neigh","remote-as","filter_list",
-                    "prefix_list", "weight", "keepalive", "holdtime", "ebgp_mhop","peergroup"]
+                    "prefix_list", "distribute_list", "weight", "keepalive", "holdtime", "ebgp_mhop","peergroup","update_src_intf","connect"]
+
         if 'local_as' in kwargs and removeBGP != 'yes':
             if vrf_name != 'default':
                 my_cmd = 'router bgp {} vrf {}'.format(local_as, vrf_name)
             else:
                 my_cmd = 'router bgp {}'.format(local_as)
-        commands.append(my_cmd)
-        if router_id:
-            my_cmd = '{} router-id {}'.format(config_cmd, router_id)
             commands.append(my_cmd)
+            if router_id:
+                my_cmd = '{} router-id {}'.format(config_cmd, router_id)
+                commands.append(my_cmd)
         if peergroup:
             my_cmd = '{} peer-group {}'.format(config_cmd, peergroup)
             commands.append(my_cmd)
@@ -1858,33 +2450,72 @@ def config_bgp(dut, **kwargs):
         #     my_cmd += '{} bgp confederation peers {}\n'.format(config_cmd, conf_peers)
         # if conf_identf != '':
         #     my_cmd += '{} bgp confederation identifier {}\n'.format(config_cmd, conf_identf)
+
+        config_default_activate = True
+        config_remote_as = True
+
         for type1 in config_type_list:
             if type1 in sub_list:
-                if neigh_name:
+                if neigh_name and not peergroup:
                     if isinstance(neigh_name, dict):
-                        my_cmd = "{} neighbor interface {} {}".format(no_neighbor, neigh_name["type"], neigh_name["number"])
+                        my_cmd = "neighbor interface {} {}".format(neigh_name["type"],neigh_name["number"])
                     else:
-                        my_cmd = "{} neighbor {}".format(no_neighbor, neigh_name)
+                        my_cmd = "neighbor {}".format(neigh_name)
                     commands.append(my_cmd)
-                if no_neighbor:
-                    commands.append("exit")
-                    continue
-                if remote_as and not bfd:
+                if peergroup:
+                    my_cmd_peer = '{} peer-group {}'.format(config_cmd, peergroup)
+                    if 'peergroup' in config_type_list:
+                        if isinstance(neigh_name, dict):
+                            my_cmd = "{} neighbor interface {} {}".format(no_neighbor, neigh_name["type"],
+                                                                          neigh_name["number"])
+                        else:
+                            my_cmd = "{} neighbor {}".format(no_neighbor, neigh_name)
+                        if neigh_name:
+                            commands.append(my_cmd)
+                            commands.append(my_cmd_peer)
+                            commands.append('exit')
+                            neigh_name = None
+                            activate = True
+                    commands.append(my_cmd_peer)
+                if config_remote_as and remote_as:
+                    if interface and not peergroup:
+                        my_cmd = "neighbor interface {} {}".format(intf_name['type'], intf_name['number'])
+                        commands.append(my_cmd)
                     my_cmd = '{} remote-as {}'.format(config_cmd, remote_as)
                     commands.append(my_cmd)
-                    remote_as = None
-                elif shutdown:
+                    config_remote_as = False
+                if config_default_activate and (activate or neigh_name):
+                    # show ip bgp summary will list
+                    #       v4 neighbor only if activate is done for v4 address family
+                    #       v6 neighbor only if activate is done for v4 address family
+                    #       both v4 and v6 neighbor only if activate is done for both address families
+                    # There is a defect for this issue - 20468
+                    if config_cmd == "":
+                        my_cmd = 'address-family {} unicast'.format(addr_family)
+                        commands.append(my_cmd)
+                        my_cmd = '{} activate'.format(config_cmd)
+                        commands.append(my_cmd)
+                        commands.append("exit")
+                        if addr_family == "ipv6":
+                            my_cmd = 'address-family ipv4 unicast'
+                            commands.append(my_cmd)
+                            my_cmd = '{} activate'.format(config_cmd)
+                            commands.append(my_cmd)
+                            commands.append("exit")
+                        config_default_activate = False
+                    # Avoid disable of neighbor unless config=no and config_type_list contains activate
+                    elif activate and config_cmd == "no":
+                        my_cmd = 'address-family {} unicast'.format(addr_family)
+                        commands.append(my_cmd)
+                        my_cmd = '{} activate'.format(config_cmd)
+                        commands.append(my_cmd)
+                        commands.append("exit")
+                    activate = None
+                if shutdown:
                     my_cmd = '{} shutdown'.format(config_cmd)
                     commands.append(my_cmd)
                     shutdown = None
-                elif activate or type1 == "activate":
-                    my_cmd = 'address-family {} unicast'.format(addr_family)
-                    commands.append(my_cmd)
-                    my_cmd = '{} activate'.format(config_cmd)
-                    commands.append(my_cmd)
-                    commands.append("exit")
-                    activate = None
-                elif  route_map:
+                elif route_map:
                     my_cmd = 'address-family {} unicast'.format(addr_family)
                     commands.append(my_cmd)
                     my_cmd = '{} route-map {} {}'.format(config_cmd, routeMap, diRection)
@@ -1905,10 +2536,17 @@ def config_bgp(dut, **kwargs):
                     commands.append(my_cmd)
                     commands.append("exit")
                     prefix_list = None
-                elif  default_originate:
+                elif distribute_list:
                     my_cmd = 'address-family {} unicast'.format(addr_family)
                     commands.append(my_cmd)
-                    if kwargs.has_key('routeMap'):
+                    my_cmd = '{} prefix-list {} {}\n'.format(config_cmd, distribute_list, diRection)
+                    commands.append(my_cmd)
+                    commands.append("exit")
+                    distribute_list = None
+                elif default_originate:
+                    my_cmd = 'address-family {} unicast'.format(addr_family)
+                    commands.append(my_cmd)
+                    if 'routeMap' in kwargs:
                         my_cmd = '{} default-originate route-map {}'.format(config_cmd, routeMap)
                     else:
                         my_cmd = '{} default-originate'.format(config_cmd)
@@ -1930,6 +2568,10 @@ def config_bgp(dut, **kwargs):
                     commands.append("exit")
                     weight = None
                 elif keepalive and holdtime:
+                    if isinstance(neigh_name, dict):
+                        my_cmd = "{} neighbor interface {} {}".format(no_neighbor, neigh_name["type"], neigh_name["number"])
+                    else:
+                        my_cmd = "{} neighbor {}".format(no_neighbor, neigh_name)
                     my_cmd = '{} timers {} {}'.format(config_cmd, keepalive, holdtime)
                     commands.append(my_cmd)
                     keepalive = 0
@@ -1947,17 +2589,30 @@ def config_bgp(dut, **kwargs):
                     commands.append(my_cmd)
                     pswd = False
                 elif update_src:
+                    if isinstance(neigh_name, dict):
+                        my_cmd = "{} neighbor interface {} {}".format(no_neighbor, neigh_name["type"], neigh_name["number"])
+                    else:
+                        my_cmd = "{} neighbor {}".format(no_neighbor, neigh_name)
                     my_cmd = '{} update-source {}'.format(config_cmd, update_src)
                     commands.append(my_cmd)
                     update_src = None
+                elif update_src_intf:
+                    if isinstance(neigh_name, dict):
+                        my_cmd = "{} neighbor interface {} {}".format(no_neighbor, neigh_name["type"], neigh_name["number"])
+                    else:
+                        my_cmd = "{} neighbor {}".format(no_neighbor, neigh_name)
+                    if isinstance(update_src_intf, dict):
+                        my_cmd = '{} update-source interface {} {}'.format(config_cmd, update_src_intf['type'],update_src_intf['number'])
+                        commands.append(my_cmd)
+                        update_src_intf = None
                 elif ebgp_mhop:
+                    if isinstance(neigh_name, dict):
+                        my_cmd = "{} neighbor interface {} {}".format(no_neighbor, neigh_name["type"], neigh_name["number"])
+                    else:
+                        my_cmd = "{} neighbor {}".format(no_neighbor, neigh_name)
                     my_cmd = '{} ebgp-multihop {}'.format(config_cmd, ebgp_mhop)
                     commands.append(my_cmd)
                     ebgp_mhop = None
-                elif peergroup:
-                    my_cmd = '{} peer-group {}'.format(config_cmd, peergroup)
-                    commands.append(my_cmd)
-                    peergroup = None
                 elif bfd:
                     if interface and remote_as:
                         my_cmd = "neighbor interface {}".format(interface)
@@ -1970,6 +2625,13 @@ def config_bgp(dut, **kwargs):
                     my_cmd = '{} bfd'.format(config_cmd)
                     commands.append(my_cmd)
                     bfd = False
+                elif connect:
+                    my_cmd = '{} timers connect {}'.format(config_cmd, connect)
+                    commands.append(my_cmd)
+                    connect = None
+
+                st.log('config_bgp command_list: {}'.format(commands))
+                #come back to router bgp context
                 commands.append("exit")
             # elif type1 == 'failover':
             #     my_cmd += '{} bgp fast-external-failover\n'.format(config_cmd)
@@ -1996,7 +2658,10 @@ def config_bgp(dut, **kwargs):
             elif type1 == 'max_path_ebgp':
                 my_cmd = 'address-family {} unicast'.format(addr_family)
                 commands.append(my_cmd)
-                my_cmd = '{} maximum-paths {}'.format(config_cmd, max_path_ebgp)
+                if config_cmd == '' or config_cmd == 'yes':
+                    my_cmd = '{} maximum-paths {}'.format(config_cmd, max_path_ebgp)
+                else:
+                    my_cmd = '{} maximum-paths'.format(config_cmd)
                 commands.append(my_cmd)
                 commands.append("exit")
             elif type1 == 'redist':
@@ -2014,15 +2679,12 @@ def config_bgp(dut, **kwargs):
             elif type1 == 'import-check':
                 my_cmd = '{} network import-check'.format(config_cmd)
                 commands.append(my_cmd)
-            # elif type1 == 'import_vrf':
-            #     my_cmd += 'address-family {} unicast\n'.format(addr_family)
-            #     my_cmd += '{} import vrf {} \n'.format(config_cmd, import_vrf_name)
-            #     my_cmd += 'exit\n'
-            # elif type1 == 'distribute_list':
-            #     my_cmd += 'address-family {} unicast\n'.format(addr_family)
-            #     my_cmd += '{} neighbor {} distribute-list {} {}\n'.format(config_cmd, neighbor, distribute_list,
-            #                                                               diRection)
-            #     my_cmd += 'exit\n'
+            elif type1 == 'import_vrf':
+                my_cmd = 'address-family {} unicast\n'.format(addr_family)
+                commands.append(my_cmd)
+                my_cmd = '{} import vrf {}'.format(config_cmd, import_vrf_name)
+                commands.append(my_cmd)
+                commands.append("exit")
             elif type1 == 'multipath-relax':
                 my_cmd = '{} bestpath as-path multipath-relax'.format(config_cmd)
                 commands.append(my_cmd)
@@ -2034,9 +2696,19 @@ def config_bgp(dut, **kwargs):
                 st.log("Configuring the peer_group on the device")
             else:
                 st.log('Invalid BGP config parameter')
-        commands.append('exit\n')
-        cli_output = st.config(dut, commands, type=cli_type, skip_error_check=True)
-        fail_on_error(cli_output)
+        if config_cmd == 'no' and 'neighbor' in config_type_list and neigh_name and not peergroup:
+           if isinstance(neigh_name, dict):
+               my_cmd = "{} neighbor interface {} {}".format(config_cmd, neigh_name["type"],neigh_name["number"])
+           else:
+              my_cmd = "{} neighbor {}".format(config_cmd, neigh_name)
+           commands.append(my_cmd)
+#           commands.append("exit")
+        #go back to config terminal prompt
+        if removeBGP != 'yes':
+            commands.append('exit\n')
+        if commands:
+            cli_output = st.config(dut, commands, type=cli_type, skip_error_check=True)
+            fail_on_error(cli_output)
         if vrf_name != 'default' and removeBGP == 'yes':
             my_cmd = '{} router bgp vrf {}'.format(config_cmd, vrf_name)
             cli_output = st.config(dut, my_cmd, type=cli_type, skip_error_check=True)
@@ -2045,6 +2717,456 @@ def config_bgp(dut, **kwargs):
             my_cmd = '{} router bgp'.format(config_cmd)
             cli_output = st.config(dut, my_cmd, type=cli_type, skip_error_check=True)
             fail_on_error(cli_output)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        shutdown = kwargs.get("shutdown", None) if "shutdown" in config_type_list else None
+        activate = kwargs.get("activate", None) if "activate" in config_type_list else None
+        nexthop_self = kwargs.get("nexthop_self", True) if "nexthop_self" in config_type_list else None
+        pswd = True if "pswd" in config_type_list else False
+        update_src = kwargs.get("update_src", "") if "update_src" in config_type_list else ""
+        update_src_intf = get_interface_number_from_name(update_src_intf)
+        bfd = True if "bfd" in config_type_list else False
+        route_map = True if "routeMap" in config_type_list else False
+        default_originate = True if "default_originate" in config_type_list else False
+        removePrivateAs = True if "removePrivateAs" in config_type_list else False
+        #no_neighbor = "no" if kwargs.get("config") == "no" else ""
+        sub_list = ["neighbor", "routeMap", "shutdown", "activate", "nexthop_self", "pswd", "update_src",
+                    "bfd", "default_originate", "removePrivateAs", "no_neigh", "remote-as", "filter_list",
+                    "prefix_list", "distribute_list", "weight", "keepalive", "holdtime", "ebgp_mhop", "peergroup",
+                    "update_src_intf", "connect"]
+        bgp_data = dict()
+        bgp_data["openconfig-network-instance:bgp"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["confederation"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["dynamic-neighbor-prefixes"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["dynamic-neighbor-prefixes"][
+            "dynamic-neighbor-prefixe"] = list()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:bgp-ext-route-reflector"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:global-defaults"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:update-delay"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:max-med"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["neighbors"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
+        bgp_data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
+        delete_urls = []  # All the delete URLS should be appended to this list
+        # neigh_name = get_interface_number_from_name(neighbor)
+        family = kwargs.get('family', None)
+        if family == "ipv4":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        else:
+            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+
+        if 'local_as' in kwargs and removeBGP != 'yes':
+            bgp_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = kwargs.get("local_as")
+            if router_id:
+                bgp_data["openconfig-network-instance:bgp"]["global"]["config"]["router-id"] = router_id
+
+        if peergroup:
+            # print(bgp_data)
+            peer_data = dict()
+            peer_data.update({'peer-group-address': peergroup})
+            bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+            peer_data['config'] = dict()
+            peer_data["config"].update({'peer-group-address': peergroup})
+
+        config_default_activate = True
+        config_remote_as = True
+        neigh_data_sub = dict()
+
+        for type1 in config_type_list:
+            if type1 in sub_list:
+                if neighbor and not peergroup:
+                    neigh_data = dict()
+                    neigh_data.update({"neighbor-address": neighbor})
+                    neigh_data["config"] = dict()
+                    neigh_data["config"].update({"neighbor-address": neighbor})
+                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                if peergroup:
+                    peer_data = dict()
+                    peer_data.update({'peer-group-address': peergroup})
+                    bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+                    peer_data['config'] = dict()
+                    peer_data["config"].update({'peer-group-address': peergroup})
+                if 'peergroup' in config_type_list:
+                    # if isinstance(neigh_name, dict):
+                    if activate and config_cmd == "no":
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        delete_urls.append(url.format("default", neighbor))
+                        if delete_urls:
+                            for url in delete_urls:
+                                # delete_rest(dut, rest_url=url)
+                                if not delete_rest(dut, rest_url=url):
+                                    st.error("neighbor is failed")
+                        else:
+                            neigh_data = dict()
+                            neigh_data.update({"neighbor-address": neighbor})
+                            neigh_data["config"] = dict()
+                            neigh_data["config"].update({"neighbor-address": neighbor})
+                            bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                            if neighbor:
+                                neigh_data1 = dict()
+                                neigh_data1["afi-safis"] = dict()
+                                neigh_data1["afi-safis"]["afi-safi"] = list()
+                                neigh_data1_sub = dict()
+                                neigh_data1_sub.update({"afi-safi-name": afi_safi_name})
+                                neigh_data1_sub["config"] = dict()
+                                neigh_data1_sub["config"].update({"afi-safi-name": "afi-safi-name", "enabled": True})
+                                neigh_data1.update(neigh_data1_sub)
+                                bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data1)
+
+                if config_remote_as and remote_as:
+                    if interface and not peergroup:
+                        neigh_data = dict()
+                        neigh_data.update({"neighbor-address": neighbor})
+                        neigh_data["config"] = dict()
+                        neigh_data["config"].update({"neighbor-address": neighbor, "peer-type": remote_as})
+                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    config_remote_as = False
+
+                if config_default_activate and (activate or neighbor):
+                    if config_cmd == "":
+                        family = kwargs.get('family', None)
+                        if family == "ipv4":
+                            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                        else:
+                            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                        afi_data = dict()
+                        afi_data.update({"afi-safi-name": afi_safi_name})
+                        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                        afi_data['config'] = dict()
+                        afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
+                        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    elif activate and config_cmd == "no":
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        delete_urls.append(url.format("default", neighbor))
+                        if delete_urls:
+                            for url in delete_urls:
+                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                    st.error("neighbor is failed")
+                    activate = None
+
+                if shutdown:
+                    neigh_data["config"].update({"enabled": False})
+                    shutdown = None
+                elif route_map:
+                    neigh_data = dict()
+                    neigh_data.update({"neighbor-address": neighbor})
+                    neigh_data["config"] = dict()
+                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    neigh_data["afi-safis"] = dict()
+                    neigh_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": "afi-safi-name"})
+                    neigh_data_sub["config"] = dict()
+                    neigh_data_sub["config"].update({"afi-safi-name": "afi-safi-name"})
+                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    neigh_data_sub["apply-policy"] = dict()
+                    neigh_data_sub["apply-policy"]["config"] = dict()
+                    neigh_data_sub["apply-policy"]["config"].update({"import-policy": ["route-map"]})
+                    route_map = False
+                elif filter_list:
+                    neigh_data_sub["openconfig-bgp-ext:filter-list"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:filter-list"]["config"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:filter-list"]["config"].update({"import-policy": "filter-list"})
+                    filter_list = None
+                elif prefix_list:
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update({"import-policy": "prefix-list"})
+                    prefix_list = None
+                elif distribute_list:
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update({"import-policy": "prefix-list"})
+                    distribute_list = None
+                elif default_originate:
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data["ipv4-unicast"] = dict()
+                    afi_data["ipv4-unicast"]["config"] = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
+                    if 'routeMap' in kwargs:
+                        afi_data["ipv4-unicast"]["config"].update({"send-default-route": True, "openconfig-bgp-ext:default-policy-name": "routeMap"})
+                    else:
+                        afi_data["ipv4-unicast"]["config"].update({"send-default-route": True})
+                    default_originate = False
+                elif removePrivateAs:
+                    neigh_data_sub["openconfig-bgp-ext:remove-private-as"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:remove-private-as"]["config"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:remove-private-as"]["config"].update({"enabled": True})
+                    removePrivateAs = False
+                elif weight:
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
+                    neigh_data = dict()
+                    neigh_data["afi-safis"] = dict()
+                    neigh_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    neigh_data_sub['config'] = dict()
+                    neigh_data_sub['config'].update(
+                        {"afi-safi-name": afi_safi_name, "enabled": True, "openconfig-bgp-ext:weight": 0})
+                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["neighbors"]["neighbor"].append(neigh_data)
+                    weight = None
+                elif keepalive and holdtime:
+                    if isinstance(neighbor, dict):
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        delete_urls.append(url.format("default", neighbor))
+                        if delete_urls:
+                            for url in delete_urls:
+                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                    st.error("neighbor is failed")
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        delete_urls.append(url.format("default", neighbor))
+                        if delete_urls:
+                            for url in delete_urls:
+                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                    st.error("neighbor is failed")
+                        neigh_data["timers"] = dict()
+                        neigh_data["timers"]["config"] = dict()
+                        neigh_data["timers"]["config"].update({"hold-time": holdtime, "keepalive-interval": keepalive})
+                    keepalive = 0
+                    holdtime = 0
+                elif nexthop_self:
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
+                    neigh_data = dict()
+                    neigh_data.update({"neighbor-address": "string"})
+                    neigh_data["afi-safis"] = dict()
+                    neigh_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                    neigh_data_sub["openconfig-bgp-ext:next-hop-self"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:next-hop-self"]["config"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:next-hop-self"]["config"].update(
+                        {"enabled": True, "force": True})
+                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["neighbors"]["neighbor"].append(neigh_data)
+                    nexthop_self = None
+                elif pswd:
+                    password = "" if config_cmd == 'no' else password
+                    if password:
+                        neigh_data["openconfig-bgp-ext:auth-password"] = dict()
+                        neigh_data["openconfig-bgp-ext:auth-password"]["config"] = dict()
+                        neigh_data["openconfig-bgp-ext:auth-password"]["config"].update({"password": password})
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        delete_urls.append(url.format("default", neighbor))
+                        if delete_urls:
+                            for url in delete_urls:
+                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                    st.error("neighbor is failed")
+                    pswd = False
+                elif update_src:
+                    neigh_data = dict()
+                    neigh_data.update({"neighbor-address": neighbor})
+                    neigh_data["config"] = dict()
+                    neigh_data["config"].update({"neighbor-address": neighbor})
+                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    update_src = None
+                elif update_src_intf:
+                    if neighbor:
+                        neigh_data = dict()
+                        neigh_data.update({"neighbor-address": neighbor})
+                        neigh_data["config"] = dict()
+                        neigh_data["config"].update({"neighbor-address": neighbor})
+                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        delete_urls.append(url.format("default", neighbor))
+                        if delete_urls:
+                            for url in delete_urls:
+                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                    st.error("neighbor is failed")
+                    if update_src_intf:
+                        neigh_data = dict()
+                        neigh_data.update({"neighbor-address": neighbor})
+                        neigh_data["config"] = dict()
+                        neigh_data["config"].update({"neighbor-address": neighbor})
+                        neigh_data["transport"] = dict()
+                        neigh_data["transport"]["config"] = dict()
+                        neigh_data.update({"local-address": update_src_intf})
+                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                        update_src_intf = None
+                elif ebgp_mhop:
+                    if neighbor:
+                        neigh_data = dict()
+                        neigh_data.update({"neighbor-address": neighbor})
+                        neigh_data["config"] = dict()
+                        neigh_data["config"].update({"neighbor-address": neighbor})
+                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        delete_urls.append(url.format("default", neighbor))
+                        if delete_urls:
+                            for url in delete_urls:
+                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                    st.error("neighbor is failed")
+                        neigh_data = dict()
+                        neigh_data.update({"neighbor-address": neighbor})
+                        neigh_data["config"] = dict()
+                        neigh_data["config"].update({"neighbor-address": neighbor})
+                        neigh_data["ebgp-multihop"] = dict()
+                        neigh_data["ebgp-multihop"]["config"] = dict()
+                        neigh_data.update({"multihop-ttl": ebgp_mhop})
+                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                        ebgp_mhop = None
+                elif bfd:
+                    if interface and remote_as:
+                        neigh_data = dict()
+                        neigh_data.update({"neighbor-address": neighbor})
+                        neigh_data["config"] = dict()
+                        neigh_data["config"].update({"neighbor-address": neighbor})
+                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                elif neighbor and not interface and remote_as:
+                    neigh_data = dict()
+                    neigh_data.update({"neighbor-address": neighbor})
+                    neigh_data["config"] = dict()
+                    neigh_data["config"].update({"neighbor-address": neighbor})
+                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    neigh_data["config"].update({"neighbor-address": neighbor, "peer-type": remote_as})
+                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    neigh_data["openconfig-bfd:enable-bfd"] = dict()
+                    neigh_data["openconfig-bfd:enable-bfd"]["config"] = dict()
+                    neigh_data.update({"enabled": True})
+                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                    bfd = False
+                elif connect:
+                    peer_data = dict()
+                    peer_data.update({'peer-group-address': peergroup})
+                    bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+                    peer_data['timers'] = dict()
+                    peer_data['timers']["config"] = dict()
+                    peer_data.update({"connect-retry": 10})
+                    connect = None
+                elif type1 == 'fast_external_failover':
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["config"].update(
+                        {"openconfig-bgp-ext:fast-external-failover": True})
+                elif type1 == 'bgp_bestpath_selection':
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"] = dict()
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"] = dict()
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update(
+                        {"external-compare-router-id": True})
+                elif type1 == 'max_path_ibgp':
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
+                    afi_data["use-multiple-paths"] = dict()
+                    afi_data["use-multiple-paths"]["ibgp"] = dict()
+                    afi_data["use-multiple-paths"]["ibgp"]["config"] = dict()
+                    afi_data["use-multiple-paths"]["ibgp"]["config"].update({"maximum-paths": type1})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                elif type1 == 'max_path_ebgp':
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data.update({"afi-safi-name": 'afi-safi-name'})
+                    if config_cmd == '' or config_cmd == 'yes':
+                        afi_data["use-multiple-paths"] = dict()
+                        afi_data["use-multiple-paths"]["ebgp"] = dict()
+                        afi_data["use-multiple-paths"]["ebgp"]["config"] = dict()
+                        afi_data["use-multiple-paths"]["ebgp"]["config"].update({"maximum-paths": type1})
+                        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    else:
+                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"] = dict()
+                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"] = dict()
+                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"][
+                            "config"] = dict()
+                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"][
+                            "config"].update({"allow-multiple-as": True})
+                elif type1 == 'redist':
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    # my_cmd = '{} redistribute {}'.format(config_cmd, redistribute) # SW defect is there
+                elif type1 == 'network':
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    afi_data["openconfig-bgp-ext:network-config"] = dict()
+                    afi_data["openconfig-bgp-ext:network-config"]["network"] = list()
+                    obe_data = dict()
+                    obe_data.update({"prefix": "string"})
+                    obe_data["config"] = dict()
+                    obe_data.update({"prefix": "network"})
+                    afi_data["openconfig-bgp-ext:network-config"]["network"].append(obe_data)
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                elif type1 == 'import-check':
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["config"].update({"openconfig-bgp-ext:network-import-check": True})
+                elif type1 == 'import_vrf':
+                    afi_data = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    afi_data['config'] = dict()
+                    afi_data.update({"afi-safi-name": afi_safi_name})
+                    afi_data["openconfig-bgp-ext:import-network-instance"] = dict()
+                    afi_data["openconfig-bgp-ext:import-network-instance"]["config"] = dict()
+                    afi_data["openconfig-bgp-ext:import-network-instance"]["config"].update({"name": "import_vrf"})
+                elif type1 == 'multipath-relax':
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"] = dict()
+                    ump_data = dict()
+                    ump_data["ebpg"] = dict()
+                    ump_data["ebpg"]["config"] = dict()
+                    ump_data["ebpg"]["config"].update({"allow-multiple-as": True})
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"].update(ump_data)
+                elif type1 == 'removeBGP':
+                    st.log("Removing the bgp config from the device")
+                elif type1 == 'router_id':
+                    st.log("Configuring the router-id on the device")
+                elif type1 == 'peer_group':
+                    st.log("Configuring the peer_group on the device")
+                else:
+                    st.log('Invalid BGP config parameter')
+                if config_cmd == 'no' and 'neighbor' in config_type_list and neighbor and not peergroup:
+                    #if isinstance(neigh_name, dict):
+                    if neighbor and config_cmd == "no":
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                        if delete_urls:
+                            for url in delete_urls:
+                                delete_rest(dut, rest_url=url.format("default", neighbor))
+                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                    st.error("neighbor is failed")
+                    else:
+                        neigh_data = dict()
+                        neigh_data.update({"neighbor-address": neighbor})
+                        neigh_data["config"] = dict()
+                        neigh_data["config"].update({"neighbor-address": neighbor})
+                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                        if neighbor:
+                            neigh_data1 = dict()
+                            neigh_data1["afi-safis"] = dict()
+                            neigh_data1["afi-safis"]["afi-safi"] = list()
+                            neigh_data1_sub = dict()
+                            neigh_data1_sub.update({"afi-safi-name": afi_safi_name})
+                            neigh_data1_sub["config"] = dict()
+                            neigh_data1_sub["config"].update({"afi-safi-name": "afi-safi-name", "enabled": True})
+                            neigh_data1.update(neigh_data1_sub)
+                            bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data1)
+                if vrf_name != 'default' and removeBGP == 'yes':
+                    bgp_data["openconfig-network-instance:bgp"]["global"]["config"].update({"as": 0})
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
         return False
@@ -2078,26 +3200,32 @@ def verify_bgp_neighborship(dut, family='ipv4', shell="sonic", **kwargs):
         return False
 
 
-def show_ip_bgp_route(dut, family='ipv4'):
+def show_ip_bgp_route(dut, family='ipv4', **kwargs):
     """
     API for show ip bgp
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     :param dut:
     :return:
     """
-    command = "show bgp {}".format(family)
-    return st.show(dut, command, type='vtysh')
+    cli_type = get_show_cli_type(dut, **kwargs)
+    if cli_type == 'vtysh':
+        command = "show bgp {}".format(family)
+    elif cli_type == 'klish':
+        command = "show bgp {} unicast".format(family)
+    return st.show(dut, command, type=cli_type)
 
-def fetch_ip_bgp_route(dut, family='ipv4', match=None, select=None):
-    entries = dict()
-    output = show_ip_bgp_route(dut, family=family)
+def fetch_ip_bgp_route(dut, family='ipv4', match=None, select=None, **kwargs):
+    cli_type = get_show_cli_type(dut, **kwargs)
+    output = show_ip_bgp_route(dut, family=family,cli_type=cli_type)
     #match = {'network': network}
     entries = filter_and_select(output, select, match)
     return entries
 
 def get_ip_bgp_route(dut, family='ipv4', **kwargs):
-    output = show_ip_bgp_route(dut, family=family)
+    cli_type = get_show_cli_type(dut, **kwargs)
+    output = show_ip_bgp_route(dut, family=family,cli_type=cli_type)
     st.debug(output)
+    kwargs.pop("cli_type", None)
     for each in kwargs.keys():
         match = {each: kwargs[each]}
         get_list = ["network", "as_path"]
@@ -2112,7 +3240,9 @@ def verify_ip_bgp_route(dut, family='ipv4', **kwargs):
 
     EX; verify_ip_bgp_route(vars.D1, network= '11.2.1.2/24')
     """
-    output = show_ip_bgp_route(dut, family=family)
+    cli_type = get_show_cli_type(dut, **kwargs)
+    output = show_ip_bgp_route(dut, family=family,cli_type=cli_type)
+    kwargs.pop("cli_type", None)
     for each in kwargs.keys():
         match = {each: kwargs[each]}
         entries = filter_and_select(output, None, match)
@@ -2122,9 +3252,10 @@ def verify_ip_bgp_route(dut, family='ipv4', **kwargs):
     return True
 
 
-def verify_ip_bgp_route_network_list(dut, family='ipv4', nw_list=[]):
+def verify_ip_bgp_route_network_list(dut, family='ipv4', nw_list=[], **kwargs):
 
-    output = show_ip_bgp_route(dut, family=family)
+    cli_type = get_show_cli_type(dut, **kwargs)
+    output = show_ip_bgp_route(dut, family=family,cli_type=cli_type)
     for network in nw_list:
         match = {'network': network}
         entries = filter_and_select(output, None, match)
@@ -2160,8 +3291,7 @@ def show_bgp_ipvx_prefix(dut, prefix, masklen, family='ipv4'):
     EX: show_bgp_ipvx_prefix(dut1, prefix="40.1.1.1", masklen=32, family='ipv4')
     :return:
     """
-
-    entries = dict()
+    #4 place, can use get_ip_bpg_route and/or verify_ip_bgp_route4 place, can use get_ip_bpg_route and/or verify_ip_bgp_route
     command = "show bgp {} {}/{}".format(family, prefix, masklen)
     entries = st.show(dut, command, type='vtysh')
     st.log(entries)
@@ -2178,6 +3308,7 @@ def show_bgp_ip_prefix(dut, ip_prefix, family='ipv4'):
           EX: show_bgp_ipvx_prefix(dut1, prefix="40.1.1.1/32", family='ipv4')
     :return:
     """
+    #1 place, can use get_ip_bpg_route and/or verify_ip_bgp_route4 place, can use get_ip_bpg_route and/or verify_ip_bgp_route
 
     if family != 'ipv4' and family != 'ipv6' :
         return {}
@@ -2199,7 +3330,7 @@ def activate_bgp_neighbor(dut, local_asn, neighbor_ip, family="ipv4", config='ye
     """
 
     st.log("Activate BGP neigbor")
-    cli_type = kwargs.get('cli_type', st.get_ui_type())
+    cli_type = get_cfg_cli_type(dut, **kwargs)
     skip_error_check = kwargs.get('skip_error_check', True)
     remote_asn = kwargs.get('remote_asn', '')
     if config.lower() == 'yes':
@@ -2209,25 +3340,32 @@ def activate_bgp_neighbor(dut, local_asn, neighbor_ip, family="ipv4", config='ye
     if family !='ipv4' and family != 'ipv6':
         return False
     cmd = ''
-    if cli_type == 'vtysh' or cli_type == 'click':
+    if cli_type == 'vtysh':
         if vrf != 'default':
             cmd = cmd + 'router bgp {} vrf {}\n'.format(local_asn, vrf)
         else:
             cmd = cmd + 'router bgp {}\n'.format(local_asn)
+        if remote_asn != '':
+            cmd = cmd + 'neighbor {} remote-as {}\n'.format(neighbor_ip, remote_asn)
         cmd = cmd + 'address-family {} unicast\n'.format(family)
         cmd = cmd + '{} neighbor {} activate\n'.format(mode, neighbor_ip)
         cmd = cmd + '\n end'
         st.config(dut, cmd, type='vtysh', skip_error_check=skip_error_check)
         return True
     elif cli_type == "klish":
+        neigh_name = get_interface_number_from_name(neighbor_ip)
         if vrf != 'default':
             cmd = cmd + 'router bgp {} vrf {}\n'.format(local_asn, vrf)
         else:
             cmd = cmd + 'router bgp {}\n'.format(local_asn)
-        cmd = cmd + 'neighbor {}\n'.format(neighbor_ip)
+        if neigh_name:
+            if isinstance(neigh_name, dict):
+                cmd = cmd + 'neighbor interface {} {}\n'.format(neigh_name["type"], neigh_name["number"])
+            else:
+                cmd = cmd + 'neighbor {}\n'.format(neigh_name)
         cmd = cmd + 'remote-as {}\n'.format(remote_asn)
         cmd = cmd + 'address-family {} unicast\n'.format(family)
-        cmd = cmd + 'activate\n'
+        cmd = cmd + ' {} activate\n'.format(mode)
         cmd = cmd + 'exit\nexit\nexit\n'
         st.config(dut, cmd, type=cli_type, skip_error_check=skip_error_check, conf = True)
         return True
@@ -2242,7 +3380,7 @@ def bgp_debug_config(dut, **kwargs):
     :param prefix: (ip address)
     :param message: eg update
     """
-
+    # Debug command, no klish supported needed for this API
     command = "debug bgp zebra\n"
     if "prefix" in kwargs:
         command += "debug bgp zebra prefix {}\n".format(kwargs["prefix"])
@@ -2265,10 +3403,14 @@ class ASPathAccessList:
     aspath_access_list.execute_command(dut, config='no')
     """
 
-    def __init__(self, name):
+    def __init__(self, name, cli_type=''):
         self.name = name
+        self.cli_type = get_cfg_cli_type(None, cli_type=cli_type)
         self.match_sequence = []
-        self.cmdkeyword = 'bgp as-path access-list'
+        if self.cli_type == 'vtysh':
+            self.cmdkeyword = 'bgp as-path access-list'
+        elif self.cli_type == 'klish':
+            self.cmdkeyword = 'bgp as-path-list'
 
     def add_match_permit_sequence(self, as_path_regex_list):
         self.match_sequence.append(('permit', as_path_regex_list))
@@ -2278,11 +3420,16 @@ class ASPathAccessList:
 
     def config_command_string(self):
         command = ''
-        for v in self.match_sequence:
-            command += '{} {} {}'.format(self.cmdkeyword, self.name, v[0])
-            for as_path_regex in list(v[1]):
-                command += ' {}'.format(as_path_regex)
-            command += '\n'
+        if self.cli_type == 'vtysh':
+            for v in self.match_sequence:
+                command += '{} {} {}'.format(self.cmdkeyword, self.name, v[0])
+                for as_path_regex in list(v[1]):
+                    command += ' {}'.format(as_path_regex)
+                command += '\n'
+        elif self.cli_type == 'klish':
+            for v in self.match_sequence:
+                command += '{} {} {} {}'.format(self.cmdkeyword, self.name, v[0], "[{}]".format(','.join(v[1])))
+                command += '\n'
         return command
 
     def unconfig_command_string(self):
@@ -2294,6 +3441,5 @@ class ASPathAccessList:
             command = self.unconfig_command_string()
         else:
             command = self.config_command_string()
-        st.config(dut, command, type='vtysh')
-
+        st.config(dut, command, type=self.cli_type)
 

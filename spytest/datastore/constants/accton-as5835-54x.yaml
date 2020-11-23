@@ -1,0 +1,21 @@
+WRED_LOSSLESS_PROFILE : "AZURE_LOSSLESS"
+PDDF_FANS_LIST:
+  - 'Fantray1_1'
+  - 'Fantray1_2'
+  - 'Fantray2_1'
+  - 'Fantray2_2'
+  - 'Fantray3_1'
+  - 'Fantray3_2'
+  - 'Fantray4_1'
+  - 'Fantray4_2'
+  - 'Fantray5_1'
+  - 'Fantray5_2'
+PDDF_PSU_LIST:
+  - 'PSU1'
+  - 'PSU2'
+PDDF_THERMAL_LIST:
+  - 'TEMP1'
+  - 'TEMP2'
+  - 'TEMP3'
+  - 'TEMP4'
+Manufacturer: "accton"
