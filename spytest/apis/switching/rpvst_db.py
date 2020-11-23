@@ -51,8 +51,6 @@ def config_spanning_tree_rpvst(dut, skip_verify=True, **kwargs):
 
    st.log("Configuring RPVST...")
    rpvst_data = kwargs
-   json_cfg = dict()
-   stp_cfg = dict()
 
    # if STP is already configured on the DUT, just update the given field
    # rest of the fields should not be affected
@@ -91,9 +89,7 @@ def config_spanning_tree_rpvst_intf(dut, skip_verify=True, **kwargs):
 
    st.log("Configuring RPVST interface parameters...")
    rpvst_data = kwargs
-   json_cfg = dict()
    stp_cfg = dict()
-   stp_cfg['STP_PORT'] = dict()
 
    # if STP is already configured on the DUT, just update the given field
    # rest of the fields should not be affected

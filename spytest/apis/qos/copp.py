@@ -280,7 +280,8 @@ def config_copp_action_group(dut, **kwargs):
                 st.log("PASS: Rest operation for classifier delete return status {}".format(output['status']))
                 return True
         else:
-            action = kwargs['trap_action'];priority=int(kwargs['trap_priority']);queue=int(kwargs['trap_queue'])
+            #action = kwargs['trap_action']
+            priority=int(kwargs['trap_priority']);queue=int(kwargs['trap_queue'])
             cir=kwargs['cir'];cbs=kwargs['cbs'];name=kwargs['copp_action_group']
             if 'police_meter_type' not in kwargs:
                 ptype = "PACKETS"
@@ -883,7 +884,7 @@ def parse_show_copp_actions(response):
     list1 = dict1['openconfig-copp-ext:copp-group']
     dict1 = list1[0]
     config = dict1['config']
-    state = dict1['state']
+    #state = dict1['state']
     output = {}
     output["copp_agroup"] = dict1['name']
     for arg in ["cbs","cir","meter-type","mode","queue","trap-action","trap-priority"]:
@@ -977,7 +978,8 @@ def config_coppgroup_copptrap_viarest(dut, **kwargs):
          trap_priority="10",trap_queue="10",cir="3500",cbs="3570",trap_action="trap")
     """
 
-    action = kwargs['trap_action'];priority=int(kwargs['trap_priority']);queue=int(kwargs['trap_queue'])
+    #action = kwargs['trap_action'];
+    priority=int(kwargs['trap_priority']);queue=int(kwargs['trap_queue'])
     cir=kwargs['cir'];cbs=kwargs['cbs'];name=kwargs['copp_action_group']
     if 'police_meter_type' not in kwargs:
         ptype = "PACKETS"

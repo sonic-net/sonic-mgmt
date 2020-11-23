@@ -203,7 +203,7 @@ def delete_session(dut, mirror_session='', skip_err_check=False, cli_type=""):
         return False
     if cli_type == "click":
         command = "config mirror_session remove {}".format(mirror_session)
-        output = st.config(dut, command, skip_error_check=skip_err_check)
+        st.config(dut, command, skip_error_check=skip_err_check)
         return True if show_session(dut, mirror_session) else False
     elif cli_type == "klish":
         commands = list()
@@ -218,10 +218,7 @@ def delete_session(dut, mirror_session='', skip_err_check=False, cli_type=""):
         return True
     elif cli_type in ['rest-put', "rest-patch"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
-        if mirror_session:
-            url = rest_urls['get_session_session_name'].format(mirror_session)
-        else:
-            url = rest_urls['config_mirror_session']
+        url = rest_urls['get_session_session_name'].format(mirror_session)
         if not delete_rest(dut, rest_url = url):
             return False
         return True

@@ -2,7 +2,6 @@
 #MCLAG apis
 ##########################################
 from spytest import st
-from spytest.utils import filter_and_select
 import spytest.utils as utils
 from apis.common import redis
 from utilities.utils import get_interface_number_from_name
@@ -352,7 +351,7 @@ def config_gw_mac(dut,skip_error=False, **kwargs):
 
     if cli_type == 'click':
         cmd = "config mclag gw-mac {} {}\n".format(config, mac_val)
-        output = st.config(dut, cmd)
+        st.config(dut, cmd)
     elif cli_type == 'klish':
         config = 'no ' if config == 'del' else ''
         cmd = "{}mclag gateway-mac {}".format(config, mac_val)
@@ -549,7 +548,7 @@ def verify_interfaces(dut,**kwargs):
             st.error("Output is Empty")
             return False
         ### Process Local Mclag Interface output
-        entries = filter_and_select(output1,None,match={'mclag_intf':mclag_intf})
+        entries = utils.filter_and_select(output1,None,match={'mclag_intf':mclag_intf})
         args1 = ['mclag_intf_local_state', 'mclag_intf_l3_status', 'isolate_peer_link', 'traffic_disable', 'mclag_mac']
         for key in args1:
             if key in kwargs.keys():
@@ -568,7 +567,7 @@ def verify_interfaces(dut,**kwargs):
             st.error("Output is Empty")
             return False
         ### Process Local Mclag Interface output
-        entries = filter_and_select(output2, None, match={'mclag_intf':mclag_intf})
+        entries = utils.filter_and_select(output2, None, match={'mclag_intf':mclag_intf})
         args2 = ['mclag_intf_peer_state']
         for key in args2:
             if key in kwargs.keys():
@@ -652,7 +651,7 @@ def verify_iccp_macs(dut,**kwargs):
 
     if match != {}:
         ### Filter matching entries
-        entries = filter_and_select(output, None, match=match)
+        entries = utils.filter_and_select(output, None, match=match)
         if entries == []:
             ret_val = False
             mac_count = 0

@@ -374,9 +374,6 @@ def clear_radius_statistics(dut, skip_error_check=False, cli_type=""):
     return True
 
 def process_radius_output(server_output, global_config, global_ext_data):
-    server_output = server_output
-    global_config = global_config
-    global_ext_data = global_ext_data
 
     radius_output = dict()
     radius_output["servers"] = list()

@@ -339,7 +339,7 @@ def config_udld_recover(dut, **kwargs):
     my_cmd= ''
     if cli_type == 'click':
         if 'udld_recover' in kwargs and 'module' in kwargs:
-            my_cmd = 'config errdisable recovery cause {} {}'.format(kwargs['udld_recover'],kwargs['module'])     
+            my_cmd = 'config errdisable recovery cause {} {}'.format(kwargs['udld_recover'],kwargs['module'])
         else:
             st.error("Mandatory arguments udld enable or disable and module name should be given")
             return False
@@ -374,7 +374,7 @@ def config_udld_recover(dut, **kwargs):
         return True
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
-        return False 
+        return False
 
 def config_udld_recover_timer(dut, **kwargs):
     """
@@ -430,7 +430,7 @@ def config_udld_recover_timer(dut, **kwargs):
         return True
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
-        return False 
+        return False
 
 def udld_reset(dut):
     """
@@ -679,7 +679,7 @@ def get_udld_intf_state(dut, **kwargs):
             return output[0]['udld_status']
         else:
             return None
- 
+
 def verify_udld_interface(dut,**kwargs):
     """
     Author: Chandra Sekhar Reddy
@@ -791,7 +791,7 @@ def verify_udld_statistics(dut,**kwargs):
     udld_interface = kwargs.get('udld_interface',None)
     udld_tx = kwargs.get('udld_tx',None)
     udld_rx = kwargs.get('udld_rx',None)
-    udld_errors = kwargs.get('udld_errors',None)
+    #udld_errors = kwargs.get('udld_errors',None)
     #Converting all kwargs to list type to handle single or list of udld stats
     for key in kwargs:
         if type(kwargs[key]) is list:
@@ -841,7 +841,7 @@ def verify_udld_statistics(dut,**kwargs):
 
 def check_udld_status_after_restart(dut):
     ret = False
-    max_wait_time = 300 # 5 mins, reason, cold reboot might take upto 5mins 
+    max_wait_time = 300 # 5 mins, reason, cold reboot might take upto 5mins
     wait_start_time = time.time()
     total_wait_time = 0
     while not ret:

@@ -2279,10 +2279,6 @@ def lib_stp_mclag_peer_link_tests():
                 log_error("UNSUCCESSFULL : {} is not root switch for vlan {}".format(root_bridge, data.normal_vlans[2]))
                 res_1 = False
 
-        if data.stp_protocol == "pvst" or (data.stp_protocol == "rpvst" and data.mclag_peers_as_only_root is False):
-            if not check_traffic("both", "forward", False):
-                res_1 = False
-
         ###############################################################################################
         # Starting up the Peerlink between MCLAG_1_A and MCLAG_1_S
         ###############################################################################################
@@ -2483,12 +2479,14 @@ def lib_stp_mclag_bpdu_guard():
 
         st.wait(5)
         if not stp.check_bpdu_guard_action(data.MCLAG_1_A, data.MCLAG_1_A_MC_Lag_1, config_shut="No", opr_shut="NA"):
+            stp.config_stp_interface_params(data.MCLAG_1_A, data.MCLAG_1_A_MC_Lag_1, bpdu_guard="disable")
             log_error("Interface {} on DUT {} is not enabled with proper BPDU guard parameters".format(data.MCLAG_1_A_MC_Lag_1, data.MCLAG_1_A))
             res_1 = False
         else:
             st.log("Interface {} on DUT {} is configured with proper BPDU guard options when shutdown is not configured".format(data.MCLAG_1_A_MC_Lag_1, data.MCLAG_1_A))
 
         if not stp.check_bpdu_guard_action(data.MCLAG_1_S, data.MCLAG_1_S_MC_Lag_1, config_shut="No", opr_shut="NA"):
+            stp.config_stp_interface_params(data.MCLAG_1_S, data.MCLAG_1_A_MC_Lag_1, bpdu_guard="disable")
             log_error("Interface {} on DUT {} is not enabled with proper BPDU guard parameters".format(data.MCLAG_1_S_MC_Lag_1, data.MCLAG_1_S))
             res_1 = False
         else:
@@ -2503,12 +2501,14 @@ def lib_stp_mclag_bpdu_guard():
 
         st.wait(5)
         if not stp.check_bpdu_guard_action(data.MCLAG_1_A, data.MCLAG_1_A_MC_Lag_1, config_shut="Yes", opr_shut="Yes"):
+            stp.config_stp_interface_params(data.MCLAG_1_A, data.MCLAG_1_A_MC_Lag_1, bpdu_guard="disable")
             log_error("Interface {} on DUT {} is not enabled with BPDU guard shutdown parameters".format(data.MCLAG_1_A_MC_Lag_1, data.MCLAG_1_A))
             res_1 = False
         else:
             st.log("Interface {} on DUT {} is enabled with BPDU guard shutdown parameters".format(data.MCLAG_1_A_MC_Lag_1, data.MCLAG_1_A))
 
         if not stp.check_bpdu_guard_action(data.MCLAG_1_S, data.MCLAG_1_S_MC_Lag_1, config_shut="Yes", opr_shut="Yes"):
+            stp.config_stp_interface_params(data.MCLAG_1_S, data.MCLAG_1_A_MC_Lag_1, bpdu_guard="disable")
             log_error("Interface {} on DUT {} is not enabled with BPDU guard shutdown parameters".format(data.MCLAG_1_S_MC_Lag_1, data.MCLAG_1_S))
             res_1 = False
         else:

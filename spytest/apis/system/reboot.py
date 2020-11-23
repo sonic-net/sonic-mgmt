@@ -168,7 +168,7 @@ def poll_for_warm_restart_status(dut, pname, state, iteration=20, delay=2):
         st.wait(delay)
 
 def config_save_reboot(dut, cli_type=''):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
     config_save(dut, shell="sonic")
     config_save(dut, shell='vtysh')
     st.reboot(dut)

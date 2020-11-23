@@ -86,7 +86,7 @@ def set_aaa_authentication_properties(dut,property,value, cli_type="", **kwargs)
             data = json.loads("""
                         {
                             "openconfig-system-ext:failthrough": "True"
-                        } 
+                        }
                     """)
             if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=data, timeout=time_out, **kwargs):
                 return False
@@ -111,7 +111,7 @@ def set_aaa_authentication_properties(dut,property,value, cli_type="", **kwargs)
                               "local",
                               "tacacs+"
                             ]
-                        } 
+                        }
                     """)
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data, **kwargs):
                 return False
@@ -469,7 +469,7 @@ def show_tacacs(dut, cli_type=""):
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['tacacs_server_show'].format("TACACS")
-        url1= rest_urls['radius_server_config'].format("TACACS")
+        #url1= rest_urls['radius_server_config'].format("TACACS")
         server_output = get_rest(dut, rest_url=url, timeout=time_out)
         rv = process_tacacs_output(server_output['output'])
     else:
@@ -635,7 +635,6 @@ def verify_tacacs_details(dut, tacacs_params, cli_type=""):
         return False
 
 def process_tacacs_output(server_output):
-    server_output = server_output
 
     all_servers_output = dict()
     all_servers_output["servers"] = list()

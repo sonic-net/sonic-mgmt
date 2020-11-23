@@ -467,20 +467,13 @@ def config_ip_igmp(dut, **kwargs):
             st.log(e)
             return False
 
-    if cli_type == 'klish':
-        #Verify FRR DB
-        try:
-            output = st.vtysh_show(dut, "show running-config | include ip igmp", skip_tmpl=True)
-            print(output)
-            if len(output):
-                return True
-            else:
-                return False
-        except Exception as e:
-            st.log(e)
-            return False
-
-        st.config(dut, "exit", type=cli_type)
+    #Verify FRR DB
+    try:
+        output = st.vtysh_show(dut, "show running-config | include ip igmp", skip_tmpl=True)
+        return bool(len(output))
+    except Exception as e:
+        st.log(e)
+        return False
 
 def config_igmp_join(dut, **kwargs):
     """
@@ -542,19 +535,13 @@ def config_igmp_join(dut, **kwargs):
             st.log(e)
             return False
 
-    if cli_type == 'klish':
-        #Verify FRR DB
-        try:
-            output = st.vtysh_show(dut, "show running-config | include igmp join", skip_tmpl=True)
-            if len(output):
-                return True
-            else:
-                return False
-        except Exception as e:
-            st.log(e)
-            return False
-
-        st.config(dut, "exit", type=cli_type)
+    #Verify FRR DB
+    try:
+        output = st.vtysh_show(dut, "show running-config | include igmp join", skip_tmpl=True)
+        return bool(len(output))
+    except Exception as e:
+        st.log(e)
+        return False
 
 def config_igmp_qinterval(dut, **kwargs):
     """
@@ -608,19 +595,13 @@ def config_igmp_qinterval(dut, **kwargs):
             st.log(e)
             return False
 
-    if cli_type == 'klish':
-        #Verify FRR DB
-        try:
-            output = st.vtysh_show(dut, "show running-config | include query-interval", skip_tmpl=True)
-            if len(output):
-                return True
-            else:
-                return False
-        except Exception as e:
-            st.log(e)
-            return False
-
-        st.config(dut, "exit", type=cli_type)
+    #Verify FRR DB
+    try:
+        output = st.vtysh_show(dut, "show running-config | include query-interval", skip_tmpl=True)
+        return bool(len(output))
+    except Exception as e:
+        st.log(e)
+        return False
 
 def config_igmp_version(dut, **kwargs):
     """
@@ -673,19 +654,13 @@ def config_igmp_version(dut, **kwargs):
             st.log(e)
             return False
 
-    if cli_type == 'klish':
-        #Verify FRR DB
-        try:
-            output = st.vtysh_show(dut, "show running-config | include igmp version", skip_tmpl=True)
-            if len(output):
-                return True
-            else:
-                return False
-        except Exception as e:
-            st.log(e)
-            return False
-
-        st.config(dut, "exit", type=cli_type)
+    #Verify FRR DB
+    try:
+        output = st.vtysh_show(dut, "show running-config | include igmp version", skip_tmpl=True)
+        return bool(len(output))
+    except Exception as e:
+        st.log(e)
+        return False
 
 def config_igmp_qmrestime(dut, **kwargs):
     """
@@ -739,19 +714,13 @@ def config_igmp_qmrestime(dut, **kwargs):
             st.log(e)
             return False
 
-    if cli_type == 'klish':
-        #Verify FRR DB
-        try:
-            output = st.vtysh_show(dut, "show running-config | include igmp query-max-response-time", skip_tmpl=True)
-            if len(output):
-                return True
-            else:
-                return False
-        except Exception as e:
-            st.log(e)
-            return False
-
-        st.config(dut, "exit", type=cli_type)
+    #Verify FRR DB
+    try:
+        output = st.vtysh_show(dut, "show running-config | include igmp query-max-response-time", skip_tmpl=True)
+        return bool(len(output))
+    except Exception as e:
+        st.log(e)
+        return False
 
 def config_igmp_lmqcount(dut, **kwargs):
     """
@@ -804,19 +773,13 @@ def config_igmp_lmqcount(dut, **kwargs):
             st.log(e)
             return False
 
-    if cli_type == 'klish':
-        #Verify FRR DB
-        try:
-            output = st.vtysh_show(dut, "show running-config | include igmp last-member-query-count", skip_tmpl=True)
-            if len(output):
-                return True
-            else:
-                return False
-        except Exception as e:
-            st.log(e)
-            return False
-
-        st.config(dut, "exit", type=cli_type)
+    #Verify FRR DB
+    try:
+        output = st.vtysh_show(dut, "show running-config | include igmp last-member-query-count", skip_tmpl=True)
+        return bool(len(output))
+    except Exception as e:
+        st.log(e)
+        return False
 
 def config_igmp_lmqinterval(dut, **kwargs):
     """
@@ -869,16 +832,10 @@ def config_igmp_lmqinterval(dut, **kwargs):
             st.log(e)
             return False
 
-    if cli_type == 'klish':
-        #Verify FRR DB
-        try:
-            output = st.vtysh_show(dut, "show running-config | include igmp last-member-query-interval", skip_tmpl=True)
-            if len(output):
-                return True
-            else:
-                return False
-        except Exception as e:
-            st.log(e)
-            return False
-
-        st.config(dut, "exit", type=cli_type)
+    #Verify FRR DB
+    try:
+        output = st.vtysh_show(dut, "show running-config | include igmp last-member-query-interval", skip_tmpl=True)
+        return bool(len(output))
+    except Exception as e:
+        st.log(e)
+        return False

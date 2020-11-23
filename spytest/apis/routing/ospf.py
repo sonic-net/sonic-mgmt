@@ -424,8 +424,6 @@ def config_ospf_router_area_range_cost(dut, area, range_prefix, cost='', adverti
                 data['ospfv2']['global']['inter-area-propagation-policies']['openconfig-ospfv2-ext:inter-area-policy'][0]['ranges']['range'][0]['config'].update({"openconfig-ospfv2-ext:advertise": True})
             elif cost != '':
                 data['ospfv2']['global']['inter-area-propagation-policies']['openconfig-ospfv2-ext:inter-area-policy'][0]['ranges']['range'][0]['config'].update({"openconfig-ospfv2-ext:metric": integer_parse(cost)})
-            else:
-                data = data
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data):
                 return False
         else:
@@ -2369,7 +2367,6 @@ def config_ospf_router_default_information_extended(dut, dinfo_type='', dinfo_pa
         rest_urls = st.get_datastore(dut, "rest_urls")
         if metric_type: metric_type = "TYPE_" + str(metric_type)
         route_type = "DEFAULT_ROUTE"
-        url = rest_urls['config_ospfv2_route_redistribute'].format(vrf_str, route_type)
         if not cmd_pfx:
             url = rest_urls['config_ospfv2_global_base'].format(vrf_str)
             if dinfo_param == 'metric':
@@ -2635,8 +2632,6 @@ def redistribute_into_ospf(dut, route_type, vrf_name = 'default', config='yes', 
             elif route_map != '':
                 dict1 = {"openconfig-ospfv2-ext:route-map": route_map}
                 data['ospfv2']['global']['openconfig-ospfv2-ext:route-distribution-policies']['distribute-list'][0]['config'].update(dict1)
-            else:
-                data = data
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data):
                 return False
         else:
@@ -3102,8 +3097,7 @@ def verify_ospf_database(dut, lsdb_type, key_name='', key_value_list=[], vrf='de
         st.log("OSPF - Invalid lsdb_type parameter {}.".format(lsdb_type))
         return False
 
-    cli_type = get_ospf_cli_type(dut, cli_type=cli_type)
-
+    #cli_type = get_ospf_cli_type(dut, cli_type=cli_type)
     cli_type='vtysh'
     #if 'vrf' not in match.keys():
     #    if vrf != 'all':

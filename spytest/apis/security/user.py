@@ -18,7 +18,7 @@ def config_user(dut, username, mode='add', cli_type=""):
     :param mode: add|del
     :return:
     """
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
     username = username.strip()
     if mode == 'add':
         command = "useradd {}".format(username)

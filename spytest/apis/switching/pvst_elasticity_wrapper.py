@@ -960,7 +960,6 @@ def get_blocking_brigde_with_interfaces(vlan_id, stp_protocol):
                             for blocking_link in blocking_links_list_of_blocking_dut[prospective_dut]:
                                 #st.log("########## {} LINK-------{} ##############" . format(stp_dict[stp_protocol]["non_fwd_state"], blocking_link))
                                 st.log("########## DUT PARTNER DETAILS ###########")
-                                dut_partner_details = dict()
                                 dut_partner_details = get_dut_partner_details_by_dut_interface(prospective_dut, blocking_link)
                                 st.log(dut_partner_details)
 

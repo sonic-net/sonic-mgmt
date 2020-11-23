@@ -42,7 +42,8 @@ feature_names = [
     "show-bgp-summary-click-command",
     "show-vrf-verbose-command",
     "vrf-needed-for-unbind",
-    "show-kdump-status-command"
+    "show-kdump-status-command",
+    "show-mac-aging-time-command"
 ]
 
 class Feature(object):
@@ -92,6 +93,7 @@ class Feature(object):
         self.set_supported("vlan-range")
         self.set_supported("crm-all-families")
         self.set_supported("crm-config-clear-command")
+        self.set_supported("config-ipv6-command")
 
     def init_broadcom(self):
         self.set_supported(feature_names)

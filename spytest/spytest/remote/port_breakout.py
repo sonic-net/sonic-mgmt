@@ -14,10 +14,7 @@ SIM_HOST = False
 
 SAI_PROFILE_DELIMITER = '='
 INTERFACE_KEY="Ethernet"
-if not SIM_HOST:
-    NEW_FILE_EXT=""
-else:
-    NEW_FILE_EXT=""
+NEW_FILE_EXT=""
 
 sonic_platforms = {
     "x86_64-accton_as9716_32d-r0": {
@@ -322,7 +319,7 @@ def break_in_ini(port, ini_file, opt):
                 f_out.write(line)
                 continue
             done = True
-            oidx, olanes, name, oporti, fp_idx = get_info_in_ini(line, title)
+            oidx, olanes, _, oporti, fp_idx = get_info_in_ini(line, title)
 
             if get_is_bkout(opt) and len(olanes) < get_bkout_lanes(opt):
                 print("Port %s Already breakout ..." % (port))
@@ -481,7 +478,7 @@ def break_in_bcm(port, lanes, bcm_file, opt, platform):
             continue
 
         ### logic port, phyical port, speed
-        lp, pp, sp =  parse_port_bcm(line)
+        lp, pp, _ =  parse_port_bcm(line)
         if pp not in lanes:
             f_out.write(oline)
             continue
@@ -540,7 +537,7 @@ def break_in_cfg(port, cfg_file, lanes, opt, platform):
     ### Process in 'INTERFACE'
     ###
     if 'INTERFACE' in data:
-        for key, value in sorted(data['INTERFACE'].items()):
+        for key, _ in sorted(data['INTERFACE'].items()):
             pkey = key.split('|')[0]
             if port == pkey:
                 data['INTERFACE'].pop(key)
@@ -723,7 +720,7 @@ def check_vaildation(platform, hwsku, port, opt):
         if get_is_bkout(opt):
             if line_port == port:
                 port_found += 1
-                oidx, olanes, name, oporti, fp_idx = get_info_in_ini(line, title)
+                _, olanes, _, _, _ = get_info_in_ini(line, title)
                 if len(olanes) < get_bkout_lanes(opt):
                     print("port %s can not breakout to %s." % (port, opt))
                     f_in.close()
@@ -731,7 +728,7 @@ def check_vaildation(platform, hwsku, port, opt):
         else:
             if line_port in ports:
                 port_found += 1
-                oidx, olanes, name, oporti, fp_idx = get_info_in_ini(line, title)
+                _, olanes, _, _, _ = get_info_in_ini(line, title)
                 ini_ports.append(line_port)
                 ini_lanes += olanes
 
@@ -760,7 +757,7 @@ def process_args(argv):
     opt = None
 
     try:
-        opts, args = getopt.getopt(argv, "hlvc:p:o:", \
+        opts, _ = getopt.getopt(argv, "hlvc:p:o:", \
         ["help", "list", "verbose", "cust=", "port=", "opt="])
 
         for opt,arg in opts:
@@ -814,7 +811,7 @@ def main(argv):
         usage()
         return
 
-    verbose, port, opt = process_args(argv)
+    _, port, opt = process_args(argv)
     """
     print verbose, port, opt
     """

@@ -12,6 +12,7 @@ from random import Random
 import traceback
 import threading
 import textwrap
+import tempfile
 import logging
 import socket
 import signal
@@ -3348,6 +3349,11 @@ class WorkArea(object):
 
     def create_init_config_db(self, dut):
         self._create_init_config_db(dut)
+
+    def mktemp(self, dir=None):
+        dir = dir or _get_logs_path()[1]
+        return tempfile.mkstemp(dir=dir)[1]
+
 
 def arg_validate_repeat():
     class ArgValidateRepeat(argparse.Action):

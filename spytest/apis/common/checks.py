@@ -4,6 +4,7 @@ import utilities.common as utils
 # None - Configured, False - Alias, True - Native
 use_native=True # use only native
 tgen_link_status_supported = False
+check_oneway = True
 
 def log_info(fmt, *args):
     st.log(fmt % args)
@@ -49,7 +50,7 @@ def verify_topology(hooks, check_type, threads=True):
     if check_type in ["module", "function"]:
         return links_status(hooks, threads, check_type)
 
-    retval, check_oneway = True, True
+    retval = True
     results, exclude = [], []
     header = ['DUT', 'DId', 'Local', "Partner", "PDId", "Remote", "Status"]
     dids, _ = fill_dev_ids()

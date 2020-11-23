@@ -192,7 +192,6 @@ def config_classifier_table(dut, **kwargs):
         http_method = kwargs.pop('http_method',cli_type)
         config_cmd = '' if config == 'yes' else 'no'
         rest_urls = st.get_datastore(dut,'rest_urls')
-        rest_url = rest_urls['classifier_table_config']
         delete_base_url = rest_urls['classifier_update_delete'].format(class_data['class_name'])
         ocdata = {}
         ocdata["openconfig-fbs-ext:classifiers"] ={}
@@ -562,7 +561,7 @@ def config_flow_update_table(dut, skip_error=False, **kwargs):
 
             if check:
                 action_cmd.append("exit")
-                check = False
+                #check = False
             command = command + action_cmd
             command.append("exit")
         else:
@@ -1309,7 +1308,7 @@ def convert_rest_key_to_template(type,output,yang_model='ocyang',**kwargs):
 
                 discard_action = flows[flow_index].get('forwarding',{}).get('config',{}).get('discard',False)
                 if discard_action:
-                    default_packet_action = True
+                    #default_packet_action = True
                     transformed_output4 = transformed_output.copy()
                     transformed_output4['next_hop_interface'] = 'null'
                     transformed_output_list.append(transformed_output4)
@@ -1420,7 +1419,7 @@ def convert_rest_key_to_template(type,output,yang_model='ocyang',**kwargs):
                 flows = item.get('{}-policies'.format(direction),{}).get(policy_type,{}).get('sections',{}).get('section',[])
                 if flows:
                   for flow_index in range(len(flows)):
-                    default_flow_action = False
+                    #default_flow_action = False
                     transformed_output2 = transformed_output1.copy()
                     transformed_output2['class_name'] = flows[flow_index].get('state',{}).get("class-name", '')
                     transformed_output2['cir_val'] = flows[flow_index].get('state',{}).get("cir", '')

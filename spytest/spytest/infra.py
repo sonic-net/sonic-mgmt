@@ -480,3 +480,6 @@ def infra_debug(msg):
 def create_init_config_db(dut):
     return getwa().create_init_config_db(dut)
 
+def mktemp(dir=None):
+    return getwa().mktemp(dir)
+

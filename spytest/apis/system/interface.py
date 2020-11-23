@@ -653,7 +653,6 @@ def show_queue_counters(dut, interface_name, queue=None, cli_type=''):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    output = list()
     if cli_type == 'click':
         command = "show queue counters {}".format(interface_name)
         output = st.show(dut, command, type=cli_type)
@@ -824,7 +823,6 @@ def show_watermark_counters(dut, mode='all'):
 
 
 def get_interface_counter_value(dut, ports, properties, cli_type=""):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     This API is used to get the multiple interfaces counters value in dictionary of dictionaries.
     Author : Ramprakash Reddy (ramprakash-reddy.kanala@broadcom.com)
@@ -833,12 +831,13 @@ def get_interface_counter_value(dut, ports, properties, cli_type=""):
     :param property: Interface properties ["rx_ok","tx_ok"]
     :return: {"Ethernet0":{"rx_ok":"1234","tx_ok":"45"},"Ethenrnet1":{"rx_ok"="4325","tx_ok"="2424"}}
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if not isinstance(ports, list):
         ports = [ports]
     if not isinstance(properties, list):
         properties = [properties]
     counters_dict = dict()
-    output = show_interface_counters_all(dut)
+    output = show_interface_counters_all(dut, cli_type=cli_type)
     for each_port in ports:
         entries = filter_and_select(output, properties, {'iface': each_port})[0]
         counters_dict[each_port] = entries

@@ -1597,15 +1597,26 @@ def test_FtOpSoRoEvpnRouterLvtepFt32335(Tgencleanup_fixture):
         success=False
         hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL: Linktrack status is not Up in LVTEP N1")
 
-    if retry_api(Evpn.verify_linktrack_group_name,evpn_dict["leaf_node_list"][1],name="track1",description="",
+    if evpn_dict['cli_mode'] == "klish":
+        if retry_api(Evpn.verify_linktrack_group_name,evpn_dict["leaf_node_list"][1],name="track1",description="",
                             timeout="2",direction=["Upstream"]*4+["Downstream"],interface=[evpn_dict["leaf2"]["intf_list_spine"][3],
                             evpn_dict["leaf2"]["intf_list_spine"][7],evpn_dict["leaf2"]["pch_intf_list"][0],
                             evpn_dict["leaf2"]["pch_intf_list"][1],evpn_dict["leaf2"]["mlag_pch_intf_list"][0]],
                             direction_state=["Up","Up","Up","Up","Up"],retry_count=5,delay=1,startup_remain_time="0"):
-        st.log("PASS: Linktrack status is Up in LVTEP N2")
+            st.log("PASS: Linktrack status is Up in LVTEP N2")
+        else:
+            success=False
+            hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL: Linktrack status is not Up in LVTEP N2")
     else:
-        success=False
-        hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL: Linktrack status is not Up in LVTEP N2")
+        if retry_api(Evpn.verify_linktrack_group_name,evpn_dict["leaf_node_list"][1],name="track1",description="",
+                            timeout="2",direction=["Upstream"]*4+["Downstream"],interface=[evpn_dict["leaf2"]["intf_list_spine"][3],
+                            evpn_dict["leaf2"]["intf_list_spine"][7],evpn_dict["leaf2"]["pch_intf_list"][0],
+                            evpn_dict["leaf2"]["pch_intf_list"][1],evpn_dict["leaf2"]["mlag_pch_intf_list"][0]],
+                            direction_state=["Up","Up","Up","Up","Up"],retry_count=5,delay=1):
+            st.log("PASS: Linktrack status is Up in LVTEP N2")
+        else:
+            success=False
+            hdrMsg("test_FtOpSoRoEvpnRouterLvtepFt32335 FAIL: Linktrack status is not Up in LVTEP N2")
     ############################################################################################
     hdrMsg(" \n####### Step 7: Start bidirectional traffic ##############\n")
     ############################################################################################

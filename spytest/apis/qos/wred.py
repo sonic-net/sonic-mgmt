@@ -32,8 +32,6 @@ def apply_wred_ecn_config(dut, config, cli_type=''):
         wred_data = config['WRED_PROFILE']
         port_data = config.get('QUEUE', None)
         for profile, wred_config in wred_data.items():
-            profile = profile
-            wred_config = wred_config
             ecn = wred_config.get('ecn', None)
             green_min_threshold = wred_config.get('green_min_threshold', None)
             green_max_threshold = wred_config.get('green_max_threshold', None)

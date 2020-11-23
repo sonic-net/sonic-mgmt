@@ -156,7 +156,6 @@ def verify_pim_global_mgmt(dut, vrf, output=None, **vrf_parms):
      successful. (Otherwise, this return parameter is set to None.)
     """
 
-    ret_val = True
     if vrf == 'default':
         vrf_str = ""
     else:
@@ -219,7 +218,6 @@ def verify_pim_intf_mgmt(dut, intf, output=None, **intf_parms):
     :return: bool set to True if all expected configuration is present
     """
 
-    ret_val = True
     intf_nospc = re.sub(r"(PortChannel|Ethernet|Management) (\d+)", "\\1\\2",
                         intf)
 
@@ -282,7 +280,7 @@ def pim_execute_bgp_restart(dut):
 
     except ValueError as err_msg:
         st.log("Exception executing 'service bgp restart': "
-               "Error message: " + str(ValueError))
+               "Error message: " + str(err_msg))
         return False
 
     st.log("Waiting for 'system ready' after BGP restart")

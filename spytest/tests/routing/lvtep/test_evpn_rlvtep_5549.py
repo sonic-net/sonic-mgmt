@@ -2782,7 +2782,7 @@ def test_FtOpSoRoEvpn5549LvtepFt373(Linktrack_fixture):
         st.log("PASS: Linktrack status is Up in LVTEP N1")
     else:
         success=False
-        hdrMsg(" FtOpSoRoEvpn5549LvtepFt373 FAIL: Linktrack status is not Up in LVTEP N1 after waiting for 50 sec with linktrack timeout 2 sec")
+        hdrMsg(" FtOpSoRoEvpn5549LvtepFt373 FAIL: Linktrack status is not Up in LVTEP N1 after waiting for 10 sec with linktrack timeout 2 sec")
 
     if retry_api(Evpn.verify_linktrack_group_name,evpn_dict["leaf_node_list"][1],name="track1",description="uplink_protection",
                         timeout="10",direction=["Upstream"]*4+["Downstream"]*2,interface=[evpn_dict["leaf2"]["intf_list_spine"][3],

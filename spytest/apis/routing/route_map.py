@@ -244,8 +244,8 @@ class RouteMap:
                     command += 'set as-path prepend last-as {}\n'.format(items['value'])
                 elif items['type'] == 'community':
                     command += 'set community'
-                    for v in items['community_list']:
-                        command = command + ' ' + v
+                    for vv in items['community_list']:
+                        command = command + ' ' + vv
                     command += '\n'
                 elif items['type'] == 'communitynone':
                     command += 'set community none\n'

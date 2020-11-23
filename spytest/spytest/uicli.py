@@ -361,7 +361,7 @@ class UICLI(object):
                                     else:
                                         matched = re.match(r'\$(\S+)\$(\S+)\$', str(value).strip())
                                         if matched:
-                                            param_data = matched.group(0)
+                                            #param_data = matched.group(0)
                                             param_name = matched.group(1)
                                             param_type = matched.group(2)
                                             #param_dict = all_params[param_type]
@@ -1340,7 +1340,7 @@ class UICLI(object):
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    randNum = random.randint(minv, maxv)
+                    #randNum = random.randint(minv, maxv)
                     if datatype in ["argument", "match"]:
                         rangevals = [random.randint(int(minv), int(maxv)), random.randint(int(minv), int(maxv))]
                         rangevals.sort()

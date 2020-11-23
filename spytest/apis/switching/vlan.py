@@ -743,7 +743,7 @@ def config_vlan_range(dut, vlan_range, config="add", skip_verify=False, cli_type
         else:
             commands.append('{}interface Vlan {}'.format(no_form, new_vrange))
         try:
-            output = st.config(dut, commands, type=cli_type)
+            st.config(dut, commands, type=cli_type)
             return True
         except Exception as e:
             st.log(e)
@@ -834,7 +834,7 @@ def config_vlan_range_members(dut, vlan_range, port, config="add", skip_verify=F
             commands.append('switchport trunk allowed Vlan {} {}'.format(operation, new_vrange))
             commands.append('exit')
         try:
-            output = st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
+            st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
             return True
         except Exception as e:
             st.log(e)

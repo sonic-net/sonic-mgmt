@@ -97,9 +97,9 @@ def config_intf_pim(dut, **kwargs):
     else:
         return ""
 
-    use_batch = True
     my_cmd= ''
     output = ''
+    use_batch = bool(kwargs.get('use_batch', True))
     skip_error = bool(kwargs.get('skip_error', False))
     for intf in kwargs['intf']:
         my_cmd += 'interface {}\n'.format(intf)

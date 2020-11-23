@@ -30,13 +30,10 @@ def create_portchannel(dut, portchannel_list=[], fallback=False, min_link="", st
         for portchannel_name in utils.make_list(portchannel_list):
             if not fallback:
                 if not min_link:
-                    static_flag = "--static=true" if static else ""
-                    command = "config portchannel add {} {}".format(portchannel_name, static_flag).strip()
+                    command = "config portchannel add {} --static=true".format(portchannel_name)
                 else:
                     command = "config portchannel add {} --min-links {}".format(portchannel_name, min_link)
             else:
-                if static:
-                    return False
                 if not min_link:
                     command = "config portchannel add {} --fallback=true".format(portchannel_name)
                 else:
@@ -645,7 +642,6 @@ def verify_portchannel_member_state(dut, portchannel, members_list, state='up', 
 
 
 def verify_portchannel_fallback(dut, portchannel, cli_type=""):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     This API is used to verify the portchannel fallback functionality
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -654,6 +650,7 @@ def verify_portchannel_fallback(dut, portchannel, cli_type=""):
     :param portchannel:
     :return:
     """
+    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
     command = "teamdctl {} config dump".format(portchannel)
     st.config(dut, command)
 
@@ -1109,10 +1106,10 @@ def verify_interface_portchannel(dut,**kwargs):
     :param cli_type:
     :return:
     """
-    cli_type = st.get_ui_type(dut, **kwargs)
     if not kwargs:
         st.log("Parameters not provided")
         return False
+    #cli_type = st.get_ui_type(dut, **kwargs)
     cli_type = kwargs.get("cli_type", "klish")
     if kwargs.get("channel_number"):
         output = get_interface_portchannel(dut,channel_number=kwargs.get("channel_number"),cli_type=cli_type)

@@ -1,5 +1,4 @@
 import json
-import tempfile
 import os
 import re
 import ast
@@ -546,7 +545,7 @@ def write_to_text_file(content):
     :return:
     """
     if content:
-        src_file = tempfile.mktemp()
+        src_file = st.mktemp()
         src_fp = open(src_file, "w")
         src_fp.write(content)
         src_fp.close()
@@ -651,7 +650,7 @@ def write_to_json_file(json_content):
     json_dump = json.dumps(json_content)
     parsed = json.loads(json_dump)
     chef_cookbook_json = json.dumps(parsed, indent=4, sort_keys=True)
-    src_file = tempfile.mktemp()
+    src_file = st.mktemp()
     src_fp = open(src_file, "w")
     src_fp.write(chef_cookbook_json)
     src_fp.close()
@@ -1459,8 +1458,7 @@ def get_show_command_data(dut, command, type="txt"):
     file_extension = "txt" if type != "json" else "json"
     data = None
     remote_file = "/tmp/running_config.{}".format(file_extension)
-    #local_file = "/tmp/running_config.{}".format(file_extension)
-    local_file = tempfile.mktemp()
+    local_file = st.mktemp()
     for _ in range(0,3):
         actual_cmd = "{} > {}".format(command, remote_file)
         st.config(dut, actual_cmd)

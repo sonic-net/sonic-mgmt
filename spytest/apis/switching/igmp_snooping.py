@@ -398,8 +398,6 @@ def verify_groups(dut, *argv, **kwargs):
         if data.get("outgoing_ports"):
             outgoing_ports_li = utils.make_list(data['outgoing_ports'])
             for each in outgoing_ports_li:
-                if not entries:
-                    return False
                 if each not in entries[0]['outgoing_ports'].split(', '):
                     st.log("Outgoing interface {} is not found in  vlan {}".format(each, data.get('vlan')))
                     result = False

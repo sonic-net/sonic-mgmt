@@ -208,49 +208,45 @@ def create_acl_rule(dut, skip_verify=True, acl_type=None, host_1=None, host_2=No
         vlan_cmd = "vlan {}".format(vlan_id) if vlan_id else ""
         commands.append("{} access-list {}".format(acl_type, table_name))
         command = "seq"
-        if rule_name:
-            st.debug("RULE NAME -- {}".format(rule_name))
-            rule_seq = kwargs.pop('rule_seq', int(re.findall(r'\d+', rule_name)[0]) if re.findall(r'\d+', rule_name) else "")
-            if not rule_seq:
-                st.log("RULE SEQ VALUE NOT FOUND.. HENCE ABORTING ...")
-                return False
-            if packet_action.upper() in action_mapping.keys():
-                packet_action = action_mapping[packet_action.upper()]
-            if acl_type in ["ip", "ipv6"]:
-                if (src_ip != "any" and "/" not in src_ip):
-                    host_1 = "host"
-                if (dst_ip != "any" and "/" not in dst_ip):
-                    host_2 = "host"
-                full_seq = [rule_seq, packet_action, l4_protocol, type_any, host_1, src_ip, src_comp_operator, src_port, src_port_range_cmd,
-                            type_any, host_2, dst_ip, dst_comp_operator, dst_port, dst_port_range_cmd, dscp,
-                            tcp_flag, vlan_cmd, remark]
-            elif acl_type == "mac":
-                if "/" in src_mac:
-                    src_mac_val = src_mac.split("/")[0]
-                    host_1 = "host"
-                else:
-                    src_mac_val = src_mac
-                    host_1 = ""
-                if "/" in dst_mac:
-                    dst_mac_val = dst_mac.split("/")[0]
-                    host_2 = "host"
-                else:
-                    dst_mac_val = dst_mac
-                    host_2 = ""
-                full_seq = [rule_seq, packet_action, type_any, host_1, src_mac_val, type_any, host_2, dst_mac_val, eth_type,
-                            vlan_cmd, pcp, dei, remark]
-            else:
-                st.error("ACL TYPE IS UNSUPPORTED")
-                return False
-            for cmd in full_seq:
-                if cmd:
-                    command += " "+str(cmd)
-            commands.append(command)
-            commands.append('exit')
-            st.config(dut, commands, type=cli_type, skip_error_check=skip_verify)
-        else:
-            st.error("RULE NOT PROVIDED")
+        st.debug("RULE NAME -- {}".format(rule_name))
+        rule_seq = kwargs.pop('rule_seq', int(re.findall(r'\d+', rule_name)[0]) if re.findall(r'\d+', rule_name) else "")
+        if not rule_seq:
+            st.log("RULE SEQ VALUE NOT FOUND.. HENCE ABORTING ...")
             return False
+        if packet_action.upper() in action_mapping.keys():
+            packet_action = action_mapping[packet_action.upper()]
+        if acl_type in ["ip", "ipv6"]:
+            if (src_ip != "any" and "/" not in src_ip):
+                host_1 = "host"
+            if (dst_ip != "any" and "/" not in dst_ip):
+                host_2 = "host"
+            full_seq = [rule_seq, packet_action, l4_protocol, type_any, host_1, src_ip, src_comp_operator, src_port, src_port_range_cmd,
+                        type_any, host_2, dst_ip, dst_comp_operator, dst_port, dst_port_range_cmd, dscp,
+                        tcp_flag, vlan_cmd, remark]
+        elif acl_type == "mac":
+            if "/" in src_mac:
+                src_mac_val = src_mac.split("/")[0]
+                host_1 = "host"
+            else:
+                src_mac_val = src_mac
+                host_1 = ""
+            if "/" in dst_mac:
+                dst_mac_val = dst_mac.split("/")[0]
+                host_2 = "host"
+            else:
+                dst_mac_val = dst_mac
+                host_2 = ""
+            full_seq = [rule_seq, packet_action, type_any, host_1, src_mac_val, type_any, host_2, dst_mac_val, eth_type,
+                        vlan_cmd, pcp, dei, remark]
+        else:
+            st.error("ACL TYPE IS UNSUPPORTED")
+            return False
+        for cmd in full_seq:
+            if cmd:
+                command += " "+str(cmd)
+        commands.append(command)
+        commands.append('exit')
+        st.config(dut, commands, type=cli_type, skip_error_check=skip_verify)
     elif cli_type in ["rest-patch","rest-put"]:
         acl_type_mapping = {"ip": "ipv4", "ipv6": "ipv6", "mac": "l2", "L3":"ipv4", "L3V6": "ipv6", "L2":"l2"}
         acl_type = acl_type if acl_type else kwargs.get("type")
@@ -509,12 +505,7 @@ def clear_acl_counter(dut, acl_table=None, acl_rule=None, acl_type=None):
         acl_type = get_acl_type(acl_type)
         if not acl_type:
             return False
-        command = list()
-        if not acl_type:
-            command.append("clear ip access-list counters")
-            command.append("clear mac access-list counters")
-        else:
-            command.append("clear {} access-list counters".format(acl_type))
+        command = "clear {} access-list counters".format(acl_type)
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
         return False

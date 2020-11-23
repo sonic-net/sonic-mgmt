@@ -27,17 +27,13 @@ def config_ipv6(dut, action='disable'):
     """
     command = "config ipv6 {}".format(action)
     if st.is_feature_supported("config-ipv6-command", dut):
-        st.config(dut, command)
-    elif action == "disable":
-        st.community_unsupported(command, dut)
-        st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6=1")
-        st.config(dut, "sysctl -w net.ipv6.conf.default.disable_ipv6=1")
-        st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
-    else:
-        st.community_unsupported(command, dut)
-        st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6=0")
-        st.config(dut, "sysctl -w net.ipv6.conf.default.disable_ipv6=0")
-        st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6=0")
+        return st.config(dut, command)
+
+    st.community_unsupported(command, dut)
+    value = "1" if action == "disable" else "0"
+    st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6={}".format(value))
+    st.config(dut, "sysctl -w net.ipv6.conf.default.disable_ipv6={}".format(value))
+    st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6={}".format(value))
 
 def show_ipv6(dut):
     """
@@ -2836,8 +2832,7 @@ def show_ip_loadshare(dut, **kwargs):
         return output
     else:
         st.error("Unsupported CLI_TYPE: {}.".format(cli_type))
-        return False
-    return True
+    return False
 
 def verify_ip_loadshare(dut, **kwargs):
     """

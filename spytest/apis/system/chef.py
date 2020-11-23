@@ -1,13 +1,17 @@
 # This file contains the list of API's for operations on Chef
 # @author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+
+import json
+import pprint
+
+from spytest import st
+
 import apis.system.connection as con_obj
-import utilities.utils as utils_obj
 import apis.system.basic as basic_obj
 import apis.system.ntp as ntp_obj
-from spytest import st
-import json
-import tempfile
-import pprint
+
+import utilities.utils as utils_obj
+
 chef_client_file = r"/etc/chef/client.rb"
 
 def get_chef_cookbook_params(hostname="sonic"):
@@ -29,10 +33,7 @@ def get_chef_cookbook_params(hostname="sonic"):
     chef_cookbook["chef_type"] = "role"
     return chef_cookbook
 
-
-global chef_cookbook
 chef_cookbook = get_chef_cookbook_params()
-
 
 def generate_certificate(chef_conn_obj, cert_path):
     """
@@ -351,7 +352,7 @@ def write_cookbook_json():
     parsed = json.loads(json_dump)
     chef_cookbook_json = json.dumps(parsed, indent=4, sort_keys=True)
     st.log("Cookbook Data: \n{}".format(chef_cookbook_json))
-    src_file = tempfile.mktemp()
+    src_file = st.mktemp()
     src_fp = open(src_file, "w")
     src_fp.write(chef_cookbook_json)
     src_fp.close()

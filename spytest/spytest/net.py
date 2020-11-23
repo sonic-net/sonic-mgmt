@@ -2510,7 +2510,7 @@ class Net(object):
 
         # write json content into file
         for _ in range(3):
-            src_file = tempfile.mktemp()
+            src_file = self.wa.mktemp()
             src_fp = open(src_file, "w")
             src_fp.write(indented)
             src_fp.close()

@@ -484,7 +484,7 @@ def apply_config_profile(profile):
         output = execute_check_cmd("show switch-profiles")
         match = re.match(r"Factory Default:\s+(\S+)", output)
         if not match:
-            output = execute_check_cmd("show config profiles")
+            execute_check_cmd("show config profiles")
         if match and profile == match.group(1):
             execute_check_cmd("rm -rf {}".format(config_file))
         execute_check_cmd("config profile factory {} -y".format(profile))

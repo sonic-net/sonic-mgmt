@@ -63,15 +63,12 @@ def delete_client_pem_files(dut, path, file_name=None):
     """
     if file_name:
         command = "sudo rm -rf {}/{}".format(path,file_name)
-        print(command)
         result = st.config(dut, command)
         return result
     else:
         command = "sudo rm -rf {}/{}".format(path,"client.pem")
-        print(command)
-        result = st.config(dut, command)
+        st.config(dut, command)
         command = "sudo rm -rf {}/{}".format(path,"validation.pem")
-        print(command)
         result = st.config(dut, command)
         return result
 

@@ -1,6 +1,5 @@
 # This file contains the list of API's which performs BGP operations.
 # Author : Chaitanya Vella (Chaitanya-vella.kumar@broadcom.com)
-import os
 import re
 import json
 
@@ -2234,9 +2233,9 @@ def config_bgp(dut, **kwargs):
     local_as = kwargs.get('local_as', None)
     remote_as = kwargs.get('remote_as', None)
     peergroup =  kwargs.get('peergroup', '')
-    pswd = kwargs.get('pswd', None)
-    activate = kwargs.get('activate', None)
-    nexthop_self = kwargs.get('nexthop_self', None)
+    #pswd = kwargs.get('pswd', None)
+    #activate = kwargs.get('activate', None)
+    #nexthop_self = kwargs.get('nexthop_self', None)
     addr_family = kwargs.get('addr_family', 'ipv4')
     keepalive = kwargs.get('keepalive', '')
     holdtime = kwargs.get('holdtime', '')
@@ -2728,7 +2727,7 @@ def config_bgp(dut, **kwargs):
         route_map = True if "routeMap" in config_type_list else False
         default_originate = True if "default_originate" in config_type_list else False
         removePrivateAs = True if "removePrivateAs" in config_type_list else False
-        no_neighbor = "no" if kwargs.get("config") == "no" else ""
+        #no_neighbor = "no" if kwargs.get("config") == "no" else ""
         sub_list = ["neighbor", "routeMap", "shutdown", "activate", "nexthop_self", "pswd", "update_src",
                     "bfd", "default_originate", "removePrivateAs", "no_neigh", "remote-as", "filter_list",
                     "prefix_list", "distribute_list", "weight", "keepalive", "holdtime", "ebgp_mhop", "peergroup",
@@ -3216,7 +3215,6 @@ def show_ip_bgp_route(dut, family='ipv4', **kwargs):
 
 def fetch_ip_bgp_route(dut, family='ipv4', match=None, select=None, **kwargs):
     cli_type = get_show_cli_type(dut, **kwargs)
-    entries = dict()
     output = show_ip_bgp_route(dut, family=family,cli_type=cli_type)
     #match = {'network': network}
     entries = filter_and_select(output, select, match)
@@ -3293,7 +3291,6 @@ def show_bgp_ipvx_prefix(dut, prefix, masklen, family='ipv4'):
     :return:
     """
     #4 place, can use get_ip_bpg_route and/or verify_ip_bgp_route4 place, can use get_ip_bpg_route and/or verify_ip_bgp_route
-    entries = dict()
     command = "show bgp {} {}/{}".format(family, prefix, masklen)
     entries = st.show(dut, command, type='vtysh')
     st.log(entries)

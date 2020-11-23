@@ -470,7 +470,6 @@ def config_stp_interface_params(dut, iface, **kwargs):
         return False
 
 def config_stp_interface(dut, iface, mode="enable", cli_type=""):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
 
     :param dut:
@@ -478,6 +477,7 @@ def config_stp_interface(dut, iface, mode="enable", cli_type=""):
     :param mode:
     :return:
     """
+    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
     command = "config spanning_tree interface {} {} ".format(mode, iface)
     st.config(dut, command)
 
@@ -597,12 +597,12 @@ def show_stp_vlan_iface(dut, vlan, iface, cli_type=""):
     return st.show(dut, command, type=cli_type)
 
 def show_stp_stats(dut, cli_type=""):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
 
     :param dut:
     :return:
     """
+    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
     command = "show spanning_tree statistics"
     return st.show(dut, command)
 
@@ -920,13 +920,13 @@ def get_default_root_bridge(dut_list, cli_type=""):
         return None
 
 def get_duts_mac_address(duts, cli_type=""):
-    cli_type = st.get_ui_type(duts[0], cli_type=cli_type)
     """
         This is used to get the Duts and its mac addresses mapping
         :param duts: List of DUTs
         :return : Duts and its mac addresses mapping
 
     """
+    #cli_type = st.get_ui_type(duts[0], cli_type=cli_type)
     duts_mac_addresses = {}
     for dut in duts:
         if st.is_vsonic(dut):
@@ -1140,7 +1140,6 @@ def stp_clear_stats(dut, **kwargs):
     st.config(dut, cmd)
 
 def get_stp_stats(dut, vlan, interface, param, cli_type=""):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
 
     :param dut:
@@ -1154,7 +1153,8 @@ def get_stp_stats(dut, vlan, interface, param, cli_type=""):
 
     :return:
     """
-    output = show_stp_stats_vlan(dut, vlan)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    output = show_stp_stats_vlan(dut, vlan, cli_type=cli_type)
     value_list = [row[param] for row in output if int(row['st_vid']) == vlan and row['st_portno'] == interface]
     st.banner(value_list)
     return None if len(output) == 0 else int(value_list[0])
@@ -1717,8 +1717,8 @@ def check_lg_current_state(dut, vlan, ifname, cli_type=""):
         return lg_status == "Consistent state"
     else:
         return lg_status == ""
-    
-    
+
+
 def config_loopguard_global(dut, mode=None, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if cli_type == 'klish':
@@ -1744,4 +1744,4 @@ def config_loopguard_global(dut, mode=None, cli_type=""):
     else:
         st.log("UNSUPPORTED CLI TYPE")
         return False
-        
+

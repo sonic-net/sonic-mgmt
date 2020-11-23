@@ -586,17 +586,30 @@ def lib_stp_port_actions(vars, stp_ela, stp_protocol):
     utils.banner_log("Verification of Root guard functinality -- STARTED")
     #############################################################################################
     res, res1 = 1, 1
+    st.log("Getting the dut list excluding the root and next root and removing them from stp by disabling stp on vlan")
+    dut_list = stp_wrap.get_dut_list(vars)
+    st.log("DUT LIST : {}".format(dut_list))
+    dut_list_excluding_root_and_non_root = dut_list
+    dut_list_excluding_root_and_non_root.remove(root_bridge)
+    dut_list_excluding_root_and_non_root.remove(partner_dut)
+    st.log("DUT LIST AFTER EXCLUDING ROOT AND NEXT BEST ROOT: {}".format(dut_list_excluding_root_and_non_root))
+
+    for d in dut_list_excluding_root_and_non_root:
+        stp.config_spanning_tree(d, feature=stp_protocol, mode="disable", vlan=random_vlan)
+
     st.log("Disabling {} on root switch for vlan {} on root switch {}".format(stp_protocol,random_vlan, root_bridge))
     stp.config_spanning_tree(root_bridge, feature=stp_protocol, mode="disable", vlan=random_vlan)
     st.wait(3)
     st.log("Configuring non root switch interface with root guard")
-    stp.config_stp_interface_params(partner_dut, remote_interface, root_guard="enable")
+    intflist = stp.get_stp_port_list(partner_dut, random_vlan, exclude_port="")
+    for i in intflist:
+        stp.config_stp_interface_params(partner_dut, i, root_guard="enable")
     if not stp.check_rg_current_state(partner_dut, random_vlan, remote_interface):
         res = 0
         st.error("Interface on non root bride is not in consistent state")
 
     rootguard_incon_count1 = slog.get_logging_count(partner_dut, severity="INFO",filter_list=["Root Guard interface {}, VLAN {} inconsistent (Received superior BPDU)".format(remote_interface, random_vlan)])
-    rootguard_con_count1 = slog.get_logging_count(partner_dut, severity="INFO",filter_list=["Root Guard interface {}, VLAN {} consistent (Timeout)".format(remote_interface, random_vlan)])
+    rootguard_con_count1 = slog.get_logging_count(partner_dut, severity="INFO",filter_list=["Root Guard interface {} VLAN {} consistent (Timeout)".format(remote_interface, random_vlan)])
 
     st.log("Enabling {} on root switch for vlan {} on root switch {}".format(stp_protocol,random_vlan, root_bridge))
     stp.config_spanning_tree(root_bridge, feature=stp_protocol, mode="enable", vlan=random_vlan)
@@ -633,15 +646,20 @@ def lib_stp_port_actions(vars, stp_ela, stp_protocol):
 
     st.log("removing root guard on partner device  interface")
     stp.show_stp(partner_dut, sub_cmd="root_guard")
-    rootguard_con_count2 = slog.get_logging_count(partner_dut, severity="INFO",filter_list=["Root Guard interface {}, VLAN {} consistent (Timeout)".format(remote_interface, random_vlan)])
+    rootguard_con_count2 = slog.get_logging_count(partner_dut, severity="INFO",filter_list=["Root Guard interface {} VLAN {} consistent (Timeout)".format(remote_interface, random_vlan)])
     if not rootguard_con_count2 > rootguard_con_count1:
         res1 = 0
         st.error("Root guard syslog generated count {} is not correct".format(rootguard_con_count2))
     else:
         st.log("Root guard syslog generated count {} is correct".format(rootguard_con_count2))
 
-    stp.config_stp_interface_params(partner_dut, remote_interface, root_guard="disable")
+    for i in intflist:
+        stp.config_stp_interface_params(partner_dut, i, root_guard="disable")
     stp.config_spanning_tree(root_bridge, feature=stp_protocol, mode="enable", vlan=random_vlan)
+    for d in dut_list_excluding_root_and_non_root:
+        stp.config_spanning_tree(d, feature=stp_protocol, mode="enable", vlan=random_vlan)
+    st.wait(stp_dict[stp_protocol]["stp_wait_time"])
+
     if res:
         pass_cnt+=1
         st.report_tc_pass('ft_{}_rootguard'.format(stp_protocol),'test_case_passed')

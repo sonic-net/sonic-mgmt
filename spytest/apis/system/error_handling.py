@@ -425,7 +425,7 @@ def eh_bcm_debug_show(dut, af='both', table_type='all', ifname_type=None):
 def _get_entries_with_native_port(dut, output, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
     ifname_type = kwargs.get("ifname_type", "")
-    is_standard_mode = verify_ifname_type(dut, mode='standard')
+    verify_ifname_type(dut, mode='standard')
     st.log("OUTPUT:{}".format(output))
     for entry in output:
         if (cli_type == 'klish' and ifname_type == "alias"):

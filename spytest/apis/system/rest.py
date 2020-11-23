@@ -12,7 +12,6 @@ from utilities.common import filter_and_select, do_eval
 
 # disable warnings from SSL/TLS certificates
 requests.packages.urllib3.disable_warnings() # pylint: disable=no-member
-global request_id
 request_id = 1
 
 

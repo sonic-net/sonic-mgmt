@@ -3,12 +3,12 @@ from spytest.utils import filter_and_select
 from utilities.utils import get_interface_number_from_name
 
 def config_intf_diagnostics(dut, intf, mode, **kwargs):
-    
+
     '''
     :param dut:
     :param intf:
     :param feature:
-        value: loopback (default) 
+        value: loopback (default)
     :param mode:
         value: <media-side-output|media-side-input|host-side-output|host-side-input>
     :param action:
@@ -16,7 +16,7 @@ def config_intf_diagnostics(dut, intf, mode, **kwargs):
     :param skip_error:
     :return:
 
-    :mode 
+    :mode
     :
     import apis.system.cmis as cmis_api
     cmis_api.config_intf_diagnostics(dut=data.dut1, intf='Ethernet17', mode='media-side-input')
@@ -28,12 +28,12 @@ def config_intf_diagnostics(dut, intf, mode, **kwargs):
     feature = kwargs.get('feature','loopback')
     action =  kwargs.get('action','enable')
     skip_error = kwargs.get('skip_error',False)
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    #cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
 
     intf_info = get_interface_number_from_name(intf)
     cmd = 'interface diagnostics {} {} {} {} {}'.format(feature, intf_info['type'], intf_info['number'], mode, action)
     try:
-        output = st.config(dut, cmd, skip_error_check=skip_error, type="klish", conf=True)
+        st.config(dut, cmd, skip_error_check=skip_error, type="klish", conf=True)
     except Exception as e:
         st.log(e)
         return False
@@ -53,7 +53,8 @@ def verify_intf_diag_reporting(dut, intf, **kwargs):
 	:param ber_reg:
     '''
     st.log('API: verify_intf_diag_reporting - DUT: {}, intf: {}, kwargs: {}'.format(dut, intf, kwargs))
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    #cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    kwargs.pop('cli_type', None)
 
     num_args = len(kwargs)
     intf_info = get_interface_number_from_name(intf)
@@ -80,9 +81,10 @@ def verify_intf_diag_loopback_cap(dut, intf, **kwargs):
 	:param ms_ip_loopback:
 	:param ms_op_loopback:
 
-    '''    
+    '''
     st.log('API: verify_intf_diag_reporting - DUT: {}, intf: {}, kwargs: {}'.format(dut, intf, kwargs))
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    #cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    kwargs.pop('cli_type', None)
 
     num_args = len(kwargs)
     intf_info = get_interface_number_from_name(intf)
@@ -129,7 +131,8 @@ def verify_intf_diag_loopback_controls(dut, intf, **kwargs):
     '''
 
     st.log('API: verify_intf_diag_reporting - DUT: {}, intf: {}, kwargs: {}'.format(dut, intf, kwargs))
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    #cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    kwargs.pop('cli_type', None)
 
     num_args = len(kwargs)
     intf_info = get_interface_number_from_name(intf)

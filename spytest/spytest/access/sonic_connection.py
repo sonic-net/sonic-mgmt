@@ -13,15 +13,18 @@ if sys.version_info[0] >= 3:
     unicode = str
 
 show_trace = 0
-if show_trace > 1:
+def init_trace(val):
+    if val <= 0: return None
     logger = logging.getLogger('netmiko_connection')
     logger.setLevel(logging.DEBUG)
+    return logger
+logger = init_trace(show_trace)
 
 def trace(fmt, *args):
     if show_trace <= 0:
         return
     msg = fmt % args
-    if show_trace > 1:
+    if show_trace > 1 and logger:
         logger.info(msg)
     else:
         print(msg)

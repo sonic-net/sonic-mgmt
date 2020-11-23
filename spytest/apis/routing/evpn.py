@@ -833,7 +833,6 @@ def verify_bgp_l2vpn_evpn_summary(dut,**kwargs):
         rest_out = get_rest(dut, rest_url=url, timeout=30)
         if rest_out["status"] == 200:
             no_match=match=False
-            out_dict={}
             for key, val in kwargs.items():
                 if type(val) is not list:
                     kwargs[key] = [val]
@@ -858,7 +857,7 @@ def verify_bgp_l2vpn_evpn_summary(dut,**kwargs):
                                     st.log("Match NOT found for neighbor {}; expected status: {}"
                                            " but found: {}".format(evpn_neigh,exp_status,status))
                                     no_match=True
-                            except Exception as e:
+                            except Exception:
                                 continue
                         else:
                                 st.log("specify the neighbor argument to be verified ")
@@ -1768,7 +1767,7 @@ verify_bgp_l2vpn_evpn_route_type_macip(dut=data.dut1,evpn_type_2_prefix="[2]:[0]
                                     ret_val = False
                         if match:
                             break
-                except Exception as e:
+                except Exception:
                     continue
             if not match:
                 st.log("MAC IP Route {} was not found in the rest output".format(kwargs["evpn_type_2_prefix"]))
@@ -2481,7 +2480,7 @@ def verify_bgp_l2vpn_evpn_route_detail_type_prefix(dut,**kwargs):
                                         ret_val = False
                             if ret_val:
                                 return True
-                except Exception as e:
+                except Exception:
                     continue
         else:
             st.log("REST command execution failed")
@@ -2632,7 +2631,7 @@ def verify_bgp_l2vpn_evpn_route_type_multicast(dut,**kwargs):
                                     ret_val = False
                         if ret_val:
                             return True
-                except Exception as e:
+                except Exception:
                     continue
         else:
             st.log("REST command execution failed")
@@ -2797,7 +2796,6 @@ def create_linktrack(dut, track_group_name, config='yes', **kwargs):
         return
     else:
         st.error("Invalid CLI type - {}".format(cli_type))
-        return False
     return False
 
 def update_linktrack_interface(dut, track_group_name, upinterface, timeout, config='yes', **kwargs):
@@ -3250,6 +3248,8 @@ def verify_linktrack_group_name(dut,**kwargs):
         response = get_rest(dut, rest_url=url)
         st.log('KLISH output for debugging REST')
         st.show(dut, 'show link state tracking {}'.format(kwargs['name']), type='klish')
+        if 'startup_remain_time' in kwargs:
+            del kwargs['startup_remain_time'] 
         if response['output']:
             output = parse_rest_output_linktrack_group(dut,response,lst_timeout,lst_description)
         else:

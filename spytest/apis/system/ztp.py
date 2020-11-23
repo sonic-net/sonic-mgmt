@@ -32,7 +32,7 @@ def show_ztp_status(dut, expect_reboot=False, cli_type=""):
     output = st.show(dut, command, expect_reboot=False, type=cli_type)
     file_name = dict()
     timestamps = dict()
-    excluded_file_name = ["--sonic-mgmt--#"]
+    #excluded_file_name = ["--sonic-mgmt--#"]
     if output:
         for row in output:
             result["filenames"] = list()
@@ -110,7 +110,7 @@ def _verify_ztp_status_with_retry(dut, retry_cnt, cli_type=""):
     """
     not_started_retry_cnt = 0
     st.log("Verifying the ZTP status with retry method ...")
-    for count in range(1, retry_cnt + 1):
+    for _ in range(1, retry_cnt + 1):
         response = show_ztp_status(dut, cli_type=cli_type)
         if response["adminmode"] == "True":
             st.log("Found that admin mode as {}".format(response["adminmode"]))
@@ -187,7 +187,7 @@ def verify_ztp_status(dut, retry_cnt=0, iteration=300, retry=3, expect_reboot=Fa
         return _verify_ztp_status_with_retry(dut, retry_cnt, cli_type=cli_type)
     else:
         st.log("Verifying the ZTP status with iteration method ...")
-        for i in range(1, iteration + 1):
+        for _ in range(1, iteration + 1):
             response = show_ztp_status(dut, expect_reboot=expect_reboot, cli_type=cli_type)
             if not response:
                 st.log("Observed no response in ZTP status ... retrying {} .. ".format(retry_count_if_no_response))
@@ -708,7 +708,7 @@ def verify_plugin_chronological_order(dut, cli_type=""):
             data.append(val["filetimestamp"])
     else:
         for val in output["timestamps"]:
-            for file, timestamp in val.items():
+            for _, timestamp in val.items():
                 data.append(timestamp)
         data.sort()
     for i, _ in enumerate(data):

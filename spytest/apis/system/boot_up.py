@@ -11,7 +11,6 @@ def sonic_installer_cleanup(dut):
     else:
         st.log("No image(s) to remove")
         return False
-    return True
 
 def sonic_installer_remove(dut,image):
     command = "sudo sonic_installer remove {} -y".format(image)
@@ -22,7 +21,6 @@ def sonic_installer_remove(dut,image):
     else:
         st.log("Image does not exist")
         return False
-    return True
 
 def sonic_installer_set_default(dut,image):
     command = "sudo sonic_installer set_default {}".format(image)
@@ -33,7 +31,6 @@ def sonic_installer_set_default(dut,image):
     else:
         st.log("Image does not exist")
         return False
-    return True
 
 def sonic_installer_set_next_boot(dut,image):
     command = "sudo sonic_installer set_next_boot {}".format(image)
@@ -44,7 +41,6 @@ def sonic_installer_set_next_boot(dut,image):
     else:
         st.log("Image does not exist")
         return False
-    return True
 
 def sonic_installer_install(dut,image_path):
     command = "sudo sonic_installer install {} -y".format(image_path)
@@ -55,7 +51,6 @@ def sonic_installer_install(dut,image_path):
     else:
         st.log("No such file or directory | Image file does not exist or is not a regular file. Aborting")
         return False
-    return True
 
 def sonic_installer_install2(dut, url, max_time=1800, skip_error_check=False, migartion=False):
     cli_type = st.get_ui_type(dut)
@@ -76,7 +71,7 @@ def sonic_installer_install2(dut, url, max_time=1800, skip_error_check=False, mi
     elif cli_type == 'klish':
         cmd = "image install {}".format(url)
         st.log("installing {}".format(cmd))
-        output = st.config(dut, cmd, skip_error_check=skip_error_check, max_time=max_time, type=cli_type)
+        st.config(dut, cmd, skip_error_check=skip_error_check, max_time=max_time, type=cli_type)
         return "success"
 
 def sonic_installer_binary_version(dut,image_path):
@@ -88,7 +83,6 @@ def sonic_installer_binary_version(dut,image_path):
     else:
         st.log("File does not appear to be a vaild SONiC image file")
         return False
-    return True
 
 def sonic_installer_upgrade_docker(dut,container_name,image_path):
     command = "sudo sonic_installer upgrade_docker {} {} -y".format(container_name,image_path)
@@ -99,7 +93,6 @@ def sonic_installer_upgrade_docker(dut,container_name,image_path):
     else:
         st.log("No such file or directory | Image file does not exist or is not a regular file. Aborting")
         return False
-    return True
 
 def sonic_installer_list(dut, **kwargs):
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut, **kwargs))
