@@ -58,7 +58,7 @@ def config_dut(tbinfo, duthosts, rand_one_dut_hostname):
     if not gw:
         assert("No IPv4 default GW found for eth0")
     duthost.shell("sudo ip route add {}/32 via {} dev eth0".format(local_syslog_srv_ip, gw))
-    logger.debug("Added new route to PTF witch command: sudo ip route add {}/32 via {} dev eth0".format(local_syslog_srv_ip, gw))
+    logger.debug("Added new route to PTF with command: sudo ip route add {}/32 via {} dev eth0".format(local_syslog_srv_ip, gw))
 
     # Add Rsyslog destination for testing
     logger.info("test_syslog_srv_ip %s", local_syslog_srv_ip)
