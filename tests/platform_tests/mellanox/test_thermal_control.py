@@ -89,9 +89,9 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
     #     1. We observe that on lionfish, it might take about 30 seconds for PSU to adjust
     #     its fan speed to target value
     #     2. Issue 2255767. There is chance that kernel might incorrectly change cooling state back to 10 after
-    #     user space thermal control adjust it to dyanmic minimum value. This issue is set to "Wont Fix"
+    #     user space thermal control adjust it to dynamic minimum value. This issue is set to "Wont Fix"
     #     by hw-mgmt team. So we have to wait longer for the user space thermal control
-    #     to set fan speed to dyanmic minimum value again (1 more minutes).
+    #     to set fan speed to dynamic minimum value again (1 more minutes).
     time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME * 2)
     cooling_cur_state = get_cooling_cur_state(duthost)
     if cooling_cur_state == 10:
