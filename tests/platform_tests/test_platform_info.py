@@ -41,6 +41,9 @@ LOG_EXPECT_FAN_OVER_SPEED_CLEAR_RE = '.*Fan high speed warning cleared:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warning:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
+SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['ERR pmon#thermalctld.*int() argument must be a string or a number',
+                                     'ERR pmon#thermalctld.*invalid literal for int() with base 10']
+
 
 def check_sensord_status(ans_host):
     """
@@ -256,7 +259,7 @@ def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('ignore_particular_error_log', [['ERR pmon#thermalctld.*int() argument must be a string or a number']], indirect=True)
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
 def test_show_platform_temperature_mocked(duthosts, rand_one_dut_hostname, mocker_factory, ignore_particular_error_log):
     """
     @summary: Check output of 'show platform temperature'
