@@ -104,7 +104,7 @@ class TestSfpApi(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, request, platform_api_conn):
-        self.skip_absent_sfp = request.config.getoption("--skip_absent_sfp")
+        self.skip_absent_sfp = request.config.getoption("--skip-absent-sfp")
 
         if self.num_sfps is None:
             try:
@@ -114,7 +114,7 @@ class TestSfpApi(PlatformApiTestBase):
 
         self.candidate_sfp = []
         if self.skip_absent_sfp:
-            # Skip absent SFP if option "--skip_absent_sfp" set to True 
+            # Skip absent SFP if option "--skip-absent-sfp" set to True 
             for i in range(self.num_sfps):
                 try:
                     if sfp.get_presence(platform_api_conn, i):
