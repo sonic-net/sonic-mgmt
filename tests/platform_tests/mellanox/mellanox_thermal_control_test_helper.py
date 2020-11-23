@@ -647,6 +647,9 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         presence = 0
         direction = NOT_AVAILABLE
         naming_rule = FAN_NAMING_RULE['fan']
+        # All system fan is controlled to have the same speed, so only
+        # get a random value once here
+        speed = random.randint(60, 100)
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
@@ -664,7 +667,6 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 fan_index += 1
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
-                    speed = random.randint(60, 100)
                     fan_data.mock_speed(speed)
                     fan_data.mock_target_speed(speed)
                     self.expected_data[fan_data.name] = [
