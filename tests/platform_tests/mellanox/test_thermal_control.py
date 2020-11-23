@@ -4,7 +4,6 @@ import pytest
 import random
 import time
 from tests.common.mellanox_data import get_platform_data
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.platform_tests.thermal_control_test_helper import *
 from mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
@@ -30,7 +29,6 @@ PSU_SPEED_TOLERANCE = 0.25
 @pytest.mark.disable_loganalyzer
 def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
     duthost = duthosts[rand_one_dut_hostname]
-    air_flow_dirs = ['p2c', 'c2p', 'unk']
     max_temperature = 45000 # 45 C
     cooling_cur_state = get_cooling_cur_state(duthost)
     if cooling_cur_state >= COOLING_CUR_STATE_THRESHOLD:
