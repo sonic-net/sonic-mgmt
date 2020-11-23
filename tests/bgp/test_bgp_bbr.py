@@ -148,9 +148,9 @@ def prepare_routes(setup, ptfhost):
     logger.info('Withdraw routes {} from the first T0'.format(str(bbr_routes)))
     for route in bbr_routes:
         if ipaddress.IPNetwork(route.prefix).version == 4:
-            update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port, route)
+            update_routes('withdraw', ptfhost.mgmt_ip, tor1_exabgp_port, route)
         else:
-            update_routes('announce', ptfhost.mgmt_ip, tor1_exabgp_port_v6, route)
+            update_routes('withdraw', ptfhost.mgmt_ip, tor1_exabgp_port_v6, route)
 
 
 def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
