@@ -66,12 +66,10 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     tor1 = tor_neighbors[0]
     other_vms = tor_neighbors[1:] + t2_neighbors
 
-    neigh_peer_map = defaultdict()
+    neigh_peer_map = defaultdict(dict)
     for bgp_neigh in mg_facts['minigraph_bgp']:
         name = bgp_neigh['name']
         peer_addr = bgp_neigh['peer_addr']
-        if name not in neigh_peer_map:
-            neigh_peer_map[name] = defaultdict()
         if ipaddress.IPAddress(peer_addr).version == 4:
             neigh_peer_map[name].update({'peer_addr': peer_addr})
         else:
