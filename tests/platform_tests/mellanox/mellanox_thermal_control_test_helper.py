@@ -366,6 +366,9 @@ class FanData:
     # Speed tolerance
     SPEED_TOLERANCE = 0.2
 
+    # Cooling cur state file
+    COOLING_CUR_STATE_FILE = 'cooling_cur_state'
+
     def __init__(self, mock_helper, naming_rule, index):
         """
         Constructor of FAN data.
@@ -434,6 +437,10 @@ class FanData:
             self.mocked_status = 'OK' if status == 0 else 'Not OK'
         else:
             self.mocked_status = 'OK'
+
+    @classmethod
+    def mock_cooling_cur_state(cls, mock_helper, value):
+        mock_helper.mock_thermal_value(cls.COOLING_CUR_STATE_FILE, str(value))
 
     def get_max_speed(self):
         """
@@ -650,6 +657,7 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         # All system fan is controlled to have the same speed, so only
         # get a random value once here
         speed = random.randint(60, 100)
+        FanData.mock_cooling_cur_state(self.mock_helper, speed/10)
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
