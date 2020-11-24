@@ -36,21 +36,41 @@ DUMMY_ASN1 = 64101
 DUMMY_ASN2 = 64102
 
 
-@pytest.fixture
-def disable_enable_bbr(duthosts, rand_one_dut_hostname):
+@pytest.fixture(scope='module', autouse=True)
+def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     bgp_bbr_config = Template(open("./bgp/templates/bgp_bbr_config.json.j2").read())
 
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
 
+
+def enable_bbr(duthost):
     logger.info('Disable BGP_BBR')
-    duthost.shell('sonic-cfggen -j /tmp/disable_bbr.json -w ')
+    duthost.shell('sonic-cfggen -j /tmp/enable_bbr.json -w ')
+
+
+def disable_bbr(duthost):
+    logger.info('Enable BGP_BBR')
+    duthost.shell('sonic-cfggen -j /tmp/disable_bbr.json -w')
+
+
+@pytest.fixture
+def config_bbr_disabled(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    disable_bbr(duthost)
     time.sleep(3)
     yield
 
-    logger.info('Enable BGP_BBR')
-    duthost.shell('sonic-cfggen -j /tmp/enable_bbr.json -w')
+    enable_bbr(duthost)
+
+
+@pytest.fixture
+def config_bbr_enabled(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    enable_bbr(duthost)
+    time.sleep(3)
 
 
 @pytest.fixture(scope='module')
@@ -224,7 +244,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         .format(str(route), json.dumps(failed_results, indent=2)))
 
 
-def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, prepare_routes):
+def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_enabled, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
@@ -233,7 +253,7 @@ def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True)
 
 
-def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, setup, prepare_routes):
+def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_enabled, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route_dual_dut_asn = setup['bbr_route_dual_dut_asn']
     bbr_route_v6_dual_dut_asn = setup['bbr_route_v6_dual_dut_asn']
@@ -242,7 +262,7 @@ def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbr
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
 
 
-def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, disable_enable_bbr, setup, prepare_routes):
+def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_disabled, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
