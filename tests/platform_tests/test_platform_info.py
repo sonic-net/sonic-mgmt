@@ -303,9 +303,9 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
               control daemon is up and there is an error log printed
     """
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='thermal_control')
-    with ThermalPolicyFileContext(duthost, file_name):
-        loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
-        with loganalyzer:
+    loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
+    with loganalyzer:
+        with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)
 
 
