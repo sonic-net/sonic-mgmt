@@ -47,6 +47,7 @@ echo
 echo "STEP 6: Configuring br1 interface..."
 echo "Assigning 10.250.0.1/24 to br1"
 ifconfig br1 10.250.0.1/24
+ifconfig br1 inet6 add fec0::1/64
 echo "Bringing up br1"
 ifconfig br1 up
 echo
