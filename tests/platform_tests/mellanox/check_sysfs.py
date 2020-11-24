@@ -7,6 +7,8 @@ import logging
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 
+MAX_FAN_SPEED_THRESHOLD = 0.1
+
 
 def check_sysfs(dut):
     """
@@ -151,7 +153,7 @@ def _is_fan_speed_in_range(sysfs_facts):
     for fan_id, fan_info in sysfs_facts['fan_info'].items():
         try:
             fan_min_speed = int(fan_info["min_speed"])
-            fan_max_speed = int(fan_info["max_speed"])
+            fan_max_speed = int(int(fan_info["max_speed"]) * (1 + MAX_FAN_SPEED_THRESHOLD))
             fan_speed_set = int(fan_info["speed_set"])
             fan_speed_get = int(fan_info["speed_get"])
 
