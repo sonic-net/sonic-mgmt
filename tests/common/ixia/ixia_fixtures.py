@@ -9,7 +9,7 @@ from ixnetwork_restpy import SessionAssistant
 try:
     from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
 except ImportError as e:
-    raise pytest.skip.Exception("Test case is skiped: " + repr(e), allow_module_level=True)
+    raise pytest.skip.Exception("Test case is skipped: " + repr(e), allow_module_level=True)
 
 @pytest.fixture(scope = "module")
 def ixia_api_serv_ip(tbinfo):
