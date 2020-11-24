@@ -6,7 +6,10 @@ included in this file.
 
 import pytest
 from ixnetwork_restpy import SessionAssistant
-from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
+try:
+    from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
+except ImportError as e:
+    raise pytest.skip.Exception("Test case is skipped: " + repr(e), allow_module_level=True)
 
 @pytest.fixture(scope = "module")
 def ixia_api_serv_ip(tbinfo):
@@ -149,14 +152,14 @@ def ixia_api_server_session(
 
 @pytest.fixture(scope = "function")
 def ixia_api(ixia_api_serv_ip,
-             ixia_api_serv_port, 
-             ixia_api_serv_user, 
+             ixia_api_serv_port,
+             ixia_api_serv_user,
              ixia_api_serv_passwd):
 
     api_session = IxNetworkApi(address=ixia_api_serv_ip,
                                port=ixia_api_serv_port,
                                username=ixia_api_serv_user,
                                password=ixia_api_serv_passwd)
-    
+
     yield api_session
     api_session.assistant.Session.remove()
