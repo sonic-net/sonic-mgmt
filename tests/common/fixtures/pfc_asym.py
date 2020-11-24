@@ -313,7 +313,7 @@ class Setup(object):
 
     def generate_router_mac(self):
         """ Get DUT MAC address which will be used by PTF as Ethernet destination MAC address during sending traffic """
-        self.vars["ptf_test_params"]["router_mac"] = self.ansible_facts["ansible_Ethernet0"]["macaddress"]
+        self.vars["ptf_test_params"]["router_mac"] = self.duthost.facts["router_mac"]
 
 
     def prepare_arp_responder(self):

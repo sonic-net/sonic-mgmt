@@ -17,9 +17,9 @@ Example test case code using PTF adapter:
 import ptf.testutils as testutils
 import ptf.mask as mask
 
-def test_some_traffic(ptfadapter):
+def test_some_traffic(duthost, ptfadapter):
     pkt = testutils.simple_tcp_packet(
-        eth_dst=host_facts['ansible_Ethernet0']['macaddress'],
+        eth_dst=duthost.facts["router_mac"],
         eth_src=ptfadapter.dataplane.get_mac(0, 0),
         ip_src='1.1.1.1',
         ip_dst='192.168.0.1',

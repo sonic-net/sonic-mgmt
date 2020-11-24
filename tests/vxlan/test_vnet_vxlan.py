@@ -50,7 +50,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
-        "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"],
+        "dut_mac": dut_facts["router_mac"],
         "vnet_interfaces": vnet_config["vnet_intf_list"],
         "vnet_routes": vnet_config["vnet_route_list"] + vnet_config["vnet_subnet_routes"],
         "vnet_local_routes": vnet_config["vnet_local_routes"],
@@ -73,7 +73,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
+    dut_facts = duthost.facts
 
     prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
 

@@ -317,10 +317,9 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
         pytest.skip("Unsupported platform")
 
     try:
-        host_facts  = duthost.setup()['ansible_facts']
         mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        router_mac = host_facts['ansible_Ethernet0']['macaddress']
+        router_mac = duthost.facts['router_mac']
         net_ports = []
         for name, val in mg_facts['minigraph_portchannels'].items():
             members = [mg_facts['minigraph_port_indices'][member] for member in val['members']]

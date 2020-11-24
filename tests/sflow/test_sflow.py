@@ -29,7 +29,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost):
         pytest.skip("sflow feature is not eanbled")
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    var['host_facts']  = duthost.setup()['ansible_facts']
+    var['router_mac']  = duthost.facts['router_mac']
     vlan_dict = mg_facts['minigraph_vlans']
     var['test_ports'] = []
     var['ptf_test_indices'] = []
@@ -156,7 +156,7 @@ def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
 def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(**kwargs):
         params = {'testbed_type': tbinfo['topo']['name'],
-                  'router_mac': var['host_facts']['ansible_Ethernet0']['macaddress'],
+                  'router_mac': var['router_mac'],
                   'dst_port' : var['ptf_test_indices'][2],
                   'agent_id' : var['mgmt_ip'],
                   'sflow_ports_file' : "/tmp/sflow_ports.json"}

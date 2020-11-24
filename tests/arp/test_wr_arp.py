@@ -42,7 +42,7 @@ class TestWrArp:
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
             'minigraph_vlans': mgFacts['minigraph_vlans'],
             'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
-            'dut_mac': duthost.setup()['ansible_facts']['ansible_Ethernet0']['macaddress']
+            'dut_mac': duthost.facts['router_mac']
         }
         with open(VXLAN_CONFIG_FILE, 'w') as file:
             file.write(json.dumps(vxlanConfigData, indent=4))

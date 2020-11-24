@@ -592,7 +592,6 @@ class QosSaiBase:
                 dutTestParams (dict): DUT host test params
         """
         duthost = duthosts[rand_one_dut_hostname]
-        dutFacts = duthost.setup()['ansible_facts']
         mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
         topo = tbinfo["topo"]["name"]
 
@@ -600,7 +599,7 @@ class QosSaiBase:
             "topo": topo,
             "hwsku": mgFacts["minigraph_hwsku"],
             "basicParams": {
-                "router_mac": '' if topo in self.SUPPORTED_T0_TOPOS else dutFacts['ansible_Ethernet0']['macaddress'],
+                "router_mac": '' if topo in self.SUPPORTED_T0_TOPOS else duthost.facts["router_mac"],
                 "server": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
                 "port_map_file": ptf_portmap_file,
                 "sonic_asic_type": duthost.facts['asic_type'],

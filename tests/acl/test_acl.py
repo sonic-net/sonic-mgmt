@@ -18,6 +18,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.conftest import duthost
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +110,8 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
                       for ifname
                       in mg_facts["minigraph_vlans"].values()[0]["members"]]
 
-    host_facts = duthost.setup()["ansible_facts"]
-
     setup_information = {
-        "router_mac": host_facts["ansible_Ethernet0"]["macaddress"],
+        "router_mac": duthost.facts["router_mac"],
         "downstream_port_ids": downstream_port_ids,
         "upstream_port_ids": upstream_port_ids,
         "acl_table_ports": acl_table_ports,
