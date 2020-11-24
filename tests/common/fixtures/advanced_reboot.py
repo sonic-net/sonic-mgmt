@@ -122,7 +122,6 @@ class AdvancedReboot:
         '''
         Build testbed data that are needed by ptf advanced-reboot.ReloadTest class
         '''
-        hostFacts = self.duthost.setup()['ansible_facts']
 
         self.mgFacts = self.duthost.minigraph_facts(host=self.duthost.hostname)['ansible_facts']
 
@@ -135,7 +134,7 @@ class AdvancedReboot:
         self.vlanMaxCnt = len(self.mgFacts['minigraph_vlans'].values()[0]['members']) - 1
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
-        self.rebootData['dut_mac'] = hostFacts['ansible_Ethernet0']['macaddress']
+        self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
         self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
         self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
 

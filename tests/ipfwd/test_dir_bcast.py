@@ -26,10 +26,9 @@ def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, fib):
     ptfhost.template(src="../ansible/roles/test/templates/fdb.j2", dest="/root/vlan_info.txt")
 
     # Start PTF runner
-    host_facts = duthost.setup()['ansible_facts']
     params = {
         'testbed_type': testbed_type,
-        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
+        'router_mac': duthost.facts['router_mac'],
         'vlan_info': '/root/vlan_info.txt'
     }
     log_file = "/tmp/dir_bcast.BcastTest.{}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
