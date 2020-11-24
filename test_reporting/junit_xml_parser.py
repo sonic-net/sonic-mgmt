@@ -134,7 +134,7 @@ def validate_junit_xml_file(document_name):
     return _validate_junit_xml(tree.getroot())
 
 
-def validate_junit_xml_archive(directory_name):
+def validate_junit_xml_archive(directory_name, strict=False):
     """Validate that an XML archive contains valid JUnit XML.
 
     Args:
@@ -188,10 +188,13 @@ def validate_junit_xml_archive(directory_name):
 
             roots.append(root)
         except Exception as e:
-            raise JUnitXMLValidationError(f"could not parse {document}: {e}") from e
+            if strict:
+                raise JUnitXMLValidationError(f"could not parse {document}: {e}") from e
+
+            print(f"could not parse {document}: {e} - skipping")
 
     if not roots:
-        raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any XML files")
+        raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any valid XML files")
 
     return roots
 
@@ -448,12 +451,18 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
     parser.add_argument(
         "--directory", "-d", action="store_true", help="Provide a directory instead of a single file."
     )
+    parser.add_argument(
+        "--strict",
+        "-s",
+        action="store_true",
+        help="Fail validation checks if ANY file in a given directory is not parseable."
+    )
 
     args = parser.parse_args()
 
     try:
         if args.directory:
-            roots = validate_junit_xml_archive(args.file_name)
+            roots = validate_junit_xml_archive(args.file_name, args.strict)
         else:
             roots = [validate_junit_xml_file(args.file_name)]
     except JUnitXMLValidationError as e:

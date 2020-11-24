@@ -63,10 +63,8 @@ function usage
   exit
 }
 
-function read_file
+function read_csv
 {
-  echo reading
-
   # Filter testbed names in the first column in the testbed definition file
   line=$(cat $tbfile | grep "^$1,")
 
@@ -98,6 +96,59 @@ function read_file
   vm_base=${line_arr[8]}
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
+}
+
+function read_yaml
+{
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1' in str(tb)))")
+
+  IFS=$'+' read -r -a tb_lines <<< $content
+  linecount=${#tb_lines[@]}
+
+  if [ $linecount == 0 ]
+  then
+    echo "Couldn't find topology name '$1'"
+    exit
+  elif [ $linecount -gt 1 ]
+  then
+    echo "Find more than one topology name in $tbfile"
+    exit
+  else
+    echo found topology $1
+  fi
+
+  tb_line=${tb_lines[0]}
+  line_arr=($1)
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut comment;
+  do
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb['$attr'])")
+    [ "$value" == "None" ] && value=
+    line_arr=("${line_arr[@]}" "$value")
+  done
+
+  vm_set_name=${line_arr[1]}
+  topo=${line_arr[2]}
+  ptf_imagename=${line_arr[3]}
+  ptf=${line_arr[4]}
+  ptf_ip=${line_arr[5]}
+  ptf_ipv6=${line_arr[6]}
+  server=${line_arr[7]}
+  vm_base=${line_arr[8]}
+  dut=${line_arr[9]}
+  duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
+}
+
+function read_file
+{
+  echo reading
+
+  if [[ $tbfile == *.csv ]]
+  then
+    read_csv ${topology}
+  elif [[ $tbfile == *.yaml ]]
+  then
+    read_yaml ${topology}
+  fi
 }
 
 function start_vms

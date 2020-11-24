@@ -19,18 +19,19 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='class', autouse=True)
-def stop_pfcwd(duthost):
+def stop_pfcwd(duthosts, rand_one_dut_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
         duthost (AnsibleHost): DUT instance
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
 @pytest.fixture(scope='class', autouse=True)
-def storm_test_setup_restore(setup_pfc_test, fanout_graph_facts, duthost, fanouthosts):
+def storm_test_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand_one_dut_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
@@ -43,6 +44,7 @@ def storm_test_setup_restore(setup_pfc_test, fanout_graph_facts, duthost, fanout
     Yields:
         storm_hndle (PFCStorm): class PFCStorm instance
     """
+    duthost = duthosts[rand_one_dut_hostname]
     setup_info = setup_pfc_test
     neighbors = setup_info['neighbors']
     port_list = setup_info['port_list']
@@ -137,7 +139,7 @@ class TestPfcwdAllPortStorm(object):
                 storm_hndle.stop_pfc_storm()
             time.sleep(5)
 
-    def test_all_port_storm_restore(self, duthost, storm_test_setup_restore):
+    def test_all_port_storm_restore(self, duthosts, rand_one_dut_hostname, storm_test_setup_restore):
         """
         Tests PFC storm/restore on all ports
 
@@ -145,6 +147,7 @@ class TestPfcwdAllPortStorm(object):
             duthost (AnsibleHost): DUT instance
             storm_test_setup_restore (fixture): class scoped autouse setup fixture
         """
+        duthost = duthosts[rand_one_dut_hostname]
         storm_hndle = storm_test_setup_restore
         logger.info("--- Testing if PFC storm is detected on all ports ---")
         self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_DETECT_RE], syslog_marker="all_port_storm",

@@ -3,27 +3,25 @@ import glob
 import json
 import tarfile
 import logging
-import string
-import re
 import getpass
 import random
 
 import pytest
-import csv
 import yaml
 import jinja2
-import ipaddr as ipaddress
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 
-from collections import defaultdict
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices import Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost
+from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8sMasterCluster
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
+from tests.common.testbed import TestbedInfo
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,124 +40,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.vxlan')
 
 
-class TestbedInfo(object):
-    """
-    Parse the CSV file used to describe whole testbed info
-    Please refer to the example of the CSV file format
-    CSV file first line is title
-    The topology name in title is using conf-name
-    """
-
-    def __init__(self, testbed_file):
-        self.testbed_filename = testbed_file
-        self.testbed_topo = defaultdict()
-        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
-
-        with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f, fieldnames=CSV_FIELDS, delimiter=',')
-
-            # Validate all field are in the same order and are present
-            header = next(topo)
-            for field in CSV_FIELDS:
-                assert header[field].replace('#', '').strip() == field
-
-            for line in topo:
-                if line['conf-name'].lstrip().startswith('#'):
-                    ### skip comment line
-                    continue
-                if line['ptf_ip']:
-                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
-                    line['ptf_ip'] = str(ptfaddress.ip)
-                    line['ptf_netmask'] = str(ptfaddress.netmask)
-
-                if line['ptf_ipv6']:
-                    ptfaddress = ipaddress.IPNetwork(line['ptf_ipv6'])
-                    line['ptf_ipv6'] = str(ptfaddress.ip)
-                    line['ptf_netmask_v6'] = str(ptfaddress.netmask)
-
-                line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
-                del line['dut']
-
-                topo = line['topo']
-                del line['topo']
-                line['topo'] = defaultdict()
-                line['topo']['name'] = topo
-                line['topo']['type'] = self.get_testbed_type(line['topo']['name'])
-                with open("../ansible/vars/topo_{}.yml".format(topo), 'r') as fh:
-                    line['topo']['properties'] = yaml.safe_load(fh)
-                line['topo']['ptf_map'] = self.calculate_ptf_index_map(line)
-
-                self.testbed_topo[line['conf-name']] = line
-
-    def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor)')
-        match = pattern.match(topo_name)
-        if match == None:
-            raise Exception("Unsupported testbed type - {}".format(topo_name))
-        tb_type = match.group()
-        if tb_type == 'dualtor':
-            # augment dualtor topology type to 't0' to avoid adding it
-            # everywhere.
-            tb_type = 't0'
-        return tb_type
-
-    def _parse_dut_port_index(self, port):
-        """
-        parse port string
-
-        port format : dut_index.port_index@ptf_index
-
-        """
-        m = re.match("(\d+)\.(\d+)@(\d+)", port)
-        (dut_index, port_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-
-        return (dut_index, port_index, ptf_index)
-
-    def calculate_ptf_index_map(self, line):
-        map = defaultdict()
-
-        # For multi-DUT testbed, because multiple DUTs are sharing a same
-        # PTF docker, the ptf docker interface index will not be exactly
-        # match the interface index on DUT. The information is available
-        # in the topology facts. Get these information out and put them
-        # in the 2 levels dictionary as:
-        # { dut_index : { dut_port_index : ptf_index * } * }
-
-        topo_facts = line['topo']['properties']
-        if 'topology' not in topo_facts:
-            return map
-
-        topology = topo_facts['topology']
-        if 'host_interfaces' in topology:
-            for _ports in topology['host_interfaces']:
-                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
-                # if there is no '@' then they are shared, no need to update.
-                ports = str(_ports)
-                for port in ports.split(','):
-                    if '@' in port and '.' in port:
-                        dut_index, port_index, ptf_index = _parse_dut_port_index(port)
-                        if port_index != ptf_index:
-                            # Need to add this in map
-                            dut_dict = map[dut_index] if dut_index in map else {}
-                            dut_dict[port_index] = ptf_index
-                            map[dut_index] = dut_dict
-
-        if 'VMs' in topology:
-            for _, vm in topology['VMs'].items():
-                if 'vlans' in vm:
-                    for _port in vm['vlans']:
-                        # Example: ['0.31@34', '1.31@35']
-                        port = str(_port)
-                        if '@' in port and '.' in port:
-                            dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
-                            if port_index != ptf_index:
-                                # Need to add this in map
-                                dut_dict = map[dut_index] if dut_index in map else {}
-                                dut_dict[port_index] = ptf_index
-                                map[dut_index] = dut_dict
-
-        return map
-
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
@@ -170,6 +50,9 @@ def pytest_addoption(parser):
 
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
+
+    # Kubernetes master options
+    parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     ############################
     # pfc_asym options         #
@@ -204,7 +87,6 @@ def pytest_addoption(parser):
     ########################
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
-
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -267,7 +149,7 @@ def tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = TestbedInfo(tbfile)
-    return testbedinfo.testbed_topo[tbname]
+    return testbedinfo.testbed_topo.get(tbname, {})
 
 
 @pytest.fixture(name="duthosts", scope="session")
@@ -300,14 +182,22 @@ def duthost(duthosts, request):
 
     return duthost
 
+@pytest.fixture(scope="module")
+def rand_one_dut_hostname(request):
+    """
+    """
+    dut_hostnames = generate_params_dut_hostname(request)
+    if len(dut_hostnames) > 1:
+        dut_hostnames = random.sample(dut_hostnames, 1)
+    return dut_hostnames[0]
+
 @pytest.fixture(scope="module", autouse=True)
-def reset_critical_services_list(duthost):
+def reset_critical_services_list(duthosts):
     """
     Resets the critical services list between test modules to ensure that it is
     left in a known state after tests finish running.
     """
-
-    duthost.reset_critical_services_tracking_list()
+    [a_dut.reset_critical_services_tracking_list() for a_dut in duthosts]
 
 @pytest.fixture(scope="session")
 def localhost(ansible_adhoc):
@@ -324,6 +214,33 @@ def ptfhost(ansible_adhoc, tbinfo, duthost):
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         return PTFHost(ansible_adhoc, ptf_host)
 
+@pytest.fixture(scope="module")
+def k8smasters(ansible_adhoc, request):
+    """
+    Shortcut fixture for getting Kubernetes master hosts
+    """
+    k8s_master_ansible_group = request.config.getoption("--kube_master") 
+    master_vms = {}
+    inv_files = request.config.getoption("ansible_inventory")
+    for inv_file in inv_files:
+        if "k8s" in inv_file:
+            k8s_inv_file = inv_file
+    with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
+        k8sinventory = yaml.safe_load(kinv)
+        for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
+            if 'haproxy' in attributes:
+                is_haproxy = True
+            else: 
+                is_haproxy = False
+            master_vms[hostname] = {'host': K8sMasterHost(ansible_adhoc,
+                                                               hostname,
+                                                               is_haproxy)}
+    return master_vms
+
+@pytest.fixture(scope="module")
+def k8scluster(k8smasters):
+    k8s_master_cluster = K8sMasterCluster(k8smasters)
+    return k8s_master_cluster
 
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, tbinfo, creds):
@@ -411,8 +328,9 @@ def pdu():
 
 
 @pytest.fixture(scope="module")
-def creds(duthost):
+def creds(duthosts, rand_one_dut_hostname):
     """ read credential information according to the dut inventory """
+    duthost = duthosts[rand_one_dut_hostname]
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
@@ -466,22 +384,33 @@ def fetch_dbs(duthost, testname):
         duthost.fetch(src="{}.json".format(db[1]), dest="logs/{}".format(testname))
 
 
-@pytest.fixture
-def collect_techsupport(request, duthost):
-    yield
+def collect_techsupport_on_dut(request, a_dut):
     # request.node is an "item" because we use the default
     # "function" scope
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
-        res = duthost.shell("generate_dump -s yesterday")
+        res = a_dut.shell("generate_dump -s \"-2 hours\"")
         fname = res['stdout']
-        duthost.fetch(src=fname, dest="logs/{}".format(testname))
-        tar = tarfile.open("logs/{}/{}/{}".format(testname, duthost.hostname, fname))
+        a_dut.fetch(src=fname, dest="logs/{}".format(testname))
+        tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
             if m.isfile():
-                tar.extract(m, path="logs/{}/{}/".format(testname, duthost.hostname))
+                tar.extract(m, path="logs/{}/{}/".format(testname, a_dut.hostname))
 
         logging.info("########### Collected tech support for test {} ###########".format(testname))
+
+@pytest.fixture
+def collect_techsupport(request, duthosts, enum_dut_hostname):
+    yield
+    # request.node is an "item" because we use the default
+    # "function" scope
+    duthost = duthosts[enum_dut_hostname]
+    collect_techsupport_on_dut(request, duthost)
+
+@pytest.fixture
+def collect_techsupport_all_duts(request, duthosts):
+    yield
+    [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
 
 @pytest.fixture(scope="session", autouse=True)
 def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
@@ -499,6 +428,124 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("platform", duthost.facts["platform"])
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clear_neigh_entries(duthosts, tbinfo):
+    """
+        This is a stop bleeding change for dualtor testbed. Because dualtor duts will
+        learn the same set of arp entries during tests. But currently the test only
+        cleans up on the dut under test. So the other dut will accumulate arp entries
+        until kernel start to barf.
+        Adding this fixture to flush out IPv4/IPv6 static ARP entries after each test
+        moduel is done.
+    """
+
+    yield
+
+    if tbinfo['topo']['name'] == 'dualtor':
+        for dut in duthosts:
+            dut.command("sudo ip neigh flush nud permanent")
+
+
+@pytest.fixture(scope="module")
+def patch_lldpctl():
+    def patch_lldpctl(localhost, duthost):
+        output = localhost.shell('ansible --version')
+        if 'ansible 2.8.12' in output['stdout']:
+            """
+                Work around a known lldp module bug in ansible version 2.8.12:
+                When neighbor sent more than one unknown tlv. Ansible will throw
+                exception.
+                This function applies the patch before test.
+            """
+            duthost.shell('sudo sed -i -e \'s/lldp lldpctl "$@"$/lldp lldpctl "$@" | grep -v "unknown-tlvs"/\' /usr/bin/lldpctl')
+
+    return patch_lldpctl
+
+
+@pytest.fixture(scope="module")
+def unpatch_lldpctl():
+    def unpatch_lldpctl(localhost, duthost):
+        output = localhost.shell('ansible --version')
+        if 'ansible 2.8.12' in output['stdout']:
+            """
+                Work around a known lldp module bug in ansible version 2.8.12:
+                When neighbor sent more than one unknown tlv. Ansible will throw
+                exception.
+                This function removes the patch after the test is done.
+            """
+            duthost.shell('sudo sed -i -e \'s/lldp lldpctl "$@"$/lldp lldpctl "$@" | grep -v "unknown-tlvs"/\' /usr/bin/lldpctl')
+
+    return unpatch_lldpctl
+
+
+@pytest.fixture(scope="module")
+def disable_container_autorestart():
+    def disable_container_autorestart(duthost, testcase="", feature_list=None):
+        '''
+        @summary: Disable autorestart of the features present in feature_list.
+
+        @param duthosts: Instance of DutHost
+        @param testcase: testcase name used to save pretest autorestart state. Later to be used for restoration.
+        @feature_list: List of features to disable autorestart. If None, autorestart of all the features will be disabled.
+        '''
+        command_output = duthost.shell("show feature autorestart", module_ignore_errors=True)
+        if command_output['rc'] != 0:
+            logging.info("Feature autorestart utility not supported. Error: {}".format(command_output['stderr']))
+            logging.info("Skipping disable_container_autorestart")
+            return
+        container_autorestart_states = duthost.get_container_autorestart_states()
+        state_file_name = "/tmp/autorestart_state_{}_{}.json".format(duthost.hostname, testcase)
+        # Dump autorestart state to file
+        with open(state_file_name, "w") as f:
+            json.dump(container_autorestart_states, f)
+        # Disable autorestart for all containers
+        logging.info("Disable container autorestart")
+        cmd_disable = "config feature autorestart {} disabled"
+        cmds_disable = []
+        for name, state in container_autorestart_states.items():
+            if state == "enabled" and (feature_list is None or name in feature_list):
+                cmds_disable.append(cmd_disable.format(name))
+        # Write into config_db
+        cmds_disable.append("config save -y")
+        duthost.shell_cmds(cmds=cmds_disable)
+
+    return disable_container_autorestart
+
+@pytest.fixture(scope="module")
+def enable_container_autorestart():
+    def enable_container_autorestart(duthost, testcase="", feature_list=None):
+        '''
+        @summary: Enable autorestart of the features present in feature_list.
+
+        @param duthosts: Instance of DutHost
+        @param testcase: testcase name used to find corresponding file to restore autorestart state.
+        @feature_list: List of features to enable autorestart. If None, autorestart of all the features will be disabled.
+        '''
+        state_file_name = "/tmp/autorestart_state_{}_{}.json".format(duthost.hostname, testcase)
+        if not os.path.exists(state_file_name):
+            return
+        stored_autorestart_states = {}
+        with open(state_file_name, "r") as f:
+            stored_autorestart_states = json.load(f)
+        container_autorestart_states = duthost.get_container_autorestart_states()
+        # Recover autorestart states
+        logging.info("Recover container autorestart")
+        cmd_enable = "config feature autorestart {} enabled"
+        cmds_enable = []
+        for name, state in container_autorestart_states.items():
+            if state == "disabled"  and (feature_list is None or name in feature_list) \
+                    and stored_autorestart_states.has_key(name) \
+                    and stored_autorestart_states[name] == "enabled":
+                cmds_enable.append(cmd_enable.format(name))
+        # Write into config_db
+        cmds_enable.append("config save -y")
+        duthost.shell_cmds(cmds=cmds_enable)
+        os.remove(state_file_name)
+
+    return enable_container_autorestart
+
 
 def get_host_data(request, dut):
     '''
@@ -606,6 +653,35 @@ def generate_port_lists(request, port_scope):
     return ret if ret else empty
 
 
+def generate_dut_feature_list(request):
+    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in metadata:
+        return empty
+
+    meta = metadata[tbname]
+    ret = []
+    for dut, val in meta.items():
+        if 'features' not in val:
+            continue
+        for feature, _ in val['features'].items():
+            ret.append(encode_dut_port_name(dut, feature))
+
+    return ret if ret else empty
+
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -617,11 +693,6 @@ def pytest_generate_tests(metafunc):
     elif "enum_dut_hostname" in metafunc.fixturenames:
         dut_hostnames = generate_params_dut_hostname(metafunc)
         metafunc.parametrize("enum_dut_hostname", dut_hostnames)
-    elif "rand_one_dut_hostname" in metafunc.fixturenames:
-        dut_hostnames = generate_params_dut_hostname(metafunc)
-        if len(dut_hostnames) > 1:
-            dut_hostnames = random.sample(dut_hostnames, 1)
-        metafunc.parametrize("rand_one_dut_hostname", dut_hostnames)
 
     if "enum_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
@@ -640,3 +711,6 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
     if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))
+
+    if "enum_dut_feature" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_feature", generate_dut_feature_list(metafunc))

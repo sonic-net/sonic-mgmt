@@ -39,15 +39,17 @@ spec:
 
 ## Topology Overview
 
-In order to connect each SONiC DUT to a High Availability Kubernetes master, we need to set up the following topology: 
+In order to connect each physical SONiC DUT to a High Availability Kubernetes master, we need to set up the following topology: 
 ![alt text](https://github.com/isabelmsft/k8s-ha-master-starlab/blob/master/k8s-testbed-linux.png)
 - Each high availability master setup requires 4 new Linux KVMs running on a Testbed Server via bridged networking.
     - 3 Linux KVMs to serve as 3-node high availability Kubernetes master
-    - 1 Linux KVM to serve as HAProxy Load Balancer node    
+    - 1 Linux KVM to serve as HAProxy Load Balancer node
 - Each KVM has one management interface assigned an IP address reachable from SONiC DUT.
 - HAProxy Load Balancer proxies requests to 3 backend Kubernetes master nodes. 
 
-Our setup meets Kubernetes Minimum Requirements to setup a High Available cluster. The Minimum Requirements are as follows:
+In the case of a virtual SONiC DUT, the SONiC KVM and 4 new Linux KVMs for the Kubernetes master are all running on the Testbed Server (or host VM). Each KVM is connected to an internal management network, Linux bridge br1. Internal management network setup for the virtual DUT is described in [How to Setup High Availability Kubernetes Master for Virtual DUT](#how-to-setup-high-availability-kubernetes-master-for-virtual-dut) below.
+
+Our setup meets Kubernetes Minimum Requirements to setup a High Availability cluster. The Minimum Requirements are as follows:
 - 2 GB or more of RAM per machine
 - 2 CPUs or more per machine
 - Full network connectivity between all machines in the cluster (public or private network)
@@ -56,7 +58,7 @@ Our setup meets Kubernetes Minimum Requirements to setup a High Available cluste
 
 ## How to Setup High Availability Kubernetes Master for Physical DUT
 
-#### To create a HA Kubernetes master for Virtual DUT: 
+#### To create a HA Kubernetes master for Physical DUT: 
 1. Prepare Testbed Server and build and run `docker-sonic-mgmt` container as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md) 
 2. Allocate 4 available IPs reachable from SONiC DUT.
 3. Update [`ansible/k8s_ubuntu`](../k8s_ubuntu) to include your 4 newly allocated IP addresses for the HA Kubernetes master and IP address of testbed server.
@@ -108,7 +110,7 @@ k8s_server_19:
     - `mgmt_gw`: ip of the gateway for the VM management interfaces
     - `mgmt_prefixlen`: prefixlen for the management interfaces
 5. If necessary, set proxy in [`ansible/group_vars/all/env.yml`](../group_vars/all/env.yml)
-6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml).   
+6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml). Also, set your own Kubernetes master Ubuntu KVM password in [`ansible/group_vars/all/creds.yml`](../group_vars/all/creds.yml). 
 7. If using Azure Storage to source Ubuntu 18.04 KVM image, set `k8s_vmimage_saskey` in [`ansible/vars/azure_storage.yml`](../vars/azure_storage.yml). 
    - To source image from public URL: download from  [here](https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img). Then, convert img to qcow2 by running `qemu-img convert -f qcow2 bionic-server-cloudimg-amd64.img bionic-server-cloudimg-amd64.qcow2`. Store qcow2 image at the path `/home/azure/ubuntu-vm/images/bionic-server-cloudimg-amd64.qcow2` on your testbed server. 
 8. From `docker-sonic-mgmt` container, `cd` into `sonic-mgmt/ansible` directory and run `./testbed-cli.sh -m k8s_ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password`
@@ -139,9 +141,9 @@ $ cd sonic-mgmt/ansible
 $ sudo ./setup-management-network.sh
 $ sudo ./setup-br1-nat.sh <name of server's external facing port>
 ```
-2. Setup virtual switch testbed as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.VsSetup.md).
+2. Setup virtual switch testbed as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.VsSetup.md). **Note:** if the host machine is a VM, nested virtualization must be enabled. 
 3. In [`ansible/k8s_ubuntu_vtb`](../k8s_ubuntu_vtb), replace `use_own_value` with the username for the server, corresponds to the username used while setting up [`ansible/veos_vtb`](../veos_vtb) for the virtual switch testbed.
-4. Specify DNS server IP to be used by Ubuntu KVMs in [`ansible/host_vars/STR-ACS-VSERV-21.yml`](../host_vars/STR-ACS-VSERV-21.yml); this should be the same DNS server IP as used by the testbed server.
+4. Specify DNS server IP to be used by Ubuntu KVMs in [`ansible/host_vars/STR-ACS-VSERV-21.yml`](../host_vars/STR-ACS-VSERV-21.yml); this should be the same DNS server IP as used by the host machine.
 5. From inside the `sonic-mgmt` docker set up in step 2, run:
 ```
 $ cd /data/sonic-mgmt/ansible
@@ -150,7 +152,7 @@ $ ./testbed-cli.sh -m k8s_ubuntu_vtb create-master k8s_server_21 password.txt
 #### To remove a HA Kubernetes master for Virtual DUT: 
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh k8s_ubuntu_vtb destroy-master k8s_server_21 password.txt  
+$ ./testbed-cli.sh -m k8s_ubuntu_vtb destroy-master k8s_server_21 password.txt  
 ```
 
 ## Testing Scope

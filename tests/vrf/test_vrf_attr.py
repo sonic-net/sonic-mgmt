@@ -17,7 +17,8 @@ class TestVrfAttrSrcMac():
     new_vrf1_router_mac = '00:12:34:56:78:9a'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_src_mac(self, duthost, ptfhost, host_facts):
+    def setup_vrf_attr_src_mac(self, duthosts, rand_one_dut_hostname, ptfhost, host_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         extra_vars = { 'router_mac': self.new_vrf1_router_mac }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
@@ -39,7 +40,8 @@ class TestVrfAttrSrcMac():
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
-    def test_vrf_src_mac_cfg(self, duthost):
+    def test_vrf_src_mac_cfg(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         # get vrf1 new router_mac from config_db
         vrf1_mac = duthost.shell("redis-cli -n 4 hget 'VRF|Vrf1' 'src_mac'")['stdout']
         assert vrf1_mac == self.new_vrf1_router_mac
@@ -76,7 +78,8 @@ class TestVrfAttrSrcMac():
 
 class TestVrfAttrTTL():
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_ttl(self, duthost, ptfhost):
+    def setup_vrf_attr_ttl(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.copy(src="vrf/vrf_attr_ttl_action.json", dest="/tmp")
         duthost.copy(src="vrf/vrf_restore.json", dest="/tmp")
@@ -124,7 +127,8 @@ class TestVrfAttrTTL():
 
 class TestVrfAttrIpAction():
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_ip_opt_action(self, duthost, ptfhost):
+    def setup_vrf_attr_ip_opt_action(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.copy(src="vrf/vrf_attr_ip_opt_action.json", dest="/tmp")
         duthost.copy(src="vrf/vrf_restore.json", dest="/tmp")
@@ -178,7 +182,8 @@ class TestVrfAttrIpAction():
 
 class TestVrfAttrIpState():
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_ip_state(self, duthost, ptfhost):
+    def setup_vrf_attr_ip_state(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.copy(src="vrf/vrf_attr_ip_state.json", dest="/tmp")
         duthost.copy(src="vrf/vrf_restore.json", dest="/tmp")
