@@ -313,7 +313,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
             raise
 
-    def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter):
+    def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
         duthost = duthosts[rand_one_dut_hostname]
         try:
