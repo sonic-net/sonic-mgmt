@@ -112,6 +112,7 @@ class MockerHelper:
         self.dut = dut
         #self.unlink_file_list = {}
         self._extract_num_of_fans_and_fan_drawers()
+        self.deinit_retry = 5
 
     def _extract_num_of_fans_and_fan_drawers(self):
         """
@@ -235,10 +236,29 @@ class MockerHelper:
         Destructor of MockerHelper. Re-link all sys fs files.
         :return:
         """
+        failed_recover_files = {}
         for file_path, link_target in self.unlink_file_list.items():
-            self.dut.command('rm -f {}'.format(file_path))
-            self.dut.command('ln -s {} {}'.format(link_target, file_path))
+            try:
+                self.dut.command('ln -f -s {} {}'.format(link_target, file_path))
+            except Exception as e:
+                # Catch any exception for later retry
+                failed_recover_files[file_path] = link_target
+
         self.unlink_file_list.clear()
+        # If there is any failed recover files, retry it
+        if failed_recover_files:
+            self.deinit_retry -= 1
+            if self.deinit_retry > 0:
+                self.unlink_file_list = failed_recover_files
+                self.deinit()
+            else:
+                # We don't want to retry it infinite, and 5 times retry
+                # is enough, so if it still fails after the retry, it
+                # means there is probably an issue with our sysfs, we need
+                # mark it fail here
+                error_message = "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
+                logging.error(error_message)
+                raise RuntimeError(error_message)
 
 
 class FanDrawerData:
