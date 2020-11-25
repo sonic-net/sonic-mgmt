@@ -147,18 +147,18 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
-    logger.info('start telemetry output testing')
+    logger.info("start test the dataset 'system uptime'")
     setup_telemetry_forpyclient(duthost)
 
-    # wait till telemetry is restarted
+    # Wait until telemetry was restarted
     pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
-    logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
+    logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
-    # Wait until the TCP port is open
+    # Wait until the TCP port was opened
     dut_ip = duthost.mgmt_ip
     wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
 
-    # pyclient should be available on ptfhost. If not fail pytest.
+    # pyclient should be available on ptfhost. If it was not available, then fail pytest.
     file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
     pytest_assert(file_exists["stat"]["exists"] is True)
 
@@ -173,6 +173,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
             except ValueError as err:
                 pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
 
+    # Sleep 10 seconds to wait that the value of system uptime was added another 10 seconds.
     time.sleep(10)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_2nd = 0
@@ -183,5 +184,5 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
             except ValueError as err:
                 pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
 
-    if system_uptime_2nd - system_time_1st < 10:
+    if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
