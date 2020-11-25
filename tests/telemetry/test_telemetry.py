@@ -167,7 +167,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
     for line_info in system_uptime_info:
-        if "Total:" in line_info:
+        if "total:" in line_info:
             try:
                 system_uptime_1st = int(line_info.split(":")[1].strip())
             except ValueError as err:
@@ -178,7 +178,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_2nd = 0
     for line_info in system_uptime_info:
-        if "Total:" in line_info:
+        if "total:" in line_info:
             try:
                 system_uptime_2nd = int(line_info.split(":")[1].strip())
             except ValueError as err:
