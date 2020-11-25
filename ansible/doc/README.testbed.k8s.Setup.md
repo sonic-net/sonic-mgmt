@@ -109,11 +109,12 @@ k8s_server_19:
 4. Update the server network configuration for the Kubernetes VM management interfaces in [`ansible/host_vars/STR-ACS-SERV-19.yml`](../host_vars/STR-ACS-SERV-19.yml).
     - `mgmt_gw`: ip of the gateway for the VM management interfaces
     - `mgmt_prefixlen`: prefixlen for the management interfaces
-5. If necessary, set proxy in [`ansible/group_vars/all/env.yml`](../group_vars/all/env.yml)
-6. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml). Also, set your own Kubernetes master Ubuntu KVM password in [`ansible/group_vars/all/creds.yml`](../group_vars/all/creds.yml). 
-7. If using Azure Storage to source Ubuntu 18.04 KVM image, set `k8s_vmimage_saskey` in [`ansible/vars/azure_storage.yml`](../vars/azure_storage.yml). 
+5. If necessary, set proxy in [`ansible/group_vars/all/env.yml`](../group_vars/all/env.yml).
+6. If necessary, specify DNS server IP in [`ansible/host_vars/STR-ACS-SERV-19.yml`](../host_vars/STR-ACS-SERV-19.yml). This should be the same DNS server IP as used by the host machine. If proxy server is configured and takes care of DNS, this step is not necessary.  
+7. Update the testbed server credentials in [`ansible/group_vars/k8s_vm_host/creds.yml`](../group_vars/k8s_vm_host/creds.yml). Also, set your own Kubernetes master Ubuntu KVM password in [`ansible/group_vars/all/creds.yml`](../group_vars/all/creds.yml). 
+8. If using Azure Storage to source Ubuntu 18.04 KVM image, set `k8s_vmimage_saskey` in [`ansible/vars/azure_storage.yml`](../vars/azure_storage.yml). 
    - To source image from public URL: download from  [here](https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img). Then, convert img to qcow2 by running `qemu-img convert -f qcow2 bionic-server-cloudimg-amd64.img bionic-server-cloudimg-amd64.qcow2`. Store qcow2 image at the path `/home/azure/ubuntu-vm/images/bionic-server-cloudimg-amd64.qcow2` on your testbed server. 
-8. From `docker-sonic-mgmt` container, `cd` into `sonic-mgmt/ansible` directory and run `./testbed-cli.sh -m k8s_ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password`
+9. From `docker-sonic-mgmt` container, `cd` into `sonic-mgmt/ansible` directory and run `./testbed-cli.sh -m k8s_ubuntu [additional OPTIONS] create-master <k8s-server-name> ~/.password`
    - `k8s-server-name` corresponds to the group name used to describe the testbed server in the [`ansible/k8s_ubuntu`](../k8s_ubuntu) inventory file, of the form `k8s_server_{unit}`. 
    - Please note: `~/.password` is the ansible vault password file name/path. Ansible allows users to use ansible-vault to encrypt password files. By default, this shell script requires a password file. If you are not using ansible-vault, just create an empty file and pass the file name to the command line. The file name and location are created and maintained by the user.
    - For HA Kubernetes master set 1 running on server 19 shown above, the proper command would be: 
@@ -121,7 +122,7 @@ k8s_server_19:
   - OPTIONAL: We offer the functionality to run multiple master sets on one server. 
     - Each master set is one HA Kubernetes master composed of 4 Linux KVMs. 
     - Should an additional HA master set be necessary on an occupied server, add the option `-s <msetnumber>`, where `msetnumber` would be 2 if this is the 2nd master set running on `<k8s-server-name>`. Make sure that [`ansible/k8s-ubuntu`](../k8s-ubuntu) is updated accordingly. Specifically, make sure that the IPS are set in the correct group `k8s_vms{msetnumber}_{servernumber}` and the `children` are properly updated for `k8s_server_{servernumber}` at the bottom of the inventory file. `msetnumber` is 1 by default. 
-9. Join Kubernetes-enabled SONiC DUT to master by configuring VIP and enabling the Kubernetes server/master connection. Kubernetes server is enabled by default
+10. Join Kubernetes-enabled SONiC DUT to master by configuring VIP and enabling the Kubernetes server/master connection. Kubernetes server is enabled by default
     - `sudo config kube server ip <VIP>`
     - `sudo config kube server disable off` (default configuration)
 
@@ -143,8 +144,9 @@ $ sudo ./setup-br1-nat.sh <name of server's external facing port>
 ```
 2. Setup virtual switch testbed as described [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.VsSetup.md). **Note:** if the host machine is a VM, nested virtualization must be enabled. 
 3. In [`ansible/k8s_ubuntu_vtb`](../k8s_ubuntu_vtb), replace `use_own_value` with the username for the server, corresponds to the username used while setting up [`ansible/veos_vtb`](../veos_vtb) for the virtual switch testbed.
-4. Specify DNS server IP to be used by Ubuntu KVMs in [`ansible/host_vars/STR-ACS-VSERV-21.yml`](../host_vars/STR-ACS-VSERV-21.yml); this should be the same DNS server IP as used by the host machine.
-5. From inside the `sonic-mgmt` docker set up in step 2, run:
+4. If necessary, set proxy in [`ansible/group_vars/all/env.yml`](../group_vars/all/env.yml). 
+5. If necessary, specify DNS server IP to be used by Ubuntu KVMs in [`ansible/host_vars/STR-ACS-VSERV-21.yml`](../host_vars/STR-ACS-VSERV-21.yml); this should be the same DNS server IP as used by the host machine. If proxy server is configured and takes care of DNS, this step is not necessary.
+6. From inside the `sonic-mgmt` docker set up in step 2, run:
 ```
 $ cd /data/sonic-mgmt/ansible
 $ ./testbed-cli.sh -m k8s_ubuntu_vtb create-master k8s_server_21 password.txt  
