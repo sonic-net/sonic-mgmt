@@ -1,3 +1,5 @@
+import time
+
 import logging
 import re
 import pytest
@@ -133,3 +135,53 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     result = str(show_gnmi_out)
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
+
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+    """
+    @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
+              whether the value of 'system uptime' was an integer and whether the value was
+              updated correctly.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    docker_present = verify_telemetry_dockerimage(duthost)
+    if not docker_present:
+        pytest.skip("docker-sonic-telemetry is not part of the image")
+
+    logger.info('start telemetry output testing')
+    setup_telemetry_forpyclient(duthost)
+
+    # wait till telemetry is restarted
+    pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
+    logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
+
+    # Wait until the TCP port is open
+    dut_ip = duthost.mgmt_ip
+    wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
+
+    # pyclient should be available on ptfhost. If not fail pytest.
+    file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
+    pytest_assert(file_exists["stat"]["exists"] is True)
+
+    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x platform/sysuptime -xt OTHERS \
+           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
+    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
+    system_uptime_1st = 0
+    for line_info in system_uptime_info:
+        if "Total:" in line_info:
+            try:
+                system_uptime_1st = int(line_info.split(":")[1].strip())
+            except ValueError as err:
+                pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
+
+    time.sleep(10)
+    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
+    system_uptime_2nd = 0
+    for line_info in system_uptime_info:
+        if "Total:" in line_info:
+            try:
+                system_uptime_2nd = int(line_info.split(":")[1].strip())
+            except ValueError as err:
+                pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
+
+    if system_uptime_2nd - system_time_1st < 10:
+        pytest.fail("The value of system uptime was not updated correctly.")
