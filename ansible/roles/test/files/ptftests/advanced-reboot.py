@@ -617,10 +617,6 @@ class ReloadTest(BaseTest):
 
         return ifreq
 
-    def get_mac(self, iff):
-        SIOCGIFHWADDR = 0x8927          # Get hardware address
-        return ':'.join(['%02x' % ord(char) for char in self.get_if(iff, SIOCGIFHWADDR)[18:24]])
-
     @staticmethod
     def hex_to_mac(hex_mac):
         return ':'.join(hex_mac[i:i+2] for i in range(0, len(hex_mac), 2))
@@ -714,9 +710,9 @@ class ReloadTest(BaseTest):
         dst_idx  = random.choice(vlan_port_canadiates)
         src_port = self.vlan_ports[src_idx]
         dst_port = self.vlan_ports[dst_idx]
-        src_mac  = self.get_mac('eth%d' % src_port)
         src_addr = self.host_ip(vlan_ip_range, src_idx)
         dst_addr = self.host_ip(vlan_ip_range, dst_idx)
+        src_mac  = self.hex_to_mac(self.vlan_host_map[src_port][src_addr])
         packet   = simple_arp_packet(eth_src=src_mac, arp_op=1, ip_snd=src_addr, ip_tgt=dst_addr, hw_snd=src_mac)
         expect   = simple_arp_packet(eth_dst=src_mac, arp_op=2, ip_snd=dst_addr, ip_tgt=src_addr, hw_tgt=src_mac)
         self.log("ARP ping: src idx %d port %d mac %s addr %s" % (src_idx, src_port, src_mac, src_addr))
