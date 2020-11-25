@@ -266,7 +266,7 @@ class SendVerifyTraffic():
             ptf_params(dict) : all PFC test params specific to the DUT port
         """
         self.ptf = ptf
-        self.router_mac = Ethernet0_mac
+        self.router_mac = router_mac
         self.pfc_queue_index = pfc_params['queue_index']
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
