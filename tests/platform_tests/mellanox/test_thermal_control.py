@@ -25,6 +25,8 @@ PSU_SPEED_PATH = '/run/hw-management/thermal/psu{}_fan1_speed_get'
 PSU_MAX_SPEED_PATH = '/run/hw-management/config/psu_fan_max'
 PSU_SPEED_TOLERANCE = 0.25
 
+MAX_COOLING_LEVEL = 10
+
 
 @pytest.mark.disable_loganalyzer
 def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
@@ -67,7 +69,7 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
     single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
     logging.info('Mock FAN absence...')
     single_fan_mocker.mock_absence()
-    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, 10, operator.eq), \
+    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, MAX_COOLING_LEVEL, operator.eq), \
         'Current cooling state is {}'.format(get_cooling_cur_state(duthost))
 
     logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_WAIT_TIME))
@@ -77,22 +79,22 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
     for index in range(psu_num):
         speed = get_psu_speed(duthost, index)
         logging.info('Speed for PSU {} fan is {}'.format(index, speed))
-        _check_psu_fan_speed_in_range(speed, psu_max_speed, 10)
+        _check_psu_fan_speed_in_range(speed, psu_max_speed, MAX_COOLING_LEVEL)
 
     logging.info('Mock FAN presence...')
     single_fan_mocker.mock_presence()
-    wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, 10, operator.ne)
+    wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, MAX_COOLING_LEVEL, operator.ne)
     logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_WAIT_TIME * 2))
     # We have to wait THERMAL_CONTROL_TEST_WAIT_TIME * 2 seconds long here because:
-    #     1. We observe that on lionfish, it might take about 30 seconds for PSU to adjust
-    #     its fan speed to target value
-    #     2. Issue 2255767. There is chance that kernel might incorrectly change cooling state back to 10 after
-    #     user space thermal control adjust it to dynamic minimum value. This issue is set to "Wont Fix"
-    #     by hw-mgmt team. So we have to wait longer for the user space thermal control
-    #     to set fan speed to dynamic minimum value again (1 more minutes).
+    #     Usually we only need wait THERMAL_CONTROL_TEST_WAIT_TIME seconds here to make sure thermal
+    #     control daemon change the cooling level to proper value, However,
+    #     there is chance that kernel might change cooling state back to MAX_COOLING_LEVEL after
+    #     user space thermal control adjust it to dynamic minimum value. So we have to wait longer for the
+    #     user space thermal control to set fan speed to dynamic minimum value again. It
+    #     means that we might need wait up to 2 thermal loops here.
     time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME * 2)
     cooling_cur_state = get_cooling_cur_state(duthost)
-    if cooling_cur_state == 10:
+    if cooling_cur_state == MAX_COOLING_LEVEL:
         cmd_output = str(duthost.command('show platform temperature')['stdout_lines'])
         cmd_output = cmd_output.replace("u'", "").replace(',', " ")
         cmd_output = re.split(r'  +',cmd_output)
