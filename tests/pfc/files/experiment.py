@@ -367,7 +367,7 @@ def __run_traffic__(api,
                                                         pause_flow_name]))
     
     api.set_state(State(FlowTransmitState(state='stop')))
-    time.sleep(3600)
+    #time.sleep(3600)
     return rows
 
 def __verify_results__(rows, 
