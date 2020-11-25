@@ -6,3 +6,4 @@ r, ".* NOTICE kernel:.*profile=""/usr/sbin/ntpd"" name=""sbin"" pid=.* comm=""nt
 r, ".* ERR snmp#snmp-subagent.*"
 r, ".* ERR route_check.py.*"
 r, ".* INFO mgmt-framework#supervisord: rest-server.*"
+r, ".* ERR radv#radvd.* Exiting, privsep_read_loop.*"
