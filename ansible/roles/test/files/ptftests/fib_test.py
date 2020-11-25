@@ -12,6 +12,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 import logging
 import random
+import time
 
 import ptf
 import ptf.packet as scapy
