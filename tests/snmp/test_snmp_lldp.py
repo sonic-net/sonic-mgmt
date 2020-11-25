@@ -15,7 +15,7 @@ def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, 
 
 
 @pytest.mark.bsl
-def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds):
+def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -34,7 +34,7 @@ def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds):
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
-    mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
 
     print snmp_facts['snmp_lldp']
     for k in ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']:

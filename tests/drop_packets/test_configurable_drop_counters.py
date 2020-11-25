@@ -82,21 +82,20 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
     if tbinfo["topo"]["type"] != "t0":
         pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
 
-    minigraph_facts = \
-        duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
     physical_port_map = {v: k
                          for k, v
-                         in minigraph_facts["minigraph_port_indices"].items()
-                         if k in minigraph_facts["minigraph_ports"].keys()}  # Trim inactive ports
+                         in mgFacts["minigraph_ptf_indices"].items()
+                         if k in mgFacts["minigraph_ports"].keys()}  # Trim inactive ports
 
-    vlan_ports = [minigraph_facts["minigraph_port_indices"][ifname]
+    vlan_ports = [mgFacts["minigraph_ptf_indices"][ifname]
                   for ifname
-                  in minigraph_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]]
+                  in mgFacts["minigraph_vlans"].values()[VLAN_INDEX]["members"]]
 
     return {"physical_port_map": physical_port_map,
             "vlan_ports": vlan_ports,
-            "vlan_interface": minigraph_facts["minigraph_vlan_interfaces"][VLAN_INDEX]}
+            "vlan_interface": mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX]}
 
 
 @pytest.fixture(scope="module")

@@ -23,7 +23,7 @@ class TestWrArp:
     '''
         TestWrArp Performs control plane assisted warm-reboo
     '''
-    def __prepareVxlanConfigData(self, duthost, ptfhost):
+    def __prepareVxlanConfigData(self, duthost, ptfhost, tbinfo):
         '''
             Prepares Vxlan Configuration data for Ferret service running on PTF host
 
@@ -34,9 +34,9 @@ class TestWrArp:
             Returns:
                 None
         '''
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         vxlanConfigData = {
-            'minigraph_port_indices': mgFacts['minigraph_port_indices'],
+            'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
             'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
             'minigraph_portchannels': mgFacts['minigraph_portchannels'],
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
@@ -51,7 +51,7 @@ class TestWrArp:
         ptfhost.copy(src=VXLAN_CONFIG_FILE, dest='/tmp/')
 
     @pytest.fixture(scope='class', autouse=True)
-    def setupFerret(self, duthosts, rand_one_dut_hostname, ptfhost):
+    def setupFerret(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         '''
             Sets Ferret service on PTF host. This class-scope fixture runs once before test start
 
@@ -120,7 +120,7 @@ class TestWrArp:
             chdir='/opt'
         )
 
-        self.__prepareVxlanConfigData(duthost, ptfhost)
+        self.__prepareVxlanConfigData(duthost, ptfhost, tbinfo)
 
         logger.info('Refreshing supervisor control with ferret configuration')
         ptfhost.shell('supervisorctl reread && supervisorctl update')

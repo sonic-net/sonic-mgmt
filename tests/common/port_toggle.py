@@ -14,7 +14,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 
-def port_toggle(duthost, ports=None, wait=60, wait_after_ports_up=60, watch=False):
+def port_toggle(duthost, tbinfo, ports=None, wait=60, wait_after_ports_up=60, watch=False):
     """
     Toggle ports on DUT.
 
@@ -42,7 +42,7 @@ def port_toggle(duthost, ports=None, wait=60, wait_after_ports_up=60, watch=Fals
 
     if ports is None:
         logger.debug('ports is None, toggling all minigraph ports')
-        mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ports = mg_facts['minigraph_ports'].keys()
 
     logger.info('toggling ports:\n%s', pprint.pformat(ports))

@@ -50,7 +50,7 @@ def change_route(operation, ptfip, neighbor, route, nexthop, port):
     assert r.status_code == 200
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
     logging.info("########### Setup for bgp speaker testing ###########")
@@ -58,7 +58,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     logging.info("ptfip=%s" % ptfip)
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     interface_facts = duthost.interface_facts()['ansible_facts']
 
     constants_stat = duthost.stat(path="/etc/sonic/constants.yml")
@@ -86,7 +86,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost):
 
     vlan_ports = []
     for i in range(0, 3):
-        vlan_ports.append(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
+        vlan_ports.append(mg_facts['minigraph_ptf_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
     logging.info("vlan_ports: %s" % str(vlan_ports))
 
     # Generate ipv6 nexthops
@@ -217,7 +217,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, p
     extra_vars = {'announce_prefix': prefix,
                   'minigraph_portchannels': mg_facts['minigraph_portchannels'],
                   'minigraph_vlans': mg_facts['minigraph_vlans'],
-                  'minigraph_port_indices': mg_facts['minigraph_port_indices']}
+                  'minigraph_port_indices': mg_facts['minigraph_ptf_indices']}
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 

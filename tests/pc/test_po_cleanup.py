@@ -38,13 +38,13 @@ def check_kernel_po_interface_cleaned(duthost):
     return res == '0'
 
 
-def test_po_cleanup(duthosts, rand_one_dut_hostname):
+def test_po_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     test port channel are cleaned up correctly and teammgrd and teamsyncd process
     handle  SIGTERM gracefully
     """
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts['minigraph_portchannels'].keys()) == 0:
         pytest.skip("Skip test due to there is no portchannel exists in current topology.")

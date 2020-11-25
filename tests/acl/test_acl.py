@@ -319,7 +319,7 @@ class BaseAclTest(object):
         """
         pass
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
         """Perform actions after rules have been applied.
 
         Args:
@@ -348,7 +348,7 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthosts, rand_one_dut_hostname, localhost, setup, acl_table, populate_vlan_arp_entries):
+    def acl_rules(self, duthosts, rand_one_dut_hostname, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo):
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -369,7 +369,7 @@ class BaseAclTest(object):
             with loganalyzer:
                 self.setup_rules(duthost, acl_table)
 
-            self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries)
+            self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
@@ -747,7 +747,7 @@ class TestAclWithReboot(TestBasicAcl):
     upon startup.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -768,7 +768,7 @@ class TestAclWithPortToggle(TestBasicAcl):
     Verify that ACLs still function as expected after links flap.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
         """Toggle ports after rules are applied.
 
         Args:
@@ -777,5 +777,5 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        port_toggle(dut)
+        port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()

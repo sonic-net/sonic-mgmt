@@ -43,7 +43,7 @@ def prepare_ptf(ptfhost, mg_facts, duthost):
 
     logger.info("Put information needed by the PTF script to the PTF container.")
     vxlan_decap = {
-        "minigraph_port_indices": mg_facts["minigraph_port_indices"],
+        "minigraph_port_indices": mg_facts["minigraph_ptf_indices"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
         "minigraph_portchannels": mg_facts["minigraph_portchannels"],
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
@@ -92,11 +92,11 @@ def generate_vxlan_config_files(duthost, mg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, ptfhost):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Gather some facts")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     logger.info("Prepare PTF")
     prepare_ptf(ptfhost, mg_facts, duthost)

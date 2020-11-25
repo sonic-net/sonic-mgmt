@@ -54,10 +54,10 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
 
 
 @pytest.fixture(scope="module")
-def pkt_fields(duthosts, rand_one_dut_hostname):
+def pkt_fields(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     # Gather ansible facts
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ipv4_addr = None
     ipv6_addr = None
 
@@ -116,7 +116,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         pytest.skip("Unsupported topology {}".format(tbinfo["topo"]))
 
     # Gather ansible facts
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
         for iface in interfaces["members"]:
@@ -131,7 +131,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
-        neighbor_sniff_ports.append(mg_facts['minigraph_port_indices'][dut_port])
+        neighbor_sniff_ports.append(mg_facts['minigraph_ptf_indices'][dut_port])
 
     for vlan_name, vlans_data in mg_facts["minigraph_vlans"].items():
         configured_vlans.append(int(vlans_data["vlanid"]))
@@ -140,7 +140,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         "port_channel_members": port_channel_members,
         "vlan_members": vlan_members,
         "rif_members": rif_members,
-        "dut_to_ptf_port_map": mg_facts["minigraph_port_indices"],
+        "dut_to_ptf_port_map": mg_facts["minigraph_ptf_indices"],
         "neighbor_sniff_ports": neighbor_sniff_ports,
         "vlans": configured_vlans,
         "mg_facts": mg_facts
