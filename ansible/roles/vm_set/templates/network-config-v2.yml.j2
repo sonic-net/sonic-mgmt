@@ -4,7 +4,7 @@ ethernets:
     dhcp4: false
     addresses: [{{ mgmt_ip_address }}/{{ mgmt_prefixlen_k8s }}, ]
     gateway4: {{ mgmt_gw }}
-{% if 'vtb' in inventory_file %}
+{% if dns_server_ip is defined %}
     nameservers:
       addresses: [{{ dns_server_ip }}]
 {% endif %}
