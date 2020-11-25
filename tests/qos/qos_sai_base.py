@@ -217,7 +217,7 @@ class QosSaiBase:
             assert testVlanIp, "Failed to obtain vlan IP"
 
             for i in range(len(testVlanMembers)):
-                portIndex = mgFacts["minigraph_port_indices"][testVlanMembers[i]]
+                portIndex = mgFacts["minigraph_ptf_indices"][testVlanMembers[i]]
                 dutPortIps.update({portIndex: str(testVlanIp + portIndex + 1)})
 
         return dutPortIps
@@ -319,7 +319,7 @@ class QosSaiBase:
             docker.restore_default_syncd(duthost, creds)
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutConfig(self, request, duthosts, rand_one_dut_hostname):
+    def dutConfig(self, request, duthosts, rand_one_dut_hostname, tbinfo):
         """
             Build DUT host config pertaining to QoS SAI tests
 
@@ -333,24 +333,24 @@ class QosSaiBase:
         """
         duthost = duthosts[rand_one_dut_hostname]
         dutLagInterfaces = []
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
         for _, lag in mgFacts["minigraph_portchannels"].items():
             for intf in lag["members"]:
-                dutLagInterfaces.append(mgFacts["minigraph_port_indices"][intf])
+                dutLagInterfaces.append(mgFacts["minigraph_ptf_indices"][intf])
 
-        testPortIds = set(mgFacts["minigraph_port_indices"][port] for port in mgFacts["minigraph_ports"].keys())
+        testPortIds = set(mgFacts["minigraph_ptf_indices"][port] for port in mgFacts["minigraph_ports"].keys())
         testPortIds -= set(dutLagInterfaces)
         if isMellanoxDevice(duthost):
             # The last port is used for up link from DUT switch
-            testPortIds -= {len(mgFacts["minigraph_port_indices"]) - 1}
+            testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
         testPortIds = sorted(testPortIds)
 
         # get current DUT port IPs
         dutPortIps = {}
         for portConfig in mgFacts["minigraph_interfaces"]:
             if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
-                portIndex = mgFacts["minigraph_port_indices"][portConfig["attachto"]]
+                portIndex = mgFacts["minigraph_ptf_indices"][portConfig["attachto"]]
                 if portIndex in testPortIds:
                     dutPortIps.update({portIndex: portConfig["peer_addr"]})
 
@@ -360,7 +360,7 @@ class QosSaiBase:
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps)
         yield {
-            "dutInterfaces" : {index: port for port, index in mgFacts["minigraph_port_indices"].items()},
+            "dutInterfaces" : {index: port for port, index in mgFacts["minigraph_ptf_indices"].items()},
             "testPortIds": testPortIds,
             "testPortIps": testPortIps,
             "testPorts": testPorts,
@@ -520,7 +520,7 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile):
+    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, tbinfo):
         """
             Prepares DUT host QoS configuration
 
@@ -533,7 +533,7 @@ class QosSaiBase:
                 QoSConfig (dict): Map containing DUT host QoS configuration
         """
         duthost = duthosts[rand_one_dut_hostname]
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         assert "minigraph_hwsku" in mgFacts, "Could not find DUT SKU"
 
         profileName = ingressLosslessProfile["profileName"]
@@ -592,7 +592,7 @@ class QosSaiBase:
                 dutTestParams (dict): DUT host test params
         """
         duthost = duthosts[rand_one_dut_hostname]
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
         yield {

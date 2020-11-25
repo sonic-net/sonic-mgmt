@@ -193,7 +193,7 @@ def _gather_test_params(tbinfo, duthost, request):
     pkt_tx_count = request.config.getoption("--pkt_tx_count")
     swap_syncd = request.config.getoption("--copp_swap_syncd")
     topo = tbinfo["topo"]["name"]
-    bgp_graph = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]["minigraph_bgp"]
+    bgp_graph = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_bgp"]
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                pkt_tx_count=pkt_tx_count,

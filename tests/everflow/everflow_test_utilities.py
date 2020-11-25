@@ -50,7 +50,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     spine_ports = []
 
     # Gather test facts
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
 
     # Get the list of T0/T2 ports
@@ -88,7 +88,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         out_port_exclude_list = []
         for port in in_port_list:
             if port not in out_port_list and port not in out_port_exclude_list and len(out_port_list) < 4:
-                ptf_port_id = str(mg_facts["minigraph_port_indices"][port])
+                ptf_port_id = str(mg_facts["minigraph_ptf_indices"][port])
                 out_port_list.append(port)
                 out_port_lag_name.append("Not Applicable")
 
@@ -98,7 +98,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                         for lag_member in portchannelinfo[1]["members"]:
                             if port == lag_member:
                                 continue
-                            ptf_port_id += "," + (str(mg_facts["minigraph_port_indices"][lag_member]))
+                            ptf_port_id += "," + (str(mg_facts["minigraph_ptf_indices"][lag_member]))
                             out_port_exclude_list.append(lag_member)
 
                 out_port_ptf_id_list.append(ptf_port_id)
@@ -134,21 +134,21 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         },
         "tor": {
             "src_port": spine_ports[0],
-            "src_port_ptf_id": str(mg_facts["minigraph_port_indices"][spine_ports[0]]),
+            "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][spine_ports[0]]),
             "dest_port": tor_dest_ports,
             "dest_port_ptf_id": tor_dest_ports_ptf_id,
             "dest_port_lag_name": tor_dest_lag_name
         },
         "spine": {
             "src_port": tor_ports[0],
-            "src_port_ptf_id": str(mg_facts["minigraph_port_indices"][tor_ports[0]]),
+            "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][tor_ports[0]]),
             "dest_port": spine_dest_ports,
             "dest_port_ptf_id": spine_dest_ports_ptf_id,
             "dest_port_lag_name": spine_dest_lag_name
         },
         "port_index_map": {
             k: v
-            for k, v in mg_facts["minigraph_port_indices"].items()
+            for k, v in mg_facts["minigraph_ptf_indices"].items()
             if k in mg_facts["minigraph_ports"]
         }
     }
@@ -160,7 +160,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     # We are making sure regular traffic has a dedicated route and does not use
     # the default route.
 
-    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3])
+    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3], tbinfo)
 
     # Disable recursive route resolution as we have test case where we check
     # if better unresolved route is there then it should not be picked by Mirror state DB
@@ -209,7 +209,7 @@ def remove_route(duthost, prefix, nexthop):
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def get_neighbor_info(duthost, dest_port, resolved=True):
+def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
     """
     Get the IP and MAC of the neighbor on the specified destination port.
 
@@ -222,7 +222,7 @@ def get_neighbor_info(duthost, dest_port, resolved=True):
     if not resolved:
         return "20.20.20.100", None
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for bgp_peer in mg_facts["minigraph_bgp"]:
         if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
