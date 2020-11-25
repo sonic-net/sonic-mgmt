@@ -10,13 +10,14 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.common_helpers import ansible_stdout_to_str
 
-@pytest.mark.topology("t0")
+@pytest.mark.topology("tgen")
 @pytest.mark.disable_loganalyzer
 
 def test_pfc_pause_single_lossless_prio(ixia_api,
                                         conn_graph_facts,
                                         fanout_graph_facts,
-                                        duthost, 
+                                        duthosts, 
+                                        rand_one_dut_hostname,
                                         enum_dut_portname_oper_up, 
                                         enum_dut_lossless_prio, 
                                         all_prio_list,
@@ -26,6 +27,8 @@ def test_pfc_pause_single_lossless_prio(ixia_api,
     test_prio_list = [enum_dut_lossless_prio]
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(enum_dut_lossless_prio)
+    
+    duthost = duthosts[rand_one_dut_hostname]
 
     run_pfc_test(api=ixia_api,
                  conn_data=conn_graph_facts,
