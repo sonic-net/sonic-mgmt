@@ -211,7 +211,7 @@ def main():
         result = {'kickstart_code': -4, 'changed': False, 'msg': "Match for output isn't found"}
     except ENotInEnabled:
         result = {'kickstart_code': -5, 'changed': False, 'msg': "Not in enabled mode"}
-    except Exception, e:
+    except Exception as e:
         result = {'kickstart_code': -6, 'changed': False, 'msg': str(e)}
 
     module.exit_json(**result)
