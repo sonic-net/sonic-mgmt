@@ -67,6 +67,7 @@ class ShowInterfaceModule(object):
             argument_spec=dict(
             command=dict(required=True, type='str'),
             interfaces=dict(required=False, type='list', default=None),
+            up_ports=dict(type='raw', default={}),
             ),
             supports_check_mode=False)
         self.m_args = self.module.params
@@ -149,6 +150,17 @@ class ShowInterfaceModule(object):
                 self.module.fail_json(msg=str(e))
             if rc != 0:
                 self.module.fail_json(msg="Command failed rc = %d, out = %s, err = %s" % (rc, self.out, err))
+
+        if 'up_ports' in self.m_args:
+            down_ports = []
+            up_ports = self.m_args['up_ports']
+            for name in up_ports:
+                try:
+                    if self.int_status[name]['oper_state'] != 'up':
+                        down_ports += [name]
+                except:
+                    down_ports += [name]
+            self.facts['ansible_interface_link_down_ports'] = down_ports
 
         return
 
