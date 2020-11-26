@@ -11,7 +11,7 @@ def gather_lldp(module, lldpctl_docker_cmd, skip_interface_pattern_list):
     if output:
         output_dict = {}
         current_dict = {}
-        lldp_entries = output.split("\n")
+        lldp_entries = output.splitlines()
         skip_interface_pattern_str = "(?:% s)" % '|'.join(skip_interface_pattern_list) if skip_interface_pattern_list else None
         for entry in lldp_entries:
             if entry.startswith("lldp"):
