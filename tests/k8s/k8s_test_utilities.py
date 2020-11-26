@@ -5,10 +5,6 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [
-    pytest.mark.topology('any')
-]
-
 def join_master(duthost, master_vip):
     """
     Joins DUT to Kubernetes master
