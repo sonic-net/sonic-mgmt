@@ -145,13 +145,13 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
             cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
             # For compatibility on EOS of old version
             cmd_backup = "show ipv6 bgp neighbors {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
-        output_lines = host.eos_command(commands=[cmd])['stdout_lines'][0]
-        if len(output_lines) == 0 and cmd_backup != "":
-            output_lines = host.eos_command(commands=[cmd])['stdout_lines'][0]
-        pytest_assert(len(output_lines) != 0, "Failed to retrieve routes from VM {}".format(hostname))
+        res = host.eos_command(commands=[cmd], module_ignore_errors=True)
+        if res['failed'] and cmd_backup != "":
+            res = host.eos_command(commands=[cmd_backup], module_ignore_errors=True)
+        pytest_assert(not res['failed'], "Failed to retrieve routes from VM {}".format(hostname))
         routes = {}
         entry = None
-        for line in output_lines:
+        for line in res['stdout_lines'][0]:
             addr = re.findall(BGP_ENTRY_HEADING + r"(.+)", line)
             if addr:
                 if entry:
