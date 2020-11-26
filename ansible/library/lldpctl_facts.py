@@ -8,10 +8,11 @@ from ansible.module_utils.basic import AnsibleModule
 
 def gather_lldp(module, lldpctl_docker_cmd, skip_interface_pattern_list):
     _, output, _ = module.run_command(lldpctl_docker_cmd)
-    if not output:
-        return None
     output_dict = {}
     current_dict = {}
+    
+    if not output:
+        return output_dict
     lldp_entries = output.splitlines()
     skip_interface_pattern_str = "(?:% s)" % '|'.join(skip_interface_pattern_list) if skip_interface_pattern_list else None
     for entry in lldp_entries:
@@ -43,7 +44,7 @@ def main():
     lldpctl_docker_cmd = "docker exec -i {} lldpctl -f keyvalue".format("lldp" + (str(m_args["asic_instance_id"]) if m_args["asic_instance_id"] else ""))
     lldp_output = gather_lldp(module, lldpctl_docker_cmd, m_args["skip_interface_pattern_list"])
     try:
-        data = {"lldpctl": lldp_output["lldp"] if lldp_output else {} }
+        data = {"lldpctl": lldp_output["lldp"] if lldp_output else lldp_output }
         module.exit_json(ansible_facts=data)
     except TypeError:
         module.fail_json(msg="lldpctl command failed")
