@@ -1145,7 +1145,7 @@ class K8sMasterHost(AnsibleHostBase):
                 self.shell("sudo systemctl start kubelet")
 
 
-class K8sMasterCluster():
+class K8sMasterCluster(object):
     """
     @summary: Class that encapsulates Kubernetes master cluster
     
