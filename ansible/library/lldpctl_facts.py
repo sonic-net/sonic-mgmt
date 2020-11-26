@@ -39,10 +39,10 @@ def main():
              supports_check_mode=False)
 
     m_args = module.params
-    lldpctl_docker_cmd = 'docker exec -i {} lldpctl -f keyvalue'.format('lldp' + (str(m_args['asic_instance_id']) if m_args['asic_instance_id'] else ''))
-    lldp_output = gather_lldp(module, lldpctl_docker_cmd, m_args['skip_interface_pattern_list'])
+    lldpctl_docker_cmd = "docker exec -i {} lldpctl -f keyvalue".format("lldp" + (str(m_args["asic_instance_id"]) if m_args["asic_instance_id"] else ""))
+    lldp_output = gather_lldp(module, lldpctl_docker_cmd, m_args["skip_interface_pattern_list"])
     try:
-        data = {'lldpctl': lldp_output['lldp']}
+        data = {"lldpctl": lldp_output["lldp"]}
         module.exit_json(ansible_facts=data)
     except TypeError:
         module.fail_json(msg="lldpctl command failed")
