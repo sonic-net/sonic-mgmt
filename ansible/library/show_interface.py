@@ -84,7 +84,7 @@ class ShowInterfaceModule(object):
         self.module.exit_json(ansible_facts=self.facts)
 
     def collect_interface_status(self):
-        regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
         if self.m_args['interfaces'] is not None:
