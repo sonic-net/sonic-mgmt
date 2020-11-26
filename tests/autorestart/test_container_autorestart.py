@@ -71,7 +71,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
         ".*WARNING syncd#syncd.*saiDiscover: skipping since it causes crash.*",
     ]
     teamd_ignoreRegex = [
-        ".*ERR teamd#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+        ".*ERR swss#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
     ]
     systemd_ignoreRegex = [
         ".*ERR systemd.*Failed to start .* container*",
