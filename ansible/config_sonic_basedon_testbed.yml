@@ -65,6 +65,10 @@
   - topo_facts: topo={{ topo }}
     delegate_to: localhost
 
+  - name: gather dual ToR information
+    dual_tor_facts: hostname="{{ inventory_hostname }}" testbed_facts="{{ testbed_facts }}" hostvars="{{ hostvars }}" vm_config="{{ vm_topo_config }}"
+    delegate_to: localhost
+
   - name: set default vm file path
     set_fact:
       vm_file: veos
@@ -105,6 +109,12 @@
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
     when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find any tunnel configurations
+    tunnel_config: 
+      vm_topo_config: "{{ vm_topo_config }}"
+      tunnel_config: "{{ tunnel_config | default(None) }}"
+    delegate_to: localhost
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:

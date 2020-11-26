@@ -9,7 +9,8 @@ from tests.common.helpers.parallel import reset_ansible_local_tmp
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module')
-def setup_keepalive_and_hold_timer(duthost, nbrhosts):
+def setup_keepalive_and_hold_timer(duthosts, rand_one_dut_hostname, nbrhosts):
+    duthost = duthosts[rand_one_dut_hostname]
     # incrase the keepalive and hold timer
     duthost.command("vtysh -c \"configure terminal\" \
                            -c \"router bgp {}\" \
@@ -40,7 +41,8 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthost, nbrhosts):
+def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
+    duthost = duthosts[rand_one_dut_hostname]
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})

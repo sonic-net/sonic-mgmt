@@ -90,7 +90,7 @@ def get_port_map(duthost):
     return port_mapping
 
 
-def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
+def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
     """
     @summary: Check SFP status and configure SFP
 
@@ -102,6 +102,7 @@ def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
     * show interface transceiver eeprom
     * sfputil reset <interface name>
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_cfg')
         loganalyzer.load_common_config()
@@ -170,7 +171,7 @@ def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
@@ -179,7 +180,7 @@ def test_check_sfp_status_and_configure_sfp(duthost, conn_graph_facts):
         loganalyzer.analyze(marker)
 
 
-def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
+def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
     """
     @summary: Check SFP low power mode
 
@@ -188,6 +189,7 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
     * sfputil lpmode off
     * sfputil lpmode on
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_lpm')
         loganalyzer.load_common_config()
@@ -275,7 +277,7 @@ def test_check_sfp_low_power_mode(duthost, conn_graph_facts):
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])

@@ -53,6 +53,7 @@ Parameters:
     - ptf_mgmt_ip_addr: ip address with prefixlen for the injected docker container
     - ptf_mgmt_ipv6_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_mgmt_ip_gw: default gateway for the injected docker container
+    - ptf_mgmt_ipv6_gw: default ipv6 gateway for the injected docker container
     - ptf_bp_ip_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_bp_ipv6_addr: ipv6 address with prefixlen for the injected docker container
     - mgmt_bridge: a bridge which is used as mgmt bridge on the host
@@ -79,6 +80,7 @@ EXAMPLES = '''
     ptf_mgmt_ip_addr: "{{ ptf_ip }}"
     ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
     ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+    ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 }}"
     ptf_bp_ip_addr: "{{ ptf_ip }}"
     ptf_bp_ipv6_addr: "{{ ptf_ip }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
@@ -286,7 +288,7 @@ class VMTopology(object):
 
         return
 
-    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None):
+    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None, mgmt_gw_v6=None):
         if MGMT_PORT_NAME not in self.cntr_ifaces:
             tmp_mgmt_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
             self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, tmp_mgmt_if)
@@ -296,7 +298,7 @@ class VMTopology(object):
 
         VMTopology.iface_up(MGMT_PORT_NAME, self.pid)
 
-        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw)
+        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw, mgmt_gw_v6=mgmt_gw_v6)
         return
 
     def add_bp_port_to_docker(self, mgmt_ip, mgmt_ipv6):
@@ -325,15 +327,19 @@ class VMTopology(object):
 
         return
 
-    def add_ip_to_docker_if(self, int_if, mgmt_ip_addr, mgmt_ipv6_addr=None, mgmt_gw=None):
+    def add_ip_to_docker_if(self, int_if, mgmt_ip_addr, mgmt_ipv6_addr=None, mgmt_gw=None, mgmt_gw_v6=None):
         self.update()
         if int_if in self.cntr_ifaces:
             VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" % (self.pid, int_if))
             VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" % (self.pid, mgmt_ip_addr, int_if))
-            if mgmt_ipv6_addr:
-                VMTopology.cmd("nsenter -t %s -n ip -6 addr add %s dev %s" % (self.pid, mgmt_ipv6_addr, int_if))
             if mgmt_gw:
                 VMTopology.cmd("nsenter -t %s -n ip route add default via %s dev %s" % (self.pid, mgmt_gw, int_if))
+            if mgmt_ipv6_addr:
+                VMTopology.cmd("nsenter -t %s -n ip -6 addr flush dev %s" % (self.pid, int_if))
+                VMTopology.cmd("nsenter -t %s -n ip -6 addr add %s dev %s" % (self.pid, mgmt_ipv6_addr, int_if))
+            if mgmt_gw_v6:
+                VMTopology.cmd("nsenter -t %s -n ip -6 route flush default" % (self.pid))
+                VMTopology.cmd("nsenter -t %s -n ip -6 route add default via %s dev %s" % (self.pid, mgmt_gw_v6, int_if))
 
         return
 
@@ -906,6 +912,7 @@ def main():
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
             ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
             ptf_mgmt_ip_gw=dict(required=False, type='str'),
+            ptf_mgmt_ipv6_gw=dict(required=False, type='str'),
             ptf_bp_ip_addr=dict(required=False, type='str'),
             ptf_bp_ipv6_addr=dict(required=False, type='str'),
             mgmt_bridge=dict(required=False, type='str'),
@@ -945,6 +952,7 @@ def main():
                                   'ptf_mgmt_ip_addr',
                                   'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
+                                  'ptf_mgmt_ipv6_gw',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
@@ -972,9 +980,10 @@ def main():
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
             ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
+            ptf_mgmt_ipv6_gw = module.params['ptf_mgmt_ipv6_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
@@ -1033,6 +1042,7 @@ def main():
                                   'ptf_mgmt_ip_addr',
                                   'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
+                                  'ptf_mgmt_ipv6_gw',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
@@ -1060,9 +1070,10 @@ def main():
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
             ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
+            ptf_mgmt_ipv6_gw = module.params['ptf_mgmt_ipv6_gw']
             mgmt_bridge = module.params['mgmt_bridge']
 
-            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']

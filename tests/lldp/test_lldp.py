@@ -8,10 +8,20 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_lldp(duthost, localhost, collect_techsupport):
-    """ verify the LLDP message on DUT """
 
-    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+@pytest.fixture(scope="module", autouse="True")
+def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    patch_lldpctl(localhost, duthost)
+    yield
+    unpatch_lldpctl(localhost, duthost)
+
+
+def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport, tbinfo):
+    """ verify the LLDP message on DUT """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    mg_facts  = duthost.get_extended_minigraph_facts(tbinfo)
     lldp_facts = duthost.lldp()['ansible_facts']
 
     minigraph_lldp_nei = {}
@@ -31,9 +41,10 @@ def test_lldp(duthost, localhost, collect_techsupport):
         assert v['port']['ifname'] == mg_facts['minigraph_neighbors'][k]['port']
 
 
-def test_lldp_neighbor(duthost, localhost, eos,
-                       collect_techsupport, loganalyzer):
+def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
+                       collect_techsupport, loganalyzer, tbinfo):
     """ verify LLDP information on neighbors """
+    duthost = duthosts[rand_one_dut_hostname]
 
     if loganalyzer:
         loganalyzer.ignore_regex.extend([
@@ -44,7 +55,7 @@ def test_lldp_neighbor(duthost, localhost, eos,
                 not sent since it contain invalid OIDs, bug.*",
         ])
 
-    mg_facts  = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts  = duthost.get_extended_minigraph_facts(tbinfo)
     res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
     lldp_facts = duthost.lldp()['ansible_facts']

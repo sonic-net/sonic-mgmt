@@ -32,7 +32,7 @@ EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthost, tbinfo):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Gather all required test information.
 
@@ -44,12 +44,13 @@ def setup_info(duthost, tbinfo):
         dict: Required test information
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     tor_ports = []
     spine_ports = []
 
     # Gather test facts
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
 
     # Get the list of T0/T2 ports
@@ -87,7 +88,7 @@ def setup_info(duthost, tbinfo):
         out_port_exclude_list = []
         for port in in_port_list:
             if port not in out_port_list and port not in out_port_exclude_list and len(out_port_list) < 4:
-                ptf_port_id = str(mg_facts["minigraph_port_indices"][port])
+                ptf_port_id = str(mg_facts["minigraph_ptf_indices"][port])
                 out_port_list.append(port)
                 out_port_lag_name.append("Not Applicable")
 
@@ -97,7 +98,7 @@ def setup_info(duthost, tbinfo):
                         for lag_member in portchannelinfo[1]["members"]:
                             if port == lag_member:
                                 continue
-                            ptf_port_id += "," + (str(mg_facts["minigraph_port_indices"][lag_member]))
+                            ptf_port_id += "," + (str(mg_facts["minigraph_ptf_indices"][lag_member]))
                             out_port_exclude_list.append(lag_member)
 
                 out_port_ptf_id_list.append(ptf_port_id)
@@ -133,21 +134,21 @@ def setup_info(duthost, tbinfo):
         },
         "tor": {
             "src_port": spine_ports[0],
-            "src_port_ptf_id": str(mg_facts["minigraph_port_indices"][spine_ports[0]]),
+            "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][spine_ports[0]]),
             "dest_port": tor_dest_ports,
             "dest_port_ptf_id": tor_dest_ports_ptf_id,
             "dest_port_lag_name": tor_dest_lag_name
         },
         "spine": {
             "src_port": tor_ports[0],
-            "src_port_ptf_id": str(mg_facts["minigraph_port_indices"][tor_ports[0]]),
+            "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][tor_ports[0]]),
             "dest_port": spine_dest_ports,
             "dest_port_ptf_id": spine_dest_ports_ptf_id,
             "dest_port_lag_name": spine_dest_lag_name
         },
         "port_index_map": {
             k: v
-            for k, v in mg_facts["minigraph_port_indices"].items()
+            for k, v in mg_facts["minigraph_ptf_indices"].items()
             if k in mg_facts["minigraph_ports"]
         }
     }
@@ -159,7 +160,7 @@ def setup_info(duthost, tbinfo):
     # We are making sure regular traffic has a dedicated route and does not use
     # the default route.
 
-    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3])
+    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3], tbinfo)
 
     # Disable recursive route resolution as we have test case where we check
     # if better unresolved route is there then it should not be picked by Mirror state DB
@@ -208,7 +209,7 @@ def remove_route(duthost, prefix, nexthop):
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def get_neighbor_info(duthost, dest_port, resolved=True):
+def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
     """
     Get the IP and MAC of the neighbor on the specified destination port.
 
@@ -221,7 +222,7 @@ def get_neighbor_info(duthost, dest_port, resolved=True):
     if not resolved:
         return "20.20.20.100", None
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for bgp_peer in mg_facts["minigraph_bgp"]:
         if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
@@ -264,7 +265,7 @@ class BaseEverflowTest(object):
         return request.param
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, duthost, config_method):
+    def setup_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session for Everflow.
 
@@ -274,6 +275,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         session_info = self._mirror_session_info("test_session_1", duthost.facts["asic_type"])
 
         self.apply_mirror_config(duthost, session_info, config_method)
@@ -283,7 +285,7 @@ class BaseEverflowTest(object):
         self.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, duthost, config_method):
+    def policer_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -293,6 +295,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         policer = "TEST_POLICER"
 
         # Create a policer that allows 100 packets/sec through
@@ -353,7 +356,7 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session, config_method):
+    def setup_acl_table(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, config_method):
         """
         Configure the ACL table for this set of test cases.
 
@@ -362,6 +365,7 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
+        duthost = duthosts[rand_one_dut_hostname]
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))

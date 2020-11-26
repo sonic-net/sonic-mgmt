@@ -31,15 +31,17 @@ def get_fanout(fanout_graph_facts, setup):
 
 
 @pytest.fixture(scope="module")
-def ansible_facts(duthost):
+def ansible_facts(duthosts, rand_one_dut_hostname):
     """ Ansible facts fixture """
+    duthost = duthosts[rand_one_dut_hostname]
     yield duthost.setup()['ansible_facts']
 
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthost):
+def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
     """ DUT minigraph facts fixture """
-    yield duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    duthost = duthosts[rand_one_dut_hostname]
+    yield duthost.get_extended_minigraph_facts(tbinfo)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -139,10 +141,11 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
 
 
 @pytest.fixture(scope="function")
-def enable_pfc_asym(setup, duthost):
+def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
     """
     Enable/disable asymmetric PFC on all server interfaces
     """
+    duthost = duthosts[rand_one_dut_hostname]
     get_pfc_mode = "docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
     srv_ports = " ".join([port["dut_name"] for port in setup["ptf_test_params"]["server_ports"]])
     pfc_asym_enabled = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE"
@@ -175,7 +178,7 @@ def enable_pfc_asym(setup, duthost):
             assert setup["pfc_bitmask"]["pfc_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"])
 
 @pytest.fixture(scope="module")
-def setup(tbinfo, duthost, ptfhost, ansible_facts, minigraph_facts, request):
+def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minigraph_facts, request):
     """
     Fixture performs initial steps which is required for test case execution.
     Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is used in test case logic.
@@ -212,6 +215,7 @@ def setup(tbinfo, duthost, ptfhost, ansible_facts, minigraph_facts, request):
     - Remove ARP responder
     - Restore supervisor configuration in PTF container
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if tbinfo['topo']['name'] != "t0":
         pytest.skip('Unsupported topology')
     setup_params = {
@@ -281,8 +285,8 @@ class Setup(object):
         self.vars["ptf_test_params"]["server_ports"] = []
         for index, item in enumerate(self.vlan_members):
             port_info = {"dut_name": item,
-                            "ptf_name": "eth{}".format(self.mg_facts["minigraph_port_indices"][item]),
-                            "index": self.mg_facts["minigraph_port_indices"][item],
+                            "ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][item]),
+                            "index": self.mg_facts["minigraph_ptf_indices"][item],
                             "ptf_ip": generated_ips[index],
                             "oid": None}
 
@@ -301,15 +305,15 @@ class Setup(object):
         redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
                                             COUNTERS_PORT_NAME_MAP {}".format(self.portchannel_member))["stdout"]
         sai_redis_oid = int(self.duthost.command("docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid))["stdout"].replace("oid:", ""), 16)
-        self.vars["ptf_test_params"]["non_server_port"] = {"ptf_name": "eth{}".format(self.mg_facts["minigraph_port_indices"][self.portchannel_member]),
-                                                    "index": self.mg_facts["minigraph_port_indices"][self.portchannel_member],
+        self.vars["ptf_test_params"]["non_server_port"] = {"ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][self.portchannel_member]),
+                                                    "index": self.mg_facts["minigraph_ptf_indices"][self.portchannel_member],
                                                     "ip": self.mg_facts["minigraph_portchannel_interfaces"][0]["peer_addr"],
                                                     "dut_name": self.portchannel_member,
                                                     "oid": sai_redis_oid}
 
     def generate_router_mac(self):
         """ Get DUT MAC address which will be used by PTF as Ethernet destination MAC address during sending traffic """
-        self.vars["ptf_test_params"]["router_mac"] = self.ansible_facts["ansible_Ethernet0"]["macaddress"]
+        self.vars["ptf_test_params"]["router_mac"] = self.duthost.facts["router_mac"]
 
 
     def prepare_arp_responder(self):

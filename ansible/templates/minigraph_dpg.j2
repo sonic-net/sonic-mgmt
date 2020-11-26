@@ -54,6 +54,13 @@
 {% endif %}
 {% endfor %}
       </PortChannelInterfaces>
+{% if tunnel_configs | length > 0 %}
+      <TunnelInterfaces>
+{% for tunnel, tunnel_param in tunnel_configs.items() %}
+        <TunnelInterface Name="{{ tunnel }}" Type="{{ tunnel_param['type'] }}" AttachTo="{{ tunnel_param['attach_to'] }}" DifferentiatedServicesCodePointMode="{{ tunnel_param['dscp'] }}" EcnEncapsulationMode="{{ tunnel_param['ecn_encap'] }}" EcnDecapsulationMode="{{ tunnel_param['ecn_decap'] }}" TtlMode="{{ tunnel_param['ttl_mode'] }}" />
+{% endfor %}
+      </TunnelInterfaces>
+{% endif %}
       <VlanInterfaces>
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
 {% for vlan, vlan_param in vlan_configs.items() %}
@@ -69,6 +76,9 @@
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
           <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
+{% if 'mac' in vlan_param %}
+          <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
+{% endif %}
         </VlanInterface>
 {% endfor %}
 {% endif %}

@@ -17,9 +17,10 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_sfp_using_ethtool(duthost, conn_graph_facts):
+def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
     """This test case is to check SFP using the ethtool.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     ports_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
 
     logging.info("Use the ethtool to check SFP information")
@@ -45,7 +46,7 @@ def test_check_sfp_using_ethtool(duthost, conn_graph_facts):
                     "Unexpected line %s in %s" % (line, str(ethtool_sfp_output["stdout_lines"]))
 
     logging.info("Check interface status")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
