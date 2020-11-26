@@ -112,6 +112,7 @@ class MockerHelper:
         self.dut = dut
         #self.unlink_file_list = {}
         self._extract_num_of_fans_and_fan_drawers()
+        self.deinit_retry = 5
 
     def _extract_num_of_fans_and_fan_drawers(self):
         """
@@ -235,10 +236,29 @@ class MockerHelper:
         Destructor of MockerHelper. Re-link all sys fs files.
         :return:
         """
+        failed_recover_files = {}
         for file_path, link_target in self.unlink_file_list.items():
-            self.dut.command('rm -f {}'.format(file_path))
-            self.dut.command('ln -s {} {}'.format(link_target, file_path))
+            try:
+                self.dut.command('ln -f -s {} {}'.format(link_target, file_path))
+            except Exception as e:
+                # Catch any exception for later retry
+                failed_recover_files[file_path] = link_target
+
         self.unlink_file_list.clear()
+        # If there is any failed recover files, retry it
+        if failed_recover_files:
+            self.deinit_retry -= 1
+            if self.deinit_retry > 0:
+                self.unlink_file_list = failed_recover_files
+                self.deinit()
+            else:
+                # We don't want to retry it infinite, and 5 times retry
+                # is enough, so if it still fails after the retry, it
+                # means there is probably an issue with our sysfs, we need
+                # mark it fail here
+                error_message = "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
+                logging.error(error_message)
+                raise RuntimeError(error_message)
 
 
 class FanDrawerData:
@@ -366,6 +386,9 @@ class FanData:
     # Speed tolerance
     SPEED_TOLERANCE = 0.2
 
+    # Cooling cur state file
+    COOLING_CUR_STATE_FILE = 'cooling_cur_state'
+
     def __init__(self, mock_helper, naming_rule, index):
         """
         Constructor of FAN data.
@@ -434,6 +457,10 @@ class FanData:
             self.mocked_status = 'OK' if status == 0 else 'Not OK'
         else:
             self.mocked_status = 'OK'
+
+    @classmethod
+    def mock_cooling_cur_state(cls, mock_helper, value):
+        mock_helper.mock_thermal_value(cls.COOLING_CUR_STATE_FILE, str(value))
 
     def get_max_speed(self):
         """
@@ -647,6 +674,10 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         presence = 0
         direction = NOT_AVAILABLE
         naming_rule = FAN_NAMING_RULE['fan']
+        # All system fan is controlled to have the same speed, so only
+        # get a random value once here
+        speed = random.randint(60, 100)
+        FanData.mock_cooling_cur_state(self.mock_helper, speed/10)
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
@@ -664,7 +695,6 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 fan_index += 1
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
-                    speed = random.randint(60, 100)
                     fan_data.mock_speed(speed)
                     fan_data.mock_target_speed(speed)
                     self.expected_data[fan_data.name] = [
@@ -725,13 +755,14 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         :param expected_speed: Expect speed in percentage.
         :return: True if match else False.
         """
-        for fan_data in self.expected_data.values():
-            if fan_data.target_speed_file:
-                target_speed = fan_data.get_target_speed()
-                if expected_speed != target_speed:
-                    logging.error(
-                        '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
-                    return False
+        for drawer_data in self.drawer_list:
+            for fan_data in drawer_data.fan_data_list:
+                if fan_data.target_speed_file:
+                    target_speed = fan_data.get_target_speed()
+                    if expected_speed != target_speed:
+                        logging.error(
+                            '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
+                        return False
         return True
 
 

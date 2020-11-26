@@ -18,6 +18,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.conftest import duthost
 
 logger = logging.getLogger(__name__)
 
@@ -56,23 +57,21 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, tbinfo, ptfadapter):
+def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
-        duthost: A fixture to interact with the DUT.
+        duthosts: All DUTs belong to the testbed.
+        rand_one_dut_hostname: hostname of a random chosen dut to run test.
         tbinfo: A fixture to gather information about the testbed.
 
     Yields:
         A Dictionary with required test information.
 
     """
-    pytest_require(
-        tbinfo["topo"]["name"] != "dualtor",
-        "ACL test not supported on topology: \"{}\"".format(tbinfo["topo"]["name"])
-    )
+    duthost = duthosts[rand_one_dut_hostname]
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # Get the list of upstream/downstream ports
     downstream_ports = []
@@ -82,7 +81,7 @@ def setup(duthost, tbinfo, ptfadapter):
 
     topo = tbinfo["topo"]["type"]
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-        port_id = mg_facts["minigraph_port_indices"][interface]
+        port_id = mg_facts["minigraph_ptf_indices"][interface]
         if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]):
             downstream_ports.append(interface)
             downstream_port_ids.append(port_id)
@@ -107,14 +106,12 @@ def setup(duthost, tbinfo, ptfadapter):
     vlan_ports = []
 
     if topo == "t0":
-        vlan_ports = [mg_facts["minigraph_port_indices"][ifname]
+        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname
                       in mg_facts["minigraph_vlans"].values()[0]["members"]]
 
-    host_facts = duthost.setup()["ansible_facts"]
-
     setup_information = {
-        "router_mac": host_facts["ansible_Ethernet0"]["macaddress"],
+        "router_mac": duthost.facts["router_mac"],
         "downstream_port_ids": downstream_port_ids,
         "upstream_port_ids": upstream_port_ids,
         "acl_table_ports": acl_table_ports,
@@ -134,8 +131,9 @@ def setup(duthost, tbinfo, ptfadapter):
 
 
 @pytest.fixture(scope="module")
-def populate_vlan_arp_entries(setup, ptfhost, duthost):
+def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname):
     """Set up the ARP responder utility in the PTF container."""
+    duthost = duthosts[rand_one_dut_hostname]
     if setup["topo"] != "t0":
         def noop():
             pass
@@ -187,17 +185,19 @@ def populate_vlan_arp_entries(setup, ptfhost, duthost):
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthost):
+def stage(request, duthosts, rand_one_dut_hostname):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
         request: A fixture to interact with Pytest data.
-        duthost: A fixture to interact with the DUT.
+        duthosts: All DUTs belong to the testbed.
+        rand_one_dut_hostname: hostname of a random chosen dut to run test.
 
     Returns:
         str: The ACL stage to be tested.
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
         request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
@@ -207,11 +207,12 @@ def stage(request, duthost):
 
 
 @pytest.fixture(scope="module")
-def acl_table_config(duthost, setup, stage):
+def acl_table_config(duthosts, rand_one_dut_hostname, setup, stage):
     """Generate ACL table configuration files and deploy them to the DUT.
 
     Args:
-        duthost: A fixture to interact with the DUT.
+        duthosts: All DUTs belong to the testbed.
+        rand_one_dut_hostname: hostname of a random chosen dut to run test.
         setup: Parameters for the ACL tests.
         stage: The ACL stage under test.
 
@@ -219,6 +220,7 @@ def acl_table_config(duthost, setup, stage):
         A dictionary containing the table name and the corresponding configuration file.
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     stage_to_name_map = {
         "ingress": "DATA_INGRESS_TEST",
         "egress": "DATA_EGRESS_TEST"
@@ -250,11 +252,12 @@ def acl_table_config(duthost, setup, stage):
 
 
 @pytest.fixture(scope="module")
-def acl_table(duthost, acl_table_config, backup_and_restore_config_db_module):
+def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_restore_config_db_module):
     """Apply ACL table configuration and remove after tests.
 
     Args:
-        duthost: A fixture to interact with the DUT.
+        duthosts: All DUTs belong to the testbed.
+        rand_one_dut_hostname: hostname of a random chosen dut to run test.
         acl_table_config: A dictionary describing the ACL table configuration to apply.
         backup_and_restore_config_db_module: A fixture that handles restoring Config DB
                 after the tests are over.
@@ -263,6 +266,7 @@ def acl_table(duthost, acl_table_config, backup_and_restore_config_db_module):
         The ACL table configuration.
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     table_name = acl_table_config["table_name"]
     config_file = acl_table_config["config_file"]
 
@@ -315,7 +319,7 @@ class BaseAclTest(object):
         """
         pass
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
         """Perform actions after rules have been applied.
 
         Args:
@@ -344,17 +348,19 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthost, localhost, setup, acl_table, populate_vlan_arp_entries):
+    def acl_rules(self, duthosts, rand_one_dut_hostname, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo):
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
-            duthost: The DUT having ACLs applied.
+            duthosts: All DUTs belong to the testbed.
+            rand_one_dut_hostname: hostname of a random chosen dut to run test.
             localhost: The host from which tests are run.
             setup: Parameters for the ACL tests.
             acl_table: Configuration info for the ACL table.
             populate_vlan_arp_entries: A function to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        duthost = duthosts[rand_one_dut_hostname]
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
         loganalyzer.load_common_config()
 
@@ -363,7 +369,7 @@ class BaseAclTest(object):
             with loganalyzer:
                 self.setup_rules(duthost, acl_table)
 
-            self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries)
+            self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
@@ -379,7 +385,7 @@ class BaseAclTest(object):
                 self.teardown_rules(duthost)
 
     @pytest.yield_fixture(scope="class", autouse=True)
-    def counters_sanity_check(self, duthost, acl_rules, acl_table):
+    def counters_sanity_check(self, duthosts, rand_one_dut_hostname, acl_rules, acl_table):
         """Validate that the counters for each rule in the rules list increased as expected.
 
         This fixture yields a list of rule IDs. The test case should add on to this list if
@@ -389,11 +395,13 @@ class BaseAclTest(object):
         check if the counters for each rule in the list were increased.
 
         Args:
-            duthost: The DUT having ACLs applied.
+            duthosts: All DUTs belong to the testbed.
+            rand_one_dut_hostname: hostname of a random chosen dut to run test.
             acl_rules: Fixture that sets up the ACL rules.
             acl_table: Fixture that sets up the ACL table.
 
         """
+        duthost = duthosts[rand_one_dut_hostname]
         table_name = acl_table["table_name"]
         acl_facts_before_traffic = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
@@ -739,7 +747,7 @@ class TestAclWithReboot(TestBasicAcl):
     upon startup.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -760,7 +768,7 @@ class TestAclWithPortToggle(TestBasicAcl):
     Verify that ACLs still function as expected after links flap.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
         """Toggle ports after rules are applied.
 
         Args:
@@ -769,5 +777,5 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        port_toggle(dut)
+        port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()

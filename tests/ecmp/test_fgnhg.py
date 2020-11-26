@@ -307,7 +307,8 @@ def cleanup(duthost):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(tbinfo, duthost):
+def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     if tbinfo['topo']['name'] not in SUPPORTED_TOPO:
         logger.warning("Unsupported topology, currently supports " + str(SUPPORTED_TOPO))
         pytest.skip("Unsupported topology")
@@ -316,13 +317,12 @@ def common_setup_teardown(tbinfo, duthost):
         pytest.skip("Unsupported platform")
 
     try:
-        host_facts  = duthost.setup()['ansible_facts']
-        mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        router_mac = host_facts['ansible_Ethernet0']['macaddress']
+        router_mac = duthost.facts['router_mac']
         net_ports = []
         for name, val in mg_facts['minigraph_portchannels'].items():
-            members = [mg_facts['minigraph_port_indices'][member] for member in val['members']]
+            members = [mg_facts['minigraph_ptf_indices'][member] for member in val['members']]
             net_ports.extend(members)
         yield duthost, cfg_facts, router_mac, net_ports 
 

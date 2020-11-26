@@ -348,7 +348,8 @@ def get_entries_num(used, available):
                                                                 ("6", "ip -6 route add 2001::/126 via {}",
                                                                 "ip -6 route del 2001::/126 via {}")],
                                                                 ids=["ipv4", "ipv6"])
-def test_crm_route(duthost, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+def test_crm_route(duthosts, rand_one_dut_hostname, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
 
     # Template used to speedup execution of many similar commands on DUT
@@ -440,7 +441,8 @@ def test_crm_route(duthost, crm_interface, ip_ver, route_add_cmd, route_del_cmd)
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthost, crm_interface, ip_ver, nexthop):
+def test_crm_nexthop(duthosts, rand_one_dut_hostname, crm_interface, ip_ver, nexthop):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
     nexthop_add_cmd = "ip neigh replace {nexthop} lladdr 11:22:33:44:55:66 dev {iface}".format(nexthop=nexthop,
         iface=crm_interface[0])
@@ -507,7 +509,8 @@ def test_crm_nexthop(duthost, crm_interface, ip_ver, nexthop):
 
 
 @pytest.mark.parametrize("ip_ver,neighbor", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_neighbor(duthost, crm_interface, ip_ver, neighbor):
+def test_crm_neighbor(duthosts, rand_one_dut_hostname, crm_interface, ip_ver, neighbor):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
     neighbor_add_cmd = "ip neigh replace {neighbor} lladdr 11:22:33:44:55:66 dev {iface}".format(neighbor=neighbor, iface=crm_interface[0])
     neighbor_del_cmd = "ip neigh del {neighbor} lladdr 11:22:33:44:55:66 dev {iface}".format(neighbor=neighbor, iface=crm_interface[0])
@@ -572,7 +575,8 @@ def test_crm_neighbor(duthost, crm_interface, ip_ver, neighbor):
 
 
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
-def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
+def test_crm_nexthop_group(duthosts, rand_one_dut_hostname, crm_interface, group_member, network):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "nexthop_group_member" if group_member else "nexthop_group"
     redis_threshold = "nexthop group member" if group_member else "nexthop group object"
     get_group_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_nexthop_group_used crm_stats_nexthop_group_available"
@@ -668,7 +672,8 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
         crm_avail=new_nexthop_group_available)
 
 
-def test_acl_entry(duthost, collector):
+def test_acl_entry(duthosts, rand_one_dut_hostname, collector):
+    duthost = duthosts[rand_one_dut_hostname]
     apply_acl_config(duthost, "test_acl_entry", collector)
     acl_tbl_key = collector["acl_tbl_key"]
     get_acl_entry_stats = "redis-cli --raw -n 2 HMGET {acl_tbl_key} crm_stats_acl_entry_used \
@@ -728,7 +733,8 @@ def test_acl_entry(duthost, collector):
         "\"crm_stats_acl_entry_available\" counter was not incremented")
 
 
-def test_acl_counter(duthost, collector):
+def test_acl_counter(duthosts, rand_one_dut_hostname, collector):
+    duthost = duthosts[rand_one_dut_hostname]
     if not "acl_tbl_key" in collector:
         pytest.skip("acl_tbl_key is not retrieved")
     acl_tbl_key = collector["acl_tbl_key"]
@@ -799,7 +805,8 @@ def test_acl_counter(duthost, collector):
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
 
-def test_crm_fdb_entry(duthost, tbinfo):
+def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
     if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
 

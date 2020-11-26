@@ -7,7 +7,8 @@ pytestmark = [
 ]
 
 @pytest.mark.bsl
-def test_snmp_numpsu(duthost, localhost, creds):
+def test_snmp_numpsu(duthosts, rand_one_dut_hostname, localhost, creds):
+    duthost = duthosts[rand_one_dut_hostname]
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
@@ -20,7 +21,8 @@ def test_snmp_numpsu(duthost, localhost, creds):
 
 
 @pytest.mark.bsl
-def test_snmp_psu_status(duthost, localhost, creds):
+def test_snmp_psu_status(duthosts, rand_one_dut_hostname, localhost, creds):
+    duthost = duthosts[rand_one_dut_hostname]
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
