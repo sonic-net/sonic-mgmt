@@ -31,7 +31,7 @@ from abstract_open_traffic_generator.result import FlowRequest
 @pytest.mark.topology("tgen")
 @pytest.mark.disable_loganalyzer
 
-def gen_traffic_config(testbed_config, dut_hostname, dut_port, conn_data, fanout_data):
+def __gen_traffic(testbed_config, dut_hostname, dut_port, conn_data, fanout_data):
     tx_port_id = get_dut_port_id(dut_hostname=dut_hostname,
                                  dut_port=dut_port,
                                  conn_data=conn_data,
@@ -80,11 +80,11 @@ def test_tgen(conn_graph_facts, fanout_graph_facts, ixia_api, ixia_t0_testbed,\
     dut_port = words[1]
 
     config = ixia_t0_testbed
-    config.flows = gen_traffic_config(testbed_config=config,
-                                      dut_hostname=dut_hostname,
-                                      dut_port=dut_port,
-                                      conn_data=conn_graph_facts,
-                                      fanout_data=fanout_graph_facts)
+    config.flows = __gen_traffic(testbed_config=config,
+                                 dut_hostname=dut_hostname,
+                                 dut_port=dut_port,
+                                 conn_data=conn_graph_facts,
+                                 fanout_data=fanout_graph_facts)
 
     flow_name = config.flows[0].name 
     pkt_size = config.flows[0].size.fixed
