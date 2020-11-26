@@ -37,7 +37,7 @@ class DhcpPktFwdBase:
         "port": 67,
     }
 
-    def __getPortLagsAndPeerIp(self, duthost, testPort):
+    def __getPortLagsAndPeerIp(self, duthost, testPort, tbinfo):
         """
         Retrieves all port lag members for a given testPort
 
@@ -50,19 +50,19 @@ class DhcpPktFwdBase:
             peerIp(str): BGP peer IP
         """
         peerIp = None
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         for peer in mgFacts["minigraph_bgp"]:
             if peer["name"] == mgFacts["minigraph_neighbors"][testPort]["name"] and \
                ipaddr.IPAddress(peer["addr"]).version == 4:
                 peerIp = peer["addr"]
                 break
 
-        lags = [mgFacts["minigraph_port_indices"][testPort]]
+        lags = [mgFacts["minigraph_ptf_indices"][testPort]]
         for portchannelConfig in mgFacts["minigraph_portchannels"].values():
             if testPort in portchannelConfig["members"]:
                 for lag in portchannelConfig["members"]:
                     if testPort != lag:
-                        lags.append(mgFacts["minigraph_port_indices"][lag])
+                        lags.append(mgFacts["minigraph_ptf_indices"][lag])
                 break
 
         return lags, peerIp
@@ -92,7 +92,7 @@ class DhcpPktFwdBase:
         ))
 
     @pytest.fixture(scope="class")
-    def dutPorts(self, duthost, tbinfo):
+    def dutPorts(self, duthosts, rand_one_dut_hostname, tbinfo):
         """
         Build list of DUT ports and classify them as Upstream/Downstream ports.
 
@@ -103,13 +103,14 @@ class DhcpPktFwdBase:
         Returns:
             dict: contains downstream/upstream ports information
         """
+        duthost = duthosts[rand_one_dut_hostname]
         if "t1" not in tbinfo["topo"]["name"]:
             pytest.skip("Unsupported topology")
 
         downstreamPorts = []
         upstreamPorts = []
 
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
         for dutPort, neigh in mgFacts["minigraph_neighbors"].items():
             if "T0" in neigh["name"]:
@@ -120,7 +121,7 @@ class DhcpPktFwdBase:
         yield {"upstreamPorts": upstreamPorts, "downstreamPorts": downstreamPorts}
 
     @pytest.fixture(scope="class")
-    def testPorts(self, duthost, dutPorts):
+    def testPorts(self, duthosts, rand_one_dut_hostname, dutPorts, tbinfo):
         """
         Select one upstream and one downstream ports for DHCP packet forwarding test
 
@@ -131,13 +132,16 @@ class DhcpPktFwdBase:
         Returns:
             dict: contains downstream/upstream port (or LAG members) information used for test
         """
+        duthost = duthosts[rand_one_dut_hostname]
         downstreamLags, downstreamPeerIp = self.__getPortLagsAndPeerIp(
             duthost,
-            random.choice(dutPorts["downstreamPorts"])
+            random.choice(dutPorts["downstreamPorts"]),
+            tbinfo
         )
         upstreamLags, upstreamPeerIp = self.__getPortLagsAndPeerIp(
             duthost,
-            random.choice(dutPorts["upstreamPorts"])
+            random.choice(dutPorts["upstreamPorts"]),
+            tbinfo
         )
 
         self.__updateRoute(duthost, self.DHCP_SERVER["ip"], upstreamPeerIp)
@@ -161,7 +165,7 @@ class DhcpPktFwdBase:
         """
         ether = scapy.Ether(dst=dutMac, src=self.DHCP_RELAY["mac"], type=0x0800)
         ip = scapy.IP(src=self.DHCP_RELAY["loopback"], dst=self.DHCP_SERVER["ip"], len=328, ttl=64)
-        udp = scapy.UDP(sport=self.DHCP_SERVER["port"], dport=self.DHCP_CLIENT["port"], len=308)
+        udp = scapy.UDP(sport=self.DHCP_SERVER["port"], dport=self.DHCP_SERVER["port"], len=308)
         bootp = scapy.BOOTP(
             op=1,
             htype=1,
@@ -228,7 +232,7 @@ class DhcpPktFwdBase:
         """
         ether = scapy.Ether(dst=dutMac, src=self.DHCP_RELAY["mac"], type=0x0800)
         ip = scapy.IP(src=self.DHCP_RELAY["loopback"], dst=self.DHCP_SERVER["ip"], len=336, ttl=64)
-        udp = scapy.UDP(sport=self.DHCP_CLIENT["port"], dport=self.DHCP_SERVER["port"], len=316)
+        udp = scapy.UDP(sport=self.DHCP_SERVER["port"], dport=self.DHCP_SERVER["port"], len=316)
         bootp = scapy.BOOTP(
             op=1,
             htype=1,

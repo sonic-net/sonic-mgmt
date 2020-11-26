@@ -13,15 +13,17 @@ import os
 import re
 import inspect
 import ipaddress
+import copy
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
+import time
 
 from ansible import constants
 from ansible.plugins.loader import connection_loader
 
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
-
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -37,6 +39,7 @@ try:
 except Exception as e:
     logging.error("Hack for https://github.com/ansible/pytest-ansible/issues/47 failed: {}".format(repr(e)))
 
+logger = logging.getLogger(__name__)
 
 class AnsibleHostBase(object):
     """
@@ -61,8 +64,9 @@ class AnsibleHostBase(object):
             self.module = getattr(self.host, module_name)
 
             return self._run
-
-        return super(AnsibleHostBase, self).__getattr__(module_name)
+        raise AttributeError(
+            "'%s' object has no attribute '%s'" % (self.__class__, module_name)
+            )
 
     def _run(self, *module_args, **complex_args):
 
@@ -343,6 +347,29 @@ class SonicHost(AnsibleHostBase):
                 result[fields[0]] = fields[1]
         return result
 
+    def is_supervisor_node(self):
+        """Check if the current node is a supervisor node in case of multi-DUT.
+
+        Returns:
+            Currently, we are using 'type' in the inventory to make the decision. If 'type' for the node is defined in
+            the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
+            logic if possible to derive it from the DUT.
+        """
+        if 'type' in self.host.options["inventory_manager"].get_host(self.hostname).get_vars():
+            node_type = self.host.options["inventory_manager"].get_host(self.hostname).get_vars()["type"]
+            if node_type is not None and node_type == 'supervisor':
+                return True
+        return False
+
+    def is_frontend_node(self):
+        """Check if the current node is a frontend node in case of multi-DUT.
+
+        Returns:
+            True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
+            node. If we add more types of nodes, then we need to exclude them from this method as well.
+        """
+        return not self.is_supervisor_node()
+
     def is_service_fully_started(self, service):
         """
         @summary: Check whether a SONiC specific service is fully started.
@@ -375,6 +402,34 @@ class SonicHost(AnsibleHostBase):
         result = self.critical_services_status()
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
+
+    def get_monit_services_status(self):
+        """
+        @summary: Get metadata (service name, service status and service type) of services
+                  which were monitored by Monit.
+        @return: A dictionary in which key is the service name and values are service status
+                 and service type.
+        """
+        monit_services_status = {}
+
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True)
+
+        exit_code = services_status_result["rc"]
+        if exit_code != 0:
+            return monit_services_status
+
+        for index, service_info in enumerate(services_status_result["stdout_lines"]):
+            if "status" in service_info and "monitoring status" not in service_info:
+                service_type_name = services_status_result["stdout_lines"][index - 1]
+                service_type = service_type_name.split("'")[0].strip()
+                service_name = service_type_name.split("'")[1].strip()
+                service_status = service_info[service_info.find("status") + len("status"):].strip()
+
+                monit_services_status[service_name] = {}
+                monit_services_status[service_name]["service_status"] = service_status
+                monit_services_status[service_name]["service_type"] = service_type
+
+        return monit_services_status
 
     def get_critical_group_and_process_lists(self, container_name):
         """
@@ -409,7 +464,7 @@ class SonicHost(AnsibleHostBase):
         if succeeded and container_name == "pmon":
             expected_critical_group_list = []
             expected_critical_process_list = []
-            process_list = self.shell("docker exec {} supervisorctl status".format(container_name))
+            process_list = self.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
             for process_info in process_list["stdout_lines"]:
                 process_name = process_info.split()[0].strip()
                 process_status = process_info.split()[1].strip()
@@ -421,7 +476,7 @@ class SonicHost(AnsibleHostBase):
                 else:
                     if process_status == "RUNNING" and process_name in critical_process_list:
                         expected_critical_process_list.append(process_name)
-            
+
             critical_group_list = expected_critical_group_list
             critical_process_list = expected_critical_process_list
 
@@ -452,7 +507,7 @@ class SonicHost(AnsibleHostBase):
             return result
 
         # get process status for the service
-        output = self.command("docker exec {} supervisorctl status".format(service))
+        output = self.command("docker exec {} supervisorctl status".format(service), module_ignore_errors=True)
         logging.info("====== supervisor process status for service {} ======".format(service))
 
         for l in output['stdout_lines']:
@@ -799,7 +854,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
         return ret;
-        
+
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
@@ -844,8 +899,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         @param neighbor_ip: bgp neighbor IP
         """
         nbinfo = self.get_bgp_neighbor_info(neighbor_ip)
-        if nbinfo['bgpState'].lower() == "Active".lower():
-            if nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
+        if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Active".lower():
+            if 'bgpStateIs' in nbinfo and nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
 
@@ -1038,6 +1093,176 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
 
+    def get_namespace_from_asic_id(self, asic_id):
+        if asic_id is DEFAULT_ASIC_ID:
+            return DEFAULT_NAMESPACE
+        return "{}{}".format(NAMESPACE_PREFIX, asic_id)
+
+    def get_extended_minigraph_facts(self, tbinfo):
+        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+        mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
+
+        # Fix the ptf port index for multi-dut testbeds. These testbeds have
+        # multiple DUTs sharing a same PTF host. Therefore, the indeces from
+        # the minigraph facts are not always match up with PTF port indeces.
+        try:
+            dut_index = tbinfo['duts'].index(self.hostname)
+            map = tbinfo['topo']['ptf_map'][dut_index]
+            if map:
+                for port, index in mg_facts['minigraph_ptf_indices'].items():
+                    if index in map:
+                        mg_facts['minigraph_ptf_indices'][port] = map[index]
+        except (ValueError, KeyError):
+            pass
+
+        return mg_facts
+
+    def get_route(self, prefix):
+        cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
+        return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
+
+
+class K8sMasterHost(AnsibleHostBase):
+    """
+    @summary: Class for Ubuntu KVM that hosts Kubernetes master
+
+    For running ansible module on the K8s Ubuntu KVM host
+    """
+
+    def __init__(self, ansible_adhoc, hostname, is_haproxy):
+        """ Initialize an object for interacting with Ubuntu KVM using ansible modules
+
+        Args:
+            ansible_adhoc (): The pytest-ansible fixture
+            hostname (string): hostname of the Ubuntu KVM
+            is_haproxy (boolean): True if node is haproxy load balancer, False if node is backend master server
+
+        """
+        self.hostname = hostname
+        self.is_haproxy = is_haproxy
+        super(K8sMasterHost, self).__init__(ansible_adhoc, hostname)
+        evars = {
+            'ansible_become_method': 'enable'
+        }
+        self.host.options['variable_manager'].extra_vars.update(evars)
+
+    def check_k8s_master_ready(self):
+        """
+        @summary: check if all Kubernetes master node statuses reflect target state "Ready"
+
+        """
+        k8s_nodes_statuses = self.shell('kubectl get nodes | grep master', module_ignore_errors=True)["stdout_lines"]
+        logging.info("k8s master node statuses: {}".format(k8s_nodes_statuses))
+
+        for line in k8s_nodes_statuses:
+            if "NotReady" in line:
+                return False
+        return True
+
+    def shutdown_api_server(self):
+        """
+        @summary: Shuts down API server container on one K8sMasterHost server
+
+        """
+        self.shell('sudo systemctl stop kubelet')
+        logging.info("Shutting down API server on backend master server hostname: {}".format(self.hostname))
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
+        for id in api_server_container_ids:
+            self.shell('sudo docker kill {}'.format(id))
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout"]
+        assert not api_server_container_ids
+
+    def start_api_server(self):
+        """
+        @summary: Starts API server container on one K8sMasterHost server
+
+        """
+        self.shell('sudo systemctl start kubelet')
+        logging.info("Starting API server on backend master server hostname: {}".format(self.hostname))
+        timeout_wait_secs = 60
+        poll_wait_secs = 5
+        api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
+        while ((len(api_server_container_ids) < 2) and (timeout_wait_secs > 0)):
+            logging.info("Waiting for Kubernetes API server to start")
+            time.sleep(poll_wait_secs)
+            timeout_wait_secs -= poll_wait_secs
+            api_server_container_ids = self.shell('sudo docker ps -qf "name=apiserver"')["stdout_lines"]
+        assert len(api_server_container_ids) > 1
+
+    def ensure_kubelet_running(self):
+        """
+        @summary: Ensures kubelet is running on one K8sMasterHost server
+
+        """
+        logging.info("Ensuring kubelet is started on {}".format(self.hostname))
+        kubelet_status = self.shell("sudo systemctl status kubelet | grep 'Active: '", module_ignore_errors=True)
+        for line in kubelet_status["stdout_lines"]:
+            if not "running" in line:
+                self.shell("sudo systemctl start kubelet")
+
+
+class K8sMasterCluster():
+    """
+    @summary: Class that encapsulates Kubernetes master cluster
+
+    For operating on a group of K8sMasterHost objects that compose one HA Kubernetes master cluster
+    """
+
+    def __init__(self, k8smasters):
+        """Initialize a list of backend master servers, and identify the HAProxy load balancer node
+
+        Args:
+            k8smasters: fixture that allows retrieval of K8sMasterHost objects
+
+        """
+        self.backend_masters = []
+        for hostname, k8smaster in k8smasters.items():
+            if k8smaster['host'].is_haproxy:
+                self.haproxy = k8smaster['host']
+            else:
+                self.backend_masters.append(k8smaster)
+
+    def get_master_vip(self):
+        """
+        @summary: Retrieve VIP of Kubernetes master cluster
+
+        """
+        return self.haproxy.mgmt_ip
+
+    def shutdown_all_api_server(self):
+        """
+        @summary: shut down API server on all backend master servers
+
+        """
+        for k8smaster in self.backend_masters:
+            logger.info("Shutting down API Server on master node {}".format(k8smaster['host'].hostname))
+            k8smaster['host'].shutdown_api_server()
+
+    def start_all_api_server(self):
+        """
+        @summary: Start API server on all backend master servers
+
+        """
+        for k8smaster in self.backend_masters:
+            logger.info("Starting API server on master node {}".format(k8smaster['host'].hostname))
+            k8smaster['host'].start_api_server()
+
+    def check_k8s_masters_ready(self):
+        """
+        @summary: Ensure that Kubernetes master is in healthy state
+
+        """
+        for k8smaster in self.backend_masters:
+            assert k8smaster['host'].check_k8s_master_ready()
+
+    def ensure_all_kubelet_running(self):
+        """
+        @summary: Ensures kubelet is started on all backend masters, start kubelet if necessary
+
+        """
+        for k8smaster in self.backend_masters:
+            k8smaster['host'].ensure_kubelet_running()
+
 
 class EosHost(AnsibleHostBase):
     """
@@ -1114,7 +1339,18 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+        if out['changed'] == False:
+            # new eos deprecate lacp rate and use lacp timer command
+            out = self.eos_config(
+                lines=['lacp timer %s' % mode],
+                parents='interface %s' % interface_name)
+            if out['changed'] == False:
+                logging.warning("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+                raise Exception("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+            else:
+                logging.info("Set interface [%s] lacp timer to [%s]" % (interface_name, mode))
+        else:
+            logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
         return out
 
     def kill_bgpd(self):
@@ -1182,6 +1418,13 @@ class EosHost(AnsibleHostBase):
 
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+
+    def get_route(self, prefix):
+        cmd = 'show ip bgp' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show ipv6 bgp'
+        return self.eos_command(commands=[{
+            'command': '{} {}'.format(cmd, prefix),
+            'output': 'json'
+        }])['stdout'][0]
 
 
 class OnyxHost(AnsibleHostBase):
@@ -1296,6 +1539,237 @@ class IxiaHost (AnsibleHostBase):
             eval(cmd)
 
 
+class SonicAsic(object):
+    """ This class represents an ASIC on a SONiC host. This class implements wrapper methods for ASIC/namespace related operations.
+    The purpose is to hide the complexity of handling ASIC/namespace specific details.
+    For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
+    """
+    def __init__(self, sonichost, asic_index):
+        """ Initializing a ASIC on a SONiC host.
+
+        Args:
+            sonichost : SonicHost object to which this asic belongs
+            asic_index: ASIC / namespace id for this asic.
+        """
+        self.sonichost = sonichost
+        self.asic_index = asic_index
+
+
+    def bgp_facts(self, *module_args, **complex_args):
+        """ Wrapper method for bgp_facts ansible module.
+        If number of asics in SonicHost are more than 1, then add 'instance_id' param for this Asic
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            if SonicHost has only 1 asic, then return the bgp_facts for the global namespace, else bgp_facts for the bgp instance for my asic_index.
+        """
+        if self.sonichost.facts['num_asic'] != 1:
+            complex_args['instance_id'] = self.asic_index
+        return self.sonichost.bgp_facts(*module_args, **complex_args)
+
+    def config_facts(self, *module_args, **complex_args):
+        """ Wrapper method for config_facts ansible module.
+        If number of asics in SonicHost are more than 1, then add 'namespace' param for this Asic
+        If 'host' is not specified in complex_args, add it - as it is a mandatory param for the config_facts module
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            if SonicHost has only 1 asic, then return the config_facts for the global namespace, else config_facts for namespace for my asic_index.
+        """
+        if 'host' not in complex_args:
+            complex_args['host'] = self.sonichost.hostname
+        if self.sonichost.facts['num_asic'] != 1:
+            complex_args['namespace'] = 'asic{}'.format(self.asic_index)
+        return self.sonichost.config_facts(*module_args, **complex_args)
+
+
+class MultiAsicSonicHost(object):
+    """ This class represents a Multi-asic SonicHost It has two attributes:
+    sonic_host: a SonicHost instance. This object is for interacting with the SONiC host through pytest_ansible.
+    asics: a list of SonicAsic instances.
+
+    The 'duthost' fixture will return an instance of a MultiAsicSonicHost.
+    So, even a single asic pizza box is represented as a MultiAsicSonicHost with 1 SonicAsic.
+    """
+
+    def __init__(self, ansible_adhoc, hostname):
+        """ Initializing a MultiAsicSonicHost.
+
+        Args:
+            ansible_adhoc : The pytest-ansible fixture
+            hostname: Name of the host in the ansible inventory
+        """
+        self.sonichost = SonicHost(ansible_adhoc, hostname)
+        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+
+    def _run_on_asics(self, *module_args, **complex_args):
+        """ Run an asible module on asics based on 'asic_index' keyword in complex_args
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Raises:
+            ValueError:  if asic_index is specified and it is neither an int or string 'all'.
+            ValueError: if asic_index is specified and is an int, but greater than number of asics in the SonicHost
+
+        Returns:
+            if asic_index is not specified, then we return the output of the ansible module on global namespace (using SonicHost)
+            else
+                if asic_index is an int, the output of the ansible module on that asic namespace
+                    - for single asic SonicHost this would still be the same as the ansible module on the global namespace
+                else if asic_index is string 'all', then a list of ansible module output for all the asics on the SonicHost
+                    - for single asic, this would be a list of size 1.
+        """
+        if "asic_index" not in complex_args:
+            # Default ASIC/namespace
+            return getattr(self.sonichost, self.multi_asic_attr)(*module_args, **complex_args)
+        else:
+            asic_complex_args = copy.deepcopy(complex_args)
+            asic_index = asic_complex_args.pop("asic_index")
+            if type(asic_index) == int:
+                # Specific ASIC/namespace
+                if self.sonichost.facts['num_asic'] == 1:
+                    if asic_index != 0:
+                        raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.multi_asic_attr, asic_index, self.sonichost.hostname))
+                return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
+            elif type(asic_index) == str and asic_index.lower() == "all":
+                # All ASICs/namespace
+                return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
+            else:
+                raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def __getattr__(self, attr):
+        """ To support calling an ansible module on a MultiAsicSonicHost.
+
+        Args:
+            attr: attribute to get
+
+        Returns:
+            if attr doesn't start with '_' and is a method of SonicAsic, attr will be ansible module that has dependency on ASIC,
+                return the output of the ansible module on asics requested - using _run_on_asics method.
+            else
+                return the attribute from SonicHost.
+        """
+        sonic_asic_attr = getattr(SonicAsic, attr, None)
+        if not attr.startswith("_") and sonic_asic_attr and callable(sonic_asic_attr):
+            self.multi_asic_attr = attr
+            return self._run_on_asics
+        else:
+            return getattr(self.sonichost, attr)  # For backward compatibility
+
+
+class DutHosts(object):
+    """ Represents all the DUTs (nodes) in a testbed. class has 3 important attributes:
+    nodes: List of all the MultiAsicSonicHost instances for all the SONiC nodes (or cards for chassis) in a multi-dut testbed
+    frontend_nodes: subset of nodes and holds list of MultiAsicSonicHost instances for DUTs with front-panel ports (like linecards in chassis
+    supervisor_nodes: subset of nodes and holds list of MultiAsicSonicHost instances for supervisor cards.
+    """
+    class _Nodes(list):
+        """ Internal class representing a list of MultiAsicSonicHosts """
+        def _run_on_nodes(self, *module_args, **complex_args):
+            """ Delegate the call to each of the nodes, return the results in a dict."""
+            return {node.hostname: getattr(node, self.attr)(*module_args, **complex_args) for node in self}
+
+        def __getattr__(self, attr):
+            """ To support calling ansible modules on a list of MultiAsicSonicHost
+            Args:
+                attr: attribute to get
+
+            Returns:
+               a dictionary with key being the MultiAsicSonicHost's hostname, and value being the output of ansible module
+               on that MultiAsicSonicHost
+            """
+            self.attr = attr
+            return self._run_on_nodes
+
+        def __eq__(self, o):
+            """ To support eq operator on the DUTs (nodes) in the testbed """
+            return list.__eq__(o)
+
+        def __ne__(self, o):
+            """ To support ne operator on the DUTs (nodes) in the testbed """
+            return list.__ne__(o)
+
+        def __hash__(self):
+            """ To support hash operator on the DUTs (nodes) in the testbed """
+            return list.__hash__()
+
+    def __init__(self, ansible_adhoc, tbinfo):
+        """ Initialize a multi-dut testbed with all the DUT's defined in testbed info.
+
+        Args:
+            ansible_adhoc: The pytest-ansible fixture
+            tbinfo - Testbed info whose "duts" holds the hostnames for the DUT's in the multi-dut testbed.
+
+        """
+        # TODO: Initialize the nodes in parallel using multi-threads?
+        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"]])
+        self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
+        self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
+
+    def __getitem__(self, index):
+        """To support operations like duthosts[0] and duthost['sonic1_hostname']
+
+        Args:
+            index (int or string): Index or hostname of a duthost.
+
+        Raises:
+            KeyError: Raised when duthost with supplied hostname is not found.
+            IndexError: Raised when duthost with supplied index is not found.
+
+        Returns:
+            [MultiAsicSonicHost]: Returns the specified duthost in duthosts. It is an instance of MultiAsicSonicHost.
+        """
+        if type(index) == int:
+            return self.nodes[index]
+        elif type(index) in [ str, unicode ]:
+            for node in self.nodes:
+                if node.hostname == index:
+                    return node
+            raise KeyError("No node has hostname '{}'".format(index))
+        else:
+            raise IndexError("Bad index '{}' type {}".format(index, type(index)))
+
+    # Below method are to support treating an instance of DutHosts as a list
+    def __iter__(self):
+        """ To support iteration over all the DUTs (nodes) in the testbed"""
+        return iter(self.nodes)
+
+    def __len__(self):
+        """ To support length of the number of DUTs (nodes) in the testbed """
+        return len(self.nodes)
+
+    def __eq__(self, o):
+        """ To support eq operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__eq__(o)
+
+    def __ne__(self, o):
+        """ To support ne operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__ne__(o)
+
+    def __hash__(self):
+        """ To support hash operator on the DUTs (nodes) in the testbed """
+        return self.nodes.__hash__()
+
+    def __getattr__(self, attr):
+        """To support calling ansible modules directly on all the DUTs (nodes) in the testbed
+         Args:
+            attr: attribute to get
+
+        Returns:
+            a dictionary with key being the MultiAsicSonicHost's hostname, and value being the output of ansible module
+            on that MultiAsicSonicHost
+        """
+        return getattr(self.nodes, attr)
+
+
 class FanoutHost(object):
     """
     @summary: Class for Fanout switch
@@ -1353,6 +1827,9 @@ class FanoutHost(object):
             DUT instance in the test. As result the port mapping is
             unique from the DUT perspective. However, this function
             need update when supporting multiple DUT
+
+            host_port is a encoded string of <host name>|<port name>,
+            e.g. sample_host|Ethernet0.
         """
         self.host_to_fanout_port_map[host_port]   = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port

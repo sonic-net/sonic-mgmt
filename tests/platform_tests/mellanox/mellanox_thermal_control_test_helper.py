@@ -70,7 +70,8 @@ FAN_NAMING_RULE = {
     "psu_fan": {
         "name": "psu_{}_fan_1",
         "speed": "psu{}_fan1_speed_get",
-        "power_status": "psu{}_pwr_status"
+        "power_status": "psu{}_pwr_status",
+        "max_speed": "psu_fan_max",
     }
 }
 
@@ -111,6 +112,7 @@ class MockerHelper:
         self.dut = dut
         #self.unlink_file_list = {}
         self._extract_num_of_fans_and_fan_drawers()
+        self.deinit_retry = 5
 
     def _extract_num_of_fans_and_fan_drawers(self):
         """
@@ -234,10 +236,29 @@ class MockerHelper:
         Destructor of MockerHelper. Re-link all sys fs files.
         :return:
         """
+        failed_recover_files = {}
         for file_path, link_target in self.unlink_file_list.items():
-            self.dut.command('rm -f {}'.format(file_path))
-            self.dut.command('ln -s {} {}'.format(link_target, file_path))
+            try:
+                self.dut.command('ln -f -s {} {}'.format(link_target, file_path))
+            except Exception as e:
+                # Catch any exception for later retry
+                failed_recover_files[file_path] = link_target
+
         self.unlink_file_list.clear()
+        # If there is any failed recover files, retry it
+        if failed_recover_files:
+            self.deinit_retry -= 1
+            if self.deinit_retry > 0:
+                self.unlink_file_list = failed_recover_files
+                self.deinit()
+            else:
+                # We don't want to retry it infinite, and 5 times retry
+                # is enough, so if it still fails after the retry, it
+                # means there is probably an issue with our sysfs, we need
+                # mark it fail here
+                error_message = "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
+                logging.error(error_message)
+                raise RuntimeError(error_message)
 
 
 class FanDrawerData:
@@ -365,6 +386,9 @@ class FanData:
     # Speed tolerance
     SPEED_TOLERANCE = 0.2
 
+    # Cooling cur state file
+    COOLING_CUR_STATE_FILE = 'cooling_cur_state'
+
     def __init__(self, mock_helper, naming_rule, index):
         """
         Constructor of FAN data.
@@ -434,13 +458,20 @@ class FanData:
         else:
             self.mocked_status = 'OK'
 
+    @classmethod
+    def mock_cooling_cur_state(cls, mock_helper, value):
+        mock_helper.mock_thermal_value(cls.COOLING_CUR_STATE_FILE, str(value))
+
     def get_max_speed(self):
         """
         Get max speed of this FAN.
         :return: Max speed of this FAN or -1 if max speed is not available.
         """
         if self.max_speed_file:
-            max_speed = self.helper.read_thermal_value(self.max_speed_file)
+            if 'psu' not in self.max_speed_file:
+                max_speed = self.helper.read_thermal_value(self.max_speed_file)
+            else:
+                max_speed = self.helper.read_value(os.path.join('/run/hw-management/config', self.max_speed_file))
             return int(max_speed)
         else:
             return -1
@@ -643,6 +674,10 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         presence = 0
         direction = NOT_AVAILABLE
         naming_rule = FAN_NAMING_RULE['fan']
+        # All system fan is controlled to have the same speed, so only
+        # get a random value once here
+        speed = random.randint(60, 100)
+        FanData.mock_cooling_cur_state(self.mock_helper, speed/10)
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
@@ -660,7 +695,8 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 fan_index += 1
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
-                    fan_data.mock_speed(random.randint(0, 100))
+                    fan_data.mock_speed(speed)
+                    fan_data.mock_target_speed(speed)
                     self.expected_data[fan_data.name] = [
                         drawer_data.name,
                         'N/A', # update this value later
@@ -697,15 +733,14 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         for index in range(1, psu_count + 1):
             try:
                 fan_data = FanData(self.mock_helper, naming_rule, index)
-                # PSU fan speed display PWM not percentage, it should not be less than 100
-                speed = random.randint(101, RandomFanStatusMocker.PSU_FAN_MAX_SPEED)
+                speed = random.randint(60, 100)
                 fan_data.mock_speed(speed)
 
                 self.expected_data[fan_data.name] = [
                     'N/A',
                     '',
                     fan_data.name,
-                    '{}RPM'.format(fan_data.mocked_speed),
+                    '{}%'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
                     'Present',
                     'OK'
@@ -720,13 +755,14 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         :param expected_speed: Expect speed in percentage.
         :return: True if match else False.
         """
-        for fan_data in self.expected_data.values():
-            if fan_data.target_speed_file:
-                target_speed = fan_data.get_target_speed()
-                if expected_speed != target_speed:
-                    logging.error(
-                        '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
-                    return False
+        for drawer_data in self.drawer_list:
+            for fan_data in drawer_data.fan_data_list:
+                if fan_data.target_speed_file:
+                    target_speed = fan_data.get_target_speed()
+                    if expected_speed != target_speed:
+                        logging.error(
+                            '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
+                        return False
         return True
 
 
@@ -831,7 +867,7 @@ class AbnormalFanMocker(SingleFanMocker):
     """
 
     # Speed tolerance value
-    SPEED_TOLERANCE = 20
+    SPEED_TOLERANCE = 50
 
     # Speed value
     TARGET_SPEED_VALUE = 60
@@ -951,7 +987,7 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN speed to faster than target speed and exceed speed tolerance.
         :return:
         """
-        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE + AbnormalFanMocker.SPEED_TOLERANCE + 5)
+        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE * (100 + AbnormalFanMocker.SPEED_TOLERANCE) / 100 + 10)
         self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'red'
 
@@ -960,7 +996,7 @@ class AbnormalFanMocker(SingleFanMocker):
         Change the mocked FAN speed to slower than target speed and exceed speed tolerance.
         :return:
         """
-        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE - AbnormalFanMocker.SPEED_TOLERANCE - 5)
+        self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE * (100 - AbnormalFanMocker.SPEED_TOLERANCE) / 100 - 10)
         self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'red'
 

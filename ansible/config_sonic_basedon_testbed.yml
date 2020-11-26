@@ -41,17 +41,16 @@
         testbed_file: testbed.csv
       when: testbed_file is not defined
 
-    - name: Set default dut index
-      set_fact:
-        dut_index: 0
-      when: dut_index is not defined
-
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       delegate_to: localhost
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
-      when: testbed_facts['duts'][dut_index] != inventory_hostname
+      when: inventory_hostname not in testbed_facts['duts']
+
+    - name: Set default dut index
+      set_fact:
+        dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
 
     - name: set testbed_type
       set_fact:
@@ -64,6 +63,10 @@
     when: testbed_name is defined
 
   - topo_facts: topo={{ topo }}
+    delegate_to: localhost
+
+  - name: gather dual ToR information
+    dual_tor_facts: hostname="{{ inventory_hostname }}" testbed_facts="{{ testbed_facts }}" hostvars="{{ hostvars }}" vm_config="{{ vm_topo_config }}"
     delegate_to: localhost
 
   - name: set default vm file path
@@ -80,18 +83,24 @@
     delegate_to: localhost
     when: "VM_topo | bool"
 
-  - name: find interface name mapping and individual interface speed if defined
+  - name: find interface name mapping and individual interface speed if defined from dut
     port_alias: hwsku="{{ hwsku }}"
+    when: deploy is defined and deploy|bool == true
+
+  - name: find interface name mapping and individual interface speed if defined with local data
+    port_alias: hwsku="{{ hwsku }}"
+    delegate_to: localhost
+    when: deploy is not defined or deploy|bool == false
 
   - name: find all enabled host_interfaces
     set_fact:
-      host_if_indexes: "{{ vm_topo_config['host_interfaces'] | difference(vm_topo_config['disabled_host_interfaces']) }}"
+      host_if_indexes: "{{ vm_topo_config['host_interfaces_by_dut'][dut_index|int] | difference(vm_topo_config['disabled_host_interfaces_by_dut'][dut_index|int]) }}"
 
   - name: find all vlan interface names for T0 topology
     set_fact:
       vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
     with_items: "{{ host_if_indexes }}"
-    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
   - name: find all vlan configurations for T0 topology
     vlan_config:
@@ -99,16 +108,22 @@
       port_alias: "{{ port_alias }}"
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
-    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find any tunnel configurations
+    tunnel_config: 
+      vm_topo_config: "{{ vm_topo_config }}"
+      tunnel_config: "{{ tunnel_config | default(None) }}"
+    delegate_to: localhost
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:
-      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
+      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'][dut_index|int] }) }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
     set_fact:
-      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface names
@@ -163,7 +178,7 @@
         mode: '0755'
       become: true
 
-    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer    
+    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer
     - name: Generate server cert using openssl.
       command: openssl req \
           -x509 \
@@ -172,7 +187,7 @@
           -newkey rsa:2048 \
           -keyout "{{ server_key }}"
           -subj "/CN=ndastreamingservertest"
-          -out "{{ server_cer }}" 
+          -out "{{ server_cer }}"
       become: true
 
     # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
@@ -187,6 +202,7 @@
           -subj "/CN=ndastreamingclienttest"
           -out "{{ dsmsroot_cer }}"
       become: true
+    when: deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)

@@ -95,12 +95,14 @@ def gen_fib_info(ptfhost, tbinfo, cfg_facts):
     routes_downlink_v4 = []
     routes_downlink_v6 = []
     if topo_type == "t1":
-        routes_downlink_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0,
-                                            "", "", router_type="tor")
-        routes_downlink_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0,
-                                            "", "", router_type="tor")
+        for tor_index in range(tor_number):
+            routes_downlink_v4.extend(generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                      0, 0, 0,
+                                      "", "", router_type="tor", tor_index=tor_index))
+
+            routes_downlink_v6.extend(generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                      0, 0, 0,
+                                      "", "", router_type="tor", tor_index=tor_index))
 
     for prefix, _, _ in routes_downlink_v4:
         fibs.append("{} {}".format(prefix, downlink_ports_str))
@@ -116,7 +118,8 @@ def prepare_ptf(ptfhost, tbinfo, cfg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup_teardown(request, tbinfo, duthost, ptfhost):
+def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
+    duthost = duthosts[rand_one_dut_hostname]
 
     # Initialize parameters
     dscp_mode = "pipe"

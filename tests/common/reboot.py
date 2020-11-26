@@ -1,3 +1,4 @@
+import threading
 import time
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
@@ -15,6 +16,10 @@ REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN  = "Unknown"
+
+# Event to signal DUT activeness
+DUT_ACTIVE = threading.Event()
+DUT_ACTIVE.set()
 
 '''
     command                : command to reboot the DUT
@@ -60,6 +65,13 @@ reboot_ctrl_dict = {
     }
 }
 
+def get_warmboot_finalizer_state(duthost):
+    try:
+        res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
+        finalizer_state = res['stdout'].strip() if 'stdout' in res else ""
+    except RunAnsibleModuleFail as err:
+        finalizer_state = err.results
+    return finalizer_state
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, reboot_helper=None, reboot_kwargs=None):
     """
@@ -98,6 +110,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
         return reboot_helper(reboot_kwargs)
 
     dut_datetime = duthost.get_now_time()
+    DUT_ACTIVE.clear()
 
     if reboot_type != REBOOT_TYPE_POWEROFF:
         reboot_res = pool.apply_async(execute_reboot_command)
@@ -137,33 +150,35 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
     logger.info('ssh has started up')
 
     logger.info('waiting for switch to initialize')
-    time.sleep(wait)
 
     if reboot_type == 'warm':
+        logger.info('waiting for warmboot-finalizer service to become activating')
+        finalizer_state = get_warmboot_finalizer_state(duthost)
+        while finalizer_state != 'activating':
+            dut_datetime_after_ssh = duthost.get_up_time()
+            time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
+            if time_passed > wait:
+                raise Exception('warmboot-finalizer never reached state "activating"')
+            time.sleep(1)
+            finalizer_state = get_warmboot_finalizer_state(duthost)
         logger.info('waiting for warmboot-finalizer service to finish')
-        res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
-        finalizer_state = res['stdout'].strip()
+        finalizer_state = get_warmboot_finalizer_state(duthost)
         logger.info('warmboot finalizer service state {}'.format(finalizer_state))
-        assert finalizer_state == 'activating'
         count = 0
         while finalizer_state == 'activating':
-            try:
-                res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
-            except RunAnsibleModuleFail as err:
-                res = err.results
-
-            finalizer_state = res['stdout'].strip()
+            finalizer_state = get_warmboot_finalizer_state(duthost)
             logger.info('warmboot finalizer service state {}'.format(finalizer_state))
             time.sleep(delay)
             if count * delay > timeout:
                 raise Exception('warmboot-finalizer.service did not finish')
             count += 1
         logger.info('warmboot-finalizer service finished')
+    else:
+        time.sleep(wait)
 
+    DUT_ACTIVE.set()
     logger.info('{} reboot finished'.format(reboot_type))
-
     pool.terminate()
-
     dut_uptime = duthost.get_up_time()
     logger.info('DUT up since {}'.format(dut_uptime))
     assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device did not reboot"

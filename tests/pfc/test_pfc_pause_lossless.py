@@ -224,7 +224,7 @@ def test_pfc_pause_single_lossless_priority(conn_graph_facts,
     port_list = list()
     fanout_devices = IxiaFanoutManager(fanout_graph_facts)
     fanout_devices.get_fanout_device_details(device_number=0)
-    device_conn = conn_graph_facts['device_conn']
+    device_conn = conn_graph_facts['device_conn'][duthost.hostname]
 
     for intf in fanout_devices.get_ports():
         peer_port = intf['peer_port']

@@ -4,21 +4,25 @@ import pytest
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.device_type('vs')
 ]
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_check_topo(tbinfo):
-    if tbinfo['topo']['type'] == 'ptf':
-        pytest.skip('Unsupported topology')
 
-def test_lldp(duthost, localhost, collect_techsupport):
+@pytest.fixture(scope="module", autouse="True")
+def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    patch_lldpctl(localhost, duthost)
+    yield
+    unpatch_lldpctl(localhost, duthost)
+
+
+def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """
+    duthost = duthosts[rand_one_dut_hostname]
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     lldpctl_facts = duthost.lldpctl_facts(skip_interface_pattern_list=["eth0"])['ansible_facts']
-
 
     for k, v in lldpctl_facts['lldpctl'].items():
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
@@ -27,9 +31,10 @@ def test_lldp(duthost, localhost, collect_techsupport):
         assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
    
 
-def test_lldp_neighbor(duthost, localhost, eos,
+def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
                        collect_techsupport, loganalyzer):
     """ verify LLDP information on neighbors """
+    duthost = duthosts[rand_one_dut_hostname]
 
     if loganalyzer:
         loganalyzer.ignore_regex.extend([

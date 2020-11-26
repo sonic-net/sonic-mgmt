@@ -33,9 +33,10 @@ from datetime import datetime
 import defusedxml.ElementTree as ET
 
 
-TEST_REPORT_CLIENT_VERSION = (1, 0, 0)
+TEST_REPORT_CLIENT_VERSION = (1, 1, 0)
 
 MAXIMUM_XML_SIZE = 20e7  # 20MB
+MAXIMUM_SUMMARY_SIZE = 1024  # 1MB
 
 # Fields found in the testsuite/root section of the JUnit XML file.
 TESTSUITE_TAG = "testsuite"
@@ -133,7 +134,7 @@ def validate_junit_xml_file(document_name):
     return _validate_junit_xml(tree.getroot())
 
 
-def validate_junit_xml_archive(directory_name):
+def validate_junit_xml_archive(directory_name, strict=False):
     """Validate that an XML archive contains valid JUnit XML.
 
     Args:
@@ -187,10 +188,13 @@ def validate_junit_xml_archive(directory_name):
 
             roots.append(root)
         except Exception as e:
-            raise JUnitXMLValidationError(f"could not parse {document}: {e}") from e
+            if strict:
+                raise JUnitXMLValidationError(f"could not parse {document}: {e}") from e
+
+            print(f"could not parse {document}: {e} - skipping")
 
     if not roots:
-        raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any XML files")
+        raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any valid XML files")
 
     return roots
 
@@ -262,25 +266,6 @@ def _validate_test_cases(root):
                 raise JUnitXMLValidationError(
                     f'"{attribute}" not found in test case '
                     f"\"{test_case.get('name', 'Name Not Found')}\""
-                )
-
-            # NOTE: "if failure" does not work with the ETree library.
-            failure = test_case.find("failure")
-            if failure is not None and failure.get("message") is None:
-                raise JUnitXMLValidationError(
-                    f"no message found for failure in \"{test_case.get('name')}\""
-                )
-
-            error = test_case.find("error")
-            if error is not None and error.get("message") is None:
-                raise JUnitXMLValidationError(
-                    f"no message found for error in \"{test_case.get('name')}\""
-                )
-
-            skipped = test_case.find("skipped")
-            if skipped is not None and skipped.get("message") is None:
-                raise JUnitXMLValidationError(
-                    f"no message found for skip in \"{test_case.get('name')}\""
                 )
 
     cases = root.findall(TESTCASE_TAG)
@@ -373,13 +358,18 @@ def _parse_test_cases(root):
         # errored out during setup or teardown.
         if failure is not None:
             result["result"] = "failure"
+            summary = failure.get("message", "")
         elif skipped is not None:
             result["result"] = "skipped"
+            summary = skipped.get("message", "")
         elif error is not None:
             result["result"] = "error"
+            summary = error.get("message", "")
         else:
             result["result"] = "success"
+            summary = ""
 
+        result["summary"] = summary[:min(len(summary), MAXIMUM_SUMMARY_SIZE)]
         result["error"] = error is not None
 
         return feature, result
@@ -397,7 +387,7 @@ def _update_test_summary(current, update):
 
     new_summary = {}
     for attribute, attr_type in REQUIRED_TESTSUITE_ATTRIBUTES:
-        new_summary[attribute] = str(round(attr_type(current[attribute]) + attr_type(update[attribute]), 3))
+        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0)) + attr_type(update.get(attribute, 0)), 3))
 
     return new_summary
 
@@ -461,12 +451,18 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
     parser.add_argument(
         "--directory", "-d", action="store_true", help="Provide a directory instead of a single file."
     )
+    parser.add_argument(
+        "--strict",
+        "-s",
+        action="store_true",
+        help="Fail validation checks if ANY file in a given directory is not parseable."
+    )
 
     args = parser.parse_args()
 
     try:
         if args.directory:
-            roots = validate_junit_xml_archive(args.file_name)
+            roots = validate_junit_xml_archive(args.file_name, args.strict)
         else:
             roots = [validate_junit_xml_file(args.file_name)]
     except JUnitXMLValidationError as e:

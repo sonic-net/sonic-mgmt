@@ -3,24 +3,24 @@
     <PeeringSessions>
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
-{% if vm_topo_config['vm'][vm]['peer_ipv4'] %}
+{% if vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] %}
       <BGPSession>
         <MacSec>false</MacSec>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
-        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'] }}</StartPeer>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'][dut_index|int] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
-        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'] }}</EndPeer>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
 {% endif %}
-{% if vm_topo_config['vm'][vm]['peer_ipv6'] %}
+{% if vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] %}
       <BGPSession>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
-        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'] }}</StartPeer>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
-        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'] }}</EndPeer>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
@@ -35,7 +35,7 @@
         <a:Peers>
 {% for index in range(vms_number)  %}
           <BGPPeer>
-            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'] }}</Address>
+            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -44,7 +44,7 @@
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
-            <Address>10.1.0.32</Address>
+            <Address>{{ lp_ipv4_addr }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -53,7 +53,7 @@
           </BGPPeer>
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
-            <Address>10.1.0.32</Address>
+            <Address>{{ lp_ipv4_addr }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>

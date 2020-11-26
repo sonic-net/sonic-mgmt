@@ -11,7 +11,8 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(autouse=True)
-def loganalyzer(duthost, request):
+def loganalyzer(duthosts, rand_one_dut_hostname, request):
+    duthost = duthosts[rand_one_dut_hostname]
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         logging.info("Log analyzer is disabled")
         yield
@@ -37,6 +38,6 @@ def loganalyzer(duthost, request):
 
     yield loganalyzer
     # Skip LogAnalyzer if case is skipped
-    if request.node.rep_call.skipped:
+    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped:
         return
     loganalyzer.analyze(marker)
