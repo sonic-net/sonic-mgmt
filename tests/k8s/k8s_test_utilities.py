@@ -5,8 +5,9 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
-
-
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def join_master(duthost, master_vip):
     """
@@ -70,7 +71,6 @@ def clean_vip_iptables_rules(duthost, master_vip):
 def check_connected(duthost):
     """
     Checks if the DUT already shows status 'connected' to Kubernetes master
-
     Args:
         duthost: DUT host object
     

@@ -5,8 +5,9 @@ import k8s_test_utilities as ku
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 
-
-
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def test_config_reload_no_toggle(duthost, k8scluster):
     """
@@ -22,8 +23,7 @@ def test_config_reload_no_toggle(duthost, k8scluster):
         duthost: DUT host object
         k8scluster: shortcut fixture for getting cluster of Kubernetes master hosts
     """
-    master_vip = k8scluster.get_master_vip()
-    ku.join_master(duthost, master_vip) # Assertion within to ensure successful join
+    ku.join_master(duthost, k8scluster.vip) # Assertion within to ensure successful join
     dut_cmds = ['sudo config save -y',
                 'sudo config reload -y']
     duthost.shell_cmds(cmds=dut_cmds)
@@ -51,8 +51,7 @@ def test_config_reload_toggle_join(duthost, k8scluster):
         duthost: DUT host object
         k8scluster: shortcut fixture for getting cluster of Kubernetes master hosts
     """
-    master_vip = k8scluster.get_master_vip()
-    dut_cmds = ['sudo config kube server ip {}'.format(master_vip),
+    dut_cmds = ['sudo config kube server ip {}'.format(k8scluster.vip),
                 'sudo config kube server disable off',
                 'sudo config save -y']
     duthost.shell_cmds(cmds=dut_cmds)
@@ -92,8 +91,7 @@ def test_config_reload_toggle_reset(duthost, k8scluster):
                 'sudo config save -y']
     duthost.shell_cmds(cmds=dut_cmds)
 
-    master_vip = k8scluster.get_master_vip()
-    ku.join_master(duthost, master_vip) 
+    ku.join_master(duthost, k8scluster.vip) 
 
     duthost.shell('sudo config reload -y')
     wait_critical_processes(duthost)

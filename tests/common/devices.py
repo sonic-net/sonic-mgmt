@@ -1165,8 +1165,9 @@ class K8sMasterCluster():
                 self.haproxy = k8smaster['host']
             else:
                 self.backend_masters.append(k8smaster)
-   
-    def get_master_vip(self):
+    
+    @property
+    def vip(self):
         """
         @summary: Retrieve VIP of Kubernetes master cluster
         

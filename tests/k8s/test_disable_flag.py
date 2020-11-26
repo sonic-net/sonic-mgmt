@@ -4,7 +4,9 @@ import k8s_test_utilities as ku
 
 from tests.common.helpers.assertions import pytest_assert
 
-
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 def test_disable_flag(duthost, k8scluster):
     """
@@ -20,8 +22,7 @@ def test_disable_flag(duthost, k8scluster):
         duthost: DUT host object
         k8scluster: shortcut fixture for getting cluster of Kubernetes master hosts
     """
-    master_vip = k8scluster.get_master_vip()
-    ku.join_master(duthost, master_vip)
+    ku.join_master(duthost, k8scluster.vip)
 
     duthost.shell('sudo config kube server disable on')
     server_connect_exp_status = False
