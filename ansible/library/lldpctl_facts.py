@@ -7,7 +7,7 @@ import re
 from ansible.module_utils.basic import AnsibleModule
 
 def gather_lldp(module, lldpctl_docker_cmd, skip_interface_pattern_list):
-    rc, output, err = module.run_command(lldpctl_docker_cmd)
+    _, output, _ = module.run_command(lldpctl_docker_cmd)
     if output:
         output_dict = {}
         current_dict = {}
