@@ -8,27 +8,28 @@ from ansible.module_utils.basic import AnsibleModule
 
 def gather_lldp(module, lldpctl_docker_cmd, skip_interface_pattern_list):
     _, output, _ = module.run_command(lldpctl_docker_cmd)
-    if output:
-        output_dict = {}
-        current_dict = {}
-        lldp_entries = output.splitlines()
-        skip_interface_pattern_str = "(?:% s)" % '|'.join(skip_interface_pattern_list) if skip_interface_pattern_list else None
-        for entry in lldp_entries:
-            if entry.startswith("lldp"):
-                path, value = entry.strip().split("=", 1)
-                path = path.split(".")
-                if skip_interface_pattern_list and re.match(skip_interface_pattern_str, path[1]):
-                    continue
-                path_components, final = path[:-1], path[-1]
-            else:
-                value = current_dict[final] + '\n' + entry
+    if not output:
+        return None
+    output_dict = {}
+    current_dict = {}
+    lldp_entries = output.splitlines()
+    skip_interface_pattern_str = "(?:% s)" % '|'.join(skip_interface_pattern_list) if skip_interface_pattern_list else None
+    for entry in lldp_entries:
+        if entry.startswith("lldp"):
+            path, value = entry.strip().split("=", 1)
+            path = path.split(".")
+            if skip_interface_pattern_list and re.match(skip_interface_pattern_str, path[1]):
+                continue
+            path_components, final = path[:-1], path[-1]
+        else:
+            value = current_dict[final] + '\n' + entry
 
-            current_dict = output_dict
-            for path_component in path_components:
-                current_dict[path_component] = current_dict.get(path_component, {})
-                current_dict = current_dict[path_component]
-            current_dict[final] = value
-        return output_dict
+        current_dict = output_dict
+        for path_component in path_components:
+            current_dict[path_component] = current_dict.get(path_component, {})
+            current_dict = current_dict[path_component]
+        current_dict[final] = value
+    return output_dict
 
 
 def main():
@@ -42,7 +43,7 @@ def main():
     lldpctl_docker_cmd = "docker exec -i {} lldpctl -f keyvalue".format("lldp" + (str(m_args["asic_instance_id"]) if m_args["asic_instance_id"] else ""))
     lldp_output = gather_lldp(module, lldpctl_docker_cmd, m_args["skip_interface_pattern_list"])
     try:
-        data = {"lldpctl": lldp_output["lldp"]}
+        data = {"lldpctl": lldp_output["lldp"] if lldp_output else {} }
         module.exit_json(ansible_facts=data)
     except TypeError:
         module.fail_json(msg="lldpctl command failed")
