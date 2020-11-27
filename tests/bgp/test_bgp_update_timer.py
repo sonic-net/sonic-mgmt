@@ -1,6 +1,7 @@
 """Check how fast FRR or QUAGGA will send updates to neighbors."""
 import contextlib
 import ipaddress
+import jinja2
 import logging
 import pytest
 import requests
@@ -35,8 +36,8 @@ NEIGHBOR_PORT1 = 11001
 def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
     save_dest_path = kwargs.pop("save_dest_path", "/tmp/temp.j2")
     keep_dest_file = kwargs.pop("keep_dest_file", False)
-    duthost.host.options["variable_manager"].extra_vars.update(kwargs)
-    duthost.template(src=template_file, dest=save_dest_path)
+    config_template = jinja2.Template(open(template_file).read())
+    duthost.copy(content=config_template.render(**kwargs), dest=save_dest_path)
     duthost.shell("sonic-cfggen -j %s --write-to-db" % save_dest_path)
     if not keep_dest_file:
         duthost.file(path=save_dest_path, state="absent")
@@ -49,8 +50,7 @@ class BGPNeighbor(object):
                  dut_ip, dut_asn, port, is_quagga=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
-        self.ptfip = ptfhost.host.options["inventory_manager"].get_host(
-            ptfhost.hostname).vars["ansible_host"]
+        self.ptfip = ptfhost.mgmt_ip
         self.iface = iface
         self.name = name
         self.ip = neighbor_ip
@@ -120,7 +120,7 @@ class BGPNeighbor(object):
         self.ptfhost.exabgp(name=self.name, state="absent")
         self.ptfhost.shell("ifconfig %s 0.0.0.0" % self.iface)
 
-    # TODO: let's put those BGP utilities function in a common place.
+    # TODO: let's put those BGP utility functions in a common place.
     def announce_route(self, route):
         if "aspath" in route:
             msg = "announce route {prefix} next-hop {nexthop} as-path [ {aspath} ]"
@@ -230,10 +230,9 @@ def constants(is_quagga, ptfhost):
         _constants.update_interval_threshold = 1
 
     _constants.routes = []
-    ptfip = ptfhost.host.options["inventory_manager"].get_host(ptfhost.hostname).vars["ansible_host"]
     for subnet in ANNOUNCED_SUBNETS:
         _constants.routes.append(
-            {"prefix": subnet, "nexthop": ptfip}
+            {"prefix": subnet, "nexthop": ptfhost.mgmt_ip}
         )
     return _constants
 
