@@ -56,6 +56,7 @@ bgp/test_bgp_speaker.py \
 cacl/test_cacl_application.py \
 cacl/test_cacl_function.py \
 dhcp_relay/test_dhcp_relay.py \
+lldp/test_lldp.py \
 ntp/test_ntp.py \
 pc/test_po_cleanup.py \
 pc/test_po_update.py \
@@ -76,14 +77,6 @@ test_procdockerstatsd.py \
 iface_namingmode/test_iface_namingmode.py \
 platform_tests/test_cpu_memory_usage.py \
 bgp/test_bgpmon.py"
-
-# FIXME: The lldp test has been temporarily disabled for https://github.com/Azure/sonic-mgmt/pull/2413
-# and https://github.com/Azure/sonic-buildimage/pull/5698. The reason is that these two PRs dependent on each other.
-# If PR#2413 is not merged, PR#5698 would fail PR test and cannot be merged. If PR#2413 is merged firstly, all
-# sonic-mgmt-pr testing would fail before a new image with PR#5698 is ready. The workaround is to temporarily disable
-# LLDP for sonic-mgmt-pr testing. Merge PR#2413 to unblock PR#5698. After a new image with PR#5698 is ready, then
-# enable LLDP testing again.
-# lldp/test_lldp.py
 
 pushd $SONIC_MGMT_DIR/tests
 ./run_tests.sh $PYTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
