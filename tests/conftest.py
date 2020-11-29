@@ -20,7 +20,7 @@ from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
-
+from tests.common.ixia.qos_fixtures import lossless_prio_list, lossy_prio_list, all_prio_list
 
 
 logger = logging.getLogger(__name__)
@@ -652,6 +652,34 @@ def generate_port_lists(request, port_scope):
 
     return ret if ret else empty
 
+def generate_priority_lists(request, prio_scope):
+    empty = None 
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'priority'
+    filepath = os.path.join(folder, tbname + '-' + prio_scope + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError as e:
+        return empty
+    
+    if tbname not in info:
+        return empty
+    
+    dut_prio = info[tbname]
+    ret = []
+
+    for dut, priorities in dut_prio.items():
+        for p in priorities:
+            ret.append('{}|{}'.format(dut, p))
+
+    return ret if ret else empty
+
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -682,10 +710,7 @@ def pytest_generate_tests(metafunc):
     if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))
 
-    """ Hard code. To te fixed in the future """
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_lossless_prio", [3, 4])
+        metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_lossy_prio", [0, 1, 2, 5, 6])
-    if 'enum_dut_all_prio' in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_all_prio", list(range(7)))
+        metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))

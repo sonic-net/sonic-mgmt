@@ -9,21 +9,23 @@ file currently holds the following fixture(s):
     4. lossy_prio_list
 """
 
-@pytest.fixture(scope="module")
-def prio_dscp_map(duthost):
+@pytest.fixture(scope="function")
+def prio_dscp_map(duthosts, enum_dut_hostname):
     """
     This fixture reads the QOS parameters from SONiC DUT, and creates
     priority Vs. DSCP priority port map 
 
     Args:
-       duthost (pytest fixture) : duthost
+       duthosts (pytest fixture) : list of DUTs
+       enum_dut_hostname (pytest fixture): DUT hostname 
        
     Returns:
         Priority vs. DSCP map (dictionary, key = priority).
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
+    duthost = duthosts[enum_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, 
-                                        source="persistent")['ansible_facts']
+                                        source="running")['ansible_facts']
 
     if "DSCP_TO_TC_MAP" not in config_facts.keys():
         return None
@@ -42,7 +44,7 @@ def prio_dscp_map(duthost):
     
     return result
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def all_prio_list(prio_dscp_map):
     """
     This fixture returns the list of all the priorities
@@ -55,20 +57,21 @@ def all_prio_list(prio_dscp_map):
     """
     return list(prio_dscp_map.keys())
 
-@pytest.fixture(scope = "module")
-def lossless_prio_list(duthost):
+@pytest.fixture(scope = "function")
+def lossless_prio_list(duthosts, enum_dut_hostname):
     """
     This fixture returns the list of lossless priorities
 
     Args:
-        duthost (pytest fixture) : duthost
+       duthosts (pytest fixture) : list of DUTs
+       enum_dut_hostname (pytest fixture): DUT hostname 
     
     Returns:
         Lossless priorities (list)
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, 
-                                        source="persistent")['ansible_facts']
+                                        source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in config_facts.keys():
         return None
@@ -85,7 +88,7 @@ def lossless_prio_list(duthost):
     result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]    
     return result 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def lossy_prio_list(all_prio_list, lossless_prio_list):
     """
     This fixture returns the list of lossu priorities

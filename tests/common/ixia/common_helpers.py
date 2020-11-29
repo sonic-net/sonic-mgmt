@@ -168,3 +168,19 @@ def get_peer_ixia_chassis(conn_data, dut_hostname):
         return None 
 
 
+def pfc_class_enable_vector(prio_list):
+    """
+    Calculate class-enable vector field in PFC PAUSE frames
+
+    Args:
+        prio_list (list): list of priorities to pause, e.g., [3, 4]
+
+    Returns:
+        Return class-enable vector 
+    """
+    vector = 0
+
+    for p in prio_list:
+        vector += (2**p)
+     
+    return "{:x}".format(vector)
