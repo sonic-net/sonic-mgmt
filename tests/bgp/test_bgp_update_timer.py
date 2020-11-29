@@ -255,9 +255,9 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthost):
         _route = (subnet.prefixlen, str(subnet.network_address))
         bgp_fields = packet[bgp.BGPUpdate].fields
         if action == "announce":
-            return "nlri" in bgp_fields and _route in bgp_fields["nlri"]
+            return bgp_fields["tp_len"] > 0 and _route in bgp_fields["nlri"]
         elif action == "withdraw":
-            return _route in bgp_fields["withdrawn"]
+            return bgp_fields["withdrawn_len"] > 0 and _route in bgp_fields["withdrawn"]
         else:
             return False
 
