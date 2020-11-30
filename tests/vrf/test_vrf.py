@@ -532,10 +532,14 @@ class TestVrfFib():
             bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf {} summary json'".format(vrf))['stdout']
             bgp_summary = json.loads(bgp_summary_string)
 
-            for info in bgp_summary.itervalues():
-                for peer, attr in info['peers'].iteritems():
+            for info in bgp_summary:
+                for peer, attr in bgp_summary[info]['peers'].iteritems():
                     prefix_count = attr['prefixReceivedCount']
-                    assert int(prefix_count) == route_count, "%s should received %s route prefixs!" % (peer, route_count)
+                    # skip ipv6 peers under 'ipv4Unicast' and compare only ipv4 peers under 'ipv4Unicast', and ipv6 peers under 'ipv6Unicast'
+                    if info == "ipv4Unicast" and attr['idType'] == 'ipv6':
+                        continue
+                    else:
+                        assert int(prefix_count) == route_count, "%s should received %s route prefixs!" % (peer, route_count)
 
     def test_vrf1_fib(self, partial_ptf_runner):
         partial_ptf_runner(
