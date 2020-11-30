@@ -485,7 +485,7 @@ sensors_checks:
       - dps460-i2c-10-58/PSU-2(R) Temp 2/temp2_max_alarm
 
       - dps460-i2c-10-59/PSU-1(L) Temp 1/temp1_max_alarm
-      
+
       - dps460-i2c-10-59/PSU-1(L) Temp 2/temp2_max_alarm
     compares:
       power: []
@@ -647,7 +647,7 @@ sensors_checks:
       - dps460-i2c-4-58/PSU-2(R) Temp 2/temp2_max_alarm
 
       - dps460-i2c-4-59/PSU-1(L) Temp 1/temp1_max_alarm
-      
+
       - dps460-i2c-4-59/PSU-1(L) Temp 2/temp2_max_alarm
     compares:
       power: []
@@ -830,7 +830,7 @@ sensors_checks:
       - dps460-i2c-10-58/PSU-2(R) Temp 2/temp2_max_alarm
 
       - dps460-i2c-10-59/PSU-1(L) Temp 1/temp1_max_alarm
-      
+
       - dps460-i2c-10-59/PSU-1(L) Temp 2/temp2_max_alarm
     compares:
       power: []
@@ -2395,7 +2395,7 @@ sensors_checks:
       - - w83795adg-i2c-0-2f/SFP+ Port 1 Temp/temp2_input
         - w83795adg-i2c-0-2f/SFP+ Port 1 Temp/temp2_crit
       - - w83795adg-i2c-0-2f/SFP+ Port 8 Temp/temp3_input
-        - w83795adg-i2c-0-2f/SFP+ Port 8 Temp/temp3_crit  
+        - w83795adg-i2c-0-2f/SFP+ Port 8 Temp/temp3_crit
     non_zero:
       fan:
       - w83795adg-i2c-0-2f/FANTRAY 1-A/fan1_input
@@ -2871,34 +2871,38 @@ sensors_checks:
   x86_64-arista_7170_64c:
     alarms:
       fan:
-      - dps1900-i2c-6-58/fan1/fan1_alarm
-      - dps1900-i2c-7-58/fan1/fan1_alarm
+        # to specify regular expression use backslash '\' at the beginning and end of expression
+        # Platform has two chip names:
+        # dps1900-i2c-X-58 for Sonic 201911
+        # pmbus-i2c-X-58 for Sonic master
+      - \[a-zA-Z0-9]*\-i2c-6-58\/fan1/fan1_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/fan1/fan1_alarm
       - la_cpld-i2c-93-60/fan1/fan1_fault
       - la_cpld-i2c-93-60/fan2/fan2_fault
       - la_cpld-i2c-93-60/fan3/fan3_fault
       - la_cpld-i2c-93-60/fan4/fan4_fault
       power:
-      - dps1900-i2c-6-58/iin/curr1_max_alarm
-      - dps1900-i2c-6-58/iout1/curr2_crit_alarm
-      - dps1900-i2c-6-58/iout1/curr2_max_alarm
-      - dps1900-i2c-6-58/vin/in1_alarm
-      - dps1900-i2c-6-58/vout1/in2_crit_alarm
-      - dps1900-i2c-6-58/vout1/in2_lcrit_alarm
-      - dps1900-i2c-7-58/iin/curr1_max_alarm
-      - dps1900-i2c-7-58/iout1/curr2_crit_alarm
-      - dps1900-i2c-7-58/iout1/curr2_max_alarm
-      - dps1900-i2c-7-58/vin/in1_alarm
-      - dps1900-i2c-7-58/vout1/in2_crit_alarm
-      - dps1900-i2c-7-58/vout1/in2_lcrit_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/iin/curr1_max_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_crit_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_max_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/vin/in1_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/vout1/in2_crit_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/vout1/in2_lcrit_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/iin/curr1_max_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_crit_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_max_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/vin/in1_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/vout1/in2_crit_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/vout1/in2_lcrit_alarm
       temp:
         # to specify regular expression use backslash '\' at the beginning and end of expression
       - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit_alarm
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
-      - dps1900-i2c-6-58/PSU1 primary hotspot temp/temp1_alarm
-      - dps1900-i2c-6-58/PSU1 inlet temp/temp2_alarm
-      - dps1900-i2c-7-58/PSU2 primary hotspot temp/temp1_alarm
-      - dps1900-i2c-7-58/PSU2 inlet temp/temp2_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/PSU1 primary hotspot temp/temp1_alarm
+      - \[a-zA-Z0-9]*\-i2c-6-58/PSU1 inlet temp/temp2_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/PSU2 primary hotspot temp/temp1_alarm
+      - \[a-zA-Z0-9]*\-i2c-7-58/PSU2 inlet temp/temp2_alarm
       - lm73-i2c-96-48/Front air temp/temp1_max_alarm
       - lm73-i2c-96-48/Front air temp/temp1_min_alarm
       - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_crit_alarm
@@ -2914,14 +2918,14 @@ sensors_checks:
     compares:
       fan: []
       power:
-      - - dps1900-i2c-6-58/iin/curr1_input
-        - dps1900-i2c-6-58/iin/curr1_max
-      - - dps1900-i2c-6-58/iout1/curr2_input
-        - dps1900-i2c-6-58/iout1/curr2_max
-      - - dps1900-i2c-7-58/iin/curr1_input
-        - dps1900-i2c-7-58/iin/curr1_max
-      - - dps1900-i2c-7-58/iout1/curr2_input
-        - dps1900-i2c-7-58/iout1/curr2_max
+      - - \[a-zA-Z0-9]*\-i2c-6-58/iin/curr1_input
+        - \[a-zA-Z0-9]*\-i2c-6-58/iin/curr1_max
+      - - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_input
+        - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_max
+      - - \[a-zA-Z0-9]*\-i2c-7-58/iin/curr1_input
+        - \[a-zA-Z0-9]*\-i2c-7-58/iin/curr1_max
+      - - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_input
+        - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_max
       temp:
         # to specify regular expression use backslash '\' at the beginning and end of expression
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
