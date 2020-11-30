@@ -7,9 +7,7 @@ import logging
 import pprint
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.platform_tests.link_flap.link_flap_utils import watch_system_status
 from tests.common.utilities import wait_until
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +24,17 @@ def port_toggle(duthost, tbinfo, ports=None, wait=60, wait_after_ports_up=60, wa
         watch: Logging system state
     """
 
+    def __get_down_ports():
+        """Check interface status and return the down ports in a set
+        """
+        total_down_ports = set()
+        ports_down = duthost.interface_facts(up_ports=ports)['ansible_facts']['ansible_interface_link_down_ports']
+        db_ports_down = duthost.show_interface(command='status', up_ports=ports)['ansible_facts']\
+            ['ansible_interface_link_down_ports']
+        total_down_ports.update(ports_down)
+        total_down_ports.update(db_ports_down)
+        return total_down_ports
+
     def __check_interface_state(state='up'):
         """
         Check interfaces status
@@ -33,12 +42,11 @@ def port_toggle(duthost, tbinfo, ports=None, wait=60, wait_after_ports_up=60, wa
         Args:
             state: state of DUT's interface
         """
-        ports_down = duthost.interface_facts(up_ports=ports)['ansible_facts']['ansible_interface_link_down_ports']
-
+        total_down_ports = __get_down_ports()
         if 'down' in state:
-            return len(ports_down) == len(ports)
+            return len(total_down_ports) == len(ports)
         else:
-            return len(ports_down) == 0
+            return len(total_down_ports) == 0
 
     if ports is None:
         logger.debug('ports is None, toggling all minigraph ports')
@@ -47,24 +55,39 @@ def port_toggle(duthost, tbinfo, ports=None, wait=60, wait_after_ports_up=60, wa
 
     logger.info('toggling ports:\n%s', pprint.pformat(ports))
 
+    cmds_down = []
+    cmds_up = []
     for port in ports:
-        duthost.command('config interface shutdown {}'.format(port))
-        if watch:
-            time.sleep(1)
-            watch_system_status(duthost)
+        cmds_down.append('config interface shutdown {}'.format(port))
+        cmds_up.append('config interface startup {}'.format(port))
+
+    duthost.shell_cmds(cmds=cmds_down)
+    if watch:
+        time.sleep(1)
+
+        # Watch memory status
+        memory_output = duthost.shell("show system-memory")["stdout"]
+        logger.info("Memory Status: %s", memory_output)
+
+        # Watch orchagent CPU utilization
+        orch_cpu = duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
+        logger.info("Orchagent CPU Util: %s", orch_cpu)
+
+        # Watch Redis Memory
+        redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human")["stdout"]
+        logger.info("Redis Memory: %s", redis_memory)
 
     # verify all interfaces are down
-    pytest_assert(wait_until(3, 1, __check_interface_state, 'down'),
+    pytest_assert(wait_until(20, 5, __check_interface_state, 'down'),
                   "dut ports {} didn't go down as expected"
-                  .format(list(set(ports).difference(set(duthost.interface_facts(up_ports=ports)['ansible_facts']['ansible_interface_link_down_ports'])))))
+                  .format(list(set(ports).difference(__get_down_ports()))))
 
-    for port in ports:
-        duthost.command('config interface startup {}'.format(port))
+    duthost.shell_cmds(cmds=cmds_up)
 
     logger.info('waiting for ports to become up')
 
-    pytest_assert(wait_until(wait, 1, __check_interface_state),
-                  "dut ports {} didn't go up as expected".format(duthost.interface_facts(up_ports=ports)['ansible_facts']['ansible_interface_link_down_ports']))
+    pytest_assert(wait_until(wait, 5, __check_interface_state),
+                  "dut ports {} didn't go up as expected".format(__get_down_ports()))
 
     logger.info('wait %d seconds for system to startup', wait_after_ports_up)
     time.sleep(wait_after_ports_up)
