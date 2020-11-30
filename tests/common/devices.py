@@ -1201,7 +1201,7 @@ class K8sMasterHost(AnsibleHostBase):
                 self.shell("sudo systemctl start kubelet")
 
 
-class K8sMasterCluster():
+class K8sMasterCluster(object):
     """
     @summary: Class that encapsulates Kubernetes master cluster
 
@@ -1222,7 +1222,8 @@ class K8sMasterCluster():
             else:
                 self.backend_masters.append(k8smaster)
 
-    def get_master_vip(self):
+    @property
+    def vip(self):
         """
         @summary: Retrieve VIP of Kubernetes master cluster
 
