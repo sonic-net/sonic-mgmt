@@ -563,7 +563,7 @@ def redis_hgetall(duthost, db_id, key):
     for field_name in field_names:
         field_name = field_name.strip()
         cmd = 'sonic-db-cli {} HGET \"{}\" \"{}\"'.format(db_id, key, field_name)
-        output = duthost.shell(cmd).strip()
+        output = duthost.shell(cmd)['stdout'].strip()
         result[field_name] = output
 
     return result
