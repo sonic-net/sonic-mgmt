@@ -417,7 +417,7 @@ def test_turn_off_psu_and_check_psu_info(duthost, localhost, creds, psu_controll
     for item in psu_status:
         if not item['psu_on']:
             psu_controller.turn_on_psu(item["psu_id"])
-            time.sleep(5)
+    time.sleep(5)
 
     psu_status = psu_controller.get_psu_status()
     for item in psu_status:
