@@ -55,7 +55,7 @@ while True:
     try:
         line = stdin.readline()
         obj = json.loads(line)
-        f = open("/tmp/exabgp-" + obj["neighbor"]["ip"], "a")
+        f = open("/tmp/exabgp-" + obj["neighbor"]["address"]["local"], "a")
         print >> f, line,
         f.close()
     except:
