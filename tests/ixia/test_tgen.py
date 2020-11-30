@@ -7,24 +7,14 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_t0_testbed
-from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location,\
-    get_dut_port_id
-from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_peer_ixia_chassis
+from tests.common.ixia.ixia_helpers import get_dut_port_id
 
-from abstract_open_traffic_generator.port import Port
-from abstract_open_traffic_generator.config import Options, Config
-from abstract_open_traffic_generator.layer1 import Layer1, FlowControl, Ieee8021qbb,\
-    AutoNegotiation
-
-from abstract_open_traffic_generator.device import Device, Ethernet, Ipv4, Pattern
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
 from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
-from abstract_open_traffic_generator.port import Options as PortOptions
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
 

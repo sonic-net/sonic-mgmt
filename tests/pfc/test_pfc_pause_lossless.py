@@ -1,5 +1,3 @@
-import logging
-import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_require
@@ -35,7 +33,7 @@ def test_pfc_pause_single_lossless_prio(ixia_api,
         fanout_graph_facts (pytest fixture): fanout graph 
         duthosts (pytest fixture): list of DUTs
         enum_dut_hostname (str): hostname of DUT
-        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
+        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0' 
         enum_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).

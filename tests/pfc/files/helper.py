@@ -1,30 +1,19 @@
-import logging
 import time
-import pytest
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
-from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location,\
-    get_dut_port_id
-from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_peer_ixia_chassis, pfc_class_enable_vector
+from tests.common.ixia.ixia_helpers import get_dut_port_id
+from tests.common.ixia.common_helpers import pfc_class_enable_vector
 
-from abstract_open_traffic_generator.port import Port
-from abstract_open_traffic_generator.config import Options, Config
-from abstract_open_traffic_generator.layer1 import Layer1, FlowControl, Ieee8021qbb,\
-    AutoNegotiation
-
-from abstract_open_traffic_generator.device import Device, Ethernet, Ipv4, Pattern
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
 from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
-from abstract_open_traffic_generator.port import Options as PortOptions
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
 
@@ -87,10 +76,11 @@ def run_pfc_test(api,
                   'Fail to get ID for port {}'.format(dut_port))
     
 
-    """ Generate traffic config """
-    test_flow_rate_percent = TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list)
-    bg_flow_rate_percent = BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list)
+    """ Rate percent must be an integer """
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT) / len(test_prio_list)
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT) / len(bg_prio_list)
 
+    """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
                           port_id=port_id,
                           pause_flow_name=PAUSE_FLOW_NAME,
@@ -107,6 +97,7 @@ def run_pfc_test(api,
                           data_pkt_size=DATA_PKT_SIZE,
                           prio_dscp_map=prio_dscp_map)
 
+    """ Tgen config = testbed config + flow config """
     config = testbed_config
     config.flows = flows
 
@@ -119,6 +110,7 @@ def run_pfc_test(api,
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
+    """ Run traffic """
     flow_stats = __run_traffic(api=api,
                                config=config,
                                data_flow_names=data_flow_names,
@@ -128,16 +120,14 @@ def run_pfc_test(api,
     speed_str = config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
 
-    test_flow_aggr_rate_percent = test_flow_rate_percent * len(test_prio_list)
-    bg_flow_aggr_rate_percent = bg_flow_rate_percent * len(bg_prio_list)
-
+    """ Verify experiment results """
     __verify_results(rows=flow_stats,
                      pause_flow_name=PAUSE_FLOW_NAME,
                      test_flow_name=TEST_FLOW_NAME,
                      bg_flow_name=BG_FLOW_NAME,
                      data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                     test_flow_aggr_rate_percent=test_flow_aggr_rate_percent,
-                     bg_flow_aggr_rate_percent=bg_flow_aggr_rate_percent,
+                     test_flow_rate_percent=test_flow_rate_percent,
+                     bg_flow_rate_percent=bg_flow_rate_percent,
                      data_pkt_size=DATA_PKT_SIZE,
                      speed_gbps=speed_gbps,
                      test_flow_pause=test_traffic_pause,
@@ -160,6 +150,32 @@ def __gen_traffic(testbed_config,
                   data_flow_delay_sec,
                   data_pkt_size,
                   prio_dscp_map):
+    """
+    Generate configurations of flows, including test flows, background flows and 
+    pause storm. Test flows and background flows are also known as data flows. 
+
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed 
+        port_id (int): ID of DUT port to test. 
+        pause_flow_name (str): name of pause storm
+        global_pause (bool): if pause frame is IEEE 802.3X pause 
+        pause_prio_list (list): priorities to pause for pause frames
+        test_flow_name (str): name of test flows        
+        test_prio_list (list): priorities of test flows
+        test_flow_rate_percent (int): rate percentage for each test flow
+        bg_flow_name (str): name of background flows
+        bg_prio_list (list): priorities of background flows
+        bg_flow_rate_percent (int): rate percentage for each background flow
+        data_flow_dur_sec (int): duration of data flows in second
+        data_flow_delay_sec (int): start delay of data flows in second
+        data_pkt_size (int): packet size of data flows in byte
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        flows configurations (list): the list should have configurations of 
+        len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
+        flows and a pause storm.
+    """
 
     result = list()
 
@@ -275,6 +291,19 @@ def __run_traffic(api,
                   all_flow_names, 
                   exp_dur_sec):
 
+    """
+    Run traffic and dump per-flow statistics
+
+    Args:
+        api (obj): IXIA session
+        config (obj): experiment config (testbed config + flow config)
+        data_flow_names (list): list of names of data (test and background) flows
+        all_flow_names (list): list of names of all the flows
+        exp_dur_sec (int): experiment duration in second
+
+    Returns:
+        per-flow statistics (list)
+    """
     api.set_state(State(ConfigState(config=config, state='set')))
     api.set_state(State(FlowTransmitState(state='start')))
     time.sleep(exp_dur_sec)
@@ -302,12 +331,30 @@ def __verify_results(rows,
                      test_flow_name, 
                      bg_flow_name,
                      data_flow_dur_sec,
-                     test_flow_aggr_rate_percent,
-                     bg_flow_aggr_rate_percent,
+                     test_flow_rate_percent,
+                     bg_flow_rate_percent,
                      data_pkt_size,
                      speed_gbps,
                      test_flow_pause,
                      tolerance):
+    """
+    Verify if we get expected experiment results
+
+    Args:
+        rows (list): per-flow statistics
+        pause_flow_name: name of pause storm
+        test_flow_name (str): name of test flows        
+        bg_flow_name (str): name of background flows
+        test_flow_rate_percent (int): rate percentage for each test flow
+        bg_flow_rate_percent (int): rate percentage for each background flow
+        data_pkt_size (int): packet size of data flows in byte
+        speed_gbps (int): link speed in Gbps
+        test_flow_pause (bool): if test flows are expected to be paused
+        tolerance (float): maximum allowable deviation
+
+    Returns:
+        None
+    """
 
     """ All the pause frames should be dropped """
     pause_flow_row = next(row for row in rows if row["name"] == pause_flow_name)
@@ -317,47 +364,41 @@ def __verify_results(rows,
                   'All the pause frames should be dropped')
     
     """ Check background flows """
-    tx_frames = 0
-    rx_frames = 0
-
     for row in rows:
         if bg_flow_name not in row['name']:
             continue 
 
-        tx_frames += row['frames_tx']
-        rx_frames += row['frames_rx']
+        tx_frames = row['frames_tx']
+        rx_frames = row['frames_rx']
 
-    pytest_assert(tx_frames == rx_frames, 
-                  '{} should not have any dropped packet'.format(bg_flow_name))
+        pytest_assert(tx_frames == rx_frames, 
+                      '{} should not have any dropped packet'.format(row['name']))
 
-    exp_bg_flow_rx_pkts =  bg_flow_aggr_rate_percent / 100.0 * speed_gbps \
+        exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
             * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
-    deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
-    pytest_assert(deviation < tolerance,
-                  '{} should receive {} packets (actual {})'.\
-                  format(bg_flow_name, exp_bg_flow_rx_pkts, rx_frames))
+        deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
+        pytest_assert(abs(deviation) < tolerance, 
+                      '{} should receive {} packets (actual {})'.\
+                      format(row['name'], exp_bg_flow_rx_pkts, rx_frames))
     
     """ Check test flows """
-    tx_frames = 0
-    rx_frames = 0
-
     for row in rows:
         if test_flow_name not in row['name']:
             continue 
 
-        tx_frames += row['frames_tx']
-        rx_frames += row['frames_rx']
+        tx_frames = row['frames_tx']
+        rx_frames = row['frames_rx']
 
-    if test_flow_pause:
-        pytest_assert(tx_frames > 0 and rx_frames == 0, 
-                      '{} should be paused'.format(test_flow_name))
-    else:
-        pytest_assert(tx_frames == rx_frames, 
-                      '{} should not have any dropped packet'.format(test_flow_name))
+        if test_flow_pause:
+            pytest_assert(tx_frames > 0 and rx_frames == 0, 
+                          '{} should be paused'.format(row['name']))
+        else:
+            pytest_assert(tx_frames == rx_frames, 
+                          '{} should not have any dropped packet'.format(row['name']))
 
-        exp_test_flow_rx_pkts = test_flow_aggr_rate_percent / 100.0 * speed_gbps \
-            * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
-        deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
-        pytest_assert(deviation < tolerance,
-                      '{} should receive {} packets (actual {})'.\
-                      format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))
+            exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
+                * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
+            deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
+            pytest_assert(abs(deviation) < tolerance,
+                          '{} should receive {} packets (actual {})'.\
+                          format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))

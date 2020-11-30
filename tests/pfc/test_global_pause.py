@@ -1,5 +1,3 @@
-import logging
-import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_require
