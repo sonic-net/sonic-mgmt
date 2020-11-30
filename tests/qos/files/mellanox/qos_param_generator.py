@@ -22,6 +22,10 @@ class QosParamMellanox(object):
         self.headroom_overhead = asic_param_dic[asic_type]['headroom_overhead']
         if speed_cable_len[0:6] == '400000':
             self.headroom_overhead += 59
+            # for 400G ports we need an extra margin in case it is filled unbalancely between two buffer units
+            self.extra_margin = 16
+        else:
+            self.extra_margin = 0
         self.speed_cable_len = speed_cable_len
         self.lossless_profile = "pg_lossless_{}_profile".format(speed_cable_len)
         self.pools_info = {}
@@ -106,7 +110,7 @@ class QosParamMellanox(object):
         if self.asic_type == 'spc2':
             xon['pkts_num_margin'] = 2
         elif self.asic_type == 'spc3':
-            xon['pkts_num_margin'] = 3
+            xon['pkts_num_margin'] = 3 + self.extra_margin
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
 

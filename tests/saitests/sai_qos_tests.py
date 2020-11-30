@@ -736,7 +736,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis)
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis - margin)
             # send packets to dst port 2, occupying the shared buffer
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_2_mac,
@@ -745,7 +745,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_2_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis)
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis + margin)
             # send 1 packet to dst port 3, triggering PFC
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_3_mac,
