@@ -10,7 +10,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-STATE_DB = 6
+STATE_DB = 'STATE_DB'
 TABLE_NAME_SEPARATOR_VBAR = '|'
 FAN_MOCK_WAIT_TIME = 75
 
@@ -88,7 +88,7 @@ XCVR_SENSOR_OID_LIST = [SENSOR_TYPE_TEMP,
                         SENSOR_TYPE_PORT_TX_BIAS + 4,
                         SENSOR_TYPE_VOLTAGE]
 
-# Redis Constants
+# Constants
 CHASSIS_KEY = 'chassis 1'
 FAN_DRAWER_KEY_TEMPLATE = 'FAN_DRAWER_INFO|{}'
 FAN_KEY_TEMPLATE = 'FAN_INFO|{}'
@@ -205,8 +205,7 @@ def test_fan_info(duthost, snmp_physical_entity_info):
             'serial']
         assert fan_snmp_fact['entPhysMfgName'] == ''
         assert fan_snmp_fact['entPhysModelName'] == '' if is_null_str(fan_info['model']) else fan_info['model']
-        assert fan_snmp_fact['entPhysIsFRU'] == REPLACEABLE if fan_info[
-                                                                   'is_replaceable'] == 'True' else NOT_REPLACEABLE
+        assert fan_snmp_fact['entPhysIsFRU'] == REPLACEABLE if fan_info['is_replaceable'] == 'True' else NOT_REPLACEABLE
 
         if not is_null_str(fan_info['speed']):
             tachometers_oid = expect_oid + SENSOR_TYPE_FAN
@@ -235,7 +234,7 @@ def test_psu_info(duthost, snmp_physical_entity_info):
     """
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     if not keys:
-        pytest.skip('PSU information not exists in DB, skipping this test')
+        pytest.skip('PSU information does not exists in DB, skipping this test')
 
     for key in keys:
         psu_info = redis_hgetall(duthost, STATE_DB, key)
@@ -262,8 +261,7 @@ def test_psu_info(duthost, snmp_physical_entity_info):
             'serial']
         assert psu_snmp_fact['entPhysMfgName'] == ''
         assert psu_snmp_fact['entPhysModelName'] == '' if is_null_str(psu_info['model']) else psu_info['model']
-        assert psu_snmp_fact['entPhysIsFRU'] == REPLACEABLE if psu_info[
-                                                                   'is_replaceable'] == 'True' else NOT_REPLACEABLE
+        assert psu_snmp_fact['entPhysIsFRU'] == REPLACEABLE if psu_info['is_replaceable'] == 'True' else NOT_REPLACEABLE
 
         _check_psu_sensor(name, psu_info, expect_oid, snmp_physical_entity_info)
 
@@ -285,11 +283,12 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_info):
 
         assert expect_oid in snmp_physical_entity_info, 'Cannot find PSU sensor {} in physical entity mib'.format(field)
         sensor_snmp_fact = snmp_physical_entity_info[expect_oid]
-        assert sensor_snmp_fact['entPhysDescr'] == '{} for {}'.format(sensor_tuple[0], psu_name)
+        sensor_name = '{sensor_name} for {psu_name}'.format(sensor_name=sensor_tuple[0], psu_name=psu_name)
+        assert sensor_snmp_fact['entPhysDescr'] == sensor_name
         assert sensor_snmp_fact['entPhysContainedIn'] == psu_oid
         assert sensor_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_SENSOR
         assert sensor_snmp_fact['entPhyParentRelPos'] == sensor_tuple[1]
-        assert sensor_snmp_fact['entPhysName'] == '{} for {}'.format(sensor_tuple[0], psu_name)
+        assert sensor_snmp_fact['entPhysName'] == sensor_name
         assert sensor_snmp_fact['entPhysHwVer'] == ''
         assert sensor_snmp_fact['entPhysFwVer'] == ''
         assert sensor_snmp_fact['entPhysSwVer'] == ''
@@ -519,7 +518,7 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    cmd = 'redis-cli --raw -n {} KEYS \"{}\"'.format(db_id, pattern)
+    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
     logging.debug('Getting keys from redis by command: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
@@ -535,29 +534,37 @@ def redis_hgetall(duthost, db_id, key):
     :return: A dictionary, key is field name, value is field value
     """
     result = {}
-    cmd = 'redis-cli -n {} HKEYS \"{}\"'.format(db_id, key)
+    """
+    Why we don't directly use HGETALL here? Because there are fields whose value contains line break.
+    And "sonic-db-cli XXX HGETALL XXX" may return something like:
+    
+    key1
+    value1
+    key2
+    part_of_value2
+                       part_of_value2
+                       part_of_value2
+    key3
+    value3
+    
+    Although we can still parse this kind of output to a dictionary, but the code will be very weird and not robust. 
+    So we use a solution here:
+        1. Get all field names of the table
+        2. Use HGET to get values for each fields
+    This solution is slower but more clear. 
+    """
+    cmd = 'sonic-db-cli {} HKEYS \"{}\"'.format(db_id, key)
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
     if not content:
         return result
 
     field_names = content.split('\n')
-
-    cmd = 'redis-cli -n {} HGETALL \"{}\"'.format(db_id, key)
-    output = duthost.shell(cmd)
-    content = output['stdout'].strip()
-
-    if content:
-        i = 0
-        pos = 0
-        field_count = len(field_names)
-        while i + 1 < field_count:
-            end = content.find(field_names[i + 1], pos)
-            value = content[pos + len(field_names[i]):end]
-            result[field_names[i].strip()] = value.strip()
-            i += 1
-            pos = end
-        result[field_names[i].strip()] = content[pos + len(field_names[i]):].strip()
+    for field_name in field_names:
+        field_name = field_name.strip()
+        cmd = 'redis-cli -n {} HGET \"{}\" \"{}\"'.format(db_id, key, field_name)
+        output = duthost.shell(cmd).strip()
+        result[field_name] = output
 
     return result
 
