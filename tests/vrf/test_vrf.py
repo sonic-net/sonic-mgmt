@@ -535,6 +535,7 @@ class TestVrfFib():
             for info in bgp_summary:
                 for peer, attr in bgp_summary[info]['peers'].iteritems():
                     prefix_count = attr['prefixReceivedCount']
+                    # skip ipv6 peers under 'ipv4Unicast' and compare only ipv4 peers under 'ipv4Unicast', and ipv6 peers under 'ipv6Unicast'
                     if info == "ipv4Unicast" and attr['idType'] == 'ipv6':
                         continue
                     else:
