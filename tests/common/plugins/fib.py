@@ -27,7 +27,7 @@ def announce_routes(ptfip, port, routes):
 def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start,
                     nexthop, nexthop_v6,
-                    tor_subnet_size = 128, max_tor_subnet_number = 16,
+                    tor_subnet_size, max_tor_subnet_number,
                     router_type = "leaf", tor_index=None):
     routes = []
 
@@ -99,11 +99,14 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
 def fib_t0(ptfhost, tbinfo, localhost, topology=None):
     logger.info("use fib_t0 to setup routes for topo {}".format(tbinfo['topo']['name']))
 
-    podset_number = 200
-    tor_number = 16
-    tor_subnet_number = 2
-
     common_config_topo = tbinfo['topo']['properties']['configuration_properties']['common']
+    podset_number = common_config_topo.get("podset_number", 200)
+    tor_number = common_config_topo.get("tor_number", 16)
+    tor_subnet_number = common_config_topo.get("tor_subnet_number", 2)
+    max_tor_subnet_number = common_config_topo.get("max_tor_subnet_number", 16)
+    tor_subnet_size = common_config_topo.get("tor_subnet_size", 128)
+    nhipv4 = common_config_topo.get("nhipv4", "10.10.246.254")
+    nhipv6 = common_config_topo.get("nhipv6", "fc0a::ff")
     spine_asn = common_config_topo.get("spine_asn", 65534)
     leaf_asn_start = common_config_topo.get("leaf_asn_start", 64600)
     tor_asn_start = common_config_topo.get("tor_asn_start", 65500)
@@ -111,8 +114,8 @@ def fib_t0(ptfhost, tbinfo, localhost, topology=None):
     ptf_hostname = tbinfo['ptf']
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
 
-    local_ip = ipaddress.IPAddress("10.10.246.254")
-    local_ipv6 = ipaddress.IPAddress("fc0a::ff")
+    local_ip = ipaddress.IPAddress(nhipv4)
+    local_ipv6 = ipaddress.IPAddress(nhipv6)
     for k, v in tbinfo['topo']['properties']['configuration'].items():
         vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
         peer_ip = ipaddress.IPNetwork(v['bp_interface']['ipv4'])
@@ -155,10 +158,10 @@ def fib_t0(ptfhost, tbinfo, localhost, topology=None):
 
         routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                     spine_asn, leaf_asn_start, tor_asn_start,
-                                    local_ip, local_ipv6)
+                                    local_ip, local_ipv6, tor_subnet_size, max_tor_subnet_number)
         routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                     spine_asn, leaf_asn_start, tor_asn_start,
-                                    local_ip, local_ipv6)
+                                    local_ip, local_ipv6, tor_subnet_size, max_tor_subnet_number)
 
         announce_routes(ptfip, port, routes_v4)
         announce_routes(ptfip, port6, routes_v6)
@@ -167,18 +170,22 @@ def fib_t0(ptfhost, tbinfo, localhost, topology=None):
 def fib_t1_lag(ptfhost, tbinfo, localhost):
     logger.info("use fib_t1_lag to setup routes for topo {}".format(tbinfo['topo']['name']))
 
-    podset_number = 200
-    tor_number = 16
-    tor_subnet_number = 2
-
-    leaf_asn_start  = 64600
-    tor_asn_start   = 65500
+    common_config_topo = tbinfo['topo']['properties']['configuration_properties']['common']
+    podset_number = common_config_topo.get("podset_number", 200)
+    tor_number = common_config_topo.get("tor_number", 16)
+    tor_subnet_number = common_config_topo.get("tor_subnet_number", 2)
+    max_tor_subnet_number = common_config_topo.get("max_tor_subnet_number", 16)
+    tor_subnet_size = common_config_topo.get("tor_subnet_size", 128)
+    nhipv4 = common_config_topo.get("nhipv4", "10.10.246.254")
+    nhipv6 = common_config_topo.get("nhipv6", "fc0a::ff")
+    leaf_asn_start = common_config_topo.get("leaf_asn_start", 64600)
+    tor_asn_start = common_config_topo.get("tor_asn_start", 65500)
 
     ptf_hostname = tbinfo['ptf']
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptf_hostname).vars['ansible_host']
 
-    local_ip = ipaddress.IPAddress("10.10.246.254")
-    local_ipv6 = ipaddress.IPAddress("fc0a::ff")
+    local_ip = ipaddress.IPAddress(nhipv4)
+    local_ipv6 = ipaddress.IPAddress(nhipv6)
 
     for k, v in tbinfo['topo']['properties']['configuration'].items():
         vm_offset = tbinfo['topo']['properties']['topology']['VMs'][k]['vm_offset']
@@ -231,10 +238,12 @@ def fib_t1_lag(ptfhost, tbinfo, localhost):
         if router_type:
             routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
-                                        local_ip, local_ipv6, router_type=router_type, tor_index=tor_index)
+                                        local_ip, local_ipv6, tor_subnet_size, max_tor_subnet_number,
+                                        router_type=router_type, tor_index=tor_index)
             routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
-                                        local_ip, local_ipv6, router_type=router_type, tor_index=tor_index)
+                                        local_ip, local_ipv6, tor_subnet_size, max_tor_subnet_number,
+                                        router_type=router_type, tor_index=tor_index)
             announce_routes(ptfip, port, routes_v4)
             announce_routes(ptfip, port6, routes_v6)
 
