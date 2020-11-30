@@ -15,7 +15,7 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
-BGPMON_TEMPLATE_FILE = 'bgp/templates/bgpmon.j2'
+BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
@@ -70,6 +70,7 @@ def common_setup_teardown(duthost, ptfhost):
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
     bgpmon_args = {
+        'db_table_name': 'BGP_MONITORS',
         'peer_addr': peer_addr,
         'asn': mg_facts['minigraph_bgp_asn'],
         'local_addr': local_addr,

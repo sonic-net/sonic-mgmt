@@ -26,7 +26,7 @@ BGP_MONITOR_NAME = "bgp_monitor"
 BGP_ANNOUNCE_TIME = 30 #should be enough to receive and parse bgp updates
 
 # TODO: remove me
-BGPMON_TEMPLATE_FILE = 'bgp/templates/bgpmon.j2'
+BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
 
 @pytest.fixture
@@ -44,6 +44,7 @@ def common_setup_teardown(ptfhost, duthost, localhost):
     # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
     logger.info("Configuring bgp monitor session on DUT")
     bgpmon_args = {
+        'db_table_name': 'BGP_MONITORS',
         'peer_addr': peer_addr,
         'asn': asn,
         'local_addr': dut_lo_addr,
