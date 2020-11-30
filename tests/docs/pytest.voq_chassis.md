@@ -42,7 +42,7 @@ and supervisor card has its own management IP address, that can be controlled/co
 The existing sonic-mgmt test framework has well defined test methodologies for testing of SONiC pizza boxes (a single mgmt. IP). 
 The scope of this document is to enhance the framework to test SONiC Chassis with multiple mgmt. IP addresses, while still utilizing the existing test methodologies. 
 
-The end goal is to be able to run the existing OC tests against a SONiC Chassis with minimal changes to test cases itself.
+The end goal is to be able to run the existing Open Community tests in sonic-mgmt repository against a SONiC Chassis with minimal changes to test cases itself.
 
 # 1 Requirements
 The sonic-mgmt test framework enhancements for testing on SONiC VOQ shall support the following
@@ -71,11 +71,11 @@ If the optional namespace/ASIC specific module params are not specified, then th
 
 Other modules will be enhanced as needed during adaption of the tests to SONiC chassis.
 
-## 2.2 Parameterizing dut_index and asic_index 
+## 2.2 Parameterizing the test case 
 PR's
-- [[Multi asic]: parameterize asic_index and dut_index](https://github.com/Azure/sonic-mgmt/pull/2245)
+- [[Multi asic]: parameterize enum_asic_index and enum_dut_index](https://github.com/Azure/sonic-mgmt/pull/2245)
 
-With this approch we use pytest parameterization to repeat a test against each of the DUTs and all asics (namespaces). If 'asic_index' and 'dut_index' are used as arguements to the test, then it would get repeated on each asic and each DUT. The 'dut_index' is derived from the number of DUTs specified in testbed.csv and 'asic_index' is derived from 'num_asics' defined in the inventory for each of the DUT.
+With this approch we use pytest parameterization to repeat a test against each of the DUTs and all asics (namespaces). If 'enum_asic_index' and 'enum_dut_index' are used as arguements to the test, then it would get repeated on each asic and each DUT. The 'enum_dut_index' is derived from the number of DUTs specified in testbed.csv and 'enum_asic_index' is derived from 'num_asics' defined in the inventory for each of the DUT.
 
 Sample inventory file:
 <pre>
@@ -85,13 +85,26 @@ node1:
    <b>num_asics: 6</b>
 </pre>
 
-The test case modified to take 'dut_index' and 'asic_index' as an argument:
+The test case modified to take 'enum_dut_index' and 'enum_asic_index' as an argument:
 ```
-def test_bgp_facts(duthosts, dut_index, asic_index):
-  duthost = duthosts[dut_index]
-  bgp_facts = duthost.bgp_facts(instance_id=asic_index)
+def test_bgp_facts(duthosts, enum_dut_index, enum_asic_index):
+  duthost = duthosts[enum_dut_index]
+  bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)
 ```
 
+The infrastructure has been extended to support below fixtures for parameterizing test cases as well:
+- enum_dut_index
+- enum_dut_hostname
+- enum_asic_index
+- enum_frontend_asic_index
+- enum_dut_portname
+- enum_dut_portname_oper_up
+- enum_dut_portname_admin_up
+- enum_dut_portchannel
+- enum_dut_portchannel_oper_up
+- enum_dut_portchannel_admin_up
+- enum_dut_feature
+    
 ## 2.3 duthosts
 PR's
 - [Add proposal for multi-DUT and multi-ASIC testing support](https://github.com/Azure/sonic-mgmt/pull/2347)
@@ -212,7 +225,7 @@ topology:
 # 5 Test case changes
 
 We have outline two approaches above of how to adapt existing tests to be able to run on SONiC chassis 
-- parameterizing dut_index
+- parameterizing the test case
 - duthosts
 
 Whether you we use the parameterizing approach, or duthosts approach depends upon the test case, where one approach might be easier to adapt the test case for a SONiC chassis. For example, 
@@ -221,25 +234,24 @@ Whether you we use the parameterizing approach, or duthosts approach depends upo
 
 Below, we take the example test_bgp_facts modified with both approaches as an example.
 
-## 5.1 parameterizing dut_index
+## 5.1 parameterizing the test case
 
-- Modify definition to replace 'duthost' with 'duthosts', and include 'dut_index' and 'asic_index'.
-- Get duthost based on dut_index from duthosts
+- Modify definition to replace 'duthost' with 'duthosts', and include the dut parameter fixtures like 'enum_dut_hostname' and 'enum_asic_index'.
+- Get duthost based on enum_dut_hostname from duthosts
 - Call ansible modules 'bgp_facts' and config_facts' using the namespace arguements. 
 
 <pre>
-def test_bgp_facts(<b>duthosts, dut_index, asic_index</b>):
+def test_bgp_facts(<b>duthosts, enum_dut_hostname, enum_asic_index</b>):
     """compare the bgp facts between observed states and target state"""
     <b>
-    duthost = duthosts[dut_index]
+    duthost = duthosts[enum_dut_hostname]
     # Check if the duthost is a supervisor card, and if so, skip it.
-    host_vars = duthost.sonichost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()
-    if 'type' in host_vars and host_vars['type'] == 'supervisor':
-        pytest.skip("bgp_facts not valid on supervisor card")
+    if duthost.is_supervisor_node():
+        pytest.skip("bgp_facts not valid on supervisor card '%s'" % enum_dut_hostname)
     </b>
-    bgp_facts = duthost.bgp_facts(<b>instance_id=asic_index</b>)['ansible_facts']
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent", <b>namespace=namespace</b>)['ansible_facts']
+    bgp_facts = duthost.bgp_facts(<b>instance_id=enum_asic_index</b>)['ansible_facts']
+    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running", <b>namespace=namespace</b>)['ansible_facts']
     
     for k, v in bgp_facts['bgp_neighbors'].items():
         # Verify bgp sessions are established
@@ -284,12 +296,10 @@ def test_bgp_facts(<b>duthosts</b>):
 
 </pre>
 
-MSFT has already pushed a few PR's changing test cases to be multi-dut aware.  Some examples:
+A few PR's have already been pushed to change test cases/fixtures to be multi-dut aware.  Some examples:
 - [[multi-dut] Make test_posttest and test_pretest multi-dut ready](https://github.com/Azure/sonic-mgmt/pull/2475)
 - [[multi-DUT] making test_interfaces multi-DUT ready](https://github.com/Azure/sonic-mgmt/pull/2471)
 - [[multi-dut] making test_show_features multi-dut ready](https://github.com/Azure/sonic-mgmt/pull/2470)
-
-Nokia is in the process of enhancing some of the fixtures to support multi-dut as well:
 - [[multi-dut] - sanity checks for multi-duts](https://github.com/Azure/sonic-mgmt/pull/2478)
 
 If you search 'multi-dut' in the PR's on sonic-mgmt github, you will be able to see more examples of tests already modified.
