@@ -47,23 +47,23 @@ def setup_telemetry_forpyclient(duthost):
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
-def verify_telemetry_dockerimage(duthost):
+@pytest.fixture(scope="module", autouse=True)
+def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
     """If telemetry docker is available in image then return true
     """
     docker_out_list = []
+    duthost = duthosts[rand_one_dut_hostname]
     docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
-    return (len(matching) > 0)
+    if not (len(matching) > 0):
+        pytest.skip("docker-sonic-telemetry is not part of the image")
 
 # Test functions
 def test_config_db_parameters(duthosts, rand_one_dut_hostname):
     """Verifies required telemetry parameters from config_db.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    docker_present = verify_telemetry_dockerimage(duthost)
-    if not docker_present:
-        pytest.skip("docker-sonic-telemetry is not part of the image")
 
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
@@ -90,9 +90,6 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
     """Verify telemetry should be enabled by default
     """
     duthost = duthosts[rand_one_dut_hostname]
-    docker_present = verify_telemetry_dockerimage(duthost)
-    if not docker_present:
-        pytest.skip("docker-sonic-telemetry is not part of the image")
 
     status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
@@ -109,9 +106,6 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    docker_present = verify_telemetry_dockerimage(duthost)
-    if not docker_present:
-        pytest.skip("docker-sonic-telemetry is not part of the image")
 
     logger.info('start telemetry output testing')
     setup_telemetry_forpyclient(duthost)
@@ -143,9 +137,6 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
               updated correctly.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    docker_present = verify_telemetry_dockerimage(duthost)
-    if not docker_present:
-        pytest.skip("docker-sonic-telemetry is not part of the image")
 
     logger.info("start test the dataset 'system uptime'")
     setup_telemetry_forpyclient(duthost)
@@ -166,23 +157,33 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost):
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
+    found_system_uptime_field = False
     for line_info in system_uptime_info:
         if "total" in line_info:
             try:
                 system_uptime_1st = int(line_info.split(":")[1].strip())
+                found_system_uptime_field = True
             except ValueError as err:
                 pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
 
-    # Sleep 10 seconds to wait that the value of system uptime was added another 10 seconds.
+    if not found_system_uptime_field:
+        pytest.fail("The field of system uptime was not found.")
+
+    # Wait 10 seconds such that the value of system uptime was added 10 seconds.
     time.sleep(10)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_2nd = 0
+    found_system_uptime_field = False
     for line_info in system_uptime_info:
         if "total" in line_info:
             try:
                 system_uptime_2nd = int(line_info.split(":")[1].strip())
+                found_system_uptime_field = True
             except ValueError as err:
                 pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
+
+    if not found_system_uptime_field:
+        pytest.fail("The field of system uptime was not found.")
 
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
