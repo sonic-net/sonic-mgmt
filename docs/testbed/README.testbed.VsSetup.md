@@ -114,7 +114,7 @@ index 3e7b3c4e..edabfc40 100644
 
 2.  Create a dummy `password.txt` file under `/data/sonic-mgmt/ansible`
     - **Note**: Here, `password.txt` is the Ansible Vault password file. Ansible allows users to use Ansible Vault to encrypt password files.
-    
+
       By default, the testbed scripts require a password file. If you are not using Ansible Vault, you can create a file with a dummy password (e.g. `abc`) and pass the filename to the command line. The file name and location is created and maintained by the user.
 
 3. **On the host,** run `sudo visudo` and add the following line at the end:
