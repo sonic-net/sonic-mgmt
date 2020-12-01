@@ -67,7 +67,6 @@ snmp/test_snmp_interfaces.py \
 snmp/test_snmp_lldp.py \
 snmp/test_snmp_pfc_counters.py \
 snmp/test_snmp_queue.py \
-snmp/test_snmp_phy_entity.py \
 syslog/test_syslog.py \
 tacacs/test_rw_user.py \
 tacacs/test_ro_user.py \

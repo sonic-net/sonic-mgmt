@@ -7,7 +7,7 @@ from tests.platform_tests.thermal_control_test_helper import mocker_factory
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('physical')
 ]
 
 STATE_DB = 'STATE_DB'
@@ -127,7 +127,6 @@ def get_entity_mib(duthost, localhost, creds):
     return entity_mib
 
 
-@pytest.mark.device_type('physical')
 def test_fan_drawer_info(duthost, snmp_physical_entity_info):
     """
     Verify fan drawer information in physical entity mib with redis database
@@ -165,7 +164,6 @@ def test_fan_drawer_info(duthost, snmp_physical_entity_info):
                                                                       'is_replaceable'] == 'True' else NOT_REPLACEABLE
 
 
-@pytest.mark.device_type('physical')
 def test_fan_info(duthost, snmp_physical_entity_info):
     """
     Verify fan information in physical entity mib with redis database
@@ -226,7 +224,6 @@ def test_fan_info(duthost, snmp_physical_entity_info):
             assert tachometers_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
-@pytest.mark.device_type('physical')
 def test_psu_info(duthost, snmp_physical_entity_info):
     """
     Verify PSU information in physical entity mib with redis database
@@ -298,7 +295,6 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_info):
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
-@pytest.mark.device_type('physical')
 def test_thermal_info(duthost, snmp_physical_entity_info):
     """
     Verify thermal information in physical entity mib with redis database
@@ -335,7 +331,6 @@ def test_thermal_info(duthost, snmp_physical_entity_info):
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
-@pytest.mark.device_type('physical')
 def test_transceiver_info(duthost, snmp_physical_entity_info):
     """
     Verify transceiver information in physical entity mib with redis database
@@ -396,7 +391,6 @@ def _check_transceiver_dom_sensor_info(transceiver_oid, snmp_physical_entity_inf
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
-@pytest.mark.device_type('physical')
 @pytest.mark.disable_loganalyzer
 def test_turn_off_psu_and_check_psu_info(duthost, localhost, creds, psu_controller):
     """
@@ -460,7 +454,6 @@ def _check_psu_status_after_power_off(duthost, localhost, creds):
     return power_off_psu_found
 
 
-@pytest.mark.device_type('physical')
 @pytest.mark.disable_loganalyzer
 def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_factory):
     """
