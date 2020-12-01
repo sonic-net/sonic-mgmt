@@ -127,6 +127,7 @@ def get_entity_mib(duthost, localhost, creds):
     return entity_mib
 
 
+@pytest.mark.device_type('physical')
 def test_fan_drawer_info(duthost, snmp_physical_entity_info):
     """
     Verify fan drawer information in physical entity mib with redis database
@@ -137,7 +138,7 @@ def test_fan_drawer_info(duthost, snmp_physical_entity_info):
     keys = redis_get_keys(duthost, STATE_DB, FAN_DRAWER_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not support fan drawer
     if not keys:
-        pytest.skip('Fan drawer information not exists in DB, skipping this test')
+        pytest.skip('Fan drawer information does not exist in DB, skipping this test')
     for key in keys:
         drawer_info = redis_hgetall(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
@@ -164,6 +165,7 @@ def test_fan_drawer_info(duthost, snmp_physical_entity_info):
                                                                       'is_replaceable'] == 'True' else NOT_REPLACEABLE
 
 
+@pytest.mark.device_type('physical')
 def test_fan_info(duthost, snmp_physical_entity_info):
     """
     Verify fan information in physical entity mib with redis database
@@ -172,8 +174,7 @@ def test_fan_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
-    if not keys:
-        pytest.skip('Fan information not exists in DB, skipping this test')
+    assert keys, 'Fan information does not exist in DB'
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
@@ -225,6 +226,7 @@ def test_fan_info(duthost, snmp_physical_entity_info):
             assert tachometers_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
+@pytest.mark.device_type('physical')
 def test_psu_info(duthost, snmp_physical_entity_info):
     """
     Verify PSU information in physical entity mib with redis database
@@ -233,9 +235,7 @@ def test_psu_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
-    if not keys:
-        pytest.skip('PSU information does not exists in DB, skipping this test')
-
+    assert keys, 'PSU information does not exist in DB'
     for key in keys:
         psu_info = redis_hgetall(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
@@ -298,6 +298,7 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_info):
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
+@pytest.mark.device_type('physical')
 def test_thermal_info(duthost, snmp_physical_entity_info):
     """
     Verify thermal information in physical entity mib with redis database
@@ -306,9 +307,7 @@ def test_thermal_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
-    if not keys:
-        pytest.skip('Thermal information not exists in DB, skipping this test')
-
+    assert keys, 'Thermal information does not exist in DB'
     for key in keys:
         thermal_info = redis_hgetall(duthost, STATE_DB, key)
         if is_null_str(thermal_info['temperature']):
@@ -336,6 +335,7 @@ def test_thermal_info(duthost, snmp_physical_entity_info):
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
+@pytest.mark.device_type('physical')
 def test_transceiver_info(duthost, snmp_physical_entity_info):
     """
     Verify transceiver information in physical entity mib with redis database
@@ -344,8 +344,7 @@ def test_transceiver_info(duthost, snmp_physical_entity_info):
     :return:
     """
     keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
-    if not keys:
-        pytest.skip('Transceiver information not exists in DB, skipping this test')
+    assert keys, 'Transceiver information does not exist in DB'
 
     name_to_snmp_facts = {}
     for oid, values in snmp_physical_entity_info.items():
@@ -397,6 +396,7 @@ def _check_transceiver_dom_sensor_info(transceiver_oid, snmp_physical_entity_inf
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
+@pytest.mark.device_type('physical')
 @pytest.mark.disable_loganalyzer
 def test_turn_off_psu_and_check_psu_info(duthost, localhost, creds, psu_controller):
     """
@@ -408,7 +408,7 @@ def test_turn_off_psu_and_check_psu_info(duthost, localhost, creds, psu_controll
     :return:
     """
     if not psu_controller:
-        pytest.skip('psu_controller is None')
+        pytest.skip('psu_controller is None, skipping this test')
     psu_status = psu_controller.get_psu_status()
     if len(psu_status) < 2:
         pytest.skip('At least 2 PSUs required for rest of the testing in this case')
@@ -460,6 +460,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds):
     return power_off_psu_found
 
 
+@pytest.mark.device_type('physical')
 @pytest.mark.disable_loganalyzer
 def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_factory):
     """
@@ -483,7 +484,7 @@ def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_
     time.sleep(FAN_MOCK_WAIT_TIME)
 
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
-    assert keys, 'Fan information not exists in DB'
+    assert keys, 'Fan information does not exist in DB'
     mib_info = get_entity_mib(duthost, localhost, creds)
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
