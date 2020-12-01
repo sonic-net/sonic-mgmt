@@ -14,8 +14,8 @@ pytestmark = [
 ]
 
 SUCCESS_CODE = 0
-DEFAULT_LOOP_RANGE = 10
-DEFAULT_LOOP_DELAY = 10
+DEFAULT_LOOP_RANGE = 2
+DEFAULT_LOOP_DELAY = 2
 
 pytest.tar_stdout = ""
 
@@ -271,7 +271,7 @@ def test_techsupport(request, config, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
-    since = request.config.getoption("--logs_since") or str(randint(1, 23)) + " minute ago"
+    since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
 
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 
