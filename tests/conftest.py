@@ -443,7 +443,7 @@ def clear_neigh_entries(duthosts, tbinfo):
 
     yield
 
-    if tbinfo['topo']['name'] == 'dualtor':
+    if 'dualtor' in tbinfo['topo']['name']:
         for dut in duthosts:
             dut.command("sudo ip neigh flush nud permanent")
 
