@@ -9,7 +9,7 @@
 
 - name: Set neighbor facts
   set_fact:
-    neighbors: "{{ device_conn }}"
+    neighbors: "{{ device_conn[inventory_hostname] }}"
 
 - include_tasks: link_flap/link_flap_helper.yml
-  with_items: "{{ device_conn.keys() }}"
+  with_items: "{{ device_conn[inventory_hostname].keys() }}"

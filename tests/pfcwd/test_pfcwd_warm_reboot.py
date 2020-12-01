@@ -38,13 +38,14 @@ pytestmark = [pytest.mark.disable_loganalyzer,
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(autouse=True)
-def setup_pfcwd(duthost):
+def setup_pfcwd(duthosts, rand_one_dut_hostname):
     """
     Setup PFCwd before the test run
 
     Args:
         duthost(AnsibleHost) : dut instance
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Setup the default pfcwd config for warm-reboot test")
     duthost.command("redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" "
                     "default_pfcwd_status enable")
@@ -184,16 +185,16 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic(object):
     """ PTF test """
-    def __init__(self, ptf, eth0_mac, pfc_params, queue):
+    def __init__(self, ptf, router_mac, pfc_params, queue):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
-            eth0_mac(string) : mac addr of eth0
+            router_mac(string) : router mac address
             ptf_params(dict) : all PFC test params specific to the DUT port
             queue(int): queue to check the wd action
         """
         self.ptf = ptf
-        self.eth0_mac = eth0_mac
+        self.router_mac = router_mac
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
         self.pfc_wd_test_port =  pfc_params['test_port']
@@ -216,7 +217,7 @@ class SendVerifyTraffic(object):
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
         if wd_action == "forward" and  type(self.pfc_wd_test_port_ids) == list:
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.queue,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -242,7 +243,7 @@ class SendVerifyTraffic(object):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.queue,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -451,7 +452,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.setup()['ansible_facts']
+        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.seed = int(datetime.datetime.today().day)
         self.storm_handle = dict()
@@ -499,7 +500,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         else:
                             self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
 
-                    self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_eth0']['macaddress'], self.pfc_wd, queue)
+                    self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd, queue)
                     self.run_test(port, queue, detect=(bitmask & 1),
                                   storm_start=not t_idx or storm_deferred or storm_restored,
                                   first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),
@@ -518,7 +519,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield request.param
 
-    def test_pfcwd_wb(self, request, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts):
+    def test_pfcwd_wb(self, request, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, localhost, fanouthosts):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -540,6 +541,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
+        duthost = duthosts[rand_one_dut_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(request, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
                              fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts)

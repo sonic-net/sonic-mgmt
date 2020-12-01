@@ -121,6 +121,21 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(status, bool), "Module {} status appears incorrect".format(i))
         self.assert_expectations()
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        for i in range(self.num_modules):
+            position = module.get_position_in_parent(platform_api_conn, i)
+            if self.expect(position is not None, "Failed to perform get_position_in_parent for module {}".format(i)):
+                self.expect(isinstance(position, int), "Position value must be an integer value for module {}".format(i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for i in range(self.num_modules):
+            replaceable = module.is_replaceable(platform_api_conn, i)
+            if self.expect(replaceable is not None, "Failed to perform is_replaceable for module {}".format(i)):
+                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for module {}".format(i))
+
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in ModuleBase class
     #
@@ -219,7 +234,7 @@ class TestModuleApi(PlatformApiTestBase):
 
             for comp_idx in range(num_components):
                 component = module.get_component(platform_api_conn, mod_idx, comp_idx)
-                self.expect(component and component == component_list[mod_idx], "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
+                self.expect(component and component == component_list[comp_idx], "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
         self.assert_expectations()
 
     def test_fans(self, duthost, localhost, platform_api_conn):
@@ -241,7 +256,7 @@ class TestModuleApi(PlatformApiTestBase):
 
             for fan_idx in range(num_fans):
                 fan = module.get_fan(platform_api_conn, mod_idx, fan_idx)
-                self.expect(fan and fan == fan_list[mod_idx], "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
+                self.expect(fan and fan == fan_list[fan_idx], "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
         self.assert_expectations()
 
     def test_psus(self, duthost, localhost, platform_api_conn):
@@ -263,7 +278,7 @@ class TestModuleApi(PlatformApiTestBase):
 
             for psu_idx in range(num_psus):
                 psu = module.get_psu(platform_api_conn, mod_idx, psu_idx)
-                self.expect(psu and psu == psu_list[mod_idx], "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
+                self.expect(psu and psu == psu_list[psu_idx], "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
         self.assert_expectations()
 
     def test_thermals(self, duthost, localhost, platform_api_conn):
@@ -285,7 +300,7 @@ class TestModuleApi(PlatformApiTestBase):
 
             for therm_idx in range(num_thermals):
                 thermal = module.get_thermal(platform_api_conn, mod_idx, therm_idx)
-                self.expect(thermal and thermal == thermal_list[mod_idx], "Thermal {} is incorrect".format(mod_idx, therm_idx))
+                self.expect(thermal and thermal == thermal_list[therm_idx], "Thermal {} is incorrect".format(mod_idx, therm_idx))
         self.assert_expectations()
 
     def test_sfps(self, duthost, localhost, platform_api_conn):
@@ -307,5 +322,5 @@ class TestModuleApi(PlatformApiTestBase):
 
             for sfp_idx in range(num_sfps):
                 sfp = module.get_sfp(platform_api_conn, mod_idx, sfp_idx)
-                self.expect(sfp and sfp == sfp_list[mod_idx], "Module {}: SFP {} is incorrect".format(mod_idx, sfp_idx))
+                self.expect(sfp and sfp == sfp_list[sfp_idx], "Module {}: SFP {} is incorrect".format(mod_idx, sfp_idx))
         self.assert_expectations()

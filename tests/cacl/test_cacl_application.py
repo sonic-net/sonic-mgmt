@@ -314,7 +314,7 @@ def generate_expected_rules(duthost):
     return iptables_rules, ip6tables_rules
 
 
-def test_cacl_application(duthost, localhost, creds):
+def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly
 
@@ -322,6 +322,7 @@ def test_cacl_application(duthost, localhost, creds):
     rules based on the DuT's configuration and comparing them against the
     actual iptables/ip6tables rules on the DuT.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost)
 
     stdout = duthost.shell("sudo iptables -S")["stdout"]

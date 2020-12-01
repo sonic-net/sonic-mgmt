@@ -11,7 +11,6 @@ Tests for the `show platform ...` commands in SONiC
 
 import logging
 import re
-import time
 
 import pytest
 
@@ -30,10 +29,11 @@ THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 
 
-def test_show_platform_summary(duthost):
+def test_show_platform_summary(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform summary`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "summary"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -41,22 +41,24 @@ def test_show_platform_summary(duthost):
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
+    new_field = set(["ASIC Count"])
 
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {}".format(repr(missing_fields)))
 
     unexpected_fields = actual_fields - expected_fields
-    pytest_assert(len(unexpected_fields) == 0, "Unexpected fields in output: {}".format(repr(unexpected_fields)))
+    pytest_assert(((unexpected_fields == new_field) or len(unexpected_fields) == 0), "Unexpected fields in output: {}".format(repr(unexpected_fields)))
 
     # TODO: Test values against platform-specific expected data instead of testing for missing values
     for key in expected_fields:
         pytest_assert(summary_dict[key], "Missing value for '{}'".format(key))
 
 
-def test_show_platform_syseeprom(duthost):
+def test_show_platform_syseeprom(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform syseeprom`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -91,10 +93,11 @@ def test_show_platform_syseeprom(duthost):
             pytest_assert(line in syseeprom_output, "Line '{}' was not found in output".format(line))
 
 
-def test_show_platform_psustatus(duthost):
+def test_show_platform_psustatus(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform psustatus`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -122,10 +125,11 @@ def verify_show_platform_fan_output(raw_output_lines):
         pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_fan(duthost):
+def test_show_platform_fan(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform fan`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "fan"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -152,10 +156,11 @@ def verify_show_platform_temperature_output(raw_output_lines):
         pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_temperature(duthost):
+def test_show_platform_temperature(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform temperature`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "temperature"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -165,10 +170,11 @@ def test_show_platform_temperature(duthost):
     # TODO: Test values against platform-specific expected data
 
 
-def test_show_platform_ssdhealth(duthost):
+def test_show_platform_ssdhealth(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform ssdhealth`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "ssdhealth"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
@@ -201,10 +207,11 @@ def verify_show_platform_firmware_status_output(raw_output_lines):
     pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_firmware_status(duthost):
+def test_show_platform_firmware_status(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform firmware status`
     """
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))

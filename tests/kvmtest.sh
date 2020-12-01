@@ -36,7 +36,8 @@ PYTEST_CLI_COMMON_OPTS="\
 -m individual \
 -q 1 \
 -a False \
--e --disable_loganalyzer"
+-e --disable_loganalyzer \
+-O"
 
 cd $SONIC_MGMT_DIR/tests
 rm -rf logs
@@ -47,6 +48,7 @@ mkdir -p logs
 tgname=1vlan
 tests="\
 monit/test_monit_status.py \
+platform_tests/test_advanced_reboot.py \
 test_interfaces.py \
 bgp/test_bgp_fact.py \
 bgp/test_bgp_gr_helper.py \
@@ -57,7 +59,10 @@ dhcp_relay/test_dhcp_relay.py \
 lldp/test_lldp.py \
 ntp/test_ntp.py \
 pc/test_po_cleanup.py \
+pc/test_po_update.py \
 route/test_default_route.py \
+arp/test_neighbor_mac.py \
+arp/test_neighbor_mac_noptf.py \
 snmp/test_snmp_cpu.py \
 snmp/test_snmp_interfaces.py \
 snmp/test_snmp_lldp.py \
@@ -67,10 +72,12 @@ snmp/test_snmp_loopback.py \
 syslog/test_syslog.py \
 tacacs/test_rw_user.py \
 tacacs/test_ro_user.py \
-telemetry/test_telemetry.py"
-
-# FIXME: This test has been disabled and needs to be fixed and put back in:
-# pc/test_po_update.py
+telemetry/test_telemetry.py \
+test_features.py \
+test_procdockerstatsd.py \
+iface_namingmode/test_iface_namingmode.py \
+platform_tests/test_cpu_memory_usage.py \
+bgp/test_bgpmon.py"
 
 pushd $SONIC_MGMT_DIR/tests
 ./run_tests.sh $PYTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname

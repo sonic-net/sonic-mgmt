@@ -6,6 +6,7 @@ function show_help_and_exit()
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
+    echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
@@ -16,6 +17,7 @@ function show_help_and_exit()
     echo "    -m <method>    : specify test method group|individual|debug (default group)"
     echo "    -n <testbed>   : specify testbed name (*)"
     echo "    -o             : omit the file logs"
+    echo "    -O             : run tests in input order rather than alphabetical order"
     echo "    -p <path>      : specify log path (default: logs)"
     echo "    -q <n>         : test will stop after <n> failures (default: not stop on failure)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
@@ -73,12 +75,14 @@ function setup_environment()
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
     INVENTORY="${BASE_PATH}/ansible/lab,${BASE_PATH}/ansible/veos"
+    KUBE_MASTER_ID="unset"
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
-    SKIP_FOLDERS="ptftests acstests saitests scripts"
+    SKIP_FOLDERS="ptftests acstests saitests scripts k8s"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
+    TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
 
@@ -107,7 +111,11 @@ function setup_test_options()
         done
     fi
     # Ignore the scripts specified in $SKIP_SCRIPTS
-    TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+    if [[ x"${TEST_INPUT_ORDER}" == x"True" ]]; then
+        TEST_CASES=$(python -c "print '\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())])")
+    else
+        TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+    fi
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
@@ -115,6 +123,7 @@ function setup_test_options()
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
                       --log-file-level ${FILE_LOG_LEVEL} \
+                      --kube_master ${KUBE_MASTER_ID} \
                       --showlocals \
                       --assert plain \
                       --show-capture no \
@@ -179,6 +188,7 @@ function run_debug_tests()
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
+    echo "TEST_INPUT_ORDER:      ${TEST_INPUT_ORDER}"
     echo "TEST_MAX_FAIL:         ${TEST_MAX_FAIL}"
     echo "TEST_METHOD:           ${TEST_METHOD}"
     echo "TESTBED_FILE:          ${TESTBED_FILE}"
@@ -250,13 +260,18 @@ function run_individual_tests()
 
 setup_environment
 
-while getopts "h?a:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
+
+while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
             ;;
         a )
             AUTO_RECOVER=${OPTARG}
+            ;;
+        b ) 
+            KUBE_MASTER_ID=${OPTARG}
+            SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
@@ -287,6 +302,9 @@ while getopts "h?a:c:d:e:f:i:k:l:m:n:op:q:rs:t:ux" opt; do
             ;;
         o )
             OMIT_FILE_LOG="True"
+            ;;
+        O )
+            TEST_INPUT_ORDER="True"
             ;;
         p )
             LOG_PATH=${OPTARG}
