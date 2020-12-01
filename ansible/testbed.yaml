@@ -965,7 +965,7 @@
 
 - conf-name: vms17-dual-t0-7050-2
   group-name: vms17-8
-  topo: dualtor
+  topo: dualtor-56
   ptf_image_name: docker-ptf-brcm
   ptf: vms17-8
   ptf_ip: 10.64.246.140/23
@@ -976,6 +976,19 @@
     - str2-7050cx3-acs-08
     - str2-7050cx3-acs-09
   comment: hellogemini
+
+- conf-name: vms17-t0-7260-2
+  group-name: vms17-9
+  topo: t0-116
+  ptf_image_name: docker-ptf-brcm
+  ptf: vms17-9
+  ptf_ip: 10.64.246.142/23
+  ptf_ipv6:
+  server: server_17
+  vm_base: VM1792
+  dut:
+    - str2-7260cx3-acs-9
+  comment: yingxie
 
 - conf-name: vms18-t1-msn4600c-acs-1
   group-name: vms18-1
@@ -1080,6 +1093,19 @@
   dut:
     - str2-7060cx-32s-29
   comment: vadixit
+
+- conf-name: vmsvc1-t1-n3164-acs-1
+  group-name: svc1-1
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf-brcm
+  ptf: svc1-1
+  ptf_ip: 10.206.144.19/24
+  ptf_ipv6:
+  server: server_svc_1
+  vm_base: VM1000
+  dut:
+    - svcstr-n3164-acs-1
+  comment: Mahesh
 
 - conf-name: vms-example-ixia-1
   group-name: vms6-1

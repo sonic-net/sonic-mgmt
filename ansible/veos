@@ -65,6 +65,7 @@ all:
           - t0-116
           - fullmesh
           - dualtor
+          - dualtor-56
 
 vm_host_1:
   hosts:
