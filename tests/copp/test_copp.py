@@ -56,6 +56,7 @@ _SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
+
 class TestCOPP(object):
     """
         Tests basic COPP functionality in SONiC.
@@ -93,10 +94,10 @@ class TestCOPP(object):
         """
         duthost = duthosts[rand_one_dut_hostname]
         _copp_runner(duthost,
-                    ptfhost,
-                    protocol,
-                    copp_testbed,
-                    dut_type)
+                     ptfhost,
+                     protocol,
+                     copp_testbed,
+                     dut_type)
 
 @pytest.fixture(scope="class")
 def dut_type(duthosts, rand_one_dut_hostname):
@@ -112,8 +113,15 @@ def dut_type(duthosts, rand_one_dut_hostname):
     return dut_type
 
 @pytest.fixture(scope="class")
-def copp_testbed(duthosts, rand_one_dut_hostname, creds, ptfhost, tbinfo, request, \
-    disable_container_autorestart, enable_container_autorestart):
+def copp_testbed(
+    duthosts,
+    rand_one_dut_hostname,
+    creds,
+    ptfhost,
+    tbinfo,
+    request,
+    disable_lldp_for_testing  # usefixtures not supported on fixtures
+):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
@@ -123,14 +131,11 @@ def copp_testbed(duthosts, rand_one_dut_hostname, creds, ptfhost, tbinfo, reques
     if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
-    feature_list = ['lldp']
-    disable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
-    _setup_testbed(duthost, creds, ptfhost, test_params)
-
-    yield test_params
-
-    enable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
-    _teardown_testbed(duthost, creds, ptfhost, test_params)
+    try:
+        _setup_testbed(duthost, creds, ptfhost, test_params)
+        yield test_params
+    finally:
+        _teardown_testbed(duthost, creds, ptfhost, test_params)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(loganalyzer):
@@ -147,11 +152,11 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
     ignoreRegex = [
         ".*ERR monit.*'lldpd_monitor' process is not running",
         ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.",
-
         ".*ERR monit.*'lldp_syncd' process is not running",
         ".*ERR monit.*'lldp\|lldp_syncd' status failed.*'python2 -m lldp_syncd' is not running.",
         ".*snmp#snmp-subagent.*",
     ]
+
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer.ignore_regex.extend(ignoreRegex)
 
@@ -201,15 +206,10 @@ def _gather_test_params(tbinfo, duthost, request):
                                topo=topo,
                                bgp_graph=bgp_graph)
 
-@pytest.mark.usefixtures('disable_container_autorestart')
 def _setup_testbed(dut, creds, ptf, test_params):
     """
         Sets up the testbed to run the COPP tests.
     """
-
-    logging.info("Disable LLDP for COPP tests")
-    dut.command("docker exec lldp supervisorctl stop lldp-syncd")
-    dut.command("docker exec lldp supervisorctl stop lldpd")
 
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params.nn_target_port)
@@ -247,6 +247,30 @@ def _teardown_testbed(dut, creds, ptf, test_params):
         logging.info("Reloading config and restarting swss...")
         config_reload(dut)
 
-    logging.info("Restore LLDP")
-    dut.command("docker exec lldp supervisorctl start lldpd")
-    dut.command("docker exec lldp supervisorctl start lldp-syncd")
+
+@pytest.fixture(scope="class")
+def disable_lldp_for_testing(
+    duthosts,
+    rand_one_dut_hostname,
+    disable_container_autorestart,
+    enable_container_autorestart
+):
+    """Disables LLDP during testing so that it doesn't interfere with the policer."""
+    duthost = duthosts[rand_one_dut_hostname]
+
+    logging.info("Disabling LLDP for the COPP tests")
+
+    feature_list = ['lldp']
+    disable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
+
+    duthost.command("docker exec lldp supervisorctl stop lldp-syncd")
+    duthost.command("docker exec lldp supervisorctl stop lldpd")
+
+    yield
+
+    logging.info("Restoring LLDP after the COPP tests")
+
+    duthost.command("docker exec lldp supervisorctl start lldpd")
+    duthost.command("docker exec lldp supervisorctl start lldp-syncd")
+
+    enable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
