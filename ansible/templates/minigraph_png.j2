@@ -11,7 +11,7 @@
         <StartDevice>{{ inventory_hostname }}</StartDevice>
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
       </DeviceLinkBase>
-{% if topo == 'dualtor' %}
+{% if 'dualtor' in topo %}
 {% set cable_position = 'U' if inventory_hostname == dual_tor_facts['positions']['upper'] else 'L' %}
       <DeviceLinkBase>
         <ElementType>LogicalLink</ElementType>

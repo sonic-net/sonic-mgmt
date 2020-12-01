@@ -183,7 +183,7 @@ class TestbedInfo(object):
         if match == None:
             raise Exception("Unsupported testbed type - {}".format(topo_name))
         tb_type = match.group()
-        if tb_type == 'dualtor':
+        if 'dualtor' in tb_type:
             # augment dualtor topology type to 't0' to avoid adding it
             # everywhere.
             tb_type = 't0'
