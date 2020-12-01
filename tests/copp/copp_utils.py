@@ -11,8 +11,9 @@ _REMOVE_IP_SCRIPT = "scripts/remove_ip.sh"
 _ADD_IP_SCRIPT = "scripts/add_ip.sh"
 _UPDATE_COPP_SCRIPT = "copp/scripts/update_copp_config.py"
 
-_BASE_COPP_CONFIG = "/tmp/00-copp.config.json"
-_SWSS_COPP_CONFIG = "swss:/etc/swss/config.d/00-copp.config.json"
+_BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
+_APP_DB_COPP_CONFIG = "swss:/etc/swss/config.d/00-copp.config.json"
+_CONFIG_DB_COPP_CONFIG = "/etc/sonic/copp_cfg.json"
 _TEMP_COPP_CONFIG = "/tmp/copp_config.json"
 _TEMP_COPP_TEMPLATE = "/tmp/copp.json.j2"
 _COPP_TEMPLATE_PATH = "/usr/share/sonic/templates/copp.json.j2"
@@ -36,16 +37,31 @@ def limit_policer(dut, pps_limit):
             pps_limit (int): The rate limit for COPP to enforce on ALL trap groups.
     """
 
-    dut.command("docker cp {} {}".format(_SWSS_COPP_CONFIG, _BASE_COPP_CONFIG))
-    dut.script(cmd="{} {} {} {}".format(_UPDATE_COPP_SCRIPT, pps_limit,
-                                        _BASE_COPP_CONFIG, _TEMP_COPP_CONFIG))
-    dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_CONFIG))
+    if "201811" in dut.os_version or "201911" in dut.os_version:
+        dut.command("docker cp {} {}".format(_APP_DB_COPP_CONFIG, _BASE_COPP_CONFIG))
+        config_format = "app_db"
+    else:
+        dut.command("cp {} {}".format(_CONFIG_DB_COPP_CONFIG, _BASE_COPP_CONFIG))
+        config_format = "config_db"
 
-    # As copp config is regenerated each time swss starts need to replace the template with
-    # config updated above. But before doing that need store the original template in a temporary file
-    # for restore after test.
-    dut.command("docker cp {} {}".format(_SWSS_COPP_TEMPLATE, _TEMP_COPP_TEMPLATE))
-    dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_TEMPLATE))
+    dut.script(
+        cmd="{} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
+                                    pps_limit,
+                                    _BASE_COPP_CONFIG,
+                                    _TEMP_COPP_CONFIG,
+                                    config_format)
+    )
+
+    if config_format == "app_db":
+        dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _APP_DB_COPP_CONFIG))
+
+        # As copp config is regenerated each time swss starts need to replace the template with
+        # config updated above. But before doing that need store the original template in a
+        # temporary file for restore after test.
+        dut.command("docker cp {} {}".format(_SWSS_COPP_TEMPLATE, _TEMP_COPP_TEMPLATE))
+        dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, _SWSS_COPP_TEMPLATE))
+    else:
+        dut.command("cp {} {}".format(_TEMP_COPP_CONFIG, _CONFIG_DB_COPP_CONFIG))
 
 def restore_policer(dut):
     """
@@ -56,8 +72,12 @@ def restore_policer(dut):
 
             The SWSS container must be restarted for the config change to take effect.
     """
-    # Restore the copp template in swss 
-    dut.command("docker cp {} {}".format(_TEMP_COPP_TEMPLATE, _SWSS_COPP_TEMPLATE))
+    # Restore the copp template in swss
+    if "201811" in dut.os_version or "201911" in dut.os_version:
+        dut.command("docker cp {} {}".format(_BASE_COPP_CONFIG, _APP_DB_COPP_CONFIG))
+        dut.command("docker cp {} {}".format(_TEMP_COPP_TEMPLATE, _SWSS_COPP_TEMPLATE))
+    else:
+        dut.command("cp {} {}".format(_BASE_COPP_CONFIG, _CONFIG_DB_COPP_CONFIG))
 
 def configure_ptf(ptf, nn_target_port):
     """
