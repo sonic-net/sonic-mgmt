@@ -12,6 +12,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 import logging
 import random
+import time
 
 import ptf
 import ptf.packet as scapy
@@ -56,7 +57,7 @@ class FibTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 10000
+    BALANCING_TEST_TIMES = 625
     DEFAULT_BALANCING_TEST_RATIO = 0.0001
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
@@ -173,7 +174,7 @@ class FibTest(BaseTest):
         # Send a packet with a random IP in the range
         if ip_range.length() > 2:
             self.check_ip_route(src_port, ip_range.get_random_ip(), exp_port_list, ipv4)
-
+        time.sleep(0.01)
         # Test traffic balancing across ECMP/LAG members
         if (self.test_balancing and self.pkt_action == self.ACTION_FWD
                 and len(exp_port_list) > 1
@@ -181,9 +182,11 @@ class FibTest(BaseTest):
             logging.info("Check IP range balancing...")
             dst_ip = ip_range.get_random_ip()
             hit_count_map = {}
-            for i in range(0, self.balancing_test_times):
+            # Change balancing_test_times according to number of next hop groups
+            for i in range(0, self.balancing_test_times*len(exp_port_list)):
                 (matched_index, received) = self.check_ip_route(src_port, dst_ip, exp_port_list, ipv4)
                 hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
+                time.sleep(0.01)
             self.check_balancing(next_hop.get_next_hop(), hit_count_map)
 
     def check_ip_route(self, src_port, dst_ip_addr, dst_port_list, ipv4=True):
