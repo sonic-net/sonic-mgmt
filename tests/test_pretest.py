@@ -6,6 +6,7 @@ import os
 
 from jinja2 import Template
 from common.helpers.assertions import pytest_require
+from common.helpers.buffer import update_cable_len
 
 logger = logging.getLogger(__name__)
 
@@ -232,4 +233,40 @@ def test_connect_to_internal_nameserver(duthosts, enum_dut_hostname):
 
     duthost = duthosts[enum_dut_hostname]
     duthost.shell_cmds(cmds=cmds)
+
+
+def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
+    '''
+    Update the buffer templates to use internal cable len settings.
+       1. Replace the default cable_len value to 300m.
+       2. Update/add ports2cable mapping
+    '''
+    duthost = duthosts[enum_dut_hostname]
+    pytest_require("201911" not in duthost.os_version, "Skip updating templates for {}".format(duthost.os_version))
+
+    hwsku = duthost.facts["hwsku"]
+    platform = duthost.facts["platform"]
+    path = os.path.join("/usr/share/sonic/device", "{}/{}".format(platform, hwsku))
+    buffer_files = [ os.path.join(path, "buffers_defaults_t0.j2"),
+                     os.path.join(path, "buffers_defaults_t1.j2")
+                   ]
+    update_results = update_cable_len(duthost, buffer_files)
+    buf_temp_changed = False
+    for item, result in zip(buffer_files, update_results):
+        if result == "Found":
+            buf_temp_changed = True
+            path, orig_file = os.path.split(item)
+            file_prefix = orig_file.split(".")[0]
+            mod_file = "{}_new.j2".format(file_prefix)
+            backup_file = os.path.join(path, "{}_orig.j2".format(file_prefix))
+            duthost.shell("sudo mv {} {}".format(item, backup_file))
+            duthost.copy(src=mod_file, dest=item)
+            localhost.shell("sudo rm -f {}".format(mod_file))
+            logging.info("Buffer template {} changed" .format(item))
+        else:
+            logging.info("Skip updating buffer template {}".format(item))
+    if buf_temp_changed:
+        logging.info("Executing load minigraph ...")
+        duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
+        duthost.shell('config save -y')
 
