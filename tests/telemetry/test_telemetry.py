@@ -60,7 +60,7 @@ def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
 @pytest.fixture
-def post_setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost):
+def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
@@ -122,7 +122,7 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, post_setup_streaming_telemetry, localhost):
+def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[rand_one_dut_hostname]
@@ -138,7 +138,7 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, post_setup_st
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, post_setup_streaming_telemetry, localhost):
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was an integer and whether the value was
