@@ -12,7 +12,16 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 TELEMETRY_PORT = 50051
+mode_subscribe = "subscribe"
+mode_get = "get"
 
+subscribe_mode_stream = 0
+subscribe_mode_once = 1
+subscribe_mode_poll = 2
+
+submode_targetdefined=0
+submode_onchange=1
+submode_sample=2
 
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
@@ -45,6 +54,21 @@ def setup_telemetry_forpyclient(duthost):
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
+def generate_client_cli(duthost, mode=mode_get, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=subscribe_mode_stream, submode=submode_sample, intervalms=0, update_count=3):
+    """Generate the py_gnmicli command line based on the given params.
+    """
+    cmdFormat = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
+    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, mode, xpath, target, "ndastreamingservertest")
+
+    if mode == mode_subscribe:
+        cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(subscribe_mode, submode, intervalms, update_count)
+    return cmd
+
+def assert_equal(actual, expected, message):
+    """Helper method to compare an expected value vs the actual value.
+    """
+    pytest_assert(actual == expected, "{0}. Expected {1} vs actual {2}".format(message, expected, actual))
+
 def verify_telemetry_dockerimage(duthost):
     """If telemetry docker is available in image then return true
     """
@@ -55,10 +79,54 @@ def verify_telemetry_dockerimage(duthost):
     return (len(matching) > 0)
 
 # Test functions
-def test_config_db_parameters(duthosts, rand_one_dut_hostname):
+
+def test_invalid_streaming_mode(duthost, ptfhost, localhost):
+    """Check for sample streaming streaming mode validations.
+    Verify that TARGET_DEFINED is not supported.
+    """
+    cmd = generate_client_cli(duthost=duthost, mode=mode_subscribe, submode=submode_targetdefined, update_count = 3)
+    logger.info("Command to run: {0}".format(cmd))
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    logger.info(show_gnmi_out)
+    result = str(show_gnmi_out)
+
+    assert_equal(len(re.findall('subscribe {', result)), 1, "Subscribe request.")
+    assert_equal(len(re.findall('mode: ', result)), 0, "Default submode.") # since ON_TARGET is the default mode, it is not included in the request.
+    assert_equal(len(re.findall('status = StatusCode.INVALID_ARGUMENT', result)), 1, "Response code for invalid submode.")
+    assert_equal(len(re.findall('details = "unsupported subscription mode, TARGET_DEFINED"', result)), 1, "Details for invalid submode.")
+
+def test_invalid_streaming_interval(duthost, ptfhost, localhost):
+    """Check for sample streaming interval validations.
+    Default limit for interval is 1s, any non-zero interval should be rejected.
+    """
+    cmd = generate_client_cli(duthost=duthost, mode=mode_subscribe, update_count = 3, intervalms = 900)
+    logger.info("Command to run: {0}".format(cmd))
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    logger.info(show_gnmi_out)
+    result = str(show_gnmi_out)
+
+    assert_equal(len(re.findall('subscribe {', result)), 1, "Subscribe request.")
+    assert_equal(len(re.findall('mode: SAMPLE', result)), 1, "SAMPLE submode.")
+    assert_equal(len(re.findall('sample_interval: 900000000', result)), 1, "Sample interval.")
+    assert_equal(len(re.findall('details = "invalid interval: 900ms. It cannot be less than 1s"', result)), 1, "Response for invalid interval.")
+
+def test_virtualdb_table_streaming(duthost, ptfhost, localhost):
+    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
+    """
+    cmd = generate_client_cli(duthost=duthost, mode=mode_subscribe, update_count = 3)
+    logger.info("Command to run: {0}".format(cmd))
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    logger.info(show_gnmi_out)
+    result = str(show_gnmi_out)
+
+    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count.")
+    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0") # 1 for request, 3 for response
+    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message.")
+
+
+def test_config_db_parameters(duthost):
     """Verifies required telemetry parameters from config_db.
     """
-    duthost = duthosts[rand_one_dut_hostname]
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
@@ -84,10 +152,9 @@ def test_config_db_parameters(duthosts, rand_one_dut_hostname):
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
-def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
+def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
     """
-    duthost = duthosts[rand_one_dut_hostname]
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
@@ -103,10 +170,9 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+def test_telemetry_ouput(duthost, ptfhost, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
-    duthost = duthosts[rand_one_dut_hostname]
     docker_present = verify_telemetry_dockerimage(duthost)
     if not docker_present:
         pytest.skip("docker-sonic-telemetry is not part of the image")
