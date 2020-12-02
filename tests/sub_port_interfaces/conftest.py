@@ -1,5 +1,6 @@
 import os
 import ipaddress
+import jinja2
 
 import pytest
 
@@ -9,7 +10,7 @@ from sub_ports_helpers import TEMPLATE_DIR
 from sub_ports_helpers import SUB_PORTS_TEMPLATE
 
 
-@pytest.fixture()
+@pytest.fixture
 def define_sub_ports_configuration(request, duthost, ptfhost):
     """
     Define configuration of sub-ports for TC run
@@ -69,7 +70,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost):
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def apply_config_on_the_dut(define_sub_ports_configuration, duthost):
     """
     Apply Sub-ports configuration on the DUT and remove after tests
@@ -85,19 +86,18 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost):
         'sub_ports': define_sub_ports_configuration['sub_ports'],
     }
 
-    duthost.host.options['variable_manager'].extra_vars.update(sub_ports_vars)
+    sub_ports_config_path = os.path.join(DUT_TMP_DIR, SUB_PORTS_TEMPLATE)
+    config_template = jinja2.Template(open(os.path.join(TEMPLATE_DIR, SUB_PORTS_TEMPLATE)).read())
 
     duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
-    sub_ports_config_path = os.path.join(DUT_TMP_DIR, SUB_PORTS_TEMPLATE)
-    duthost.template(src=os.path.join(TEMPLATE_DIR, SUB_PORTS_TEMPLATE), dest=sub_ports_config_path)
-
+    duthost.copy(content=config_template.render(sub_ports_vars), dest=sub_ports_config_path)
     duthost.command('sonic-cfggen -j {} --write-to-db'.format(sub_ports_config_path))
 
     yield sub_ports_vars
     reload_dut_config(duthost)
 
 
-@pytest.fixture()
+@pytest.fixture
 def apply_config_on_the_ptf(define_sub_ports_configuration, ptfhost):
     """
     Apply Sub-ports configuration on the PTF and remove after tests

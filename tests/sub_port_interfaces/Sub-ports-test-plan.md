@@ -14,9 +14,9 @@
 
 ## Revision
 
-| Rev |     Date    |       Author       | Change Description                 |
-|:---:|:-----------:|:-------------------|:-----------------------------------|
-| 0.1 |  30/11/2020 | Oleksandr Kozodoi  |          Initial version           |
+| Rev |     Date    |       Author           | Change Description                 |
+|:---:|:-----------:|:-----------------------|:-----------------------------------|
+| 0.1 |  30/11/2020 | BFN: Oleksandr Kozodoi |          Initial version           |
 
 
 ## Overview
@@ -71,7 +71,7 @@ After end of the test session teardown procedure turns testbed to the initial st
 
 ## Python scripts to setup and run test
 
-Sub-ports test suite is located in tests/sub_port_interfaces folder. The is one files test_sub_port_interfaces.py
+Sub-ports test suite is located in tests/sub_port_interfaces folder. There is one files test_sub_port_interfaces.py
 
 ### Setup of DUT switch
 
