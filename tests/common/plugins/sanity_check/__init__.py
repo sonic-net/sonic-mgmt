@@ -149,7 +149,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
     for a_dutname, a_dut_post_results in post_check_results.items():
         if any([result["failed"] for result in a_dut_post_results]):
             post_sanity_failed = True
-            failed_items = json.dumps([result for result in a_dut_new_results if result["failed"]], indent=4)
+            failed_items = json.dumps([result for result in a_dut_post_results if result["failed"]], indent=4)
             logger.error("On {}, failed check items after recover:\n{}".format(a_dutname, failed_items))
 
     pt_assert(not post_sanity_failed, "Post-test sanity check failed on DUTs after recover:\n{}".format(post_check_results))
