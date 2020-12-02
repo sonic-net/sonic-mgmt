@@ -12,16 +12,16 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 TELEMETRY_PORT = 50051
-mode_subscribe = "subscribe"
-mode_get = "get"
+METHOD_SUBSCRIBE = "subscribe"
+METHOD_GET = "get"
 
-subscribe_mode_stream = 0
-subscribe_mode_once = 1
-subscribe_mode_poll = 2
+SUBSCRIBE_MODE_STREAM = 0
+SUBSCRIBE_MODE_ONCE = 1
+SUBSCRIBE_MODE_POLL = 2
 
-submode_targetdefined=0
-submode_onchange=1
-submode_sample=2
+SUBMODE_TARGET_DEFINED = 0
+SUBMODE_ON_CHANGE = 1
+SUBMODE_SAMPLE = 2
 
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
@@ -42,7 +42,7 @@ def get_list_stdout(cmd_out):
         out_list.append(result)
     return out_list
 
-def setup_telemetry_forpyclient(duthost):
+def setup_telemetry_forpyclient(duthost, localhost):
     """ Set client_auth=false. This is needed for pyclient to sucessfully set up channel with gnmi server.
         Restart telemetry process
     """
@@ -51,16 +51,25 @@ def setup_telemetry_forpyclient(duthost):
     if client_auth == "true":
         duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
         duthost.service(name="telemetry", state="restarted")
+
+        # wait till telemetry is restarted
+        pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started")
+        logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
-def generate_client_cli(duthost, mode=mode_get, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=subscribe_mode_stream, submode=submode_sample, intervalms=0, update_count=3):
+    # Wait until the TCP port is open
+    dut_ip = duthost.mgmt_ip
+    wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
+
+
+def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
     """Generate the py_gnmicli command line based on the given params.
     """
     cmdFormat = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, mode, xpath, target, "ndastreamingservertest")
+    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
 
-    if mode == mode_subscribe:
+    if method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(subscribe_mode, submode, intervalms, update_count)
     return cmd
 
@@ -79,51 +88,6 @@ def verify_telemetry_dockerimage(duthost):
     return (len(matching) > 0)
 
 # Test functions
-
-def test_invalid_streaming_mode(duthost, ptfhost, localhost):
-    """Check for sample streaming streaming mode validations.
-    Verify that TARGET_DEFINED is not supported.
-    """
-    cmd = generate_client_cli(duthost=duthost, mode=mode_subscribe, submode=submode_targetdefined, update_count = 3)
-    logger.info("Command to run: {0}".format(cmd))
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall('subscribe {', result)), 1, "Subscribe request.")
-    assert_equal(len(re.findall('mode: ', result)), 0, "Default submode.") # since ON_TARGET is the default mode, it is not included in the request.
-    assert_equal(len(re.findall('status = StatusCode.INVALID_ARGUMENT', result)), 1, "Response code for invalid submode.")
-    assert_equal(len(re.findall('details = "unsupported subscription mode, TARGET_DEFINED"', result)), 1, "Details for invalid submode.")
-
-def test_invalid_streaming_interval(duthost, ptfhost, localhost):
-    """Check for sample streaming interval validations.
-    Default limit for interval is 1s, any non-zero interval should be rejected.
-    """
-    cmd = generate_client_cli(duthost=duthost, mode=mode_subscribe, update_count = 3, intervalms = 900)
-    logger.info("Command to run: {0}".format(cmd))
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall('subscribe {', result)), 1, "Subscribe request.")
-    assert_equal(len(re.findall('mode: SAMPLE', result)), 1, "SAMPLE submode.")
-    assert_equal(len(re.findall('sample_interval: 900000000', result)), 1, "Sample interval.")
-    assert_equal(len(re.findall('details = "invalid interval: 900ms. It cannot be less than 1s"', result)), 1, "Response for invalid interval.")
-
-def test_virtualdb_table_streaming(duthost, ptfhost, localhost):
-    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
-    """
-    cmd = generate_client_cli(duthost=duthost, mode=mode_subscribe, update_count = 3)
-    logger.info("Command to run: {0}".format(cmd))
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count.")
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0") # 1 for request, 3 for response
-    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message.")
-
-
 def test_config_db_parameters(duthost):
     """Verifies required telemetry parameters from config_db.
     """
@@ -178,15 +142,8 @@ def test_telemetry_ouput(duthost, ptfhost, localhost):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
     logger.info('start telemetry output testing')
-    setup_telemetry_forpyclient(duthost)
-
-    # wait till telemetry is restarted
-    pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started")
-    logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
-
-    # Wait until the TCP port is open
+    setup_telemetry_forpyclient(duthost, localhost)
     dut_ip = duthost.mgmt_ip
-    wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
 
     # pyclient should be available on ptfhost. If not fail pytest.
     file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
@@ -199,3 +156,19 @@ def test_telemetry_ouput(duthost, ptfhost, localhost):
     result = str(show_gnmi_out)
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
+
+def test_virtualdb_table_streaming(duthost, ptfhost, localhost):
+    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
+    """
+    logger.info('start virtual db sample streaming testing')
+    setup_telemetry_forpyclient(duthost, localhost)
+
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
+    logger.debug("Command to run: {0}".format(cmd))
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    logger.debug(show_gnmi_out)
+    result = str(show_gnmi_out)
+
+    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
+    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
+    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
