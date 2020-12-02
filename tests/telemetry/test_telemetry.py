@@ -12,16 +12,16 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 TELEMETRY_PORT = 50051
-mode_subscribe = "subscribe"
-mode_get = "get"
+METHOD_SUBSCRIBE = "subscribe"
+METHOD_GET = "get"
 
-subscribe_mode_stream = 0
-subscribe_mode_once = 1
-subscribe_mode_poll = 2
+SUBSCRIBE_MODE_STREAM = 0
+SUBSCRIBE_MODE_ONCE = 1
+SUBSCRIBE_MODE_POLL = 2
 
-submode_targetdefined=0
-submode_onchange=1
-submode_sample=2
+SUBMODE_TARGET_DEFINED = 0
+SUBMODE_ON_CHANGE = 1
+SUBMODE_SAMPLE = 2
 
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
@@ -54,13 +54,13 @@ def setup_telemetry_forpyclient(duthost):
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
-def generate_client_cli(duthost, mode=mode_get, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=subscribe_mode_stream, submode=submode_sample, intervalms=0, update_count=3):
+def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
     """Generate the py_gnmicli command line based on the given params.
     """
     cmdFormat = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, mode, xpath, target, "ndastreamingservertest")
+    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
 
-    if mode == mode_subscribe:
+    if method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(subscribe_mode, submode, intervalms, update_count)
     return cmd
 
@@ -162,10 +162,11 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """ Test osbuild/version query.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    cmd = generate_client_cli(duthost=duthost, mode=mode_get, target="OTHERS", xpath="osversion/build")
-    logger.info("Command to run: {0}".format(cmd))
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
+    logger.debug("Command to run: {0}".format(cmd))
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info(show_gnmi_out)
+    logger.debug(show_gnmi_out)
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('"build_version": "sonic', result)), 1, "build_version value")
+    assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
+    assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
