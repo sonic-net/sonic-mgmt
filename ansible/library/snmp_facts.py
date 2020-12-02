@@ -142,15 +142,18 @@ class DefineOid(object):
         self.ifOutUcastPkts= dp + "1.3.6.1.2.1.2.2.1.17"
 
         # From entity table MIB
-        self.entPhysDescr     = dp + "1.3.6.1.2.1.47.1.1.1.1.2"
-        self.entPhysClass     = dp + "1.3.6.1.2.1.47.1.1.1.1.5"
-        self.entPhysName      = dp + "1.3.6.1.2.1.47.1.1.1.1.7"
-        self.entPhysHwVer     = dp + "1.3.6.1.2.1.47.1.1.1.1.8"
-        self.entPhysFwVer     = dp + "1.3.6.1.2.1.47.1.1.1.1.9"
-        self.entPhysSwVer     = dp + "1.3.6.1.2.1.47.1.1.1.1.10"
-        self.entPhysSerialNum = dp + "1.3.6.1.2.1.47.1.1.1.1.11"
-        self.entPhysMfgName   = dp + "1.3.6.1.2.1.47.1.1.1.1.12"
-        self.entPhysModelName = dp + "1.3.6.1.2.1.47.1.1.1.1.13"
+        self.entPhysDescr       = dp + "1.3.6.1.2.1.47.1.1.1.1.2"
+        self.entPhysContainedIn = dp + "1.3.6.1.2.1.47.1.1.1.1.4"
+        self.entPhysClass       = dp + "1.3.6.1.2.1.47.1.1.1.1.5"
+        self.entPhyParentRelPos = dp + "1.3.6.1.2.1.47.1.1.1.1.6"
+        self.entPhysName        = dp + "1.3.6.1.2.1.47.1.1.1.1.7"
+        self.entPhysHwVer       = dp + "1.3.6.1.2.1.47.1.1.1.1.8"
+        self.entPhysFwVer       = dp + "1.3.6.1.2.1.47.1.1.1.1.9"
+        self.entPhysSwVer       = dp + "1.3.6.1.2.1.47.1.1.1.1.10"
+        self.entPhysSerialNum   = dp + "1.3.6.1.2.1.47.1.1.1.1.11"
+        self.entPhysMfgName     = dp + "1.3.6.1.2.1.47.1.1.1.1.12"
+        self.entPhysModelName   = dp + "1.3.6.1.2.1.47.1.1.1.1.13"
+        self.entPhysIsFRU       = dp + "1.3.6.1.2.1.47.1.1.1.1.16"
 
         # From entity sensor MIB
         self.entPhySensorType           = dp + "1.3.6.1.2.1.99.1.1.1.1"
@@ -514,7 +517,9 @@ def main():
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.entPhysDescr,),
+        cmdgen.MibVariable(p.entPhysContainedIn, ),
         cmdgen.MibVariable(p.entPhysClass,),
+        cmdgen.MibVariable(p.entPhyParentRelPos, ),
         cmdgen.MibVariable(p.entPhysName,),
         cmdgen.MibVariable(p.entPhysHwVer,),
         cmdgen.MibVariable(p.entPhysFwVer,),
@@ -522,6 +527,7 @@ def main():
         cmdgen.MibVariable(p.entPhysSerialNum,),
         cmdgen.MibVariable(p.entPhysMfgName,),
         cmdgen.MibVariable(p.entPhysModelName,),
+        cmdgen.MibVariable(p.entPhysIsFRU, ),
     )
 
     if errorIndication:
@@ -534,9 +540,15 @@ def main():
             if v.entPhysDescr in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
+            if v.entPhysContainedIn in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysContainedIn'] = int(current_val)
             if v.entPhysClass in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(current_val)
+            if v.entPhyParentRelPos in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhyParentRelPos'] = int(current_val)
             if v.entPhysName in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_physical_entities'][entity_oid]['entPhysName'] = current_val
@@ -549,12 +561,18 @@ def main():
             if v.entPhysSwVer in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_physical_entities'][entity_oid]['entPhysSwVer'] = current_val
+            if v.entPhysSerialNum in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysSerialNum'] = current_val
             if v.entPhysMfgName in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_physical_entities'][entity_oid]['entPhysMfgName'] = current_val
             if v.entPhysModelName in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val 
+                results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val
+            if v.entPhysIsFRU in current_oid:
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(current_val)
 
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
