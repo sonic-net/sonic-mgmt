@@ -72,6 +72,13 @@ class QosSaiBase:
         bufferScale /= (bufferScale + 1)
         bufferProfile.update({"static_th": int(bufferProfile["size"]) + int(bufferScale * bufferSize)})
 
+        poolHeadroom = self.__runRedisCommandOrAssert(
+            duthost,
+            argv = ["redis-cli", "-n", "4", "HGET", pool, "xoff"]
+        )
+        if poolHeadroom:
+           bufferProfile.update({"poolXoff": int(poolHeadroom[0])})
+
     def __updateVoidRoidParams(self, duthost, bufferProfile):
         """
             Updates buffer profile with VOID/ROID params
@@ -142,9 +149,7 @@ class QosSaiBase:
             pytest_assert("xon" in bufferProfile.keys() and "xoff" in bufferProfile.keys(),
                           "Could not find xon and/or xoff values for profile '{0}'".format(bufferProfileName))
 
-        disableTest = request.config.getoption("--disable_test")
-        if not disableTest:
-            self.__updateVoidRoidParams(duthost, bufferProfile)
+        self.__updateVoidRoidParams(duthost, bufferProfile)
 
         return bufferProfile
 
