@@ -146,6 +146,10 @@ def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
     for vnet in vnet_config['vnet_id_list']:
         duthost.shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
+    for intf in vnet_config['intf_list']:
+        duthost.shell("redis-cli -n 4 del \"INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
+        duthost.shell("redis-cli -n 4 del \"INTERFACE|{}\"".format(intf['ifname']))
+
 def cleanup_vxlan_tunnels(duthost, vnet_test_params):
     """
     Removes all VxLAN tunnels from DUT
