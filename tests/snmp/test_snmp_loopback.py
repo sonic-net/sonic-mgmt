@@ -2,6 +2,10 @@ import pytest
 import time
 import logging
 import ipaddress
+try:  # python3 
+    from shlex import quote
+except ImportError:  #  python2
+    from pipes import quote
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +26,8 @@ def get_snmp_output(ip, duthost, nbr, creds):
     ip_tbl_rule_add = "sudo {} -I INPUT 1 -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip) 
     duthost.shell(ip_tbl_rule_add)
 
-    eos_snmpget = "bash snmpget -v2c -c {} {} 1.3.6.1.2.1.1.1.0".format(creds['snmp_rocommunity'], ip)
-    out = nbr['host'].eos_command(commands=[eos_snmpget]) 
+    eos_snmpget = "bash snmpget -v2c -c {} {} 1.3.6.1.2.1.1.1.0".format(quote(creds['snmp_rocommunity']), ip)
+    out = nbr['host'].eos_command(commands=[eos_snmpget])
 
     ip_tbl_rule_del = "sudo {} -D INPUT -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip) 
     duthost.shell(ip_tbl_rule_del)
