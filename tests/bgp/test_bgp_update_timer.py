@@ -17,6 +17,7 @@ pytestmark = [
     pytest.mark.topology("any"),
 ]
 
+PEER_COUNT = 2
 BGP_SAVE_DEST_TMPL = "/tmp/bgp_%s.j2"
 NEIGHBOR_SAVE_DEST_TMPL = "/tmp/neighbor_%s.j2"
 BGP_LOG_TMPL = "/tmp/bgp%d.pcap"
@@ -35,7 +36,7 @@ NEIGHBOR_PORT1 = 11001
 
 def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
     save_dest_path = kwargs.pop("save_dest_path", "/tmp/temp.j2")
-    keep_dest_file = kwargs.pop("keep_dest_file", False)
+    keep_dest_file = kwargs.pop("keep_dest_file", True)
     config_template = jinja2.Template(open(template_file).read())
     duthost.copy(content=config_template.render(**kwargs), dest=save_dest_path)
     duthost.shell("sonic-cfggen -j %s --write-to-db" % save_dest_path)
@@ -45,13 +46,12 @@ def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
 
 class BGPNeighbor(object):
 
-    def __init__(self, duthost, ptfhost, name, iface,
+    def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
                  dut_ip, dut_asn, port, is_quagga=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
-        self.iface = iface
         self.name = name
         self.ip = neighbor_ip
         self.asn = neighbor_asn
@@ -63,7 +63,6 @@ class BGPNeighbor(object):
     def start_session(self):
         """Start the BGP session."""
         logging.debug("start bgp session %s", self.name)
-        self.ptfhost.shell("ifconfig %s %s/32" % (self.iface, self.ip))
         self.ptfhost.exabgp(
             name=self.name,
             state="started",
@@ -109,16 +108,12 @@ class BGPNeighbor(object):
             allow_ebgp_multihop_cmd %= (self.peer_asn, self.ip)
             self.duthost.shell(allow_ebgp_multihop_cmd)
 
-        # populate DUT arp table
-        self.duthost.shell("ping -c 3 %s" % (self.ip))
-
     def stop_session(self):
         """Stop the BGP session."""
         logging.debug("stop bgp session %s", self.name)
         self.duthost.shell("redis-cli -n 4 -c DEL 'BGP_NEIGHBOR|%s'" % self.ip)
         self.duthost.shell("redis-cli -n 4 -c DEL 'DEVICE_NEIGHBOR_METADATA|%s'" % self.name)
         self.ptfhost.exabgp(name=self.name, state="absent")
-        self.ptfhost.shell("ifconfig %s 0.0.0.0" % self.iface)
 
     # TODO: let's put those BGP utility functions in a common place.
     def announce_route(self, route):
@@ -167,22 +162,18 @@ def is_quagga(duthost):
 
 
 @pytest.fixture
-def common_setup_teardown(duthost, is_quagga, ptfhost):
+def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
-
+    conn0, conn1 = setup_interfaces
     dut_asn = mg_facts["minigraph_bgp_asn"]
-    dut_lo_addr = mg_facts["minigraph_lo_interfaces"][0]["addr"]
-    dut_mgmt_iface = mg_facts["minigraph_mgmt_interface"]["alias"]
-    dut_mgmt_addr = mg_facts["minigraph_mgmt_interface"]["addr"]
     bgp_neighbors = (
         BGPNeighbor(
             duthost,
             ptfhost,
             "pseudoswitch0",
-            "mgmt:0",
-            "10.10.10.10",
+            conn0["neighbor_addr"].split("/")[0],
             NEIGHBOR_ASN0,
-            dut_lo_addr,
+            conn0["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT0,
             is_quagga=is_quagga
@@ -191,32 +182,20 @@ def common_setup_teardown(duthost, is_quagga, ptfhost):
             duthost,
             ptfhost,
             "pseudoswitch1",
-            "mgmt:1",
-            "10.10.10.11",
+            conn1["neighbor_addr"].split("/")[0],
             NEIGHBOR_ASN1,
-            dut_lo_addr,
+            conn1["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT1,
             is_quagga=is_quagga
         )
     )
 
-    add_route_tmpl = "ip route add %s/32 via %s dev %s"
-    ptfhost.shell(add_route_tmpl % (dut_lo_addr, dut_mgmt_addr, "mgmt"))
-    duthost.shell(add_route_tmpl % (bgp_neighbors[0].ip, bgp_neighbors[0].ptfip, dut_mgmt_iface))
-    duthost.shell(add_route_tmpl % (bgp_neighbors[1].ip, bgp_neighbors[0].ptfip, dut_mgmt_iface))
-
-    yield bgp_neighbors, dut_mgmt_iface
-
-    flush_route_tmpl = "ip route flush %s/32"
-    ptfhost.shell(flush_route_tmpl % dut_lo_addr)
-    duthost.shell(flush_route_tmpl % bgp_neighbors[0].ip)
-    duthost.shell(flush_route_tmpl % bgp_neighbors[1].ip)
-    duthost.shell("sonic-clear arp")
+    return bgp_neighbors
 
 
 @pytest.fixture
-def constants(is_quagga, ptfhost):
+def constants(is_quagga, setup_interfaces):
     class _C(object):
         """Dummy class to save test constants."""
         pass
@@ -229,10 +208,11 @@ def constants(is_quagga, ptfhost):
         _constants.sleep_interval = 5
         _constants.update_interval_threshold = 1
 
+    conn0 = setup_interfaces[0]
     _constants.routes = []
     for subnet in ANNOUNCED_SUBNETS:
         _constants.routes.append(
-            {"prefix": subnet, "nexthop": ptfhost.mgmt_ip}
+            {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
         )
     return _constants
 
@@ -261,7 +241,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthost):
         else:
             return False
 
-    (n0, n1), dut_mgmt_iface = common_setup_teardown
+    n0, n1 = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
@@ -280,7 +260,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthost):
         withdraw_intervals = []
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
-            with log_bgp_updates(duthost, dut_mgmt_iface, bgp_pcap):
+            with log_bgp_updates(duthost, "any", bgp_pcap):
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
                 n0.withdraw_route(route)
