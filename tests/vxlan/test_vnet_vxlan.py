@@ -19,6 +19,8 @@ pytestmark = [
     pytest.mark.asic("mellanox")
 ]
 
+vlan_tagging_mode = ""
+
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     """
     Prepares the PTF container for testing
@@ -95,23 +97,28 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_para
         A tuple containing the VxLAN status (True or False), and the test scenario (one of the pytest parameters)
     """
     duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = setup
+    attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
+    vlan_member = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
+    global vlan_tagging_mode
 
     vxlan_enabled = False
     if request.param == "Disabled":
         vxlan_enabled = False
     elif request.param == "Enabled":
-        mg_facts = setup
-
         duthost.shell("sonic-clear fdb all")
-
-        attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
-        member_to_remove = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
-        duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, member_to_remove))
+        result = duthost.shell("redis-cli -n 4 HGET \"VLAN_MEMBER|{}|{}\" tagging_mode ".format(attached_vlan, vlan_member))
+        if result["stdout_lines"] is not None:
+            vlan_tagging_mode = result["stdout_lines"][0]
+            duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
 
         apply_dut_config_files(duthost, vnet_test_params)
 
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
+        if vlan_tagging_mode != "":
+            duthost.shell("redis-cli -n 4 hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(attached_vlan, vlan_member, vlan_tagging_mode))
+
         vxlan_enabled = True
         cleanup_vnet_routes(duthost, vnet_config)
         cleanup_dut_vnets(duthost, setup, vnet_config)
