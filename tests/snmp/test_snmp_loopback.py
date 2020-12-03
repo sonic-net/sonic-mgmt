@@ -47,12 +47,11 @@ def test_snmp_loopback(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, localh
 
     # TODO: Fix snmp query over Management IPv6 adderess and add SNMP test over management IPv6 address.
 
-    # Perform SNMP walk from neighbor so that query is sent to front panel interface
     for ip in config_facts[u'LOOPBACK_INTERFACE'][u'Loopback0']:
         loip = ip.split('/')[0]
         loip = ipaddress.ip_address(loip)
         result = get_snmp_output(loip, duthost, nbr, creds)
         if result is None: 
             continue
-        assert len(result[u'stdout_lines']) > 0, 'No result from snmpwalk'
+        assert len(result[u'stdout_lines']) > 0, 'No result from snmpget'
         assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
