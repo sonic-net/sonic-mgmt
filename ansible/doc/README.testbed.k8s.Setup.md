@@ -172,3 +172,6 @@ During each of the following states:
 - When Kubernetes API server unavailable
 
 In this setup, we do not consider load balancer performance. For Kubernetes feature testing purposes, HAProxy is configured to perform vanilla round-robin load balancing on available master servers.
+
+For a more detailed test plan, see [this document](../../docs/K8s-test-plan.md).
+
