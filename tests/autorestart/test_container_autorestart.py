@@ -60,8 +60,14 @@ def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
             ".*ERR syncd#syncd.*driverEgressMemoryUpdate.*",
             ".*ERR syncd#syncd.*brcm_sai*",
             ".*ERR syncd#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
+            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_query_attribute_enum_values_capability.*",
+            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
+            ".*ERR syncd#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
+            ".*ERR syncd#syncd.*processQuadEvent.*",
             ".*WARNING syncd#syncd.*skipping since it causes crash.*",
             ".*ERR swss#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR swss#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
+            ".*ERR swss#orchagent.*setIntfVlanFloodType.*",
         ]
     ignore_regex_dict = {
         'common' : [
