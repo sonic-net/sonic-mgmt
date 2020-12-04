@@ -61,26 +61,24 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     DEFAULT_SRC_IP = "20.0.0.1"
     DEFAULT_DST_IP = "30.0.0.1"
-    
-    @pytest.fixture
-    def setup_dest_port_type(self, dest_port_type, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, tbinfo):
+    @pytest.fixture(params=["tor", "spine"])
+    def dest_port_type(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, tbinfo, request):
         """
-        This fixture get the dest port type and can perform action based
+        This fixture parametrize  dest_port_type and can perform action based
         on that. As of now cleanup is being done here.
         """
-        yield dest_port_type
+        yield request.param
         
         duthost = duthosts[rand_one_dut_hostname]
 
-        for index in range(0, min(3, len(setup_info[dest_port_type]["dest_port"]))):
-            tx_port = setup_info[dest_port_type]["dest_port"][index]
+        for index in range(0, min(3, len(setup_info[request.param]["dest_port"]))):
+            tx_port = setup_info[request.param]["dest_port"][index]
             peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
             everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
             everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
 
 
-    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
-    def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """
         Verify basic forwarding scenarios for the Everflow feature.
 
@@ -91,7 +89,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
             - Route creation and removal
         """
         duthost = duthosts[rand_one_dut_hostname]
-        dest_port_type = setup_dest_port_type
 
         # Add a route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][0]
@@ -161,11 +158,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             [tx_port_ptf_id]
         )
 
-    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
-    def test_everflow_neighbor_mac_change(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_neighbor_mac_change(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
         duthost = duthosts[rand_one_dut_hostname]
-        dest_port_type = setup_dest_port_type
         # Add a route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][0]
         peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
@@ -216,11 +211,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             [tx_port_ptf_id]
         )
     
-    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
-    def test_everflow_remove_unused_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_remove_unused_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
         duthost = duthosts[rand_one_dut_hostname]
-        dest_port_type = setup_dest_port_type
         # Create two ECMP next hops
         tx_port = setup_info[dest_port_type]["dest_port"][0]
         peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
@@ -290,11 +283,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tx_port_ptf_ids
         )
 
-    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
-    def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
         duthost = duthosts[rand_one_dut_hostname]
-        dest_port_type = setup_dest_port_type
         # Add a route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][0]
         peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
@@ -373,7 +364,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tx_port_ptf_ids
         )
     
-    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
     def test_everflow_dscp_with_policer(
             self,
             duthost,
