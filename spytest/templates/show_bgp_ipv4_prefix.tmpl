@@ -1,26 +1,29 @@
-Value PREFIXIP ([\d\.]+)
-Value PREFIXMASKLEN ([\d]+)
-Value NOOFPATHS (\d+)
-Value PEERIP ([(\d+\.\d+\.\d+\.\d)\s]+)
-Value PEERASN ([\d+\s]+)
-Value peernhtip1 ([\d\.]+)
-Value peernhtip2 ([\d\.]+)
-Value peerrtrid ([\d\.]+)
+Value Filldown PREFIXIP ([\d\.]+)
+Value Filldown PREFIXMASKLEN (\d+)
+Value Filldown NOOFPATHS (\d+)
+Value Filldown PEERIP ((((?:[\dabcdefABCDEF]+[.:]+)+[\dabcdefABCDEF]*\s*)+)|(Local))
+Value PEERASN ([\(\d\)\s]+)
+Value peernhtip1 ([.:\dabcdefABCDEF]+)
+Value peernhtip2 ([.:\dabcdefABCDEF]+)
+Value peerrtrid ([.:\dabcdefABCDEF]+)
 Value ORIGIN (\S+)
-Value METRIC (\d+)
-Value VALID (\S+)
-Value EXTERNAL (\S+)
-Value BEST (\S+)
+Value METRIC (\d*)
+Value LOCALPREF (\d*)
+Value VALID (\w+)
+Value EXTERNAL ([-()\d\w\s]+)
+Value BEST ([-()\d\w\s]+)
 Value COMMUNITY (.*?)
 
 
 Start
-  ^\s*BGP\s*routing\s*table\s*entry\s*for\s*${PREFIXIP}\/${PREFIXMASKLEN}$$ 
-  ^\s*Paths\:\s*\(${NOOFPATHS}\s*available,\s*best\s*\#([\d]+),\s*table\s*default\)$$
+  ^\s*BGP\s*routing\s*table\s*entry\s*for\s*${PREFIXIP}\/${PREFIXMASKLEN}$$
+  ^\s*Paths\:\s*\(${NOOFPATHS}\s*available,\s*(best\s*\#(\d+),\s*table\s*default\))|(no best path\))$$
   ^\s*Advertised\s*to\s*non\s*peer-group\s*peers\:$$
-  ^\s*${PEERASN}$$
   ^\s*${PEERIP}$$
-  ^\s*${peernhtip1}\s*from\s*${peernhtip2}\s*\(${peerrtrid}\)
-  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*${VALID},\s*${EXTERNAL},\s*${BEST}$$
+  ^\s*${PEERASN}{0,1}$$
+  ^\s*${peernhtip1}\s*(\(\w+\))*\s*from\s*${peernhtip2}\s*\(${peerrtrid}\)$$
+  ^\s*Origin\s*${ORIGIN}(,\s*metric\s*${METRIC}){0,1}(,\s*localpref\s*${LOCALPREF}){0,1},\s*${VALID},\s*${EXTERNAL}(,\s*${BEST}){0,1}$$
   ^\s*Community:\s*${COMMUNITY}\s*$$
   ^\s*Last update:\s*(.*)$$ -> Record
+
+EOF

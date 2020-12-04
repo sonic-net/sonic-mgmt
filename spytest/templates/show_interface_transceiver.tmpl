@@ -1,0 +1,29 @@
+Value Key port ((Ethernet|Eth)[0-9/]+)
+Value Connector ([^\n]+)
+Value Vendor_Date_Code ([^\n]+)
+Value Identifier ([^\n]+)
+Value Length ([^\n]+)
+Value Specification_Compliance ([^\n]+)
+Value Extended_RateSelect_Compliance ([^\n]+)
+Value Vendor_OUI ([^\n]+)
+Value presence ([^\n]+)
+Value Vendor_SN ([^\n]+)
+Value Vendor_Name ([^\n]+)
+Value Vendor_PN ([^\n]+)
+Value Vendor_Rev ([^\n]+)
+
+Start
+  ^\s*${port}\s*$$
+  ^\s*connector-type\s*:\s*${Connector}$$
+  ^\s*date-code\s*:\s*${Vendor_Date_Code}$$
+  ^\s*form-factor\s*:\s*${Identifier}$$
+  ^\s*cable-length(m)\s*:\s*${Length}$$
+  ^\s*display-name\s*:\s*${Specification_Compliance}$$
+  ^\s*max-module-power(Watts)\s*:\s*${Extended_RateSelect_Compliance}$$
+  ^\s*vendor-oui\s*:\s*${Vendor_OUI}$$
+  ^\s*present\s*:\s*${presence}$$
+  ^\s*serial-no\s*:\s*${Vendor_SN}$$
+  ^\s*vendor\s*:\s*${Vendor_Name}$$
+  ^\s*vendor-part\s*:\s*${Vendor_PN}$$
+  ^\s*vendor-rev\s*:\s*${Vendor_Rev}$$
+  ^\s*$$ -> Record Start
