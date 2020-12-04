@@ -63,23 +63,21 @@ class EverflowIPv4Tests(BaseEverflowTest):
     DEFAULT_DST_IP = "30.0.0.1"
 
     @pytest.fixture(params=["tor", "spine"])
-    def dest_port_type(self, request):
+    def dest_port_type(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, tbinfo, request):
         """
-        Get the dest port for this test case.
-
-        Used to parametrize test cases based on dest port type to validate forwarding behavior.
-
-        Args:
-            request: Pytest request object
-
-        Returns:
-            A destination port type in {tor, spine}.
+        This fixture parametrize  dest_port_type and can perform action based
+        on that. As of now cleanup is being done here.
         """
-        return request.param
+        yield request.param
+        
+        duthost = duthosts[rand_one_dut_hostname]
 
-    # FIXME: We use a lot of try-catch here to clean up routes, but it's a bit messy.
-    # A better solution might be to have a fixture that receives route updates and then
-    # cleans up any remaining routes at the end.
+        for index in range(0, min(3, len(setup_info[request.param]["dest_port"]))):
+            tx_port = setup_info[request.param]["dest_port"][index]
+            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
+            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
+
 
     def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """
@@ -92,121 +90,103 @@ class EverflowIPv4Tests(BaseEverflowTest):
             - Route creation and removal
         """
         duthost = duthosts[rand_one_dut_hostname]
-        try:
-            # Add a route to the mirror session destination IP
-            tx_port = setup_info[dest_port_type]["dest_port"][0]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-            time.sleep(3)
 
-            # Verify that mirrored traffic is sent along the route we installed
-            rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
-            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id]
-            )
+        # Add a route to the mirror session destination IP
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
+        time.sleep(3)
 
-            # Add a (better) unresolved route to the mirror session destination IP
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo, resolved=False)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
-            time.sleep(3)
+        # Verify that mirrored traffic is sent along the route we installed
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
 
-            # Verify that mirrored traffic is still sent along the original route
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id]
-            )
+        # Add a (better) unresolved route to the mirror session destination IP
+        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo, resolved=False)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
+        time.sleep(3)
 
-            # Remove the unresolved route
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
+        # Verify that mirrored traffic is still sent along the original route
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
 
-            # Add a better route to the mirror session destination IP
-            tx_port = setup_info[dest_port_type]["dest_port"][1]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session['session_prefixes'][1], peer_ip)
-            time.sleep(3)
+        # Remove the unresolved route
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
 
-            # Verify that mirrored traffic uses the new route
-            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][1]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id]
-            )
+        # Add a better route to the mirror session destination IP
+        tx_port = setup_info[dest_port_type]["dest_port"][1]
+        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session['session_prefixes'][1], peer_ip)
+        time.sleep(3)
 
-            # Remove the better route.
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
-            time.sleep(3)
+        # Verify that mirrored traffic uses the new route
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][1]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
 
-            # Verify that mirrored traffic switches back to the original route
-            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id]
-            )
+        # Remove the better route.
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
+        time.sleep(3)
 
-            # Clean up the test
-            tx_port = setup_info[dest_port_type]["dest_port"][0]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.remove_route(duthost, setup_mirror_session['session_prefixes'][0], peer_ip)
-
-        except Exception:
-            tx_port = setup_info[dest_port_type]["dest_port"][0]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
-
-            tx_port = setup_info[dest_port_type]["dest_port"][1]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
-
-            raise
+        # Verify that mirrored traffic switches back to the original route
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
 
     def test_everflow_neighbor_mac_change(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
         duthost = duthosts[rand_one_dut_hostname]
+        # Add a route to the mirror session destination IP
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
+        time.sleep(3)
+
+        # Verify that mirrored traffic is sent along the route we installed
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
+
+        # Update the MAC on the neighbor interface for the route we installed
+        if setup_info[dest_port_type]["dest_port_lag_name"][0] != "Not Applicable":
+            tx_port = setup_info[dest_port_type]["dest_port_lag_name"][0]
+
+        duthost.shell("ip neigh replace {} lladdr 00:11:22:33:44:55 nud permanent dev {}".format(peer_ip, tx_port))
+        time.sleep(3)
         try:
-            # Add a route to the mirror session destination IP
-            tx_port = setup_info[dest_port_type]["dest_port"][0]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-            time.sleep(3)
-
-            # Verify that mirrored traffic is sent along the route we installed
-            rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
-            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id]
-            )
-
-            # Update the MAC on the neighbor interface for the route we installed
-            if setup_info[dest_port_type]["dest_port_lag_name"][0] != "Not Applicable":
-                tx_port = setup_info[dest_port_type]["dest_port_lag_name"][0]
-
-            duthost.shell("ip neigh replace {} lladdr 00:11:22:33:44:55 nud permanent dev {}".format(peer_ip, tx_port))
-            time.sleep(3)
-
             # Verify that everything still works
             self._run_everflow_test_scenarios(
                 ptfadapter,
@@ -217,194 +197,174 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 [tx_port_ptf_id]
             )
 
+        finally:
             # Clean up the test
             duthost.shell("ip neigh del {} dev {}".format(peer_ip, tx_port))
             duthost.shell("ping {} -c3".format(peer_ip))
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
 
-        except Exception:
-            tx_port = setup_info[dest_port_type]["dest_port"][0]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-
-            raise
-
+        # Verify that everything still works
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
+    
     def test_everflow_remove_unused_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
         duthost = duthosts[rand_one_dut_hostname]
-        try:
-            # Create two ECMP next hops
-            tx_port = setup_info[dest_port_type]["dest_port"][0]
-            peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-            time.sleep(3)
+        # Create two ECMP next hops
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
+        time.sleep(3)
 
-            tx_port = setup_info[dest_port_type]["dest_port"][1]
-            peer_ip_1, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
-            time.sleep(3)
+        tx_port = setup_info[dest_port_type]["dest_port"][1]
+        peer_ip_1, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
+        time.sleep(3)
 
-            # Verify that mirrored traffic is sent to one of the next hops
-            rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
-            tx_port_ptf_ids = [
-                setup_info[dest_port_type]["dest_port_ptf_id"][0],
-                setup_info[dest_port_type]["dest_port_ptf_id"][1]
-            ]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                tx_port_ptf_ids
-            )
+        # Verify that mirrored traffic is sent to one of the next hops
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_ids = [
+            setup_info[dest_port_type]["dest_port_ptf_id"][0],
+            setup_info[dest_port_type]["dest_port_ptf_id"][1]
+        ]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            tx_port_ptf_ids
+        )
 
-            # Add another ECMP next hop
-            tx_port = setup_info[dest_port_type]["dest_port"][2]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-            time.sleep(3)
+        # Add another ECMP next hop
+        tx_port = setup_info[dest_port_type]["dest_port"][2]
+        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
+        time.sleep(3)
 
-            # Verify that mirrored traffic is not sent to this new next hop
-            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][2]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id],
-                expect_recv=False
-            )
+        # Verify that mirrored traffic is not sent to this new next hop
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][2]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id],
+            expect_recv=False
+        )
 
-            # Remove the extra hop
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-            time.sleep(3)
+        # Remove the extra hop
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
+        time.sleep(3)
 
-            # Verify that mirrored traffic is not sent to the deleted next hop
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id],
-                expect_recv=False
-            )
+        # Verify that mirrored traffic is not sent to the deleted next hop
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id],
+            expect_recv=False
+        )
 
-            # Verify that mirrored traffic is still sent to one of the original next hops
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                tx_port_ptf_ids
-            )
-
-            # Clean up the test
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
-
-        except Exception:
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)   
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-
-            raise
+        # Verify that mirrored traffic is still sent to one of the original next hops
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            tx_port_ptf_ids
+        )
 
     def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
         duthost = duthosts[rand_one_dut_hostname]
-        try:
-            # Add a route to the mirror session destination IP
-            tx_port = setup_info[dest_port_type]["dest_port"][0]
-            peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-            time.sleep(3)
+        # Add a route to the mirror session destination IP
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
+        time.sleep(3)
 
-            # Verify that mirrored traffic is sent along the route we installed
-            rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
-            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id]
-            )
+        # Verify that mirrored traffic is sent along the route we installed
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
 
-            # Add two new ECMP next hops
-            tx_port = setup_info[dest_port_type]["dest_port"][1]
-            peer_ip_1, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
+        # Add two new ECMP next hops
+        tx_port = setup_info[dest_port_type]["dest_port"][1]
+        peer_ip_1, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
 
-            tx_port = setup_info[dest_port_type]["dest_port"][2]
-            peer_ip_2, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_2)
-            time.sleep(3)
+        tx_port = setup_info[dest_port_type]["dest_port"][2]
+        peer_ip_2, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_2)
+        time.sleep(3)
 
-            # Verify that traffic is still sent along the original next hop
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id]
-            )
+        # Verify that traffic is still sent along the original next hop
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
 
-            # Verify that traffic is not sent along either of the new next hops
-            tx_port_ptf_ids = [
-                setup_info[dest_port_type]["dest_port_ptf_id"][1],
-                setup_info[dest_port_type]["dest_port_ptf_id"][2]
-            ]
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                tx_port_ptf_ids,
-                expect_recv=False
-            )
+        # Verify that traffic is not sent along either of the new next hops
+        tx_port_ptf_ids = [
+            setup_info[dest_port_type]["dest_port_ptf_id"][1],
+            setup_info[dest_port_type]["dest_port_ptf_id"][2]
+        ]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            tx_port_ptf_ids,
+            expect_recv=False
+        )
 
-            # Remove the original next hop
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-            time.sleep(3)
+        # Remove the original next hop
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
+        time.sleep(3)
 
-            # Verify that mirrored traffic is no longer sent along the original next hop
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                [tx_port_ptf_id],
-                expect_recv=False
-            )
+        # Verify that mirrored traffic is no longer sent along the original next hop
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id],
+            expect_recv=False
+        )
 
-            # Verify that mirrored traffis is now sent along either of the new next hops
-            self._run_everflow_test_scenarios(
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                duthost,
-                rx_port_ptf_id,
-                tx_port_ptf_ids
-            )
-
-            # Clean up the tests
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_2)
-        except Exception:
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_2)
-
-            raise
-
+        # Verify that mirrored traffis is now sent along either of the new next hops
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            tx_port_ptf_ids
+        )
+    
     def test_everflow_dscp_with_policer(
             self,
             duthost,
@@ -416,7 +376,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tbinfo
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table."""
-
         # Add explicit route for the mirror session
         tx_port = setup_info[dest_port_type]["dest_port"][0]
         peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)

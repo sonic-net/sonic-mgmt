@@ -615,3 +615,11 @@ class BaseEverflowTest(object):
         logging.info("Selected monitor port %s (index=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
         return setup["port_index_map"][monitor_port]
+
+    def _get_tx_port_id_list(self, tx_ports):
+        tx_port_ids = []
+        for port in tx_ports:
+            members = port.split(',')
+            for member in members:
+                tx_port_ids.append(int(member))
+        return tx_port_ids
