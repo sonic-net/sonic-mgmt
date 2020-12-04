@@ -1,0 +1,14 @@
+#Packet Header Fields:
+#ip: ipv4-src-ip 
+#Ipv6: ipv6-src-ip  ipv6-next-hdr
+#Hash seed: 10
+Value ip (.*)
+Value ipv6 (.*)
+Value seed (\d+)
+
+Start
+  ^\s*ip:\s*${ip}\s*$$
+  ^\s*Ipv6:\s*${ipv6}\s*$$
+  ^\s*Hash seed:\s*${seed}\s*$$ -> Record
+
+EOF

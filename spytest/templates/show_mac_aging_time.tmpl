@@ -1,5 +1,6 @@
-Value aging_time (\S+)
+Value aging_time (\d+)
 
 Start
-  ^\s*Mac\s*Aging-Time\s*:\s*${aging_time}\s*seconds\s*$$
-  ^\s*$$ -> Record
+  ^\s*Mac\s*Aging-Time\s*:\s*${aging_time}\s*seconds\s*$$ -> Record
+
+

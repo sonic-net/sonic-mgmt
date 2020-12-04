@@ -44,18 +44,3 @@ def send(server, to, subject, body, filenames=[], html=False, preamble="Report",
     s.sendmail(msg["From"], msg['To'].split(","), msg.as_string())
     s.quit()
 
-
-if __name__ == '__main__':
-    to = ["rama.kristipati@broadcom.com"]
-    cc = ["rama.kristipati@broadcom.com"]
-    bcc = ["rama.kristipati@broadcom.com"]
-    server = {
-        "host": 'smtphost.broadcom.com',
-        "sendor": "TAMAlert@broadcom.com",
-        "pass": "tamalert"
-    }
-    filenames = [
-      "results_logs.log",
-      "results_result.csv"
-    ]
-    send(server, to, "test mail subject", "test mail body", filenames, cc=cc, bcc=bcc)

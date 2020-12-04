@@ -1,7 +1,7 @@
 Value peer ([\:\.\dabcdefABCDEF]+)
 Value vrf_name (\S+)
 Value local_addr ([\:\.\dabcdefABCDEF]+)
-Value interface ([\w]+)
+Value interface (\S+)
 Value label ([\S]+)
 Value local_id (\d+)
 Value remote_id (\d+)
@@ -60,6 +60,7 @@ Start
   ^\s*Remote ID:\s*${remote_id}
   ^\s*Status:\s*${status}
   ^\s*Uptime:\s*${upTimeDay}\s*day\(s\),\s*${upTimeHr}\s*hour\(s\),\s*${upTimeMin}\s*minute\(s\),\s*${upTimeSec}\s*second\(s\)
+  ^\s*Uptime:\s*${upTimeDay}\s*day\(s\),\s*${upTimeHr}\s*hour\(s\),\s*${upTimeMin}\s*min\(s\),\s*${upTimeSec}\s*sec\(s\)
   ^\s*Uptime:\s*${upTimeHr}\s*hour\(s\),\s*${upTimeMin}\s*minute\(s\),\s*${upTimeSec}\s*second\(s\)
   ^\s*Uptime:\s*${upTimeMin}\s*minute\(s\),\s*${upTimeSec}\s*second\(s\)
   ^\s*Uptime:\s*${upTimeSec}\s*second\(s\)

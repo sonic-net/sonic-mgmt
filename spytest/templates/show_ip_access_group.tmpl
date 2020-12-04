@@ -1,0 +1,8 @@
+Value direction (\w+)
+Value access_list (\S+)
+Value interface (\S+)
+
+Start
+  ^\s*${direction}\s+IP\s+access-list\s+${access_list}\s+on\s+${interface}\s*$$ -> Record
+
+EOF

@@ -30,6 +30,9 @@ wred_config_not_updated_in_config_db: WRED configuration not updated in the conf
 acl_table_name_missing: Acl table name missing
 acl_table_not_found: Acl table not found
 acl_rule_table_not_found: Acl Table/Rule not found
+hardware_acl_mode_config_failed: Configuring Hardware ACL mode failed for {}
+acl_config_status: Configuring ACL {} {}
+egress_acl_rate_limit_unsupported_platform: Egress ACL rate limit not supported in this platform {}
 
 #### Port priority shaping
 traffic_transmitted_on_the_queue: Traffic {} transmitted on {} at a rate of {}
@@ -68,3 +71,17 @@ igmp_rate_limit_status: CPU counter check for rate limiting  igmp to {} pps is {
 sflow_rate_limit_status: CPU counter check for rate limiting  sflow to {} pps is {}
 copp_rate_limit_pass: Successfully verified that {} packets hit correct CPU queue {} and were properly rate limited to {} PPS
 copp_rate_limit_fail: Failed to verify that {} packets did not hit correct CPU queue {} or were not properly rate limited to {} PPS
+
+##ingress_egress_QOS_maps
+qos_map_config_failed : Failed to configure the qos map
+qos_map_bind_failed : Failed to bind the configured qos map on interface
+update_queue_map_config_failed : Failed to update the existing qos map
+qos_map_unbind_failed : Failed to unbind the qos map on interface
+qos_map_unconfig_failed : Failed to unconfigure the qos map table
+qos_map_verify_failed : Failed to verify configured qos map values
+qos_map_update_verify_failed : Failed to verify the updated qos map values
+qos_map_running_config_verify : verification of qos maps config in running-config is {}
+qos_map_test_pass : verification of qos map test passed {}
+qos_map_test_fail : verification of qos map test failed {}
+qos_map_dscp_value_tg_capture_verify_failed: verification of dscp value in tg caputre failed
+qos_map_queue_counters_verify_failed : verification of queue counter values failed

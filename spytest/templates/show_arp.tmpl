@@ -3,9 +3,20 @@ Value MacAddress (..:..:..:..:..:..)
 Value Iface (\S+)
 Value Vlan (\S+)
 Value Fillup count (\d+)
+Value STATUS (\S+)
 
 Start
-  ^\s*Address\s+MacAddress\s+Iface\s+Vlan\s*$$
+  ^\s*Address\s+MacAddress\s+Iface\s+Vlan\s+Status\s*$$ -> WITHSTATUS
+  ^\s*Address\s+MacAddress\s+Iface\s+Vlan\s*$$ -> WITHOUTSTATUS
+  ^\s*Total\s+number\s+of\s+entries\s+${count}
   ^(-+\s*)*$$
+
+WITHOUTSTATUS
   ^\s*${Address}\s+${MacAddress}\s+${Iface}\s+${Vlan}\s*$$ -> Record
   ^\s*Total\s+number\s+of\s+entries\s+${count}
+  ^$$
+
+WITHSTATUS
+  ^\s*${Address}\s+${MacAddress}\s+${Iface}\s+${Vlan}\s+${STATUS}\s*$$ -> Record
+  ^\s*Total\s+number\s+of\s+entries\s+${count}
+  ^$$

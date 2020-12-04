@@ -1,0 +1,39 @@
+Value Filldown global_base_dn (\S+)
+Value Filldown global_bind_dn (\S+)
+Value Filldown global_bind_pw (\S+)
+Value Filldown global_pam_group_dn (\S+)
+Value Filldown global_pam_mem_attri (\S+)
+Value Filldown global_sudoer_base (\S+)
+Value Filldown global_bind_time_limit (\d+)
+Value Filldown global_idle_time_limit (\d+)
+Value Filldown global_port (\d+)
+Value Filldown global_retry (\d+)
+Value Filldown global_scope (\S+)
+Value Filldown global_search_time_limit (\d+)
+Value Filldown global_ssl (\S+)
+Value Filldown global_ldap_version (\d)
+Value address (\S+)
+Value use_type (\S+)
+Value port (\d+)
+Value priority (\d+)
+Value ssl (\S+)
+Value retry (\d+)
+
+Start
+  ^base\s*:\s*${global_base_dn}$$
+  ^bind-dn\s*:\s*${global_bind_dn}$$
+  ^bind-pw\s*:\s*${global_bind_pw}$$
+  ^pam-group-dn\s*:\s*${global_pam_group_dn}$$
+  ^pam-member-attribute\s*:\s*${global_pam_mem_attri}$$
+  ^sudoers-base\s*:\s*${global_sudoer_base}$$
+  ^bind-time-limit\s*:\s*${global_bind_time_limit}$$
+  ^idle-time-limit\s*:\s*${global_idle_time_limit}$$
+  ^port\s*:\s*${global_port}$$
+  ^retransmit-attempts\s*:\s*${global_retry}$$
+  ^scope\s*:\s*${global_scope}$$
+  ^search-time-limit\s*:\s*${global_search_time_limit}$$
+  ^ssl\s*:\s*${global_ssl}$$
+  ^version\s*:\s*${global_ldap_version}$$
+  ^\s*${address}\s+${use_type}\s+${port}\s+${priority}\s+${ssl}\s+${retry}\s*$$ -> Record
+
+EOF

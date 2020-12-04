@@ -1,16 +1,17 @@
 # This file contains the list of API's which performs SFLOW operations.
 # @author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
 
+import re
 from spytest import st
-import utilities.utils as utils_obj
-import utilities.common as common_utils
 from spytest.utils import filter_and_select
 from apis.routing.ip import get_interface_ip_address
+import utilities.utils as utils_obj
+import utilities.common as common_utils
 
 YANG_MODULE = "sonic-sflow:sonic-sflow"
 REST_URI = "/restconf/data/{}".format(YANG_MODULE)
 DEFAULT_COLLECTOR_PORT = 6343
-def add_del_collector(dut, collector_name, ip_address=None, port_number=None, action="add", cli_type="klish",skip_error_check=False):
+def add_del_collector(dut, collector_name, ip_address=None, port_number=None, action="add", cli_type="",skip_error_check=False):
     """
     API to add/del SFLOW collector
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -21,6 +22,8 @@ def add_del_collector(dut, collector_name, ip_address=None, port_number=None, ac
     :param action: add / del
     :return: True / False
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     command = None
     if action == "add":
         if ip_address:
@@ -28,8 +31,8 @@ def add_del_collector(dut, collector_name, ip_address=None, port_number=None, ac
                 command = "config sflow collector add {} {} --port {}".format(collector_name, ip_address, port_number) if port_number else \
                 "config sflow collector add {} {}".format(collector_name, ip_address)
             elif cli_type == "klish":
-                command = "sflow collector {} {} {}".format(collector_name, ip_address, port_number) if port_number else \
-                "sflow collector {} {}".format(collector_name, ip_address)
+                command = "sflow collector {} {}".format( ip_address, port_number) if port_number else \
+                "sflow collector {}".format(ip_address)
             elif cli_type == "rest":
                 data = dict()
                 data["sonic-sflow:SFLOW_COLLECTOR"] = dict()
@@ -46,6 +49,9 @@ def add_del_collector(dut, collector_name, ip_address=None, port_number=None, ac
                 if output and output["status"] != 204:
                     return False
                 return True
+            else:
+                st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+                return False
         else:
             st.log("IP ADDRESS not provided for add operation ..")
             return False
@@ -53,7 +59,8 @@ def add_del_collector(dut, collector_name, ip_address=None, port_number=None, ac
         if cli_type == "click":
             command = "config sflow collector del {}".format(collector_name)
         elif cli_type == "klish":
-            command = "no sflow collector {}".format(collector_name)
+            command = "no sflow collector {} {}".format( ip_address, port_number) if port_number else \
+                "no sflow collector {}".format(ip_address)
         elif cli_type == "rest":
             url = "{}/SFLOW_COLLECTOR".format(REST_URI)
             output = st.rest_delete(dut, url, SFLOW_COLLECTOR_LIST=collector_name)
@@ -61,13 +68,16 @@ def add_del_collector(dut, collector_name, ip_address=None, port_number=None, ac
             if output and output["status"] != 204:
                 return False
             return True
+        else:
+            st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+            return False
     if cli_type != "rest" and command and utils_obj.ensure_cli_type(cli_type, ["click","klish"]):
         output = st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
         return output
     return True
 
 
-def add_del_agent_id(dut, interface_name=None, action="add", cli_type="klish", sflow_list="global", skip_error_check=False):
+def add_del_agent_id(dut, interface_name=None, action="add", cli_type="", sflow_list="global", skip_error_check=False):
     """
     API to add/del SFLOW AGENT ID
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -76,6 +86,8 @@ def add_del_agent_id(dut, interface_name=None, action="add", cli_type="klish", s
     :param action: add / del
     :return: True / False
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if action not in ["add", "del"]:
         st.log("Unsupported action {}..".format(action))
         return False
@@ -106,12 +118,15 @@ def add_del_agent_id(dut, interface_name=None, action="add", cli_type="klish", s
             if output and output["status"] != 204:
                 return False
         return True
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
     if utils_obj.ensure_cli_type(cli_type, ["click","klish"]) and command:
         output = st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
         return output
     return  True
 
-def enable_disable_config(dut, interface=False, interface_name=None, action="enable", cli_type="klish", sflow_key="global"):
+def enable_disable_config(dut, interface=False, interface_name=None, action="enable", cli_type="", sflow_key="global"):
     """
     API to enable / disable SFLOW Globally / on interface level
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -121,6 +136,8 @@ def enable_disable_config(dut, interface=False, interface_name=None, action="ena
     :param action:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if action not in ["enable", "disable"]:
         st.log("Unsupported action {} ".format(action))
         return False
@@ -153,6 +170,9 @@ def enable_disable_config(dut, interface=False, interface_name=None, action="ena
             if output and output["status"] != 204:
                 return False
             return True
+        else:
+            st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+            return False
         if commands:
             st.config(dut, commands, type=cli_type)
     else:
@@ -171,6 +191,9 @@ def enable_disable_config(dut, interface=False, interface_name=None, action="ena
             if output and output["status"] != 204:
                 return False
             return True
+        else:
+            st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+            return False
         if command:
             st.config(dut, command, type=cli_type)
     return True
@@ -190,13 +213,14 @@ def config_attributes(dut, **kwargs):
     3) To configure sample rate per speed
         config_sflow_attributes(dut, speed=10G, sample_rate=10000)
     """
-    cli_type = kwargs["cli_type"] if kwargs.has_key("cli_type") else "klish"
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     sflow_key = kwargs.get("sflow_key", "global")
     command = ""
     commands = list()
     if "sample_rate" in kwargs and "interface_name" in kwargs:
         if cli_type == "click":
-            command += "config sflow interface sample-rate {} {};".format(kwargs["interface_name"], kwargs["sample_rate"])
+            command += "config sflow interface sample-rate {} {}".format(kwargs["interface_name"], kwargs["sample_rate"])
             commands.append(command)
         elif cli_type == "klish":
             interface_details = utils_obj.get_interface_number_from_name(kwargs["interface_name"])
@@ -204,7 +228,7 @@ def config_attributes(dut, **kwargs):
                 st.log("Interface details not found {}".format(interface_details))
                 return False
             commands.append("interface {} {}".format(interface_details.get("type"), interface_details.get("number")))
-            if kwargs.has_key("no_form"):
+            if "no_form" in kwargs:
                 command = "no sflow sampling-rate"
             else:
                 command = "sflow sampling-rate {}".format(kwargs["sample_rate"])
@@ -218,13 +242,16 @@ def config_attributes(dut, **kwargs):
             if output and output["status"] != 204:
                 return False
             return True
+        else:
+            st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+            return False
         st.config(dut, commands, type=cli_type)
     if "polling_interval" in kwargs:
         if cli_type == "click":
             command += "config sflow polling-interval {};".format(kwargs["polling_interval"])
             commands.append(command)
         elif cli_type == "klish":
-            if kwargs.has_key("no_form"):
+            if "no_form" in kwargs:
                 command = "no sflow polling-interval"
             else:
                 command = "sflow polling-interval {}".format(kwargs["polling_interval"])
@@ -237,10 +264,13 @@ def config_attributes(dut, **kwargs):
             if output and output["status"] != 204:
                 return False
             return True
+        else:
+            st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+            return False
         st.config(dut, commands, type=cli_type)
     return True
 
-def show(dut, cli_type="klish"):
+def show(dut, cli_type=""):
     """
     API to show sflow configuration
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -249,8 +279,10 @@ def show(dut, cli_type="klish"):
     {'port': '6344', 'collector_ip': '10.144.1.2'}], u'collectors_cnt': '2',
     u'state': 'enabled', u'agent_id': 'loopback0', u'polling_interval': '20'}
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     result = dict()
-    if cli_type == "klish":
+    if cli_type == "klish" or cli_type == "click":
         command = "show sflow"
         output = st.show(dut, command, type=cli_type)
         if output:
@@ -284,7 +316,7 @@ def show(dut, cli_type="klish"):
                                 if attributes.get("agent_id"):
                                     ip_address = get_interface_ip_address(dut, attributes.get("agent_id"))
                                     if ip_address:
-                                        ip, subnet = ip_address[0]['ipaddr'].split('/')
+                                        ip, _ = ip_address[0]['ipaddr'].split('/')
                                         result.update({"agent_ip": ip})
                 if "SFLOW_COLLECTOR" in data:
                     result.update({"collectors_cnt": len(data["SFLOW_COLLECTOR"]["SFLOW_COLLECTOR_LIST"])})
@@ -300,17 +332,21 @@ def show(dut, cli_type="klish"):
                 st.log("{} not observed in ouput".format(YANG_MODULE))
         else:
             st.log("REST show GET CALL --- {}".format(output))
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
     return result
 
-def show_interface(dut, interface_name = None, cli_type="klish"):
+def show_interface(dut, interface_name = None, cli_type=""):
     """
     API to show sflow interface configuration
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     :param dut:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     output = list()
-    if cli_type == "klish":
+    if cli_type == "klish" or cli_type == "click":
         command = "show sflow interface"
         if interface_name:
             command = "{} | grep {}".format(command, interface_name)
@@ -322,7 +358,7 @@ def show_interface(dut, interface_name = None, cli_type="klish"):
             url = "{}/SFLOW_SESSION/SFLOW_SESSION_TABLE".format(REST_URI)
         result = st.rest_read(dut, url, SFLOW_SESSION_LIST=interface_name)
         if result and result.get("status") == 200 and result.get("output"):
-            if YANG_MODULE in output["output"]:
+            if YANG_MODULE in result["output"]:
                 data = result["output"][YANG_MODULE]
                 if data.get("SFLOW_SESSION_TABLE").get("SFLOW_SESSION_LIST"):
                     for intf_list in data.get("SFLOW_SESSION_TABLE").get("SFLOW_SESSION_LIST"):
@@ -339,7 +375,7 @@ def show_interface(dut, interface_name = None, cli_type="klish"):
         return output
     else:
         st.log("UNSUPPORTED CLI TYPE {}".format(cli_type))
-        return False
+        return output
 
 def verify_config(dut, **kwargs):
     """
@@ -352,18 +388,20 @@ def verify_config(dut, **kwargs):
     :return: True / False
     """
     st.log("KWARGS -- {}".format(kwargs))
-    cli_type = kwargs["cli_type"] if kwargs.has_key("cli_type") else "klish"
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     output = show(dut, cli_type)
     st.log("OUTPUT === {}".format(output))
     supported_params = ["state", "polling_interval", "collector_name", "collectors_cnt", "collector_ip", "port",
                         "agent_id"]
     if output:
         if not kwargs.get("data"):
-            st.log("DATA NOT PROVIDED ...")
+            st.error("VERIFY DATA NOT PROVIDED ...")
             return False
         verify_data = kwargs.get("data") if isinstance(kwargs.get("data"), list) else [kwargs.get("data")]
         for data in verify_data:
-            for key, value in data.items():
+            if cli_type == 'klish': data.pop("collector_name", None)
+            for key in data:
                 if key not in supported_params:
                     st.log("Unsupported params {}".format(key))
                     return False
@@ -386,7 +424,7 @@ def verify_config(dut, **kwargs):
         st.log("Verification successful ...")
         return True
     else:
-        st.log("Show output not found ...")
+        st.error("Show output not found ...")
         return False
 
 def verify_interface(dut, **kwargs):
@@ -402,7 +440,8 @@ def verify_interface(dut, **kwargs):
         st.log("Interface name not provided")
         return False
     interface_name = kwargs.get("interface_name")
-    cli_type = kwargs.get("cli_type", "klish")
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     output = show_interface(dut, interface_name=interface_name, cli_type=cli_type)
     if output:
         for data in output:
@@ -451,7 +490,7 @@ def verify_psample_stats(dut, params):
     u'pass_through': '8', u'drop_metadeta': '0', u'invalid_dst_port': '0', u'dcb_type': '36',
     :return:
     """
-    output = psample_stats(dut)
+    output = psample_stats(dut, params.keys())
     if not output:
         st.log("Observed empty output")
         return False
@@ -460,3 +499,28 @@ def verify_psample_stats(dut, params):
         st.log("PSAMPLE STATS VERIFICATION FAILED")
         return False
     return True
+
+
+def hsflowd_status(dut):
+    """
+    Check if hsflowd in sflow docker is running or not
+    :param dut:
+    """
+    st.log("Check hsflowd status")
+    command = "docker exec -i sflow /usr/bin/pgrep hsflowd || echo 0"
+    result = st.show(dut, command, skip_tmpl=True)
+    st.log('hsflowd status {}'.format(result))
+    pid = int(re.search(r'\d+', result).group())
+    if pid != 0:
+        st.log('hsflowd is running')
+    else:
+        st.log('hsflowd is NOT running')
+        command = "docker exec -i sflow cat /var/log/hsflowd.crash"
+        st.config(dut, command)
+    return True
+
+def get_psample_list_groups(dut):
+    """
+    To get all psample list groups
+    """
+    return st.show(dut, "sudo psample --list-groups", skip_tmpl=True)

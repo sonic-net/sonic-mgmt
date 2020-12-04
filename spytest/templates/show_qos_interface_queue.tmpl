@@ -1,0 +1,10 @@
+Value QUEUE (\S+)
+Value WRED_POLICY (\S+)
+
+
+Start
+  ^\s*interface\s* queue\s+${QUEUE}\s+config\:\s*$$
+  ^\s*WRED\s*profile\s*\:\s*${WRED_POLICY}\s*$$ -> Record
+  ^$$
+
+EOF

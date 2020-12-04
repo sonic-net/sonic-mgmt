@@ -1,0 +1,22 @@
+Value TXQ (\S+)
+Value PKTS_COUNT (\d+)
+Value BYTE_COUNT (\d+)
+Value PKTS_RATE (\d+)
+Value BYTE_RATE (\d+)
+Value BIT_RATE (\d+)
+Value PKTS_DROP (\d+)
+Value BYTE_DROP (\d+)
+
+Start
+  ^\s*TxQ\s+Counter/pkts\s+Counter/bytes\s+Drop/pkts\s+Drop/bytes -> Click
+  ^\s*TxQ\s+Counter/pkts\s+Counter/bytes\s+Rate/PPS\s+Rate/BPS\s+Rate/bPS\s+Drop/pkts\s+Drop/bytes -> Klish
+
+Click
+  ^(-+\s*)*$$
+  ^\s*${TXQ}\s+${PKTS_COUNT}\s+${BYTE_COUNT}\s+${PKTS_DROP}\s+${BYTE_DROP} -> Record 
+
+Klish
+  ^(-+\s*)*$$
+  ^\s*${TXQ}\s+${PKTS_COUNT}\s+${BYTE_COUNT}\s+${PKTS_RATE}/s\s+${BYTE_RATE}/s\s+${BIT_RATE}/s\s+${PKTS_DROP}\s+${BYTE_DROP} -> Record 
+
+EOF

@@ -20,7 +20,7 @@ Value PortDescr (\S+)
 
 Start
   ^(-+\s*)*$$
-  ^\s*LLDP\s*neighbors: -> LLDP_details 
+  ^\s*LLDP\s*.eighbors:? -> LLDP_details
   
 LLDP_details  
   ^(-+\s*)*$$ -> Record

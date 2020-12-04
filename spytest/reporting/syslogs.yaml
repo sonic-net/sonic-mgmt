@@ -1,0 +1,20 @@
+###############################################################################
+#  yellow:  message is reported only once for every module
+#  green:   message is silently discarded
+#  red:     test is failed with first matched message as DUTIssue
+###############################################################################
+yellow:
+    - "PSU \\d+ is not operational"
+    - "Failed to read port info: 'NoneType' object has no attribute 'read_porttab_mappings'"
+
+red:
+    - ".*Process \\S+ exited unxepectedly.*"
+    - ".*vtysh: error reading from zebra: Connection reset by peer.*"
+    - ".*terminated by SIGABRT.*"
+    - ".*syncd_main: Runtime error.*"
+    - ".*Error response from daemon.*"
+    - ".*Exception is Error 111 connecting.*"
+
+green:
+    - "^$"
+

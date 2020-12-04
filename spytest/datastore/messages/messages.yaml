@@ -8,7 +8,7 @@ switching: !include switching.yaml
 security: !include security.yaml
 gearbox: !include gearbox.yaml
 ut_snmp: !include ut_snmp.yaml
-
+ut_kdump: !include ut_kdump.yaml
 
 messages:
-  default: [common, tgen, routing, testbed, qos, system, switching, security, gearbox, ut_snmp]
+  default: [common, tgen, routing, testbed, qos, system, switching, security, gearbox, ut_snmp, ut_kdump]

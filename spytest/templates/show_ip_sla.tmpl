@@ -1,0 +1,15 @@
+Value INST (\d+)
+Value TYPE (\S+)
+Value TARGET (\S+)
+Value VRF_NAME (\S+)
+Value STATE (\S+)
+Value TRANSITIONS (\d+)
+Value LAST_CHG ((\S+ \S+)|\S*)
+
+Start
+  ^.*---\s* -> SLA
+
+SLA
+  ^\s*${INST}\s+${TYPE}\s+${STATE}\s+${TARGET}\s+${VRF_NAME}\s+${TRANSITIONS}\s*${LAST_CHG}\s* -> Record
+
+EOF

@@ -19,7 +19,7 @@ def initialize_variables():
     data = SpyTestDict()
     data.static_arp_mac = "00:00:00:00:00:66"
     data.static_arp_ip = "192.168.12.2"
-    data.ipv4_address_ixia = "10.10.10.2"
+    data.ipv4_address_tgen = "10.10.10.2"
     data.ipv4_address = "10.10.10.1"
     data.ipv4_address_network = "20.20.20.0/24"
     data.mask = "24"
@@ -41,7 +41,6 @@ def arp_static_route_reboot_module_hooks(request):
     tg_handler = tgapi.get_handles_byname("T1D1P1", "T1D1P2")
     global tg
     tg = tg_handler["tg"]
-    tg_ph_list = [tg_handler["tg_ph_1"], tg_handler["tg_ph_2"]]
     st.log("configuring static route")
     adding_static_route()
     st.log("Getting ARP entry dynamically")
@@ -52,8 +51,8 @@ def arp_static_route_reboot_module_hooks(request):
     st.log("Verifying static route entries before save and reboot/fast-reboot/warm-reboot")
     static_route_verify()
     st.log("Verifying dynamic ARP entries before save and reboot/fast-reboot/warm-reboot")
-    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_ixia, data.src_mac_addr, vars.D1T1P1):
-        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_ixia, vars.D1)
+    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_tgen, data.src_mac_addr, vars.D1T1P1):
+        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_tgen, vars.D1)
     else:
         st.log("Verified that dynamic ARP entry is present in arp table")
     st.log("Verifying static ARP entries before save and reboot/fast-reboot/warm-reboot")
@@ -69,48 +68,48 @@ def arp_static_route_reboot_module_hooks(request):
     # Below step will clear IP adresses configured on different interfaces in the device
     ip_obj.clear_ip_configuration(st.get_dut_names())
     #Below step will clear static route configured in the device
-    ip_obj.delete_static_route(vars.D1, data.ipv4_address_ixia, data.ipv4_address_network, family='ipv4', shell="vtysh")
+    ip_obj.delete_static_route(vars.D1, data.ipv4_address_tgen, data.ipv4_address_network, family='ipv4', shell="vtysh")
     #Below step will delete static arp entries configured in the device
     arp_obj.delete_static_arp(vars.D1, data.static_arp_ip, vars.D1T1P2)
 
 @pytest.fixture(scope="function", autouse=True)
 def arp_static_route_reboot_func_hooks(request):
     # add things at the start every test case
-    # use 'request.function.func_name' to compare
+    # use 'st.get_func_name(request)' to compare
     # if any thing specific a particular test case
     yield
     # add things at the end every test case
-    # use 'request.function.func_name' to compare
+    # use 'st.get_func_name(request)' to compare
     # if any thing specific a particular test case
 
 def adding_static_route():
-    st.log("About to add ipv4 address on ixia connected interface")
+    st.log("About to add ipv4 address on TGen connected interface")
     ip_obj.config_ip_addr_interface(vars.D1, vars.D1T1P1, data.ipv4_address, data.mask, family="ipv4", config='add')
     st.log("Enabling docker routing config mode to split")
     bgp_obj.enable_docker_routing_config_mode(vars.D1)
     st.log("configuring static route via vtysh mode")
-    ip_obj.create_static_route(vars.D1, data.ipv4_address_ixia, data.ipv4_address_network, shell="vtysh", family="ipv4")
+    ip_obj.create_static_route(vars.D1, data.ipv4_address_tgen, data.ipv4_address_network, shell="vtysh", family="ipv4")
 
 def static_route_verify():
     st.log("Ip address configuration verification")
-    if not poll_wait(ip_obj.verify_interface_ip_address, 10, vars.D1, vars.D1T1P1, "{}/{}".format(data.ipv4_address, data.mask),
+    if not poll_wait(ip_obj.verify_interface_ip_address, 60, vars.D1, vars.D1T1P1, "{}/{}".format(data.ipv4_address, data.mask),
                                               family="ipv4"):
         st.report_fail("ip_routing_int_create_fail", vars.D1T1P1)
     else:
-        st.log("Successfully added ipv4 address on ixia connected interface")
+        st.log("Successfully added ipv4 address on TGen connected interface")
 
     st.log("static route configuration verification")
-    if not ip_obj.verify_ip_route(vars.D1, "ipv4", ip_address=data.ipv4_address_network, type="S"):
+    if not poll_wait(ip_obj.verify_ip_route, 60, vars.D1, "ipv4", ip_address=data.ipv4_address_network, type="S"):
         st.error("Static route - {} information not exists.".format(data.ipv4_address_network))
         st.report_fail("ip_static_route_create_fail", data.ipv4_address_network)
     else:
         st.log("creation of static route is successful")
 
 def adding_dynamic_arp():
-    data.h1 = tg.tg_interface_config(port_handle=tg_handler["tg_ph_1"], mode='config', intf_ip_addr=data.ipv4_address_ixia,
+    data.h1 = tg.tg_interface_config(port_handle=tg_handler["tg_ph_1"], mode='config', intf_ip_addr=data.ipv4_address_tgen,
                                 gateway=data.ipv4_address, src_mac_addr=data.src_mac_addr, arp_send_req='1')
     st.log("INTFCONF: " + str(data.h1))
-    st.log("Pinging from tgen to DUT's ixia connected IPV4 interface")
+    st.log("Pinging from tgen to DUT's TGen connected IPV4 interface")
     res = tgapi.verify_ping(src_obj=tg, port_handle=tg_handler["tg_ph_1"], dev_handle=data.h1['handle'], dst_ip=data.ipv4_address,
                       ping_count='1', exp_count='1')
     st.log("PING_RES: " + str(res))
@@ -119,8 +118,8 @@ def adding_dynamic_arp():
     else:
         st.log("Ping failed.")
     st.wait(5)
-    if not arp_obj.show_arp(vars.D1, data.ipv4_address_ixia):
-        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_ixia, vars.D1)
+    if not arp_obj.show_arp(vars.D1, data.ipv4_address_tgen):
+        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_tgen, vars.D1)
 
 def test_ft_arp_static_route_config_mgmt_verifying_config_with_warm_reboot():
     '''
@@ -137,15 +136,16 @@ def test_ft_arp_static_route_config_mgmt_verifying_config_with_warm_reboot():
     st.wait(5)
     static_route_verify()
     st.log("Verifying dynamic ARP entries after save and warm-reboot")
-    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_ixia, data.src_mac_addr, vars.D1T1P1):
-        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_ixia, vars.D1)
+    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_tgen, data.src_mac_addr, vars.D1T1P1):
+        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_tgen, vars.D1)
     else:
         st.log("Verified that dynamic ARP entry is present in arp table")
-    st.log("Verifying static ARP entries after save and warm-reboot")
-    if not arp_obj.verify_arp(vars.D1, data.static_arp_ip, data.static_arp_mac, ""):
-        st.report_fail("static_arp_create_fail", vars.D1)
-    else:
-        st.log("Verified that static ARP entry is present in arp table")
+    if st.get_ui_type(vars.D1) != "click":
+        st.log("Verifying static ARP entries after save and warm-reboot")
+        if not arp_obj.verify_arp(vars.D1, data.static_arp_ip, data.static_arp_mac, ""):
+            st.report_fail("static_arp_create_fail", vars.D1)
+        else:
+            st.log("Verified that static ARP entry is present in arp table")
     st.report_pass("test_case_passed")
 
 def test_ft_arp_static_route_config_mgmt_verifying_config_with_save_fast_reboot():
@@ -160,8 +160,8 @@ def test_ft_arp_static_route_config_mgmt_verifying_config_with_save_fast_reboot(
     static_route_verify()
     adding_dynamic_arp()
     st.log("Verifying dynamic ARP entries after save and fast-reboot")
-    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_ixia, data.src_mac_addr, vars.D1T1P1):
-        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_ixia, vars.D1)
+    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_tgen, data.src_mac_addr, vars.D1T1P1):
+        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_tgen, vars.D1)
     else:
         st.log("Verified that dynamic ARP entry is present in arp table")
     st.report_pass("test_case_passed")
@@ -179,9 +179,8 @@ def test_ft_arp_static_route_config_mgmt_verifying_config_with_save_reboot():
     static_route_verify()
     adding_dynamic_arp()
     st.log("Verifying dynamic ARP entries after save and reboot")
-    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_ixia, data.src_mac_addr, vars.D1T1P1):
-        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_ixia, vars.D1)
+    if not arp_obj.verify_arp(vars.D1, data.ipv4_address_tgen, data.src_mac_addr, vars.D1T1P1):
+        st.report_fail("ARP_entry_dynamic_entry_fail", data.ipv4_address_tgen, vars.D1)
     else:
         st.log("Verified that dynamic ARP entry is present in arp table")
     st.report_pass("test_case_passed")
-

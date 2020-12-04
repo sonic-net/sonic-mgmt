@@ -39,6 +39,7 @@ local_user_creation_failed: Failed to create local user {} in the device
 ssh_login_with_radius_successful: SSH authentication using radius server with auth type {} successful
 security_config_retained_after_save_reboot: Radius and TACACS+ config retained after save and reboot
 security_config_retained_after_fast_reboot: Radius and TACACS+ config retained after save and fast-reboot
+security_server_config_not_successful: Radius Server parameters verification failed after config save and reboot
 password_config_failed: password configuration failed
 ssh_root_with_radius_status: SSH login with root credentials {}
 ssh_cisco_status: SSH login with CISCO ACS server {}
@@ -58,6 +59,7 @@ invalid_config: Invalid config parameter
 radius_data_empty: Radius data not configured through {}
 radius_data_not_created: Radius server {} not created from {}
 ssh_login: SSH login with radius server when configured from {} is {}
+radius_nas_ip_statistics_config_success : Radius server config with nassip and statistics enable is configured properly
 
 
 #AAA
@@ -70,3 +72,96 @@ rbac_user_config: RBAC User config Failed.
 rbac_test_status: RBAC Test_{}- To verify {}-User, {} login using {}, result-{}.
 rbac_call_fail: RBAC {} to DUT is failed for mode-{}, type-{}.
 rbac_test_jwt_token_fail: RBAC REST call - Unable to Get/Generate the JWT-Token for mode-{}, type-{}.
+
+# LDAP
+ldap_server_global_config_pass: LDAP server global {} configuration successful
+ldap_server_global_config_fail: LDAP server global {} configuration failed
+ldap_server_nss_config_pass: LDAP server NSS {} configuration successful
+ldap_server_nss_config_fail: LDAP server NSS {} configuration failed
+ldap_server_sudo_config_pass: LDAP server sudo {} configuration successful
+ldap_server_sudo_config_fail: LDAP server sudo {} configuration failed
+ldap_server_pam_config_pass: LDAP server PAM {} configuration successful
+ldap_server_pam_config_fail: LDAP server PAM {} configuration failed
+ldap_server_host_config_pass: LDAP server host configuration successful
+ldap_server_host_config_fail: LDAP server host configuration failed
+ldap_server_map_config_pass: LDAP server MAP configuration successful
+ldap_server_map_config_fail: LDAP server MAP configuration failed
+
+#LDAP RADIUS
+IPv4_SSH_login_LDAP_User_LDAP_Authentication_Failed: IPv4 SSH login LDAP User LDAP Authentication Failed
+IPv4_SSH_login_LDAP_User_LDAP_Authentication_Passed: IPv4 SSH login LDAP User LDAP Authentication Passed
+IPv6_SSH_login_LDAP_User_LDAP_Authentication_Failed: IPv4 SSH login LDAP User LDAP Authentication Failed
+IPv6_SSH_login_LDAP_User_LDAP_Authentication_Passed: IPv4 SSH login LDAP User LDAP Authentication Passed
+IPv4_SSH_login_LDAP_User_LDAP_Local_failthrough_Failed: IPv4 SSH login LDAP User LDAP Local failthrough Failed
+IPv4_SSH_login_LDAP_User_LDAP_Local_failthrough_Passed: IPv4 SSH login LDAP User LDAP Local failthrough Passed
+IPv6_SSH_login_LDAP_User_LDAP_Local_failthrough_Failed: IPv4 SSH login LDAP User LDAP Local failthrough Failed
+IPv6_SSH_login_LDAP_User_LDAP_Local_failthrough_Passed: IPv4 SSH login LDAP User LDAP Local failthrough Passed
+IPv4_SSH_LDAP_name_service_RADIUS_Authentication_Failed: IPv4 SSH login LDAP name service RADIUS Authentication Failed
+IPv4_SSH_LDAP_name_service_RADIUS_Authentication_Passed: IPv4 SSH login LDAP name service RADIUS Authentication Passed
+IPv6_SSH_LDAP_name_service_RADIUS_Authentication_Failed: IPv4 SSH login LDAP name service RADIUS Authentication Failed
+IPv6_SSH_LDAP_name_service_RADIUS_Authentication_Passed: IPv4 SSH login LDAP name service RADIUS Authentication Passed
+IPv4_SSH_login_LDAP_name_service_RADIUS_Auth_and_Local_failthrough_Failed: IPv4 SSH login LDAP name service RADIUS Auth and Local failthrough Failed
+IPv4_SSH_login_LDAP_name_service_RADIUS_Auth_and_Local_failthrough_Passed: IPv4 SSH login LDAP name service RADIUS Auth and Local failthrough Passed
+IPv6_SSH_login_LDAP_name_service_RADIUS_Auth_and_Local_failthrough_Failed: IPv4 SSH login LDAP name service RADIUS Auth and Local failthrough Failed
+IPv6_SSH_login_LDAP_name_service_RADIUS_Auth_and_Local_failthrough_Passed: IPv4 SSH login LDAP name service RADIUS Auth and Local failthrough Passed
+IPv4_SSH_client_LDAP_User_Auth_RADIUS_password_Authorize_LDAP_Name_Service_LDAP_Failed: IPv4 SSH login LDAP User Auth RADIUS Authorize LDAP Name Service LDAP Failed
+IPv4_SSH_client_LDAP_User_Auth_RADIUS_password_Authorize_LDAP_Name_Service_LDAP_Passed: IPv4 SSH login LDAP User Auth RADIUS Authorize LDAP Name Service LDAP Passed
+IPv6_SSH_client_LDAP_User_Auth_RADIUS_password_Authorize_LDAP_Name_Service_LDAP_Failed: IPv4 SSH login LDAP User Auth RADIUS Authorize LDAP Name Service LDAP Failed
+IPv6_SSH_client_LDAP_User_Auth_RADIUS_password_Authorize_LDAP_Name_Service_LDAP_Passed: IPv4 SSH login LDAP User Auth RADIUS Authorize LDAP Name Service LDAP Passed
+IPv4_SSH_login_LDAP_User_Auth_RADIUS_Name_Service_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH loginLDAP User Auth RADIUS Name Service LDAP sudo Authorize LDAP Failed
+IPv4_SSH_login_LDAP_User_Auth_RADIUS_Name_Service_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH loginLDAP User Auth RADIUS Name Service LDAP sudo Authorize LDAP Passed
+IPv6_SSH_login_LDAP_User_Auth_RADIUS_Name_Service_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH loginLDAP User Auth RADIUS Name Service LDAP sudo Authorize LDAP Failed
+IPv6_SSH_login_LDAP_User_Auth_RADIUS_Name_Service_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH loginLDAP User Auth RADIUS Name Service LDAP sudo Authorize LDAP Passed
+IPv4_SSH_login_LDAP_User_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Failed: IPv4 SSH login LDAP User Auth RADIUS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Failed
+IPv4_SSH_login_LDAP_User_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Passed: IPv4 SSH login LDAP User Auth RADIUS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Passed
+IPv6_SSH_login_LDAP_User_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Failed: IPv4 SSH login LDAP User Auth RADIUS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Failed
+IPv6_SSH_login_LDAP_User_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Passed: IPv4 SSH login LDAP User Auth RADIUS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Passed
+IPv4_SSH_login_config_reload_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login config reload LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Failed
+IPv4_SSH_login_config_reload_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login config reload LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Passed
+IPv6_SSH_login_config_reload_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login config reload LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Failed
+IPv6_SSH_login_config_reload_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login config reload LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Passed
+IPv4_SSH_login_cold_reboot_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login cold reboot LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Failed
+IPv4_SSH_login_cold_reboot_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login cold reboot LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Passed
+IPv6_SSH_login_cold_reboot_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login cold reboot LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Failed
+IPv6_SSH_login_cold_reboot_LDAP_User_with_Auth_RADIUS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login cold reboot LDAP User with Auth RADIUS NSS LDAP sudo Authorize LDAP Passed
+IPv4_SSH_LDAP_name_service_TACACS_Authentication_Failed: IPv4 SSH login LDAP name service TACACS Authentication Failed
+IPv4_SSH_LDAP_name_service_TACACS_Authentication_Passed: IPv4 SSH login LDAP name service TACACS Authentication Passed
+IPv6_SSH_LDAP_name_service_TACACS_Authentication_Failed: IPv4 SSH login LDAP name service TACACS Authentication Failed
+IPv6_SSH_LDAP_name_service_TACACS_Authentication_Passed: IPv4 SSH login LDAP name service TACACS Authentication Passed
+IPv4_SSH_login_LDAP_name_service_TACACS_Auth_and_Local_failthrough_Failed: IPv4 SSH login LDAP name service TACACS Auth and Local failthrough Failed
+IPv4_SSH_login_LDAP_name_service_TACACS_Auth_and_Local_failthrough_Passed: IPv4 SSH login LDAP name service TACACS Auth and Local failthrough Passed
+IPv6_SSH_login_LDAP_name_service_TACACS_Auth_and_Local_failthrough_Failed: IPv4 SSH login LDAP name service TACACS Auth and Local failthrough Failed
+IPv6_SSH_login_LDAP_name_service_TACACS_Auth_and_Local_failthrough_Passed: IPv4 SSH login LDAP name service TACACS Auth and Local failthrough Passed
+IPv4_SSH_client_LDAP_User_Auth_TACACS_password_Authorize_LDAP_Name_Service_LDAP_Failed: IPv4 SSH login LDAP User Auth TACACS Authorize LDAP Name Service LDAP Failed
+IPv4_SSH_client_LDAP_User_Auth_TACACS_password_Authorize_LDAP_Name_Service_LDAP_Passed: IPv4 SSH login LDAP User Auth TACACS Authorize LDAP Name Service LDAP Passed
+IPv6_SSH_client_LDAP_User_Auth_TACACS_password_Authorize_LDAP_Name_Service_LDAP_Failed: IPv4 SSH login LDAP User Auth TACACS Authorize LDAP Name Service LDAP Failed
+IPv6_SSH_client_LDAP_User_Auth_TACACS_password_Authorize_LDAP_Name_Service_LDAP_Passed: IPv4 SSH login LDAP User Auth TACACS Authorize LDAP Name Service LDAP Passed
+IPv4_SSH_login_LDAP_User_Auth_TACACS_Name_Service_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH loginLDAP User Auth TACACS Name Service LDAP sudo Authorize LDAP Failed
+IPv4_SSH_login_LDAP_User_Auth_TACACS_Name_Service_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH loginLDAP User Auth TACACS Name Service LDAP sudo Authorize LDAP Passed
+IPv6_SSH_login_LDAP_User_Auth_TACACS_Name_Service_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH loginLDAP User Auth TACACS Name Service LDAP sudo Authorize LDAP Failed
+IPv6_SSH_login_LDAP_User_Auth_TACACS_Name_Service_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH loginLDAP User Auth TACACS Name Service LDAP sudo Authorize LDAP Passed
+IPv4_SSH_login_LDAP_User_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Failed: IPv4 SSH login LDAP User Auth TACACS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Failed
+IPv4_SSH_login_LDAP_User_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Passed: IPv4 SSH login LDAP User Auth TACACS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Passed
+IPv6_SSH_login_LDAP_User_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Failed: IPv4 SSH login LDAP User Auth TACACS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Failed
+IPv6_SSH_login_LDAP_User_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Mgmt_VRF_src_intf_Passed: IPv4 SSH login LDAP User Auth TACACS NSS LDAP sudo Authorize LDAP Mgmt VRF src intf Passed
+IPv4_SSH_login_config_reload_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login config reload LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Failed
+IPv4_SSH_login_config_reload_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login config reload LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Passed
+IPv6_SSH_login_config_reload_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login config reload LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Failed
+IPv6_SSH_login_config_reload_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login config reload LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Passed
+IPv4_SSH_login_cold_reboot_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login cold reboot LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Failed
+IPv4_SSH_login_cold_reboot_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login cold reboot LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Passed
+IPv6_SSH_login_cold_reboot_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Failed: IPv4 SSH login cold reboot LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Failed
+IPv6_SSH_login_cold_reboot_LDAP_User_with_Auth_TACACS_NSS_LDAP_sudo_Authorize_LDAP_Passed: IPv4 SSH login cold reboot LDAP User with Auth TACACS NSS LDAP sudo Authorize LDAP Passed
+LDAP_Scale_with_8_IPv4_servers_LDAP_User_with_Authentication_RADIUS_Authorize_LDAP_NSS_LDAP_Failed: LDAP Scale with 8 IPv4 servers LDAP User with Authentication RADIUS Authorize LDAP NSS LDAP Failed
+LDAP_Scale_with_8_IPv4_servers_LDAP_User_with_Authentication_RADIUS_Authorize_LDAP_NSS_LDAP_Passed: LDAP Scale with 8 IPv4 servers LDAP User with Authentication RADIUS Authorize LDAP NSS LDAP Passed
+LDAP_Scale_with_8_IPv4_servers_LDAP_User_with_Authentication_TACACS_Authorize_LDAP_NSS_LDAP_Failed: LDAP Scale with 8 IPv4 servers LDAP User with Authentication TACACS Authorize LDAP NSS LDAP Failed
+LDAP_Scale_with_8_IPv4_servers_LDAP_User_with_Authentication_TACACS_Authorize_LDAP_NSS_LDAP_Passed: LDAP Scale with 8 IPv4 servers LDAP User with Authentication TACACS Authorize LDAP NSS LDAP Passed
+IPv4_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_RADIUS_Auth_Failed: IPv4 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with RADIUS Auth Failed
+IPv4_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_RADIUS_Auth_Passed: IPv4 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with RADIUS Auth Passed
+IPv6_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_RADIUS_Auth_Failed: IPv6 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with RADIUS Auth Failed
+IPv6_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_RADIUS_Auth_Passed: IPv6 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with RADIUS Auth Passed
+IPv4_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_Auth_Failed: IPv4 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with TACACS Auth Failed
+IPv4_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_Auth_Passed: IPv4 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with TACACS Auth Passed
+IPv6_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_Auth_Failed: IPv6 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with TACACS Auth Failed
+IPv6_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_Auth_Passed: IPv6 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with TACACS Auth Passed
+

@@ -1,0 +1,24 @@
+##########################################################
+#-----------------------------------------------
+#Port  Breakout Mode  Status        Interfaces          
+#-----------------------------------------------
+#1/1   4x10G          Completed     Ethernet0           
+#                                   Ethernet1           
+#                                   Ethernet2           
+#                                   Ethernet3
+##########################################################
+Value Filldown port (\d+\/\d+)
+Value interface ((Ethernet|Eth)[0-9/]+)
+Value Filldown breakout_mode (\S+)
+Value Filldown status (\S+)
+
+Start
+  ^(-+\s*)$$
+  ^Port\s*Breakout\s*Mode\s*Status\s*Interfaces\s*$$
+  ^(-+\s*)*$$
+  ^${port}\s+${breakout_mode}\s+${status}\s+${interface}\s*$$ -> Record
+  ^\s+${interface}\s*$$ -> Continue.Record 
+  ^\+\s+
+
+EOF
+

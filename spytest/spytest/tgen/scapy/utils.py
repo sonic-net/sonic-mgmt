@@ -5,7 +5,10 @@ import random
 import socket
 import struct
 import inspect
+import threading
 
+from collections import deque
+from itertools import islice
 from tempfile import mkstemp
 import subprocess
 
@@ -15,22 +18,66 @@ class Utils(object):
     def __init__(self, dry=False, logger=None):
         self.dry = dry
         self.logger = logger or Logger()
+        self.tmp_files = []
+
+    def __del__(self):
+        for fname in self.tmp_files:
+            self.fdel(fname)
+        self.tmp_files = []
+
+    def fdel(self, fname):
+        if os.path.exists(fname):
+            os.remove(fname)
+            return True
+        return False
 
     def fread(self, fname, default=""):
-        with open(fname, 'r') as myfile:
-            return myfile.read()
+        try:
+            with open(fname, 'r') as fd:
+                return fd.read()
+        except Exception:
+            pass
         return default
 
-    def fwrite(self, content, fname = ""):
+    def fwrite(self, content, fname = "", mode="w"):
         if fname == "" or self.dry:
             _, fname = mkstemp()
+            self.tmp_files.append(fname)
         else:
             directory = os.path.dirname(fname)
             if not os.path.exists(directory):
                 os.makedirs(directory)
-        with open(fname, "w") as fd:
+        with open(fname, mode) as fd:
             fd.write(content)
         return fname
+
+    def fhead(self, fname, count, default=""):
+        try:
+            lines = []
+            with open(fname, 'r') as fd:
+                for line in islice(fd, count):
+                    lines.append(line)
+            return "".join(lines)
+        except Exception:
+            pass
+        return default
+
+    def ftail(self, fname, count, default=""):
+        try:
+            lines = []
+            with open(fname, 'r') as fd:
+                for line in deque(fd, maxlen=count):
+                    lines.append(line)
+            return "".join(lines)
+        except Exception:
+            pass
+        return default
+
+    def wc_l(self, fname):
+        try:
+            return sum(1 for i in open(fname, 'rb'))
+        except Exception:
+            return -1
 
     def cmdexec(self, cmd, msg=None):
         self.logger.debug("cmdexec: " + cmd)
@@ -40,21 +87,46 @@ class Utils(object):
         p.wait()
         return out or err
 
-    def shexec(self, cmds):
+    def shexec(self, *args):
+        cmds = "".join(args)
         fname = self.fwrite(cmds)
         logfile = fname + ".1"
         self.logger.debug("shexec: " + cmds)
         if not self.dry:
-            cmd = "sh %s > %s 2>&1" % (fname, logfile)
+            cmd = "sh -x %s > %s 2>&1" % (fname, logfile)
             os.system(cmd)
             output = self.fread(logfile)
             self.logger.debug(output)
             os.unlink(logfile)
         os.unlink(fname)
 
+    def lshexec(self, cmdlist):
+        cmds = [cmd for cmd in cmdlist if cmd.strip()]
+        self.shexec("\n".join(cmds))
+
+    def tshexec(self, cmdlist):
+        threads = []
+        for cmds in cmdlist:
+            th = threading.Thread(target=self.shexec, args=(cmds))
+            th.start()
+            threads.append(th)
+        for th in threads:
+            th.join()
+
+    def cat_file(self, filepath):
+        marker = "\n#######################"
+        content = marker + " cat {}\n".format(filepath)
+        content = content + self.fread(filepath)
+        content = content + marker + "\n"
+        return content
+
     def line_info(self):
         stk = inspect.stack()
         self.logger.debug(stk[1][1],":",stk[1][2],":", stk[1][3])
+
+    @staticmethod
+    def min_value(v1, v2):
+        return v1 if v1 < v2 else v2
 
     @staticmethod
     def incrementMac(mac, step):
@@ -136,7 +208,7 @@ class Utils(object):
         hextets = halves[0].split(':')
         if len(halves) == 2:
             h2 = halves[1].split(':')
-            for z in range(8 - (len(hextets) + len(h2))):
+            for _ in range(8 - (len(hextets) + len(h2))):
                 hextets.append('0')
             for h in h2:
                 hextets.append(h)
@@ -195,14 +267,14 @@ class Utils(object):
     @staticmethod
     def tobytes(s):
         if sys.version_info[0] < 3:
-            return buffer(s)
+            return buffer(s) # pylint: disable=undefined-variable
         return s.encode()
 
     @staticmethod
     def get_env_int(name, default):
         try:
             return int(os.getenv(name, default))
-        except:
+        except Exception:
             pass
         return default
 

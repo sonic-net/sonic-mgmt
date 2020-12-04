@@ -1,4 +1,3 @@
-
 import sys
 import time
 import traceback
@@ -27,14 +26,16 @@ def get_in_parallel():
 def wait_for_threads(threads):
     while True:
         alive = False
-        for index, thread in enumerate(threads):
+        for thread in threads:
             thread.join(timeout=1)
             if thread.is_alive():
                 alive=True
         if not alive or shutting_down:
             break
 
-def exec_foreach (use_threads, items, func, *args, **kwargs):
+def exec_foreach2 (use_threads, on_except, items, func, *args, **kwargs):
+    if func is None or not callable(func):
+        raise ValueError("Expecting callable function")
     set_in_parallel(True)
     retvals = list()
     exceptions = list()
@@ -42,7 +43,7 @@ def exec_foreach (use_threads, items, func, *args, **kwargs):
         try:
             retvals[index] = func(*args, **kwargs)
             exceptions[index] = None
-        except Exception as e1:
+        except Exception:
             retvals[index] = None
             exceptions[index] = traceback.format_exc()
         except SystemExit as e2:
@@ -72,7 +73,12 @@ def exec_foreach (use_threads, items, func, *args, **kwargs):
     for exp in exceptions:
         if isinstance(exp, SystemExit):
             sys.exit()
+
+    ensure_no_exception(exceptions, on_except)
     return [retvals, exceptions]
+
+def exec_foreach (use_threads, items, func, *args, **kwargs):
+    return exec_foreach2(use_threads, "abort", items, func, *args, **kwargs)
 
 # remove this once refactored
 class ExecAllFunc(utils.ExecAllFunc):
@@ -85,7 +91,7 @@ class ExecAllFunc_todo_rename(object):
         self.args = args
         self.kwargs = kwargs
 
-def exec_all(use_threads, entries, first_on_main=False):
+def exec_all2(use_threads, on_except, entries, first_on_main=False):
     set_in_parallel(True)
     retvals = list()
     exceptions = list()
@@ -93,7 +99,7 @@ def exec_all(use_threads, entries, first_on_main=False):
         try:
             retvals[index] = func(*args, **kwargs)
             exceptions[index] = None
-        except Exception as e1:
+        except Exception:
             retvals[index] = None
             exceptions[index] = traceback.format_exc()
         except SystemExit as e2:
@@ -112,6 +118,9 @@ def exec_all(use_threads, entries, first_on_main=False):
         else:
             kwargs = {}
             entry2 = entry
+        if entry2[0] is None or not callable(entry2[0]):
+            set_in_parallel(False)
+            raise ValueError("Expecting callable function")
         entry2.insert(1, index)
         index = index + 1
         args = tuple(entry2)
@@ -133,9 +142,13 @@ def exec_all(use_threads, entries, first_on_main=False):
     for exp in exceptions:
         if isinstance(exp, SystemExit):
             sys.exit()
+    ensure_no_exception(exceptions, on_except)
     return [retvals, exceptions]
 
-def exec_parallel(use_threads, items, func, kwarg_list,*args):
+def exec_all(use_threads, entries, first_on_main=False):
+    return exec_all2(use_threads, "abort", entries, first_on_main)
+
+def exec_parallel2(use_threads, on_except, items, func, kwarg_list,*args):
     """
     Author:sooria.gajendrababu@broadcom.com
     Info: parallel execution function for APIs with only kwargs
@@ -147,6 +160,8 @@ def exec_parallel(use_threads, items, func, kwarg_list,*args):
     dict2 ={"local_asn":dut3_as,'neighbor_ip':enable_bfd_list_2,'config':'yes'}
     exec_parallel(True,[dut1,dut3],bfd.configure_bfd,[dict1,dict2])
     """
+    if func is None or not callable(func):
+        raise ValueError("Expecting callable function")
     set_in_parallel(True)
     retvals = list()
     exceptions = list()
@@ -154,7 +169,7 @@ def exec_parallel(use_threads, items, func, kwarg_list,*args):
         try:
             retvals[index] = func(*args, **kwargs)
             exceptions[index] = None
-        except Exception as e1:
+        except Exception:
             retvals[index] = None
             exceptions[index] = traceback.format_exc()
         except SystemExit as e2:
@@ -183,7 +198,11 @@ def exec_parallel(use_threads, items, func, kwarg_list,*args):
     for exp in exceptions:
         if isinstance(exp, SystemExit):
             sys.exit()
+    ensure_no_exception(exceptions, on_except)
     return [retvals, exceptions]
+
+def exec_parallel(use_threads, items, func, kwarg_list,*args):
+    return exec_parallel2(use_threads, "abort", items, func, kwarg_list,*args)
 
 class ExecuteBackgroud(object):
     def __init__(self):
@@ -227,7 +246,7 @@ class ExecuteBackgroud(object):
         except SystemExit as e2:
             print(e2)
 
-def ensure_no_exception(values):
+def ensure_no_exception(values, action="abort"):
     """
     Importing st in function because this file has been imported by
     framework so we cannot import framework API here
@@ -236,8 +255,28 @@ def ensure_no_exception(values):
     """
     from spytest import st
     for exp in values:
-        if exp is not None:
-            st.report_fail("exception_observed", exp)
+        if exp is None: continue
+        elif action == "abort": st.report_fail("exception_observed", exp)
+        elif action == "trace": st.error("exception in thread: {}".format(exp))
     return True
 
+class Lock(object):
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.cond = threading.Condition(threading.Lock())
+
+    def acquire(self, block=True, timeout=None):
+        if not timeout:
+            return self.lock.acquire(block)
+        with self.cond:
+            current_time = start_time = time.time()
+            while current_time < start_time + timeout:
+                if self.lock.acquire(False):
+                    return True
+                self.cond.wait(timeout - current_time + start_time)
+                current_time = time.time()
+        return False
+
+    def release(self):
+        return self.lock.release()
 

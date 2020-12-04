@@ -6,6 +6,8 @@ import apis.switching.vlan as vlan_obj
 import apis.routing.ip as ip_obj
 import apis.routing.arp as arp_obj
 
+from utilities.common import filter_and_select
+
 data = SpyTestDict()
 data.vlan_1 = 64
 data.count = 5
@@ -89,8 +91,10 @@ def test_ft_ipv6_neighbor_entry():
     arp_obj.clear_ndp_table(vars.D1)
     ndp_dut_count_post_clear = int(arp_obj.get_ndp_count(vars.D1))
     if ndp_dut_count_post_clear > 2:
-        arp_obj.show_ndp(vars.D1)
-        st.report_fail("ndp_entries_clearing_failed")
+        out = arp_obj.show_ndp(vars.D1)
+        entries = filter_and_select(out, [None], {'status': 'NOARP'})
+        if not len(out) == len(entries):
+            st.report_fail("ndp_entries_clearing_failed")
     arp_obj.config_static_ndp(vars.D1, data.neigh_ip6_addr_gw[2],data.tg_mac3, vars.D1T1P1)
     ndp_dut_count_static = int(arp_obj.get_ndp_count(vars.D1))
     if not ndp_dut_count_static:

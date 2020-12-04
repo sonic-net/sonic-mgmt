@@ -1,0 +1,40 @@
+Value TOTADVERT (\d+)
+Value TOTPREF (\d+)
+Value AVGPREFLEN ([\d\.]+)
+Value UNAGGRPREF (\d+)
+Value MAXAGGRPREF (\d+)
+Value AGGRADVERT (\d+)
+Value ADDRSPACE ([\d\.e\+\-]+)
+Value PERCNTANNOUN ([\d\.e\+\-]+)
+Value EQUIV8 ([\d\.]+)
+Value EQUIV24 ([\d\.]+)
+Value EQUIV32 ([\d\.e\+\-]+)
+Value EQUIV48 ([\d\.e\+\-]+)
+Value ADVERTWPATHS (\d+)
+Value LONGESTASPATH (\d+)
+Value AVGASPATH ([\d\.]+)
+Value LARGESTASPATH (\d+)
+Value AVGASPATHSIZE ([\d\.]+)
+Value HIGHESTASN (\d+)
+
+
+Start
+  ^\s*BGP IPv\d Unicast RIB statistics$$
+  ^\s*Total Advertisements\s+:\s*${TOTADVERT}$$
+  ^\s*Total Prefixes\s+:\s*${TOTPREF}$$
+  ^\s*Average prefix length\s+:\s*${AVGPREFLEN}\s*$$
+  ^\s*Unaggregateable prefixes\s+:\s*${UNAGGRPREF}\s*$$
+  ^\s*Maximum aggregateable prefixes\s*:\s*${MAXAGGRPREF}\s*$$
+  ^\s*BGP Aggregate advertisements\s+:\s*${AGGRADVERT}\s*$$
+  ^\s*Address space advertised\s+:\s*${ADDRSPACE}\s*$$
+  ^\s*% announced\s+:\s*${PERCNTANNOUN}\s*$$
+  ^\s*/8 equivalent\s+:\s*${EQUIV8}\s*$$
+  ^\s*/24 equivalent\s+:\s*${EQUIV24}\s*$$
+  ^\s*/32 equivalent\s+:\s*${EQUIV32}\s*$$
+  ^\s*/48 equivalent\s+:\s*${EQUIV48}\s*$$
+  ^\s*Advertisements with paths\s+:\s*${ADVERTWPATHS}\s*$$
+  ^\s*Longest AS-Path \(hops\)\s+:\s*${LONGESTASPATH}\s*$$
+  ^\s*Average AS-Path length \(hops\)\s+:\s*${AVGASPATH}\s*$$
+  ^\s*Largest AS-Path \(bytes\)\s+:\s*${LARGESTASPATH}\s*$$
+  ^\s*Average AS-Path size \(bytes\)\s+:\s*${AVGASPATHSIZE}\s*$$
+  ^\s*Highest public ASN\s+:\s*${HIGHESTASN}\s*$$ -> Record

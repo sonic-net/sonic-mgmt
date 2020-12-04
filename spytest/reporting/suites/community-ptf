@@ -1,0 +1,14 @@
+# Modules
++file:qos/test_qos_save_reboot.py
++file:system/crm/test_crm.py
+
+#Runtime Arguments
++args:--env SPYTEST_HOOKS_BREAKOUT_UITYPE click
++args:--device-feature-group upstream
++args:--module-init-max-timeout 9000
++args:--tc-max-timeout 5400
++args:--logs-level=debug
+
+#InfraModuleNeededforNodeDownScenarios
++file:batch/test_spytest_infra_1.py
+

@@ -5,6 +5,10 @@ AS7326-GPOD:
   Ethernet1: 10000
   Ethernet2: 10000
   Ethernet3: 10000 
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
 
 AS7326-25G:
   Ethernet0: 25000
@@ -105,6 +109,106 @@ AS7326-10G:
   Ethernet45: 10000
   Ethernet46: 10000
   Ethernet47: 10000
+
+
+AS7326-10G-2:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000
+  Ethernet4: 10000
+  Ethernet5: 10000
+  Ethernet6: 10000
+  Ethernet7: 10000
+  Ethernet8: 10000
+  Ethernet9: 10000
+  Ethernet10: 10000
+  Ethernet11: 10000
+  Ethernet12: 10000
+  Ethernet13: 10000
+  Ethernet14: 10000
+  Ethernet15: 10000
+  Ethernet16: 10000
+  Ethernet17: 10000
+  Ethernet18: 10000
+  Ethernet19: 10000
+  Ethernet20: 10000
+  Ethernet21: 10000
+  Ethernet22: 10000
+  Ethernet23: 10000
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
+  Ethernet28: 10000
+  Ethernet29: 10000
+  Ethernet30: 10000
+  Ethernet31: 10000
+  Ethernet32: 10000
+  Ethernet33: 10000
+  Ethernet34: 10000
+  Ethernet35: 10000
+  Ethernet36: 10000
+  Ethernet37: 10000
+  Ethernet38: 10000
+  Ethernet39: 10000
+  Ethernet40: 10000
+  Ethernet41: 10000
+  Ethernet42: 10000
+  Ethernet43: 10000
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+  Ethernet52: 10000
+  Ethernet53: 10000
+  Ethernet54: 10000
+  Ethernet55: 10000
+  Ethernet56: 10000
+  Ethernet57: 10000
+  Ethernet58: 10000
+  Ethernet59: 10000
+  Ethernet60: 10000
+  Ethernet61: 10000
+  Ethernet62: 10000
+  Ethernet63: 10000
+  Ethernet64: 10000
+  Ethernet65: 10000
+  Ethernet66: 10000
+  Ethernet67: 10000
+  Ethernet68: 10000
+  Ethernet69: 10000
+  Ethernet70: 10000
+  Ethernet71: 10000
+  Ethernet72: 10000
+  Ethernet73: 10000
+  Ethernet74: 10000
+  Ethernet75: 10000
+  Ethernet76: 10000
+  Ethernet77: 10000
+  Ethernet78: 10000
+  Ethernet79: 10000
+  Ethernet80: 10000
+  Ethernet81: 10000
+  Ethernet82: 10000
+  Ethernet83: 10000
+  Ethernet84: 10000
+  Ethernet85: 10000
+  Ethernet86: 10000
+  Ethernet87: 10000
+  Ethernet88: 10000
+  Ethernet89: 10000
+  Ethernet90: 10000
+  Ethernet91: 10000
+  Ethernet92: 10000
+  Ethernet93: 10000
+  Ethernet94: 10000
+  Ethernet95: 10000
+
   
 AS7326-10G_PG1:
   Ethernet0: 10000
@@ -149,6 +253,32 @@ AS7326-10G_PG3:
   Ethernet35: 10000
 
 AS7326-10G_PG4:
+  Ethernet36: 10000
+  Ethernet37: 10000
+  Ethernet38: 10000
+  Ethernet39: 10000
+  Ethernet40: 10000
+  Ethernet41: 10000
+  Ethernet42: 10000
+  Ethernet43: 10000
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+
+AS7326-10G_PG1_PG4:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000
+  Ethernet4: 10000
+  Ethernet5: 10000
+  Ethernet6: 10000
+  Ethernet7: 10000
+  Ethernet8: 10000
+  Ethernet9: 10000
+  Ethernet10: 10000
+  Ethernet11: 10000
   Ethernet36: 10000
   Ethernet37: 10000
   Ethernet38: 10000

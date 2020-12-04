@@ -43,7 +43,7 @@ WRED_ECN : "ecn_all"
 INGRESS_LOSSY_PROFILE : "ingress_lossy_profile"
 INGRESS_LOSSLESS_PROFILE : "pg_lossless_10000_300m_profile"
 EGRESS_LOSSY_PROFILE : "egress_lossy_profile"
-EGRESS_LOSSLESS_PROFILE : "egress_lossless_profile"         
+EGRESS_LOSSLESS_PROFILE : "egress_lossless_profile"
 MAX_IPV4_ROUTES_SUPPORTED: '82944'
 MAX_IPV6_ROUTES_SUPPORTED: '32768'
 MAX_IPV4_ROUTES_FOR_ERROR_HANDLING: '128000'

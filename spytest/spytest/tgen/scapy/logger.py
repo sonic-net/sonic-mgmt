@@ -1,28 +1,69 @@
 import os
 import sys
+import time
 import logging
-import threading
+import datetime
 import traceback
 
+from lock import Lock
+
+def time_delta(elapsed):
+    seconds = elapsed.total_seconds()
+    msec = elapsed.microseconds/1000
+    hour = seconds // 3600
+    seconds = seconds % 3600
+    minutes = seconds // 60
+    seconds = seconds % 60
+    return "%d:%02d:%02d,%03d" % (hour, minutes, seconds, msec)
+
+def get_log_lvl_name(lvl):
+    lvl_map = {"INFO" : "INFO ", "WARNING": "WARN "}
+    if lvl in lvl_map:
+        return lvl_map[lvl]
+    return lvl
+
+class LogFormatter(object):
+
+    def __init__(self):
+        self.start_time = time.time()
+        self.node_name = ""
+
+    def format(self, record):
+        elapsed_seconds = record.created - self.start_time
+        elapsed = datetime.timedelta(seconds=elapsed_seconds)
+        time_stamp = time_delta(elapsed)
+        lvl = get_log_lvl_name(record.levelname)
+        try:
+            msg = record.getMessage()
+        except Exception:
+            msg = "Exception getting message from record"
+        if self.node_name:
+            return "{} {} {} {}".format(time_stamp, self.node_name, lvl, msg)
+        else:
+            return "{} {} {}".format(time_stamp, lvl, msg)
+
 class Logger(object):
-    def __init__(self, dry=False, name="scapy-tgen"):
+    def __init__(self, dry=False, name="scapy-tgen", logs_dir = None):
         self.dry = dry
         self.dbg = 1
         self.log_file = None
-        self.screen_lock = threading.Lock()
-        self.fmt = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+        self.lock = Lock()
+        self.fmt = LogFormatter()
         self.logger = logging.getLogger(name)
         stdlog = logging.StreamHandler(sys.stdout)
-        stdlog.setLevel(logging.ERROR)
+        stdlog.setLevel(logging.ERROR if not self.dry else logging.DEBUG)
         ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
+        ch.setLevel(logging.ERROR if not self.dry else logging.DEBUG)
         ch.setFormatter(self.fmt)
         self.logger.addHandler(ch)
         self.logger.removeHandler(stdlog)
         self.logger.propagate = False
         self.log_file = None
         self.file_handler = None
-        self.logs_dir = os.getenv("SCAPY_TGEN_LOGS_PATH", "server")
+        if logs_dir:
+            self.logs_dir = logs_dir
+        else:
+            self.logs_dir = os.getenv("SCAPY_TGEN_LOGS_PATH", "server")
         self.set_log_file(None)
 
     @staticmethod
@@ -31,6 +72,10 @@ class Logger(object):
         path = os.path.abspath(path)
         if not os.path.exists(path):
             os.makedirs(path)
+
+    def set_node_name(self, name):
+        if self.fmt:
+            self.fmt.node_name = name
 
     def set_log_file(self, log_file):
         if self.file_handler:
@@ -42,6 +87,8 @@ class Logger(object):
                 log_file = os.path.join(self.logs_dir, log_file)
             self.ensure_parent(log_file)
             self.file_handler = logging.FileHandler(log_file)
+            self.file_handler.setFormatter(self.fmt)
+            self.file_handler.setLevel(logging.DEBUG)
             self.logger.addHandler(self.file_handler)
 
         self.log_file = log_file
@@ -60,7 +107,7 @@ class Logger(object):
             fh.close()
             data = map(str.strip, data)
             return "\n".join(data)
-        except:
+        except Exception:
              return ""
 
     def todo(self, etype, name, value):
@@ -74,8 +121,10 @@ class Logger(object):
 
     def _log(self, lvl, msg):
         if not msg.strip(): return
-        with self.screen_lock:
-            self.logger.log(lvl, msg)
+        self.lock.acquire()
+        for line in msg.split("\n"):
+            self.logger.log(lvl, line)
+        self.lock.release()
 
     def log(self, *args, **kwargs):
         msg = " ".join(map(str,args))
@@ -97,8 +146,9 @@ class Logger(object):
         self.logger.error(msg)
         self.logger.error("=========== exception ==================")
         self.logger.error(msg, traceback.format_exc())
-        with self.screen_lock:
-            self.logger.exception(e)
+        self.lock.acquire()
+        self.logger.exception(e)
+        self.lock.release()
 
     @staticmethod
     def setup():

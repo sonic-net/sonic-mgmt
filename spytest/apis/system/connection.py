@@ -34,8 +34,8 @@ def connect_to_device(ip, username, password, protocol='ssh', port=22,retry=0, a
             count += 1
             if count > retry:
                 break
-        except:
-            st.log("Except: Cannot connect..")
+        except Exception:
+            st.log("Exception: Cannot connect..")
             if alt_password:
                 st.log("Retrying with Alternate password..")
                 count = 1
@@ -50,7 +50,7 @@ def connect_to_device(ip, username, password, protocol='ssh', port=22,retry=0, a
                     count += 1
                     if count > retry:
                         break
-                except:
+                except Exception:
                     st.log("Except2: Cannot connect..")
                     break
             break

@@ -1,0 +1,14 @@
+Value Filldown vrfName (\w+)
+Value interface (\w+)
+
+Start
+  ^\s*VRF-NAME\s+INTERFACES
+  ^\s*-+$$ -> Table1
+
+Table1
+  ^\s*${vrfName}\s+${interface} -> Record
+  ^\s+${interface}\s*$$ -> Record
+  ^${vrfName}\s*$$ -> Record
+    
+EOF
+

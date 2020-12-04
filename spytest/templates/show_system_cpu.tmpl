@@ -1,0 +1,13 @@
+Value CPU (\S+)
+Value Kernel (\d+)
+Value User (\d+)
+Value Idle (\d+)
+
+Start
+  ^\s*CPU\s+%KERNEL\s+%USER\s+%IDLE\s*$$ -> Continue
+  ^\s*-+\s*$$ -> Table1
+
+Table1
+  ^\s*CPU-${CPU}\s+${Kernel}\s+${User}\s+${Idle}\s*$$ -> Record
+
+EOF

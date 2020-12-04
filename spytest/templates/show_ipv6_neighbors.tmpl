@@ -1,0 +1,16 @@
+Value Address (\S+)
+Value MacAddress (..:..:..:..:..:..)
+Value Interface (\S+)
+Value Vlan (\S+)
+Value count (\d+)
+
+
+Start
+  ^\s*Address\s+Hardware\s+address\s+Interface\s+Egress\s+Interface\s*$$ -> NDP
+  ^\s*Total\s+Entries\s*$$ -> COUNT
+
+NDP
+  ^\s*${Address}\s+${MacAddress}\s+${Interface}\s+${Vlan}\s*$$ -> Record
+
+COUNT
+  ^\s*${count}\s*$$ -> Record

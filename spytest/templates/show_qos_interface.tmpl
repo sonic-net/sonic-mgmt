@@ -1,0 +1,32 @@
+Value SCHEDULER_POLICY (\S+)
+Value DSCP_TO_TC_MAP (\S+)
+Value DOT1P_TO_TC_MAP (\S+)
+Value TC_TO_QUEUE_MAP (\S+)
+Value TC_TO_PG_MAP (\S+)
+Value TC_TO_DSCP_MAP (\S+)
+Value TC_TO_DOT1P_MAP (\S+)
+Value PFC_TO_QUEUE_MAP (\S+)
+Value PFC_ASYMMETRIC (\S+)
+Value PFC_PRIORITY (\S+|.*)
+Value ACTION (\S+)
+Value DETECTIONTIME (\d+)
+Value RESTORATIONTIME (\d+)
+
+
+Start
+  ^\s*scheduler\s*policy\s*\:\s*${SCHEDULER_POLICY}\s*$$
+  ^\s*dscp-tc-map\s*\:\s*${DSCP_TO_TC_MAP}\s*$$
+  ^\s*dot1p-tc-map\s*\:\s*${DOT1P_TO_TC_MAP}\s*$$
+  ^\s*tc-queue-map\s*\:\s*${TC_TO_QUEUE_MAP}\s*$$
+  ^\s*tc-pg-map\s*\:\s*${TC_TO_PG_MAP}\s*$$
+  ^\s*tc-dscp-map\s*\:\s*${TC_TO_DSCP_MAP}\s*$$
+  ^\s*tc-dot1p-map\s*\:\s*${TC_TO_DOT1P_MAP}\s*$$
+  ^\s*pfc-priority-queue-map\s*\:\s*${PFC_TO_QUEUE_MAP}\s*$$
+  ^\s*pfc-asymmetric\s*\:\s*${PFC_ASYMMETRIC}\s*$$
+  ^\s*pfc-priority\s*\:\s*${PFC_PRIORITY}\s*$$
+  ^\s*Action\s*\:\s*${ACTION}\s*$$
+  ^\s*Detection\s*Time\s*\:\s*${DETECTIONTIME}ms\s*$$
+  ^\s*Restoration\s*Time\s*\:\s*${RESTORATIONTIME}ms\s*$$ -> Record
+  ^$$
+
+EOF

@@ -1,0 +1,16 @@
+Value Current (\S+)
+Value Next (\S+)
+Value List Available (\S+)
+
+Start
+  ^\s*Current:\s*${Current}
+  ^\s*Next:\s*${Next}
+  ^\s*Available: -> Table1
+
+Table1
+  ^\s*.*# -> Record
+  ^\s*$$ -> Record
+  ^\s*${Available} -> Table1 
+
+EOF
+

@@ -11,6 +11,8 @@ from multiprocessing import Process
 
 import spytest
 from spytest.dicts import SpyTestDict
+import spytest.env as env
+
 import utilities.common as utils
 
 wa = SpyTestDict()
@@ -39,7 +41,7 @@ class BatchService(rpyc.Service):
     def set_items(self, items):
         self.items = items
         self.status = []
-        for item in items:
+        for _ in items:
             self.status.append(0)
         self.ready = True
 
@@ -70,7 +72,7 @@ class BatchService(rpyc.Service):
                 self.status[i] = 2
 
     def exposed_get_test(self):
-        for i, ent in enumerate(self.items):
+        for i, _ in enumerate(self.items):
             if self.status[i] == 0:
                 self.status[i] = 1
                 return self.items[i].nodeid
@@ -164,7 +166,7 @@ class BatchSlave(object):
 
         # connect to batch server
         conn = None
-        for i in range(0, 10):
+        for _ in range(0, 10):
             try:
                 filename = os.path.join(self.logs_path, "..", "batch.server")
                 lines = utils.read_lines(filename)
@@ -220,7 +222,7 @@ class BatchSlave(object):
 
 def get_impl_type():
     return 0 # not yet supported
-    #new_bach_run = os.getenv("SPYTEST_BATCH_RUN_NEW")
+    #new_bach_run = env.get("SPYTEST_BATCH_RUN_NEW")
     #if new_bach_run == "2":
         #return 2
     #return 1 if bool(new_bach_run) else 0
@@ -237,7 +239,7 @@ def slave_main(index, testbed_file, logs_path):
     key = "SPYTEST_TESTBED_FILE_gw{}".format(index)
     os.environ[key] = testbed_file
     os.environ["SPYTEST_TESTBED_FILE"] = testbed_file
-    spytest.main(True)
+    spytest.main.main(True)
 
 def slave_start(testbed_file, logs_path):
     debug("starting slave", testbed_file, wa.slave_index)
@@ -252,7 +254,7 @@ def slaves_init(logs_path):
     count = wa.count
     for index in range(0, count):
         key = "SPYTEST_TESTBED_FILE_gw{}".format(index)
-        slave_start(os.getenv(key), logs_path)
+        slave_start(env.get(key), logs_path)
 
 def configure(config, logs_path, is_slave):
     if get_impl_type() == 0:

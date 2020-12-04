@@ -1,0 +1,35 @@
+Value Interface (\S+)
+Value Via (\S+)
+Value Chassis_ID_value (.*)
+Value Chassis_name (.*)
+Value Chassis_descr (.*)
+Value Chassis_ttl (\d+)
+Value Chassis_mgmt_ip (\d+.\d+.\d+.\d+)
+Value Chassis_mgmt_ipv6 (.*)
+Value Chassis_Capability_Bridge (\S+)
+Value Chassis_Capability_Router (\S+)
+Value PortID_type (\S+)
+Value PortID_value (.*)
+Value PortDescr (\S+)
+
+Start
+  ^(-+\s*)*$$
+  ^\s*LLDP\s*Neighbors -> LLDP_details
+
+LLDP_details
+  ^(-+\s*)*$$ -> Record
+  ^\s*Interface:\s*${Interface},\s*via:\s*${Via}\s*$$
+  ^\s*Chassis:\s*$$
+  ^\s*ChassisID:\s*${Chassis_ID_value}\s*$$
+  ^\s*SysName:\s*${Chassis_name}\s*$$
+  ^\s*SysDescr:\s*${Chassis_descr}\s*$$
+  ^\s*TTL:\s*${Chassis_ttl}\s*$$
+  ^\s*MgmtIP:\s*${Chassis_mgmt_ip}\s*$$
+  ^\s*MgmtIP:\s*${Chassis_mgmt_ipv6}\s*$$
+  ^\s*Capability:\s*MAC_BRIDGE,\s*${Chassis_Capability_Bridge}\s*$$
+  ^\s*Capability:\s*ROUTER,\s*${Chassis_Capability_Router}\s*$$
+  ^\s*Port:\s*$$
+  ^\s*PortID:\s*${PortID_value}\s*$$
+  ^\s*PortDescr:\s*${PortDescr}\s*$$
+  ^(-+\s*)*$$
+  ^$$

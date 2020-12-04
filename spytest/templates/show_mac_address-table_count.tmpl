@@ -1,0 +1,14 @@
+Value MACEntries (\d+)
+Value DynamicAddressCount (\d+)
+Value StaticAddressCount (\d+)
+Value TotalMACAddresses (\d+)
+
+Start
+  ^\s*MAC Entries for all vlans :  ${MACEntries}
+  ^\s*Dynamic Address Count :  ${DynamicAddressCount}
+  ^\s*Static\s*Address\s*\(User-defined\)\s*Count\s*:\s*${StaticAddressCount}
+  ^\s*Total MAC Addresses in Use: ${TotalMACAddresses} -> Record
+
+EOF
+
+

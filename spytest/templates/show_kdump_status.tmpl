@@ -1,0 +1,6 @@
+Value admin_status (\S+)
+Value oper_status (\S+)
+
+Start
+  ^\s*Kdump Administrative Mode\s*:\s*${admin_status}
+  ^\s*Kdump Operational State\s*:\s*${oper_status} -> Record

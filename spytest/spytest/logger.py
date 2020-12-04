@@ -1,3 +1,4 @@
+import re
 import logging
 import sys
 import traceback
@@ -6,6 +7,7 @@ import os
 import time
 import datetime
 from spytest.st_time import get_timestamp
+import spytest.env as env
 
 def get_thread_name():
     name = threading.current_thread().name
@@ -13,7 +15,7 @@ def get_thread_name():
     try:
         num = int(name.replace("Thread-", ""))
         name = "T%04d: " % (num)
-    except:
+    except Exception:
         pass
     return name
 
@@ -51,9 +53,6 @@ class LogFormatter(object):
         return "{} {}{} {}".format(time_stamp, thid, lvl, msg)
 
 class Logger(object):
-    """
-    todo: Update Documentation
-    """
 
     def __init__(self, file_prefix=None, filename=None, name='', level=logging.INFO, tlog=False, mlog=True):
         """
@@ -69,40 +68,51 @@ class Logger(object):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
         self.dut_loggers = dict()
+        self.alert_logger = None
+        self.tc_log_support = tlog
         self.tc_log_handler = None
+        self.module_log_support = mlog
         self.module_log_handler = None
+        self.module_logger = None
+        self.module_only_log_support = True
         self.file_prefix = file_prefix
-        self.tc_log_handler_support = tlog
-        self.module_log_handler_support = mlog
-        self.use_elapsed_time_fmt = bool(os.getenv("SPYTEST_LOGS_TIME_FMT_ELAPSED", "0") == "1")
-        self.tc_log_fmt = None
-        self.module_log_fmt = None
-        self.base_fmt = LogFormatter(self.use_elapsed_time_fmt)
+        self.use_elapsed_time_fmt = bool(env.get("SPYTEST_LOGS_TIME_FMT_ELAPSED", "0") == "1")
+        self.module_only_log_support = bool(env.get("SPYTEST_LOGS_MODULE_ONLY_SUPPORT", "0") == "1")
 
         logfile = filename if filename else "spytest.log"
-
         logfile = self._add_prefix(logfile)
-
         self.logdir = os.path.dirname(logfile)
-        self.add_file_handler(self.logger, logfile)
+        self.add_file_handler(self.logger, logfile, add_prefix=False)
 
         # Handler for Console logs
-        if not os.getenv("SPYTEST_NO_CONSOLE_LOG"):
+        if env.get("SPYTEST_NO_CONSOLE_LOG", "0") == "0":
             console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setFormatter(self.base_fmt)
+            fmt = LogFormatter(self.use_elapsed_time_fmt)
+            console_handler.setFormatter(fmt)
             self.logger.addHandler(console_handler)
+
+        # Handler for Alert logs
+        if not self.alert_logger:
+            logfile_path = "alerts.log"
+            self.alert_logger = logging.getLogger(logfile_path)
+            self.add_file_handler(self.alert_logger, logfile_path)
+            self.alert_logger.propagate = False
 
     def __del__(self):
         pass
 
-    def add_file_handler(self, logger, logfile):
+    def add_file_handler(self, logger, logfile, add_prefix=True):
+        if add_prefix:
+            logfile = self._add_prefix(logfile)
         logdir = os.path.dirname(logfile)
         if logdir and not os.path.exists(logdir):
             os.makedirs(logdir)
 
         file_handler = logging.FileHandler(logfile, 'w')
-        file_handler.setFormatter(self.base_fmt)
+        fmt = LogFormatter(self.use_elapsed_time_fmt)
+        file_handler.setFormatter(fmt)
         logger.addHandler(file_handler)
+        return file_handler
 
     def _add_prefix(self, filename):
         if self.file_prefix:
@@ -111,182 +121,155 @@ class Logger(object):
             filename = os.path.join(self.logdir, filename)
         return filename
 
-    def info(self, msg, dut=None, split_lines=False, exc_info=False):
-        """
-        todo: Update Documentation
-        :param msg:
-        :type msg:
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
+    def info(self, msg, dut=None, split_lines=False, exc_info=False, dst=None):
+        self.log(logging.INFO, msg, dut, split_lines, exc_info=exc_info, dst=dst)
 
-        self.log(logging.INFO, msg, dut, split_lines, exc_info=exc_info)
+    def error(self, msg, dut=None, split_lines=False, exc_info=True, dst=None):
+        self.log(logging.ERROR, msg, dut, split_lines, exc_info=exc_info, dst=dst)
 
-    def error(self, msg, dut=None, split_lines=False, exc_info=True):
-        """
-        todo: Update Documentation
-        :param msg:
-        :type msg:
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
-        self.log(logging.ERROR, msg, dut, split_lines, exc_info=exc_info)
+    def debug(self, msg, dut=None, split_lines=False, dst=None):
+        self.log(logging.DEBUG, msg, dut, split_lines, dst=dst)
 
-    def debug(self, msg, dut=None, split_lines=False):
-        """
-        todo: Update Documentation
-        :param msg:
-        :type msg:
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
-        self.log(logging.DEBUG, msg, dut, split_lines)
+    def warning(self, msg, dut=None, split_lines=False, dst=None):
+        self.log(logging.WARNING, msg, dut, split_lines, dst=dst)
 
-    def warning(self, msg, dut=None, split_lines=False):
-        """
-        todo: Update Documentation
-        :param msg:
-        :type msg:
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
-        self.log(logging.WARNING, msg, dut, split_lines)
-
-    def exception(self, msg, dut=None, split_lines=False):
-        """
-        todo: Update Documentation
-        :param msg:
-        :type msg:
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
+    def exception(self, msg, dut=None, split_lines=False, dst=None):
         msg2 = "{}\n{}".format(msg, traceback.format_exc())
-        self.log(logging.ERROR, msg2, dut, split_lines)
+        self.log(logging.ERROR, msg2, dut, split_lines, dst=dst)
 
     def set_lvl(self, lvl):
-        """
-        todo: Update Documentation
-        :param lvl:
-        :type lvl:
-        :return:
-        :rtype:
-        """
         if lvl == "debug":
             self.logger.setLevel(logging.DEBUG)
 
-    def log(self, lvl, msg, dut=None, split_lines=False, exc_info=False):
-        """
-        todo: Update Documentation
-        :param lvl:
-        :type lvl:
-        :param msg:
-        :type msg:
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
+    def log(self, lvl, msg, dut=None, split_lines=False, exc_info=False, dst=None):
+
+        if isinstance(dut, list):
+            for d in dut:
+                self.log(lvl, msg, d, split_lines, exc_info=exc_info, dst=dst)
+            return
         if dut:
-            self.dut_log(dut, msg, lvl, split_lines, exc_info=exc_info)
+            self.dut_log(dut, msg, lvl, split_lines, exc_info=exc_info, dst=dst)
         elif split_lines:
             for line in msg.splitlines():
-                self.logger.log(lvl, line, exc_info=exc_info)
+                self.log(lvl, line, exc_info=exc_info, dst=dst)
         else:
-            self.logger.log(lvl, msg, exc_info=exc_info)
+            dst = dst or ["all", "module"]
+            if "all" in dst:
+                self.logger.log(lvl, msg, exc_info=exc_info)
+            if "module" in dst and self.module_only_log_support:
+                if self.module_logger:
+                    self.module_logger.log(lvl, msg, exc_info=exc_info)
+                    self.flush_handlers(self.module_logger)
 
-    def dut_log(self, dut, msg, lvl=logging.INFO, skip_general=False,
-                split_lines=False, conn=None, exc_info=False):
+    def _tostring(self, msg):
+        msg = re.sub(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]', ' ', msg)
+        msg = re.sub(r'[^\x00-\x7F]+', ' ', msg)
+        try:
+            return msg.encode('ascii', 'ignore').decode('ascii')
+        except Exception as exp:
+            print(str(exp))
+        return "non-ascii characters"
+
+    @staticmethod
+    def get_dlog_name(dut):
+        return "dlog-{0}.log".format(dut)
+
+    # per device LOG, the message can single or list of messages
+    def dut_log(self, dut, msg, lvl=logging.INFO, split_lines=False, conn=None,
+                exc_info=False, dst=None, prefix=""):
 
         if isinstance(msg, list):
             for line in msg:
-                self.dut_log(dut, line, lvl, skip_general, False, conn, exc_info=exc_info)
+                self.dut_log(dut, line, lvl, False, conn,
+                             exc_info=exc_info, dst=dst, prefix=prefix)
             return
 
         if split_lines:
             for line in msg.splitlines():
-                self.dut_log(dut, line, lvl, skip_general, False, conn, exc_info=exc_info)
+                self.dut_log(dut, line, lvl, False, conn,
+                             exc_info=exc_info, dst=dst, prefix=prefix)
             return
 
         if dut not in self.dut_loggers:
-            logfile_path = "{0}.log".format(dut)
+            logfile_path = self.get_dlog_name(dut)
             self.dut_loggers[dut] = logging.getLogger(logfile_path)
-            logfile_path = self._add_prefix(logfile_path)
             self.add_file_handler(self.dut_loggers[dut], logfile_path)
             self.dut_loggers[dut].propagate = False
 
-        try:
-            msg1 = str(msg)
-        except UnicodeEncodeError as exp:
-            msg1 = unicode(msg)
+        msg1 = "{}{}".format(prefix, self._tostring(msg))
+        if conn: msg2 = "[{}-{}] {}".format(dut, conn, msg1)
+        else:    msg2 = "[{}] {}".format(dut, msg1)
+
+        dst = dst or ["all", "module", "dut"]
 
         # add main log
-        if not skip_general:
-            if conn:
-                msg2 = "[{}-{}] {}".format(dut, conn, msg1)
-            else:
-                msg2 = "[{}] {}".format(dut, msg1)
+        if "all" in dst:
             self.logger.log(lvl, msg2, exc_info=exc_info)
-            for handler in self.logger.handlers:
-                handler.flush()
+            self.flush_handlers(self.logger)
+
+        # add module log
+        if "module" in dst and self.module_only_log_support:
+            if self.module_logger:
+                self.module_logger.log(lvl, msg2, exc_info=exc_info)
+                self.flush_handlers(self.module_logger)
 
         # add DUT log
-        if conn:
-            msg2 = "[{}] {}".format(conn, msg1)
-        else:
-            msg2 = "{}".format(msg1)
-        self.dut_loggers[dut].log(lvl, msg2, exc_info=exc_info)
-        for handler in self.dut_loggers[dut].handlers:
+        if "dut" in dst:
+            if conn: msg2 = "[{}] {}".format(conn, msg1)
+            else:    msg2 = "{}".format(msg1)
+            self.dut_loggers[dut].log(lvl, msg2, exc_info=exc_info)
+            self.flush_handlers(self.dut_loggers[dut])
+
+    def flush_handlers(self, logger):
+        for handler in logger.handlers:
             handler.flush()
 
-    def tc_log_init(self, test_name):
-        if not self.tc_log_handler_support:
-            return
-        if self.tc_log_handler:
-            self.tc_log_handler.close()
-            self.logger.removeHandler(self.tc_log_handler)
-            self.tc_log_handler = None
+    def close_handler(self, handler, logger=None):
+        if handler:
+            handler.close()
+            logger = logger or self.logger
+            logger.removeHandler(handler)
+        return None
 
-        if test_name:
-            logfile_path = self._add_prefix("{}.log".format(test_name))
-            self.tc_log_handler = logging.FileHandler(logfile_path, 'w')
-            self.tc_log_fmt = LogFormatter(self.use_elapsed_time_fmt)
-            self.tc_log_handler.setFormatter(self.tc_log_fmt)
-            self.logger.addHandler(self.tc_log_handler)
+    def tc_log_init(self, test_name):
+        if not self.tc_log_support: return
+        self.tc_log_handler = self.close_handler(self.tc_log_handler)
+        if not test_name: return
+        logfile_path = "{}.log".format(test_name)
+        rv = self.add_file_handler(self.logger, logfile_path)
+        self.tc_log_handler = rv
 
     def module_log_init(self, module_name):
-        if not self.module_log_handler_support:
+        if not self.module_log_support: return
+        self.module_log_handler = self.close_handler(self.module_log_handler,
+                                                     self.module_logger)
+        if not module_name: return
+        logfile_path = "{}.log".format(module_name)
+        if self.module_only_log_support:
+            self.module_logger = logging.getLogger(logfile_path)
+            rv = self.add_file_handler(self.module_logger, logfile_path)
+            self.module_logger.propagate = False
+        else:
+            self.module_logger = self.logger
+            rv = self.add_file_handler(self.module_logger, logfile_path)
+        self.module_log_handler = rv
+
+    def alert(self, msg, lvl=logging.INFO, exc_info=False):
+
+        if isinstance(msg, list):
+            for line in msg:
+                self.alert(line, lvl, exc_info=exc_info)
             return
-        if self.module_log_handler:
-            self.module_log_handler.close()
-            self.logger.removeHandler(self.module_log_handler)
-            self.module_log_handler = None
 
-        if module_name:
-            logfile_path = self._add_prefix("{}.log".format(module_name))
-            self.module_log_handler = logging.FileHandler(logfile_path, 'w')
-            self.module_log_fmt = LogFormatter(self.use_elapsed_time_fmt)
-            self.module_log_handler.setFormatter(self.module_log_fmt)
-            self.logger.addHandler(self.module_log_handler)
+        if self.alert_logger:
+            self.alert_logger.log(lvl, msg, exc_info=exc_info)
+            self.flush_handlers(self.alert_logger)
 
-if __name__ == "__main__":
-    logger = Logger("ut", "logs.log")
-    logger.info("generic info 1")
-    logger.dut_log("D1", "dut-1 info 1")
-    logger.dut_log("D2", "dut-2 info 1")
-    logger.dut_log("D1", "dut-1 info 1", conn="SSH")
-    logger.dut_log("D2", "dut-2 info 1", conn="SSH")
-    logger.error("generic error 1")
-    logger.warning("generic warning 1")
-    logger.dut_log("D1", "dut-1 info 1", lvl=logging.WARNING)
-    logger.dut_log("D2", "dut-2 info 1", lvl=logging.WARNING)
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+def getNoneLogger():
+    logger = logging.getLogger("dummy")
+    logger.addHandler(NullHandler())
+    return logger
 

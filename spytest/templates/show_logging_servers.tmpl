@@ -1,0 +1,14 @@
+Value Filldown HOST (\S+)
+Value Filldown PORT (\d+)
+Value Filldown SRCINTF (\S+)
+Value Filldown VRF (\S+)
+
+Start
+  ^-+\s*
+  ^\s*HOST\s*PORT\s*SOURCE-INTERFACE\s*VRF\s*
+  ^-+\s*
+  ^\s*${HOST}\s+${PORT}\s+${SRCINTF}\s+${VRF}\s* -> Record
+  ^\s*${HOST}\s+${PORT}\s+${SRCINTF}\s+-+\s* -> Record
+  ^\s*${HOST}\s+${PORT}\s+-\s+-+\s* -> Record
+
+EOF

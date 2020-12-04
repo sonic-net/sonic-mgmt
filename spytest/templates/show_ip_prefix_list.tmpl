@@ -1,0 +1,13 @@
+Value Required LIST_NAME ([\w_]+)
+Value List PREFIXTYPE ((permit)|(deny))
+Value List PREFIXIP ((\d{1,3}\.){3}\d{1,3}\/\d{1,2})
+Value List PREFIXGEVAL (\d{1,2})
+Value List PREFIXLEVAL (\d{1,2})
+
+Start
+  ^\s*IP prefix list.* -> Continue.Record
+  ^\s*IP prefix list ${LIST_NAME}:
+  ^\s*${PREFIXTYPE} ${PREFIXIP}( ge ${PREFIXGEVAL})( le ${PREFIXLEVAL})
+  ^\s*${PREFIXTYPE} ${PREFIXIP}( ge ${PREFIXGEVAL})
+  ^\s*${PREFIXTYPE} ${PREFIXIP}( le ${PREFIXLEVAL})
+  ^\s*${PREFIXTYPE} ${PREFIXIP}

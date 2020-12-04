@@ -26,6 +26,13 @@ def pytest_collection_modifyitems(session, config, items):
     stf.modify_tests(config, items)
     trace("%s: end\n", get_proc_name())
 
+@pytest.hookimpl(trylast=True)
+def pytest_generate_tests(metafunc):
+    trace("\n%s: start", get_proc_name())
+    trace("{}".format(metafunc))
+    stf.generate_tests(metafunc.config, metafunc)
+    trace("%s: end\n", get_proc_name())
+
 def unused_pytest_runtest_logstart(nodeid, location):
     trace("\n%s: start", get_proc_name())
     trace("{} {}".format(nodeid, location))
@@ -76,14 +83,14 @@ def pytest_configure(config):
 def pytest_unconfigure(config):
     trace("\n%s: start", get_proc_name())
     trace("{}".format(config))
-    rv = stf.unconfigure(config)
+    stf.unconfigure(config)
     trace("%s: end\n", get_proc_name())
-    return rv
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_xdist_setupnodes(config, specs):
     trace("\n%s: start", get_proc_name())
     trace("{}".format(config))
-    stf.configure_nodes(config)
+    stf.configure_nodes(config, specs)
     trace("%s: end\n", get_proc_name())
 
 def pytest_configure_node(node):
@@ -142,24 +149,21 @@ def pytest_fixture_post_finalizer(fixturedef, request):
     trace("\n%s: start", get_proc_name())
     trace("{}".format(fixturedef))
     trace("{}".format(request))
-    rv = stf.fixture_post_finalizer(fixturedef, request)
+    stf.fixture_post_finalizer(fixturedef, request)
     trace("%s: end\n", get_proc_name())
-    return rv
 
 def pytest_sessionstart(session):
     trace("\n%s: start", get_proc_name())
     trace("{}".format(session))
-    rv = stf.session_start(session)
+    stf.session_start(session)
     trace("%s: end\n", get_proc_name())
-    return rv
 
 def pytest_sessionfinish(session, exitstatus):
     trace("\n%s: start", get_proc_name())
     trace("{}".format(session))
     trace("{}".format(exitstatus))
-    rv = stf.session_finish(session, exitstatus)
+    stf.session_finish(session, exitstatus)
     trace("%s: end\n", get_proc_name())
-    return rv
 
 def unused_pytest_keyboard_interrupt(excinfo):
     trace("\n%s: start", get_proc_name())
@@ -173,6 +177,13 @@ def pytest_pyfunc_call(pyfuncitem):
     yield
     stf.pyfunc_call(pyfuncitem, True)
     trace("\n%s: epilog", get_proc_name())
+
+@pytest.fixture(autouse=True)
+def global_repeat_request(request):
+    trace("\n----------global repeat start------------\n")
+    rv = stf.global_repeat_request(request)
+    trace("\n----------global repeat end------------\n")
+    return rv
 
 @pytest.fixture(scope="session", autouse=True)
 def global_session_request(request):
