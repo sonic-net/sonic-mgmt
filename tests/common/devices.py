@@ -127,7 +127,6 @@ class SonicHost(AnsibleHostBase):
     and also provides the ability to run Ansible modules on the SONiC device.
     """
 
-    _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None):
@@ -158,8 +157,8 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
 
-        self.reset_critical_services_tracking_list()
 
     @property
     def facts(self):
@@ -217,20 +216,16 @@ class SonicHost(AnsibleHostBase):
             This list is used for tracking purposes ONLY. Updating the list does
             not actually modify any services running on the device.
         """
-
-        if self.facts["num_asic"] > 1:
-            self._critical_services = self._generate_critical_services_for_multi_asic(var)
-        else:
-            self._critical_services = var
+        self._critical_services = var
 
         logging.debug(self._critical_services)
 
-    def reset_critical_services_tracking_list(self):
+    def reset_critical_services_tracking_list(self, service_list):
         """
-        Resets the list of critical services to the default.
+        Resets the list of critical services.
         """
 
-        self.critical_services = self._DEFAULT_CRITICAL_SERVICES
+        self.critical_services = service_list
 
     def _gather_facts(self):
         """
@@ -270,21 +265,6 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
-    def _generate_critical_services_for_multi_asic(self, services):
-        """
-        Generates a fully-qualified list of critical services for multi-asic platforms, based on a
-        base list of services.
-
-        Example:
-        ["swss", "syncd"] -> ["swss0", "swss1", "swss2", "syncd0", "syncd1", "syncd2"]
-        """
-
-        m_service = []
-        for service in services:
-            for asic in range(self.facts["num_asic"]):
-                asic_service = service + str(asic)
-                m_service.insert(asic, asic_service)
-        return m_service
 
     def _get_platform_info(self):
         """
@@ -1121,6 +1101,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
         return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
 
+    def run_redis_cli_cmd(self, redis_cmd):
+        cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
+        return self.command(cmd)
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1545,6 +1528,8 @@ class SonicAsic(object):
     The purpose is to hide the complexity of handling ASIC/namespace specific details.
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
+
+    _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
     def __init__(self, sonichost, asic_index):
         """ Initializing a ASIC on a SONiC host.
 
@@ -1554,7 +1539,26 @@ class SonicAsic(object):
         """
         self.sonichost = sonichost
         self.asic_index = asic_index
+        if self.sonichost.is_multi_asic:
+            self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
+        else:
+            # set the namespace to DEFAULT_NAMESPACE(None) for single asic
+            self.namespace = DEFAULT_NAMESPACE
 
+    def get_critical_services(self):
+        """This function returns the list of the critical services
+           for the namespace(asic)
+
+           If the dut is multi asic, then the asic_id is appended t0 the 
+            _DEFAULT_ASIC_SERVICES list
+        Returns:
+            [list]: list of the services running the namespace/asic
+        """
+        a_service = []
+        for service in self._DEFAULT_ASIC_SERVICES:
+           a_service.append("{}{}".format(
+               service, self.asic_index if self.sonichost.is_multi_asic else ""))
+        return a_service
 
     def bgp_facts(self, *module_args, **complex_args):
         """ Wrapper method for bgp_facts ansible module.
@@ -1585,10 +1589,43 @@ class SonicAsic(object):
         """
         if 'host' not in complex_args:
             complex_args['host'] = self.sonichost.hostname
-        if self.sonichost.facts['num_asic'] != 1:
-            complex_args['namespace'] = 'asic{}'.format(self.asic_index)
+        if self.sonichost.is_multi_asic:
+            complex_args['namespace'] = self.namespace
         return self.sonichost.config_facts(*module_args, **complex_args)
 
+    def show_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_interface'
+        
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show interface status command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_interface(*module_args, **complex_args)
+
+    def show_ip_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ip_interface'
+        
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show interface status command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ip_interface(*module_args, **complex_args)
+
+    def run_redis_cli_cmd(self, redis_cmd):
+        if self.namespace:
+            redis_cli = "/usr/bin/redis-cli"
+            cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli,redis_cmd)
+            return self.sonichost.command(cmd)
+        # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
+        return self.sonichost.run_redis_cli_cmd(redis_cmd)
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
@@ -1599,6 +1636,8 @@ class MultiAsicSonicHost(object):
     So, even a single asic pizza box is represented as a MultiAsicSonicHost with 1 SonicAsic.
     """
 
+    _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
+
     def __init__(self, ansible_adhoc, hostname):
         """ Initializing a MultiAsicSonicHost.
 
@@ -1608,6 +1647,21 @@ class MultiAsicSonicHost(object):
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+        self.critical_services_tracking_list()
+
+    def critical_services_tracking_list(self):
+        """Get the list of services running on the DUT
+           The services on the sonic devices are:
+              - services running on the host 
+              - services which are replicated per asic
+            Returns:
+            [list]: list of the services running the device
+        """
+        service_list = []
+        service_list+= self._DEFAULT_SERVICES
+        for asic in self.asics:
+            service_list += asic.get_critical_services()
+        self.sonichost.reset_critical_services_tracking_list(service_list)
 
     def _run_on_asics(self, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
