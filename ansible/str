@@ -31,12 +31,14 @@ all:
           ansible_host: 10.64.246.44
         vtf2-6:
           ansible_host: 10.64.246.16
+          ansible_hostv6: 2a01:111:e210:b000::9
         ptf3-1:
           ansible_host: 10.64.246.18
         vms1-1:
           ansible_host: 10.64.246.56
         vms1-2:
           ansible_host: 10.64.246.57
+          ansible_hostv6: 2a01:111:e210:b000::8
         vms1-3:
           ansible_host: 10.64.246.69
         vms1-4:
@@ -63,6 +65,7 @@ all:
           ansible_host: 10.64.246.11
         vms3-5:
           ansible_host: 10.64.247.15
+          ansible_hostv6: 2a01:111:e210:b000::7
         vms3-61:
           ansible_host: 10.64.246.21
         vms3-60:
@@ -89,6 +92,7 @@ all:
           ansible_host: 10.64.247.8
         vms7-7:
           ansible_host: 10.64.247.17
+          ansible_hostv6: 2a01:111:e210:b000::6 
         vms7-8:
           ansible_host: 10.64.247.21
         vms7-9:
@@ -249,9 +253,11 @@ sonic_dell32_40:
       pdu_host: pdu-97
     str-s6000-acs-8:
       ansible_host: 10.3.147.197
+      ansible_hostv6: 2a01:111:e210:3000::11
       pdu_host: pdu-97
     str-s6000-acs-9:
       ansible_host: 10.3.147.235
+      ansible_hostv6: 2a01:111:e210:3000::13
       pdu_host: pdu-99
     str-s6000-acs-10:
       ansible_host: 10.3.147.237
@@ -358,6 +364,7 @@ sonic_mlnx_40:
       pdu_host: pdu-103
     str-msn2700-02:
       ansible_host: 10.3.147.45
+      ansible_hostv6: 2a01:111:e210:3000::14
       pdu_host: pdu-99
       model: MSN2700-CS2FO
       hwsku: Mellanox-SN2700
@@ -437,6 +444,7 @@ sonic_arista64_100:
   hosts:
     str-7260cx3-acs-1:
       ansible_host: 10.64.247.224
+      ansible_hostv6: 2a01:111:e210:b000::4
       hwsku: Arista-7260CX3-D108C8
       pdu_host: pdu-106
     str-7260cx3-acs-2:
@@ -525,6 +533,7 @@ sonic_dx010_100:
   hosts:
     str-dx010-acs-1:
       ansible_host: 10.64.246.33
+      ansible_hostv6: 2a01:111:e210:b000::5
       pdu_host: pdu-108
     str-dx010-acs-4:
       ansible_host: 10.64.246.98
@@ -550,6 +559,7 @@ sonic_nexus_3164:
       pdu_host: pdu-105
     str-n3164-acs-1:
       ansible_host: 10.3.147.149
+      ansible_hostv6: 2a01:111:e210:3000::12
       pdu_host: pdu-105
   vars:
     hwsku: Nexus-3164
