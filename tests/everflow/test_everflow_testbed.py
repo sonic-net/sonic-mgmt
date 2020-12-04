@@ -63,35 +63,23 @@ class EverflowIPv4Tests(BaseEverflowTest):
     DEFAULT_DST_IP = "30.0.0.1"
     
     @pytest.fixture
-    def setup_dest_port_type(self, request):
+    def setup_dest_port_type(self, dest_port_type, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, tbinfo):
         """
         This fixture get the dest port type and can perform action based
         on that. As of now cleanup is being done here.
-
-        Args:
-            request: Pytest request object
-
-        Returns:
-            A destination port type in {tor, spine}.
         """
-        yield request.param
+        yield dest_port_type
         
-        duthosts = request.getfixturevalue("duthosts")
-        rand_one_dut_hostname = request.getfixturevalue("rand_one_dut_hostname")
-        setup_info = request.getfixturevalue("setup_info")
-        setup_mirror_session =  request.getfixturevalue("setup_mirror_session")
-        tbinfo = request.getfixturevalue("tbinfo")
-
         duthost = duthosts[rand_one_dut_hostname]
 
-        for index in range(0, min(3, len(setup_info[request.param]["dest_port"]))):
-            tx_port = setup_info[request.param]["dest_port"][index]
+        for index in range(0, min(3, len(setup_info[dest_port_type]["dest_port"]))):
+            tx_port = setup_info[dest_port_type]["dest_port"][index]
             peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
             everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
             everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
 
 
-    @pytest.mark.parametrize('setup_dest_port_type', ["tor", "spine"], indirect=['setup_dest_port_type'])
+    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
     def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
         """
         Verify basic forwarding scenarios for the Everflow feature.
@@ -173,7 +161,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             [tx_port_ptf_id]
         )
 
-    @pytest.mark.parametrize('setup_dest_port_type', ["tor", "spine"], indirect=['setup_dest_port_type'])
+    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
     def test_everflow_neighbor_mac_change(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
         duthost = duthosts[rand_one_dut_hostname]
@@ -228,7 +216,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             [tx_port_ptf_id]
         )
     
-    @pytest.mark.parametrize('setup_dest_port_type', ["tor", "spine"], indirect=['setup_dest_port_type'])
+    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
     def test_everflow_remove_unused_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
         duthost = duthosts[rand_one_dut_hostname]
@@ -302,7 +290,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tx_port_ptf_ids
         )
 
-    @pytest.mark.parametrize('setup_dest_port_type', ["tor", "spine"], indirect=['setup_dest_port_type'])
+    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
     def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, setup_dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
         duthost = duthosts[rand_one_dut_hostname]
@@ -385,20 +373,18 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tx_port_ptf_ids
         )
     
-    @pytest.mark.parametrize('setup_dest_port_type', ["tor", "spine"])
+    @pytest.mark.parametrize('dest_port_type', ["tor", "spine"])
     def test_everflow_dscp_with_policer(
             self,
             duthost,
             setup_info,
             policer_mirror_session,
-            setup_dest_port_type,
+            dest_port_type,
             partial_ptf_runner,
             config_method,
             tbinfo
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table."""
-        dest_port_type = setup_dest_port_type
-
         # Add explicit route for the mirror session
         tx_port = setup_info[dest_port_type]["dest_port"][0]
         peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
