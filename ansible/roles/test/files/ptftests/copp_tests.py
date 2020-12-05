@@ -54,21 +54,10 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.timeout_thr = None
 
-        self.minig_bgp = test_params.get('minig_bgp', None)
         idx = 0
-        self.myip = {}
-        self.peerip = {}
+        self.myip = test_params.get('myip', None)
+        self.peerip = test_params.get('peerip', None)
       
-        for peer in self.minig_bgp:
-            if str(peer['peer_addr']).find('10.0.0') == 0:#filter IPv6 info.
-              self.myip[idx] = peer['addr']
-              self.peerip[idx] = peer['peer_addr']
-              idx = idx+1
-        #if port number is out of the total of IPv4, take the last IPv4
-        if int(target_port_str) > idx-1:
-          self.myip[self.target_port] = self.myip[idx-1]
-          self.peerip[self.target_port] = self.peerip[idx-1]
-       
         return
 
     def log(self, message, debug=False):
@@ -244,8 +233,8 @@ class ARPTest(PolicyTest):
 
     def contruct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
-        src_ip = self.myip[port_number]
-        dst_ip = self.peerip[port_number]
+        src_ip = self.myip
+        dst_ip = self.peerip
 
         packet = simple_arp_packet(
                        eth_dst='ff:ff:ff:ff:ff:ff',
@@ -377,7 +366,7 @@ class BGPTest(NoPolicyTest):
 
     def contruct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
-        dst_ip = self.peerip[port_number]
+        dst_ip = self.peerip
         packet = simple_tcp_packet(
                       eth_dst=dst_mac,
                       ip_dst=dst_ip,
@@ -417,7 +406,7 @@ class SNMPTest(PolicyTest): #FIXME: trapped as ip2me. mellanox should add suppor
     def contruct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
-        dst_ip = self.peerip[port_number]
+        dst_ip = self.peerip
         packet = simple_udp_packet(
                           eth_dst=dst_mac,
                           ip_dst=dst_ip,
@@ -437,8 +426,8 @@ class SSHTest(PolicyTest): # FIXME: ssh is policed now
 
     def contruct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
-        src_ip = self.myip[port_number]
-        dst_ip = self.peerip[port_number]
+        src_ip = self.myip
+        dst_ip = self.peerip
 
         packet = simple_tcp_packet(
                 eth_dst=dst_mac,
@@ -473,7 +462,7 @@ class IP2METest(PolicyTest):
     def contruct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
-        dst_ip = self.peerip[port_number]
+        dst_ip = self.peerip
 
         packet = simple_tcp_packet(
                       eth_src=src_mac,
@@ -494,9 +483,9 @@ class DefaultTest(PolicyTest):
 
     def contruct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
-        src_ip = self.myip[port_number]
+        src_ip = self.myip
         dst_port_number = (port_number + 1) % self.MAX_PORTS
-        dst_ip = self.peerip[dst_port_number]
+        dst_ip = self.peerip
 
         packet = simple_tcp_packet(
                 eth_dst=dst_mac,
