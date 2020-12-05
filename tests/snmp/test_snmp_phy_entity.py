@@ -3,6 +3,7 @@ import pytest
 import time
 
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_require
 from tests.platform_tests.thermal_control_test_helper import mocker_factory
 
 pytestmark = [
@@ -97,6 +98,13 @@ THERMAL_KEY_TEMPLATE = 'TEMPERATURE_INFO|{}'
 PHYSICAL_ENTITY_KEY_TEMPLATE = 'PHYSICAL_ENTITY_INFO|{}'
 XCVR_KEY_TEMPLATE = 'TRANSCEIVER_INFO|{}'
 XCVR_DOM_KEY_TEMPLATE = 'TRANSCEIVER_DOM_SENSOR|{}'
+
+
+@pytest.fixture(autouse=True, scope="module")
+def check_image_version(duthost):
+    """Skip the test for unsupported images."""
+    pytest_require("201911" not in duthost.os_version, "Test not supported for 201911 images. Skipping the test")
+    yield
 
 
 @pytest.fixture(scope="module")
