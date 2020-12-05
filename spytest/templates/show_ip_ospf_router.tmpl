@@ -5,8 +5,12 @@ Value Filldown TOSLIST (\S+)
 Value Filldown RFC (\S+)
 Value Filldown RFC1583 (\S+)
 Value Filldown OPAQCAPABILITY (\S+)
-Value Filldown MMTMR (\S+)
-Value Filldown MMTYPE (\S+)
+Value Filldown MMSHTMR (\S+)
+Value Filldown MMSHTYPE (\S+)
+Value Filldown MMSTTMR (\S+)
+Value Filldown MMSTTYPE (\S+)
+Value Filldown MMADTYPE (\S+)
+Value Filldown MMADTMR (\S+)
 Value Filldown SPFDELAY (\d+)
 Value Filldown SPFMINHOLD (\d+)
 Value Filldown SPFMAXHOLD (\d+)
@@ -35,9 +39,9 @@ Start
   ^\s*RFC1583Compatibility flag is\s+${RFC1583}\s*$$
   ^\s*OpaqueCapability flag is\s+${OPAQCAPABILITY}\s*$$
   ^\s*Stub router advertisement is configured\s*$$
-  ^\s*Enabled for\s*${MMTMR}s prior to full\s*${MMTYPE}\s*$$
-  ^\s*Enabled for\s*${MMTMR}s after\s*${MMTYPE}\s*$$
-  ^\s*${MMTYPE}istratively activated \(${MMTMR}\)\s*$$
+  ^\s*Enabled for\s*${MMSHTMR}s prior to full\s*${MMSHTYPE}\s*$$
+  ^\s*Enabled for\s*${MMSTTMR}s after\s*${MMSTTYPE}\s*$$
+  ^\s*${MMADTYPE}istratively activated \(${MMADTMR}\)\s*$$
   ^\s*Initial SPF scheduling delay\s+${SPFDELAY}\s+millisec\(s\)\s*$$
   ^\s*Minimum hold time between consecutive SPFs\s+${SPFMINHOLD}\s+millisec\(s\)\s*$$
   ^\s*Maximum hold time between consecutive SPFs\s+${SPFMAXHOLD}\s+millisec\(s\)\s*$$

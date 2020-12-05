@@ -1,0 +1,11 @@
+#Fri Jul 10 10:50:38 2020  State changed to: Up
+Value EVENT_TIME (\S+\s+\S+\s+\d+\s+[\d\:]+\s+\d+)
+Value EVENT (.*)
+
+Start
+  ^----* -> header
+
+header
+  ^\s*${EVENT_TIME}\s+${EVENT}$$ -> Record
+
+EOF

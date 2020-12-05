@@ -1,0 +1,11 @@
+parameters:
+    host:  10.11.97.10
+    port:  8080
+    ca: ~
+    cert: ~
+    username: ~
+    password: ~
+    options:
+        - -alsologtostderr
+        - -insecure
+
