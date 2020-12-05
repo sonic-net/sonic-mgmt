@@ -54,7 +54,6 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.timeout_thr = None
 
-        idx = 0
         self.myip = test_params.get('myip', None)
         self.peerip = test_params.get('peerip', None)
       
@@ -484,7 +483,6 @@ class DefaultTest(PolicyTest):
     def contruct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
         src_ip = self.myip
-        dst_port_number = (port_number + 1) % self.MAX_PORTS
         dst_ip = self.peerip
 
         packet = simple_tcp_packet(
