@@ -26,10 +26,10 @@ sftp:
   password: broadcom
 
 snmptrap:
-  ip: 10.59.143.179
+  ip: 172.27.148.42
   port: 22
-  username: vagrant
-  password: vagrant
+  username: sonic
+  password: sonic
   path: /var/log/snmptrap.log
 
 tacacs:
@@ -92,7 +92,7 @@ syslog:
 
 ntp:
   default: [216.239.35.4, 216.239.35.8, 216.239.35.12]
-  host: [162.246.94.71,192.111.144.114,47.190.36.230]
+  host: [1.74.23.200]
 
 smtp:
   host: smtphost.broadcom.com

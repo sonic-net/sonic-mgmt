@@ -21,8 +21,8 @@ ssh_data = SpyTestDict()
 
 def initialize_variables():
     ssh_data.clear()
-    ssh_data.usr_default = 'admin'
-    ssh_data.pwd_default = ['YourPaSsWoRd', 'broadcom']
+    ssh_data.usr_default = 'cisco'
+    ssh_data.pwd_default = ['cisco123', 'YourPaSsWoRd']
     ssh_data.pwd_final = ''
     ssh_data.usr_non_default = random_username(random.randint(5, 31))
     ssh_data.pwd_non_default = random_password(random.randint(6, 12))
@@ -44,6 +44,7 @@ def initialize_variables():
     ssh_data.contact = "Admin"
     ssh_data.sysname = "Sonic_device"
     ssh_data.oid_sysName = '1.3.6.1.2.1.1.5.0'
+    ssh_data.default_gw = '1.74.23.200'
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -57,7 +58,6 @@ def ssh_module_hooks(request):
 
     yield
     config_ip_address(oper='remove')
-    acl_obj.delete_acl_table(vars.D1)
     disable_sshv6(vars.D1)
     snmp_config(config='remove')
 
@@ -211,9 +211,15 @@ def test_ft_ssh_add_user_verify():
         st.error('Cannot SSH into Device with non-default credentials')
         user_ssh = + 1
 
+    #add default route to download ssh pass
+    ip_obj.create_static_route(vars.D2, ssh_data.default_gw, "default", "sonic")
+
     output = verify_ssh_connection(vars.D2, ssh_data.ipv4_address_D1D2P2, ssh_data.usr_default, ssh_data.pwd_final)
     if not output:
         user_ssh = + 1
+
+    #delete default route to download ssh pass
+    ip_obj.delete_static_route(vars.D2, ssh_data.default_gw, "default", "sonic")
 
     IPAddr = ensure_service_params(vars.D1, "snmptrap", "ip") + "/32"
     change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_ACL|RULE_1", "SRC_IP", IPAddr)
@@ -322,7 +328,8 @@ def test_ft_ssh_add_user_verify():
     else:
         st.report_tc_pass("test_ft_controlplane_acl_service_snmp", "snmp_output_failed", "with control plane ACL service SNMP after reboot")
 
-    acl_obj.delete_acl_table(vars.D1)
+    for table in acl_data.acl_json_config_control_plane['ACL_TABLE']:
+        acl_obj.delete_acl_table(vars.D1, acl_table_name=table)
 
     if acl_sshv4 or acl_sshv6 or acl_snmp:
         st.generate_tech_support(vars.D1, "controlplane_acl_services_after_reboot")
