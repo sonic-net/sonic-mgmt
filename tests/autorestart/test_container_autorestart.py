@@ -66,8 +66,10 @@ def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
             ".*ERR syncd#syncd.*processQuadEvent.*",
             ".*WARNING syncd#syncd.*skipping since it causes crash.*",
             ".*ERR swss#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR teamd#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR swss#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR snmp#snmpd.*",
         ]
     ignore_regex_dict = {
         'common' : [
