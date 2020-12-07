@@ -52,13 +52,13 @@ def bbr_default_state(setup):
 
 
 def enable_bbr(duthost):
-    logger.info('Disable BGP_BBR')
+    logger.info('Enable BGP_BBR')
     duthost.shell('sonic-cfggen -j /tmp/enable_bbr.json -w ')
     time.sleep(3)
 
 
 def disable_bbr(duthost):
-    logger.info('Enable BGP_BBR')
+    logger.info('Disable BGP_BBR')
     duthost.shell('sonic-cfggen -j /tmp/disable_bbr.json -w')
     time.sleep(3)
 
