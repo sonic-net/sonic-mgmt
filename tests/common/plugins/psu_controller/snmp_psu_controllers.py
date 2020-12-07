@@ -48,6 +48,8 @@ class snmpPsuController(PsuControllerBase):
             self.psuType = "SENTRY"
         if 'APC Web/SNMP Management Card' in psu:
             self.psuType = "APC"
+        if 'Emerson' in psu:
+            self.psuType = 'Emerson'
         return
 
     def psuCntrlOid(self):
@@ -62,6 +64,10 @@ class snmpPsuController(PsuControllerBase):
         SENTRY_PORT_NAME_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.3.1"
         SENTRY_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.5.1"
         SENTRY_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.11.1"
+        # MIB OID for 'Emerson'
+        EMERSON_PORT_NAME_BASE_OID = "1.3.6.1.4.1.476.1.42.3.8.50.20.1.10.1.1"
+        EMERSON_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.476.1.42.3.8.50.20.1.100.1.1"
+        EMERSON_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.476.1.42.3.8.50.20.1.100.1.1"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -80,6 +86,13 @@ class snmpPsuController(PsuControllerBase):
             self.PORT_NAME_BASE_OID      = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = SENTRY_PORT_CONTROL_BASE_OID
+        elif self.psuType == "Emerson":
+            self.pPORT_NAME_BASE_OID     = '.'+EMERSON_PORT_NAME_BASE_OID
+            self.pPORT_STATUS_BASE_OID   = '.'+EMERSON_PORT_STATUS_BASE_OID
+            self.pPORT_CONTROL_BASE_OID  = '.'+EMERSON_PORT_CONTROL_BASE_OID
+            self.PORT_NAME_BASE_OID      = EMERSON_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID    = EMERSON_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID   = EMERSON_PORT_CONTROL_BASE_OID
         else:
             pass
 
