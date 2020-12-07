@@ -114,7 +114,7 @@ def restore_ptf(ptf):
 
     ptf.supervisorctl(name="ptf_nn_agent", state="restarted")
 
-def configure_syncd(dut, nn_target_port, creds):
+def configure_syncd(dut, nn_target_port, nn_target_interface, creds):
     """
         Configures syncd to run the NN agent on the specified port.
 
@@ -125,11 +125,11 @@ def configure_syncd(dut, nn_target_port, creds):
         Args:
             dut (SonicHost): The target device.
             nn_target_port (int): The port to run NN agent on.
+            nn_target_interface (str): The Interface remote NN agents listens.
             creds (dict): Credential information according to the dut inventory
     """
 
-    facts = {"nn_target_port": nn_target_port,
-             "nn_target_interface": _map_port_number_to_interface(dut, nn_target_port)}
+    facts = {"nn_target_port": nn_target_port, "nn_target_interface": nn_target_interface}
     dut.host.options["variable_manager"].extra_vars.update(facts)
 
     _install_nano(dut, creds)

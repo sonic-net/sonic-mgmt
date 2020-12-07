@@ -13,12 +13,6 @@
         of these test cases.
 
     Parameters:
-        --nn_target_port <port> (int): Which port you want the test to send traffic
-            to. Default is 3.
-
-            Note that this is not the same as the interface name. For example, Ethernet12
-            may not be the 12th port in your system depending on the HWSKU under test.
-
         --pkt_tx_count <n> (int): How many packets to send during each individual test case.
             Default is 100000.
 
@@ -27,6 +21,7 @@
 
 """
 
+import ipaddr
 import logging
 import pytest
 import json
@@ -50,9 +45,11 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "pkt_tx_count",
                                   "swap_syncd",
                                   "topo",
-                                  "bgp_graph"])
+                                  "myip",
+                                  "peerip",
+                                  "nn_target_interface"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
-_SUPPORTED_T1_TOPOS = ["t1", "t1-lag"]
+_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
@@ -168,7 +165,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     params = {"verbose": False,
               "pkt_tx_count": test_params.pkt_tx_count,
               "target_port": test_params.nn_target_port,
-              "minig_bgp": test_params.bgp_graph}
+              "myip": test_params.myip,
+              "peerip": test_params.peerip}
 
     dut_ip = dut.setup()["ansible_facts"]["ansible_eth0"]["ipv4"]["address"]
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -194,17 +192,35 @@ def _gather_test_params(tbinfo, duthost, request):
         Fetches the test parameters from pytest.
     """
 
-    nn_target_port = request.config.getoption("--nn_target_port")
     pkt_tx_count = request.config.getoption("--pkt_tx_count")
     swap_syncd = request.config.getoption("--copp_swap_syncd")
     topo = tbinfo["topo"]["name"]
-    bgp_graph = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_bgp"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    port_index_map = {
+        k: v
+        for k, v in mg_facts["minigraph_port_indices"].items()
+        if k in mg_facts["minigraph_ports"]
+    }
+    nn_target_port = port_index_map[random.choice(port_index_map.keys())]
+    nn_target_interface = copp_utils._map_port_number_to_interface(duthost, nn_target_port)
+    myip = None
+    peerip = None
+
+    for bgp_peer in mg_facts["minigraph_bgp"]:
+        if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
+            myip = bgp_peer["addr"]
+            peerip = bgp_peer["peer_addr"]
+            break
+
+    logging.info("nn_target_port {} nn_target_interface {}".format(nn_target_port, nn_target_interface))
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                pkt_tx_count=pkt_tx_count,
                                swap_syncd=swap_syncd,
                                topo=topo,
-                               bgp_graph=bgp_graph)
+                               myip=myip,
+                               peerip = peerip,
+                               nn_target_interface=nn_target_interface)
 
 def _setup_testbed(dut, creds, ptf, test_params):
     """
@@ -227,7 +243,7 @@ def _setup_testbed(dut, creds, ptf, test_params):
         config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
-    copp_utils.configure_syncd(dut, test_params.nn_target_port, creds)
+    copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params):
     """
