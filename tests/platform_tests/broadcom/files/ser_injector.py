@@ -29,7 +29,7 @@ How to create skip list on an new ASIC:
     3. on target DUT: 'python ser_injector.py -v -c thorough | tee ser.log', copy
        the timeout set to the matching asic.
     4. If a new ASIC is not known to this script yet. Update asci name
-       and lspci signature in get_asic_type() function
+       and lspci signature in get_asic_name() function
 """
 SKIP_MEMORY_PER_ASIC = {
     'td2' : [
@@ -247,7 +247,7 @@ def run_cmd(cmd):
     stdout, stderr = out.communicate()
     return stdout, stderr
 
-def get_asic_type():
+def get_asic_name():
     asic = "unknown"
     stdout, _ = run_cmd("lspci")
     output = stdout.decode("utf-8")
@@ -267,7 +267,7 @@ def get_asic_type():
 def get_skip_list_per_asic():
     global SKIP_MEMORY_PER_ASIC
 
-    asic = get_asic_type()
+    asic = get_asic_name()
 
     return SKIP_MEMORY_PER_ASIC[asic] if asic in SKIP_MEMORY_PER_ASIC else []
 
@@ -318,7 +318,7 @@ class BcmMemory():
             self.memory_address[int(key)] = val
 
     def read_memory_from_file(self):
-        file_name = '/tmp/{}-mem-info.json'.format(get_asic_type())
+        file_name = '/tmp/{}-mem-info.json'.format(get_asic_name())
         try:
             with open(file_name, 'r') as info:
                 contents = json.load(info)
@@ -334,7 +334,7 @@ class BcmMemory():
         contents = { 'cached_memory' : self.cached_memory,
                      'uncached_memory' : self.uncached_memory,
                      'memory_address' : self.memory_address }
-        file_name = '/tmp/{}-mem-info.json'.format(get_asic_type())
+        file_name = '/tmp/{}-mem-info.json'.format(get_asic_name())
         try:
             with open(file_name, 'w') as info:
                 json.dump(contents, info, indent=4)
@@ -497,7 +497,7 @@ class SerTest(object):
                         print('--- stall detected. Stop testing')
                     break
 
-        print("SER test on ASIC : {}".format(get_asic_type()))
+        print("SER test on ASIC : {}".format(get_asic_name()))
         if VERBOSE:
             print("SER Test memories candidates (%s): %s" % (len(self.test_candidates), self.test_candidates))
             print("SER Test succeeded for memories (%s): %s" % (len(self.mem_verified), self.mem_verified))
