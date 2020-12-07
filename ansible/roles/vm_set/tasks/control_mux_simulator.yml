@@ -1,0 +1,43 @@
+
+- name: Start mux simulator
+  block:
+
+  - name: Install flask
+    pip: name=flask version=1.1.2 state=forcereinstall executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+
+  - name: Copy the mux simulator to test server
+    copy:
+      src: mux_simulator.py
+      dest: "{{ root_path }}"
+      mode: 0755
+
+  - name: Set default mux_simulator_port
+    set_fact:
+      mux_simulator_port: 8080
+    when: mux_simulator_port is not defined
+
+  - name: Start mux simulator and keep it running in background
+    shell: cd {{ root_path }}; ./mux_simulator.py {{ mux_simulator_port }} 2>&1 &
+    become: yes
+
+  when: mux_simulator_action == "start"
+
+- name: Stop mux simulator
+  block:
+
+  - name: Get mux_simulator pid
+    command: pgrep -f "mux_simulator.py"
+    register: mux_simulator_pids
+    ignore_errors: yes
+
+  - name: Kill the mux_simulator
+    command: kill -9 {{ mux_simulator_pid }}
+    become: yes
+    ignore_errors: yes
+    loop: "{{ mux_simulator_pids.stdout_lines }}"
+    loop_control:
+      loop_var: mux_simulator_pid
+
+  when: mux_simulator_action == "stop"
