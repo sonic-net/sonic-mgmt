@@ -9,7 +9,7 @@ from nat_helpers import STATIC_NAT_TABLE_NAME
 from nat_helpers import STATIC_NAPT_TABLE_NAME
 from nat_helpers import REBOOT_MAP
 from nat_helpers import apply_static_nat_config
-from nat_helpers import set_static_arp_entries
+from nat_helpers import check_peers_by_ping
 from nat_helpers import nat_zones_config
 from nat_helpers import nat_statistics
 from nat_helpers import nat_translations
@@ -26,6 +26,11 @@ from nat_helpers import generate_and_verify_not_translated_traffic
 from nat_helpers import generate_and_verify_not_translated_icmp_traffic
 import tests.common.reboot as common_reboot
 from tests.common.helpers.assertions import pytest_assert
+
+
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 
 class TestStaticNat(object):
@@ -81,6 +86,8 @@ class TestStaticNat(object):
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
         # Send traffic and check that NAPT translation does not happen for another port
         src_port, dst_port = get_l4_default_ports(protocol_type)
+        # wait till the PTF's buffer become cleared
+        time.sleep(5)
         generate_and_verify_traffic_dropped(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type, src_port=dst_port,
                                             dst_port=dst_port + 1, exp_src_port=dst_port, exp_dst_port=src_port)
 
@@ -467,8 +474,6 @@ class TestStaticNat(object):
         # Reboot
         common_reboot(duthost, localhost, reboot_type=reboot_type, delay=10,
                       timeout=REBOOT_MAP[reboot_type]["timeout"], wait=120)
-        # set_static arp entries
-        set_static_arp_entries(duthost, ptfadapter)
         # Perform handshake from host-tor
         perform_handshake(ptfhost, setup_data, protocol_type, direction,
                           network_data.ip_dst, dst_port,
@@ -500,8 +505,8 @@ class TestStaticNat(object):
         # Reboot
         common_reboot(duthost, localhost, reboot_type=reboot_type, delay=10,
                       timeout=REBOOT_MAP[reboot_type]["timeout"], wait=120)
-        # set_static arp entries
-        set_static_arp_entries(duthost, ptfadapter)
+        # set_arp entries
+        check_peers_by_ping(duthost)
         # Perform TCP handshake from leaf-tor
         perform_handshake(ptfhost, setup_data, protocol_type, direction,
                           network_data.exp_src_ip, dst_port,

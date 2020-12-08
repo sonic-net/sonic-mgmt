@@ -56,19 +56,9 @@ PTF_NETWORK_DATA = namedtuple('PTF_NETWORK_DATA', ['outer_ports', 'inner_ports',
 L4_PORTS_DATA = namedtuple('L4_PORTS_DATA', ['src_port', 'dst_port', 'exp_src_port', 'exp_dst_port'])
 
 
-def set_static_arp_entries(duthost, ptfadapter):
-    """
-    Sets static arp entries on DUT for PTF's RIFs
-
-        Args:
-            duthost: DUT host object
-            ptfadapter: ptf adapter fixture
-    """
+def check_peers_by_ping(duthost):
     for vrf in VRF:
-        mac_address = BR_MAC[0]
-        if vrf != "red":
-            mac_address = ptfadapter.dataplane.get_mac(0, int(VRF[vrf]["port_id"]))
-        duthost.command("sudo arp -s {0} {1}".format(VRF[vrf]["ip"], mac_address))
+        duthost.command("ping {0} -c 5".format(VRF[vrf]['ip']))
 
 
 def configure_nat_over_cli(duthost, action, nat_type, global_ip, local_ip, proto=None,
@@ -172,7 +162,7 @@ def dut_interface_status(duthost, interface_name):
     return duthost.show_interface(command='status', interfaces=interface_name)['ansible_facts']['int_status'][interface_name]['oper_state']
 
 
-def dut_interface_control(duthost, action, interface_name):
+def dut_interface_control(duthost, action, interface_name, ip_addr=""):
     """
     NAT CLI helper enable/disable DUT's interface
     :param duthost: DUT host object
@@ -180,10 +170,13 @@ def dut_interface_control(duthost, action, interface_name):
     :param interface_name: string interface to configure
     :return : formatted CLI output with interface current operstatus
     """
-    interface_actions = {"disable": "shutdown", "enable": "startup"}
-    expected_operstatus = {"disable": "down", "enable": "up"}
-    output_cli = exec_command(duthost, ["sudo config interface {} {}".format(interface_actions[action],
-                                                                             interface_name)])
+    interface_actions = {"disable": "shutdown {}".format(interface_name),
+                         "enable": "startup {}".format(interface_name),
+                         "ip remove": "{} {}".format(action, ip_addr),
+                         "ip add": "{} {}".format(action, ip_addr)
+                        }
+    expected_operstatus = {"disable": "down", "enable": "up", "ip remove": "up", "ip add": "up"}
+    output_cli = exec_command(duthost, ["sudo config interface {}".format(interface_actions[action])])
     if output_cli["rc"]:
         raise Exception('Return code is {} not 0'.format(output_cli["rc"]))
     attempts = 3
@@ -305,7 +298,6 @@ def get_cli_show_nat_config_output(duthost, command, nat_type='dynamic'):
     created ditionary with output of show nat command
     :param duthost: DUT host object
     :param command: str, command to execute
-    :param nat_type: str, static/dynamic
     :return: dict, dictionary with values
     """
     output_list = duthost.command("show nat config {}".format(command))['stdout_lines'][1::2]
@@ -360,11 +352,13 @@ def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
     else:
         pytest_assert('all' == static_nat['IP Protocol'])
     nat_zones_config(duthost, setup_data, interface_type)
-    # set_static arp entries
-    set_static_arp_entries(duthost, ptfadapter)
     # Perform TCP handshake
     if handshake:
-        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+        if direction == 'leaf-tor':
+            # set_arp entries
+            check_peers_by_ping(duthost)
+        perform_handshake(ptfhost, setup_data,
+                          protocol_type, direction,
                           network_data.ip_dst, dst_port,
                           network_data.ip_src, src_port,
                           network_data.public_ip)
@@ -466,14 +460,17 @@ def setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, 
     ptfhost.shell("ip link add {} type vrf table {}".format(vrf_name, vrf_id))
     ptfhost.shell("ip link set dev {} up".format(vrf_name))
     if vrf_name == "red":
-        br_interface = "br1"
-        ptfhost.shell("ip link add name {} type bridge".format(br_interface))
-        ptfhost.shell("ip link set dev {} up".format(br_interface))
+        bond_interface = "bond1"
+        ptfhost.shell("ip link add {} type bond".format(bond_interface))
+        ptfhost.shell("ip link set {} type bond miimon 100 mode balance-xor".format(bond_interface))
         for iface_id in port_id[testbed['topo']['name']]:
-            ptfhost.shell("ip link set eth{} master {}".format(iface_id, br_interface))
-        ptfhost.shell("ip link set {} master {}".format(br_interface, vrf_name))
-        ptfhost.shell("ip addr add {}/{} dev {}".format(ip_address, mask, br_interface))
-        ptfhost.shell("ifconfig {} hw ether {}".format(br_interface, BR_MAC[0]))
+            ptfhost.shell("ip link set eth{} down".format(iface_id))
+            ptfhost.shell("ip link set eth{} master {}".format(iface_id, bond_interface))
+        ptfhost.shell("ip link set dev {} up".format(bond_interface))
+        ptfhost.shell("ifconfig {} hw ether {}".format(bond_interface, BR_MAC[0]))
+        ptfhost.shell("ifconfig {} mtu 9216 up".format(bond_interface))
+        ptfhost.shell("ip link set {} master {}".format(bond_interface, vrf_name))
+        ptfhost.shell("ip addr add {}/{} dev {}".format(ip_address, mask, bond_interface))
     else:
         ptfhost.shell("ip link set eth{} master {}".format(port_id, vrf_name))
         ptfhost.shell("ip addr add {}/{} dev eth{}".format(ip_address, mask, port_id))
@@ -499,18 +496,18 @@ def teardown_ptf_interfaces(testbed, ptfhost, gw_ip, vrf_id, ip_address, mask, p
     :param port_id: port id of interface
     :param vrf_name: vrf name
     """
-
     ptfhost.shell("ip route del 0.0.0.0/0 via {} table {}".format(gw_ip, vrf_id))
-    if len(port_id) > 1:
-        br_interface = "br1"
-        ptfhost.shell("ip addr del {}/{} dev {}".format(ip_address, mask, br_interface))
+    if vrf_name == "red":
+        bond_interface = "bond1"
+        ptfhost.shell("ip addr del {}/{} dev {}".format(ip_address, mask, bond_interface))
         ptfhost.shell("ip rule del iif {} table {}".format(vrf_name, vrf_id))
         ptfhost.shell("ip rule del oif {} table {}".format(vrf_name, vrf_id))
-        ptfhost.shell("ip link set {} nomaster".format(br_interface))
-        ptfhost.shell("ip link del {} type vrf table {}".format(vrf_name, vrf_id))
+        ptfhost.shell("ip link set {} nomaster".format(bond_interface))
         for iface_id in port_id[testbed['topo']['name']]:
             ptfhost.shell("ip link set eth{} nomaster".format(iface_id))
-        ptfhost.shell("ip link del {}".format(br_interface))
+            ptfhost.shell("ip link set eth{} up".format(iface_id))
+        ptfhost.shell("ip link del {}".format(bond_interface))
+        ptfhost.shell("ip link del {} type vrf table {}".format(vrf_name, vrf_id))
     else:
         ptfhost.shell("ip addr del {}/{} dev eth{}".format(ip_address, mask, port_id))
         ptfhost.shell("ip rule del iif {} table {}".format(vrf_name, vrf_id))
@@ -543,7 +540,8 @@ def conf_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, t
         else:
             setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, vrf_id, vrf_name, port_id, ip_address,
                                  mask, gw_ip, key)
-    ptfhost.shell('supervisorctl restart ptf_nn_agent')
+    if not teardown:
+        ptfhost.shell('supervisorctl restart ptf_nn_agent')
 
 
 def expected_mask_nated_packet(pkt, protocol_type, ip_dst, ip_src,
@@ -793,7 +791,6 @@ def generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface
     # Send packet
     for port in network_data.inner_ports:
         testutils.send(ptfadapter, port, pkt, count=5)
-
     # Verify that expected packets arrive on outer ports
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=network_data.outer_ports)
 
@@ -1021,8 +1018,8 @@ def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interfa
         duthost.command("config nat remove bindings")
     # Apply NAT zones
     nat_zones_config(duthost, setup_info, interface_type)
-    # set_static arp entries
-    set_static_arp_entries(duthost, ptfadapter)
+    # set_arp entries
+    check_peers_by_ping(duthost)
     if handshake:
         # Perform handshake
         direction = 'host-tor'
@@ -1030,7 +1027,8 @@ def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interfa
         network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type='dynamic')
         src_port, dst_port = get_l4_default_ports(protocol_type)
         # Perform TCP handshake (host-tor -> leaf-tor)
-        perform_handshake(ptfhost, setup_info, protocol_type, direction,
+        perform_handshake(ptfhost, setup_info,
+                          protocol_type, direction,
                           network_data.ip_dst, dst_port,
                           network_data.ip_src, src_port,
                           network_data.public_ip)
@@ -1046,9 +1044,9 @@ def wait_timeout(protocol_type, wait_time=None, default=True):
     if default:
         if protocol_type == "UDP":
             # Wait until UDP entry expires
-            time.sleep(GLOBAL_UDP_NAPT_TIMEOUT + 60)
+            time.sleep(GLOBAL_UDP_NAPT_TIMEOUT + 80)
         elif protocol_type == "TCP":
-            time.sleep(GLOBAL_TCP_NAPT_TIMEOUT + 60)
+            time.sleep(GLOBAL_TCP_NAPT_TIMEOUT + 80)
         else:
             time.sleep(60)
     else:

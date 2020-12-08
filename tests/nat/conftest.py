@@ -17,11 +17,6 @@ from nat_helpers import dut_interface_control
 from tests.common.config_reload import config_reload
 
 
-pytestmark = [
-    pytest.mark.topology('t0', 't0-64', 't0-64-32')
-]
-
-
 @pytest.fixture(params=['TCP', 'UDP'])
 def protocol_type(request):
     """
@@ -124,12 +119,9 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type, teardown=True)
 
 
-@pytest.fixture(scope='module', autouse=True)
-def apply_global_nat_config(duthost):
+def nat_global_config(duthost):
     """
-    generate global NAT configuration files and deploy them on DUT;
-    after test run cleanup artifacts on DUT
-    :param duthost: DUT host object
+    sets DUT's global NAT configuration;
     """
     # Set nat feature enabled
     duthost.command("sudo config feature state nat enabled")
@@ -152,22 +144,38 @@ def apply_global_nat_config(duthost):
     assert int(tcp_timeout) == GLOBAL_TCP_NAPT_TIMEOUT, "Global TCP NAT timeout was not set to {}".format(GLOBAL_TCP_NAPT_TIMEOUT)
     assert int(udp_timeout) == GLOBAL_UDP_NAPT_TIMEOUT, "Global UDP NAT timeout was not set to {}".format(GLOBAL_UDP_NAPT_TIMEOUT)
 
+
+@pytest.fixture(scope='module', autouse=True)
+def apply_global_nat_config(duthost):
+    """
+    applies DUT's global NAT configuration;
+    after test run cleanup DUT's NAT configration
+    :param duthost: DUT host object
+    """
+    nat_global_config(duthost)
     yield
     # reload config on teardown
     config_reload(duthost, config_source='minigraph')
 
 
 @pytest.fixture()
-def reload_dut_config(request, duthost):
+def reload_dut_config(request, duthost, setup_test_env):
     """
     DUT's configuration reload on teardown
     :param request: pytest request object
     :param duthost: DUT host object
     """
     yield
-    if request.node.rep_call.failed:
-        duthost.command("sudo config reload -y")
-        time.sleep(120)
+    interface_type, setup_info = setup_test_env
+    setup_data = copy.deepcopy(setup_info)
+    dut_iface = setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"]
+    gw_ip = setup_data[interface_type]["vrf_conf"]["red"]["gw"]
+    mask = setup_data[interface_type]["vrf_conf"]["red"]["mask"]
+    config_reload(duthost, config_source='minigraph')
+    pch_ip = setup_info["pch_ips"][dut_iface]
+    duthost.shell("sudo config interface ip remove {} {}/31".format(dut_iface, pch_ip))
+    duthost.shell("sudo config interface ip add {} {}/{}".format(dut_iface, gw_ip, mask))
+    nat_global_config(duthost)
 
 
 @pytest.fixture()
@@ -248,4 +256,12 @@ def pytest_collection_modifyitems(items):
         # for T0 only portchannel supported
         # Loopback interface type is not valid scenario for interfaces flap
         elif 'test_nat_interfaces_flap_dynamic' in item.name and 'loopback' in item.name:
+            items.remove(item)
+        elif ('test_nat_dynamic_outside_interface_delete' in item.name and 'loopback' in item.name) or \
+             ('test_nat_dynamic_binding_remove' in item.name and 'loopback' in item.name) or \
+             ('test_nat_static_iptables_add_remove' in item.name and 'loopback' in item.name) or \
+             ('test_nat_static_global_double_add' in item.name and 'loopback' in item.name) or \
+             ('test_nat_static_interface_add_remove_interface_ip' in item.name and 'loopback' in item.name) or \
+             ('test_nat_static_interface_add_remove_interface' in item.name and 'loopback' in item.name) or \
+             ('test_nat_dynamic_iptable_snat' in item.name and 'loopback' in item.name):
             items.remove(item)
