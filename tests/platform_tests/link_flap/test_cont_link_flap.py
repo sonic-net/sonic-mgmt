@@ -38,7 +38,7 @@ class TestContLinkFlap(object):
             3.) Watch for memory (show system-memory) ,orchagent CPU Utilization
                 and Redis_memory.
 
-        Pass Criteria: All routes must be re-learned with < 5% increase in Redis and 
+        Pass Criteria: All routes must be re-learned with < 5% increase in Redis and
             ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
         duthost = duthosts[rand_one_dut_hostname]
@@ -53,11 +53,11 @@ class TestContLinkFlap(object):
         logging.info("Redis Memory: %s M", start_time_redis_memory)
 
         # Record ipv4 route counts at start
-        start_time_ipv4_route_counts = duthost.shell("show ip route summary | grep Total | awk '{print $2}'")["stdout"]
+        start_time_ipv4_route_counts = duthost.shell("vtysh -c 'show ip route summary' | grep Total | awk '{print $2}'")["stdout"]
         logging.info("IPv4 routes at start: %s", start_time_ipv4_route_counts)
 
         # Record ipv6 route counts at start
-        start_time_ipv6_route_counts = duthost.shell("show ipv6 route summary | grep Total | awk '{print $2}'")["stdout"]
+        start_time_ipv6_route_counts = duthost.shell("vtysh -c 'show ipv6 route summary' | grep Total | awk '{print $2}'")["stdout"]
         logging.info("IPv6 routes at start %s", start_time_ipv6_route_counts)
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
