@@ -107,7 +107,7 @@ class TestWrArp:
         logger.info('VxLan Sender {0}'.format(dip))
 
         ptfhost.host.options['variable_manager'].extra_vars.update({
-            'ferret_args': '-f /tmp/vxlan_decap.json -s {0}'.format(dip)
+            'ferret_args': '-f /tmp/vxlan_decap.json -s {0} -a {1}'.format(dip, duthost.facts["asic_type"])
         })
 
         logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
