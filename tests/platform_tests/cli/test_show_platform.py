@@ -108,12 +108,18 @@ def test_show_platform_psustatus(duthosts, rand_one_dut_hostname):
         # TODO: Compare against expected platform-specific output
 
 
-def verify_show_platform_fan_output(raw_output_lines):
+def verify_show_platform_fan_output(duthost, request, raw_output_lines):
     """
     @summary: Verify output of `show platform fan`. Expected output is
-              "Fan Not detected" or a table of fan status data conaining 8 columns.
+              "Fan Not detected" or a table of fan status data conaining expect number of columns.
     """
-    NUM_EXPECTED_COLS = 8
+    sonic_branch_name = request.config.getoption("--sonic_branch_name")
+    is_201911 = False
+    if sonic_branch_name is None:
+        is_201911 = '201911' in duthost.os_version
+    else:
+        is_201911 = '201911' in sonic_branch_name
+    NUM_EXPECTED_COLS = 6 if is_201911 else 8
 
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output")
     if len(raw_output_lines) == 1:
@@ -125,7 +131,7 @@ def verify_show_platform_fan_output(raw_output_lines):
         pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_fan(duthosts, rand_one_dut_hostname):
+def test_show_platform_fan(duthosts, rand_one_dut_hostname, request):
     """
     @summary: Verify output of `show platform fan`
     """
@@ -134,7 +140,7 @@ def test_show_platform_fan(duthosts, rand_one_dut_hostname):
 
     logging.info("Verifying output of '{}' ...".format(cmd))
     fan_status_output_lines = duthost.command(cmd)["stdout_lines"]
-    verify_show_platform_fan_output(fan_status_output_lines)
+    verify_show_platform_fan_output(duthost, request, fan_status_output_lines)
 
     # TODO: Test values against platform-specific expected data
 

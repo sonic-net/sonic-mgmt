@@ -37,8 +37,10 @@ THERMAL_NAMING_RULE = {
         "temperature": "gearbox{}_temp_input"
     },
     "asic_ambient": {
-        "name": "Ambient ASIC Temp",
-        "temperature": "asic"
+        "name": "ASIC",
+        "temperature": "asic",
+        "high_threshold": "mlxsw/temp_trip_hot",
+        "high_critical_threshold": "mlxsw/temp_trip_crit"
     },
     "port_ambient": {
         "name": "Ambient Port Side Temp",
@@ -52,6 +54,11 @@ THERMAL_NAMING_RULE = {
         "name": "Ambient COMEX Temp",
         "temperature": "comex_amb"
     }
+}
+
+ASIC_THERMAL_RULE_201911 = {
+    "name": "Ambient ASIC Temp",
+    "temperature": "asic"
 }
 
 FAN_NAMING_RULE = {
@@ -104,12 +111,13 @@ class MockerHelper:
 
     unlink_file_list = {}
 
-    def __init__(self, dut):
+    def __init__(self, dut, request=None):
         """
         Constructor of mocker helper.
         :param dut: DUT object representing a SONiC switch under test.
         """
         self.dut = dut
+        self.request = request
         #self.unlink_file_list = {}
         self._extract_num_of_fans_and_fan_drawers()
         self.deinit_retry = 5
@@ -259,6 +267,17 @@ class MockerHelper:
                 error_message = "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
                 logging.error(error_message)
                 raise RuntimeError(error_message)
+
+    def is_201911(self):
+        """
+        Workaround to make thermal control test cases compatible with 201911 and master
+        :return:
+        """
+        sonic_branch_name = self.request.config.getoption("--sonic_branch_name")
+        if sonic_branch_name is None:
+            return '201911' in self.dut.os_version
+        else:
+            return '201911' in sonic_branch_name
 
 
 class FanDrawerData:
@@ -521,6 +540,10 @@ class TemperatureData:
         :param index: Thermal index.
         """
         self.helper = mock_helper
+        if 'ASIC' in naming_rule['name']:
+            if self.helper.is_201911():
+                naming_rule = ASIC_THERMAL_RULE_201911
+
         self.name = naming_rule['name']
         self.temperature_file = naming_rule['temperature']
         self.high_threshold_file = naming_rule['high_threshold'] if 'high_threshold' in naming_rule else None
@@ -643,13 +666,13 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
     # Max PSU FAN speed for generate random data only.
     PSU_FAN_MAX_SPEED = 10000
 
-    def __init__(self, dut):
+    def __init__(self, dut, request):
         """
         Constructor of RandomFanStatusMocker.
         :param dut: DUT object representing a SONiC switch under test.
         """
-        FanStatusMocker.__init__(self, dut)
-        self.mock_helper = MockerHelper(dut)
+        FanStatusMocker.__init__(self, dut, request)
+        self.mock_helper = MockerHelper(dut, request)
         self.drawer_list = []
         self.expected_data = {}
         self.expected_data_headers = ['drawer', 'led', 'fan', 'speed', 'direction', 'presence', 'status']
@@ -730,15 +753,18 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         platform_data = get_platform_data(self.mock_helper.dut)
         psu_count = platform_data["psus"]["number"]
         naming_rule = FAN_NAMING_RULE['psu_fan']
+        if self.mock_helper.is_201911():
+            led_color = ''
+        else:
+            led_color = 'green'
         for index in range(1, psu_count + 1):
             try:
                 fan_data = FanData(self.mock_helper, naming_rule, index)
-                speed = random.randint(60, 100)
                 fan_data.mock_speed(speed)
 
                 self.expected_data[fan_data.name] = [
                     'N/A',
-                    '',
+                    led_color,
                     fan_data.name,
                     '{}%'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
@@ -778,13 +804,13 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
     # Default threshold diff between high threshold and critical threshold
     DEFAULT_THRESHOLD_DIFF = 5
 
-    def __init__(self, dut):
+    def __init__(self, dut, request):
         """
         Constructor of RandomThermalStatusMocker.
         :param dut: DUT object representing a SONiC switch under test.
         """
-        ThermalStatusMocker.__init__(self, dut)
-        self.mock_helper = MockerHelper(dut)
+        ThermalStatusMocker.__init__(self, dut, request)
+        self.mock_helper = MockerHelper(dut, request)
         self.expected_data = {}
         self.expected_data_headers = ['sensor', 'temperature', 'high th', 'low th', 'crit high th', 'crit low th', 'warning']
         self.primary_field = 'sensor'
@@ -872,13 +898,13 @@ class AbnormalFanMocker(SingleFanMocker):
     # Speed value
     TARGET_SPEED_VALUE = 60
 
-    def __init__(self, dut):
+    def __init__(self, dut, request):
         """
         Constructor of AbnormalFanMocker
         :param dut: DUT object representing a SONiC switch under test.
         """
-        SingleFanMocker.__init__(self, dut)
-        self.mock_helper = MockerHelper(dut)
+        SingleFanMocker.__init__(self, dut, request)
+        self.mock_helper = MockerHelper(dut, request)
         naming_rule = FAN_NAMING_RULE['fan']
         self.fan_data_list = []
         self.fan_drawer_data_list = []
@@ -1016,8 +1042,8 @@ class MinTableMocker(object):
     PORT_AMB_PATH = 'port_amb'
     TRUST_PATH = 'module1_temp_fault'
 
-    def __init__(self, dut):
-        self.mock_helper = MockerHelper(dut)
+    def __init__(self, dut, request):
+        self.mock_helper = MockerHelper(dut, request)
 
     def get_expect_cooling_level(self, air_flow_dir, temperature, trust_state):
         minimum_table = get_min_table(self.mock_helper.dut)
