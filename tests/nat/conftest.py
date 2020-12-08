@@ -1,6 +1,5 @@
 import re
 import copy
-import time
 
 import pytest
 
