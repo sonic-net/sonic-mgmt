@@ -1,7 +1,7 @@
 topology:
-  # 4 DUT's - 3 linecards (dut 0, 1, 2) and 1 Supervisor card (dut 3) -  32 VM's per linecard
-  # linecard dut0 is connected to 32 T3
-  # linecard dut1 and dut2 are connected to 32 T1 respectively.
+  # 4 DUTs - 3 linecards (DUT 0, 1, 2) and 1 Supervisor card (dut 3) -  32 VMs per linecard
+  # Linecard dut0 is connected to 32 Vms towards the T3.
+  # Linecard dut1 and dut2 are connected to 32 VMs towards the T1 respectively.
   # ptf ports are numbered 0-95.
   dut_num: 4
   VMs:
