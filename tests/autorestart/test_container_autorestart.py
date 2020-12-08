@@ -81,6 +81,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
         'pmon' : [
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
+            ".*ERR pmon#xcvrd.*Could not establish the active side.*",
         ],
         'swss' : swss_syncd_teamd_regex,
         'syncd' : swss_syncd_teamd_regex,
