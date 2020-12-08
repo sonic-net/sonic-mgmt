@@ -242,7 +242,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, ps
         assert psu_test_results[psu], "Test psu status of PSU %s failed" % psu
 
 
-def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory):
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
+def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory, ignore_particular_error_log):
     """
     @summary: Check output of 'show platform fan'.
     """
