@@ -403,7 +403,7 @@ class FanData:
     PWM_MAX = 255
 
     # Speed tolerance
-    SPEED_TOLERANCE = 0.2
+    SPEED_TOLERANCE = 0.5
 
     # Cooling cur state file
     COOLING_CUR_STATE_FILE = 'cooling_cur_state'
