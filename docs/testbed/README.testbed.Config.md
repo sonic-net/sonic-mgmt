@@ -2,26 +2,26 @@
 
 ## Testbed Inventory
 
-- [```ansible/lab```](../lab): Include all lab DUTs, fanout switches and testbed server topologies
+- [```ansible/lab```](/ansible/lab): Include all lab DUTs, fanout switches and testbed server topologies
 
-- [```ansible/veos```](../veos): all servers and VMs
+- [```ansible/veos```](/ansible/veos): all servers and VMs
 
 ## Testbed Physical Topology
 
-- [```ansible/files/sonic_lab_devices.csv```](../files/sonic_lab_devices.csv): Helper file helps you create lab_connection_graph.xml, list all devices that are physically connected to fanout testbed (all devices should be in ansible/lab)
+- [```ansible/files/sonic_lab_devices.csv```](/ansible/files/sonic_lab_devices.csv): Helper file helps you create lab_connection_graph.xml, list all devices that are physically connected to fanout testbed (all devices should be in ansible/lab)
 
-- [```ansible/files/sonic_lab_links.csv```](../files/sonic_lab_links.csv): Helper file helps you to create lab_connection_graph.xml, list all physical links between DUT, Fanoutleaf and Fanout root switches, servers and vlan configurations for each link
+- [```ansible/files/sonic_lab_links.csv```](/ansible/files/sonic_lab_links.csv): Helper file helps you to create lab_connection_graph.xml, list all physical links between DUT, Fanoutleaf and Fanout root switches, servers and vlan configurations for each link
 
-- [```ansible/files/lab_connection_graph.xml```](../files/lab_connection_graph.xml): This is the lab graph file for library/conn_graph_facts.py to parse and get all lab fanout switch connections information. If you have only one fanout switch, you may go head manually modify the sample lab_connection_graph.xml file to set bot your fanout leaf and fanout root switch management IP point to the same fanout switch management IP and make sure all DUT and Fanout name and IP are matching your testbed.
+- [```ansible/files/lab_connection_graph.xml```](/ansible/files/lab_connection_graph.xml): This is the lab graph file for library/conn_graph_facts.py to parse and get all lab fanout switch connections information. If you have only one fanout switch, you may go head manually modify the sample lab_connection_graph.xml file to set bot your fanout leaf and fanout root switch management IP point to the same fanout switch management IP and make sure all DUT and Fanout name and IP are matching your testbed.
 
-- [```ansible/files/creategraph.py```](../files/creategraph.py): Helper file helps you generate a lab_connection_graph.xml based on the device file and link file specified above.
+- [```ansible/files/creategraph.py```](/ansible/files/creategraph.py): Helper file helps you generate a lab_connection_graph.xml based on the device file and link file specified above.
 
      Based on ansible_facts,  you may write ansible playbooks to deploy fanout switches or run test which requires to know the DUT physical connections to fanout switch
 
 
 ## Testbed Logical Topology
 
-[```testbed.csv```](../testbed.csv) is the topology configuration file for the testbed.
+[```testbed.csv```](/ansible/testbed.csv) is the topology configuration file for the testbed.
 
 ### ```testbed.csv``` format
 ```

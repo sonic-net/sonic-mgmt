@@ -4,8 +4,8 @@ Different topologies requires different configuration/minigraph on the DUT.
 ```testbed-cli.sh gen-mg|deploy-mg``` allows to generate and deploy minigraph to
 the DUT based on the topology type.
 
-Before you run the command, first prepare [inventory](../lab) file and
-[testbed.csv](../testbed.csv) file. In the command line, `vms-sn2700-t0` 
+Before you run the command, first prepare [inventory](/ansible/lab) file and
+[testbed.csv](/ansible/testbed.csv) file. In the command line, `vms-sn2700-t0`
 is the testbed name defined in `testbed.csv`, `lab` is the inventory file.
 `password.txt` is the vault password file.
 
@@ -35,4 +35,4 @@ The tool works as follows:
 
 - Save the configuration in config db.
 
-For more details, please refer the comments in [`config_sonic_basedon_testbed.yml`](../config_sonic_basedon_testbed.yml).
+For more details, please refer the comments in [`config_sonic_basedon_testbed.yml`](/ansible/config_sonic_basedon_testbed.yml).

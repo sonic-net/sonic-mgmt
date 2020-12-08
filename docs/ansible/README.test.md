@@ -1,10 +1,10 @@
  # **Ansible Playbooks for Testing SONiC**
 
 ## **Requirements**
-- A testbed needed to be set up before hand. See [Testbed](README.testbed.md) for more information.
-- Depending on the test, either a PTF testbed or a VM set testbed might be required. 
+- A testbed needed to be set up before hand. See [Testbed](/docs/testbed/README.md) for more information.
+- Depending on the test, either a PTF testbed or a VM set testbed might be required.
 - All management IP addresses, VM, ptf docker, SONiC, fanout switches, servers should be routable/reachable in testbed.
-- Syslog test: the run this test, sonic-mgmt docker needs to be started with host=net 
+- Syslog test: the run this test, sonic-mgmt docker needs to be started with host=net
 
 ---
 
@@ -12,12 +12,12 @@
 
 ### **Run test by test case name**
 
-All test cases name and calling variables and applied topologies are specified in [ansible/roles/test/vars/testcases.yml](roles/test/vars/testcases.yml)
+All test cases name and calling variables and applied topologies are specified in [ansible/roles/test/vars/testcases.yml](/ansible/roles/test/vars/testcases.yml)
 
 When calling test, testbed_name is the main entry to pickup/understand the testbed information associated with the test (ie. ptf_host and testbed_type, VMs info...). testbed_name is inherited from your own `ansible/testbed.csv` file.  The first column of each line(one testbed topology definition) is the unique name of the testbed and will be used in testbed_name option when calling test.
 
-***Example of running a test case:*** 
-    `ansible-playbook -i {INVENTORY} -l {DUT_NAME} test_sonic.yml -e testbed_name={TESTBED_NAME} -e testcase_name={TESTCASE_NAME}` 
+***Example of running a test case:***
+    `ansible-playbook -i {INVENTORY} -l {DUT_NAME} test_sonic.yml -e testbed_name={TESTBED_NAME} -e testcase_name={TESTCASE_NAME}`
 
 Where:
 
@@ -53,7 +53,7 @@ ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_na
 ansible-playbook test_sonic.yml -i {INVENTORY} --limit {DUT_NAME} -e testcase_name=bgp_multipath_relax -e testbed_name={TESTBED_NAME}
 ```
 - Requires switch connected to a VM set testbed
-- This test only works for T1 related topologies(t1, t1-lag, ...) 
+- This test only works for T1 related topologies(t1, t1-lag, ...)
 - You might need to redeploy your VMs before you run this test due to the change for ToR VM router configuration changes
    `./testbed-cli.sh config-vm your-topo-name(vms1-1) your-vm-name(VM0108)` will do this for you
 
