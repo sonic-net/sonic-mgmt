@@ -1,3 +1,4 @@
+# [Outdated, call for contribution]
 # Overview of SONiC deployment, testbed setup and tests
 
 This ansible playbook consists of the following functionality:
@@ -21,7 +22,7 @@ sudo make install
 
 # Ansible playbook layout
 
-``` 
+```
 # Ansible top level file and directory structure
 # adapted from http://docs.ansible.com/ansible/playbooks_best_practices.html
 
@@ -62,7 +63,7 @@ roles/
             main.yml      #  <-- role dependencies
     sonicv2/              # role for installing SONiC v2 components (syncd, orchagent, quagga, etc)
 
-    sonic_test/           # same kind of structure as above, but for the integration test role, 
+    sonic_test/           # same kind of structure as above, but for the integration test role,
                           #        see http://github.com/Azure/sonic-integrationtest
     sonic_s6000/          # place Dell s6000 specific tasks here
     sonic_msn2700/        # place Mellanox msn2700 specific tasks here
