@@ -1121,6 +1121,21 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
         return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
 
+    def get_asic_name(self):
+        asic = "unknown"
+        output = self.shell("lspci", module_ignore_errors=True)["stdout"]
+        if ("Broadcom Limited Device b960" in output or
+            "Broadcom Limited Broadcom BCM56960" in output):
+            asic = "th"
+        elif "Broadcom Limited Device b971" in output:
+            asic = "th2"
+        elif "Broadcom Limited Device b850" in output:
+            asic = "td2"
+        elif "Broadcom Limited Device b870" in output:
+            asic = "td3"
+
+        return asic
+
 
 class K8sMasterHost(AnsibleHostBase):
     """
