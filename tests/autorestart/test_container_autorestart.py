@@ -22,6 +22,10 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 
+@pytest.fixture(autouse=True, scope='module')
+def config_reload_after_tests(duthost):
+    yield
+    config_reload(duthost)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
