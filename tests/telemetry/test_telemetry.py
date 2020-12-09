@@ -158,7 +158,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
                 system_uptime_1st = float(line_info.split(":")[1].strip())
                 found_system_uptime_field = True
             except ValueError as err:
-                pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
+                pytest.fail("The value of system uptime was not a float. Error message was '{}'".format(err))
 
     if not found_system_uptime_field:
         pytest.fail("The field of system uptime was not found.")
@@ -174,7 +174,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
                 system_uptime_2nd = float(line_info.split(":")[1].strip())
                 found_system_uptime_field = True
             except ValueError as err:
-                pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
+                pytest.fail("The value of system uptime was not a float. Error message was '{}'".format(err))
 
     if not found_system_uptime_field:
         pytest.fail("The field of system uptime was not found.")
