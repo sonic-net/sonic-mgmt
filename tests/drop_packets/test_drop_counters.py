@@ -238,6 +238,7 @@ def mtu_config(duthosts, rand_one_dut_hostname):
             else:
                 raise Exception("Unsupported interface parameter - {}".format(iface))
             cls.iface = iface
+            time.sleep(3)
 
         @classmethod
         def restore_mtu(cls):
