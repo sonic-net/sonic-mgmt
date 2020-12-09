@@ -141,13 +141,13 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
 def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
-              whether the value of 'system uptime' was an integer and whether the value was
+              whether the value of 'system uptime' was float number and whether the value was
               updated correctly.
     """
     logger.info("start test the dataset 'system uptime'")
     duthost = duthosts[rand_one_dut_hostname]
     dut_ip = duthost.mgmt_ip
-    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x platform/sysuptime -xt OTHERS \
+    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
@@ -155,7 +155,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     for line_info in system_uptime_info:
         if "total" in line_info:
             try:
-                system_uptime_1st = int(line_info.split(":")[1].strip())
+                system_uptime_1st = float(line_info.split(":")[1].strip())
                 found_system_uptime_field = True
             except ValueError as err:
                 pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
@@ -171,7 +171,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     for line_info in system_uptime_info:
         if "total" in line_info:
             try:
-                system_uptime_2nd = int(line_info.split(":")[1].strip())
+                system_uptime_2nd = float(line_info.split(":")[1].strip())
                 found_system_uptime_field = True
             except ValueError as err:
                 pytest.fail("The value of system uptime was not an integer. Error message was '{}'".format(err))
