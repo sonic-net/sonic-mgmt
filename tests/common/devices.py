@@ -572,7 +572,7 @@ class SonicHost(AnsibleHostBase):
         # some services are meant to have a short life span or not part of the daemons
         exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
 
-        daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
+        daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
         daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ]
 
