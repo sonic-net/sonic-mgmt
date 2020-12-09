@@ -13,7 +13,7 @@ str-s6000-acs-12,10.3.147.252/23,Force10-S6000,DevSonic
 str-s6000-acs-13,10.3.147.253/23,Force10-S6000,DevSonic
 str-s6000-acs-14,10.3.147.17/23,Force10-S6000,DevSonic
 str-s6100-acs-1,10.3.147.243/23,Force10-S6100,DevSonic
-str-s6100-acs-2,10.64.246.225/23,Force10-S6100,DevSonic
+str-s6100-acs-2,10.64.247.225/23,Force10-S6100,DevSonic
 str-s6100-acs-4,10.64.246.226/23,Force10-S6100,DevSonic
 str-s6100-acs-5,10.64.246.66/23,Force10-S6100,DevSonic
 str-a7050-acs-1,10.3.147.241/23,Arista-7050QX-32S,DevSonic
