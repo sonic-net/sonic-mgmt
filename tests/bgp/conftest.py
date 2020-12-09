@@ -199,15 +199,14 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
             for intf, subnet in zip(random.sample(ipv4_interfaces, peer_count), subnets):
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
-                conn["local_intf"] = "%s:0" % intf["attachto"]
+                conn["local_intf"] = "%s" % intf["attachto"]
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
                 conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf["attachto"]]
                 connections.append(conn)
 
             for conn in connections:
-                duthost.shell("ifconfig %s %s" % (conn["local_intf"], conn["local_addr"]))
-                # Notify bgpcfgd the interface is ready
+                # bind the ip to the interface and notify bgpcfgd 
                 duthost.shell("config interface ip add %s %s" % (conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
 
@@ -215,7 +214,6 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
 
         finally:
             for conn in connections:
-                duthost.shell("ifconfig %s 0.0.0.0" % conn["local_intf"])
                 duthost.shell("config interface ip remove %s %s" % (conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
 
