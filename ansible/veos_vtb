@@ -54,6 +54,8 @@ all:
     sonic:
       vars:
         mgmt_subnet_mask_length: 24
+        ansible_connection: multi_passwd_ssh
+        ansible_altpassword: YourPaSsWoRd
       hosts:
         vlab-01:
           ansible_host: 10.250.0.101
