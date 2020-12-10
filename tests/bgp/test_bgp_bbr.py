@@ -9,6 +9,7 @@ from collections import namedtuple
 
 import pytest
 import requests
+import yaml
 import ipaddr as ipaddress
 
 from jinja2 import Template
@@ -24,13 +25,13 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+CONSTANTS_FILE = '/etc/sonic/constants.yml'
 
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 
-
 BBR_PREFIX = '172.16.10.0/24'
-BBR_PREFIX_V6 = '2000:0:172:16:10::/96'
+BBR_PREFIX_V6 = '2000:172:16:10::/64'
 
 DUMMY_ASN1 = 64101
 DUMMY_ASN2 = 64102
@@ -45,32 +46,43 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
 
 
+@pytest.fixture(scope='module')
+def bbr_default_state(setup):
+    return setup['bbr_default_state']
+
+
 def enable_bbr(duthost):
-    logger.info('Disable BGP_BBR')
+    logger.info('Enable BGP_BBR')
     duthost.shell('sonic-cfggen -j /tmp/enable_bbr.json -w ')
+    time.sleep(3)
 
 
 def disable_bbr(duthost):
-    logger.info('Enable BGP_BBR')
+    logger.info('Disable BGP_BBR')
     duthost.shell('sonic-cfggen -j /tmp/disable_bbr.json -w')
+    time.sleep(3)
 
 
 @pytest.fixture
-def config_bbr_disabled(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-
-    disable_bbr(duthost)
-    time.sleep(3)
+def restore_bbr_default_state(duthosts, rand_one_dut_hostname, bbr_default_state):
     yield
-
-    enable_bbr(duthost)
+    duthost = duthosts[rand_one_dut_hostname]
+    if bbr_default_state == 'enabled':
+        enable_bbr(duthost)
+    else:
+        disable_bbr(duthost)
 
 
 @pytest.fixture
-def config_bbr_enabled(duthosts, rand_one_dut_hostname):
+def config_bbr_disabled(duthosts, rand_one_dut_hostname, restore_bbr_default_state):
+    duthost = duthosts[rand_one_dut_hostname]
+    disable_bbr(duthost)
+
+
+@pytest.fixture
+def config_bbr_enabled(duthosts, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
     enable_bbr(duthost)
-    time.sleep(3)
 
 
 @pytest.fixture(scope='module')
@@ -78,6 +90,20 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
     if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
+
+    constants_stat = duthost.stat(path=CONSTANTS_FILE)
+    if not constants_stat['stat']['exists']:
+        pytest.skip('No file {} on DUT, BBR is not supported')
+
+    constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
+    bbr_default_state = 'disabled'
+    try:
+        bbr_enabled = constants['constants']['bgp']['bbr']['enabled']
+        if not bbr_enabled:
+            pytest.skip('BGP BBR is not enabled')
+        bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
+    except KeyError:
+        pytest.skip('No BBR configuration in {}, BBR is not supported.'.format(CONSTANTS_FILE))
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -114,6 +140,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     bbr_route_v6_dual_dut_asn = Route(BBR_PREFIX_V6, neigh_peer_map[tor1]['peer_addr_v6'], aspath_dual_dut_asn)
 
     setup_info = {
+        'bbr_default_state': bbr_default_state,
         'tor1': tor1,
         'other_vms': other_vms,
         'tor1_offset': tor1_offset,
