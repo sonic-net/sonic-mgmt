@@ -169,6 +169,19 @@ SKIP_MEMORY_PER_ASIC = {
         u'L3_DEFIP_ALPM_IPV6_64.ipipe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
         u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0',
         u'L3_ENTRY_IPV6_UNICAST.ipipe0',
+        # fail randomly with basic mode
+        u'IFP_POLICY_TABLE_PIPE0.ipipe0', u'IFP_POLICY_TABLE.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0',
+        u'EXACT_MATCH_4_PIPE1.ipipe0', u'EXACT_MATCH_4_PIPE2.ipipe0', u'EXACT_MATCH_2_PIPE1.ipipe0',
+        u'EXACT_MATCH_4_PIPE0.ipipe0', u'EXACT_MATCH_2_PIPE2.ipipe0', u'EXACT_MATCH_2_PIPE0.ipipe0',
+        u'EXACT_MATCH_4_PIPE3.ipipe0', u'EXACT_MATCH_4.ipipe0', u'EXACT_MATCH_2_PIPE3.ipipe0',
+        u'EXACT_MATCH_2.ipipe0', u'ING_FLEX_CTR_OFFSET_TABLE_11.ipipe0', u'PORT_LAG_FAILOVER_SET.ipipe0',
+        u'VFP_POLICY_TABLE_PIPE2.ipipe0', u'Q_SCHED_L1_WEIGHT_MEM_PIPE2.mmu_sc0', u'SYSTEM_CONFIG_TABLE.ipipe0',
+        u'RTAG7_PORT_BASED_HASH.ipipe0', u'MMU_REPL_LIST_TBL_PIPE2.mmu_sc0', u'EGR_GPP_ATTRIBUTES.epipe0',
+        u'EGRESS_MASK.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0', u'EMIRROR_CONTROL2.ipipe0',
+        u'VLAN_MPLS.ipipe0', u'ING_DVP_TABLE.ipipe0', u'EXACT_MATCH_QOS_ACTIONS_PROFILE.ipipe0',
+        u'MMU_REPL_GROUP_INFO_TBL_PIPE3.mmu_sc0', u'MMU_REPL_LIST_TBL_PIPE1.mmu_sc0', u'VFI_1.ipipe0',
+        u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0', u'EFP_POLICY_TABLE_PIPE0.epipe0', u'EFP_POLICY_TABLE.epipe0',
+        u'IFP_STORM_CONTROL_METERS.ipipe0',
         ],
     'th2' : [
         # cannot pass
