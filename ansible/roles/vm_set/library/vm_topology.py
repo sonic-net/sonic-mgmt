@@ -131,24 +131,31 @@ class HostInterfaces(object):
         where the number is the port index starting from 0.
 
         For multi DUT, host interface like [(0, 1), (0, 2), (1, 1), (1, 2), ...],
-        where the tuple is (dut_index, port_index), both starting
+        or [[(0, 1, 1), (1, 1, 1)], [(0, 2, 2), (1, 2, 2)]]
+        where the tuple is (dut_index, dut_port_index) or (dut_index, dut_port_index, ptf_port_index), both starting
         from 0.
 
         For dual-tor, host interface look like [[(0, 1), (1, 1)], [(0, 2), (1,2)], ...],
+        or [[(0, 1, 1), (1, 1, 1)], [(0, 2, 2), (1, 2, 2)]]
         where one interface consists of multiple ports to DUT.
-        For example, ((0, 1), (1, 1)) means the host interface connects
-        to port1@dut0 and port1@dut1.
+
+        Example: [[(0, 2, 2), (1, 2, 2)], ] means that the PTF host interface 2 connects to port2@dut0 and port2@dut1
+
+        Example: [[(0, 1), (1, 1)], ] means the PTF host interface connects to port1@dut0 and port1@dut1.
         """
         if obj._is_multi_duts:
             obj._host_interfaces = []
             for intf in host_interfaces:
                 intfs = intf.split(',')
+                # re.split('\.|@', s) is to split string 's' by characters '.' or '@' and return a list.
+                # The tuple may has 2 or 3 items:
+                # (dut_index, dut_port_index) or (dut_index, dut_port_index, ptf_port_index)
                 if len(intfs) > 1:
                     obj._host_interfaces.append(
-                            [tuple(map(int, x.split('.'))) for x in intfs])
+                        [tuple(map(int, re.split(r'\.|@', x.strip()))) for x in intfs])
                 else:
                     obj._host_interfaces.append(
-                        tuple(map(int, intfs[0].strip().split("."))))
+                        tuple(map(int, re.split(r'\.|@', intfs[0].strip()))))
         else:
             obj._host_interfaces = host_interfaces
 
@@ -627,17 +634,23 @@ class VMTopology(object):
             if self._is_multi_duts:
                 if isinstance(intf, list):
                     # create veth link and inject one end into the ptf docker
-                    muxy_if = MUXY_INTERFACES_TEMPLATE % (self.vm_set_name, i)
-                    ptf_if = PTF_FP_IFACE_TEMPLATE % i
+                    # If host interface index is explicitly specified by "@x" (len(intf[0]==3), use host interface
+                    # index specified in topo definition.
+                    # Otherwise, it means that host interface does not have "@x" in topo definition, then assume that
+                    # there is no gap in sequence of host interfaces.
+                    host_ifindex = intf[0][2] if len(intf[0]) == 3 else i
+                    muxy_if = MUXY_INTERFACES_TEMPLATE % (self.vm_set_name, host_ifindex)
+                    ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.add_veth_if_to_docker(muxy_if, ptf_if)
 
                     # create muxy cable
                     upper_tor_if = self.duts_fp_ports[self.duts_name[intf[0][0]]][intf[0][1]]
                     lower_tor_if = self.duts_fp_ports[self.duts_name[intf[1][0]]][intf[1][1]]
-                    self.create_muxy_cable(i, muxy_if, upper_tor_if, lower_tor_if)
+                    self.create_muxy_cable(host_ifindex, muxy_if, upper_tor_if, lower_tor_if)
                 else:
+                    host_ifindex = intf[2] if len(intf) == 3 else i
                     fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][intf[1]]
-                    ptf_if = PTF_FP_IFACE_TEMPLATE % i
+                    ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.add_dut_if_to_docker(ptf_if, fp_port)
             else:
                 fp_port = self.duts_fp_ports[self.duts_name[0]][intf]
@@ -655,10 +668,13 @@ class VMTopology(object):
         for i, intf in enumerate(self.host_interfaces):
             if self._is_multi_duts:
                 if isinstance(intf, list):
-                    self.remove_muxy_cable(i)
+                    host_ifindex = intf[0][2] if len(intf[0]) == 3 else i
+                    self.remove_muxy_cable(host_ifindex)
                 else:
+                    host_ifindex = intf[2] if len(intf) == 3 else i
+                    self.remove_muxy_cable(host_ifindex)
                     fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][intf[1]]
-                    ptf_if = PTF_FP_IFACE_TEMPLATE % i
+                    ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.remove_dut_if_from_docker(ptf_if, fp_port)
             else:
                 fp_port = self.duts_fp_ports[self.duts_name[0]][intf]
@@ -822,33 +838,33 @@ def check_topo(topo, is_multi_duts=False):
 
     hostif_exists = False
     vms_exists = False
-    all_vlans = set()
+    all_intfs = set()
 
     if 'host_interfaces' in topo:
-        vlans = topo['host_interfaces']
+        host_interfaces = topo['host_interfaces']
 
-        _assert(isinstance(vlans, list), TypeError,
+        _assert(isinstance(host_interfaces, list), TypeError,
                 "topo['host_interfaces'] should be a list")
 
-        for vlan in vlans:
+        for host_intf in host_interfaces:
             if is_multi_duts:
-                for p in vlan.split(','):
+                for p in host_intf.split(','):
                     condition = (isinstance(p, str) and
-                                 re.match(r"^\d+.\d+$", p))
+                                 re.match(r"^\d+\.\d+(@\d+)?$", p))
                     _assert(condition, ValueError,
                             "topo['host_interfaces'] should be a "
-                            "list of strings of format '<dut>.<vlan>' or '<dut>.<vlan>,<dut>.<vlan>'")
-                    _assert(p not in all_vlans, ValueError,
-                        "topo['host_interfaces'] double use of vlan: %s" % p)
-                    all_vlans.add(p)
+                            "list of strings of format '<dut>.<dut_intf>' or '<dut>.<dut_intf>,<dut>.<dut_intf>'")
+                    _assert(p not in all_intfs, ValueError,
+                        "topo['host_interfaces'] double use of host interface: %s" % p)
+                    all_intfs.add(p)
             else:
-                condition = isinstance(vlan, int) and vlan >= 0
+                condition = isinstance(host_intf, int) and host_intf >= 0
                 _assert(condition, ValueError,
                         "topo['host_interfaces'] should be a "
                         "list of positive integers")
-                _assert(vlan not in all_vlans, ValueError,
-                        "topo['host_interfaces'] double use of vlan: %s" % vlan)
-                all_vlans.add(vlan)
+                _assert(host_intf not in all_intfs, ValueError,
+                        "topo['host_interfaces'] double use of host interface: %s" % host_intf)
+                all_intfs.add(host_intf)
 
         hostif_exists = True
 
@@ -872,8 +888,8 @@ def check_topo(topo, is_multi_duts=False):
 
             for vlan in attrs['vlans']:
                 if is_multi_duts:
-                    condition = (isinstance(p, str) and
-                                 re.match(r"^\d+.\d+$", p))
+                    condition = (isinstance(vlan, str) and
+                                 re.match(r"^\d+\.\d+(@\d+)?$", vlan))
                     _assert(condition, ValueError,
                             "topo['VMs'][%s]['vlans'] should be "
                             "list of strings of format '<dut>.<vlan>'. vlan=%s" % (hostname, vlan))
@@ -882,11 +898,11 @@ def check_topo(topo, is_multi_duts=False):
                             ValueError,
                             "topo['VMs'][%s]['vlans'] should contain"
                             " a list with integers. vlan=%s" % (hostname, vlan))
-                _assert(vlan not in all_vlans,
+                _assert(vlan not in all_intfs,
                         ValueError,
                         "topo['VMs'][%s]['vlans'] double use "
                         "of vlan: %s" % (hostname, vlan))
-                all_vlans.add(vlan)
+                all_intfs.add(vlan)
 
         vms_exists = True
 
