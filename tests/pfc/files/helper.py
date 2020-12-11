@@ -6,7 +6,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
-from tests.common.ixia.common_helpers import pfc_class_enable_vector
+from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
+    get_egress_lossless_buffer_size
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
@@ -30,13 +31,13 @@ TOLERANCE_THRESHOLD = 0.05
 
 def run_pfc_test(api,
                  testbed_config,
-                 conn_data, 
-                 fanout_data, 
-                 duthost, 
-                 dut_port, 
-                 global_pause, 
-                 pause_prio_list, 
-                 test_prio_list, 
+                 conn_data,
+                 fanout_data,
+                 duthost,
+                 dut_port,
+                 global_pause,
+                 pause_prio_list,
+                 test_prio_list,
                  bg_prio_list,
                  prio_dscp_map,
                  test_traffic_pause):
@@ -45,17 +46,17 @@ def run_pfc_test(api,
 
     Args:
         api (obj): IXIA session
-        testbed_config (obj): L2/L3 config of a T0 testbed 
+        testbed_config (obj): L2/L3 config of a T0 testbed
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
         duthost (Ansible host instance): device under test
         dut_port (str): DUT port to test
-        global_pause (bool): if pause frame is IEEE 802.3X pause 
+        global_pause (bool): if pause frame is IEEE 802.3X pause
         pause_prio_list (list): priorities to pause for pause frames
         test_prio_list (list): priorities of test flows
         bg_prio_list (list): priorities of background flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-        test_traffic_pause (bool): if test flows are expected to be paused 
+        test_traffic_pause (bool): if test flows are expected to be paused
 
     Returns:
         None
@@ -72,9 +73,9 @@ def run_pfc_test(api,
                               conn_data=conn_data,
                               fanout_data=fanout_data)
 
-    pytest_assert(port_id is not None, 
+    pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
-    
+
 
     """ Rate percent must be an integer """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT) / len(test_prio_list)
@@ -84,9 +85,9 @@ def run_pfc_test(api,
     flows = __gen_traffic(testbed_config=testbed_config,
                           port_id=port_id,
                           pause_flow_name=PAUSE_FLOW_NAME,
-                          global_pause=global_pause, 
+                          global_pause=global_pause,
                           pause_prio_list=pause_prio_list,
-                          test_flow_name=TEST_FLOW_NAME, 
+                          test_flow_name=TEST_FLOW_NAME,
                           test_flow_prio_list=test_prio_list,
                           test_flow_rate_percent=test_flow_rate_percent,
                           bg_flow_name=BG_FLOW_NAME,
@@ -122,6 +123,7 @@ def run_pfc_test(api,
 
     """ Verify experiment results """
     __verify_results(rows=flow_stats,
+                     duthost=duthost,
                      pause_flow_name=PAUSE_FLOW_NAME,
                      test_flow_name=TEST_FLOW_NAME,
                      bg_flow_name=BG_FLOW_NAME,
@@ -138,9 +140,9 @@ sec_to_nanosec = lambda x : x * 1e9
 def __gen_traffic(testbed_config,
                   port_id,
                   pause_flow_name,
-                  global_pause, 
+                  global_pause,
                   pause_prio_list,
-                  test_flow_name, 
+                  test_flow_name,
                   test_flow_prio_list,
                   test_flow_rate_percent,
                   bg_flow_name,
@@ -151,16 +153,16 @@ def __gen_traffic(testbed_config,
                   data_pkt_size,
                   prio_dscp_map):
     """
-    Generate configurations of flows, including test flows, background flows and 
-    pause storm. Test flows and background flows are also known as data flows. 
+    Generate configurations of flows, including test flows, background flows and
+    pause storm. Test flows and background flows are also known as data flows.
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed 
-        port_id (int): ID of DUT port to test. 
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        port_id (int): ID of DUT port to test.
         pause_flow_name (str): name of pause storm
-        global_pause (bool): if pause frame is IEEE 802.3X pause 
+        global_pause (bool): if pause frame is IEEE 802.3X pause
         pause_prio_list (list): priorities to pause for pause frames
-        test_flow_name (str): name of test flows        
+        test_flow_name (str): name of test flows
         test_prio_list (list): priorities of test flows
         test_flow_rate_percent (int): rate percentage for each test flow
         bg_flow_name (str): name of background flows
@@ -172,7 +174,7 @@ def __gen_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flows configurations (list): the list should have configurations of 
+        flows configurations (list): the list should have configurations of
         len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
         flows and a pause storm.
     """
@@ -204,8 +206,8 @@ def __gen_traffic(testbed_config,
             ],
             size=Size(data_pkt_size),
             rate=Rate('line', test_flow_rate_percent),
-            duration=Duration(FixedSeconds(seconds=data_flow_dur_sec, 
-                                           delay=data_flow_delay_nanosec, 
+            duration=Duration(FixedSeconds(seconds=data_flow_dur_sec,
+                                           delay=data_flow_delay_nanosec,
                                            delay_unit='nanoseconds'))
         )
 
@@ -226,14 +228,14 @@ def __gen_traffic(testbed_config,
             ],
             size=Size(data_pkt_size),
             rate=Rate('line', bg_flow_rate_percent),
-            duration=Duration(FixedSeconds(seconds=data_flow_dur_sec, 
-                                           delay=data_flow_delay_nanosec, 
+            duration=Duration(FixedSeconds(seconds=data_flow_dur_sec,
+                                           delay=data_flow_delay_nanosec,
                                            delay_unit='nanoseconds'))
         )
 
         result.append(bg_flow)
-    
-    """ Pause storm """                 
+
+    """ Pause storm """
     if global_pause:
         pause_pkt = Header(EthernetPause(
             dst=FieldPattern(choice='01:80:C2:00:00:01'),
@@ -247,7 +249,7 @@ def __gen_traffic(testbed_config,
                 pause_time.append('ffff')
             else:
                 pause_time.append('0000')
-        
+
         vector = pfc_class_enable_vector(pause_prio_list)
 
         pause_pkt = Header(PfcPause(
@@ -262,15 +264,15 @@ def __gen_traffic(testbed_config,
             pause_class_5=FieldPattern(choice=pause_time[5]),
             pause_class_6=FieldPattern(choice=pause_time[6]),
             pause_class_7=FieldPattern(choice=pause_time[7]),
-        )) 
+        ))
 
     """ Pause frames are sent from the RX port """
-    pause_src_point = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name, 
+    pause_src_point = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name,
                                rx_port_name=testbed_config.ports[tx_port_id].name)
-        
+
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
-    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9) 
+    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
     pps = int(2 / pause_dur)
 
     pause_flow = Flow(
@@ -285,10 +287,10 @@ def __gen_traffic(testbed_config,
     result.append(pause_flow)
     return result
 
-def __run_traffic(api, 
-                  config, 
-                  data_flow_names, 
-                  all_flow_names, 
+def __run_traffic(api,
+                  config,
+                  data_flow_names,
+                  all_flow_names,
                   exp_dur_sec):
 
     """
@@ -310,25 +312,26 @@ def __run_traffic(api,
 
     while True:
         rows = api.get_flow_results(FlowRequest(flow_names=data_flow_names))
-        
+
         """ If all the data flows have stopped """
         transmit_states = [row['transmit'] for row in rows]
         if len(rows) == len(data_flow_names) and\
            list(set(transmit_states)) == ['stopped']:
             time.sleep(IXIA_POLL_DELAY_SEC)
-            break 
+            break
         else:
             time.sleep(1)
 
     """ Dump per-flow statistics """
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
     api.set_state(State(FlowTransmitState(state='stop')))
-    
+
     return rows
 
-def __verify_results(rows, 
-                     pause_flow_name, 
-                     test_flow_name, 
+def __verify_results(rows,
+                     duthost,
+                     pause_flow_name,
+                     test_flow_name,
                      bg_flow_name,
                      data_flow_dur_sec,
                      test_flow_rate_percent,
@@ -342,8 +345,9 @@ def __verify_results(rows,
 
     Args:
         rows (list): per-flow statistics
+        duthost (Ansible host instance): device under test
         pause_flow_name: name of pause storm
-        test_flow_name (str): name of test flows        
+        test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
         test_flow_rate_percent (int): rate percentage for each test flow
         bg_flow_rate_percent (int): rate percentage for each background flow
@@ -362,38 +366,38 @@ def __verify_results(rows,
     rx_frames = pause_flow_row['frames_rx']
     pytest_assert(tx_frames > 0 and rx_frames == 0,
                   'All the pause frames should be dropped')
-    
+
     """ Check background flows """
     for row in rows:
         if bg_flow_name not in row['name']:
-            continue 
+            continue
 
         tx_frames = row['frames_tx']
         rx_frames = row['frames_rx']
 
-        pytest_assert(tx_frames == rx_frames, 
+        pytest_assert(tx_frames == rx_frames,
                       '{} should not have any dropped packet'.format(row['name']))
 
         exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
             * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
-        pytest_assert(abs(deviation) < tolerance, 
+        pytest_assert(abs(deviation) < tolerance,
                       '{} should receive {} packets (actual {})'.\
                       format(row['name'], exp_bg_flow_rx_pkts, rx_frames))
-    
+
     """ Check test flows """
     for row in rows:
         if test_flow_name not in row['name']:
-            continue 
+            continue
 
         tx_frames = row['frames_tx']
         rx_frames = row['frames_rx']
 
         if test_flow_pause:
-            pytest_assert(tx_frames > 0 and rx_frames == 0, 
+            pytest_assert(tx_frames > 0 and rx_frames == 0,
                           '{} should be paused'.format(row['name']))
         else:
-            pytest_assert(tx_frames == rx_frames, 
+            pytest_assert(tx_frames == rx_frames,
                           '{} should not have any dropped packet'.format(row['name']))
 
             exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
@@ -402,3 +406,13 @@ def __verify_results(rows,
             pytest_assert(abs(deviation) < tolerance,
                           '{} should receive {} packets (actual {})'.\
                           format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))
+
+    if test_flow_pause:
+        """ In-flight TX bytes of test flows should be held by switch buffer """
+        tx_frames_total = sum(row['frames_tx'] for row in rows if test_flow_name in row['name'])
+        tx_bytes_total = tx_frames_total * data_pkt_size
+        dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
+
+        pytest_assert(tx_bytes_total < dut_buffer_size,
+                      'Total TX bytes {} should be smaller than DUT buffer size {}'.\
+                      format(tx_bytes_total, dut_buffer_size))

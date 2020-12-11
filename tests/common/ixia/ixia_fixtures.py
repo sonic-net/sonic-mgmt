@@ -187,15 +187,15 @@ def ixia_api(ixia_api_serv_ip,
                                port=ixia_api_serv_port,
                                username=ixia_api_serv_user,
                                password=ixia_api_serv_passwd)
-    
+
     yield api_session
     api_session.assistant.Session.remove()
 
 @pytest.fixture(scope = "function")
-def ixia_t0_testbed(conn_graph_facts, 
-                    fanout_graph_facts, 
-                    duthosts, 
-                    enum_dut_hostname):
+def ixia_testbed(conn_graph_facts,
+                    fanout_graph_facts,
+                    duthosts,
+                    rand_one_dut_hostname):
 
     """
     L2/L3 Tgen API config for the T0 testbed
@@ -204,18 +204,18 @@ def ixia_t0_testbed(conn_graph_facts,
         conn_graph_facts (pytest fixture)
         fanout_graph_facts (pytest fixture)
         duthosts (pytest fixture): list of DUTs
-        enum_dut_hostname (pytest fixture): DUT hostname 
+        rand_one_dut_hostname (pytest fixture): DUT hostname
 
     Returns:
         L2/L3 config for the T0 testbed
     """
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
                                         dut_hostname=duthost.hostname)
 
     if ixia_fanout is None:
-        return None 
-    
+        return None
+
     ixia_fanout_id = list(fanout_graph_facts.keys()).index(ixia_fanout)
     ixia_fanout_list = IxiaFanoutManager(fanout_graph_facts)
     ixia_fanout_list.get_fanout_device_details(device_number=ixia_fanout_id)
@@ -224,11 +224,11 @@ def ixia_t0_testbed(conn_graph_facts,
 
     ports = list()
     port_names = list()
-    port_speed = None 
+    port_speed = None
 
     """ L1 config """
     for i in range(len(ixia_ports)):
-        port = Port(name='Port {}'.format(i), 
+        port = Port(name='Port {}'.format(i),
                     location=get_tgen_location(ixia_ports[i]))
 
         ports.append(port)
@@ -236,11 +236,11 @@ def ixia_t0_testbed(conn_graph_facts,
 
         if port_speed is None:
             port_speed = int(ixia_ports[i]['speed'])
-        
+
         elif port_speed != int(ixia_ports[i]['speed']):
             """ All the ports should have the same bandwidth """
             return None
-    
+
     pfc = Ieee8021qbb(pfc_delay=0,
                       pfc_class_0=0,
                       pfc_class_1=1,
@@ -260,9 +260,10 @@ def ixia_t0_testbed(conn_graph_facts,
                        speed='speed_%d_gbps' % (port_speed/1000),
                        auto_negotiate=False,
                        auto_negotiation=auto_negotiation,
+                       ieee_media_defaults=False,
                        flow_control=flow_ctl,
                        port_names=port_names)
-    
+
     config = Config(ports=ports,
                     layer1=[l1_config],
                     options=Options(PortOptions(location_preemption=True)))
@@ -270,8 +271,8 @@ def ixia_t0_testbed(conn_graph_facts,
     """ L2/L3 config """
     vlan_subnet = get_vlan_subnet(duthost)
     if vlan_subnet is None:
-        return None 
-    
+        return None
+
     vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(ixia_ports))
     gw_addr = vlan_subnet.split('/')[0]
     prefix = vlan_subnet.split('/')[1]
@@ -282,12 +283,12 @@ def ixia_t0_testbed(conn_graph_facts,
                         prefix=Pattern(prefix),
                         gateway=Pattern(gw_addr),
                         ethernet=Ethernet(name='Ethernet {}'.format(i)))
-        
+
         device = Device(name='Device {}'.format(i),
                         device_count=1,
                         container_name=port_names[i],
                         choice=ip_stack)
-        
+
         config.devices.append(device)
 
-    return config 
+    return config
