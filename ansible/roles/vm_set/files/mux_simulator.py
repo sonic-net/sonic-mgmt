@@ -8,6 +8,7 @@ This script should be started keep running in background when a topology is crea
 """
 from __future__ import print_function
 import json
+import os
 import re
 import subprocess
 import sys
@@ -33,7 +34,10 @@ def run_cmd(cmdline):
         string: The stdout of running the command line.
     """
     process = subprocess.Popen(
-        cmdline, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        cmdline.split(),                          # lgtm [py/command-line-injection]
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     ret_code = process.returncode
 
@@ -285,12 +289,10 @@ def _validate_param(vm_set, port_index=None):
     pattern = 'mbr-{}'.format(vm_set)
     if port_index:
         pattern += '-{}'.format(port_index)
-    cmdline = 'ip link | grep {}'.format(pattern)
-    try:
-        out = run_cmd(cmdline)
+    if any([intf.startswith(pattern) for intf in os.listdir('/sys/class/net')]):
         return True, ''
-    except Exception as e:
-        return False, repr(e)
+    else:
+        return False, 'No interface matches {}'.format(pattern)
 
 
 def _validate_posted_data(data):
@@ -356,9 +358,8 @@ def get_mux_bridges(vm_set):
         list: List of all the bridge names of specified vm_set.
     """
     bridge_prefix = 'mbr-{}-'.format(vm_set)
-    cmdline = 'ls /sys/class/net | grep {}'.format(bridge_prefix)
-    out = run_cmd(cmdline)
-    mux_bridges = [line for line in out.split('\n') if line.startswith(bridge_prefix)]
+    mux_bridges = [intf for intf in os.listdir('/sys/class/net') if intf.startswith(bridge_prefix)]
+
     return mux_bridges
 
 
