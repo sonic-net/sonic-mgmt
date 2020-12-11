@@ -76,7 +76,7 @@
     when: "'dualtor' in topo"
 
   - name: generate y_cable simulator driver
-    include_tasks: config_y_cable_simulator.yml
+    include_tasks: dualtor/config_y_cable_simulator.yml
     when: "'dualtor' in topo"
     
   - name: set default vm file path

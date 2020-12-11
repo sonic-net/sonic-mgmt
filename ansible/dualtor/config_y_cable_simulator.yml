@@ -22,8 +22,9 @@
   when: mux_simulator_port is not defined
     
 - name: generate y cable simulator driver for {{ dut_name }}
-  include_tasks: "y_cable_simulator_injector.yml"
+  include_tasks: "dualtor/y_cable_simulator_injector.yml"
   loop: "{{ testbed_facts['duts'] }}"
   loop_control:
     loop_var: dut_name
   run_once: True
+
