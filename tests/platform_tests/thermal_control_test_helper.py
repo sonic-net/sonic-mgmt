@@ -23,14 +23,12 @@ class BaseMocker:
     # Mocker type dictionary. Vendor must register their concrete mocker class to this dictionary.
     _mocker_type_dict = {}
 
-    def __init__(self, dut, request=None):
+    def __init__(self, dut):
         """
         Constructor of a mocker.
         :param dut: DUT object representing a SONiC switch under test.
-        :param request: Pytest request object to allow vendor process command line arguments.
         """
         self.dut = dut
-        self.request = request
 
     def mock_data(self):
         """
@@ -89,7 +87,7 @@ def mocker(type_name):
 
 
 @pytest.fixture
-def mocker_factory(localhost, duthosts, rand_one_dut_hostname, request):
+def mocker_factory(localhost, duthosts, rand_one_dut_hostname):
     """
     Fixture for thermal control data mocker factory.
     :return: A function for creating thermal control related data mocker.
@@ -111,7 +109,7 @@ def mocker_factory(localhost, duthosts, rand_one_dut_hostname, request):
             from tests.platform_tests.mellanox import mellanox_thermal_control_test_helper
             mocker_type = BaseMocker.get_mocker_type(mocker_name)
             if mocker_type:
-                mocker_object = mocker_type(dut, request)
+                mocker_object = mocker_type(dut)
                 mockers.append(mocker_object)
         else:
             pytest.skip("No mocker defined for this platform %s")

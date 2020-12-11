@@ -15,6 +15,7 @@ import re
 import pytest
 
 import util
+from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
@@ -108,18 +109,16 @@ def test_show_platform_psustatus(duthosts, rand_one_dut_hostname):
         # TODO: Compare against expected platform-specific output
 
 
-def verify_show_platform_fan_output(duthost, request, raw_output_lines):
+def verify_show_platform_fan_output(duthost, raw_output_lines):
     """
     @summary: Verify output of `show platform fan`. Expected output is
               "Fan Not detected" or a table of fan status data conaining expect number of columns.
     """
-    sonic_branch_name = request.config.getoption("--sonic_branch_name")
-    is_201911 = False
-    if sonic_branch_name is None:
-        is_201911 = '201911' in duthost.os_version
+    # workaround to make this test compatible with 201911 and master
+    if parse_version(duthost.kernel_version) > parse_version('4.9.0'):
+        NUM_EXPECTED_COLS = 8
     else:
-        is_201911 = '201911' in sonic_branch_name
-    NUM_EXPECTED_COLS = 6 if is_201911 else 8
+        NUM_EXPECTED_COLS = 6
 
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output")
     if len(raw_output_lines) == 1:
