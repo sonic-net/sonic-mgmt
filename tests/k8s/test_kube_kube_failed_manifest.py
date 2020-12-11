@@ -12,8 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
-    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.topology('any')
 ]
 
 @pytest.mark.parametrize("feature", ["snmp", "dhcp_relay", "radv"])

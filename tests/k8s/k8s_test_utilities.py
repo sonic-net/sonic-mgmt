@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 
 KUBECONFIG_PATH = '/etc/sonic/kube_admin.conf'
-CONTAINER_REGISTRY_PORT = 5000
 
 
 def join_master(duthost, master_vip):
