@@ -78,8 +78,8 @@ def run_pfc_test(api,
 
 
     """ Rate percent must be an integer """
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT) / len(test_prio_list)
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT) / len(bg_prio_list)
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
 
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,

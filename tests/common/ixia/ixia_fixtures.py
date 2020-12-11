@@ -257,7 +257,7 @@ def ixia_testbed(conn_graph_facts,
                                        rs_fec=True)
 
     l1_config = Layer1(name='L1 config',
-                       speed='speed_%d_gbps' % (port_speed/1000),
+                       speed='speed_%d_gbps' % int(port_speed/1000),
                        auto_negotiate=False,
                        auto_negotiation=auto_negotiation,
                        ieee_media_defaults=False,
