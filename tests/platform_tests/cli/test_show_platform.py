@@ -130,7 +130,7 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
         pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns".format(NUM_EXPECTED_COLS))
 
 
-def test_show_platform_fan(duthosts, rand_one_dut_hostname, request):
+def test_show_platform_fan(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform fan`
     """
@@ -139,7 +139,7 @@ def test_show_platform_fan(duthosts, rand_one_dut_hostname, request):
 
     logging.info("Verifying output of '{}' ...".format(cmd))
     fan_status_output_lines = duthost.command(cmd)["stdout_lines"]
-    verify_show_platform_fan_output(duthost, request, fan_status_output_lines)
+    verify_show_platform_fan_output(duthost, fan_status_output_lines)
 
     # TODO: Test values against platform-specific expected data
 
