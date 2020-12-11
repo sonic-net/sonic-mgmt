@@ -50,7 +50,8 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
                    platform_dir="ptftests",
                    testname="everflow_tb_test.EverflowTest" if not test_name else test_name,
                    params=params,
-                   socket_recv_size=16384,
+                   socket_recv_size=10 * 1024 * 1024,
+                   qlen=15000,
                    log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
 
     return _partial_ptf_runner
