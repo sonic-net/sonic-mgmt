@@ -572,7 +572,7 @@ class SonicHost(AnsibleHostBase):
         # some services are meant to have a short life span or not part of the daemons
         exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
 
-        daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
+        daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
         daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ]
 
@@ -1120,6 +1120,21 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def get_route(self, prefix):
         cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
         return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
+
+    def get_asic_name(self):
+        asic = "unknown"
+        output = self.shell("lspci", module_ignore_errors=True)["stdout"]
+        if ("Broadcom Limited Device b960" in output or
+            "Broadcom Limited Broadcom BCM56960" in output):
+            asic = "th"
+        elif "Broadcom Limited Device b971" in output:
+            asic = "th2"
+        elif "Broadcom Limited Device b850" in output:
+            asic = "td2"
+        elif "Broadcom Limited Device b870" in output:
+            asic = "td3"
+
+        return asic
 
 
 class K8sMasterHost(AnsibleHostBase):

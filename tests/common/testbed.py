@@ -223,7 +223,7 @@ class TestbedInfo(object):
                 ports = str(_ports)
                 for port in ports.split(','):
                     if '@' in port and '.' in port:
-                        dut_index, port_index, ptf_index = _parse_dut_port_index(port)
+                        dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
                         if port_index != ptf_index:
                             # Need to add this in map
                             dut_dict = map[dut_index] if dut_index in map else {}
@@ -256,7 +256,7 @@ class TestbedInfo(object):
             topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
             with open(topo_file, 'r') as fh:
                 tb['topo']['properties'] = yaml.safe_load(fh)
-            tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)           
+            tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
 
 
 if __name__ == "__main__":

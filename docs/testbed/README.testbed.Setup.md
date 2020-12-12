@@ -81,11 +81,11 @@ Managing the testbed and running tests requires various dependencies to be insta
 Once you are in the docker container, you need to modify the testbed configuration files to reflect your lab setup.
 
 - Server
-    - Update the server management IP in [`ansible/veos`](../veos).
-    
-    - Update the testbed server credentials in [`ansible/group_vars/vm_host/creds.yml`](../group_vars/vm_host/creds.yml).
-    
-    - Update the server network configuration for the VM and PTF management interfaces in [`ansible/host_vars/STR-ACS-SERV-01.yml`](../host_vars/STR-ACS-SERV-01.yml).
+    - Update the server management IP in [`ansible/veos`](/ansible/veos).
+
+    - Update the testbed server credentials in [`ansible/group_vars/vm_host/creds.yml`](/ansible/group_vars/vm_host/creds.yml).
+
+    - Update the server network configuration for the VM and PTF management interfaces in [`ansible/host_vars/STR-ACS-SERV-01.yml`](/ansible/host_vars/STR-ACS-SERV-01.yml).
         - `external_port`: server trunk port name (connected to the fanout switch)
         - `mgmt_gw`: ip of the gateway for the VM management interfaces
         - `mgmt_prefixlen`: prefixlen for the management interfaces
@@ -97,17 +97,17 @@ Once you are in the docker container, you need to modify the testbed configurati
 
 - VMs
     - Download [vEOS image from Arista](https://www.arista.com/en/support/software-download).
-    
+
     - Copy these image files to `~/veos-vm/images` on your testbed server:
         - `Aboot-veos-serial-8.0.0.iso`
         - `vEOS-lab-4.20.15M.vmdk`
-    
-    - Update the VM IP addresses in the [`ansible/veos`](../veos) inventory file. These IP addresses should be in the management subnet defined above.
-    
+
+    - Update the VM IP addresses in the [`ansible/veos`](/ansible/veos) inventory file. These IP addresses should be in the management subnet defined above.
+
     - Update the VM credentials in `ansible/group_vars/eos/creds.yml`.
 
 - PTF Docker
-    - Update the docker registry information in [`vars/docker_registry.yml`](../vars/docker_registry.yml).
+    - Update the docker registry information in [`vars/docker_registry.yml`](/ansible/vars/docker_registry.yml).
 
 ## Setup VMs on the Server
 
