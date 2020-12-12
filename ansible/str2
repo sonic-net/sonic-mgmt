@@ -31,6 +31,8 @@ all:
           ansible_host: 10.64.246.142  
         vms18-1:
           ansible_host: 10.64.246.141
+        vms18-2:
+          ansible_host: 10.64.246.143
         vms20-6:
           ansible_host: 10.64.246.120
         vms20-8:
@@ -77,6 +79,9 @@ fanout:
       ansible_host: 10.3.146.142
     str2-7260cx3-64-19:
       ansible_host: 10.3.146.150
+    str2-7215-acs-2:
+      ansible_host: 10.3.146.63
+      os: sonic
     str2-7263CX3-azd-01:
       ansible_host: 10.3.146.32
     str2-7260-26:
@@ -98,6 +103,7 @@ sonic:
     sonic_nexus_3164:
     sonic_mlnx_4600C:
     sonic_arista64_100:
+    sonic_nokia_7215:
 
 sonic_mlnx:
   vars:
@@ -210,3 +216,11 @@ sonic_arista64_100:
     str2-7260cx3-acs-9:
       ansible_host: 10.3.146.137
       hwsku: Arista-7260CX3-D108C8
+
+sonic_nokia_7215:
+  vars:
+    hwsku: Nokia-7215
+    iface_speed: 1000
+  hosts:
+    str2-7215-acs-1:
+      ansible_host: 10.3.146.59
