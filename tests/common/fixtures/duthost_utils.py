@@ -1,5 +1,6 @@
 import pytest
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +73,18 @@ def disable_route_checker_module(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     for func in _disable_route_checker(duthost):
         yield func
+
+@pytest.fixture(scope='module')
+def disable_fdb_aging(duthost):
+    """
+    Disable fdb aging by bcmcmd 'age 0'.
+    The original config will be recovered after running test.
+    """
+    cmd = "bcmcmd \'age {}\'"
+    output = duthost.shell("bcmcmd \'age\'")['stdout']
+    default_age = re.findall("Current age timer is (\d+).", output)
+    duthost.shell(cmd.format(0))
+    yield
+    # recover default aging time
+    duthost.shell(cmd.format(default_age))
+

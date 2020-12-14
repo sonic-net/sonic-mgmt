@@ -9,9 +9,11 @@ import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import disable_fdb_aging
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.usefixtures('disable_fdb_aging')
 ]
 
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
