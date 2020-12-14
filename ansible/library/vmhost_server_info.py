@@ -5,10 +5,9 @@ from ansible.inventory.manager import InventoryManager
 
 DOCUMENTATION = '''
 module: vmhost_server_info.py
-Ansible_version_added:  2.0.0.2
 short_description:   Gather mgmt IP for given host server (like server_17)
 Description:
-       This plugin will parse the input vm_file and return mgmt IP for given host server. 
+       This plugin will parse the input vm_file and return mgmt IP for given host server.
  options:
     vmhost_server_name:  the name of vm_host server, like server_1; required: True
     vm_file:  the virtual machine file path ; default: 'veos'

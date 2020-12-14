@@ -19,16 +19,16 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 TOR_A = "tor_a"
 TOR_B = "tor_b"
 
-def _url(port):
+def _url(physical_port):
     """
-    Helper function to build an url for given port and target
+    Helper function to build an url for given physical_port
 
     Args:
-        port: physical port on switch, an integer
+        physical_port: physical port on switch, an integer starting from 1
     Returns:
-        The url for post/get.
+        str: The url for post/get.
     """
-    return BASE_URL + "/mux/{}/{}".format(VM_SET, port - 1)
+    return BASE_URL + "/mux/{}/{}".format(VM_SET, physical_port - 1)
 
 def _post(physical_port, data):
     """
@@ -64,7 +64,8 @@ def _get(physical_port):
     Args:
         physical_port: physical port on switch, an integer starting from 1
     Returns:
-        A dict decoded from server's response. Returns None is error is detected.
+        dict: A dict decoded from server's response.
+        None: Returns None is error is detected.
     """
     req = request.Request(url=_url(physical_port))
     try:
