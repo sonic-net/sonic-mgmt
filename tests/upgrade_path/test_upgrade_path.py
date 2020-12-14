@@ -2,9 +2,11 @@ import pytest
 import logging
 import json
 import os
+from urlparse import urlparse
 from tests.common import reboot
 from jinja2 import Template
-import ipaddr as ipaddress
+import ipaddr
+import ipaddress
 from tests.ptf_runner import ptf_runner
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from datetime import datetime
@@ -33,15 +35,15 @@ def setup(localhost, ptfhost, duthosts, rand_one_dut_hostname, upgrade_path_list
     duthost = duthosts[rand_one_dut_hostname]
     prepare_ptf(ptfhost, duthost, tbinfo)
     yield
-    cleanup(localhost, ptfhost, duthost, upgrade_path_lists)
+    cleanup(localhost, ptfhost, duthost, upgrade_path_lists, tbinfo)
 
 
-def cleanup(localhost, ptfhost, duthost, upgrade_path_lists):
+def cleanup(localhost, ptfhost, duthost, upgrade_path_lists, tbinfo):
     _, _, restore_to_image = upgrade_path_lists
     if restore_to_image:
         logger.info("Preparing to cleanup and restore to {}".format(restore_to_image))
         # restore orignial image
-        install_sonic(duthost, restore_to_image)
+        install_sonic(duthost, restore_to_image, tbinfo)
         # Perform a cold reboot
         reboot(duthost, localhost)
     # cleanup
@@ -85,12 +87,17 @@ def prepare_ptf(ptfhost, duthost, tbinfo):
 def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        reboot_limit_in_seconds = 150
+    else:
+        reboot_limit_in_seconds = 30
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lo_v6_prefix = ""
     for intf in mg_facts["minigraph_lo_interfaces"]:
-        ipn = ipaddress.IPNetwork(intf['addr'])
+        ipn = ipaddr.IPNetwork(intf['addr'])
         if ipn.version == 6:
-            lo_v6_prefix = str(ipaddress.IPNetwork(intf['addr'] + '/64').network) + '/64'
+            lo_v6_prefix = str(ipaddr.IPNetwork(intf['addr'] + '/64').network) + '/64'
             break
 
     vm_hosts = []
@@ -104,7 +111,7 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
         "dut_username": creds.get('sonicadmin_user'),
         "dut_password": creds.get('sonicadmin_password'),
         "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
-        "reboot_limit_in_seconds": 30,
+        "reboot_limit_in_seconds": reboot_limit_in_seconds,
         "reboot_type": "warm-reboot",
         "portchannel_ports_file": TMP_VLAN_PORTCHANNEL_FILE,
         "vlan_ports_file": TMP_VLAN_FILE,
@@ -120,6 +127,7 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
     }
     return ptf_params
 
+
 def get_reboot_type(duthost):
     next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
     current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
@@ -131,17 +139,47 @@ def get_reboot_type(duthost):
         reboot_type = "warm-reboot"
     return reboot_type
 
+
 def check_sonic_version(duthost, target_version):
     current_version = duthost.image_facts()['ansible_facts']['ansible_image_facts']['current']
     assert current_version == target_version, \
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
 
 
-def install_sonic(duthost, image_url):
-    res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
+def install_sonic(duthost, image_url, tbinfo):
+    mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
+    mg_gwaddr = ipaddress.IPv4Address(mg_gwaddr)
+    rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
+    for nexthop in rtinfo_v4['nexthops']:
+        if mg_gwaddr == nexthop[0]:
+            break
+    else:
+        # Temprarily change the default route to mgmt-gateway address. This is done so that
+        # DUT can download an image from a remote host over the mgmt network.
+        logger.info("Adding default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
+        duthost.shell("ip route add default via {}".format(mg_gwaddr), module_ignore_errors=True)
+        new_route_added = True
+
+    if urlparse(image_url).scheme not in ('http', 'https',):
+        out = duthost.command("df -BM --output=avail /host",
+                        module_ignore_errors=True)["stdout"]
+        avail = int(out.split('\n')[1][:-1])
+        save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
+        duthost.copy(src=image_url, dest=save_as)
+        res = duthost.reduce_and_add_sonic_images()
+    else:
+        res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
+
+    # if the new default mgmt-gateway route was added, remove it. This is done so that
+    # default route src address matches Loopback0 address
+    if new_route_added:
+        logger.info("Remove default mgmt-gateway-route earlier added")
+        duthost.shell("ip route del default via {}".format(mg_gwaddr), module_ignore_errors=True)
     return res['ansible_facts']['downloaded_image_version']
 
-def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgrade_path_lists, ptf_params, setup):
+
+@pytest.mark.device_type('vs')
+def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgrade_path_lists, ptf_params, setup, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
@@ -152,14 +190,15 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
             logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
             # Install base image
             logger.info("Installing {}".format(from_image))
-            target_version = install_sonic(duthost, from_image)
+            target_version = install_sonic(duthost, from_image, tbinfo)
             # Perform a cold reboot
+            logger.info("Cold reboot the DUT to make the base image as current")
             reboot(duthost, localhost)
             check_sonic_version(duthost, target_version)
 
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
-            target_version = install_sonic(duthost, to_image)
+            target_version = install_sonic(duthost, to_image, tbinfo)
             test_params = ptf_params
             test_params['target_version'] = target_version
             test_params['reboot_type'] = get_reboot_type(duthost)
