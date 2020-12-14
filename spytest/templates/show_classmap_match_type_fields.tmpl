@@ -1,0 +1,39 @@
+Value Filldown class_name (\S+)
+Value policy_name (\S+)
+Value acl_name (\S+)
+Value Filldown desc_name (\S+|.*)
+Value Filldown match_type (\S+)
+Value priority_val (\d+)
+Value field_value (\S+)
+Value src_port_val (\d+)
+Value dst_port_val (\d+)
+Value src_ip_val (\S+)
+Value dst_ip_val (\S+)
+Value src_mac_val (\S+)
+Value dst_mac_val (\S+)
+Value src_ipv6_val (\S+)
+Value dst_ipv6_val (\S+)
+Value tcp_flags_type (\S+.*)
+Value ip_protocol_val (\S+)
+
+
+Start
+  ^\s*Classifier\s*${class_name}\s*match\-type\s*${match_type}\s*$$
+  ^\s*Class-map\s*${class_name}\s*match\-type\s*${match_type}\s*$$
+  ^\s*Description\:\s*${desc_name}\s*$$
+  ^\s*Match\:\s*$$
+  ^\s*match\s*acl\s*${acl_name}\s*$$
+  ^\s*(ether\-type|ethertype)\s*${field_value}\s*$$
+  ^\s*(ip\s*protocol|ip\-protocol)\s*${ip_protocol_val}\s*$$
+  ^\s*src\-port ${src_port_val}\s*$$
+  ^\s*dst\-port ${dst_port_val}\s*$$
+  ^\s*(src\-ip\s*host|src\-ip)\s*${src_ip_val}\s*$$
+  ^\s*(dst\-ip\s*host|dst\-ip)\s*${dst_ip_val}\s*$$
+  ^\s*(src\-ipv6\s*host|src\-ipv6)\s*${src_ipv6_val}\s*$$
+  ^\s*(dst\-ipv6\s*host|dst\-ipv6)\s*${dst_ipv6_val}\s*$$
+  ^\s*(src\-mac\s*host|src\-mac)\s*${src_mac_val}\s*$$
+  ^\s*(dst\-mac\s*host|dst\-mac)\s*${dst_mac_val}\s*$$
+  ^\s*tcp\-flags\s*${tcp_flags_type}\s*$$
+  ^\s*Referenced\s*in\s*flows\:\s*$$
+  ^\s*policy\s+${policy_name}\s*at\s*priority\s*${priority_val}\s*
+  ^\s*$$ -> Record

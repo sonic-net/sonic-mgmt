@@ -38,10 +38,10 @@ def ansible_facts(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthosts, rand_one_dut_hostname):
+def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
     """ DUT minigraph facts fixture """
     duthost = duthosts[rand_one_dut_hostname]
-    yield duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    yield duthost.get_extended_minigraph_facts(tbinfo)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -285,8 +285,8 @@ class Setup(object):
         self.vars["ptf_test_params"]["server_ports"] = []
         for index, item in enumerate(self.vlan_members):
             port_info = {"dut_name": item,
-                            "ptf_name": "eth{}".format(self.mg_facts["minigraph_port_indices"][item]),
-                            "index": self.mg_facts["minigraph_port_indices"][item],
+                            "ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][item]),
+                            "index": self.mg_facts["minigraph_ptf_indices"][item],
                             "ptf_ip": generated_ips[index],
                             "oid": None}
 
@@ -305,15 +305,15 @@ class Setup(object):
         redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
                                             COUNTERS_PORT_NAME_MAP {}".format(self.portchannel_member))["stdout"]
         sai_redis_oid = int(self.duthost.command("docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid))["stdout"].replace("oid:", ""), 16)
-        self.vars["ptf_test_params"]["non_server_port"] = {"ptf_name": "eth{}".format(self.mg_facts["minigraph_port_indices"][self.portchannel_member]),
-                                                    "index": self.mg_facts["minigraph_port_indices"][self.portchannel_member],
+        self.vars["ptf_test_params"]["non_server_port"] = {"ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][self.portchannel_member]),
+                                                    "index": self.mg_facts["minigraph_ptf_indices"][self.portchannel_member],
                                                     "ip": self.mg_facts["minigraph_portchannel_interfaces"][0]["peer_addr"],
                                                     "dut_name": self.portchannel_member,
                                                     "oid": sai_redis_oid}
 
     def generate_router_mac(self):
         """ Get DUT MAC address which will be used by PTF as Ethernet destination MAC address during sending traffic """
-        self.vars["ptf_test_params"]["router_mac"] = self.ansible_facts["ansible_Ethernet0"]["macaddress"]
+        self.vars["ptf_test_params"]["router_mac"] = self.duthost.facts["router_mac"]
 
 
     def prepare_arp_responder(self):

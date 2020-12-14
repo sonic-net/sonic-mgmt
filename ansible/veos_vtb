@@ -23,6 +23,7 @@ all:
           - t0-64-32
           - t0-116
           - dualtor
+          - dualtor-56
       children:
         server_1:
     lab:

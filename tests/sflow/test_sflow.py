@@ -19,7 +19,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module',autouse=True)
-def setup(duthosts, rand_one_dut_hostname, ptfhost):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     global var
     var = {}
@@ -28,8 +28,8 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost):
     if 'sflow' not in feature_status or feature_status['sflow'] == 'disabled':
         pytest.skip("sflow feature is not eanbled")
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    var['host_facts']  = duthost.setup()['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    var['router_mac']  = duthost.facts['router_mac']
     vlan_dict = mg_facts['minigraph_vlans']
     var['test_ports'] = []
     var['ptf_test_indices'] = []
@@ -37,7 +37,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost):
 
     for i in range(0,3,1):
         var['test_ports'].append(vlan_dict['Vlan1000']['members'][i])
-        var['ptf_test_indices'].append(mg_facts['minigraph_port_indices'][vlan_dict['Vlan1000']['members'][i]])
+        var['ptf_test_indices'].append(mg_facts['minigraph_ptf_indices'][vlan_dict['Vlan1000']['members'][i]])
 
     collector_ips = ['20.1.1.2' ,'30.1.1.2']
     var['dut_intf_ips'] = ['20.1.1.1','30.1.1.1']
@@ -50,7 +50,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost):
         port = interfaces['members'][0]
         var['sflow_ports'][port] = {}
         var['sflow_ports'][port]['ifindex'] = get_ifindex(duthost,port)
-        var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_port_indices'][interfaces['members'][0]]
+        var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_ptf_indices'][interfaces['members'][0]]
         var['sflow_ports'][port]['sample_rate'] = 512
     var['portmap'] = json.dumps(var['sflow_ports'])
 
@@ -156,7 +156,7 @@ def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
 def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(**kwargs):
         params = {'testbed_type': tbinfo['topo']['name'],
-                  'router_mac': var['host_facts']['ansible_Ethernet0']['macaddress'],
+                  'router_mac': var['router_mac'],
                   'dst_port' : var['ptf_test_indices'][2],
                   'agent_id' : var['mgmt_ip'],
                   'sflow_ports_file' : "/tmp/sflow_ports.json"}

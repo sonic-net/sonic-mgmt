@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+
+import argparse
+import os
+import subprocess
+from inv_helpers import get_host_list
+
+
+def run_cmd(cmd):
+    '''
+    @summary: Utility that runs a command in a subprocess
+    @param cmd: Command to be run
+    @return: stdout of the command run
+    @return: stderr of the command run
+    '''
+    out = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+    stdout, stderr = out.communicate()
+    return out.returncode, stdout, stderr
+
+
+def action_list(kind, host, details, parameters):
+    print('type {} host {} details {}'.format(kind, host, details))
+
+
+def action_ping(kind, host, details, parameters):
+    if not details or type(details) != dict:
+        return
+
+    if 'ansible_host' in details:
+        addr = details['ansible_host']
+        rc, _, _ = run_cmd('ping -q -c 1 -w 1 {}'.format(addr))
+        if rc != 0:
+            print('host {} (type {}) is unreachable at address {}'.format(host, kind, addr))
+    if parameters['ipv6'] and 'ansible_hostv6' in details:
+        addr = details['ansible_hostv6']
+        rc, _, _ = run_cmd('ping -6 -q -c 1 -w 1 {}'.format(addr))
+        if rc != 0:
+            print('host {} (type {}) is unreachable at address {}'.format(host, kind, addr))
+
+
+def action_ssh(kind, host, details, parameters):
+    if not details or type(details) != dict:
+        return
+
+    if 'ansible_host' in details:
+        addr = details['ansible_host']
+        os.system('ssh {}@{}'.format(parameters['user'], addr))
+
+
+def action_console(kind, host, details, parameters):
+    print('Action console is not implemented')
+
+
+def hosts_walker(parameters):
+    hosts = parameters['hosts']
+    limit = parameters['limit']
+    for key, val in hosts.items():
+        for host, details in val.items():
+            if limit == 'all' or limit == host:
+                parameters['action'](key, host, details, parameters)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Device utilities')
+    parser.add_argument('-6', '--ipv6', help='Include IPv6', action='store_true',
+                        required=False, default=False)
+    parser.add_argument('-a', '--action',
+                        help='Action towards host(s): list, ping, ssh, console, default list',
+                        type=str, required=False, default='list',
+                        choices=['list', 'ping', 'ssh', 'console'])
+    parser.add_argument('-c', '--category', help='Categories: all, sonic, ptf, pdu, default all',
+                        type=str, required=False, default='all')
+    parser.add_argument('-i', '--inventory', help='Categories: lab, etc, default lab',
+                        type=str, required=False, default='lab')
+    parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
+                        type=str, required=False, default='all')
+    parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
+                        type=str, required=False, default='admin')
+
+    args = parser.parse_args()
+
+    hosts = get_host_list(args.inventory, args.category)
+    actions = { 'list' : action_list,
+                'ping' : action_ping,
+                'ssh' : action_ssh,
+                'console' : action_console,
+              }
+    parameters = { 'hosts' : hosts,
+                   'limit' : args.limit,
+                   'action' : actions[args.action],
+                   'user' : args.user,
+                   'ipv6' : args.ipv6,
+                 }
+    hosts_walker(parameters)
+
+
+if __name__ == '__main__':
+    main()

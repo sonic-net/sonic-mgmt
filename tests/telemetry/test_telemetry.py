@@ -1,3 +1,5 @@
+import time
+
 import logging
 import re
 import pytest
@@ -58,11 +60,6 @@ def setup_telemetry_forpyclient(duthost, localhost):
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
-    # Wait until the TCP port is open
-    dut_ip = duthost.mgmt_ip
-    wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
-
-
 def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
     """Generate the py_gnmicli command line based on the given params.
     """
@@ -78,22 +75,43 @@ def assert_equal(actual, expected, message):
     """
     pytest_assert(actual == expected, "{0}. Expected {1} vs actual {2}".format(message, expected, actual))
 
-def verify_telemetry_dockerimage(duthost):
+@pytest.fixture(scope="module", autouse=True)
+def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
     """If telemetry docker is available in image then return true
     """
     docker_out_list = []
+    duthost = duthosts[rand_one_dut_hostname]
     docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
-    return (len(matching) > 0)
+    if not (len(matching) > 0):
+        pytest.skip("docker-sonic-telemetry is not part of the image")
+
+@pytest.fixture
+def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost):
+    """
+    @summary: Post setting up the streaming telemetry before running the test.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    setup_telemetry_forpyclient(duthost)
+
+    # Wait until telemetry was restarted
+    pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
+    logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
+
+    # Wait until the TCP port was opened
+    dut_ip = duthost.mgmt_ip
+    wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
+
+    # pyclient should be available on ptfhost. If it was not available, then fail pytest.
+    file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
+    pytest_assert(file_exists["stat"]["exists"] is True)
 
 # Test functions
 def test_config_db_parameters(duthost):
     """Verifies required telemetry parameters from config_db.
     """
-    docker_present = verify_telemetry_dockerimage(duthost)
-    if not docker_present:
-        pytest.skip("docker-sonic-telemetry is not part of the image")
+    duthost = duthosts[rand_one_dut_hostname]
 
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
@@ -119,9 +137,7 @@ def test_config_db_parameters(duthost):
 def test_telemetry_enabledbydefault(duthost):
     """Verify telemetry should be enabled by default
     """
-    docker_present = verify_telemetry_dockerimage(duthost)
-    if not docker_present:
-        pytest.skip("docker-sonic-telemetry is not part of the image")
+    duthost = duthosts[rand_one_dut_hostname]
 
     status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
@@ -134,20 +150,13 @@ def test_telemetry_enabledbydefault(duthost):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthost, ptfhost, localhost):
+def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
-    docker_present = verify_telemetry_dockerimage(duthost)
-    if not docker_present:
-        pytest.skip("docker-sonic-telemetry is not part of the image")
+    duthost = duthosts[rand_one_dut_hostname]
 
     logger.info('start telemetry output testing')
-    setup_telemetry_forpyclient(duthost, localhost)
     dut_ip = duthost.mgmt_ip
-
-    # pyclient should be available on ptfhost. If not fail pytest.
-    file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
-    pytest_assert(file_exists["stat"]["exists"] is True)
     cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
@@ -161,7 +170,6 @@ def test_virtualdb_table_streaming(duthost, ptfhost, localhost):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
-    setup_telemetry_forpyclient(duthost, localhost)
 
     cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
     logger.debug("Command to run: {0}".format(cmd))
@@ -172,3 +180,47 @@ def test_virtualdb_table_streaming(duthost, ptfhost, localhost):
     assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
     assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
+
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
+    """
+    @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
+              whether the value of 'system uptime' was float number and whether the value was
+              updated correctly.
+    """
+    logger.info("start test the dataset 'system uptime'")
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_ip = duthost.mgmt_ip
+    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
+           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
+    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
+    system_uptime_1st = 0
+    found_system_uptime_field = False
+    for line_info in system_uptime_info:
+        if "total" in line_info:
+            try:
+                system_uptime_1st = float(line_info.split(":")[1].strip())
+                found_system_uptime_field = True
+            except ValueError as err:
+                pytest.fail("The value of system uptime was not a float. Error message was '{}'".format(err))
+
+    if not found_system_uptime_field:
+        pytest.fail("The field of system uptime was not found.")
+
+    # Wait 10 seconds such that the value of system uptime was added 10 seconds.
+    time.sleep(10)
+    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
+    system_uptime_2nd = 0
+    found_system_uptime_field = False
+    for line_info in system_uptime_info:
+        if "total" in line_info:
+            try:
+                system_uptime_2nd = float(line_info.split(":")[1].strip())
+                found_system_uptime_field = True
+            except ValueError as err:
+                pytest.fail("The value of system uptime was not a float. Error message was '{}'".format(err))
+
+    if not found_system_uptime_field:
+        pytest.fail("The field of system uptime was not found.")
+
+    if system_uptime_2nd - system_uptime_1st < 10:
+        pytest.fail("The value of system uptime was not updated correctly.")

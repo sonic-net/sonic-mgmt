@@ -172,13 +172,12 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    host_facts  = duthost.setup()['ansible_facts']
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 
-    router_mac = host_facts['ansible_Ethernet0']['macaddress']
+    router_mac = duthost.facts['router_mac']
 
     port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
 

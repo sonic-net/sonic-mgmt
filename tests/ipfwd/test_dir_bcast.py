@@ -16,20 +16,19 @@ def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, fib):
         pytest.skip("Not support given test bed type %s" % testbed_type)
 
     # Copy VLAN information file to PTF-docker
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     extra_vars = {
         'minigraph_vlan_interfaces': mg_facts['minigraph_vlan_interfaces'],
         'minigraph_vlans':           mg_facts['minigraph_vlans'],
-        'minigraph_port_indices':    mg_facts['minigraph_port_indices']
+        'minigraph_port_indices':    mg_facts['minigraph_ptf_indices']
     }
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="../ansible/roles/test/templates/fdb.j2", dest="/root/vlan_info.txt")
 
     # Start PTF runner
-    host_facts = duthost.setup()['ansible_facts']
     params = {
         'testbed_type': testbed_type,
-        'router_mac': host_facts['ansible_Ethernet0']['macaddress'],
+        'router_mac': duthost.facts['router_mac'],
         'vlan_info': '/root/vlan_info.txt'
     }
     log_file = "/tmp/dir_bcast.BcastTest.{}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))

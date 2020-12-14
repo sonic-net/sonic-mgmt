@@ -44,6 +44,8 @@ class snmpPsuController(PsuControllerBase):
         if psu is None:
             self.psuType = None
             return
+        if 'Sentry Switched PDU' in psu:
+            self.psuType = "SENTRY4"
         if 'Sentry Switched CDU' in psu:
             self.psuType = "SENTRY"
         if 'APC Web/SNMP Management Card' in psu:
@@ -62,6 +64,10 @@ class snmpPsuController(PsuControllerBase):
         SENTRY_PORT_NAME_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.3.1"
         SENTRY_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.5.1"
         SENTRY_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.11.1"
+        # MIB OID for 'Sentry Switched PDU'
+        SENTRY4_PORT_NAME_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.2.1.3"
+        SENTRY4_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.1.1.1"
+        SENTRY4_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.5.1.1.1.1"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -80,6 +86,13 @@ class snmpPsuController(PsuControllerBase):
             self.PORT_NAME_BASE_OID      = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = SENTRY_PORT_CONTROL_BASE_OID
+        elif self.psuType == "SENTRY4":
+            self.pPORT_NAME_BASE_OID     = '.'+SENTRY4_PORT_NAME_BASE_OID
+            self.pPORT_STATUS_BASE_OID   = '.'+SENTRY4_PORT_STATUS_BASE_OID
+            self.pPORT_CONTROL_BASE_OID  = '.'+SENTRY4_PORT_CONTROL_BASE_OID
+            self.PORT_NAME_BASE_OID      = SENTRY4_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID    = SENTRY4_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID   = SENTRY4_PORT_CONTROL_BASE_OID
         else:
             pass
 

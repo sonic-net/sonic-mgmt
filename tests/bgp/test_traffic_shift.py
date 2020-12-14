@@ -26,8 +26,10 @@ BGP_MONITOR_NAME = "bgp_monitor"
 BGP_ANNOUNCE_TIME = 30 #should be enough to receive and parse bgp updates
 
 # TODO: remove me
-BGPMON_TEMPLATE_FILE = 'bgp/templates/bgpmon.j2'
+BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
+
+PEER_COUNT = 1
 
 @pytest.fixture
 def traffic_shift_community(duthost):
@@ -35,15 +37,16 @@ def traffic_shift_community(duthost):
     return community
 
 @pytest.fixture
-def common_setup_teardown(ptfhost, duthost, localhost):
+def common_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
+    connection = setup_interfaces[0]
+    dut_lo_addr = connection['local_addr'].split("/")[0]
+    peer_addr = connection['neighbor_addr'].split("/")[0]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    dut_lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
-    dut_mgmt_ip = mg_facts['minigraph_mgmt_interface']['addr']
     asn = mg_facts['minigraph_bgp_asn']
-    peer_addr = ptfhost.mgmt_ip
     # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
     logger.info("Configuring bgp monitor session on DUT")
     bgpmon_args = {
+        'db_table_name': 'BGP_MONITORS',
         'peer_addr': peer_addr,
         'asn': asn,
         'local_addr': dut_lo_addr,
@@ -53,8 +56,6 @@ def common_setup_teardown(ptfhost, duthost, localhost):
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
 
-    # Add a static route via mgmt interface on ptf
-    ptfhost.shell('ip route add {}/32 via {} dev mgmt'.format(dut_lo_addr, dut_mgmt_ip))
     logger.info("Starting bgp monitor session on PTF")
     ptfhost.file(path=DUMP_FILE, state="absent")
     ptfhost.copy(src=CUSTOM_DUMP_SCRIPT, dest=CUSTOM_DUMP_SCRIPT_DEST)
@@ -75,7 +76,6 @@ def common_setup_teardown(ptfhost, duthost, localhost):
     ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
     ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
     ptfhost.file(path=DUMP_FILE, state="absent")
-    ptfhost.shell('ip route flush {}/32'.format(dut_lo_addr))
 
 def get_traffic_shift_state(host):
     outputs = host.shell('TSC')['stdout_lines']
@@ -145,13 +145,13 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
             cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
             # For compatibility on EOS of old version
             cmd_backup = "show ipv6 bgp neighbors {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
-        output_lines = host.eos_command(commands=[cmd])['stdout_lines'][0]
-        if len(output_lines) == 0 and cmd_backup != "":
-            output_lines = host.eos_command(commands=[cmd])['stdout_lines'][0]
-        pytest_assert(len(output_lines) != 0, "Failed to retrieve routes from VM {}".format(hostname))
+        res = host.eos_command(commands=[cmd], module_ignore_errors=True)
+        if res['failed'] and cmd_backup != "":
+            res = host.eos_command(commands=[cmd_backup], module_ignore_errors=True)
+        pytest_assert(not res['failed'], "Failed to retrieve routes from VM {}".format(hostname))
         routes = {}
         entry = None
-        for line in output_lines:
+        for line in res['stdout_lines'][0]:
             addr = re.findall(BGP_ENTRY_HEADING + r"(.+)", line)
             if addr:
                 if entry:

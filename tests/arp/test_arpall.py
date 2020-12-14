@@ -24,9 +24,9 @@ def collect_info(duthost):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
+def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     int_facts = duthost.interface_facts()['ansible_facts']
 
     ports = list(sorted(mg_facts['minigraph_ports'].keys(), key=lambda item: int(item.replace('Ethernet', ''))))
@@ -36,8 +36,8 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     intf2 = ports[1]
     logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
 
-    intf1_indice = mg_facts['minigraph_port_indices'][intf1]
-    intf2_indice = mg_facts['minigraph_port_indices'][intf2]
+    intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
+    intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
     po1 = get_po(mg_facts, intf1)
     po2 = get_po(mg_facts, intf2)

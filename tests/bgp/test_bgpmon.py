@@ -15,7 +15,7 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
-BGPMON_TEMPLATE_FILE = 'bgp/templates/bgpmon.j2'
+BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
@@ -70,6 +70,7 @@ def common_setup_teardown(duthost, ptfhost):
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
     bgpmon_args = {
+        'db_table_name': 'BGP_MONITORS',
         'peer_addr': peer_addr,
         'asn': mg_facts['minigraph_bgp_asn'],
         'local_addr': local_addr,
@@ -124,6 +125,8 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter):
     """
     local_addr, peer_addr, peer_ports = common_setup_teardown
     exp_packet = build_syn_pkt(local_addr, peer_addr)
+    # Flush dataplane
+    ptfadapter.dataplane.flush()
     # Load bgp monitor config
     logger.info("Configured bgpmon and verifying packet on {}".format(peer_ports))
     duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
@@ -142,6 +145,8 @@ def test_bgpmon_no_resolve_via_default(duthost, common_setup_teardown, ptfadapte
         # Disable resolve-via-default
         duthost.command("vtysh -c \"configure terminal\" \
                         -c \"no ip nht resolve-via-default\"")
+        # Flush dataplane
+        ptfadapter.dataplane.flush()
         duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
         # Verify no syn packet is received
         pytest_assert(0 == testutils.count_matched_packets_all_ports(test=ptfadapter, exp_packet=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT),

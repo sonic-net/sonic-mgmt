@@ -9,6 +9,7 @@ import json
 import ptf.packet as packet
 import ptf.testutils as testutils
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from drop_packets import *  # FIXME
 
@@ -217,6 +218,10 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_du
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
 
 
+def get_intf_mtu(duthost, intf):
+    return int(duthost.shell("/sbin/ifconfig {} | grep -i mtu | awk '{{print $NF}}'".format(intf))["stdout"])
+
+
 @pytest.fixture
 def mtu_config(duthosts, rand_one_dut_hostname):
     """ Fixture which prepare port MTU configuration for 'test_ip_pkt_with_exceeded_mtu' test case """
@@ -238,6 +243,8 @@ def mtu_config(duthosts, rand_one_dut_hostname):
             else:
                 raise Exception("Unsupported interface parameter - {}".format(iface))
             cls.iface = iface
+            check_mtu = lambda: get_intf_mtu(duthost, iface) == mtu
+            pytest_assert(wait_until(5, 1, check_mtu), "MTU on interface {} not updated".format(iface))
 
         @classmethod
         def restore_mtu(cls):
