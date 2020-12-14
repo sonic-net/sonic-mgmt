@@ -152,11 +152,12 @@ def install_sonic(duthost, image_url, tbinfo):
     rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
     for nexthop in rtinfo_v4['nexthops']:
         if mg_gwaddr == nexthop[0]:
+            new_route_added = False
             break
     else:
         # Temprarily change the default route to mgmt-gateway address. This is done so that
         # DUT can download an image from a remote host over the mgmt network.
-        logger.info("Adding default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
+        logger.info("Add default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
         duthost.shell("ip route add default via {}".format(mg_gwaddr), module_ignore_errors=True)
         new_route_added = True
 
