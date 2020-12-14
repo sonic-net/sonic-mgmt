@@ -13,26 +13,20 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop2.2/sonic-cisco-8000.bin
+    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop3.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
-    vxr_sim_config:
-      shelf:
-          ConfigDsimNplPath: /auto/vxr/sonic_npl/1.50.0
 
   SD2:
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop2.2/sonic-cisco-8000.bin
+    onie-install: /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop3.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
-    vxr_sim_config:
-      shelf:
-          ConfigDsimNplPath: /auto/vxr/sonic_npl/1.50.0
 
   spt:
     platform: spirent_cafy1
