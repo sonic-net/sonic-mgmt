@@ -29,18 +29,20 @@ BGP_ANNOUNCE_TIME = 30 #should be enough to receive and parse bgp updates
 BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
 
+PEER_COUNT = 1
+
 @pytest.fixture
 def traffic_shift_community(duthost):
     community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')['stdout']
     return community
 
 @pytest.fixture
-def common_setup_teardown(ptfhost, duthost, localhost):
+def common_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
+    connection = setup_interfaces[0]
+    dut_lo_addr = connection['local_addr'].split("/")[0]
+    peer_addr = connection['neighbor_addr'].split("/")[0]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    dut_lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
-    dut_mgmt_ip = mg_facts['minigraph_mgmt_interface']['addr']
     asn = mg_facts['minigraph_bgp_asn']
-    peer_addr = ptfhost.mgmt_ip
     # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
     logger.info("Configuring bgp monitor session on DUT")
     bgpmon_args = {
@@ -54,8 +56,6 @@ def common_setup_teardown(ptfhost, duthost, localhost):
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
 
-    # Add a static route via mgmt interface on ptf
-    ptfhost.shell('ip route add {}/32 via {} dev mgmt'.format(dut_lo_addr, dut_mgmt_ip))
     logger.info("Starting bgp monitor session on PTF")
     ptfhost.file(path=DUMP_FILE, state="absent")
     ptfhost.copy(src=CUSTOM_DUMP_SCRIPT, dest=CUSTOM_DUMP_SCRIPT_DEST)
@@ -76,7 +76,6 @@ def common_setup_teardown(ptfhost, duthost, localhost):
     ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
     ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
     ptfhost.file(path=DUMP_FILE, state="absent")
-    ptfhost.shell('ip route flush {}/32'.format(dut_lo_addr))
 
 def get_traffic_shift_state(host):
     outputs = host.shell('TSC')['stdout_lines']
