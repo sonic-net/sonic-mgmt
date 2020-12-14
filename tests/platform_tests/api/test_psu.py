@@ -37,6 +37,7 @@ STATUS_LED_COLOR_OFF = "off"
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
+    request.cls.asic_type = duthost.facts.get("asic_type")
 
 
 @pytest.mark.usefixtures("gather_facts")
@@ -196,28 +197,32 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_led(self, duthost, localhost, platform_api_conn):
         ''' PSU status led test '''
-
         FAULT_LED_COLOR_LIST = [
             STATUS_LED_COLOR_AMBER,
             STATUS_LED_COLOR_ORANGE,
             STATUS_LED_COLOR_RED
         ]
-        OFF_LED_COLOR_LIST = [
-            STATUS_LED_COLOR_OFF
-        ]
+
         NORMAL_LED_COLOR_LIST = [
             STATUS_LED_COLOR_GREEN
         ]
 
+        OFF_LED_COLOR_LIST = [
+            STATUS_LED_COLOR_OFF
+        ]
+
         LED_COLOR_TYPES = []
         LED_COLOR_TYPES.append(FAULT_LED_COLOR_LIST)
-        LED_COLOR_TYPES.append(OFF_LED_COLOR_LIST)
         LED_COLOR_TYPES.append(NORMAL_LED_COLOR_LIST)
+
+        # Mellanox is not supporting set leds to 'off'
+        if self.asic_type != "mellanox":
+            LED_COLOR_TYPES.append(OFF_LED_COLOR_LIST)
 
         LED_COLOR_TYPES_DICT = {
             0: "fault",
-            1: "off",
-            2: "normal"
+            1: "normal",
+            2: "off"
         }   
 
         for psu_id in range(self.num_psus):
