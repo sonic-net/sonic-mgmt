@@ -44,7 +44,7 @@ def get_list_stdout(cmd_out):
         out_list.append(result)
     return out_list
 
-def setup_telemetry_forpyclient(duthost, localhost):
+def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to sucessfully set up channel with gnmi server.
         Restart telemetry process
     """
@@ -53,10 +53,6 @@ def setup_telemetry_forpyclient(duthost, localhost):
     if client_auth == "true":
         duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
         duthost.service(name="telemetry", state="restarted")
-
-        # wait till telemetry is restarted
-        pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started")
-        logger.info('telemetry process restarted. Now run pyclient on ptfdocker')
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
@@ -108,7 +104,7 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     pytest_assert(file_exists["stat"]["exists"] is True)
 
 # Test functions
-def test_config_db_parameters(duthost):
+def test_config_db_parameters(duthosts, rand_one_dut_hostname):
     """Verifies required telemetry parameters from config_db.
     """
     duthost = duthosts[rand_one_dut_hostname]
@@ -134,7 +130,7 @@ def test_config_db_parameters(duthost):
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
-def test_telemetry_enabledbydefault(duthost):
+def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
     """Verify telemetry should be enabled by default
     """
     duthost = duthosts[rand_one_dut_hostname]
@@ -166,20 +162,18 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-def test_virtualdb_table_streaming(duthost, ptfhost, localhost):
-    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
+def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+    """ Test osbuild/version query.
     """
-    logger.info('start virtual db sample streaming testing')
-
-    cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
+    duthost = duthosts[rand_one_dut_hostname]
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
     logger.debug("Command to run: {0}".format(cmd))
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.debug(show_gnmi_out)
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
-    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
+    assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
+    assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
 
 def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """
@@ -224,3 +218,19 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
 
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
+
+def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
+    """
+    logger.info('start virtual db sample streaming testing')
+
+    duthost = duthosts[rand_one_dut_hostname]
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
+    logger.debug("Command to run: {0}".format(cmd))
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    logger.debug(show_gnmi_out)
+    result = str(show_gnmi_out)
+
+    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
+    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
+    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
