@@ -29,9 +29,9 @@ TMP_PORTS_FILE = '/tmp/ports.json'
 
 
 @pytest.fixture(scope="module")
-def setup(localhost, ptfhost, duthosts, rand_one_dut_hostname, upgrade_path_lists):
+def setup(localhost, ptfhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    prepare_ptf(ptfhost, duthost)
+    prepare_ptf(ptfhost, duthost, tbinfo)
     yield
     cleanup(localhost, ptfhost, duthost, upgrade_path_lists)
 
@@ -52,11 +52,11 @@ def cleanup(localhost, ptfhost, duthost, upgrade_path_lists):
     os.remove(TMP_PORTS_FILE)
 
 
-def prepare_ptf(ptfhost, duthost):
+def prepare_ptf(ptfhost, duthost, tbinfo):
     logger.info("Preparing ptfhost")
 
     # Prapare vlan conf file
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     with open(TMP_VLAN_PORTCHANNEL_FILE, "w") as file:
         file.write(json.dumps(mg_facts['minigraph_portchannels']))
@@ -69,7 +69,7 @@ def prepare_ptf(ptfhost, duthost):
                  dest=TMP_VLAN_FILE)
 
     with open(TMP_PORTS_FILE, "w") as file:
-        file.write(json.dumps(mg_facts['minigraph_port_indices']))
+        file.write(json.dumps(mg_facts['minigraph_ptf_indices']))
     ptfhost.copy(src=TMP_PORTS_FILE,
                  dest=TMP_PORTS_FILE)
 
@@ -82,10 +82,10 @@ def prepare_ptf(ptfhost, duthost):
 
 
 @pytest.fixture(scope="module")
-def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds):
+def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lo_v6_prefix = ""
     for intf in mg_facts["minigraph_lo_interfaces"]:
         ipn = ipaddress.IPNetwork(intf['addr'])
@@ -109,7 +109,7 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds):
         "portchannel_ports_file": TMP_VLAN_PORTCHANNEL_FILE,
         "vlan_ports_file": TMP_VLAN_FILE,
         "ports_file": TMP_PORTS_FILE,
-        "dut_mac": duthost.setup()['ansible_facts']['ansible_Ethernet0']['macaddress'],
+        "dut_mac": duthost.facts["router_mac"],
         "dut_vlan_ip": "192.168.0.1",
         "default_ip_range": "192.168.100.0/18",
         "vlan_ip_range": mg_facts['minigraph_vlan_interfaces'][0]['subnet'],

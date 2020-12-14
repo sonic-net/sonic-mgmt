@@ -2,7 +2,6 @@ import pytest
 import time
 from spytest import st
 from spytest.dicts import SpyTestDict
-import utilities.utils as common_obj
 import apis.system.reboot as reboot_obj
 import apis.system.ntp as ntp_obj
 import apis.system.logging as syslog_obj
@@ -17,10 +16,13 @@ def ntp_module_hooks(request):
     vars = st.get_testbed_vars()
     global_vars()
     yield
+    ntp_obj.delete_ntp_servers(vars.D1)
+
 @pytest.fixture(scope="function", autouse=True)
 def ntp_func_hooks(request):
     global_vars()
     yield
+
 def global_vars():
     global data
     data = SpyTestDict()
@@ -44,7 +46,7 @@ def config_ntp_server_on_config_db_file(dut, iplist):
     else:
         st.log("ntpd is exited and restarting ntp service")
         basic_obj.service_operations(vars.D1, data.ntp_service, action="restart")
-    if not ntp_obj.verify_ntp_server_details(dut,iplist,remote=iplist):
+    if not st.poll_wait(ntp_obj.verify_ntp_server_details, 10, dut, iplist, remote=iplist):
         st.log("ip not matching")
         st.report_fail("operation_failed")
     if not ntp_obj.verify_ntp_service_status(dut, 'active (running)', iteration=65, delay=2):
@@ -84,7 +86,7 @@ def test_ft_ntp_disable_enable_with_message_log():
     if not log_message_1:
         st.log("log message_1 not created")
         st.report_fail("operation_failed")
-    clock= common_obj.log_parser(log_message_1[0])
+    clock= utils_obj.log_parser(log_message_1[0])
     config_ntp_server_on_config_db_file(vars.D1, data.servers)
     st.log("Generating log messages")
     syslog_obj.clear_logging(vars.D1)
@@ -95,7 +97,7 @@ def test_ft_ntp_disable_enable_with_message_log():
         st.report_fail("operation_failed")
     st.log("printing system clock")
     ntp_obj.show_clock(vars.D1)
-    out = common_obj.log_parser(log_message[0])
+    out = utils_obj.log_parser(log_message[0])
     if not (clock[0]['month'] == out[0]['month'] and clock[0]['hours'] == out[0]['hours'] and
             clock[0]['date'] == out[0]['date'] and clock[0]['minutes'] <= out[0]['minutes'] or clock[0]['seconds'] >= out[0]['seconds']):
         st.log("time not updated")

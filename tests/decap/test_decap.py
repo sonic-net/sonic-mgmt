@@ -64,28 +64,28 @@ def gen_fib_info(ptfhost, tbinfo, cfg_facts):
     downlink_ports_str = " ".join(get_downlink_ports(topology, topo_type))
 
     fibs = []
-
+    common_config_topo = tbinfo['topo']['properties']['configuration_properties']['common']
     podset_number = 5  # Limit the number of podsets to limit test execution time
-    tor_number = 16
-    tor_subnet_number = 2
+    tor_number = common_config_topo.get("tor_number", 16)
+    tor_subnet_number = common_config_topo.get("tor_subnet_number", 2)
+    max_tor_subnet_number = common_config_topo.get("max_tor_subnet_number", 16)
+    tor_subnet_size = common_config_topo.get("tor_subnet_size", 128)
 
     # routes to uplink
     routes_uplink_v4 = []
     routes_uplink_v6 = []
     if topo_type == "t0":
         routes_uplink_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0,
-                                            "", "")
+                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number)
         routes_uplink_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0,
-                                            "", "")
+                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number)
     elif topo_type == "t1":
         routes_uplink_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0,
-                                            "", "", router_type="spine")
+                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
+                                            router_type="spine")
         routes_uplink_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0,
-                                            "", "", router_type="spine")
+                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
+                                            router_type="spine")
 
     for prefix, _, _ in routes_uplink_v4:
         fibs.append("{} {}".format(prefix, uplink_ports_str))
@@ -97,12 +97,12 @@ def gen_fib_info(ptfhost, tbinfo, cfg_facts):
     if topo_type == "t1":
         for tor_index in range(tor_number):
             routes_downlink_v4.extend(generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                      0, 0, 0,
-                                      "", "", router_type="tor", tor_index=tor_index))
+                                      0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
+                                      router_type="tor", tor_index=tor_index))
 
             routes_downlink_v6.extend(generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                      0, 0, 0,
-                                      "", "", router_type="tor", tor_index=tor_index))
+                                      0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
+                                      router_type="tor", tor_index=tor_index))
 
     for prefix, _, _ in routes_downlink_v4:
         fibs.append("{} {}".format(prefix, downlink_ports_str))

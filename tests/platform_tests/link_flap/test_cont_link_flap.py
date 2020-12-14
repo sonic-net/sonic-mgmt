@@ -26,7 +26,7 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
-    def test_cont_link_flap(self, request, duthosts, rand_one_dut_hostname, fanouthosts, bring_up_dut_interfaces):
+    def test_cont_link_flap(self, request, duthosts, rand_one_dut_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
         Validates that continuous link flap works as expected
 
@@ -69,7 +69,7 @@ class TestContLinkFlap(object):
         # Flap all interfaces one by one on DUT
         for iteration in range(3):
             logging.info("%d Iteration flap all interfaces one by one on DUT", iteration + 1)
-            port_toggle(duthost, watch=True)
+            port_toggle(duthost, tbinfo, watch=True)
 
         # Flap all interfaces one by one on Peer Device
         for iteration in range(3):

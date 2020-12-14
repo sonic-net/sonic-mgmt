@@ -1,0 +1,92 @@
+Value Filldown access_list_name (\S+)
+Value rule_no (\d+)
+Value action (\w+)
+Value proto (\w+)
+Value src_ip (\S+)
+Value src_port (\d+)
+Value dst_ip (\S+)
+Value dst_port (\d+)
+Value proto_flag (\w+|(\w+\s*)+)
+Value dscp (\w+)
+Value dscp_val (\S+)
+Value packetscnt (\d+)
+Value bytescnt (\d+)
+Value vlan (\d+)
+Value src_comparision (eq|lt|gt)
+Value dst_comparision (eq|lt|gt)
+Value src_range ((\d+\s+)+)
+Value dst_range ((\d+\s+)+)
+Value acl_type (ip|ipv6|mac)
+Value src_mac_address (..:..:..:..:..:..)
+Value dst_mac_address (..:..:..:..:..:..)
+
+
+Start
+  ^\s*${acl_type}\s+access-list\s+${access_list_name}\s*$$
+  ^\s*${acl_type}\s+access-list\s+${access_list_name}\s*at\s*(Ingress|Egress)\s*$$
+  ^\s*seq\s+${rule_no}\s+${action}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+vlan\s+${vlan}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+vlan\s+${vlan}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+host\s+${src_mac_address}\s+host\s+${dst_mac_address}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+host\s+${src_mac_address}\s+host\s+${dst_mac_address}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+host\s+${src_mac_address}\s+host\s+${dst_mac_address}\s+vlan\s+${vlan}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+host\s+${src_mac_address}\s+host\s+${dst_mac_address}\s+ip\s+vlan\s+${vlan}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+host\s+${src_mac_address}\s+host\s+${dst_mac_address}\s+vlan\s+${vlan}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${proto_flag}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${proto_flag}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${proto_flag}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${proto_flag}\s+${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s+${proto_flag}\s+vlan\s+${vlan}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s+${proto_flag}\s+vlan\s+${vlan}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${dscp}\s+${dscp_val}\s+${proto_flag}vlan\s+${vlan}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+${dscp}\s+${dscp_val}\s+${proto_flag}vlan\s+${vlan}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+range\s+${dst_range}${dscp}\s+${dscp_val}\s+vlan\s+${vlan}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+range\s+${dst_range}${dscp}\s+${dscp_val}\s+vlan\s+${vlan}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+range\s+${dst_range}${dscp}\s+${dscp_val}\s+vlan\s+${vlan}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+range\s+${dst_range}${dscp}\s+${dscp_val}\s+vlan\s+${vlan}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+range\s+${dst_range}${dscp}\s+${dscp_val}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+range\s+${dst_range}${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s+range\s+${dst_range}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s+range\s+${dst_range}\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+range\s+${src_range}${dst_ip}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+range\s+${src_range}${dst_ip}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s+${proto_flag}$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${dst_ip}\s+${proto_flag}\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+host\s+${dst_ip}\s+range\s+${dst_range}${dscp}\s+${dscp_val}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+range\s+${src_range}host\s+${dst_ip}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+  ^\s*seq\s+${rule_no}\s+${action}\s+${proto}\s+host\s+${src_ip}\s+${src_comparision}\s+${src_port}\s+host\s+${dst_ip}\s+${dst_comparision}\s+${dst_port}\s+\(${packetscnt}\s+packets\)\s+\[${bytescnt}\s+bytes\]\s*$$ -> Record
+
+EOF

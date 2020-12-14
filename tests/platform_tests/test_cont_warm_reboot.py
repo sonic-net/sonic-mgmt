@@ -89,7 +89,7 @@ class ContinuousReboot:
         self.pre_existing_cores = 0
 
 
-    def reboot_and_check(self):
+    def reboot_and_check(self, tbinfo):
         """
         Perform the specified type of reboot and check platform status.
         @param interfaces: DUT's interfaces defined by minigraph
@@ -106,7 +106,7 @@ class ContinuousReboot:
         self.check_services()
         self.check_reboot_type()
         self.check_interfaces_and_transceivers()
-        self.check_neighbors()
+        self.check_neighbors(tbinfo)
         logging.info("Finished reboot test and health checks..")
 
 
@@ -175,13 +175,13 @@ class ContinuousReboot:
 
 
     @handle_test_error
-    def check_neighbors(self):
+    def check_neighbors(self, tbinfo):
         """
         Perform a BGP neighborship check.
         """
         logging.info("Check BGP neighbors status. Expected state - established")
         bgp_facts = self.duthost.bgp_facts()['ansible_facts']
-        mg_facts  = self.duthost.minigraph_facts(host=self.duthost.hostname)['ansible_facts']
+        mg_facts  = self.duthost.get_extended_minigraph_facts(tbinfo)
 
         for value in bgp_facts['bgp_neighbors'].values():
             # Verify bgp sessions are established
@@ -379,7 +379,7 @@ class ContinuousReboot:
             time.sleep(1)
 
 
-    def start_continuous_reboot(self, request, duthost, ptfhost, localhost, testbed, creds,):
+    def start_continuous_reboot(self, request, duthost, ptfhost, localhost, tbinfo, creds):
         self.test_set_up()
         # Start continuous warm/fast reboot on the DUT
         for count in range(self.continuous_reboot_count):
@@ -390,7 +390,7 @@ class ContinuousReboot:
                 .format(self.reboot_count, self.continuous_reboot_count, self.reboot_type))
             reboot_type = self.reboot_type + "-reboot"
             try:
-                self.advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, testbed, creds,\
+                self.advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, tbinfo, creds,\
                     rebootType=reboot_type, moduleIgnoreErrors=True)
             except Exception:
                 self.sub_test_result = False
@@ -402,7 +402,7 @@ class ContinuousReboot:
                     break
                 continue
             self.handle_image_installation(count)
-            self.reboot_and_check()
+            self.reboot_and_check(tbinfo)
             self.advancedReboot.newSonicImage = None
             self.test_end_time = datetime.now()
             self.create_test_report()

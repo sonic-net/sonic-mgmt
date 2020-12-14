@@ -40,7 +40,7 @@ class DualTorParser:
         '''
         Gathers facts related to a dual ToR configuration
         '''
-        if self.testbed_facts['topo'] == 'dualtor':
+        if 'dualtor' in self.testbed_facts['topo']:
             self.parse_neighbor_tor()
             self.parse_tor_position()
             self.generate_cable_names()

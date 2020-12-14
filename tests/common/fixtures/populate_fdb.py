@@ -45,7 +45,7 @@ class PopulateFdb:
         self.duthost = duthost
         self.ptfhost = ptfhost
 
-    def __prepareVlanConfigData(self):
+    def __prepareVlanConfigData(self, tbinfo):
         """
             Prepares Vlan Configuration data
 
@@ -57,13 +57,13 @@ class PopulateFdb:
                 None
         """
         mgVlanPorts = []
-        mgFacts = self.duthost.minigraph_facts(host=self.duthost.hostname)["ansible_facts"]
+        mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
         for vlan, config in mgFacts["minigraph_vlans"].items():
             for port in config["members"]:
                 mgVlanPorts.append({
                     "port": port,
                     "vlan": vlan,
-                    "index": mgFacts["minigraph_port_indices"][port]
+                    "index": mgFacts["minigraph_ptf_indices"][port]
                 })
         vlan_interfaces = {}
         for vlan in mgFacts["minigraph_vlan_interfaces"]:
@@ -73,7 +73,7 @@ class PopulateFdb:
         vlanConfigData = {
             "vlan_ports": mgVlanPorts,
             "vlan_interfaces": vlan_interfaces,
-            "dut_mac": self.duthost.setup()["ansible_facts"]["ansible_Ethernet0"]["macaddress"]
+            "dut_mac": self.duthost.facts["router_mac"]
         }
 
         with open(self.VLAN_CONFIG_FILE, 'w') as file:
@@ -82,7 +82,7 @@ class PopulateFdb:
         logger.info("Copying VLan config file to {0}".format(self.ptfhost.hostname))
         self.ptfhost.copy(src=self.VLAN_CONFIG_FILE, dest="/tmp/")
 
-    def run(self):
+    def run(self, tbinfo):
         """
             Populates DUT FDB entries
 
@@ -92,7 +92,7 @@ class PopulateFdb:
             Returns:
                 None
         """
-        self.__prepareVlanConfigData()
+        self.__prepareVlanConfigData(tbinfo)
 
         logger.info("Populate DUT FDB entries")
         ptf_runner(
@@ -112,7 +112,7 @@ class PopulateFdb:
         )
 
 @pytest.fixture
-def populate_fdb(request, duthosts, rand_one_dut_hostname, ptfhost):
+def populate_fdb(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """
         Populates DUT FDB entries
 
@@ -127,4 +127,4 @@ def populate_fdb(request, duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
     populateFdb = PopulateFdb(request, duthost, ptfhost)
 
-    populateFdb.run()
+    populateFdb.run(tbinfo)

@@ -41,6 +41,11 @@ LOG_EXPECT_FAN_OVER_SPEED_CLEAR_RE = '.*Fan high speed warning cleared:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warning:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
+SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument must be a string or a number.*',
+                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*']
+
+SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*']
+
 
 def check_sensord_status(ans_host):
     """
@@ -172,7 +177,7 @@ def check_all_psu_on(dut, psu_test_results):
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('ignore_particular_error_log', [['Error getting sensor data: dps460.*Kernel interface error']], indirect=True)
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
 def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, psu_controller, ignore_particular_error_log):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
@@ -237,7 +242,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, ps
         assert psu_test_results[psu], "Test psu status of PSU %s failed" % psu
 
 
-def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory):
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
+def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory, ignore_particular_error_log):
     """
     @summary: Check output of 'show platform fan'.
     """
@@ -256,7 +263,7 @@ def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('ignore_particular_error_log', [['ERR pmon#thermalctld.*int() argument must be a string or a number']], indirect=True)
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
 def test_show_platform_temperature_mocked(duthosts, rand_one_dut_hostname, mocker_factory, ignore_particular_error_log):
     """
     @summary: Check output of 'show platform temperature'
@@ -303,14 +310,14 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
               control daemon is up and there is an error log printed
     """
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='thermal_control')
-    with ThermalPolicyFileContext(duthost, file_name):
-        loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
-        with loganalyzer:
+    loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
+    with loganalyzer:
+        with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('ignore_particular_error_log', [['Error getting sensor data: dps460.*Kernel interface error']], indirect=True)
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
 def test_thermal_control_psu_absence(duthosts, rand_one_dut_hostname, psu_controller, mocker_factory, ignore_particular_error_log):
     """
     @summary: Turn off/on PSUs, check thermal control is working as expect.

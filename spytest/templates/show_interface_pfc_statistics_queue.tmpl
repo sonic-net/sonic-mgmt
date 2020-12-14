@@ -1,0 +1,21 @@
+Value PORT (\S+)
+Value QUEUE (\S+)
+Value STATUS (\S+)
+Value STORM_DETECT (\S+)
+Value STORM_RESTORE (\S+)
+Value TX_OK (\S+)
+Value TX_DROP (\S+)
+Value RX_OK (\S+)
+Value RX_DROP (\S+)
+Value TX_LAST_OK (\S+)
+Value TX_LAST_DROP (\S+)
+Value RX_LAST_OK (\S+)
+Value RX_LAST_DROP (\S+)
+
+Start
+  ^\s*(\-\s*)*\s*$$
+  ^\s*Interface\s*Queue\s*Status\s*Detected\s*Restored\s*OK\s*Drop\s*OK\s*Drop\s*OK\s*Drop\s*OK\s*Drop\s*$$
+  ^\s*${PORT}\s+${QUEUE}\s+${STATUS}\s+${STORM_DETECT}\s+${STORM_RESTORE}\s+${TX_OK}\s+${TX_DROP}\s+${RX_OK}\s+${RX_DROP}\s+${TX_LAST_OK}\s+${TX_LAST_DROP}\s+${RX_LAST_OK}\s+${RX_LAST_DROP}\s*$$ -> Record
+  ^$$
+
+EOF

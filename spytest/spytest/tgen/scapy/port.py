@@ -1,4 +1,5 @@
 import copy
+import threading
 
 from dicts import SpyTestDict
 from driver import ScapyDriver
@@ -23,8 +24,9 @@ def incrStat(stats, name, val = 1):
     return val
 
 class ScapyStream(object):
-    def __init__(self, port, stream_id, track_port, *args, **kws):
+    def __init__(self, port, index, stream_id, track_port, *args, **kws):
         self.port = port
+        self.index = index
         self.track_port = track_port
         self.stream_id = stream_id
         self.args = args
@@ -34,14 +36,24 @@ class ScapyStream(object):
         self.stats = SpyTestDict()
         initStatistics(self.stats)
         #print("ScapyStream: {} {} {}".format(self.port, self.stream_id, kws))
-        if track_port:
-            track_port.track_streams.append(self)
-        self.track_pkts = []
+        if self.track_port:
+            self.track_port.track_streams.append(self)
+        self.stream_lock = threading.Lock()
 
     def __del__(self):
         print("ScapyStream {} exiting...".format(self.stream_id))
         if self.track_port:
             self.track_port.track_streams.remove(self)
+
+    def get_sid(self):
+        #if not self.track_port: return None
+        return '{:08x}'.format((int(self.port)<<16) + (int(self.index)))
+
+    def lock(self):
+        self.stream_lock.acquire()
+
+    def unlock(self):
+        self.stream_lock.release()
 
     def incrStat(self, name, val = 1):
         val = incrStat(self.stats, name, val)
@@ -103,8 +115,9 @@ class ScapyPort(object):
         self.driver.stopTransmit()
         self.streams.clear()
         for stream in self.track_streams:
+            stream.lock()
             stream.track_port = None
-            stream.track_pkts = []
+            stream.unlock()
         self.track_streams = []
 
     def cleanup(self):
@@ -127,9 +140,12 @@ class ScapyPort(object):
 
     def getStreamStats(self):
         res = []
-        for stream_id, stream in self.streams.items():
+        for _, stream in self.streams.items():
             res.append([stream, stream.stats])
         return res
+
+    def traffic_control_complete(self, *args, **kws):
+        self.driver.startTransmitComplete(**kws)
 
     def traffic_control(self, *args, **kws):
         action = kws.get('action', None)
@@ -139,6 +155,7 @@ class ScapyPort(object):
                 if arp_send_req == "1":
                     self.driver.send_arp(intf, intf.index)
             self.driver.startTransmit(**kws)
+            return True
         elif action == "stop":
             self.driver.stopTransmit(**kws)
         elif action == "reset":
@@ -150,7 +167,7 @@ class ScapyPort(object):
             self.driver.clear_stats()
         else:
             self.error("unsupported", "traffic_control: action", action)
-        return True
+        return False
 
     def packet_control(self, *args, **kws):
         action = kws.get('action', None)
@@ -167,8 +184,11 @@ class ScapyPort(object):
     def packet_stats(self, *args, **kws):
         return self.driver.getCapture()
 
-    def stream_validate(self, handle):
-        return bool(handle in self.streams)
+    def stream_validate(self, handles):
+        for handle in Utils.make_list(handles):
+            if handle not in self.streams:
+                return False
+        return True
 
     def stream_encode(self, index):
         return "stream-{}-{}".format(self.name, index)
@@ -179,7 +199,7 @@ class ScapyPort(object):
         if mode == "create":
             index = len(self.streams)
             res.stream_id = self.stream_encode(index)
-            stream = ScapyStream(self.name, res.stream_id, track_port, *args, **kws)
+            stream = ScapyStream(self.name, index, res.stream_id, track_port, *args, **kws)
             self.streams[res.stream_id] = stream
         elif mode == "remove":
             stream_id = kws.get('stream_id', None)
@@ -231,13 +251,15 @@ class ScapyPort(object):
         arp_send_req = kws.get('arp_send_req', None)
         count = self.utils.intval(kws, "count", 1)
         if mode == "config":
+            if count > 100:
+                self.error("too large > 100", "count", count)
             index = len(self.interfaces)
             handle = self.interface_encode(index)
             interface = ScapyInterface(self, index, *args, **kws)
             self.interfaces[handle] = interface
             self.driver.createInterface(interface)
             if count > 1:
-                res.handle = [handle for i in range(count)]
+                res.handle = [handle for _ in range(count)]
             else:
                 res.handle = handle
         elif mode == "destroy":
@@ -248,24 +270,25 @@ class ScapyPort(object):
                 self.error("invalid", "handle", handle)
             self.driver.deleteInterface(self.interfaces[handle])
             del self.interfaces[handle]
-        elif mode == None and send_ping and ping_dst:
+        elif mode is None and send_ping and ping_dst:
             handle = kws.get('protocol_handle', None)
             if isinstance(handle, list):
                 handle = handle[0]
             if not self.interface_validate(handle):
                 self.error("invalid", "protocol_handle", handle)
-            index = self.interfaces[handle].index
-            rv = self.driver.ping(self.interfaces[handle], ping_dst, index)
+            #index = self.interfaces[handle].index
+            #rv = self.driver.ping(self.interfaces[handle], ping_dst, index)
+            rv = self.driver.ping(self.interfaces[handle], ping_dst, 0)
             res[self.port_handle] = SpyTestDict()
             res[self.port_handle].ping_details = rv
-        elif mode == None and arp_send_req:
+        elif mode is None and arp_send_req:
             handle = kws.get('protocol_handle', None)
             if isinstance(handle, list):
                 handle = handle[0]
             if not self.interface_validate(handle):
                 self.error("invalid", "protocol_handle", handle)
             index = self.interfaces[handle].index
-            rv = self.driver.send_arp(self.interfaces[handle], index)
+            self.driver.send_arp(self.interfaces[handle], index)
             res[self.port_handle] = SpyTestDict()
         else:
             self.error("unsupported", "interface_config: mode", mode)
@@ -284,6 +307,12 @@ class ScapyPort(object):
                 self.error("invalid", "handle", handle)
             intf = self.interfaces[handle]
             intf.bgp_kws = copy.copy(kws)
+            if mode == "start":
+                retval = self.driver.apply_bgp("config", True, intf)
+            else:
+                retval = self.driver.apply_bgp("config", False, intf)
+            if not retval:
+                self.error("Failed", "emulation_bgp_config: mode", mode)
         else:
             self.error("unsupported", "emulation_bgp_config: mode", mode)
         return res
@@ -301,6 +330,13 @@ class ScapyPort(object):
                 self.error("invalid", "handle", handle)
             intf = self.interfaces[handle]
             intf.bgp_kws.update(kws)
+            if mode == "add":
+                retval = self.driver.apply_bgp("route", True, intf)
+                res["handles"] = [handle]
+            else:
+                retval = self.driver.apply_bgp("route", False, intf)
+            if not retval:
+                self.error("Failed", "emulation_bgp_route_config: mode", mode)
         else:
             self.error("unsupported", "emulation_bgp_route_config: mode", mode)
         return res
@@ -317,9 +353,9 @@ class ScapyPort(object):
                 self.error("invalid", "handle", handle)
             intf = self.interfaces[handle]
             if mode == "start":
-                retval = self.driver.config_bgp(True, intf)
+                retval = self.driver.apply_bgp("control", True, intf)
             else:
-                retval = self.driver.config_bgp(False, intf)
+                retval = self.driver.apply_bgp("control", False, intf)
             if not retval:
                 self.error("Failed", "emulation_bgp_control: mode", mode)
         else:
@@ -346,15 +382,11 @@ class ScapyPort(object):
     def emulation_igmp_group_config(self, *args, **kws):
         res = SpyTestDict()
         res.status = "1"
-        mode = kws.get('mode', "create")
         handle = kws.get('handle', None)
         host_handle = kws.get('session_handle', handle)
         for intf in self.interfaces.values():
             if host_handle in intf.igmp_hosts:
-                if mode == "clear_all":
-                    intf.igmp_hosts[host_handle].update(kws)
-                else:
-                    intf.igmp_hosts[host_handle].update(kws)
+                intf.igmp_hosts[host_handle].update(kws)
                 res.group_handle = host_handle
                 return res
         self.error("Invalid", "emulation_igmp_group_config: session_handle", host_handle)
