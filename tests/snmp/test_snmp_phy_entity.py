@@ -1,5 +1,6 @@
 import logging
 import pytest
+import re
 import time
 
 from tests.common.utilities import wait_until
@@ -74,20 +75,12 @@ PSU_SENSOR_INFO = {
     'voltage': ('Voltage', 4, SENSOR_TYPE_VOLTAGE),
 }
 
-XCVR_SENSOR_OID_LIST = [SENSOR_TYPE_TEMP,
-                        SENSOR_TYPE_PORT_TX_POWER + 1,
-                        SENSOR_TYPE_PORT_TX_POWER + 2,
-                        SENSOR_TYPE_PORT_TX_POWER + 3,
-                        SENSOR_TYPE_PORT_TX_POWER + 4,
-                        SENSOR_TYPE_PORT_RX_POWER + 1,
-                        SENSOR_TYPE_PORT_RX_POWER + 2,
-                        SENSOR_TYPE_PORT_RX_POWER + 3,
-                        SENSOR_TYPE_PORT_RX_POWER + 4,
-                        SENSOR_TYPE_PORT_TX_BIAS + 1,
-                        SENSOR_TYPE_PORT_TX_BIAS + 2,
-                        SENSOR_TYPE_PORT_TX_BIAS + 3,
-                        SENSOR_TYPE_PORT_TX_BIAS + 4,
-                        SENSOR_TYPE_VOLTAGE]
+XCVR_SENSOR_PATTERN = {
+    'temperature': {'sort_factor': 0, 'oid_base': SENSOR_TYPE_TEMP, 'extract_line_number': False},
+    'voltage': {'sort_factor': 9000, 'oid_base': SENSOR_TYPE_VOLTAGE, 'extract_line_number': False},
+    'tx(\d+)power': {'sort_factor': 1000, 'oid_base': SENSOR_TYPE_PORT_TX_POWER, 'extract_line_number': True},
+    'rx(\d+)power': {'sort_factor': 2000, 'oid_base': SENSOR_TYPE_PORT_RX_POWER, 'extract_line_number': True},
+    'tx(\d+)bias': {'sort_factor': 3000, 'oid_base': SENSOR_TYPE_PORT_TX_BIAS, 'extract_line_number': True}}
 
 # Constants
 CHASSIS_KEY = 'chassis 1'
@@ -371,18 +364,21 @@ def test_transceiver_info(duthost, snmp_physical_entity_info):
         assert transceiver_snmp_fact['entPhysModelName'] == transceiver_info['model']
         assert transceiver_snmp_fact['entPhysIsFRU'] == REPLACEABLE if transceiver_info[
                                                                            'is_replaceable'] == 'True' else NOT_REPLACEABLE
-        _check_transceiver_dom_sensor_info(transceiver_snmp_fact['oid'], snmp_physical_entity_info)
+        _check_transceiver_dom_sensor_info(duthost, name, transceiver_snmp_fact['oid'], snmp_physical_entity_info)
 
 
-def _check_transceiver_dom_sensor_info(transceiver_oid, snmp_physical_entity_info):
+def _check_transceiver_dom_sensor_info(duthost, name, transceiver_oid, snmp_physical_entity_info):
     """
     Check transceiver DOM sensor information in physical entity mib
+    :param duthost: DUT host object
+    :param name: Transceiver name
     :param transceiver_oid: Transceiver oid
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
-    for index, sensor_oid_offset in enumerate(XCVR_SENSOR_OID_LIST):
-        expect_oid = transceiver_oid + sensor_oid_offset
+    sensor_data_list = _get_transceiver_sensor_data(duthost, name)
+    for index, sensor_data in enumerate(sensor_data_list):
+        expect_oid = transceiver_oid + sensor_data.oid_offset
         assert expect_oid in snmp_physical_entity_info, 'Cannot find port sensor in physical entity mib'
         sensor_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert sensor_snmp_fact['entPhysDescr'] is not None
@@ -397,6 +393,36 @@ def _check_transceiver_dom_sensor_info(transceiver_oid, snmp_physical_entity_inf
         assert sensor_snmp_fact['entPhysMfgName'] == ''
         assert sensor_snmp_fact['entPhysModelName'] == ''
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
+
+
+class SensorData(object):
+    def __init__(self, key, value, sort_factor, oid_offset):
+        self.key = key
+        self.value = value
+        self.sort_factor = sort_factor
+        self.oid_offset = oid_offset
+
+
+def _get_transceiver_sensor_data(duthost, name):
+    key = XCVR_DOM_KEY_TEMPLATE.format(name)
+    sensor_info = redis_hgetall(duthost, STATE_DB, key)
+    sensor_data_list = []
+    for field, value in sensor_info.items():
+        for pattern, data in XCVR_SENSOR_PATTERN.items():
+            match_result = re.match(pattern, field)
+            if match_result:
+                if data['extract_line_number']:
+                    lane_number = int(match_result.group(1))
+                    sort_factor = data['sort_factor'] + lane_number
+                    oid_offset = data['oid_base'] + lane_number
+                else:
+                    sort_factor = data['sort_factor']
+                    oid_offset = data['oid_base']
+                sensor_data_list.append(SensorData(field, value, sort_factor, oid_offset))
+                break
+
+    sensor_data_list = sorted(sensor_data_list, key=lambda x: x.sort_factor)
+    return sensor_data_list
 
 
 @pytest.mark.disable_loganalyzer
