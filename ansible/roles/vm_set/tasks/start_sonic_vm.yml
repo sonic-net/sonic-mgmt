@@ -29,7 +29,7 @@
   when: not file_stat.stat.exists
 
 - name: Get DUT port alias
-  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }} all_ports='False' 
+  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }}
   delegate_to: localhost
 
 - name: Define SONiC vm {{ dut_name }}

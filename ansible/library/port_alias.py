@@ -8,6 +8,11 @@ from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
 
+try:
+    from sonic_py_common import multi_asic  
+except ImportError:
+    print("Failed to import multi_asic")     
+
 DOCUMENTATION = '''
 module: port_alias.py
 Ansible_version_added:  2.0.0.2
@@ -18,10 +23,10 @@ Description:
         The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
         You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
         For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
-        all_ports input will be used to determine if all the ports information has to be returned or not. 
-        When bringing up the testbed, port-alias will only contain external interfaces, for which all_ports will be false.
+        When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with 
+        external interfaces.
     Input:
-        hwsku num_asic all_ports
+        hwsku num_asic
 
     Return Ansible_facts:
     port_alias:  SONiC interface name or SONiC interface alias if alias is available
@@ -30,7 +35,7 @@ Description:
 
 EXAMPLES = '''
     - name: get hardware interface name
-      port_alias: hwsku='ACS-MSN2700' num_asic=1 all_ports='True'
+      port_alias: hwsku='ACS-MSN2700' num_asic=1
 '''
 
 RETURN = '''
@@ -84,7 +89,7 @@ class SonicPortAliasMap():
             return portconfig
         return None
 
-    def get_portmap(self, all_ports, asic_id=None):
+    def get_portmap(self, asic_id=None):
         aliases = []
         portmap = {}
         aliasmap = {}
@@ -122,8 +127,7 @@ class SonicPortAliasMap():
                         alias = mapping[alias_index]
                     else:
                         alias = name
-                    if (all_ports == 'False' and role == 'Ext') or \
-                       (all_ports == 'True'):
+                    if role == 'Ext':
                         aliases.append(alias)
                         portmap[name] = alias
                         aliasmap[alias] = name
@@ -136,8 +140,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             hwsku=dict(required=True, type='str'),
-            num_asic=dict(type='int', required=False),
-            all_ports=dict(type='str', default='True', required=False)
+            num_asic=dict(type='int', required=False)
         ),
         supports_check_mode=True
     )
@@ -148,7 +151,6 @@ def main():
         aliasmap = {}
         portspeed = {}
         allmap = SonicPortAliasMap(m_args['hwsku'])
-        all_ports = m_args['all_ports']
         # When this script is invoked on sonic-mgmt docker, num_asic 
         # parameter is passed.
         if m_args['num_asic'] is not None:
@@ -156,12 +158,14 @@ def main():
         else:
             # When this script is run on the device, num_asic parameter
             # is not passed.
-            from sonic_py_common import multi_asic
-            num_asic = multi_asic.get_num_asics()
+            try: 
+                num_asic = multi_asic.get_num_asics()
+            except Exception, e:
+                num_asic = 1
         for asic_id in range(num_asic):
             if num_asic == 1:
                 asic_id = None
-            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(all_ports, asic_id)
+            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(asic_id)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:
