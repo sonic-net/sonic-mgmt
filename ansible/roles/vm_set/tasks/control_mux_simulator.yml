@@ -7,6 +7,14 @@
     become: yes
     environment: "{{ proxy_env | default({}) }}"
 
+  - name: Get absolute path of {{ root_path }}
+    command: "realpath {{ root_path }}"
+    register: real_root_path
+
+  - name: Set {{ root_path }} to absolute path
+    set_fact:
+      root_path: "{{ real_root_path.stdout }}"
+
   - name: Copy the mux simulator to test server
     copy:
       src: mux_simulator.py
@@ -18,26 +26,47 @@
       mux_simulator_port: 8080
     when: mux_simulator_port is not defined
 
-  - name: Start mux simulator and keep it running in background
-    shell: cd {{ root_path }}; ./mux_simulator.py {{ mux_simulator_port }} 2>&1 &
+  - name: Generate mux-simulator systemd service file
+    template:
+      src: mux-simulator.service.j2
+      dest: /etc/systemd/system/mux-simulator.service
     become: yes
+
+  - name: Start the mux-simulator service
+    systemd:
+      name: mux-simulator
+      state: started
+      daemon_reload: yes
+    become: yes
+
+  - name: Record vm_set of testbed using mux-simulator
+    lineinfile:
+      path: "{{ root_path }}/mux_simulator.setups.txt"
+      line: "{{ vm_set_name }}"
+      state: present
+      create: yes
 
   when: mux_simulator_action == "start"
 
 - name: Stop mux simulator
   block:
 
-  - name: Get mux_simulator pid
-    command: pgrep -f "mux_simulator.py"
-    register: mux_simulator_pids
+  - name: Remove the record of testbed using mux-simulator
+    lineinfile:
+      path: "{{ root_path }}/mux_simulator.setups.txt"
+      line: "{{ vm_set_name }}"
+      state: absent
+
+  - name: Check if the record file is empty
+    command: "grep -P '\\S' {{ root_path }}/mux_simulator.setups.txt"
+    register: record_file_content
     ignore_errors: yes
 
-  - name: Kill the mux_simulator
-    command: kill -9 {{ mux_simulator_pid }}
-    become: yes
+  - name: Stop the mux-simulator service if no setup is using it
+    systemd:
+      name: mux-simulator
+      state: stopped
     ignore_errors: yes
-    loop: "{{ mux_simulator_pids.stdout_lines }}"
-    loop_control:
-      loop_var: mux_simulator_pid
+    when: record_file_content.rc != 0
 
   when: mux_simulator_action == "stop"
