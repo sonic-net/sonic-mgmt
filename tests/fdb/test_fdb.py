@@ -148,7 +148,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
             fdb[member].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
-
+    # Flush dataplane
+    ptfadapter.dataplane.flush()
     return fdb
 
 
