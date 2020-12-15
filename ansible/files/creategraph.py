@@ -35,7 +35,7 @@ class LabGraph(object):
 
     def read_devices(self):
         csv_dev = open(self.devcsv)
-        csv_devices = csv.DictReader(csv_dev)
+        csv_devices = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_dev))
         devices_root = etree.SubElement(self.pngroot, 'Devices')
         for row in csv_devices:
             attrs = {}
@@ -48,7 +48,7 @@ class LabGraph(object):
  
     def read_links(self):
         csv_file = open(self.linkcsv)
-        csv_links = csv.DictReader(csv_file)
+        csv_links = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_file))
         links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
         for link in csv_links:
             attrs = {}
