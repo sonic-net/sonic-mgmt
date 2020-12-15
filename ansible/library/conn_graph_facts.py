@@ -303,7 +303,7 @@ def main():
     )
     m_args = module.params
     global debug_fname
-    debug_fname = create_debug_file("/tmp/conn_graph_debug.%s.txt")
+    debug_fname = create_debug_file("/tmp/conn_graph_debug.txt")
 
     hostnames = m_args['hosts']
     anchor = m_args['anchor']
