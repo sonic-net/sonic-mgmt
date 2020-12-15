@@ -1,5 +1,6 @@
 import pytest
 import logging
+from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +73,41 @@ def disable_route_checker_module(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     for func in _disable_route_checker(duthost):
         yield func
+
+@pytest.fixture(scope='module')
+def disable_fdb_aging(duthost):
+    """
+    Disable fdb aging by swssconfig.
+    The original config will be recovered after running test.
+    """
+    switch_config = """[
+    {
+        "SWITCH_TABLE:switch": {
+            "ecmp_hash_seed": "0",
+            "lag_hash_seed": "0",
+            "fdb_aging_time": "{{ aging_time }}"
+        },
+        "OP": "SET"
+    }
+    ]"""
+    TMP_SWITCH_CONFIG_FILE = "/tmp/switch_config.json"
+    DST_SWITCH_CONFIG_FILE = "/switch_config.json"
+    switch_config_template = Template(switch_config)
+    duthost.copy(content=switch_config_template.render(aging_time=0),
+                 dest=TMP_SWITCH_CONFIG_FILE)
+    # Generate and load config with swssconfig
+    cmds = [
+        "docker cp {} swss:{}".format(TMP_SWITCH_CONFIG_FILE, DST_SWITCH_CONFIG_FILE),
+        "docker exec -i swss swssconfig {}".format(DST_SWITCH_CONFIG_FILE)
+    ]
+    duthost.shell_cmds(cmds=cmds)
+ 
+    yield
+    # Recover default aging time
+    DEFAULT_SWITCH_CONFIG_FILE = "/etc/swss/config.d/switch.json"
+    cmds = [
+        "docker exec -i swss rm {}".format(DST_SWITCH_CONFIG_FILE),
+        "docker exec -i swss swssconfig {}".format(DEFAULT_SWITCH_CONFIG_FILE)
+    ]
+    duthost.shell_cmds(cmds=cmds)
+    duthost.file(path=TMP_SWITCH_CONFIG_FILE, state="absent")
