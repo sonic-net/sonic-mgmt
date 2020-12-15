@@ -23,6 +23,7 @@ ARP_CFG = '/tmp/arp_cfg.json'
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 USE_INNER_HASHING = False
 NUM_FLOWS = 1000
+ptf_to_dut_port_map = {}
 
 SUPPORTED_TOPO = ['t0']
 SUPPORTED_PLATFORMS = ['mellanox']
@@ -36,6 +37,7 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
     ip_to_port = {}
     bank_0_port = []
     bank_1_port = []
+    global ptf_to_dut_port_map
 
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     print vlan_members
@@ -52,6 +54,7 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
             port_list.append(ptf_port_id)
             eth_port_list.append(port)
             index = index + 1
+            ptf_to_dut_port_map[ptf_port_id] = port
 
     port_list.sort()
     bank_0_port = port_list[:len(port_list)/2]
@@ -88,6 +91,7 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix)
             bank = "1"
         fgnhg_data['FG_NHG_MEMBER'][ip] = {
             "bank": bank,
+            "link": ptf_to_dut_port_map[port],
             "FG_NHG": fgnhg_name
         }
 
@@ -126,7 +130,6 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
 
 def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports, prefix):
     fg_ecmp = {
-            "ip_to_port": ip_to_port,
             "port_list": port_list,
             "bank_0_port": bank_0_port,
             "bank_1_port": bank_1_port,
@@ -157,18 +160,33 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     else:
         ipcmd = "ipv6 route"
 
+    ### Start test in state where 1 link is down, when nexthop addition occurs for link which is down, the nexthop
+    ### should not go to active
+    shutdown_link = bank_0_port[0]
+    dut_if_shutdown = ptf_to_dut_port_map[shutdown_link]
+    duthost.shell("config interface shutdown " + dut_if_shutdown)
+    time.sleep(30)
+
+    # Now add the route and nhs
     for nexthop in ip_to_port:
         duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
-    time.sleep(1)
+    time.sleep(3)
 
     test_time = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
 
-    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.create_flows.log".format(test_time)
 
+    ### Sned flows with 1 link down, and check the hash distribution
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.create_flows_with_1_link_down.log".format(test_time)
     exp_flow_count = {}
     flows_per_nh = NUM_FLOWS/len(port_list)
     for port in port_list:
         exp_flow_count[port] = flows_per_nh
+        
+    flows_to_redist = exp_flow_count[bank_0_port[0]]
+    for port in bank_0_port:
+        if port != shutdown_link:
+            exp_flow_count[port] = exp_flow_count[port] + flows_to_redist/(len(bank_0_port) - 1)
+    del exp_flow_count[shutdown_link]
 
     ptf_runner(ptfhost,
             "ptftests",
@@ -181,6 +199,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             log_file=log_file)
 
 
+    ### Hashing verification: Send the same flows again, and verify packets end up on the same ports for a given flow
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.initial_hash_check.log".format(test_time)
 
     ptf_runner(ptfhost,
@@ -192,15 +211,38 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "config_file": FG_ECMP_CFG},
             qlen=1000,
             log_file=log_file) 
+    
 
-    exp_flow_count = {}
+    ### Send the same flows again, but unshut the port which was shutdown at the beginning of test
+    ### Check if hash buckets rebalanced as expected
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.first_link_up.log".format(test_time)
+    duthost.shell("config interface startup " + dut_if_shutdown)
+    time.sleep(30)
+
+    flows_per_nh = NUM_FLOWS/len(port_list)
+    for port in port_list:
+        exp_flow_count[port] = flows_per_nh
+
+    ptf_runner(ptfhost,
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'add_nh',
+                "config_file": FG_ECMP_CFG,
+                "exp_flow_count": exp_flow_count,
+                "add_nh_port": shutdown_link},
+            qlen=1000,
+            log_file=log_file)
+
+
+    ### Send the same flows again, but withdraw one next-hop before sending the flows, check if hash bucket
+    ### rebalanced as expected, and the number of flows received on a link is as expected
     flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
     withdraw_nh_port = bank_0_port[1]
-    for port in bank_1_port:
-        exp_flow_count[port] = flows_per_nh
     for port in bank_0_port:
         if port != withdraw_nh_port:
             exp_flow_count[port] = flows_for_withdrawn_nh_bank
+    del exp_flow_count[withdraw_nh_port]
 
     for nexthop, port in ip_to_port.items():
         if port == withdraw_nh_port:
@@ -208,8 +250,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.withdraw_nh.log".format(test_time)
-
-    time.sleep(1)
+    time.sleep(3)
 
     ptf_runner(ptfhost,
             "ptftests",
@@ -223,7 +264,61 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             log_file=log_file)
 
 
+    ### Send the same flows again, but disable one of the links associated to validate flow redistribution
+    shutdown_link = bank_0_port[2]
+    flows_for_shutdown_links_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 2)
+    for port in bank_0_port:
+        if port != withdraw_nh_port and port != shutdown_link:
+            exp_flow_count[port] = flows_for_shutdown_links_bank
+    del exp_flow_count[shutdown_link]
+
+    dut_if_shutdown = ptf_to_dut_port_map[shutdown_link]
+    duthost.shell("config interface shutdown " + dut_if_shutdown)
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.link_down.log".format(test_time)
+    time.sleep(30)
+
+    ptf_runner(ptfhost,
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'withdraw_nh',
+                "config_file": FG_ECMP_CFG,
+                "exp_flow_count": exp_flow_count,
+                "withdraw_nh_port": shutdown_link},
+            qlen=1000,
+            log_file=log_file)
+
+
+    ### Send the same flows again, but enable the link we disabled the last time
     exp_flow_count = {}
+    flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
+    for port in bank_1_port:
+        exp_flow_count[port] = flows_per_nh
+    for port in bank_0_port:
+        if port != withdraw_nh_port:
+            exp_flow_count[port] = flows_for_withdrawn_nh_bank
+
+    duthost.shell("config interface startup " + dut_if_shutdown)
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.second_link_up.log".format(test_time)
+    time.sleep(30)
+
+    ptf_runner(ptfhost,
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'add_nh',
+                "config_file": FG_ECMP_CFG,
+                "exp_flow_count": exp_flow_count,
+                "add_nh_port": shutdown_link},
+            qlen=1000,
+            log_file=log_file)
+
+
+    ### Send the same flows again, but enable the next-hop which was down previously
+    exp_flow_count = {}
+    flows_per_nh = NUM_FLOWS/len(port_list)
     for port in port_list:
         exp_flow_count[port] = flows_per_nh
 
@@ -232,9 +327,9 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
 
 
-    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.add_nh.{}.log".format(test_time)
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.add_nh.log".format(test_time)
 
-    time.sleep(1)
+    time.sleep(3)
 
     ptf_runner(ptfhost,
             "ptftests",
@@ -248,6 +343,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             log_file=log_file)
 
 
+    ### Send the same flows again, but disable all next-hops in a bank to test flow redistribution to the other bank
     withdraw_nh_bank = bank_0_port
     for nexthop, port in ip_to_port.items():
         if port in withdraw_nh_bank:
@@ -256,7 +352,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.withdraw_bank.log".format(test_time)
 
-    time.sleep(1)
+    time.sleep(3)
 
     exp_flow_count = {}
     flows_per_nh = NUM_FLOWS/len(bank_1_port)
@@ -274,6 +370,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             qlen=1000,
             log_file=log_file)
 
+
+    ### Send the same flows again, but enable 1 next-hop in a previously down bank to check if flows redistribute back to previously down bank
     first_nh = bank_0_port[3]
     for nexthop, port in ip_to_port.items():
         if port == first_nh:
@@ -281,7 +379,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.add_first_nh.log".format(test_time)
 
-    time.sleep(1)
+    time.sleep(3)
 
     exp_flow_count = {}
     flows_per_nh = (NUM_FLOWS/2)/(len(bank_1_port))

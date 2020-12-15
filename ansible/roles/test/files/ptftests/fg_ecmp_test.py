@@ -39,8 +39,8 @@ class FgEcmpTest(BaseTest):
         logging.info(message)
 
 
-    def trigger_mac_learning(self, ip_to_port):
-      	for src_ip, src_port in ip_to_port.items():
+    def trigger_mac_learning(self, exp_ports):
+        for src_port in exp_ports:
             pkt = simple_eth_packet(
                 eth_dst=self.router_mac,
                 eth_src=self.dataplane.get_mac(0, src_port),
@@ -90,7 +90,6 @@ class FgEcmpTest(BaseTest):
         self.exp_port_set_two = graph['bank_1_port']
         self.dst_ip = graph['dst_ip']
         self.router_mac = graph['dut_mac']
-        self.ip_to_port = graph['ip_to_port']
         self.num_flows = graph['num_flows']
         self.inner_hashing = graph['inner_hashing']
 
@@ -101,12 +100,11 @@ class FgEcmpTest(BaseTest):
         self.log(self.dst_ip)
         self.log(self.router_mac)
         self.log(self.test_case)
-        self.log(self.ip_to_port)
         self.log(self.num_flows)
         self.log(self.inner_hashing)
         self.log(self.exp_flow_count)
 
-        self.trigger_mac_learning(self.ip_to_port)
+        self.trigger_mac_learning(self.exp_ports)
         time.sleep(3)
 
 
@@ -231,6 +229,7 @@ class FgEcmpTest(BaseTest):
                 hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
                 if port_idx == self.add_nh_port:
                     assert (port in add_port_grp)
+                    tuple_to_port_map[src_ip] = port_idx
                 else:
                     assert port_idx == port
 
@@ -364,25 +363,26 @@ class FgEcmpTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, in_port)
         rand_int = random.randint(1, 254)
 
+
         if self.inner_hashing:
             pkt = simple_tcp_packet(
-                        eth_dst=self.router_mac,
-                        eth_src=src_mac,
-                        ip_src=ip_src,
-                        ip_dst=ip_dst,
-                        tcp_sport=sport,
-                        tcp_dport=dport,
-                        ip_ttl=64)
+                            eth_dst=self.router_mac,
+                            eth_src=src_mac,
+                            ip_src=ip_src,
+                            ip_dst=ip_dst,
+                            tcp_sport=sport,
+                            tcp_dport=dport,
+                            ip_ttl=64)
             pkt = simple_vxlanv6_packet(
-                        eth_dst=self.router_mac,
-                        eth_src=src_mac,
-                        ipv6_src='2:2:2::' + str(rand_int),
-                        ipv6_dst=self.dst_ip,
-                        udp_sport=rand_int,
-                        udp_dport=4789,
-                        vxlan_vni=rand_int,
-                        with_udp_chksum=False,
-                        inner_frame=pkt)
+                    eth_dst=self.router_mac,
+                    eth_src=src_mac,
+                    ipv6_src='2:2:2::' + str(rand_int),
+                    ipv6_dst=self.dst_ip,
+                    udp_sport=rand_int,
+                    udp_dport=4789,
+                    vxlan_vni=rand_int,
+                    with_udp_chksum=False,
+                    inner_frame=pkt)
         else:
             pkt = simple_tcpv6_packet(
                         eth_dst=self.router_mac,
@@ -403,7 +403,6 @@ class FgEcmpTest(BaseTest):
         return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
 
-    #---------------------------------------------------------------------
     def runTest(self):
         # Main function which triggers all the tests
         self.fg_ecmp()
