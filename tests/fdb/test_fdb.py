@@ -53,7 +53,7 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac):
     :return:
     """
     pkt = testutils.simple_arp_packet(pktlen=60,
-                eth_dst='ff:ff:ff:ff:ff:ff',
+                eth_dst=dest_mac,
                 eth_src=source_mac,
                 vlan_vid=0,
                 vlan_pcp=0,
