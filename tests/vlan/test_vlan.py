@@ -231,6 +231,20 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
                                 ip_ttl=ttl)
     return pkt
 
+def build_non_broadcast_packet(vlan_id, src_mac, dst_mac,
+                        src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
+
+    pkt = testutils.simple_icmp_packet(pktlen=100 if vlan_id == 0 else 104,
+                                eth_dst=dst_mac,
+                                eth_src=src_mac,
+                                dl_vlan_enable=False if vlan_id == 0 else True,
+                                vlan_vid=vlan_id,
+                                vlan_pcp=0,
+                                ip_src=src_ip,
+                                ip_dst=dst_ip,
+                                ip_ttl=ttl)
+    return pkt
+
 def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], device_number=0, timeout=1):
     for port in ports:
         result = testutils.dp_poll(test, device_number=device_number, port_number=port,
