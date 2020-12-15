@@ -226,7 +226,7 @@ class ReloadTest(BaseTest):
             self.test_params['dut_hostname'],
             self.test_params['dut_username'],
             password=self.test_params['dut_password'],
-            alt_password=self.test_params['alt_password']
+            alt_password=self.test_params.get('alt_password')
         )
 
         # Check if platform type is kvm
