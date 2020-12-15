@@ -84,3 +84,68 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         cmds.append(cmd_reload.format(feature_name))
         duthost.shell_cmds(cmds=cmds)
 
+def collect_dut_lossless_prio(dut):
+    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+
+    if "PORT_QOS_MAP" not in config_facts.keys():
+        return []
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(port_qos_map.keys()) == 0:
+        return []
+
+    """ Here we assume all the ports have the same lossless priorities """
+    intf = port_qos_map.keys()[0]
+    if 'pfc_enable' not in port_qos_map[intf]:
+        return []
+
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]    
+    return result 
+
+def collect_dut_all_prio(dut):
+    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+
+    if "DSCP_TO_TC_MAP" not in config_facts.keys():
+        return []
+
+    dscp_to_tc_map_lists = config_facts["DSCP_TO_TC_MAP"]
+    if len(dscp_to_tc_map_lists) != 1:
+        return []
+
+    profile = dscp_to_tc_map_lists.keys()[0]
+    dscp_to_tc_map = dscp_to_tc_map_lists[profile]
+
+    tc = [int(p) for p in dscp_to_tc_map.values()]
+    return list(set(tc))
+
+def collect_dut_lossy_prio(dut):
+    lossless_prio = collect_dut_lossless_prio(dut)
+    all_prio = collect_dut_all_prio(dut)
+    return [p for p in all_prio if p not in lossless_prio]
+
+def test_collect_testbed_prio(duthosts, tbinfo):
+    all_prio = {}
+    lossless_prio = {}
+    lossy_prio = {}
+
+    tbname = tbinfo['conf-name']
+    pytest_require(tbname, "skip test due to lack of testbed name.")
+
+    for dut in duthosts:
+        all_prio[dut.hostname] = collect_dut_all_prio(dut)
+        lossless_prio[dut.hostname] = collect_dut_lossless_prio(dut)
+        lossy_prio[dut.hostname] = collect_dut_lossy_prio(dut)
+
+    prio_info = [all_prio, lossless_prio, lossy_prio]  
+    file_names = [tbname + '-' + x + '.json' for x in ['all', 'lossless', 'lossy']]
+    folder = 'priority'
+
+    for i in range(len(file_names)):
+        filepath = os.path.join(folder, file_names[i])
+        try:
+            if not os.path.exists(folder):
+                os.mkdir(folder)
+            with open(filepath, 'w') as yf:
+                json.dump({ tbname : prio_info[i]}, yf, indent=4)
+        except IOError as e:
+            logger.warning('Unable to create file {}: {}'.format(filepath, e))
