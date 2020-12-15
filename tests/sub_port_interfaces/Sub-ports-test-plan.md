@@ -14,9 +14,9 @@
 
 ## Revision
 
-| Rev |     Date    |       Author           | Change Description                 |
-|:---:|:-----------:|:-----------------------|:-----------------------------------|
-| 0.1 |  30/11/2020 | BFN: Oleksandr Kozodoi |          Initial version           |
+| Rev |     Date    |       Author             | Change Description                 |
+|:---:|:-----------:|:-------------------------|:-----------------------------------|
+| 0.1 |  30/11/2020 | Intel: Oleksandr Kozodoi |          Initial version           |
 
 
 ## Overview
@@ -135,6 +135,113 @@ DUT and PTF directly connected interfaces have different VLAN IDs
 - Create ICMP packet.
 - Send ICMP request packet from PTF to DUT.
 - Verify that DUT doesn't sends ICMP reply packet to PTF.
+
+### Test teardown
+
+- reload_dut_config function: reload DUT configuration
+- reload_ptf_config function: remove all sub-ports configuration
+
+## Test case test_admin_status_down_disables_forwarding
+
+### Test objective
+
+Validates that admin status DOWN disables packet forwarding.
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+- apply_config_on_the_ptf fixture(scope="function"): enable and configures sub-port interfaces on the PTF
+
+### Test steps
+
+- Setup configuration of sub-ports on the DUT.
+- Setup configuration of sub-ports on the PTF.
+- Shutdown sub-ports on the DUT
+- Create ICMP packet.
+- Send ICMP request packet from PTF to DUT.
+- Verify that DUT doesn't send ICMP reply packet to PTF.
+- Create ICMP packet.
+- Send ICMP request packet from PTF to another sub-port of DUT.
+- Verify that DUT sends ICMP reply packet to PTF.
+- Startup sub-port on the DUT
+- Create ICMP packet.
+- Send ICMP request packet from PTF to DUT.
+- Verify that DUT sends ICMP reply packet to PTF.
+- Clear configuration of sub-ports on the DUT.
+- Clear configuration of sub-ports on the PTF.
+
+### Test teardown
+
+- reload_dut_config function: reload DUT configuration
+- reload_ptf_config function: remove all sub-ports configuration
+
+## Test case test_max_numbers_of_sub_ports
+
+### Test objective
+
+Validates that 256 sub-ports can be created per port or LAG.
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+- apply_config_on_the_ptf fixture(scope="function"): enable and configures sub-port interfaces on the PTF
+
+### Test steps
+
+- Setup configuration of 256 sub-ports on the DUT.
+- Setup configuration of 256 sub-ports on the PTF.
+- Create ICMP packet.
+- Send ICMP request packet from PTF to DUT.
+- Verify that DUT sends ICMP reply packet to PTF.
+- Clear configuration of sub-ports on the DUT.
+- Clear configuration of sub-ports on the PTF.
+
+### Test teardown
+
+- reload_dut_config function: reload DUT configuration
+- reload_ptf_config function: remove all sub-ports configuration
+
+### NOTE
+The running of the test case takes about 80 minutes.
+
+## Test case test_mtu_inherited_from_parent_port
+
+### Test objective
+
+Validates that MTU settings of sub-ports inherited from parent port.
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+
+### Test steps
+
+- Setup correct configuration of sub-ports on the DUT.
+- Get MTU value of sub-port
+- Get MTU value of parent port
+- Clear configuration of sub-ports on the DUT.
+
+### Test teardown
+
+- reload_dut_config function: reload DUT configuration
+
+## Test case test_vlan_config_impact
+
+### Test objective
+
+Validates that removal of VLAN doesn't impact sub-port RIF with same VLAN ID.
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+- apply_config_on_the_ptf fixture(scope="function"): enable and configures sub-port interfaces on the PTF
+
+### Test steps
+
+- Setup correct configuration of sub-ports on the DUT.
+- Create a VLAN RIF with the same VLAN ID of sub-port.
+- Added PortChannel interface to VLAN members 
+- Delete a VLAN RIF.
+- Make sure sub-port is available in redis-db.
+- Verify that DUT sends ICMP reply packet to PTF.
+- Clear configuration of sub-ports on the DUT.
+- Clear configuration of sub-ports on the PTF.
 
 ### Test teardown
 

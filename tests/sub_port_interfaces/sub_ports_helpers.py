@@ -1,8 +1,13 @@
 import os
+import re
 
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -87,6 +92,141 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src,
         testutils.verify_no_packet_any(ptfadapter, masked_exp_pkt, dst_port_list)
 
 
+def shutdown_port(duthost, interface):
+    """
+    Shutdown port on the DUT
+
+    Args:
+        duthost: DUT host object
+        interface: Interface of DUT
+    """
+    duthost.shutdown(interface)
+    pytest_assert(wait_until(3, 1, __check_interface_state, duthost, interface, 'down'),
+                  "DUT's port {} didn't go down as expected".format(interface))
+
+
+def startup_port(duthost, interface):
+    """
+    Startup port on the DUT
+
+    Args:
+        duthost: DUT host object
+        interface: Interface of DUT
+    """
+    duthost.no_shutdown(interface)
+    pytest_assert(wait_until(3, 1, __check_interface_state, duthost, interface),
+                  "DUT's port {} didn't go up as expected".format(interface))
+
+
+def __check_interface_state(duthost, interface, state='up'):
+    """
+    Check interface status
+
+    Args:
+        duthost: DUT host object
+        interface: Interface of DUT
+        state: state of DUT's interface
+
+    Returns:
+        Bool value which confirm port state
+    """
+    ports_down = duthost.interface_facts(up_ports=[interface])['ansible_facts']['ansible_interface_link_down_ports']
+
+    if 'down' in state:
+        return interface in ports_down
+    return interface not in ports_down
+
+
+def setup_vlan(duthost, vlan_id):
+    """
+    Setup VLAN's configuraation to DUT
+
+    Args:
+        duthost: DUT host object
+        vlan_id: VLAN id
+    """
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
+
+    duthost.shell('config vlan add %s' % vlan_id)
+    for portchannel, ips in portchannel_interfaces.items():
+        duthost.shell('config interface shutdown {}'.format(portchannel))
+        for ip in ips:
+            duthost.shell('config interface ip remove {} {}'.format(portchannel, ip))
+
+        duthost.shell('config vlan member add --untagged {} {}'.format(vlan_id, portchannel))
+
+    pytest_assert(wait_until(3, 1, __check_vlan, duthost, vlan_id),
+                  "VLAN RIF Vlan{} didn't create as expected".format(vlan_id))
+
+    for portchannel in portchannel_interfaces.keys():
+        pytest_assert(wait_until(3, 1, __check_vlan_member, duthost, vlan_id, portchannel),
+                      "VLAN RIF Vlan{} doesn't have {} member as expected".format(vlan_id, portchannel))
+
+
+def __check_vlan(duthost, vlan_id, removed=False):
+    """
+    Check availability of VLAN in redis-db
+
+    Args:
+        duthost: DUT host object
+        vlan_id: VLAN id
+        removed: Bool value which show availability of VLAN
+
+    Returns:
+        Bool value which confirm availability of VLAN in redis-db
+    """
+    vlan_name = 'Vlan{}'.format(vlan_id)
+    out = duthost.shell('redis-cli -n 4 keys "VLAN|{}"'.format(vlan_name))["stdout"]
+    if removed:
+        return vlan_name not in out
+    return vlan_name in out
+
+
+def __check_vlan_member(duthost, vlan_id, vlan_member):
+    """
+    Check that VLAN member is available in redis-db
+
+    Args:
+        duthost: DUT host object
+        vlan_id: VLAN id
+        vlan_member: VLAN member
+
+    Returns:
+        Bool value which confirm availability of VLAN member in redis-db
+    """
+    vlan_name = 'Vlan{}'.format(vlan_id)
+    out = duthost.shell('redis-cli -n 4 keys "VLAN_MEMBER|{}|{}"'.format(vlan_name, vlan_member))["stdout"]
+    return vlan_name in out
+
+
+def remove_vlan(duthost, vlan_id):
+    """
+    Remove VLAN's configuraation on DUT
+
+    Args:
+        duthost: DUT host object
+        vlan_id: VLAN id
+    """
+    duthost.shell('config vlan del {}'.format(vlan_id))
+
+    pytest_assert(wait_until(3, 1, __check_vlan, duthost, vlan_id, True),
+                  "VLAN RIF Vlan{} didn't remove as expected".format(vlan_id))
+
+
+def check_sub_port(duthost, sub_port):
+    """
+    Check that sub-port is available in redis-db
+
+    Args:
+        duthost: DUT host object
+        interface: Interface of DUT
+        state: state of DUT's interface
+    """
+    out = duthost.shell('redis-cli -n 4 keys "VLAN_SUB_INTERFACE|{}"'.format(sub_port))["stdout"]
+    return sub_port in out
+
+
 def get_mac_dut(duthost, interface):
     """
     Get MAC address of DUT interface
@@ -110,3 +250,26 @@ def get_port_number(interface):
     Returns: Number of port
     """
     return ''.join([i for i in interface.split('.')[0] if i.isdigit()])
+
+
+def get_port_mtu(duthost, interface):
+    """
+    Get MTU of port from interface name
+
+    Args:
+        duthost: DUT host object
+        interface: Full interface name
+
+    Returns: MTU
+    """
+    pattern = ''
+    out = ''
+
+    if '.' in interface:
+        pattern = re.compile(r'%s\s+\S+\s+(\d+)' % interface)
+        out = duthost.shell("show subinterface status {}".format(interface))["stdout"]
+    else:
+        pattern = re.compile(r'%s\s+\S+\s+\S+\s+(\d+)' % interface)
+        out = duthost.shell("show interface status {}".format(interface))["stdout"]
+
+    return pattern.search(out).group(1)

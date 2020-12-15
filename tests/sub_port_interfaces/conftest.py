@@ -42,6 +42,10 @@ def define_sub_ports_configuration(request, duthost, ptfhost):
     if 'invalid' in request.node.name:
         vlan_ranges_ptf = range(11, 31, 10)
 
+    if 'max_numbers' in request.node.name:
+        vlan_ranges_dut = range(1, 257)
+        vlan_ranges_ptf = range(1, 257)
+
     interface_ranges = range(1, 2)
     ip_subnet = u'172.16.0.0/16'
     prefix = 30
