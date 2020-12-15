@@ -232,7 +232,7 @@ veos:
 # testbed is used to generate testbed.csv
 # testbed dictionary does not cross reference with other files 
 testbed:
-    churchill-t1:                                           # source: sonic-mgmt/ansible/testbed.csv
+    mathilda-t1:                                           # source: sonic-mgmt/ansible/testbed.csv
         group-name: math-1                                  # source: sonic-mgmt/ansible/testbed.csv
         topo: t1                                            # source: sonic-mgmt/ansible/testbed.csv
         ptf_image_name: docker-ptf                          # source: sonic-mgmt/ansible/testbed.csv
