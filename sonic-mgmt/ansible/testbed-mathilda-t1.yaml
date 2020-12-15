@@ -52,7 +52,7 @@ device_groups:
     sonic:
         children: [mathilda-4]      # source: sonic-mgmt/ansible/lab
         vars:
-            hwsku: "8201-32FH-O"                               # source: sonic-mgmt/ansible/lab
+            hwsku: "8102-64H-O"                               # source: sonic-mgmt/ansible/lab
             iface_speed: '100000'                                 # source: sonic-mgmt/ansible/lab
     fanout:
         host: [nexus-5]         # source: sonic-mgmt/ansible/lab
@@ -65,7 +65,7 @@ device_groups:
 devices:
     mathilda-4:
         device_type: DevSonic                       # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
-        hwsku: 8201-32FH-O                          # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
+        hwsku: 8102-64H-O                          # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
         alias:
         credentials:
             username: cisco
