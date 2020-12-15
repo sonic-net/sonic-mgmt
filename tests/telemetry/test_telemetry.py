@@ -14,7 +14,16 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 TELEMETRY_PORT = 50051
+METHOD_SUBSCRIBE = "subscribe"
+METHOD_GET = "get"
 
+SUBSCRIBE_MODE_STREAM = 0
+SUBSCRIBE_MODE_ONCE = 1
+SUBSCRIBE_MODE_POLL = 2
+
+SUBMODE_TARGET_DEFINED = 0
+SUBMODE_ON_CHANGE = 1
+SUBMODE_SAMPLE = 2
 
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
@@ -46,6 +55,21 @@ def setup_telemetry_forpyclient(duthost):
         duthost.service(name="telemetry", state="restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
+
+def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
+    """Generate the py_gnmicli command line based on the given params.
+    """
+    cmdFormat = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
+    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
+
+    if method == METHOD_SUBSCRIBE:
+        cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(subscribe_mode, submode, intervalms, update_count)
+    return cmd
+
+def assert_equal(actual, expected, message):
+    """Helper method to compare an expected value vs the actual value.
+    """
+    pytest_assert(actual == expected, "{0}. Expected {1} vs actual {2}".format(message, expected, actual))
 
 @pytest.fixture(scope="module", autouse=True)
 def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
@@ -137,6 +161,19 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
     result = str(show_gnmi_out)
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
+
+def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+    """ Test osbuild/version query.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
+    logger.debug("Command to run: {0}".format(cmd))
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    logger.debug(show_gnmi_out)
+    result = str(show_gnmi_out)
+
+    assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
+    assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
 
 def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """
