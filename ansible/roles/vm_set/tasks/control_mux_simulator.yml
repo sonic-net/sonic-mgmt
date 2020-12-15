@@ -1,4 +1,12 @@
 
+- name: Get absolute path of {{ root_path }}
+  command: "realpath {{ root_path }}"
+  register: real_root_path
+
+- name: Set variable abs_root_path
+  set_fact:
+    abs_root_path: "{{ real_root_path.stdout }}"
+
 - name: Start mux simulator
   block:
 
@@ -7,18 +15,10 @@
     become: yes
     environment: "{{ proxy_env | default({}) }}"
 
-  - name: Get absolute path of {{ root_path }}
-    command: "realpath {{ root_path }}"
-    register: real_root_path
-
-  - name: Set {{ root_path }} to absolute path
-    set_fact:
-      root_path: "{{ real_root_path.stdout }}"
-
   - name: Copy the mux simulator to test server
     copy:
       src: mux_simulator.py
-      dest: "{{ root_path }}"
+      dest: "{{ abs_root_path }}"
       mode: 0755
 
   - name: Set default mux_simulator_port
@@ -41,7 +41,7 @@
 
   - name: Record vm_set of testbed using mux-simulator
     lineinfile:
-      path: "{{ root_path }}/mux_simulator.setups.txt"
+      path: "{{ abs_root_path }}/mux_simulator.setups.txt"
       line: "{{ vm_set_name }}"
       state: present
       create: yes
@@ -53,12 +53,12 @@
 
   - name: Remove the record of testbed using mux-simulator
     lineinfile:
-      path: "{{ root_path }}/mux_simulator.setups.txt"
+      path: "{{ abs_root_path }}/mux_simulator.setups.txt"
       line: "{{ vm_set_name }}"
       state: absent
 
   - name: Check if the record file is empty
-    command: "grep -P '\\S' {{ root_path }}/mux_simulator.setups.txt"
+    command: "grep -P '\\S' {{ abs_root_path }}/mux_simulator.setups.txt"
     register: record_file_content
     ignore_errors: yes
 
@@ -66,6 +66,7 @@
     systemd:
       name: mux-simulator
       state: stopped
+    become: yes
     ignore_errors: yes
     when: record_file_content.rc != 0
 
