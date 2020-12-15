@@ -41,9 +41,12 @@ def pytest_configure(config):
         "markers", "supported_completeness_level(TEST_LEVEL): mark test to specify the completeness level for the test. Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
     )
 
+def pytest_collection_modifyitems(session):
+    if session.config.getoption("--topology"):
+        for item in session.items[:]:
+            check_topology(session, item)
+
 def pytest_runtest_setup(item):
-    if item.config.getoption("--topology"):
-        check_topology(item)
     if item.config.getoption("--feature"):
         check_feature(item)
     if item.config.getoption("--asic"):
@@ -55,19 +58,27 @@ def pytest_runtest_setup(item):
 
     check_test_completeness(item)
 
-def check_topology(item):
+def check_topology(session, item):
     # The closest marker is used here so that the module or class level
     # marker will be overrided by case level marker
     topo_marks = [mark for mark in item.iter_markers(name="topology")]   # Get all 'topology' marks on the chain
     if topo_marks:
         topo_mark = topo_marks[0]   # The nearest mark overides others
-        cfg_topos = item.config.getoption("--topology").split(',')
+        cfg_topos = session.config.getoption("--topology").split(',')
         if all(topo not in topo_mark.args for topo in cfg_topos):
-            pytest.skip("test requires topology in {!r}".format(topo_mark))
+            if session.config.getoption("--collectonly"):
+                session.items.remove(item)
+                session.config.hook.pytest_deselected(items=[item])
+            else:
+                item.add_marker(pytest.mark.skip("test requires topology in {!r}".format(topo_mark)))
     else:
-        warn_msg = "testcase {} is skipped when no topology marker is given".format(item.nodeid)
-        warnings.warn(warn_msg)
-        pytest.skip(warn_msg)
+        if session.config.getoption("--collectonly"):
+            session.items.remove(item)
+            session.config.hook.pytest_deselected(items=[item])
+        else:
+            warn_msg = "testcase {} is skipped when no topology marker is given".format(item.nodeid)
+            warnings.warn(warn_msg)
+            item.add_marker(pytest.mark.skip(warn_msg))
 
 def check_feature(item):
     feature_names = [mark.args for mark in item.iter_markers(name="feature")]
