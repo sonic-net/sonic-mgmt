@@ -130,11 +130,11 @@ veos_groups:
     eos:
         children: [vms_1]                            # source: sonic-mgmt/veos
     vms_1:
-        host: [VM0100, VM0101, VM0102, VM0103, VM0104, VM0105, VM0106, VM0107, VM0108, VM0109, VM0110, VM0111, VM0112, VM0113, VM0114, VM0115, VM0116, VM0117, VM0118, VM0119, VM0120, VM0121, VM0122, VM0123, VM0124, VM0125, VM0126, VM0127, VM0128, VM0129, VM0130, VM0131, VM0132, VM0133, VM0134, VM0135, VM0136, VM0137, VM0138, VM0139, VM0140, VM0141, VM0142, VM0143, VM0144, VM0145, VM0146, VM0147, VM0148, VM0149, VM0150, VM0151, VM0152, VM0153, VM0154, VM0155, VM0156, VM0157, VM0158, VM0159, VM0160, VM0161, VM0162, VM0163, VM0164, VM0165, VM0166, VM0167]  # source: sonic-mgmt/veos
+        host: [VM0100, VM0101, VM0102, VM0103, VM0104, VM0105, VM0106, VM0107, VM0108, VM0109, VM0110, VM0111, VM0112, VM0113, VM0114, VM0115, VM0116, VM0117, VM0118, VM0119, VM0120, VM0121, VM0122, VM0123, VM0124, VM0125, VM0126, VM0127, VM0128, VM0129, VM0130, VM0131]  # source: sonic-mgmt/veos
     vm_host:
         children: [vm_host_1]                    # source: sonic-mgmt/veos
     vm_host_1:
-        host: [STR-ACS-SERV-01]                             # source: sonic-mgmt/veos
+        host: [SONIC-UCS-M3-2]                             # source: sonic-mgmt/veos
 
 # veos is a dictionary that contains veos information as well as hosts of children groups from veos_groups
 # veos is used to generate eos/creds, main.yml, vm_host/creds
