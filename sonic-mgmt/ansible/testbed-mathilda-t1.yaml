@@ -85,7 +85,7 @@ devices:
             username: rraghav
             password: roZes@123
         ansible:
-            ansible_host: 1.74.23.200                # source: sonic-mgmt/ansible/veos
+            ansible_host: 1.74.23.19                # source: sonic-mgmt/ansible/veos
             ansible_ssh_pass: rraghav
             ansible_become_pass: roZes@123
             ansible_sudo_pass: roZes@123
@@ -181,7 +181,7 @@ veos:
       VM0107:
         ansible_host: 1.74.23.167
       VM0108:
-        ansible_host: 1.74.23.200
+        ansible_host: 1.74.23.168
       VM0109:
         ansible_host: 1.74.23.169
       VM0110:
