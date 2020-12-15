@@ -9,9 +9,11 @@ import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import disable_fdb_aging
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.usefixtures('disable_fdb_aging')
 ]
 
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
@@ -51,7 +53,7 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac):
     :return:
     """
     pkt = testutils.simple_arp_packet(pktlen=60,
-                eth_dst='ff:ff:ff:ff:ff:ff',
+                eth_dst=dest_mac,
                 eth_src=source_mac,
                 vlan_vid=0,
                 vlan_pcp=0,
@@ -146,7 +148,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
             fdb[member].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
-
+    # Flush dataplane
+    ptfadapter.dataplane.flush()
     return fdb
 
 
