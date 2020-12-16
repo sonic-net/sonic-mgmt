@@ -148,6 +148,19 @@
     sysctl_set: yes
   become: yes
 
+- name: Create link for disabling apparmor for ntpd
+  file:
+    src: /etc/apparmor.d/usr.sbin.ntpd
+    dest: /etc/apparmor.d/disable/usr.sbin.ntpd
+    state: link
+  become: yes
+  ignore_errors: yes
+
+- name: Disable apparmor for ntpd
+  command: apparmor_parser -R /etc/apparmor.d/usr.sbin.ntpd
+  become: yes
+  ignore_errors: yes
+
 - name: Setup external front port
   include_tasks: external_port.yml
   when: external_port is defined
