@@ -429,7 +429,7 @@ def _validate_out_ports(data):
         return False, 'Validate out_ports {} failed with exception: {}'.format(json.dumps(data), repr(e))
 
 
-def update_flow_action_nic(mux_status, action):
+def update_flow_action_to_nic(mux_status, action):
     """Update the action for the flow to "nic".
 
     Args:
@@ -452,7 +452,7 @@ def update_flow_action_nic(mux_status, action):
     return mux_status
 
 
-def update_flow_action_tor(mux_status, action, tor_ports):
+def update_flow_action_to_tor(mux_status, action, tor_ports):
     """Update the action for the flow to "tor_a" and/or "tor_b".
 
     Args:
@@ -510,11 +510,11 @@ def update_flow_action(vm_set, port_index, action, data):
     tor_ports = []
     for out_port in data['out_ports']:
         if out_port == 'nic':
-            mux_status = update_flow_action_nic(mux_status, action)
+            mux_status = update_flow_action_to_nic(mux_status, action)
         elif out_port == 'tor_a' or out_port == 'tor_b':
             tor_ports.append(out_port)
     if tor_ports:
-        mux_status = update_flow_action_tor(mux_status, action, tor_ports)
+        mux_status = update_flow_action_to_tor(mux_status, action, tor_ports)
     return mux_status
 
 
