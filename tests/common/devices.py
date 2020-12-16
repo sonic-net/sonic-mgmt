@@ -342,7 +342,8 @@ class SonicHost(AnsibleHostBase):
         Gets the SONiC kernel version
         :return:
         """
-        return self.setup()['ansible_facts']['ansible_kernel'].split('-')[0]
+        output = self.command('uname -r')
+        return output["stdout"].split('-')[0]
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
