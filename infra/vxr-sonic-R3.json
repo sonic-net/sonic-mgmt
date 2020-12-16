@@ -1,0 +1,307 @@
+{
+    "MGMT_INTERFACE": {
+        "eth0|172.27.147.50/25": {
+        "gwaddr": "172.27.147.1"
+        }
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "bgp_asn": "65100", 
+            "hostname": "sonic", 
+            "hwsku": "36x100Gb", 
+            "mac": "78:72:5d:53:6a:59", 
+            "platform": "x86_64-8201_sys-r0", 
+            "type": "LeafRouter"
+        }
+    }, 
+    "PORT": {
+        "Ethernet0": {
+            "admin_status": "up", 
+            "alias": "eth0", 
+            "index": "0", 
+            "lanes": "9,8,11,10", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet1": {
+            "admin_status": "up", 
+            "alias": "eth1", 
+            "index": "1", 
+            "lanes": "1,0,3,2", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet2": {
+            "admin_status": "up", 
+            "alias": "eth2", 
+            "index": "2", 
+            "lanes": "256,257,258,259", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet3": {
+            "admin_status": "up", 
+            "alias": "eth3", 
+            "index": "3", 
+            "lanes": "264,265,266,267", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet4": {
+            "admin_status": "up", 
+            "alias": "eth4", 
+            "index": "4", 
+            "lanes": "2568,2569,2570,2571", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet5": {
+            "admin_status": "up", 
+            "alias": "eth5", 
+            "index": "5", 
+            "lanes": "2560,2561,2562,2563", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet6": {
+            "admin_status": "up", 
+            "alias": "eth6", 
+            "index": "6", 
+            "lanes": "2816,2817,2818,2819", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet7": {
+            "admin_status": "up", 
+            "alias": "eth7", 
+            "index": "7", 
+            "lanes": "2824,2825,2826,2827", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet8": {
+            "admin_status": "up", 
+            "alias": "eth8", 
+            "index": "8", 
+            "lanes": "2312,2313,2314,2315", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet9": {
+            "admin_status": "up", 
+            "alias": "eth9", 
+            "index": "9", 
+            "lanes": "2304,2305,2306,2307", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet10": {
+            "admin_status": "up", 
+            "alias": "eth10", 
+            "index": "10", 
+            "lanes": "2056,2057,2058,2059", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet11": {
+            "admin_status": "up", 
+            "alias": "eth11", 
+            "index": "11", 
+            "lanes": "2048,2049,2050,2051", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet12": {
+            "admin_status": "up", 
+            "alias": "eth12", 
+            "index": "12", 
+            "lanes": "1800,1801,1802,1803", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet13": {
+            "admin_status": "up", 
+            "alias": "eth13", 
+            "index": "13", 
+            "lanes": "1792,1793,1794,1795", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet14": {
+            "admin_status": "up", 
+            "alias": "eth14", 
+            "index": "14", 
+            "lanes": "1536,1537,1538,1539", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet15": {
+            "admin_status": "up", 
+            "alias": "eth15", 
+            "index": "15", 
+            "lanes": "1544,1545,1546,1547", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet16": {
+            "admin_status": "up", 
+            "alias": "eth16", 
+            "index": "16", 
+            "lanes": "1288,1289,1290,1291", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet17": {
+            "admin_status": "up", 
+            "alias": "eth17", 
+            "index": "17", 
+            "lanes": "1280,1281,1282,1283", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet18": {
+            "admin_status": "up", 
+            "alias": "eth18", 
+            "index": "18", 
+            "lanes": "1032,1033,1034,1035", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet19": {
+            "admin_status": "up", 
+            "alias": "eth19", 
+            "index": "19", 
+            "lanes": "1024,1025,1026,1027", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet20": {
+            "admin_status": "up", 
+            "alias": "eth20", 
+            "index": "20", 
+            "lanes": "776,777,778,779", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet21": {
+            "admin_status": "up", 
+            "alias": "eth21", 
+            "index": "21", 
+            "lanes": "768,769,770,771", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet22": {
+            "admin_status": "up", 
+            "alias": "eth22", 
+            "index": "22", 
+            "lanes": "520,521,522,523", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet23": {
+            "admin_status": "up", 
+            "alias": "eth23", 
+            "index": "23", 
+            "lanes": "512,513,514,515", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet24": {
+            "admin_status": "up", 
+            "alias": "eth24", 
+            "index": "24", 
+            "lanes": "1552,1553", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet25": {
+            "admin_status": "up", 
+            "alias": "eth25", 
+            "index": "25", 
+            "lanes": "1808,1809", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet26": {
+            "admin_status": "up", 
+            "alias": "eth26", 
+            "index": "26", 
+            "lanes": "1040,1041", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet27": {
+            "admin_status": "up", 
+            "alias": "eth27", 
+            "index": "27", 
+            "lanes": "1296,1297", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet28": {
+            "admin_status": "up", 
+            "alias": "eth28", 
+            "index": "28", 
+            "lanes": "528,529", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet29": {
+            "admin_status": "up", 
+            "alias": "eth29", 
+            "index": "29", 
+            "lanes": "784,785", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet30": {
+            "admin_status": "up", 
+            "alias": "eth30", 
+            "index": "30", 
+            "lanes": "16,17", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet31": {
+            "admin_status": "up", 
+            "alias": "eth31", 
+            "index": "31", 
+            "lanes": "272,273", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet32": {
+            "admin_status": "up", 
+            "alias": "eth32", 
+            "index": "32", 
+            "lanes": "2576,2577", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet33": {
+            "admin_status": "up", 
+            "alias": "eth33", 
+            "index": "33", 
+            "lanes": "2832,2833", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet34": {
+            "admin_status": "up", 
+            "alias": "eth34", 
+            "index": "34", 
+            "lanes": "2064,2065", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }, 
+        "Ethernet35": {
+            "admin_status": "up", 
+            "alias": "eth35", 
+            "index": "35", 
+            "lanes": "2320,2321", 
+            "mtu": "9100", 
+            "speed": "100000"
+        }
+    }
+}
