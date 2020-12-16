@@ -85,7 +85,7 @@ def set_drop(physical_port, direction):
         physical_port: physical port on switch, an integer starting from 1
         direction: a list, may contain "tor_a", "tor_b", "nic"
     Returns:
-        None. 
+        None.
     """
     data = {"out_ports": direction}
     pytest_assert(_post(physical_port, DROP, data), "Failed to set drop on {}".format(direction))
@@ -97,7 +97,7 @@ def set_output(physical_port, direction):
         physical_port: physical port on switch, an integer starting from 1
         direction: a list, may contain "tor_a", "tor_b", "nic"
     Returns:
-        None. 
+        None.
     """
     data = {"out_ports": direction}
     pytest_assert(_post(physical_port, OUTPUT, data), "Failed to set output on {}".format(direction))
@@ -108,7 +108,8 @@ def recover_all_directions(physical_port):
     Args:
         physical_port: physical port on switch, an integer starting from 1
     Returns:
-        None. 
+        None.
     """
     data = {"out_ports": [TOR_A, TOR_B, NIC]}
     pytest_assert(_post(physical_port, OUTPUT, data), "Failed to set output on all directions")
+
