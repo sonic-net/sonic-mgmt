@@ -164,7 +164,8 @@ def main():
                 num_asic = 1
         for asic_id in range(num_asic):
             if num_asic == 1:
-            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap()
+                asic_id = None
+            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(asic_id)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:
