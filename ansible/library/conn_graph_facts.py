@@ -8,6 +8,8 @@ import ipaddr as ipaddress
 from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
+from natsort import natsorted
+from ansible.module_utils.port_utils import get_port_alias_to_name_map
 from ansible.module_utils.debug_utils import create_debug_file, print_debug_msg
 
 DOCUMENTATION='''
@@ -275,6 +277,7 @@ def find_graph(hostnames):
         filename = os.path.join(LAB_GRAPHFILE_PATH, fn)
         lab_graph = Parse_Lab_Graph(filename)
         lab_graph.parse_graph()
+        print_debug_msg(debug_fname, "For file %s, got hostnames %s" % (fn, lab_graph.devices))
         if lab_graph.contains_hosts(hostnames):
             print_debug_msg(debug_fname, ("Returning lab graph from conn graph file: %s for hosts %s" % (fn, hostnames)))
             return lab_graph
@@ -286,6 +289,17 @@ def find_graph(hostnames):
     lab_graph = Parse_Lab_Graph(os.path.join(LAB_GRAPHFILE_PATH, EMPTY_GRAPH_FILE))
     lab_graph.parse_graph()
     return lab_graph
+
+
+def get_port_name_list(hwsku):
+    # Create a map of SONiC port name to physical port index
+    # Start by creating a list of all port names
+    port_name_list = get_port_alias_to_name_map(hwsku).keys()
+
+    # Sort the list in natural order, because SONiC port names, when
+    # sorted in natural sort order, match the phyical port index order
+    port_name_list_sorted = natsorted(port_name_list)
+    return port_name_list_sorted
 
 debug_fname = None
 
@@ -349,7 +363,7 @@ def main():
                 device_vlan_map_list[hostname] = {}
 
                 port_name_list_sorted = get_port_name_list(dev['HwSku'])
-
+                print_debug_msg(debug_fname,"For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
                 for a_host_vlan in host_vlan["VlanList"]:
                     # Get the corresponding port for this vlan from the port vlan list for this hostname
                     found_port_for_vlan = False
