@@ -213,3 +213,20 @@ class GarpUpdate(ACSDataplaneTest):
         verify_no_packet(self, exp_pkt, self.test_params['port'])
 
 
+class GarpEnabledUpdate(ACSDataplaneTest):
+    '''
+    When GARP is enabled on the device, receive a GARP packet the entry should be learned
+    '''
+    def runTest(self):
+        pkt = simple_arp_packet(pktlen=60,
+                                eth_dst='ff:ff:ff:ff:ff:ff',
+                                eth_src='00:00:07:08:09:0a',
+                                vlan_pcp=0,
+                                arp_op=2,
+                                ip_snd='10.10.1.3',
+                                ip_tgt='10.10.1.3',
+                                hw_snd='00:00:07:08:09:0a',
+                                hw_tgt='ff:ff:ff:ff:ff:ff'
+                            )
+
+        send_packet(self, self.test_params['port'], pkt)
