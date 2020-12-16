@@ -180,7 +180,6 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
     def _check_pool_size(duthost, expected_pool_size, ingress_lossless_pool_oid):
         pool_size = duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout']
-        #pytest_assert(int(pool_size) == expected_pool_size, "Pool size isn't correct: expected {} but got {}".format(expected_pool_size, pool_size))
 
         if int(pool_size) != expected_pool_size:
             return False
@@ -189,7 +188,6 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             pool_size = _get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid)
             if int(pool_size) != expected_pool_size:
                 return False
-            #pytest_assert(int(pool_sai['SAI_BUFFER_POOL_ATTR_SIZE']) == expected_pool_size)
 
         return True
 
@@ -712,7 +710,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
                         pool_oid,
                         pool_size = original_pool_size,
                         old_headroom = original_headroom_size,
-                        new_headroom = 36864,
+                        new_headroom = new_headroom,
                         new_pg_number = 3)
 
         param = testparam_headroom_override.get("set")
