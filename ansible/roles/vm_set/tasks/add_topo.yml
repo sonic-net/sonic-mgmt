@@ -123,4 +123,10 @@
     include_tasks: start_ptf_tgen.yml
     when: topo == 'fullmesh'
 
+  - name: Start mux simulator
+    include_tasks: control_mux_simulator.yml
+    vars:
+      mux_simulator_action: start
+    when: "'dualtor' in topo"
+
   when: container_type == "PTF"
