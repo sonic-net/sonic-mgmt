@@ -120,7 +120,8 @@ def session(new_params):
     ]
     # For multi-asic VS testbed swss service will not be running. 
     # Hence, remove the check for swss service for multi-asic VS.
-    if new_params['num_asic'] > 1:
+    # TODO: Refine this check for multi-asic platform. 
+    if int(new_params['num_asic']) > 1:
         seq.pop(0)
 
     curtime = datetime.datetime.now().isoformat()
