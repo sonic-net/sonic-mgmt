@@ -9,7 +9,6 @@ import copy
 import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
-from sonic_py_common import multi_asic
 from ansible.module_utils.port_utils import get_port_alias_to_name_map
 
 from lxml import etree as ET

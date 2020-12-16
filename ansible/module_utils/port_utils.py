@@ -1,5 +1,3 @@
-from natsort import natsorted
-
 def _port_alias_to_name_map_50G(all_ports, s100G_ports):
     new_map = {}
     # 50G ports
