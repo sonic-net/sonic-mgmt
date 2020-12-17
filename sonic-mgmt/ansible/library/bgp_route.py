@@ -213,8 +213,9 @@ class BgpRoutes(object):
         PREFIX_PATHS = 5
         PREFIX_PATHS_FROM = 6
         PREFIX_PATH_ORIGIN = 7
-        PREFIX_PATH_TIMESTAMP = 8
-        ERR = 9
+        PREFIX_PATH_COMMUNITY = 8
+        PREFIX_PATH_TIMESTAMP = 9
+        ERR = 10
         # line content pattern
         prefix = self.prefix
         regex_prefix_header = re.compile('BGP routing table entry for ')
@@ -224,6 +225,7 @@ class BgpRoutes(object):
         regex_prefix_paths = re.compile('^[0-9\s]+$|Local')
         regex_prefix_path_p1_from = re.compile('.* from .*\([0-9a-fA-F.:]+\)')
         regex_prefix_path_p2_origin = re.compile('\s+Origin')
+        regex_prefix_path_p2_community = re.compile('\s+Community')
         regex_prefix_path_p3_timestamp = re.compile('\s+Last update:')
         cmd_err1 = 'Unknown command'
         cmd_err2 = 'Network not in table'
@@ -278,16 +280,21 @@ class BgpRoutes(object):
                     state = ERR
             elif state == PREFIX_PATH_ORIGIN:
                 if regex_prefix_path_p2_origin.match(line):
-                    state = PREFIX_PATH_TIMESTAMP
+                    state = PREFIX_PATH_COMMUNITY
                 else:
                     state = ERR
+            elif state == PREFIX_PATH_COMMUNITY:
+                if regex_prefix_path_p2_community.match(line):
+                    state = PREFIX_PATH_TIMESTAMP
+                else:
+                    state = ERR        
             elif state == PREFIX_PATH_TIMESTAMP:
                 if regex_prefix_path_p3_timestamp.match(line):
                     state = PREFIX_PATHS
                 else:
                     state = ERR
             elif state == ERR:
-                raise Exception("cannot parse bgp prefix info correctly " + str(state) + str(self.facts))
+                raise Exception("cannot parse bgp prefix info correctly " + str(state) + "*****"+ str(line) + "*****" +  str(self.facts))
 
 
 def main():

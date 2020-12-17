@@ -9,7 +9,8 @@ pytestmark = [
 def get_status_redisout(status_out):
     """Extract status value for feature in redis
     """
-    status_list = status_out[1:]
+    # In case of sonic, the status is the 7th key instead of 1
+    status_list = status_out[7:]
     status = ""
     for s in status_list:
         status = s.encode('UTF-8')
