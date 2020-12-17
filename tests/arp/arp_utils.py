@@ -1,7 +1,4 @@
 import logging
-import pytest
-
-from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
