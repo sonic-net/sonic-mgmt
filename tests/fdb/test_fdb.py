@@ -20,8 +20,9 @@ DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
 DUMMY_MAC_COUNT = 10
 FDB_POPULATE_SLEEP_TIMEOUT = 2
+FDB_CLEAN_UP_SLEEP_TIMEOUT = 2
 FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
-PKT_TYPES = ["ethernet", "arp_request", "arp_reply"]
+PKT_TYPES = ["setup", "ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
 
@@ -150,25 +151,44 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
     # Flush dataplane
     ptfadapter.dataplane.flush()
+
     return fdb
 
 
-@pytest.fixture
 def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before and after test run """
     duthost = duthosts[rand_one_dut_hostname]
-    try:
-        duthost.command('sonic-clear fdb all')
-        yield
-    finally:
-        # in any case clear fdb after test
-        duthost.command('sonic-clear fdb all')
+    res = duthost.command('show mac')
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
 
+    dummy_mac_count = 0
+    for l in res['stdout_lines']:
+        if DUMMY_MAC_PREFIX in l.lower():
+            dummy_mac_count += 1
+    if dummy_mac_count == 0:
+        return
+    else:
+        done = False
+        duthost.command('sonic-clear fdb all')
+        while not done:
+            res = duthost.command('show mac')
+            logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+
+            dummy_mac_count = 0
+            for l in res['stdout_lines']:
+                if DUMMY_MAC_PREFIX in l.lower():
+                    dummy_mac_count += 1
+            if dummy_mac_count != 0:
+                time.sleep(FDB_CLEAN_UP_SLEEP_TIMEOUT)
+            else:
+                return
 
 @pytest.mark.bsl
-@pytest.mark.usefixtures('fdb_cleanup')
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type):
+    if pkt_type == "setup" or pkt_type == "cleanup":
+        fdb_cleanup(duthosts, rand_one_dut_hostname)
+        return
     """
     1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.
