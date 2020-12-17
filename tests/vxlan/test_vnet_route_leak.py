@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.asic("mellanox")
+    pytest.mark.asic("mellanox"),
+    pytest.mark.disable_loganalyzer
 ]
 
 BGP_WAIT_TIMEOUT = 240

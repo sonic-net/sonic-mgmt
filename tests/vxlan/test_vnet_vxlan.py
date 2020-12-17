@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0"),
     pytest.mark.sanity_check(post_check=True),
-    pytest.mark.asic("mellanox")
+    pytest.mark.asic("mellanox"),
+    pytest.mark.disable_loganalyzer
 ]
 
 vlan_tagging_mode = ""

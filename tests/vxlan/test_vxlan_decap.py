@@ -16,7 +16,8 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)
