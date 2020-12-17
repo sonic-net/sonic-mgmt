@@ -37,6 +37,9 @@ def report_tc_fail(tcid, msgid, *args):
 def report_tc_unsupported(tcid, msgid, *args):
     getwa().report_tc_unsupported(tcid, msgid, *args)
 
+def report_msg(msgid, *args):
+    return getwa().report_msg(msgid, *args)
+
 def report_pass(msgid, *args):
     """
     Infrastructure API used by test scripts to report pass
