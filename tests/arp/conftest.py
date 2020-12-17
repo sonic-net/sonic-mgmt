@@ -23,6 +23,12 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module")
+def config_facts(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    return duthost.config_facts(host=duthost.hostname   , source="running")['ansible_facts']
+
+
+@pytest.fixture(scope="module")
 def intfs_for_test(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
