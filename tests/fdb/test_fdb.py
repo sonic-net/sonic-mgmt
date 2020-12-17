@@ -10,6 +10,8 @@ import pprint
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -165,21 +167,18 @@ def get_fdb_dynamic_mac_count(duthost):
     return total_mac_count
 
 
+def fdb_table_has_no_dynamic_macs(duthost):
+    return (get_fdb_dynamic_mac_count(duthost) == 0)
+
+
 def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before and after test run """
     duthost = duthosts[rand_one_dut_hostname]
-    total_dyn_mac_count = get_fdb_dynamic_mac_count(duthost)
-    if total_dyn_mac_count == 0:
+    if fdb_table_has_no_dynamic_macs(duthost):
         return
     else:
-        done = False
         duthost.command('sonic-clear fdb all')
-        while not done:
-            total_dyn_mac_count = get_fdb_dynamic_mac_count(duthost)
-            if total_dyn_mac_count != 0:
-                time.sleep(FDB_CLEAN_UP_SLEEP_TIMEOUT)
-            else:
-                return
+        pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
 @pytest.mark.bsl
