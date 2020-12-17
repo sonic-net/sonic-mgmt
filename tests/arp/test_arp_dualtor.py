@@ -14,6 +14,11 @@ pytestmark = [
 
 
 def test_arp_garp_enabled(intfs_for_test, ptfhost, config_facts):
+    '''
+    Send a gratuitous ARP (GARP) packet from the PTF to the DUT
+
+    The DUT should learn the (previously unseen) ARP info from the packet
+    '''
     intf1, intf1_indice, intf2, intf2_indice, intf_facts, mg_facts, duthost = intfs_for_test
     params = {
         'acs_mac': intf_facts['ansible_interface_facts'][intf1]['macaddress'],
@@ -61,6 +66,11 @@ def setup_ptf_proxy_arp(config_facts, ptfhost, intfs_for_test):
     ptfhost.shell(ip_addr_config_cmd.format('del', ptf_intf_addr, intf_ipv6_addr.prefixlen, ptf_intf_name))
 
 def test_proxy_arp(setup_ptf_proxy_arp, intfs_for_test, ptfhost, config_facts):
+    '''
+    Send a neighbor solicitation (NS) to the DUT for an IPv6 address within the subnet of the DUT's VLAN.
+
+    DUT should reply with a neighbor advertisement (NA) containing the DUT's own MAC
+    '''
     intf1, intf1_indice, intf2, intf2_indice, intf_facts, mg_facts, duthost = intfs_for_test
     ptf_intf_addr, ptf_intf_name = setup_ptf_proxy_arp
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
