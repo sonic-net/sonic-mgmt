@@ -301,6 +301,10 @@ def verify_arp(dut, ipaddress, macaddress=None, interface=None, vlan=None, cli_t
     if not entries:
         st.error("No ARP entry found for the provided IP Address -{}".format(ipaddress))
         return False
+    if entries[0]['iface']== "-" and entries[0]['vlan'] :
+        vlanOutput= st.show(dut, "show vlan config")[0]
+        if entries[0]['vlan'] == vlanOutput['VID'] :
+            entries[0]['iface'] = vlanOutput['member']
     if macaddress and not filter_and_select(entries, None, {"address": ipaddress, "macaddress": macaddress}):
         st.error("Provided and configured macaddress values are not same.")
         return False
