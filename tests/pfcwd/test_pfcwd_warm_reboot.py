@@ -502,7 +502,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
                     self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd, queue)
                     self.run_test(port, queue, detect=(bitmask & 1),
-                                  storm_start=not t_idx or storm_deferred or storm_restored,
+                                  storm_start=('detect' in test_action) or storm_deferred or storm_restored,
                                   first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),
                                   storm_defer=(bitmask & 4))
 
