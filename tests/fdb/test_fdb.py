@@ -10,6 +10,8 @@ import pprint
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -20,8 +22,9 @@ DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
 DUMMY_MAC_COUNT = 10
 FDB_POPULATE_SLEEP_TIMEOUT = 2
+FDB_CLEAN_UP_SLEEP_TIMEOUT = 2
 FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
-PKT_TYPES = ["ethernet", "arp_request", "arp_reply"]
+PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
 
@@ -150,25 +153,43 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
     # Flush dataplane
     ptfadapter.dataplane.flush()
+
     return fdb
 
 
-@pytest.fixture
+def get_fdb_dynamic_mac_count(duthost):
+    res = duthost.command('show mac')
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+    total_mac_count = 0
+    for l in res['stdout_lines']:
+        if "dynamic" in l.lower():
+            total_mac_count += 1
+    return total_mac_count
+
+
+def fdb_table_has_no_dynamic_macs(duthost):
+    return (get_fdb_dynamic_mac_count(duthost) == 0)
+
+
 def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before and after test run """
     duthost = duthosts[rand_one_dut_hostname]
-    try:
+    if fdb_table_has_no_dynamic_macs(duthost):
+        return
+    else:
         duthost.command('sonic-clear fdb all')
-        yield
-    finally:
-        # in any case clear fdb after test
-        duthost.command('sonic-clear fdb all')
+        pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
 @pytest.mark.bsl
-@pytest.mark.usefixtures('fdb_cleanup')
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type):
+
+    # Perform FDB clean up before each test and at the end of the final test
+    fdb_cleanup(duthosts, rand_one_dut_hostname)
+    if pkt_type == "cleanup":
+        return
+
     """
     1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.
