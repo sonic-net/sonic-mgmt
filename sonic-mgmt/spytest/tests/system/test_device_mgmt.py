@@ -43,6 +43,11 @@ def test_ft_ip_static_ip_on_mgmt_intrf():
     if not ip_address_list:
         st.report_fail("DUT_does_not_have_IP_address".format(vars.D1, data.interface))
     data.ip_address = ip_address_list[0]
+    if '1.74' in data.ip_address:
+ 	gateway = '1.74.23.200'
+    command = "sudo ip route add 0.0.0.0/0 via {} dev {}".format(gateway, data.interface)
+    st.config(vars.D1, command, skip_error_check=False)
+    
     data.netmask = basic_obj.get_ifconfig(vars.D1, data.interface)[0]['netmask'][0]
     data.gateway = basic_obj.get_ifconfig_gateway(vars.D1, data.interface)
     intf_obj.config_static_ip_to_interface(vars.D1, data.interface, data.ip_address, data.netmask, data.gateway)

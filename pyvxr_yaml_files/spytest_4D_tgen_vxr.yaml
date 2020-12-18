@@ -58,6 +58,16 @@ devices:
       shelf:
           ConfigDsimNplPath: /auto/vxr/sonic_npl/1.50.0
 
+  spt:
+    platform: spirent_cafy1
+    spirent_images:
+        windows: /auto/vxr/vxr_images/spirent/WindowsWithTestCenter_5_05
+        api: /auto/vxr/vxr_images/spirent/Spirent_TestCenter_LabServer-5.05-dhcp.img
+        port: /auto/vxr/vxr_images/spirent/sptvm-5_05-dhcp.img
+    data_ports:
+    - data0
+    - data1
+
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
@@ -88,5 +98,11 @@ connections:
     hub5:
       - SD3.Ethernet[8..11]
       - SD4.Ethernet[8..11]
+    hub6:
+      - SD1.Ethernet12
+      - spt.data0
+    hub7:
+      - SD4.Ethernet12
+      - spt.data1
       
 

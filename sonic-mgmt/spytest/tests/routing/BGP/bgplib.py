@@ -635,13 +635,13 @@ def l3tc_vrfipv4v6_address_leafspine_bgp_check(config_type='all'):
 
         if config_type == 'ipv4' or config_type == 'all':
             neigh_list = list(set(spine_neigh_list))
-            if not bgpapi.verify_bgp_summary(data[leaf], family='ipv4', neighbor=neigh_list, state='Established'):
+            if not bgpapi.verify_bgp_summary(data[leaf], family='ipv4', shell='vtysh', neighbor=neigh_list, state='Established'):
                 st.log("{} - Neighbor {} is failed to Establish".format(data[leaf], neigh_list))
                 result = False
 
         if config_type == 'ipv6' or config_type == 'all':
             neigh_list = list(set(spine_neigh6_list))
-            if not bgpapi.verify_bgp_summary(data[leaf], family='ipv6', neighbor=neigh_list, state='Established'):
+            if not bgpapi.verify_bgp_summary(data[leaf], family='ipv6', shell='vtysh', neighbor=neigh_list, state='Established'):
                 st.log("{} - Neighbor {} is failed to Establish".format(data[leaf], neigh_list))
                 result = False
 
@@ -981,7 +981,7 @@ def config_bgp_on_tg(tg, handle, local_asn, tg_asn, local_ipaddr, action='start'
     if af == 'ipv4':
         bgp_rtr1 = tg.tg_emulation_bgp_config(handle=handle[handle_key_v4], mode='enable', active_connect_enable='1',
                                               local_as=tg_asn, remote_as=local_asn, remote_ip_addr=local_ipaddr,
-                                              enable_4_byte_as='1')
+                                              enable_4_byte_as='1', graceful_restart_enable='1')
         st.wait(5)
         tg.tg_emulation_bgp_control(handle=bgp_rtr1['handle'], mode='start')
 
@@ -989,7 +989,7 @@ def config_bgp_on_tg(tg, handle, local_asn, tg_asn, local_ipaddr, action='start'
 
         bgp_rtr1 = tg.tg_emulation_bgp_config(handle=handle[handle_key_v6], mode='enable', ip_version='6',
                                               active_connect_enable='1', local_as=tg_asn, remote_as=local_asn,
-                                              remote_ipv6_addr=local_ipaddr, enable_4_byte_as='1')
+                                              remote_ipv6_addr=local_ipaddr, enable_4_byte_as='1', graceful_restart_enable='1')
         st.wait(5)
         tg.tg_emulation_bgp_control(handle=bgp_rtr1['handle'], mode='start')
 

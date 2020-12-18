@@ -116,7 +116,7 @@ class TestBGPRrTraffic():
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)
-        bgp_summary = bgpapi.show_bgp_ipv4_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv4_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         # when route-reflector is not configured at server(spine), we should not learn anything at
@@ -131,7 +131,7 @@ class TestBGPRrTraffic():
             tc_fail_flag = 1
         bgpapi.create_bgp_next_hop_self(topo.dut_list[0], spine_as, 'ipv4', 'spine_leaf', 'yes', 'yes',cli_type=bgp_cli_type)
         st.wait(15)
-        bgp_summary = bgpapi.show_bgp_ipv4_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv4_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         if int(rib_entries) < 100:
@@ -147,14 +147,15 @@ class TestBGPRrTraffic():
         tr1 = tg_ob.tg_traffic_config(port_handle=topo['T1{}P1_ipv4_tg_ph'.format(TG_D2)],
                                       emulation_src_handle=topo['T1{}P1_ipv4_tg_ih'.format(TG_D2)][src_handle],
                                       emulation_dst_handle=bgp_route[dst_handle], circuit_endpoint_type='ipv4',
-                                      mode='create',
-                                      transmit_mode='single_burst', pkts_per_burst='2000', length_mode='fixed',
-                                      rate_pps=1000)
+                                      mode='create', high_speed_result_analysis='1', 
+                                      pkts_per_burst='2000', transmit_mode='single_burst', length_mode='fixed',
+                                      rate_pps=10000)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
         st.wait(20)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D1)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D2)])
+        
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):
             st.error('Received ZERO stats.')
             tc_fail_flag = 1
@@ -187,7 +188,7 @@ class TestBGPRrTraffic():
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)
-        bgp_summary = bgpapi.show_bgp_ipv6_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv6_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         # when route-reflector is not configured at server(spine), we should not learn anything at
@@ -202,7 +203,7 @@ class TestBGPRrTraffic():
             tc_fail_flag = 1
         bgpapi.create_bgp_next_hop_self(topo.dut_list[0], spine_as, 'ipv6', 'spine_leaf6', 'yes', 'yes',cli_type=bgp_cli_type)
         st.wait(15)
-        bgp_summary = bgpapi.show_bgp_ipv6_summary(topo.dut_list[1])
+        bgp_summary = bgpapi.show_bgp_ipv6_summary_vtysh(topo.dut_list[1])
         rib_entries = bgp_summary[0]['ribentries']
         st.log('RIB Entries : {}'.format(rib_entries))
         if int(rib_entries) < 100:
@@ -218,9 +219,9 @@ class TestBGPRrTraffic():
         tr1 = tg_ob.tg_traffic_config(port_handle=topo['T1{}P1_ipv6_tg_ph'.format(TG_D2)],
                                       emulation_src_handle=topo['T1{}P1_ipv6_tg_ih'.format(TG_D2)][src_handle],
                                       emulation_dst_handle=bgp_route[dst_handle], circuit_endpoint_type='ipv6',
-                                      mode='create',
+                                      mode='create', high_speed_result_analysis='1',
                                       transmit_mode='single_burst', pkts_per_burst='2000', length_mode='fixed',
-                                      rate_pps=1000)
+                                      rate_pps=10000)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
         st.wait(20)

@@ -40,7 +40,7 @@ def check_interface_status(dut, interfaces):
     """
     logging.info("Check interface status using cmd 'intfutil'")
     mg_ports = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
-    output = dut.command("intfutil description")
+    output = dut.command("intfutil -c description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
     check_intf_presence_command = 'show interface transceiver presence {}'
     for intf in interfaces:

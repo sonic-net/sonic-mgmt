@@ -224,19 +224,19 @@ def tg_bgpv6_config(vars, local_asn, remote_asn):
 def verify_v4_bgp_neigborship():
     st.wait(10)
     st.log("Waiting for the eBGP neighbors to get Established")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_vtysh,
                                       neighbor=data.neigh_ip_addr, state='Established', asn=data.remote_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.neigh_ip_addr)
     else:
         st.log("eBGP peer neigborship is successful")
-    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv4, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv4, shell=data.shell_vtysh,
                                       neighbor=data.local_ip_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.local_ip_addr)
     else:
         st.log("eBGP V4 peer neigborship is successful")
 
     st.log("Waiting for the iBGP neighbors to get Established wit TG1")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_vtysh,
                                       neighbor=data.t1d1_ip_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.t1d1_ip_addr)
     else:
@@ -245,19 +245,19 @@ def verify_v4_bgp_neigborship():
 def verify_v6_bgp_neigborship():
     st.wait(10)
     st.log("Waiting for the eBGP neighbors to get Established with peer DUT")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_vtysh,
                                       neighbor=data.neigh_ip6_addr, state='Established', asn=data.remote_asn4):
         st.report_fail('bgp_ip6_peer_establish_fail', data.neigh_ip6_addr)
     else:
         st.log("eBGP V6 peer neigborship is successful")
-    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv6, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv6, shell=data.shell_vtysh,
                                       neighbor=data.local_ip6_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip6_peer_establish_fail', data.local_ip6_addr)
     else:
         st.log("eBGP V6 peer neigborship is successful")
 
         st.log("Waiting for the iBGPV6 neighbors to get Established with TG2")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_vtysh,
                                       neighbor=data.t1d1_ip6_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.t1d1_ip6_addr)
     else:

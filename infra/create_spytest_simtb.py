@@ -137,7 +137,7 @@ def create_testbed_file(data):
 
     tdata['devices']['sherman-01']['ansible']['ansible_host'] = data['sonic_dut']['xr_mgmt_ip']
     tdata['devices']['sherman-01']['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
-    tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['ptf']['xr_mgmt_ip'] + '/24'
+    #tdata['devices']['docker-ptf']['ansible']['ansible_host'] = data['ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['ptf']['xr_mgmt_ip'] + '/24'
     base = 100
     for i in range (1,33):
@@ -298,7 +298,7 @@ def upload_t1_files(data):
     ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
     ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
     ftp_client.put('testbed-sherman-t1.yaml','sonic-test/sonic-mgmt/ansible/testbed-sherman-t1.yaml')
-    #ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+    ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):

@@ -36,7 +36,7 @@ data.vlan_int_2 = "Vlan{}".format(data.vlan_2)
 data.port_channel = "PortChannel100"
 data.tg_mac1 = "00:00:00:EA:23:0F"
 data.tg_mac2 = "00:00:11:0A:45:33"
-data.rate_pps = 2000
+data.rate_pps = 10000
 data.static_ip6_rt_drop = "blackhole"
 data.static_ip6_rt = "6661::/64"
 data.static_ip_rt = "192.168.5.0/24"
@@ -197,7 +197,7 @@ def create_v4_route(route_count):
     # Verified at neighbor.
     tr1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create', transmit_mode='single_burst',
                                pkts_per_burst=2000, \
-                               length_mode='fixed', rate_pps=2000, l3_protocol='ipv4', mac_src=data.tg_mac1, \
+                               length_mode='fixed', rate_pps=10000, l3_protocol='ipv4', mac_src=data.tg_mac1, \
                                mac_dst=dut_rt_int_mac1, ip_src_addr=data.ip4_addr[0],
                                ip_dst_addr=data.ip4_addr[9])
     st.log("TRAFCONF: " + str(tr1))
@@ -278,7 +278,7 @@ def create_v6_route(route_count):
     st.log("BGP neighborship established.")
     tr1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create', transmit_mode='single_burst',
                                pkts_per_burst=2000, \
-                               length_mode='fixed', rate_pps=2000, l3_protocol='ipv6', mac_src=data.tg_mac1, \
+                               length_mode='fixed', rate_pps=10000, l3_protocol='ipv6', mac_src=data.tg_mac1, \
                                mac_dst=dut_rt_int_mac1, ipv6_src_addr=data.ip6_addr[0],
                                ipv6_dst_addr=data.ip6_addr[9])
     st.log("TRAFCONF: " + str(tr1))
@@ -395,7 +395,7 @@ def test_ft_ip6_static_route_traffic_forward_blackhole():
 
     tr1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create', transmit_mode='single_burst',
                                pkts_per_burst=2000, \
-                               length_mode='fixed', rate_pps=2000, l3_protocol='ipv6', mac_src=data.tg_mac1, \
+                               length_mode='fixed', rate_pps=10000, l3_protocol='ipv6', mac_src=data.tg_mac1, \
                                mac_dst=dut_rt_int_mac1, ipv6_src_addr=data.ip6_addr[0],
                                ipv6_dst_addr=data.ip6_addr[9])
     st.log("TRAFCONF: " + str(tr1))
@@ -469,7 +469,7 @@ def test_ft_ip_static_route_traffic_forward():
         st.warn("Ping failed.")
     tr1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create', transmit_mode='single_burst',
                                pkts_per_burst=2000, \
-                               length_mode='fixed', rate_pps=2000, l3_protocol='ipv4', mac_src=data.tg_mac1, \
+                               length_mode='fixed', rate_pps=10000, l3_protocol='ipv4', mac_src=data.tg_mac1, \
                                mac_dst=dut_rt_int_mac1, ip_src_addr=data.ip4_addr[0],
                                ip_dst_addr=data.ip4_addr[9])
     st.log("TRAFCONF: " + str(tr1))
@@ -526,7 +526,7 @@ def test_ft_ip_v4_v6_L2_L3_translation():
     tg.tg_traffic_control(action="reset", port_handle=tg_handler["tg_ph_list"])
     tg.tg_traffic_control(action="clear_stats", port_handle=tg_handler["tg_ph_list"])
 
-    tr2 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_2"], mode='create', rate_pps="2000",
+    tr2 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_2"], mode='create', rate_pps="10000",
                            mac_src_mode="fixed",
                            transmit_mode="single_burst", pkts_per_burst=2000,
                            length_mode='fixed', l2_encap='ethernet_ii_vlan',

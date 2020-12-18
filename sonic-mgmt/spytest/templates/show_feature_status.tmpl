@@ -1,0 +1,7 @@
+Value NAME (\S+)
+Value STATE (disabled|enabled\s\(not-running\)|enabled)
+Value AUTORESTART (disabled|enabled\s\(not-running\)|enabled)
+
+Start
+  ^${NAME}\s+${STATE}\s+${AUTORESTART} -> Record
+

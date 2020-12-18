@@ -1,0 +1,46 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    R8:
+        device_type: DevSonic
+        access: {protocol: telnet, ip: 172.27.147.153, port: 2014}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    R7:
+        device_type: DevSonic
+        access: {protocol: telnet, ip: 172.27.147.153, port: 2013}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: stc, version: 5.03, ip: 172.27.147.23, params: def_tg}
+
+topology:
+    R8:
+        interfaces:
+            Ethernet2: {EndDevice: R7, EndPort: Ethernet2, params: def_link}
+            Ethernet12: {EndDevice: R7, EndPort: Ethernet12, params: def_link}
+            Ethernet24: {EndDevice: R7, EndPort: Ethernet24, params: def_link}
+            Ethernet28: {EndDevice: R7, EndPort: Ethernet28, params: def_link}
+            Ethernet15: {EndDevice: T1, EndPort: 5/33, params: def_tg_link}
+            Ethernet25: {EndDevice: T1, EndPort: 5/45, params: def_tg_link}
+            Ethernet35: {EndDevice: T1, EndPort: 6/5, params: def_tg_link}
+            Ethernet45: {EndDevice: T1, EndPort: 6/9, params: def_tg_link}
+    R7:
+        interfaces:
+            Ethernet15: {EndDevice: T1, EndPort: 5/17, params: def_tg_link}
+            Ethernet25: {EndDevice: T1, EndPort: 5/25, params: def_tg_link}

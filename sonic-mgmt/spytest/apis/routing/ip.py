@@ -96,9 +96,16 @@ def config_ipv6(dut, action='disable'):
         command = "config ipv6 {}".format(action)
         st.config(dut, command)
     else:
-        st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6=1")
-        st.config(dut, "sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1")
-        st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
+        if action == 'disable':
+            st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+            st.config(dut, "sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1")
+            st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
+        elif action == 'enable':
+            st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+            st.config(dut, "sudo sysctl -w net.ipv6.conf.default.disable_ipv6=0")
+            st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6=0")
+        else:
+            st.error('Config ipv6 only has an option to enable or disable ipv6. Option recvd: %s' % action)
 
 def show_ipv6(dut):
     """

@@ -60,9 +60,14 @@ class ExpectReply(ACSDataplaneTest):
                       ip_tgt='10.10.1.3',
                       hw_tgt='00:06:07:08:09:0a',
                       hw_snd=acs_mac,
+                      pktlen=64
                       )
             send_packet(self, self.test_params['port'], pkt)
-            verify_packet(self, exp_pkt, self.test_params['port'])
+
+            # Added the masks for every load area. Cisco specific.-  rraghav
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.mask = [255] * 42 + [0] * 22
+            verify_packet(self, masked_exp_pkt, self.test_params['port'])
 
 class VerifyUnicastARPReply(ACSDataplaneTest):
     '''
@@ -89,9 +94,12 @@ class VerifyUnicastARPReply(ACSDataplaneTest):
                       ip_tgt='10.10.1.3',
                       hw_tgt='00:06:07:08:09:00',
                       hw_snd=acs_mac,
+                      pktlen = 64
                       )
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.mask = [255] * 42 + [0] * 22
             send_packet(self, self.test_params['port'], pkt)
-            verify_packet(self, exp_pkt, self.test_params['port'])
+            verify_packet(self, masked_exp_pkt, self.test_params['port'])
 
 
 class WrongIntNoReply(ACSDataplaneTest):
@@ -119,10 +127,13 @@ class WrongIntNoReply(ACSDataplaneTest):
                         ip_tgt='10.10.1.4',
                         hw_tgt='00:02:07:08:09:0a',
                         hw_snd=acs_mac,
+                        pktlen=64
                       )
             send_packet(self, self.test_params['port'], pkt)
             ports = ptf_ports()
-            verify_no_packet_any(self, exp_pkt, ports)
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.mask = [255] * 42 + [0] * 22
+            verify_no_packet_any(self, masked_exp_pkt, ports)
 
 class SrcOutRangeNoReply(ACSDataplaneTest):
     '''
@@ -149,9 +160,12 @@ class SrcOutRangeNoReply(ACSDataplaneTest):
                         ip_tgt='10.10.1.20',
                         hw_tgt='00:03:07:08:09:0a',
                         hw_snd=acs_mac,
+                        pktlen=64
                    )
         send_packet(self, self.test_params['port'], pkt)
-        verify_no_packet(self, exp_pkt, self.test_params['port'])
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.mask = [255] * 42 + [0] * 22
+        verify_no_packet(self, masked_exp_pkt, self.test_params['port'])
 
 class GarpNoUpdate(ACSDataplaneTest):
     '''
@@ -178,9 +192,12 @@ class GarpNoUpdate(ACSDataplaneTest):
                         ip_tgt='10.10.1.7',
                         hw_tgt='00:05:07:08:09:0a',
                         hw_snd=acs_mac,
+                        pktlen=64
                    )
         send_packet(self, self.test_params['port'], pkt)
-        verify_no_packet(self, exp_pkt, self.test_params['port'])
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.mask = [255] * 42 + [0] * 22
+        verify_no_packet(self, masked_exp_pkt, self.test_params['port'])
 
 
 class GarpUpdate(ACSDataplaneTest):
@@ -208,8 +225,11 @@ class GarpUpdate(ACSDataplaneTest):
                         ip_tgt='10.10.1.3',
                         hw_tgt='00:00:07:08:09:0a',
                         hw_snd=acs_mac,
+                        pktlen=64
                    )
         send_packet(self, self.test_params['port'], pkt)
-        verify_no_packet(self, exp_pkt, self.test_params['port'])
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.mask = [255] * 42 + [0] * 22
+        verify_no_packet(self, masked_exp_pkt, self.test_params['port'])
 
 

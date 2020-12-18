@@ -540,6 +540,14 @@ def parse_xml(filename, hostname):
     elif hwsku == "newport":
         for i in range(0, 256, 8):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "36x100Gb":
+        # Cisco 8000 - 1 Rack Unit
+        for i in range(0, 37):
+            port_alias_to_name_map["eth%d" % i] = "Ethernet%d" % i
+    elif hwsku == "64x100Gb":
+        # Cisco 8000 - 1 Rack Unit - Mathilda
+        for i in range(0, 63):
+            port_alias_to_name_map["eth%d" % i] = "Ethernet%d" % i
     else:
         for i in range(0, 128, 4):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
