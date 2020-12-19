@@ -134,7 +134,10 @@ def test_ft_arp_entry_link_failure():
     if arp_obj.verify_arp(dut1,data.t2d1_ip_addr):
         interface_obj.interface_operation(dut1, [vars.D1T1P1, vars.D1T1P2], "startup")
         st.report_fail("ARP_dynamic_entry_removal_fail", data.t2d1_ip_addr, vars.D1T1P2)
-
+    
+    st.log("Clearing ARP Entries")
+    arp_obj.clear_arp_table(dut1)
+    
     # Startup the routing interface link.
     st.log("Startup the routing interface link.")
     if not interface_obj.interface_operation(dut1, [vars.D1T1P1, vars.D1T1P2], "startup"):
