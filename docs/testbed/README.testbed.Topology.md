@@ -27,7 +27,7 @@
 
 ![](img/testbed-t2.png)
 
- - Requires 96 VMs
+ - Requires 72 VMs
  - All DUT ports are connected to VMs
  - PTF container has injected ports only
 ### t1
