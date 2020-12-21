@@ -1117,6 +1117,11 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return DEFAULT_NAMESPACE
         return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
+    def get_asic_id_from_namespace(self, namespace):
+        if namespace == DEFAULT_NAMESPACE:
+            return None
+        return namespace.split(NAMESPACE_PREFIX)[1]
+
     def get_extended_minigraph_facts(self, tbinfo):
         mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
@@ -1155,6 +1160,11 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return asic
 
+    def get_vtysh_cmd_for_namespace(self, cmd, namespace):
+        if namespace is DEFAULT_NAMESPACE:
+            return cmd
+        ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(self.get_asic_id_from_namespace(namespace)))
+        return ns_cmd
 
 class K8sMasterHost(AnsibleHostBase):
     """
