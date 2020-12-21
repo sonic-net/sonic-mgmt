@@ -480,6 +480,12 @@ def parse_xml(filename, hostname):
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
             (syslog_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
 
+    # TODO: Move all alias-related code out of minigraph_facts.py and into
+    # its own module to be used as another layer after parsing the minigraph.
+
+    # Create inverse mapping between port name and alias
+    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
+
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
     port_name_list = port_name_to_alias_map.keys()

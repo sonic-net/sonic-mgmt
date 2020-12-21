@@ -294,8 +294,14 @@ def find_graph(hostnames):
 def get_port_name_list(hwsku):
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
-    port_name_list = get_port_alias_to_name_map(hwsku).keys()
+    port_alias_to_name_map = get_port_alias_to_name_map(hwsku)
 
+    # Create inverse mapping between port name and alias
+    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
+
+    # Create a map of SONiC port name to physical port index
+    # Start by creating a list of all port names
+    port_name_list = port_name_to_alias_map.keys()
     # Sort the list in natural order, because SONiC port names, when
     # sorted in natural sort order, match the phyical port index order
     port_name_list_sorted = natsorted(port_name_list)

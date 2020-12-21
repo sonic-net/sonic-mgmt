@@ -111,7 +111,5 @@ def get_port_alias_to_name_map(hwsku):
         for i in range(0, 128, 4):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
 
-    # Create inverse mapping between port name and alias
-    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
+    return port_alias_to_name_map
 
-    return port_name_to_alias_map
