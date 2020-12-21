@@ -2,9 +2,11 @@ import os
 import json
 import random
 import logging
+from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import *
 from tests.common.mellanox_data import get_platform_data
 from minimum_table import get_min_table
+
 
 NOT_AVAILABLE = 'N/A'
 
@@ -37,8 +39,10 @@ THERMAL_NAMING_RULE = {
         "temperature": "gearbox{}_temp_input"
     },
     "asic_ambient": {
-        "name": "Ambient ASIC Temp",
-        "temperature": "asic"
+        "name": "ASIC",
+        "temperature": "asic",
+        "high_threshold": "mlxsw/temp_trip_hot",
+        "high_critical_threshold": "mlxsw/temp_trip_crit"
     },
     "port_ambient": {
         "name": "Ambient Port Side Temp",
@@ -52,6 +56,11 @@ THERMAL_NAMING_RULE = {
         "name": "Ambient COMEX Temp",
         "temperature": "comex_amb"
     }
+}
+
+ASIC_THERMAL_RULE_201911 = {
+    "name": "Ambient ASIC Temp",
+    "temperature": "asic"
 }
 
 FAN_NAMING_RULE = {
@@ -260,6 +269,16 @@ class MockerHelper:
                 logging.error(error_message)
                 raise RuntimeError(error_message)
 
+    def is_201911(self):
+        """
+        Workaround to make thermal control test cases compatible with 201911 and master
+        :return:
+        """
+        if parse_version(self.dut.kernel_version) > parse_version('4.9.0'):
+            return False
+        else:
+            return True
+
 
 class FanDrawerData:
     """
@@ -384,7 +403,7 @@ class FanData:
     PWM_MAX = 255
 
     # Speed tolerance
-    SPEED_TOLERANCE = 0.2
+    SPEED_TOLERANCE = 0.5
 
     # Cooling cur state file
     COOLING_CUR_STATE_FILE = 'cooling_cur_state'
@@ -521,6 +540,10 @@ class TemperatureData:
         :param index: Thermal index.
         """
         self.helper = mock_helper
+        if 'ASIC' in naming_rule['name']:
+            if self.helper.is_201911():
+                naming_rule = ASIC_THERMAL_RULE_201911
+
         self.name = naming_rule['name']
         self.temperature_file = naming_rule['temperature']
         self.high_threshold_file = naming_rule['high_threshold'] if 'high_threshold' in naming_rule else None
@@ -730,15 +753,18 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         platform_data = get_platform_data(self.mock_helper.dut)
         psu_count = platform_data["psus"]["number"]
         naming_rule = FAN_NAMING_RULE['psu_fan']
+        if self.mock_helper.is_201911():
+            led_color = ''
+        else:
+            led_color = 'green'
         for index in range(1, psu_count + 1):
             try:
                 fan_data = FanData(self.mock_helper, naming_rule, index)
-                speed = random.randint(60, 100)
                 fan_data.mock_speed(speed)
 
                 self.expected_data[fan_data.name] = [
                     'N/A',
-                    '',
+                    led_color,
                     fan_data.name,
                     '{}%'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
