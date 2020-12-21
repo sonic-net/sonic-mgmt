@@ -1,0 +1,13 @@
+- name: Retrieve connection graph xml file content
+  set_fact:
+    conn_graph_file_data: "{{ lookup('file', connection_graph_filename) }}"
+
+- name: Provision connection db
+  debug:
+    msg: >
+      Run 'provision_connection_db'
+      {{ lookup('servercfgd_client', 
+      'provision_connection_db', 
+      servercfgd_host=connection_db_host_ip, 
+      conn_graph_file_content=conn_graph_file_data, 
+      enforce_provision=enforce_provision_connection_db) }}

@@ -1,0 +1,9 @@
+---
+enable_connection_db: True
+disable_connection_db: False
+connection_db_host: STR-ACS-SERV-01
+connection_db_host_mapping:
+  lab_connection_graph.xml: STR-ACS-SERV-01
+enforce_provision_servercfgd: True
+provision_connection_db: False
+enforce_provision_connection_db: False
