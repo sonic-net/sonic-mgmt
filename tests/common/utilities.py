@@ -144,6 +144,20 @@ def get_variable_manager(inv_files):
     return VariableManager(loader=DataLoader(), inventory=get_inventory_manager(inv_files))
 
 
+def get_inventory_files(request):
+    """Use request.config.getoption('ansible_inventory') to the get list of inventory files.
+       The 'ansible_inventory' option could have already been converted to a list by #enchance_inventory fixture.
+       Args:
+            request: request paramater for pytest.
+    """
+    if isinstance(request.config.getoption("ansible_inventory"), list):
+        # enhance_inventory fixture changes ansible_inventory to a list.
+        inv_files = request.config.getoption("ansible_inventory")
+    else:
+        inv_files = [inv_file.strip() for inv_file in request.config.getoption("ansible_inventory").split(",")]
+    return inv_files
+
+
 def get_host_vars(inv_files, hostname, variable=None):
     """Use ansible's InventoryManager to get value of variables defined for the specified host in the specified
     inventory files.
