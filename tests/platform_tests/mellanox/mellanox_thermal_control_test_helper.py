@@ -1019,9 +1019,9 @@ class MinTableMocker(object):
     def __init__(self, dut):
         self.mock_helper = MockerHelper(dut)
 
-    def get_expect_cooling_level(self, air_flow_dir, temperature, trust_state):
+    def get_expect_cooling_level(self, temperature, trust_state):
         minimum_table = get_min_table(self.mock_helper.dut)
-        row = minimum_table['{}_{}'.format(air_flow_dir, 'trust' if trust_state else 'untrust')]
+        row = minimum_table['unk_{}'.format('trust' if trust_state else 'untrust')]
         temperature = temperature / 1000
         for range_str, cooling_level in row.items():
             range_str_list = range_str.split(':')
@@ -1032,17 +1032,10 @@ class MinTableMocker(object):
 
         return None
 
-    def mock_min_table(self, air_flow_dir, temperature, trust_state):
+    def mock_min_table(self, temperature, trust_state):
         trust_value = '0' if trust_state else '1'
-        if air_flow_dir == 'p2c':
-            fan_temp = temperature
-            port_temp = temperature - 100
-        elif air_flow_dir == 'c2p':
-            fan_temp = temperature - 100
-            port_temp = temperature
-        else:
-            fan_temp = temperature
-            port_temp = temperature
+        fan_temp = temperature
+        port_temp = temperature
 
         self.mock_helper.mock_thermal_value(self.FAN_AMB_PATH, str(fan_temp))
         self.mock_helper.mock_thermal_value(self.PORT_AMB_PATH, str(port_temp))
