@@ -3,6 +3,7 @@ import pytest
 import json
 import urllib2
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import utilities
 
 logger = logging.getLogger(__name__)
 
@@ -12,58 +13,50 @@ NIC = "nic"
 
 DROP = "drop"
 OUTPUT = "output"
-# Here we assume that the group name of host server starts with 'vm_host_'.
-VMHOST_PREFIX = "vm_host_"
-VMHOST_ADDRESS = ""
 
-@pytest.fixture(scope='session', autouse=True)
-def mux_simulator_server_address(tbinfo, localhost, duthost):
+@pytest.fixture(scope="session")
+def mux_server_url(request, tbinfo):
     """
     A session level fixture to retrieve the address of mux simulator address
     Args:
+        request: A fixture from Ansible
         tbinfo: A session level fixture
-        localhost: A session level fixture
     Returns:
-        str: The address (including vmset path) of mux simulator server, like http://10.0.0.64:8080/mux/vms17-8
+        str: The address of mux simulator server + vmset_name, like http://10.0.0.64:8080/mux/vms17-8
     """
-    vmhost_server_name = tbinfo['server']
+    server = tbinfo['server']
     vmset_name = tbinfo['group-name']
-    # We assume that if server name in testbed is server_#, then the vmhost server name is vm_host_#
-    vmhost_group_name = VMHOST_PREFIX + vmhost_server_name.split('_')[-1]
-    inv_mgr = localhost.host.options['inventory_manager']
-    all_hosts = inv_mgr.get_hosts(pattern=vmhost_group_name)
-    assert len(all_hosts) == 1
-    vmhost_server = inv_mgr.get_host(all_hosts[0].get_name()).vars['ansible_host']
-    vmhost_port = duthost.host.options["variable_manager"]._hostvars[all_hosts[0].get_name()]['mux_simulator_port']
-    global VMHOST_ADDRESS
-    VMHOST_ADDRESS = "http://{}:{}/mux/{}".format(vmhost_server, vmhost_port, vmset_name)
+    inv_files = request.config.option.ansible_inventory
+    ip = utilities.get_test_server_vars(inv_files, server, 'ansible_host')
+    port = utilities.get_group_visible_vars(inv_files, server, 'mux_simulator_port')
+    return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
-def _url(port, action):
+def _url(server_url, physical_port, action):
     """
     Helper function to build an url for given port and target
 
     Args:
-        port: physical port on switch, an integer starting from 1
+        server_url: a str, the url for mux server, like http://10.0.0.64:8080/mux/vms17-8
+        physical_port: physical port on switch, an integer starting from 1
         action: a str, either "output" or "drop"
     Returns:
         The url for posting flow update request, like http://10.0.0.64:8080/mux/vms17-8/1/drop(output)
     """
-    return VMHOST_ADDRESS + "/{}/{}".format(port - 1, action)
+    return server_url + "/{}/{}".format(physical_port - 1, action)
 
-def _post(physical_port, action, data):
+def _post(server_url, data):
     """
     Helper function for posting data to y_cable server.
 
     Args:
-        physical_port: physical port on switch, an integer starting from 1
-        action: a str, either "output" or "drop"
+        server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8/1/drop(output)
         data: data to post {"out_ports": ["nic", "tor_a", "tor_b"]}
     Returns:
         True if succeed. False otherwise
     """
     data = json.dumps(data).encode(encoding='utf-8')
     header = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-    req = urllib2.Request(url=_url(physical_port, action), data=data, headers=header)
+    req = urllib2.Request(url=server_url, data=data, headers=header)
     try:
         _ = urllib2.urlopen(req)
     except urllib2.HTTPError as e:
@@ -78,38 +71,44 @@ def _post(physical_port, action, data):
         return False
     return True
 
-def set_drop(physical_port, direction):
+def set_drop(mux_server_url, physical_port, directions):
     """
-    Function to set drop for a certain direction on a port
+    A fixture to set drop for a certain direction on a port
     Args:
+        mux_server_url: a str, the address of mux server
         physical_port: physical port on switch, an integer starting from 1
-        direction: a list, may contain "tor_a", "tor_b", "nic"
+        directions: a list, may contain "tor_a", "tor_b", "nic"
     Returns:
         None.
     """
-    data = {"out_ports": direction}
-    pytest_assert(_post(physical_port, DROP, data), "Failed to set drop on {}".format(direction))
+    server_url = _url(mux_server_url, physical_port, DROP)
+    data = {"out_ports": directions}
+    pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
-def set_output(physical_port, direction):
+def set_output(mux_server_url, physical_port, directions):
     """
     Function to set output for a certain direction on a port
     Args:
+        mux_server_url: a str, the address of mux server
         physical_port: physical port on switch, an integer starting from 1
-        direction: a list, may contain "tor_a", "tor_b", "nic"
+        directions: a list, may contain "tor_a", "tor_b", "nic"
     Returns:
         None.
     """
-    data = {"out_ports": direction}
-    pytest_assert(_post(physical_port, OUTPUT, data), "Failed to set output on {}".format(direction))
+    server_url = _url(mux_server_url, physical_port, OUTPUT)
+    data = {"out_ports": directions}
+    pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
 
-def recover_all_directions(physical_port):
+def recover_all_directions(mux_server_url, physical_port):
     """
     Function to recover all traffic on all directions on a certain port
     Args:
+        mux_server_url: a str, the address of mux server
         physical_port: physical port on switch, an integer starting from 1
     Returns:
         None.
     """
+    server_url = _url(mux_server_url, physical_port, OUTPUT)
     data = {"out_ports": [TOR_A, TOR_B, NIC]}
-    pytest_assert(_post(physical_port, OUTPUT, data), "Failed to set output on all directions")
+    pytest_assert(_post(server_url, data), "Failed to set output on all directions")
 
