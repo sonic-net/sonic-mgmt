@@ -146,6 +146,7 @@ def verify_arp(dut, ipaddress, macaddress=None, interface=None, vlan=None):
     if not entries:
         st.error("No ARP entry found for the provided IP Address -{}".format(ipaddress))
         return False
+    # This is a temporary fix to support 201911 image
     if entries[0]['iface']== "-" and entries[0]['vlan'] :
         vlanOutput= st.show(dut, "show vlan config")[0]
         if entries[0]['vlan'] == vlanOutput['VID'] :
