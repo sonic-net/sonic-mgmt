@@ -135,7 +135,8 @@ def test_ft_arp_entry_link_failure():
     st.wait(5)
     
     st.log("Clearing ARP Entries")
-    arp_obj.clear_arp_table(dut1)
+    if not arp_obj.clear_arp_table(dut1):
+        st.report_fail('Unable to clear ARP Entries on this device', dut1)
 
     # Verify dynamic arp entries
     st.log("Verifying the arp entries on the DUT.")
