@@ -39,7 +39,7 @@ class ControlPlaneBaseTest(BaseTest):
 
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
     DEFAULT_SEND_INTERVAL_SEC = 10
-    DEFAULT_RECEIVE_WAIT_TIME = 1
+    DEFAULT_RECEIVE_WAIT_TIME = 3
 
     def __init__(self):
         BaseTest.__init__(self)

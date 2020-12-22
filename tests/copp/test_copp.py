@@ -148,6 +148,7 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
         ".*ERR monit.*'lldp_syncd' process is not running.*",
         ".*ERR monit.*'lldp\|lldp_syncd' status failed.*'python2 -m lldp_syncd' is not running.*",
         ".*snmp#snmp-subagent.*",
+        ".*kernel reports TIME_ERROR: 0x4041: Clock Unsynchronized.*"
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
