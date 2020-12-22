@@ -158,6 +158,7 @@ class SonicHost(AnsibleHostBase):
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
+        self._kernel_version = self._get_kernel_version()
 
 
     @property
@@ -190,6 +191,16 @@ class SonicHost(AnsibleHostBase):
         """
 
         return self._os_version
+
+    @property
+    def kernel_version(self):
+        """
+        The kernel version running on this SONiC device.
+
+        Returns:
+            str: The SONiC kernel version (e.g. "4.9.0")
+        """
+        return self._kernel_version
 
     @property
     def critical_services(self):
@@ -305,6 +316,14 @@ class SonicHost(AnsibleHostBase):
 
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
         return output["stdout_lines"][0].strip()
+
+    def _get_kernel_version(self):
+        """
+        Gets the SONiC kernel version
+        :return:
+        """
+        output = self.command('uname -r')
+        return output["stdout"].split('-')[0]
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
@@ -552,7 +571,7 @@ class SonicHost(AnsibleHostBase):
         # some services are meant to have a short life span or not part of the daemons
         exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
 
-        daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
+        daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
         daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ]
 
@@ -1104,6 +1123,22 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd)
+        
+    def get_asic_name(self):
+        asic = "unknown"
+        output = self.shell("lspci", module_ignore_errors=True)["stdout"]
+        if ("Broadcom Limited Device b960" in output or
+            "Broadcom Limited Broadcom BCM56960" in output):
+            asic = "th"
+        elif "Broadcom Limited Device b971" in output:
+            asic = "th2"
+        elif "Broadcom Limited Device b850" in output:
+            asic = "td2"
+        elif "Broadcom Limited Device b870" in output:
+            asic = "td3"
+
+        return asic
+
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1620,7 +1655,7 @@ class SonicAsic(object):
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
     def run_redis_cli_cmd(self, redis_cmd):
-        if self.namespace:
+        if self.namespace != DEFAULT_NAMESPACE:
             redis_cli = "/usr/bin/redis-cli"
             cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli,redis_cmd)
             return self.sonichost.command(cmd)

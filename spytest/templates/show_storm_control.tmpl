@@ -5,6 +5,7 @@ Value Rate (\d+)
 Start
   ^\s*Interface\s+Type\s+Rate\s*$$ -> Continue
   ^(-+\s*)*$$ -> Continue
+  ^\s*${Interface}\s+${Type}\s+${Rate}\s*$$ -> Record
   ^\s*\|\s*${Interface}\s+\|\s+${Type}\s+\|\s+${Rate}\s+\|\s*$$ -> Record
   ^$$
 

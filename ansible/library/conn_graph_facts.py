@@ -8,6 +8,7 @@ import ipaddr as ipaddress
 from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
+from ansible.module_utils.debug_utils import create_debug_file, print_debug_msg
 
 DOCUMENTATION='''
 module: conn_graph_facts.py
@@ -270,10 +271,12 @@ def find_graph(hostnames):
 
     # Finding the graph file contains all duts from hostnames,
     for fn in file_list:
+        print_debug_msg(debug_fname, "Looking at conn graph file: %s for hosts %s" % (fn, hostnames))
         filename = os.path.join(LAB_GRAPHFILE_PATH, fn)
         lab_graph = Parse_Lab_Graph(filename)
         lab_graph.parse_graph()
         if lab_graph.contains_hosts(hostnames):
+            print_debug_msg(debug_fname, ("Returning lab graph from conn graph file: %s for hosts %s" % (fn, hostnames)))
             return lab_graph
 
     # Fallback to return an empty connection graph, this is
@@ -283,6 +286,8 @@ def find_graph(hostnames):
     lab_graph = Parse_Lab_Graph(os.path.join(LAB_GRAPHFILE_PATH, EMPTY_GRAPH_FILE))
     lab_graph.parse_graph()
     return lab_graph
+
+debug_fname = None
 
 def main():
     module = AnsibleModule(
@@ -297,6 +302,8 @@ def main():
         supports_check_mode=True
     )
     m_args = module.params
+    global debug_fname
+    debug_fname = create_debug_file("/tmp/conn_graph_debug.txt")
 
     hostnames = m_args['hosts']
     anchor = m_args['anchor']

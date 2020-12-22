@@ -2,7 +2,7 @@
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 from spytest import st, utils
 
-def config_save(dut,shell='sonic', skip_error_check=True):
+def config_save(dut,shell='sonic', skip_error_check=True, **kwargs):
     """
     To perform config save.
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -10,17 +10,20 @@ def config_save(dut,shell='sonic', skip_error_check=True):
     :param dut: single or list of duts
     :return:
     """
+    cli_type = kwargs.get('cli_type', st.get_ui_type(dut,**kwargs))
+    cli_type = 'klish' if cli_type in ['rest-put','rest-patch'] else cli_type
     dut_li = list(dut) if isinstance(dut, list) else [dut]
-    st.log("Performing config save")
+    st.log("Performing config save", dut=dut)
     if shell == 'sonic':
         command = 'config save -y'
         [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config, command)
-    elif shell == "vtysh":
+    if shell == "vtysh" or cli_type == 'click':
         command = 'do copy running-config startup-config'
-        [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config, command, type=shell, skip_error_check=skip_error_check)
-    else:
+        [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config, command, type="vtysh", skip_error_check=skip_error_check)
+    if cli_type == 'klish':
+        #Need to execute write mem in case of klish also. Once all klish conversion is complete, only one command will be executed.
         command = "do write memory"
-        [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config, command, type=shell, skip_error_check=skip_error_check)
+        [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config, command, type=cli_type, skip_error_check=skip_error_check)
     st.debug([retvals, exceps])
     return True
 
@@ -48,7 +51,7 @@ def config_save_reload(dut):
     :param dut: single or list of duts
     :return:
     """
-    st.log("Performing config save and reload")
+    st.log("Performing config save and reload", dut=dut)
     dut_li = list(dut) if isinstance(dut, list) else [dut]
     [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config_db_reload, True)
     st.debug([retvals, exceps])
@@ -163,3 +166,34 @@ def poll_for_warm_restart_status(dut, pname, state, iteration=20, delay=2):
             return False
         itercount += delay
         st.wait(delay)
+
+def config_save_reboot(dut, cli_type=''):
+    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    config_save(dut, shell="sonic")
+    config_save(dut, shell='vtysh')
+    st.reboot(dut)
+
+def dut_reboot(dut, method='normal',cli_type=''):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
+    if cli_type in ["rest-put", "rest-patch"]:
+        cli_type = "klish"
+
+    if method in ["normal", "reboot"]:
+        reboot_cmd = "reboot"
+        if cli_type != "klish":
+            output = st.config(dut, "fast-reboot -h", skip_error_check=True)
+            if "skip the user confirmation" in output:
+                reboot_cmd = "reboot -y"
+    elif method in ["fast", "fast-reboot"]:
+        reboot_cmd = "fast-reboot"
+    elif method in ["warm", "warm-reboot"]:
+        reboot_cmd = "warm-reboot"
+    else:
+        reboot_cmd = "reboot"
+
+    output = st.config(dut, reboot_cmd, type=cli_type, conf=False,
+                       skip_error_check=True, max_time=1000, expect_reboot=True)
+
+    return output
+

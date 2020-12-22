@@ -22,9 +22,13 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 
+@pytest.fixture(autouse=True, scope='module')
+def config_reload_after_tests(duthost):
+    yield
+    config_reload(duthost)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(loganalyzer):
+def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -55,42 +59,45 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
         SNMP/TEAMD container hits the limitation of restart. route_check.py also wrote an error message into syslog.
 
     """
-    monit_ignoreRegex = [
-        ".*ERR monit.*",
-    ]
-    swss_ignoreRegex = [
-        ".*ERR swss#orchagent.*removeLag.*",
-    ]
-    pmon_ignoreRegex = [
-        ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
-        ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
-    ]
-    syncd_ignoreRegex = [
-        ".*ERR syncd#syncd.*driverEgressMemoryUpdate.*",
-        ".*ERR syncd#syncd.*brcm_sai*",
-        ".*WARNING syncd#syncd.*saiDiscover: skipping since it causes crash.*",
-    ]
-    teamd_ignoreRegex = [
-        ".*ERR swss#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
-    ]
-    systemd_ignoreRegex = [
-        ".*ERR systemd.*Failed to start .* container*",
-    ]
-    kernel_ignoreRegex = [
-        ".*ERR kernel.*PortChannel.*",
-    ]
-    other_ignoreRegex = [
-        ".*ERR route_check.*",
-    ]
+    swss_syncd_teamd_regex = [
+            ".*ERR swss#orchagent.*removeLag.*",
+            ".*ERR syncd#syncd.*driverEgressMemoryUpdate.*",
+            ".*ERR syncd#syncd.*brcm_sai*",
+            ".*ERR syncd#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
+            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_query_attribute_enum_values_capability.*",
+            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
+            ".*ERR syncd#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
+            ".*ERR syncd#syncd.*processQuadEvent.*",
+            ".*WARNING syncd#syncd.*skipping since it causes crash.*",
+            ".*ERR swss#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR teamd#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR swss#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
+            ".*ERR swss#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR snmp#snmpd.*",
+        ]
+    ignore_regex_dict = {
+        'common' : [
+            ".*ERR monit.*",
+            ".*ERR systemd.*Failed to start .* container*",
+            ".*ERR kernel.*PortChannel.*",
+            ".*ERR route_check.*",
+        ],
+        'pmon' : [
+            ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
+            ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
+            ".*ERR pmon#xcvrd.*Could not establish the active side.*",
+        ],
+        'swss' : swss_syncd_teamd_regex,
+        'syncd' : swss_syncd_teamd_regex,
+        'teamd' : swss_syncd_teamd_regex,
+    }
+
+    _, feature = decode_dut_port_name(enum_dut_feature)
+
     if loganalyzer:
-        loganalyzer.ignore_regex.extend(monit_ignoreRegex)
-        loganalyzer.ignore_regex.extend(swss_ignoreRegex)
-        loganalyzer.ignore_regex.extend(pmon_ignoreRegex)
-        loganalyzer.ignore_regex.extend(syncd_ignoreRegex)
-        loganalyzer.ignore_regex.extend(teamd_ignoreRegex)
-        loganalyzer.ignore_regex.extend(systemd_ignoreRegex)
-        loganalyzer.ignore_regex.extend(kernel_ignoreRegex)
-        loganalyzer.ignore_regex.extend(other_ignoreRegex)
+        loganalyzer.ignore_regex.extend(ignore_regex_dict['common'])
+        if feature in ignore_regex_dict:
+            loganalyzer.ignore_regex.extend(ignore_regex_dict[feature])
 
 
 def get_group_program_info(duthost, container_name, group_name):

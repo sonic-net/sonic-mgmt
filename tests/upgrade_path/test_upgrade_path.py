@@ -99,10 +99,12 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
         #TODO:Update to vm_hosts.append(value['host'].host.mgmt_ip)
         vm_hosts.append(value['host'].host.options['inventory_manager'].get_host(value['host'].hostname).vars['ansible_host'])
 
+    sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
     ptf_params = {
         "verbose": False,
         "dut_username": creds.get('sonicadmin_user'),
         "dut_password": creds.get('sonicadmin_password'),
+        "alt_password": sonicadmin_alt_password,
         "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
         "reboot_limit_in_seconds": 30,
         "reboot_type": "warm-reboot",

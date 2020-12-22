@@ -256,8 +256,8 @@ def restart_thermal_control_daemon(dut):
     :return:
     """
     logging.info('Restarting thermal control daemon...')
-    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep thermalctld | sort\''
-    output = dut.command(find_thermalctld_pid_cmd)
+    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
+    output = dut.shell(find_thermalctld_pid_cmd)
     assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
     assert len(output["stdout_lines"]) == 2, "There should be 2 thermalctld process"
     pid_0 = int(output["stdout_lines"][0].strip())
@@ -273,7 +273,7 @@ def restart_thermal_control_daemon(dut):
     max_wait_time = 30
     while max_wait_time > 0:
         max_wait_time -= 1
-        output = dut.command(find_thermalctld_pid_cmd)
+        output = dut.shell(find_thermalctld_pid_cmd)
         assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
         if len(output["stdout_lines"]) != 2:
             time.sleep(1)
