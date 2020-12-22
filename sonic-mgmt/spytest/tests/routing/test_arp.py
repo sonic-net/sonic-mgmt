@@ -133,6 +133,9 @@ def test_ft_arp_entry_link_failure():
         st.report_fail('interface_admin_startup_fail', [vars.D1T1P1, vars.D1T1P2])
 
     st.wait(5)
+    
+    st.log("Clearing ARP Entries")
+    arp_obj.clear_arp_table(dut1)
 
     # Verify dynamic arp entries
     st.log("Verifying the arp entries on the DUT.")
