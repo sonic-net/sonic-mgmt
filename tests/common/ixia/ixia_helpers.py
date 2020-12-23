@@ -12,7 +12,7 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from copy import deepcopy
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.ixia.common_helpers import ansible_stdout_to_str
+from tests.common.ixia.common_helpers import ansible_stdout_to_str, get_peer_ixia_chassis
 from tests.common.reboot import logger
 from ixnetwork_restpy import SessionAssistant, Files
 
@@ -204,6 +204,24 @@ class IxiaFanoutManager () :
 
         return retval 
 
+def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
+    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_data,
+                                        dut_hostname=dut_hostname)
+    
+    if ixia_fanout is None:
+        return None 
+    
+    ixia_fanout_id = list(fanout_data.keys()).index(ixia_fanout)
+    ixia_fanout_list = IxiaFanoutManager(fanout_data)
+    ixia_fanout_list.get_fanout_device_details(device_number=ixia_fanout_id)
+
+    ixia_ports = ixia_fanout_list.get_ports(peer_device=dut_hostname)
+
+    for i in range(len(ixia_ports)):
+        if ixia_ports[i]['peer_port'] == dut_port:
+           return i
+
+    return None 
 
 def clean_configuration(session) :
     """Clean up the configurations cteated in IxNetwork API server.

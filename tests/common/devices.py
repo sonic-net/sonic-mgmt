@@ -158,6 +158,7 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        self._kernel_version = self._get_kernel_version()
 
         self.reset_critical_services_tracking_list()
 
@@ -191,6 +192,16 @@ class SonicHost(AnsibleHostBase):
         """
 
         return self._os_version
+
+    @property
+    def kernel_version(self):
+        """
+        The kernel version running on this SONiC device.
+
+        Returns:
+            str: The SONiC kernel version (e.g. "4.9.0")
+        """
+        return self._kernel_version
 
     @property
     def critical_services(self):
@@ -325,6 +336,14 @@ class SonicHost(AnsibleHostBase):
 
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
         return output["stdout_lines"][0].strip()
+
+    def _get_kernel_version(self):
+        """
+        Gets the SONiC kernel version
+        :return:
+        """
+        output = self.command('uname -r')
+        return output["stdout"].split('-')[0]
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """

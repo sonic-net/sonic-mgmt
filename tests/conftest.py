@@ -682,6 +682,34 @@ def generate_dut_feature_list(request):
 
     return ret if ret else empty
 
+def generate_priority_lists(request, prio_scope):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'priority'
+    filepath = os.path.join(folder, tbname + '-' + prio_scope + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError as e:
+        return empty
+    
+    if tbname not in info:
+        return empty
+    
+    dut_prio = info[tbname]
+    ret = []
+
+    for dut, priorities in dut_prio.items():
+        for p in priorities:
+            ret.append('{}|{}'.format(dut, p))
+
+    return ret if ret else empty
+
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -714,3 +742,8 @@ def pytest_generate_tests(metafunc):
 
     if "enum_dut_feature" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_feature", generate_dut_feature_list(metafunc))
+
+    if 'enum_dut_lossless_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
+    if 'enum_dut_lossy_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))

@@ -13,9 +13,6 @@
         of these test cases.
 
     Parameters:
-        --pkt_tx_count <n> (int): How many packets to send during each individual test case.
-            Default is 100000.
-
         --copp_swap_syncd: Used to install the RPC syncd image before running the tests. Default
             is disabled.
 
@@ -42,7 +39,6 @@ pytestmark = [
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
                                  ["nn_target_port",
-                                  "pkt_tx_count",
                                   "swap_syncd",
                                   "topo",
                                   "myip",
@@ -152,6 +148,7 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
         ".*ERR monit.*'lldp_syncd' process is not running.*",
         ".*ERR monit.*'lldp\|lldp_syncd' status failed.*'python2 -m lldp_syncd' is not running.*",
         ".*snmp#snmp-subagent.*",
+        ".*kernel reports TIME_ERROR: 0x4041: Clock Unsynchronized.*"
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
@@ -163,7 +160,6 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     """
 
     params = {"verbose": False,
-              "pkt_tx_count": test_params.pkt_tx_count,
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
               "peerip": test_params.peerip}
@@ -192,7 +188,6 @@ def _gather_test_params(tbinfo, duthost, request):
         Fetches the test parameters from pytest.
     """
 
-    pkt_tx_count = request.config.getoption("--pkt_tx_count")
     swap_syncd = request.config.getoption("--copp_swap_syncd")
     topo = tbinfo["topo"]["name"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -215,7 +210,6 @@ def _gather_test_params(tbinfo, duthost, request):
     logging.info("nn_target_port {} nn_target_interface {}".format(nn_target_port, nn_target_interface))
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
-                               pkt_tx_count=pkt_tx_count,
                                swap_syncd=swap_syncd,
                                topo=topo,
                                myip=myip,

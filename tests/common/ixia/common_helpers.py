@@ -71,6 +71,30 @@ def get_vlan_subnet(host_ans):
     gw_addr = ansible_stdout_to_str(mg_vlan_intfs[0]['addr'])
     return gw_addr + '/' + str(prefix_len)
 
+def get_egress_lossless_buffer_size(host_ans):
+    """
+    Get egress losless buffer size of a switch
+
+    Args:
+        host_ans: Ansible host instance of the device
+    
+    Returns:
+        total switch buffer size in byte (int)
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname, 
+                                         source="running")['ansible_facts']
+    
+    if "BUFFER_POOL" not in config_facts.keys():
+        return None
+
+    buffer_pools = config_facts['BUFFER_POOL']
+    profile_name = 'egress_lossless_pool'
+
+    if profile_name not in buffer_pools.keys():
+        return None 
+    
+    egress_lossless_pool = buffer_pools[profile_name]
+    return int(egress_lossless_pool['size'])
 
 def get_addrs_in_subnet(subnet, number_of_ip):
     """
@@ -168,3 +192,19 @@ def get_peer_ixia_chassis(conn_data, dut_hostname):
         return None 
 
 
+def pfc_class_enable_vector(prio_list):
+    """
+    Calculate class-enable vector field in PFC PAUSE frames
+
+    Args:
+        prio_list (list): list of priorities to pause, e.g., [3, 4]
+
+    Returns:
+        Return class-enable vector 
+    """
+    vector = 0
+
+    for p in prio_list:
+        vector += (2**p)
+     
+    return "{:x}".format(vector)

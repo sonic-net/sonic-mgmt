@@ -772,12 +772,17 @@ class TestNeighbors():
         ndp_output = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ndp'.format(ifmode))['stdout']
         logger.info('ndp:\n{}'.format(ndp_output))
 
-        for item in arptable['v6']:
-            if (arptable['v6'][item]['interface'] != 'eth0') and (arptable['v6'][item]['interface'] not in minigraph_portchannels):
+        for addr, detail in arptable['v6'].items():
+            if (
+                    detail['macaddress'] != 'None' and
+                    detail['interface'] != 'eth0' and
+                    detail['interface'] not in minigraph_portchannels
+            ):
                 if mode == 'alias':
-                    assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v6'][item]['interface']]), ndp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(addr, setup['port_name_map'][detail['interface']]), ndp_output) is not None
                 elif mode == 'default':
-                    assert re.search(r'{}.*\s+{}'.format(item, arptable['v6'][item]['interface']), ndp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(addr, detail['interface']), ndp_output) is not None
+
 
 class TestShowIP():
 
