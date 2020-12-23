@@ -3,7 +3,7 @@ import logging
 import pytest
 
 
-def psu_controller_factory(controller_ip, controller_protocol, dut_hostname):
+def psu_controller_factory(controller_ip, controller_protocol, dut_hostname, pdu):
     """
     @summary: Factory function for creating PSU controller according to different management protocol.
     @param controller_ip: IP address of the PSU controller host.
@@ -13,17 +13,18 @@ def psu_controller_factory(controller_ip, controller_protocol, dut_hostname):
     logging.info("Creating psu controller object")
     if controller_protocol == "snmp":
         import snmp_psu_controllers
-        return snmp_psu_controllers.get_psu_controller(controller_ip, dut_hostname)
+        return snmp_psu_controllers.get_psu_controller(controller_ip, dut_hostname, pdu)
 
 
 @pytest.fixture(scope="module")
-def psu_controller(duthost):
+def psu_controller(duthosts, rand_one_dut_hostname, pdu):
     """
     @summary: Fixture for controlling power supply to PSUs of DUT
     @param duthost: Fixture duthost defined in sonic-mgmt/tests/conftest.py
     @returns: Returns a psu controller object implementing the BasePsuController interface defined in
               controller_base.py.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     logging.info("Creating psu_controller fixture")
     inv_mgr = duthost.host.options["inventory_manager"]
@@ -48,7 +49,7 @@ def psu_controller(duthost):
         logging.info("No protocol is defined in inventory file for '%s'. Try to use default 'snmp'" % pdu_host)
         controller_protocol = "snmp"
 
-    controller = psu_controller_factory(controller_ip, controller_protocol, duthost.hostname)
+    controller = psu_controller_factory(controller_ip, controller_protocol, duthost.hostname, pdu)
 
     yield controller
 

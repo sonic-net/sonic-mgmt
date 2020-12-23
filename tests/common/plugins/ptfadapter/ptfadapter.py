@@ -3,6 +3,8 @@ from ptf.base_tests import BaseTest
 from ptf.dataplane import DataPlane
 import ptf.platforms.nn as nn
 import ptf.ptfutils as ptfutils
+import ptf.packet as scapy
+import ptf.mask as mask
 
 
 class PtfTestAdapter(BaseTest):
@@ -12,17 +14,18 @@ class PtfTestAdapter(BaseTest):
     DEFAULT_PTF_TIMEOUT = 2
     DEFAULT_PTF_NEG_TIMEOUT = 0.1
 
-    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_ports_num):
+    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set):
         """ initialize PtfTestAdapter
         :param ptf_ip: PTF host IP
         :param ptf_nn_port: PTF nanomessage agent port
         :param device_num: device number
-        :param ptf_ports_num: PTF ports count
+        :param ptf_port_set: PTF ports
         :return:
         """
         self.runTest = lambda : None # set a no op runTest attribute to satisfy BaseTest interface
         super(PtfTestAdapter, self).__init__()
-        self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_ports_num)
+        self.payload_pattern = ""
+        self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_port_set)
 
     def __enter__(self):
         """ enter in 'with' block """
@@ -34,20 +37,20 @@ class PtfTestAdapter(BaseTest):
 
         self.kill()
 
-    def _init_ptf_dataplane(self, ptf_ip, ptf_nn_port, device_num, ptf_ports_num, ptf_config=None):
+    def _init_ptf_dataplane(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptf_config=None):
         """
         initialize ptf framework and establish connection to ptf_nn_agent
         running on PTF host
         :param ptf_ip: PTF host IP
         :param ptf_nn_port: PTF nanomessage agent port
         :param device_num: device number
-        :param ptf_ports_num: PTF ports count
+        :param ptf_port_set: PTF ports
         :return:
         """
         self.ptf_ip = ptf_ip
         self.ptf_nn_port = ptf_nn_port
         self.device_num = device_num
-        self.ptf_ports_num = ptf_ports_num
+        self.ptf_port_set = ptf_port_set
 
         ptfutils.default_timeout = self.DEFAULT_PTF_TIMEOUT
         ptfutils.default_negative_timeout = self.DEFAULT_PTF_NEG_TIMEOUT
@@ -55,7 +58,7 @@ class PtfTestAdapter(BaseTest):
         ptf.config.update({
             'platform': 'nn',
             'device_sockets': [
-                (device_num, range(ptf_ports_num), 'tcp://{}:{}'.format(ptf_ip, ptf_nn_port))
+                (device_num, ptf_port_set, 'tcp://{}:{}'.format(ptf_ip, ptf_nn_port))
             ],
             'qlen': self.DEFAULT_PTF_QUEUE_LEN,
             'relax': True,
@@ -87,4 +90,54 @@ class PtfTestAdapter(BaseTest):
         :param ptf_config: PTF configuration dictionary
         """
         self.kill()
-        self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_ports_num, ptf_config)
+        self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_port_set, ptf_config)
+
+    def update_payload(self, pkt):
+        """Update the payload of packet to the default pattern when certain conditions are met.
+
+        The packet passed in could be a regular scapy packet or a masked packet. If it is a regular scapy packet and
+        has UDP or TCP header, then update its TCP or UDP payload.
+
+        If it is a masked packet, then its 'exp_pkt' is the regular scapy packet. Update the payload of its 'exp_pkt'
+        properly.
+
+        Args:
+            pkt [scapy packet or masked packet]: The packet to be updated.
+
+        Returns:
+            [scapy packet or masked packet]: Returns the packet with payload part updated.
+        """
+        if isinstance(pkt, scapy.Ether):
+            for proto in (scapy.UDP, scapy.TCP):
+                if proto in pkt:
+                    pkt[proto].load = self._update_payload(pkt[proto].load)
+        elif isinstance(pkt, mask.Mask):
+            for proto in (scapy.UDP, scapy.TCP):
+                if proto in pkt.exp_pkt:
+                    pkt.exp_pkt[proto].load = self._update_payload(pkt.exp_pkt[proto].load)
+        return pkt
+
+    def _update_payload(self, payload):
+        """Update payload to the default_pattern if default_pattern is set.
+
+        If length of the payload_pattern is longer payload, truncate payload_pattern to the length of payload.
+        Otherwise, repeat the payload_pattern to reach the length of payload. Keep length of updated payload same
+        as the original payload.
+
+        Args:
+            payload [string]: The payload to be updated.
+
+        Returns:
+            [string]: The updated payload.
+        """
+        if self.payload_pattern:
+            len_old = len(payload)
+            len_new = len(self.payload_pattern)
+            if len_new >= len_old:
+                return self.payload_pattern[:len_old]
+            else:
+                factor = len_old/len_new + 1
+                new_payload = self.payload_pattern * factor
+                return new_payload[:len_old]
+        else:
+            return payload

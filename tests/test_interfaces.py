@@ -1,12 +1,19 @@
-from ansible_host import AnsibleHost
 from netaddr import IPAddress
 import pytest
 
-def test_interfaces(duthost):
+from tests.common.helpers.assertions import pytest_assert
+
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
+
+def test_interfaces(duthosts, enum_dut_hostname, tbinfo):
     """compare the interfaces between observed states and target state"""
 
+    duthost    = duthosts[enum_dut_hostname]
     host_facts = duthost.setup()['ansible_facts']
-    mg_facts   = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
 
     verify_port(host_facts, mg_facts['minigraph_portchannels'].keys())
     for k, v in mg_facts['minigraph_portchannels'].items():
@@ -14,7 +21,8 @@ def test_interfaces(duthost):
         # verify no ipv4 address for each port channel member
         for member in v['members']:
             ans_ifname = "ansible_%s" % member
-            assert not host_facts[ans_ifname].has_key("ipv4")
+            pytest_assert("ipv4" not in host_facts[ans_ifname],
+                          "LAG member {} has IP address {}".format(ans_ifname, host_facts[ans_ifname]))
 
     verify_port(host_facts, mg_facts['minigraph_vlans'].keys())
 
@@ -23,7 +31,8 @@ def test_interfaces(duthost):
         # verify no ipv4 address for each vlan member
         for member in v['members']:
             ans_ifname = "ansible_%s" % member
-            assert not host_facts[ans_ifname].has_key("ipv4")
+            pytest_assert("ipv4" not in host_facts[ans_ifname],
+                          "vlan member {} has IP address {}".format(ans_ifname, host_facts[ans_ifname]))
 
     verify_ip_address(host_facts, mg_facts['minigraph_portchannel_interfaces'])
     verify_ip_address(host_facts, mg_facts['minigraph_vlan_interfaces'])
@@ -32,8 +41,8 @@ def test_interfaces(duthost):
 def verify_port(host_facts, ports):
     for port in ports:
         ans_ifname = "ansible_%s" % port
-        assert host_facts[ans_ifname]['active']
-        
+        pytest_assert(host_facts[ans_ifname]['active'], "interface {} is not active".format(ans_ifname))
+
 def verify_ip_address(host_facts, intfs):
     for intf in intfs:
         if intf.has_key('attachto'):
@@ -59,5 +68,4 @@ def verify_ip_address(host_facts, intfs):
             if IPAddress(addr['address']) == ip:
                 found = True
                 break
-        if not found:
-            pytest.fail("%s not found in the list %s" % (ip, ips_found))
+        pytest_assert(found, "{} not found in the list {}".format(ip, ips_found))

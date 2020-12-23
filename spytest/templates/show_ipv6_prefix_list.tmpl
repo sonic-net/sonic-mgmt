@@ -1,0 +1,13 @@
+Value Required LIST_NAME ([\w_]+)
+Value List PREFIXTYPE ((permit)|(deny))
+Value List PREFIXIPV6 ([\da-fA-F:]{2,39}\/\d{1,3})
+Value List PREFIXGEVAL (\d{1,3})
+Value List PREFIXLEVAL (\d{1,3})
+
+Start
+  ^\s*IPv6 prefix list.* -> Continue.Record
+  ^\s*IPv6 prefix list ${LIST_NAME}:$$
+  ^\s*${PREFIXTYPE} ${PREFIXIPV6}( ge ${PREFIXGEVAL})( le ${PREFIXLEVAL})
+  ^\s*${PREFIXTYPE} ${PREFIXIPV6}( ge ${PREFIXGEVAL})
+  ^\s*${PREFIXTYPE} ${PREFIXIPV6}( le ${PREFIXLEVAL})
+  ^\s*${PREFIXTYPE} ${PREFIXIPV6}

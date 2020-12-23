@@ -5,6 +5,7 @@ import select
 import json
 import argparse
 import os.path
+from collections import defaultdict
 from fcntl import ioctl
 from pprint import pprint
 import logging
@@ -31,6 +32,7 @@ def get_mac(iff):
 
 class Interface(object):
     ETH_P_ALL = 0x03
+    ETH_P_ARP = 0x806
     RCV_TIMEOUT = 1000
     RCV_SIZE = 4096
 
@@ -44,7 +46,7 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = scapy2.conf.L2listen(iface=self.iface)
+        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp')
 
     def handler(self):
         return self.socket
@@ -71,7 +73,7 @@ class Poller(object):
         self.responder = responder
         self.mapping = {}
         for interface in interfaces:
-            self.mapping[interface.handler()] = interface 
+            self.mapping[interface.handler()] = interface
 
     def poll(self):
         handlers = self.mapping.keys()
@@ -94,6 +96,7 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
+
         if len(data) > self.ARP_PKT_LEN:
             return
 
@@ -106,11 +109,18 @@ class ARPResponder(object):
         request_ip_str = socket.inet_ntoa(request_ip)
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
-        arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
-        interface.send(arp_reply)
+
+        if 'vlan' in self.ip_sets[interface.name()]:
+            vlan_list = self.ip_sets[interface.name()]['vlan']
+        else:
+            vlan_list = [None]
+
+        for vlan_id in vlan_list:
+            arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
+            interface.send(arp_reply)
 
         return
-        
+
     def extract_arp_info(self, data):
         # remote_mac, remote_ip, request_ip, op_type
         rem_ip_start = 28
@@ -169,7 +179,7 @@ def main():
             vlan_tag = format(int(vlan), 'x')
             vlan_tag = vlan_tag.zfill(4)
         if str(iface) not in ip_sets:
-            ip_sets[str(iface)] = {}
+            ip_sets[str(iface)] = defaultdict(list)
         if args.extended:
             for ip, mac in ip_dict.items():
                 ip_sets[str(iface)][str(ip)] = binascii.unhexlify(str(mac))
@@ -178,7 +188,7 @@ def main():
             for ip in ip_dict:
                 ip_sets[str(iface)][str(ip)] = get_mac(str(iface))
         if vlan is not None:
-            ip_sets[str(iface)]['vlan'] = binascii.unhexlify(vlan_tag)
+            ip_sets[str(iface)]['vlan'].append(binascii.unhexlify(vlan_tag))
 
     ifaces = []
     for iface_name in ip_sets.keys():

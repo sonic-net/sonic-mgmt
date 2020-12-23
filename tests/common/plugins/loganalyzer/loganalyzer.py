@@ -15,7 +15,7 @@ ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
 COMMON_IGNORE = join(split(__file__)[0], "loganalyzer_common_ignore.txt")
 COMMON_EXPECT = join(split(__file__)[0], "loganalyzer_common_expect.txt")
-SYSLOG_TMP_FOLDER = "/tmp/pytest-run/syslog"
+SYSLOG_TMP_FOLDER = "/tmp/syslog"
 
 
 class LogAnalyzerError(Exception):
@@ -25,16 +25,19 @@ class LogAnalyzerError(Exception):
 
 
 class LogAnalyzer:
-    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp"):
+    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None):
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
-        self.marker_prefix = marker_prefix
-        self.ansible_loganalyzer = ansible_loganalyzer(self.marker_prefix, False)
+        self.marker_prefix = marker_prefix.replace(' ', '_')
+        # use existing syslog msg as marker to search in logs instead of writing a new one
+        self.start_marker = start_marker
+        self.ansible_loganalyzer = ansible_loganalyzer(self.marker_prefix, False, start_marker=self.start_marker)
 
         self.match_regex = []
         self.expect_regex = []
         self.ignore_regex = []
+        self.expected_matches_target = 0
         self._markers = []
         self.fail = True
 
@@ -56,6 +59,7 @@ class LogAnalyzer:
         Pass additional arguments when the instance is called
         """
         self.fail = kwargs.get("fail", True)
+        self.start_marker = kwargs.get("start_marker", None)
         return self
 
     def __enter__(self):
@@ -84,11 +88,17 @@ class LogAnalyzer:
         if self.expect_regex and result["total"]["expected_match"] == 0:
             raise LogAnalyzerError(result)
 
+        # if the number of expected matches is provided
+        if (self.expect_regex and (self.expected_matches_target > 0)
+           and result["total"]["expected_match"] != self.expected_matches_target):
+            raise LogAnalyzerError(result)
+
     def update_marker_prefix(self, marker_prefix):
         """
         @summary: Update configured marker prefix
         """
-        self.marker_prefix = marker_prefix
+        self.marker_prefix = marker_prefix.replace(' ', '_')
+        return self._setup_marker()
 
     def load_common_config(self):
         """
@@ -137,6 +147,12 @@ class LogAnalyzer:
 
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
+        return self._setup_marker()
+
+    def _setup_marker(self):
+        """
+        Adds the marker to the syslog
+        """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
 
@@ -161,10 +177,13 @@ class LogAnalyzer:
                             "unused_expected_regexp": []
                             }
         tmp_folder = ".".join((SYSLOG_TMP_FOLDER, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
+        marker = marker.replace(' ', '_')
         self.ansible_loganalyzer.run_id = marker
 
-        # Add end marker into DUT syslog
-        self._add_end_marker(marker)
+        if not self.start_marker:
+            start_string = 'start-LogAnalyzer-{}'.format(marker)
+        else:
+            start_string = self.start_marker
 
         try:
             # Disable logrotate cron task
@@ -185,8 +204,11 @@ class LogAnalyzer:
             else:
                 logging.error("Logrotate from previous task was not finished during 60 seconds")
 
+            # Add end marker into DUT syslog
+            self._add_end_marker(marker)
+
             # On DUT extract syslog files from /var/log/ and create one file by location - /tmp/syslog
-            self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string='start-LogAnalyzer-{}'.format(marker), target_filename=self.extracted_syslog)
+            self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string=start_string, target_filename=self.extracted_syslog)
         finally:
             # Enable logrotate cron task back
             self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")

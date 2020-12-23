@@ -1,0 +1,11 @@
+Value Filldown TABLE (\S+)
+Value DSCP (\d+)
+Value TC (\d+)
+
+
+Start
+  ^\s*DSCP-TC-MAP\s*:\s*${TABLE}\s*$$
+  ^\s*${DSCP}\s+${TC}\s*$$ -> Record
+  ^$$
+
+EOF

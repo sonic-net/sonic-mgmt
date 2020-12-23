@@ -1,0 +1,3 @@
+KUBERNETES_VERSION: 1.19.2-00
+app_user: "ubuntu"
+k8s_port: 6443

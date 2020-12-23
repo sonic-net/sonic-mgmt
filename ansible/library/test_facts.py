@@ -4,9 +4,8 @@ import traceback
 import ipaddr as ipaddress
 import csv
 import string
-from operator import itemgetter
-from itertools import groupby
 import yaml
+
 from collections import defaultdict
 
 DOCUMENTATION = '''
@@ -30,7 +29,7 @@ options:
 
 EXAMPLES = '''
     Testbed CSV file example:
-        # conf-name,group-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,comment
+        # conf-name,group-name,topo,ptf_image_name,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
         ptf1-m,ptf1,ptf32,docker-ptf-sai-mlnx,10.255.0.188/24,server_1,,str-msn2700-01,Tests ptf
         vms-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
         vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
@@ -97,46 +96,75 @@ TESTCASE_FILE = 'roles/test/vars/testcases.yml'
 
 
 class ParseTestbedTopoinfo():
-    '''
-    Parse the CSV file used to describe whole testbed info
-    Please refer to the example of the CSV file format
-    CSV file first line is title
-    The topology name in title is using conf-name
-    '''
+    """Parse the testbed file used to describe whole testbed info"""
+
+    TESTBED_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
         self.testbed_topo = defaultdict()
 
     def read_testbed_topo(self):
-        CSV_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'server', 'vm_base', 'dut', 'comment')
-        with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f, fieldnames=CSV_FIELDS, delimiter=',')
 
-            # Validate all field are in the same order and are present
-            header = next(topo)
-            for field in CSV_FIELDS:
-                assert header[field].replace('#', '').strip() == field
+        def _cidr_to_ip_mask(network):
+            addr = ipaddress.IPNetwork(network)
+            return str(addr.ip), str(addr.netmask)
 
-            for line in topo:
-                if line['conf-name'].lstrip().startswith('#'):
-                    ### skip comment line
-                    continue
-                if line['ptf_ip']:
-                    ptfaddress = ipaddress.IPNetwork(line['ptf_ip'])
-                    line['ptf_ip'] = str(ptfaddress.ip)
-                    line['ptf_netmask'] = str(ptfaddress.netmask)
+        def _read_testbed_topo_from_csv():
+            """Read csv testbed info file."""
+            with open(self.testbed_filename) as f:
+                topo = csv.DictReader(f, fieldnames=self.TESTBED_FIELDS,
+                                      delimiter=',')
 
-                line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
-                del line['dut']
+                # Validate all field are in the same order and are present
+                header = next(topo)
+                for field in self.TESTBED_FIELDS:
+                    assert header[field].replace('#', '').strip() == field
 
-                self.testbed_topo[line['conf-name']] = line
-        return
+                for line in topo:
+                    if line['conf-name'].lstrip().startswith('#'):
+                        # skip comment line
+                        continue
+                    if line['ptf_ip']:
+                        line['ptf_ip'], line['ptf_netmask'] = \
+                            _cidr_to_ip_mask(line["ptf_ip"])
+                    if line['ptf_ipv6']:
+                        line['ptf_ipv6'], line['ptf_netmask_v6'] = \
+                            _cidr_to_ip_mask(line["ptf_ipv6"])
+
+                    line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
+                    line['duts_map'] = {dut:line['duts'].index(dut) for dut in line['duts']}
+                    del line['dut']
+
+                    self.testbed_topo[line['conf-name']] = line
+
+        def _read_testbed_topo_from_yaml():
+            """Read yaml testbed info file."""
+            with open(self.testbed_filename) as f:
+                tb_info = yaml.safe_load(f)
+                for tb in tb_info:
+                    if tb["ptf_ip"]:
+                        tb["ptf_ip"], tb["ptf_netmask"] = \
+                            _cidr_to_ip_mask(tb["ptf_ip"])
+                    if tb["ptf_ipv6"]:
+                        tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
+                            _cidr_to_ip_mask(tb["ptf_ipv6"])
+                    tb["duts"] = tb.pop("dut")
+                    tb["duts_map"] =  \
+                        {dut: i for i, dut in enumerate(tb["duts"])}
+                    self.testbed_topo[tb["conf-name"]] = tb
+
+        if self.testbed_filename.endswith(".csv"):
+            _read_testbed_topo_from_csv()
+        elif self.testbed_filename.endswith(".yaml"):
+            _read_testbed_topo_from_yaml()
 
     def get_testbed_info(self, testbed_name):
         if testbed_name:
-            return [self.testbed_topo[testbed_name]]
+            return self.testbed_topo[testbed_name]
         else:
             return self.testbed_topo
+
 
 class TestcasesTopology():
     '''
@@ -162,6 +190,7 @@ class TestcasesTopology():
     def get_topo_testcase(self):
         return self.topo_testcase
 
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -178,7 +207,7 @@ def main():
     try:
         topoinfo = ParseTestbedTopoinfo(testbed_file)
         topoinfo.read_testbed_topo()
-        testbed_topo = topoinfo.get_testbed_info(testbed_name)[0]
+        testbed_topo = topoinfo.get_testbed_info(testbed_name)
         testcaseinfo = TestcasesTopology(testcase_file)
         testcaseinfo.read_testcases()
         testcase_topo = testcaseinfo.get_topo_testcase()
@@ -187,6 +216,7 @@ def main():
         module.fail_json(msg="Can not find lab testbed file  "+testbed_file+" or testcase file "+testcase_file+"??")
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())
+
 
 from ansible.module_utils.basic import *
 if __name__== "__main__":

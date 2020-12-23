@@ -1,7 +1,7 @@
 [
-{% if outer_ipv4 | bool %}
+{% if outer_ipv4 %}
         {
-                "TUNNEL_DECAP_TABLE:IPINIP_V4_TUNNEL" : {
+                "TUNNEL_DECAP_TABLE:TEST_IPINIP_V4_TUNNEL" : {
                         "tunnel_type":"IPINIP",
                         "dst_ip":"{{ lo_ip }}",
                         "dscp_mode":"{{ dscp_mode }}",
@@ -11,11 +11,11 @@
                 "OP": "{{ op }}"
         }
 {% endif %}
-{% if outer_ipv6 | bool and outer_ipv4 | bool %} ,
+{% if outer_ipv6 and outer_ipv4 %} ,
 {% endif %}
-{% if outer_ipv6 | bool %}
+{% if outer_ipv6 %}
         {
-                "TUNNEL_DECAP_TABLE:IPINIP_V6_TUNNEL" : {
+                "TUNNEL_DECAP_TABLE:TEST_IPINIP_V6_TUNNEL" : {
                         "tunnel_type":"IPINIP",
                         "dst_ip":"{{ lo_ipv6 }}",
                         "dscp_mode":"{{ dscp_mode }}",

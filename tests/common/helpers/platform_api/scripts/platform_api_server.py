@@ -1,12 +1,30 @@
-import json
 import argparse
 import inspect
-import sonic_platform
-
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+import json
+import os
+import syslog
 from io import BytesIO
 
+from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+
+import sonic_platform
+
+SYSLOG_IDENTIFIER = os.path.basename(__file__)
+
 platform = sonic_platform.platform.Platform()
+
+
+def obj_serialize(obj):
+    ''' JSON serializer for objects not serializable by default json library code
+        We simply return a dictionary containing the object's class and module
+    '''
+    syslog.syslog(syslog.LOG_WARNING, 'Unserializable object: {}.{}'.format(obj.__module__, obj.__class__.__name__))
+
+    data = {
+        '__class__': obj.__class__.__name__,
+        '__module__': obj.__module__
+    }
+    return data
 
 
 class PlatformAPITestService(BaseHTTPRequestHandler):
@@ -58,17 +76,27 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         api = path.pop()
         args = request['args']
 
-        res = getattr(obj, api)(*args)
+        res = None
+
+        try:
+            res = getattr(obj, api)(*args)
+        except NotImplementedError as e:
+            syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
 
         response = BytesIO()
-        response.write(json.dumps({'res': res}))
+        response.write(json.dumps({'res': res}, default=obj_serialize))
 
         self.wfile.write(response.getvalue())
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--port', type=int, help='port to listent to', required=True)
+    parser.add_argument('-p', '--port', type=int, help='port to listen to', required=True)
     args = parser.parse_args()
+
+    syslog.openlog(SYSLOG_IDENTIFIER)
+
     httpd = HTTPServer(('', args.port), PlatformAPITestService)
     httpd.serve_forever()
+
+    syslog.closelog()

@@ -1,16 +1,19 @@
-from spytest.utils import filter_and_select
-from spytest import st
+
 import json
+import re
+from spytest import st
+from spytest.utils import filter_and_select
 from utilities.utils import ensure_service_params
+from apis.system.rest import config_rest, get_rest, delete_rest
 
-
-def add_ntp_servers(dut, iplist=[]):
+def add_ntp_servers(dut, iplist=[], cli_type=''):
     """
 
     :param dut:
     :param iplist:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     st.log("add ntp servers")
     final_data = {}
     temp_data = {}
@@ -20,22 +23,69 @@ def add_ntp_servers(dut, iplist=[]):
     else:
         st.log("please provide atleast 1 server to configure")
         return False
-    final_data['NTP_SERVER'] = temp_data
-    final_data = json.dumps(final_data)
-    st.apply_json(dut, final_data)
+    if cli_type == "click":
+        final_data['NTP_SERVER'] = temp_data
+        final_data = json.dumps(final_data)
+        st.apply_json(dut, final_data)
+    elif cli_type == "klish":
+        for ip in iplist:
+            commands = "ntp server {}".format(ip)
+            st.config(dut, commands, type=cli_type)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        for ip in iplist:
+            data={
+              "openconfig-system:servers": {
+                  "server": [
+                {
+                  "address": str(ip),
+                  "config": {
+                    "address": str(ip)
+                  }
+                }
+                ]
+              }
+            }
+            rest_urls = st.get_datastore(dut, "rest_urls")
+            url1 = rest_urls['config_ntp_server'].format(ip)
+            if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=data):
+                st.error("Failed to configure ntp {} server".format(ip))
+                return False
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
     st.log("Regenerate the ntp-config")
     command = "systemctl restart ntp-config"
     st.config(dut, command)
     return True
 
-
-def delete_ntp_servers(dut, iplist=[]):
+def delete_ntp_servers(dut, cli_type=''):
     """
-
     :param dut:
     :param iplist:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    output = show_ntp_server(dut)
+    commands = []
+    if output is None:
+        st.log("No servers to delete")
+        return True
+    else:
+        for ent in output:
+            server_ip = ent["remote"].strip("+*#o-x").strip()
+            if cli_type == "click":
+                commands.append("config ntp del {}".format(server_ip))
+            elif cli_type == "klish":
+                commands.append("no ntp server {}".format(server_ip))
+            elif cli_type in ['rest-patch', 'rest-put']:
+                rest_urls = st.get_datastore(dut, "rest_urls")
+                url1 = rest_urls['config_ntp_server'].format(server_ip)
+                if not delete_rest(dut, rest_url=url1):
+                    st.error("Failed to delete ntp {} server".format(server_ip))
+            else:
+                st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+                return False
+    st.config(dut, commands, type=cli_type)
     return True
 
 
@@ -99,22 +149,41 @@ def config_timezone(dut, zone):
         return False
 
 
-def show_ntp_server(dut):
+def show_ntp_server(dut, cli_type=''):
     """
 
     :param dut:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     st.log("show ntp servers")
-    command = "show ntp"
-    output = st.show(dut, command)
+    if cli_type == "click":
+        command = "show ntp"
+        output = st.show(dut, command, type=cli_type)
+    elif cli_type == "klish":
+        command = "show ntp associations"
+        output = st.show(dut, command, type=cli_type)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url1 = rest_urls['show_ntp']
+        server_output = get_rest(dut, rest_url=url1)
+        output = get_rest_server_info(server_output['output'])
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
+    data = output
+    output = _get_show_ntp_with_hostname_to_ip_conversion(data)
     return output
 
 def verify_ntp_server_details(dut, server_ip=None, **kwargs):
     output = show_ntp_server(dut)
     flag = 1
+    if not output:
+       flag = 0
     if server_ip is None:
         if "No association ID's returned" in output:
+            return True
+        elif "%Error: Resource not found" in output:
             return True
         else:
             return False
@@ -223,15 +292,26 @@ def show_timedatectl_status(dut):
     return output
 
 
-def show_clock(dut):
+def show_clock(dut, cli_type=''):
     """
 
     :param dut:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     st.log("show clock")
-    command = "show clock"
-    output = st.show(dut, command)
+    if cli_type in ["click", "klish"]:
+        command = "show clock"
+        output = st.show(dut, command, type=cli_type)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url1 = rest_urls['show_clock']
+        data=get_rest(dut, rest_url=url1)
+        data = data['output']['openconfig-system-ext:clock']
+        output = get_time_zone_info(data)
+    else:
+        st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+        return False
     return output[0]
 
 
@@ -426,7 +506,6 @@ def verify_ntp_service_status(dut, status, iteration=1, delay=1):
 
 def verify_ntp_server_exists(dut, server_ip=None, **kwargs):
     output = show_ntp_server(dut)
-    flag = 1
     if server_ip is None:
         if "No association ID's returned" in output:
             return True
@@ -445,7 +524,8 @@ def verify_ntp_server_exists(dut, server_ip=None, **kwargs):
                     return True
 
 
-def ensure_ntp_config(dut,iplist=[]):
+def ensure_ntp_config(dut,iplist=[], cli_type=''):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if not iplist:
         iplist = ensure_service_params(dut, "ntp", "default")
     if not iplist:
@@ -454,7 +534,87 @@ def ensure_ntp_config(dut,iplist=[]):
     commands = []
     for ip in iplist:
         if not verify_ntp_server_exists(dut, ip, remote=ip):
-            commands.append("config ntp add {}".format(ip))
-    st.config(dut, commands)
+            if cli_type == "click":
+                commands.append("config ntp add {}".format(ip))
+            elif cli_type == "klish":
+                commands.append("ntp server {}".format(ip))
+            elif cli_type in ['rest-patch', 'rest-put']:
+                data = {
+                    "openconfig-system:servers": {
+                        "server": [
+                        {
+                        "address": str(ip),
+                        "config": {
+                            "address": str(ip)
+                        }
+                        }
+                        ]
+                    }
+                    }
+                rest_urls = st.get_datastore(dut, "rest_urls")
+                url1 = rest_urls['config_ntp_server'].format(ip)
+                if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=data):
+                    st.error("Failed to configure ntp {} server".format(ip))
+                    return False
+            else:
+                st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+                return False
+    st.config(dut, commands, type=cli_type)
     return True
 
+def _get_show_ntp_with_hostname_to_ip_conversion(data):
+    ret_val = list()
+    ntp_server_hostname_ip_map = {"io.crash-override.org": "47.190.36.230", "horp-bsd01.horp.io": "192.111.144.114", "time3.google.com":"216.239.35.8", "time4.google.com":"216.239.35.12", "time2.google.com":"216.239.35.4"}
+    for entry in data:
+        for hostname, ip in ntp_server_hostname_ip_map.items():
+            if ('remote' in entry) and (entry['remote'][1:] in hostname):
+                entry.update(remote=ip)
+        ret_val.append(entry)
+    return ret_val
+
+def get_rest_server_info(server_output):
+    ret_val = []
+    try:
+        servers = server_output["openconfig-system:server"]
+        for server in servers:
+            temp = dict()
+            server_details = server['state']
+            req_params = ['address', 'openconfig-system-ext:reach', 'openconfig-system-ext:now', 'stratum', 'openconfig-system-ext:peerdelay', 'openconfig-system-ext:peertype', 'openconfig-system-ext:peeroffset', 'openconfig-system-ext:peerjitter', 'poll-interval', 'openconfig-system-ext:refid']
+            if all(param in server_details for param in req_params):
+                temp['remote'] = str(server_details['address'])
+                temp['reach'] = str(server_details['openconfig-system-ext:reach'])
+                temp['when'] = str(server_details['openconfig-system-ext:now'])
+                temp['st'] = str(server_details['stratum'])
+                temp['delay'] = str(server_details['openconfig-system-ext:peerdelay'])
+                temp['t'] = str(server_details['openconfig-system-ext:peertype'])
+                temp['offset'] = str(server_details['openconfig-system-ext:peeroffset'])
+                temp['jitter'] = str(server_details['openconfig-system-ext:peerjitter'])
+                temp['poll'] = str(server_details['poll-interval'])
+                temp['refid'] = str(server_details['openconfig-system-ext:refid'])
+                ret_val.append(temp)
+        st.debug(ret_val)
+        return ret_val
+    except Exception as e:
+        st.error("{} exception occurred".format(e))
+        st.debug("Given data is: {}".format(server_output))
+        return ret_val
+
+def get_time_zone_info(data):
+    elements =  re.findall(r"(\S+)\,\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\:(\d+)\:(\d+)\s+(\S+)", data)
+    if len(elements[0])==8:
+        data = elements[0]
+        ret_val = list()
+        out = dict()
+        out['day'] = data[0]
+        out['monthday'] = data[1]
+        out['month'] = data[2]
+        out['year'] = data[3]
+        out['hours'] = data[4]
+        out['minutes'] = data[5]
+        out['seconds'] = data[6]
+        out['timezone'] = data[7]
+        ret_val.append(out)
+        return ret_val
+    else:
+        st.log("invalid data")
+        return False

@@ -23,18 +23,21 @@ Options:
 '''
 
 import sys
+from os import path
 from ansible.module_utils.basic import *
+
+results = {"downloaded_image_version": "Unknown"}
 
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     rc, out, err = module.run_command(cmd)
     if not ignore_error and rc != 0:
         module.fail_json(msg="Failed %s: rc=%d, out=%s, err=%s" %
                          (msg, rc, out, err))
-    return out
+    return rc, out, err
 
 
 def get_disk_free_size(module, partition):
-    out   = exec_command(module, cmd="df -BM --output=avail %s" % partition,
+    _, out, _   = exec_command(module, cmd="df -BM --output=avail %s" % partition,
                          msg="checking disk available size")
     avail = int(out.split('\n')[1][:-1])
 
@@ -44,36 +47,63 @@ def get_disk_free_size(module, partition):
 def reduce_installed_sonic_images(module, disk_used_pcent):
     exec_command(module, cmd="sonic_installer cleanup -y", ignore_error=True)
 
+def download_new_sonic_image(module, new_image_url, save_as):
+    global results
+    if not new_image_url:
+        return
+    exec_command(module,
+                 cmd="curl -o {} {}".format(save_as, new_image_url),
+                 msg="downloading new image")
+    if path.exists(save_as):
+        _, out, _ = exec_command(module,
+                                                cmd="sonic_installer binary_version %s" % save_as
+                                                )
+        results['downloaded_image_version'] = out.rstrip('\n')
 
 def install_new_sonic_image(module, new_image_url):
     if not new_image_url:
         return
 
     avail = get_disk_free_size(module, "/host")
-    if avail >= 1500:
+    if avail >= 2000:
         # There is enough space to install directly
-        exec_command(module,
-                     cmd="sonic_installer install %s -y" % new_image_url,
-                     msg="installing new image")
+        save_as = "/host/downloaded-sonic-image"
+        download_new_sonic_image(module, new_image_url, save_as)
+        rc, out, err = exec_command(module,
+                     cmd="sonic_installer install {} -y".format(save_as),
+                     msg="installing new image", ignore_error=True)
+        # Always remove the downloaded temp image inside /host/ before proceeding
+        exec_command(module, cmd="rm -f {}".format(save_as))
+        if rc != 0:
+            module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" %
+                         (rc, out, err))
     else:
         # Create a tmpfs partition to download image to install
         exec_command(module, cmd="mkdir -p /tmp/tmpfs", ignore_error=True)
         exec_command(module, cmd="umount /tmp/tmpfs", ignore_error=True)
 
         exec_command(module,
-                     cmd="mount -t tmpfs -o size=1000M tmpfs /tmp/tmpfs",
+                     cmd="mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs",
                      msg="mounting tmpfs")
-        exec_command(module,
-                     cmd="curl -o /tmp/tmpfs/sonic-image %s" % new_image_url,
-                     msg="downloading new image")
-        exec_command(module,
-                     cmd="sonic_installer install /tmp/tmpfs/sonic-image -y",
-                     msg="installing new image")
+        save_as = "/tmp/tmpfs/downloaded-sonic-image"
+        download_new_sonic_image(module, new_image_url, save_as)
+        rc, out, err = exec_command(module,
+                     cmd="sonic_installer install {} -y".format(save_as),
+                     msg="installing new image", ignore_error=True)
 
         exec_command(module, cmd="sync", ignore_error=True)
         exec_command(module, cmd="umount /tmp/tmpfs", ignore_error=True)
         exec_command(module, cmd="rm -rf /tmp/tmpfs", ignore_error=True)
+        if rc != 0:
+            module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" %
+                         (rc, out, err))
 
+    # If sonic device is configured with minigraph, remove config_db.json
+    # to force next image to load minigraph.
+    if path.exists("/host/old_config/minigraph.xml"):
+        exec_command(module,
+                     cmd="rm -f /host/old_config/config_db.json",
+                     msg="Remove config_db.json in preference of minigraph.xml")
 
 def main():
     module = AnsibleModule(
@@ -93,7 +123,7 @@ def main():
         err = str(sys.exc_info())
         module.fail_json(msg="Error: %s" % err)
 
-    module.exit_json()
+    module.exit_json(ansible_facts=results)
 
 if __name__ == '__main__':
     main()

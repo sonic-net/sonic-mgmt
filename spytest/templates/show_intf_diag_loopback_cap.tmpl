@@ -1,0 +1,17 @@
+Value ms_hs_loopback (\w+)
+Value pl_ms_loopback (\w+)
+Value pl_hs_loopback (\w+)
+Value hs_ip_loopback (\w+)
+Value hs_op_loopback (\w+)
+Value ms_ip_loopback (\w+)
+Value ms_op_loopback (\w+)
+
+Start
+  ^\s*Simultaneous Host/Media Side Loopback\s*${ms_hs_loopback}\s*$$
+  ^\s*Per-lane Media Side Loopback\s*${pl_ms_loopback}\s*$$
+  ^\s*Per-lane Host Side Loopback\s*${pl_hs_loopback}\s*$$
+  ^\s*Host Side Side Input Loopback\s*${hs_ip_loopback}\s*$$
+  ^\s*Host Side Output Loopback\s*${hs_op_loopback}\s*$$
+  ^\s*Media Side Input Loopback\s*${ms_ip_loopback}\s*$$
+  ^\s*Media Side Output Loopback\s*${ms_op_loopback}\s*$$ -> Record
+

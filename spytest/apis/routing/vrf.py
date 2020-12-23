@@ -1,14 +1,16 @@
-import re
 from spytest import st, utils
 from spytest.utils import filter_and_select
+from utilities.utils import get_interface_number_from_name
+from apis.system.rest import config_rest, delete_rest, get_rest
+from apis.routing.ip import configure_loopback
 
 def verify_vrf(dut,**kwargs):
-    st.log("verify show vrf output")
     """
     verify_vrf(dut1,vrfname="Vrf-103")
     """
-    cmd = "show vrf"
-    output = st.show(dut,cmd)
+
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    #cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if 'vrfname' in kwargs:
         if not isinstance(kwargs['vrfname'],list):
             vname_list = [kwargs['vrfname']]
@@ -17,49 +19,135 @@ def verify_vrf(dut,**kwargs):
     else:
         st.log("Mandatory parameter vrfname is not found")
         return False
-    for vname in vname_list:
-        match = {"vrfname":vname}
-        entries = filter_and_select(output, ["vrfname"], match)
-        if not bool(entries):
-            return bool(entries)
-    return True
+    if cli_type == 'click':
+        st.log("verify show vrf output")
+        cmd = "show vrf"
+        output = st.show(dut,cmd)
+        for vname in vname_list:
+            match = {"vrfname":vname}
+            entries = filter_and_select(output, ["vrfname"], match)
+            if not bool(entries):
+                return bool(entries)
+        return True
+    elif cli_type == 'klish':
+        cmd = 'show ip vrf'
+        output = st.show(dut,cmd,type=cli_type)
+        for vname in vname_list:
+            match = {"vrfname":vname}
+            entries = filter_and_select(output, ["vrfname"], match)
+            if not bool(entries):
+                return bool(entries)
+        return True
+    elif cli_type in ['rest-patch','rest-put']:
+        rest_urls = st.get_datastore(dut,'rest_urls')
+        for vname in vname_list:
+            rest_url = rest_urls['vrf_config'].format(vname)
+            payload = get_rest(dut, rest_url=rest_url)['output']['openconfig-network-instance:network-instance']
+            for item in payload:
+                if item['state']['type'] != 'openconfig-network-instance-types:L3VRF':
+                    return False
+                if item['state']['name'] != str(vname):
+                    return False
+        return True
+    else:
+        st.log("Unsupported cli")
 
-def verify_vrf_verbose(dut,vrfname,interface):
-    st.log("verify show vrf --verbose output")
+def verify_vrf_verbose(dut,**kwargs):
     """
     verify_vrf_verbose(dut1,vrfname="Vrf-103",interface='Ethernet2')
     """
-    cmd = "show vrf --verbose"
-    output = st.show(dut,cmd)
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    #cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
+    vrfname = kwargs['vrfname']
+    interface = kwargs['interface']
     if not isinstance(vrfname,list):
         vrfname = [vrfname]
-    for vname,intf in zip(vrfname,interface):
-        match = {"vrfname":vname,"interfaces": intf}
-        entries = filter_and_select(output,["vrfname"],match)
-        print("entries")
-        if not bool(entries):
-            return bool(entries)
-    return True
-
+    if cli_type == 'click':
+        cmd = "show vrf --verbose"
+        if not st.is_feature_supported("show-vrf-verbose-command", dut):
+            st.community_unsupported(cmd, dut)
+            cmd = "show vrf"
+        st.log("verify {} output".format(cmd))
+        output = st.show(dut,cmd)
+        for vname,intf in zip(vrfname,interface):
+            match = {"vrfname":vname,"interfaces": intf}
+            entries = filter_and_select(output,["vrfname"],match)
+            if not bool(entries):
+                return bool(entries)
+        return True
+    elif cli_type == 'klish':
+        cmd = "show ip vrf"
+        output = st.show(dut,cmd,type=cli_type)
+        for vname,intf in zip(vrfname,interface):
+            match = {"vrfname":vname,"interfaces": intf}
+            entries = filter_and_select(output,["vrfname"],match)
+            if not bool(entries):
+                return bool(entries)
+        return True
+    elif cli_type in ['rest-patch','rest-put']:
+        rest_urls = st.get_datastore(dut,'rest_urls')
+        for vname,intf in zip(vrfname,interface):
+            rest_url = rest_urls['vrf_config'].format(vname)
+            payload = get_rest(dut, rest_url=rest_url)['output']['openconfig-network-instance:network-instance']
+            for item in payload:
+                if item['state']['type'] != 'openconfig-network-instance-types:L3VRF':
+                    return False
+                if item['state']['name'] != str(vname):
+                    return False
+                for intface in item['interfaces']['interface']:
+                    if intface['state']['id'] == intf:
+                        return False
+        return True
+    else:
+        st.log("Unsupported cli")
 
 def get_vrf_verbose(dut, **kwargs):
-    st.log("get show vrf --verbose output")
     """
     get_vrf_verbose(dut1,vrfname="Vrf-1")
     """
-    cmd = "show vrf --verbose"
-    output = st.show(dut, cmd)
-    if len(output) == 0:
-        st.error("OUTPUT is Empty")
-        return []
     match_dict = {}
     if 'vrfname' in kwargs:
         match_dict['vrfname'] = kwargs['vrfname']
     else:
         st.error("Mandatory parameter peeraddress is not found")
         return False
-    entries = filter_and_select(output, None, match_dict)
-    return entries[0]
+
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    #cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
+    if cli_type == 'click':
+        cmd = "show vrf --verbose"
+        if not st.is_feature_supported("show-vrf-verbose-command", dut):
+            st.community_unsupported(cmd, dut)
+            cmd = "show vrf"
+        st.log("get {} output".format(cmd))
+        output = st.show(dut, cmd)
+        if len(output) == 0:
+            st.error("OUTPUT is Empty")
+            return []
+        entries = filter_and_select(output, None, match_dict)
+        return entries[0]
+    elif cli_type == 'klish':
+        cmd = "show ip vrf"
+        output = st.show(dut,cmd,type=cli_type)
+        entries = filter_and_select(output, None, match_dict)
+        if len(output) == 0:
+            st.error("OUTPUT is Empty")
+            return []
+        return entries[0]
+    elif cli_type in ['rest-patch','rest-put']:
+        rest_urls = st.get_datastore(dut,'rest_urls')
+        vname = kwargs['vrfname']
+        vrf_info = {}
+        interfaces = []
+        rest_url = rest_urls['vrf_config'].format(vname)
+        payload = get_rest(dut, rest_url=rest_url)['output']['openconfig-network-instance:network-instance']
+        #klish output = {u'interfaces': ['PortChannel10', 'Vlan3'], u'vrfname': 'Vrf-103'}
+        for item in payload:
+            vrf_info['vrfname'] = item['state']['name']
+            for interface in item['interfaces']['interface']:
+                interfaces.append(interface['state']['id'])
+        vrf_info['interfaces'] = interfaces
+        return vrf_info
 
 def config_vrf(dut, **kwargs):
     """
@@ -68,7 +156,7 @@ def config_vrf(dut, **kwargs):
     eg: config_vrf(dut = dut1, vrf_name = 'Vrf-test', config = 'no')
     """
     st.log('Config VRF API')
-    if kwargs.has_key('config'):
+    if 'config' in kwargs:
         config = kwargs['config']
     else:
         config = 'yes'
@@ -79,7 +167,7 @@ def config_vrf(dut, **kwargs):
             vrf_name = kwargs['vrf_name']
     else:
         st.log("Mandatory parameter vrfname is not found")
-    if kwargs.has_key('skip_error'):
+    if 'skip_error' in kwargs:
         skip_error = kwargs['skip_error']
     else:
         skip_error = False
@@ -94,13 +182,13 @@ def config_vrf(dut, **kwargs):
                 my_cmd += 'sudo config vrf del {}\n'.format(vrf)
         if skip_error:
             try:
-                out = st.config(dut, my_cmd)
+                st.config(dut, my_cmd)
                 return True
-            except:
+            except Exception:
                 st.log("Error handled..by API")
                 return False
         else:
-            out = st.config(dut, my_cmd)
+            st.config(dut, my_cmd)
             return True
     elif cli_type == 'klish':
         command = ''
@@ -115,7 +203,27 @@ def config_vrf(dut, **kwargs):
             st.error("klish mode not working.")
             return False
         return True
-
+    elif cli_type in ['rest-patch','rest-put']:
+        http_method = kwargs.pop('http_method',cli_type)
+        rest_urls = st.get_datastore(dut,'rest_urls')
+        if config.lower() == 'yes':
+            for vrf in vrf_name:
+                rest_url = rest_urls['vrf_config'].format(vrf)
+                ocdata = {"openconfig-network-instance:network-instance":[{"name":vrf,"config":{"name":vrf,"enabled":bool(1)}}]}
+                response = config_rest(dut, http_method=http_method, rest_url=rest_url, json_data=ocdata)
+                if not response:
+                    st.log(response)
+                    return False
+        elif config.lower() == 'no':
+            for vrf in vrf_name:
+                rest_url = rest_urls['vrf_config'].format(vrf)
+                response = delete_rest(dut, rest_url=rest_url)
+                if not response:
+                    st.log(response)
+                    return False
+        return True
+    else:
+        st.log("Unsupported cli")
 
 def bind_vrf_interface(dut, **kwargs):
     """
@@ -123,7 +231,7 @@ def bind_vrf_interface(dut, **kwargs):
     eg: bind_vrf_interface(dut = dut1, vrf_name = 'Vrf-test', intf_name ='Ethernet8', config = 'no')
     """
     st.log('API to bind interface to VRF')
-    if kwargs.has_key('config'):
+    if 'config' in kwargs:
         config = kwargs['config']
     else:
         config = 'yes'
@@ -141,7 +249,7 @@ def bind_vrf_interface(dut, **kwargs):
             intf_name = kwargs['intf_name']
     else:
         st.log("Mandatory parameter intf_name is not found")
-    if kwargs.has_key('skip_error'):
+    if 'skip_error' in kwargs:
         skip_error = kwargs['skip_error']
     else:
         skip_error = False
@@ -152,50 +260,78 @@ def bind_vrf_interface(dut, **kwargs):
         if config.lower() == 'yes':
             for vrf,intf in zip(vrf_name,intf_name):
                 if 'Loopback' in intf:
-                    my_cmd += 'sudo config loopback add {}\n'.format(intf)
-                    my_cmd += 'sudo config interface vrf bind {} {}\n'.format(intf, vrf)
-                else:
-                    my_cmd += 'sudo config interface vrf bind {} {}\n'.format(intf, vrf)
+                    if not st.is_feature_supported("config-loopback-add-command", dut):
+                        st.log("Community build doesn't need Loopback interface configuration")
+                    else:
+                        my_cmd += 'sudo config loopback add {}\n'.format(intf)
+                my_cmd += 'sudo config interface vrf bind {} {}\n'.format(intf, vrf)
         else:
             for vrf,intf in zip(vrf_name,intf_name):
-                if 'Loopback' in intf:
-                    my_cmd += 'sudo config interface vrf unbind {} {}\n'.format(intf, vrf)
-                    my_cmd += 'sudo config loopback del {}\n'.format(intf)
+                if not st.is_feature_supported("vrf-needed-for-unbind", dut):
+                    my_cmd += 'sudo config interface vrf unbind {}\n'.format(intf)
                 else:
-                    my_cmd += 'config interface vrf unbind {} {}\n'.format(intf, vrf)
+                    my_cmd += 'sudo config interface vrf unbind {} {}\n'.format(intf, vrf)
+                if 'Loopback' in intf:
+                    if not st.is_feature_supported("config-loopback-add-command", dut):
+                        st.log("Community build doesn't need Loopback interface un-configuration")
+                    else:
+                        my_cmd += 'sudo config loopback del {}\n'.format(intf)
         if skip_error:
-                out = st.config(dut, my_cmd, skip_error_check=True)
-                return True
+            st.config(dut, my_cmd, skip_error_check=True)
+            return True
         else:
-            out = st.config(dut, my_cmd)
+            st.config(dut, my_cmd)
             return True
     elif cli_type == 'klish':
-        regex = re.compile(r'(\d+|\s+)')
         command = ''
         if config.lower() == 'yes':
             for vrf,intf in zip(vrf_name,intf_name):
-                intfv = regex.split(intf)
-                command = command + "\n" + "interface {} {}".format(intfv[0], intfv[1])
+                intfv = get_interface_number_from_name(intf)
+                command = command + "\n" + "interface {} {}".format(intfv['type'], intfv['number'])
                 command = command + "\n" + "ip vrf forwarding {}".format(vrf)
                 command = command + "\n" + "exit"
         else:
             for vrf,intf in zip(vrf_name,intf_name):
-                intfv = regex.split(intf)
-                command = command + "\n" + "interface {} {}".format(intfv[0], intfv[1])
+                intfv = get_interface_number_from_name(intf)
+                command = command + "\n" + "interface {} {}".format(intfv['type'], intfv['number'])
                 command = command + "\n" + "no ip vrf forwarding {}".format(vrf)
                 command = command + "\n" + "exit"
                 if 'Loopback' in intf:
-                    command = command + "\n" + "no interface {} {}".format(intfv[0], intfv[1])
+                    command = command + "\n" + "no interface {} {}".format(intfv['type'], intfv['number'])
         output = st.config(dut, command, skip_error_check=skip_error, type="klish", conf=True)
         if "Could not connect to Management REST Server" in output:
             st.error("klish mode not working.")
             return False
         return True
+    elif cli_type in ['rest-patch','rest-put']:
+        http_method = kwargs.pop('http_method',cli_type)
+        rest_urls = st.get_datastore(dut,'rest_urls')
+        if config.lower() == 'yes':
+            for vrf,intf in zip(vrf_name,intf_name):
+                intfv = get_interface_number_from_name(intf)
+                if 'Loopback' in intfv['type']:
+                    configure_loopback(dut, loopback_name=intf, config='yes')
+                rest_url = rest_urls['vrf_bind_config'].format(vrf, intf)
+                ocdata = {"openconfig-network-instance:interface":[{"id":intf,"config":{"id":intf,"interface":intf}}]}
+                response = config_rest(dut, http_method=http_method, rest_url=rest_url, json_data=ocdata)
+                if not response:
+                   st.log(response)
+                   return False
+        elif config.lower() == 'no':
+            for vrf,intf in zip(vrf_name,intf_name):
+                rest_url = rest_urls['vrf_bind_config'].format(vrf, intf)
+                response = delete_rest(dut, rest_url=rest_url)
+                if not response:
+                    st.log(response)
+                    return False
+                intfv = get_interface_number_from_name(intf)
+                if 'Loopback' in intfv['type']:
+                    configure_loopback(dut, loopback_name=intf, config='no')
+        return True
+    else:
+        st.log("Unsupported cli")
 
-
-
-
-def config_vrfs(dut, vrf_data_list={}, config='yes'):
+def config_vrfs(dut, vrf_data_list={}, config='yes', cli_type=''):
 
     if config == 'yes' or config == 'add':
         config = 'add'
@@ -205,29 +341,44 @@ def config_vrfs(dut, vrf_data_list={}, config='yes'):
         st.error("Invalid config type {}".format(config))
         return False
 
-    command = []
-    for vrf_name, vrf_data in vrf_data_list.items():
-        vrf = vrf_data['name']
-        cmd_str = "sudo config vrf {} {} ".format(config, vrf)
-        command.append(cmd_str)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
 
-    try:
-        st.config(dut, command)
-    except Exception as e:
-        st.log(e)
-        return False
+    command = []
+    for _, vrf_data in vrf_data_list.items():
+        vrf = vrf_data['name']
+        if cli_type == 'click':
+            cmd_str = "sudo config vrf {} {} ".format(config, vrf)
+            command.append(cmd_str)
+        elif cli_type == "klish":
+            cmd_str = "no " if config == 'del' else ''
+            cmd_str += "ip vrf {}".format(vrf)
+            command.append(cmd_str)
+        elif cli_type in ['rest-patch', 'rest-put']:
+            st.error("Spytest API not yet supported for REST type")
+            return False
+
+    if cli_type in ['click', 'klish' ] :
+        try:
+            st.config(dut, command, type=cli_type)
+        except Exception as e:
+            st.log(e)
+            return False
 
     return True
 
 
-def _clear_vrf_config_helper(dut_list):
+def _clear_vrf_config_helper(dut_list, cli_type=''):
     """
     Helper routine to cleanup VRF config from devices.
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
+    cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
     for dut in dut_li:
         st.log("############## {} : VRF Config Cleanup ################".format(dut))
-        output = st.show(dut, "show vrf")
+        if cli_type == 'click':
+            output = st.show(dut, "show vrf")
+        elif cli_type == 'klish':
+            output = st.show(dut, "show ip vrf",type=cli_type)
         st.log("##### VRF : {}".format(output))
         if len(output) == 0:
             continue
@@ -235,18 +386,17 @@ def _clear_vrf_config_helper(dut_list):
         for entry in output:
             if not entry['vrfname']:
                 continue
-
             vrfname = entry['vrfname']
             if type(entry['interfaces']) is list:
                 for intf in entry['interfaces']:
-                    bind_vrf_interface(dut, vrf_name=vrfname, intf_name=intf, config='no')
+                    bind_vrf_interface(dut, vrf_name=vrfname, intf_name=intf, config='no', cli_type=cli_type)
 
-            config_vrf(dut, vrf_name=vrfname, config='no')
+            config_vrf(dut, vrf_name=vrfname, config='no', cli_type=cli_type)
 
     return True
 
 
-def clear_vrf_configuration(dut_list, thread=True):
+def clear_vrf_configuration(dut_list, thread=True, cli_type=''):
     """
     Find and cleanup all VRF configuration.
 
@@ -254,7 +404,7 @@ def clear_vrf_configuration(dut_list, thread=True):
     :return:
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
-    [out, exceptions] = utils.exec_foreach(thread, dut_li, _clear_vrf_config_helper)
+    cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
+    [out, exceptions] = utils.exec_foreach(thread, dut_li, _clear_vrf_config_helper, cli_type=cli_type)
     st.log(exceptions)
     return False if False in out else True
-

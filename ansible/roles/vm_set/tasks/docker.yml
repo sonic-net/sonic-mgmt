@@ -24,15 +24,17 @@
   become: yes
   when: host_distribution_version.stdout == "18.04"
 
+- name: Add docker repository for 20.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "20.04"
+
 - name: Install docker-ce
   apt: pkg=docker-ce update_cache=yes
   become: yes
   environment: "{{ proxy_env | default({}) }}"
-
-- name: Get default pip_executable
-  set_fact:
-    pip_executable: pip
-  when: pip_executable is not defined
 
 - name: remove old python packages
   pip: name=docker-py state=absent executable={{ pip_executable }}

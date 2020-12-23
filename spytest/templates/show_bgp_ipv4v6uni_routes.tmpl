@@ -1,0 +1,29 @@
+Value VRF (\S+)
+Value ROUTER_ID (\S{0,19})
+Value LOCALASN (\d+)
+Value STATUS_CODE ([sdhirSR*>=#\s]+)
+Value Filldown NETWORK ([.:\dabcdefABCDEF]+\/\d+)
+Value NEXT_HOP ([.:\dabcdefABCDEF]+)
+Value METRIC (\S{1,6})
+Value LOCAL_PREF (\S{0,6})
+Value WEIGHT (\S{1,6})
+Value AS_PATH (\d+)
+Value INTERNAL (i?)
+
+
+Start
+  ^\s*BGP routing table information for VRF\s*${VRF}$$
+  ^\s*Router identifier ${ROUTER_ID}, local AS number ${LOCALASN}$$
+  ^Route status codes:.*$$
+  ^Origin codes:.*$$
+  ^\s+Network\s+Next Hop\s+Metric\s+LocPref\s+Weight\s+Path -> Bgp_table
+
+Bgp_table
+  ^${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${WEIGHT}\s+${AS_PATH}\s+${INTERNAL}$$ -> Record
+  ^${STATUS_CODE}\s{1,16}${NETWORK}\s+${NEXT_HOP}\s{1,18}${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s+${INTERNAL}$$ -> Record
+  ^${STATUS_CODE}\s{10,30}${NEXT_HOP}\s+${METRIC}\s+${WEIGHT}\s+${AS_PATH}\s*${INTERNAL}$$ -> Record
+  ^${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${WEIGHT}\s+${AS_PATH}\s*${INTERNAL}$$ -> Record
+  ^${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${WEIGHT}\s+${INTERNAL}$$ -> Record
+  ^\s*BGP routing table information for VRF\s*${VRF}$$ -> Next Start
+
+EOF

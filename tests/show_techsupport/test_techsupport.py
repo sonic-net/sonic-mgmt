@@ -1,17 +1,21 @@
 import pytest
 import os
 import pprint
-from common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 import time
 from random import randint
-from common.utilities import wait_until
+from tests.common.utilities import wait_until
 from log_messages import *
 import logging
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 SUCCESS_CODE = 0
-DEFAULT_LOOP_RANGE = 10
-DEFAULT_LOOP_DELAY = 10
+DEFAULT_LOOP_RANGE = 2
+DEFAULT_LOOP_DELAY = 2
 
 pytest.tar_stdout = ""
 
@@ -69,12 +73,13 @@ def setup_acl_rules(duthost, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl_setup(duthost):
+def acl_setup(duthosts, rand_one_dut_hostname):
     """
     setup fixture gathers all test required information from DUT facts and testbed
     :param duthost: DUT host object
     :return: dictionary with all test required information
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info('Creating temporary folder for test {}'.format(ACL_RUN_DIR))
     duthost.command("mkdir -p {}".format(ACL_RUN_DIR))
     tmp_path = duthost.tempfile(path=ACL_RUN_DIR, state='directory', prefix='acl', suffix="")['path']
@@ -102,13 +107,14 @@ def teardown_acl(dut, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl(duthost, acl_setup):
+def acl(duthosts, rand_one_dut_hostname, acl_setup):
     """
     setup/teardown ACL rules based on test class requirements
     :param duthost: DUT host object
     :param acl_setup: setup information
     :return:
     """
+    duthost = duthosts[rand_one_dut_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
     loganalyzer.load_common_config()
 
@@ -132,11 +138,12 @@ def acl(duthost, acl_setup):
 # MIRRORING PART #
 
 @pytest.fixture(scope='function')
-def neighbor_ip(duthost, testbed):
+def neighbor_ip(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
     # ptf-32 topo is not supported in mirroring
-    if testbed['topo']['name'] == 'ptf32':
+    if tbinfo['topo']['name'] == 'ptf32':
         pytest.skip('Unsupported Topology')
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     dst_ip = None
     if mg_facts["minigraph_portchannel_interfaces"]:
         dst_ip = mg_facts["minigraph_portchannel_interfaces"][0]['peer_addr']
@@ -152,10 +159,11 @@ def neighbor_ip(duthost, testbed):
 
 
 @pytest.fixture(scope='function')
-def mirror_setup(duthost):
+def mirror_setup(duthosts, rand_one_dut_hostname):
     """
     setup fixture
     """
+    duthost = duthosts[rand_one_dut_hostname]
     duthost.command('mkdir -p {}'.format(MIRROR_RUN_DIR))
     tmp_path = duthost.tempfile(path=MIRROR_RUN_DIR, state='directory', prefix='mirror', suffix="")['path']
 
@@ -166,22 +174,26 @@ def mirror_setup(duthost):
 
 
 @pytest.fixture(scope='function')
-def gre_version(duthost):
+def gre_version(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     asic_type = duthost.facts['asic_type']
     if asic_type in ["mellanox"]:
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
+    if asic_type in ["barefoot"]:
+        SESSION_INFO['gre'] = 0x22EB  # barefoot specific
     else:
         SESSION_INFO['gre'] = 0x6558
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthost, neighbor_ip, mirror_setup, gre_version):
+def mirroring(duthosts, rand_one_dut_hostname, neighbor_ip, mirror_setup, gre_version):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
     :param mirror_setup: mirror_setup fixture
     :param mirror_config: mirror_config fixture
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
@@ -250,16 +262,16 @@ def execute_command(duthost, since):
     return stdout['rc'] == SUCCESS_CODE
 
 
-def test_techsupport(request, config, duthost, testbed):
+def test_techsupport(request, config, duthosts, rand_one_dut_hostname):
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
     :param duthost: DUT host
-    :param testbed: testbed
     """
+    duthost = duthosts[rand_one_dut_hostname]
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
-    since = request.config.getoption("--logs_since") or str(randint(1, 23)) + " minute ago"
+    since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
 
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 

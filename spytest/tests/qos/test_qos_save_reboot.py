@@ -10,17 +10,18 @@ from spytest import st
 from spytest.dicts import SpyTestDict
 import utilities.common as utils
 
+vars = dict()
 data=SpyTestDict()
 data.cos_name = "COS"
 data.acl_ipv4_table_name = 'acl_table_v4'
 data.acl_ipv6_table_name = 'acl_table_v6'
 data.src_ip = '192.168.11.1'
 data.src_ipv6 = '2001::10'
-data.mask = '24'
+data.mask = '32'
 data.mask_ipv6 = '128'
 data.description = 'INGRESS_drop'
-data.acl_rule = 'ipv4_acl_rule'
-data.acl_rule_v6 = 'ipv6_acl_rule'
+data.acl_rule = 'RULE_4'
+data.acl_rule_v6 = 'RULE_6'
 data.priority = '55'
 data.type = 'L3'
 data.type_ipv6 = 'L3V6'
@@ -31,14 +32,13 @@ data.stage = 'INGRESS'
 def qos_save_reboot_module_hooks(request):
     # add things at the start of this module
     global vars
-    vars = dict()
     st.log("Ensuring minimum topology")
     vars = st.ensure_min_topology("D1T1:1")
 
     st.log("Configuring supported QoS features")
-    wred_ecn_json_config = wred_config.wred_ecn_json_config
+    wred_data = wred_config.init_vars(vars)
     st.log('Creating WRED and ECN table')
-    utils.exec_all(True, [utils.ExecAllFunc(apply_wred_ecn_config, vars.D1, wred_ecn_json_config)])
+    utils.exec_all(True, [utils.ExecAllFunc(apply_wred_ecn_config, vars.D1, wred_data['wred_ecn_json_config'])])
     st.log("Checking for wred config before save and reboot")
     wred_verify()
     st.log("checking for ecn config before save and reboot")
@@ -66,12 +66,12 @@ def qos_save_reboot_module_hooks(request):
 @pytest.fixture(scope="function", autouse=True)
 def qos_save_reboot_func_hooks(request):
     # add things at the start every test case
-	# use 'request.function.func_name' to compare
+	# use 'st.get_func_name(request)' to compare
     # if any thing specific a particular test case
 
     yield
     # add things at the end every test case
-    # use 'request.function.func_name' to compare
+    # use 'st.get_func_name(request)' to compare
     # if any thing specific a particular test case
 
 def cos_config():
@@ -117,7 +117,7 @@ def ipv4_acl_config():
     st.log('Creating IPv4 ACL in ACL table:')
     acl_obj.create_acl_table(vars.D1, name=data.acl_ipv4_table_name, type=data.type, description=data.description, stage=data.stage, ports= [vars.D1T1P1])
     st.log('Adding IPv4 ACL source_ip drop rule in ACL rule table:')
-    acl_obj.create_acl_rule(vars.D1, table_name=data.acl_ipv4_table_name, rule_name=data.acl_rule,
+    acl_obj.create_acl_rule(vars.D1, table_name=data.acl_ipv4_table_name, acl_type="ip", rule_name=data.acl_rule,
 							packet_action=data.packet_action, priority=data.priority,
 							SRC_IP="{}/{}".format(data.src_ip, data.mask))
 
@@ -125,7 +125,7 @@ def ipv6_acl_config():
     st.log('Creating IPv6 ACL in ACL table:')
     acl_obj.create_acl_table(vars.D1, name=data.acl_ipv6_table_name, type=data.type_ipv6, description=data.description, stage=data.stage, ports= [vars.D1T1P1])
     st.log('Adding IPv4 ACL source_ip drop rule in ACL rule table:')
-    acl_obj.create_acl_rule(vars.D1, table_name=data.acl_ipv6_table_name, rule_name=data.acl_rule_v6,
+    acl_obj.create_acl_rule(vars.D1, table_name=data.acl_ipv6_table_name, acl_type="ipv6", rule_name=data.acl_rule_v6,
 							packet_action=data.packet_action, priority=data.priority,
 							SRC_IPV6="{}/{}".format(data.src_ipv6, data.mask_ipv6))
 
@@ -136,7 +136,7 @@ def ipv4_acl_verify():
     else:
         st.log("IPv4 ACL table {} creation successful".format(data.acl_ipv4_table_name))
     if not acl_obj.verify_acl_table_rule(vars.D1, acl_table=data.acl_ipv4_table_name, acl_rule=data.acl_rule):
-        st.report_fail("Failed to create ACL Rule")
+        st.report_fail("failed_to_create_acl_rule")
     else:
         st.log("IPv4 ACL table rule {} configuration successful".format(data.acl_rule))
 
@@ -145,7 +145,7 @@ def ipv6_acl_verify():
     if not acl_obj.verify_acl_table(vars.D1, acl_table=data.acl_ipv6_table_name):
         st.report_fail('failed_to_create_acl', data.acl_ipv6_table_name)
     else:
-        st.log("Ip ACl table {} creation successful".format(data.acl_ipv6_table_name))
+        st.log("Ipv6 ACl table {} creation successful".format(data.acl_ipv6_table_name))
     if not acl_obj.verify_acl_table_rule(vars.D1, acl_table=data.acl_ipv6_table_name, acl_rule=data.acl_rule_v6):
         st.report_fail("failed_to_create_acl_rule")
     else:
@@ -192,4 +192,3 @@ def test_ft_qos_config_mgmt_verifying_config_with_save_reboot():
     ecn_verify()
     st.log("configuration is successfully stored to config_db file after save and reboot")
     st.report_pass("test_case_passed")
-

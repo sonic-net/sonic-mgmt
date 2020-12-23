@@ -2,12 +2,19 @@ import pytest
 import time
 import json
 import logging
-from ptf_runner import ptf_runner
-from datetime import datetime 
+import tempfile
+
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default. 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
 # HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
@@ -16,23 +23,32 @@ SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
 DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
 VLANIDS = range(1032, 1279)
 VLANIP = '192.168.{}.1/24'
+PTF_QLEN = 2000
 
-g_vars = {}
 
-def build_fib(duthost, config_facts, fibfile, t):
+@pytest.fixture(scope="module")
+def config_facts(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
-    duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(t))
-    duthost.fetch(src="/tmp/fib.{}.txt".format(t), dest="/tmp/fib")
+@pytest.fixture(scope='module')
+def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
+    duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
     po = config_facts.get('PORTCHANNEL', {})
     ports = config_facts.get('PORT', {})
 
-    with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, t)) as fp, \
-         open(fibfile, 'w') as ofp:
+    tmp_fib_info = tempfile.NamedTemporaryFile()
+    with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
         fib = json.load(fp)
-
         for k, v in fib.items():
             skip = False
             prefix = k.split(':', 1)[1]
@@ -42,24 +58,28 @@ def build_fib(duthost, config_facts, fibfile, t):
             oports = []
             for ifname in ifnames:
                 if po.has_key(ifname):
-                    oports.append([str(mg_facts['minigraph_port_indices'][x]) for x in po[ifname]['members']])
+                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                 else:
                     if ports.has_key(ifname):
-                        oports.append([str(mg_facts['minigraph_port_indices'][ifname])])
+                        oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
                     else:
                         logger.info("Route point to non front panel port {}:{}".format(k, v))
                         skip = True
             # skip direct attached subnet
-            if nh == '0.0.0.0' or nh == '::':
+            if nh == '0.0.0.0' or nh == '::' or nh == "":
                 skip = True
 
             if not skip:
-                ofp.write("{}".format(prefix))
+                tmp_fib_info.write("{}".format(prefix))
                 for op in oports:
-                    ofp.write(" [{}]".format(" ".join(op)))
-                ofp.write("\n")
+                    tmp_fib_info.write(" [{}]".format(" ".join(op)))
+                tmp_fib_info.write("\n")
             else:
-                ofp.write("{} []\n".format(prefix))
+                tmp_fib_info.write("{} []\n".format(prefix))
+    tmp_fib_info.flush()
+
+    ptfhost.copy(src=tmp_fib_info.name, dest="/root/fib_info.txt")
+
 
 def get_vlan_untag_ports(config_facts):
     """
@@ -73,10 +93,11 @@ def get_vlan_untag_ports(config_facts):
             for port_name, tag_mode in vlan_member_info.items():
                 if tag_mode['tagging_mode'] == 'untagged':
                     vlan_untag_ports.append(port_name)
-    
+
     return vlan_untag_ports
 
-def get_router_interface_ports(config_facts, testbed):
+
+def get_router_interface_ports(config_facts, tbinfo):
     """
     get all physical ports associated with router interface (physical router interface, port channel router interface and vlan router interface)
     """
@@ -89,39 +110,31 @@ def get_router_interface_ports(config_facts, testbed):
         for po_name in portchannels_name:
             for port_name in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
                 portchannels_member_ports.append(port_name)
-    if 't0' in testbed['topo']['name']:
+    if 't0' in tbinfo['topo']['name']:
         vlan_untag_ports = get_vlan_untag_ports(config_facts)
 
     router_interface_ports = ports + portchannels_member_ports + vlan_untag_ports
 
     return router_interface_ports
 
+
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
+def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
+    duthost = duthosts[rand_one_dut_hostname]
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-
-    t = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-
-    ofpname = "/tmp/fib/{}/tmp/fib_info.{}.txt".format(duthost.hostname, t)
-
-    build_fib(duthost, config_facts, ofpname, t)
-
-    ptfhost.copy(src=ofpname, dest="/root/fib_info.txt")
-    ptfhost.copy(src="ptftests", dest="/root")
-    logging.info("run ptf test")
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
-    meta = config_facts.get('DEVICE_METADATA')
-    if meta['localhost']['platform'] == 'x86_64-kvm_x86_64-r0':
+    if duthost.facts['asic_type'] in ["vs"]:
         test_balancing = False
     else:
         test_balancing = True
 
-    testbed_type = testbed['topo']['name']
+    logging.info("run ptf test")
+    testbed_type = tbinfo['topo']['name']
     router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
-    log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, t)
+    log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, timestamp)
     logging.info("PTF log file: %s" % log_file)
     ptf_runner(ptfhost,
                 "ptftests",
@@ -135,103 +148,93 @@ def test_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu):
                         "testbed_mtu": mtu,
                         "test_balancing": test_balancing },
                 log_file=log_file,
+                qlen=PTF_QLEN,
                 socket_recv_size=16384)
 
 
-class TestHash():
-    hash_keys = HASH_KEYS
-    t = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+@pytest.fixture(scope="module")
+def setup_hash(tbinfo, duthosts, rand_one_dut_hostname, config_facts):
+    duthost = duthosts[rand_one_dut_hostname]
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_hash(self, testbed, duthost, ptfhost):
-        global g_vars
+    setup_info = {}
 
-        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    # TODO
+    hash_keys = HASH_KEYS[:]    # Copy from global var to avoid side effects of multiple iterations
+    if 'dst-mac' in hash_keys:
+        hash_keys.remove('dst-mac')
 
-        ofpname = "/tmp/fib/{}/tmp/fib_info.{}.txt".format(duthost.hostname, self.t)
+    # do not test load balancing on L4 port on vs platform as kernel 4.9
+    # can only do load balance base on L3
+    if duthost.facts['asic_type'] in ["vs"]:
+        if 'src-port' in hash_keys:
+            hash_keys.remove('src-port')
+        if 'dst-port' in hash_keys:
+            hash_keys.remove('dst-port')
+    if duthost.facts['asic_type'] in ["mellanox"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    if duthost.facts['asic_type'] in ["barefoot"]:
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
+    setup_info['hash_keys'] = hash_keys
 
-        build_fib(duthost, config_facts, ofpname, self.t)
+    setup_info['testbed_type'] = tbinfo['topo']['name']
+    setup_info['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
-        ptfhost.copy(src=ofpname, dest="/root/fib_info.txt")
-        ptfhost.copy(src="ptftests", dest="/root")
-        logging.info("run ptf test")
+    vlan_untag_ports = get_vlan_untag_ports(config_facts)
+    in_ports_name = get_router_interface_ports(config_facts, tbinfo)
+    setup_info['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
 
-        # TODO
-        if 'dst-mac' in self.hash_keys:
-            self.hash_keys.remove('dst-mac')
+    # add some vlan for hash_key vlan-id test
+    if 't0' in setup_info['testbed_type'] and 'vlan-id' in hash_keys:
+        for vlan in VLANIDS:
+            duthost.shell('config vlan add {}'.format(vlan))
+            for port in vlan_untag_ports:
+                duthost.shell('config vlan member add {} {}'.format(vlan, port))
+            duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+        time.sleep(5)
 
-        # do not test load balancing on L4 port on vs platform as kernel 4.9
-        # can only do load balance base on L3
-        meta = config_facts.get('DEVICE_METADATA')
-        if meta['localhost']['platform'] == 'x86_64-kvm_x86_64-r0':
-            self.hash_keys.remove('src-port')
-            self.hash_keys.remove('dst-port')
+    yield setup_info
 
-        g_vars['testbed_type'] = testbed['topo']['name']
-        g_vars['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+    # remove added vlan
+    if 't0' in setup_info['testbed_type'] and 'vlan-id' in hash_keys:
+        for vlan in VLANIDS:
+            duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+            for port in vlan_untag_ports:
+                duthost.shell('config vlan member del {} {}'.format(vlan, port))
+            duthost.shell('config vlan del {}'.format(vlan))
+        time.sleep(5)
 
-        vlan_untag_ports = get_vlan_untag_ports(config_facts)
-        in_ports_name = get_router_interface_ports(config_facts, testbed)
-        g_vars['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
 
-        # add some vlan for hash_key vlan-id test
-        if 't0' in g_vars['testbed_type'] and 'vlan-id' in self.hash_keys:
-            for vlan in VLANIDS:
-                duthost.shell('config vlan add {}'.format(vlan))
-                for port in vlan_untag_ports:
-                    duthost.shell('config vlan member add {} {}'.format(vlan, port))
-                duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
-            time.sleep(5)
+@pytest.fixture(params=["ipv4", "ipv6"])
+def ipver(request):
+    return request.param
 
-        yield
 
-        # remove added vlan
-        if 't0' in g_vars['testbed_type'] and 'vlan-id' in self.hash_keys:
-            for vlan in VLANIDS:
-                duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
-                for port in vlan_untag_ports:
-                    duthost.shell('config vlan member del {} {}'.format(vlan, port))
-                duthost.shell('config vlan del {}'.format(vlan))
-            time.sleep(5)
-
-    def test_hash_ipv4(self, ptfhost):
-        log_file = "/tmp/hash_test.HashTest.ipv4.{}.log".format(self.t)
-        logging.info("PTF log file: %s" % log_file)
+def test_hash(setup_hash, ptfhost, build_fib, ipver):
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
+    logging.info("PTF log file: %s" % log_file)
+    if ipver == "ipv4":
         src_ip_range = SRC_IP_RANGE
         dst_ip_range = DST_IP_RANGE
-
-        ptf_runner(ptfhost,
-                "ptftests",
-                "hash_test.HashTest",
-                platform_dir="ptftests",
-                params={"testbed_type": g_vars['testbed_type'],
-                        "router_mac": g_vars['router_mac'],
-                        "fib_info": "/root/fib_info.txt",
-                        "src_ip_range": ",".join(src_ip_range),
-                        "dst_ip_range": ",".join(dst_ip_range),
-                        "in_ports": g_vars['in_ports'],
-                        "vlan_ids": VLANIDS,
-                        "hash_keys": self.hash_keys },
-                log_file=log_file,
-                socket_recv_size=16384)
-
-    def test_hash_ipv6(self, ptfhost):
-        log_file = "/tmp/hash_test.HashTest.ipv6.{}.log".format(self.t)
-        logging.info("PTF log file: %s" % log_file)
+    elif ipver == "ipv6":
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
 
-        ptf_runner(ptfhost,
-                "ptftests",
-                "hash_test.HashTest",
-                platform_dir="ptftests",
-                params={"testbed_type": g_vars['testbed_type'],
-                        "router_mac": g_vars['router_mac'],
-                        "fib_info": "/root/fib_info.txt",
-                        "src_ip_range": ",".join(src_ip_range),
-                        "dst_ip_range": ",".join(dst_ip_range),
-                        "in_ports": g_vars['in_ports'],
-                        "vlan_ids": VLANIDS,
-                        "hash_keys": self.hash_keys },
-                log_file=log_file,
-                socket_recv_size=16384)
+    ptf_runner(ptfhost,
+            "ptftests",
+            "hash_test.HashTest",
+            platform_dir="ptftests",
+            params={"testbed_type": setup_hash['testbed_type'],
+                    "router_mac": setup_hash['router_mac'],
+                    "fib_info": "/root/fib_info.txt",
+                    "src_ip_range": ",".join(src_ip_range),
+                    "dst_ip_range": ",".join(dst_ip_range),
+                    "in_ports": setup_hash['in_ports'],
+                    "vlan_ids": VLANIDS,
+                    "hash_keys": setup_hash['hash_keys']},
+            log_file=log_file,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384)

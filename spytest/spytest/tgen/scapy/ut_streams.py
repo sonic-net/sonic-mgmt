@@ -72,10 +72,10 @@ def ut_stream_get(index=0, **kws):
     return kwargs
 
 if __name__ == '__main__':
-    print ut_stream_get(0)
+    print(ut_stream_get(0))
     for i in range(100):
         d = ut_stream_get(i)
         if not d:
             break
-        print d
+        print(d)
 
