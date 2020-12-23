@@ -809,9 +809,13 @@ def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
-
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
-    iface = "Ethernet0"
+    topology = tbinfo["topo"]["properties"]["topology"]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    port_dict = dict(zip(cfg_facts['port_index_map'].values(), cfg_facts['port_index_map'].keys()))
+    # Use for test 1st in list hosts interface port to add into dummy VLAN
+    host_port_id = [id for id in topology["host_interfaces"]][0]
+    iface = port_dict[host_port_id]
     vlan_id = 2
     cmd_add_vlan_member = "config vlan member add {vid} {iface}"
     cmd_add_vlan = "config vlan add {}".format(vlan_id)
