@@ -644,12 +644,12 @@ class VMTopology(object):
                     self.add_veth_if_to_docker(muxy_if, ptf_if)
 
                     # create muxy cable
-                    upper_tor_if = self.duts_fp_ports[self.duts_name[intf[0][0]]][intf[0][1]]
-                    lower_tor_if = self.duts_fp_ports[self.duts_name[intf[1][0]]][intf[1][1]]
+                    upper_tor_if = self.duts_fp_ports[self.duts_name[intf[0][0]]][str(intf[0][1])]
+                    lower_tor_if = self.duts_fp_ports[self.duts_name[intf[1][0]]][str(intf[1][1])]
                     self.create_muxy_cable(host_ifindex, muxy_if, upper_tor_if, lower_tor_if)
                 else:
                     host_ifindex = intf[2] if len(intf) == 3 else i
-                    fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][intf[1]]
+                    fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][str(intf[1])]
                     ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.add_dut_if_to_docker(ptf_if, fp_port)
             else:
@@ -673,7 +673,7 @@ class VMTopology(object):
                 else:
                     host_ifindex = intf[2] if len(intf) == 3 else i
                     self.remove_muxy_cable(host_ifindex)
-                    fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][intf[1]]
+                    fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][str(intf[1])]
                     ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.remove_dut_if_from_docker(ptf_if, fp_port)
             else:
