@@ -189,7 +189,7 @@
 {% endif %}
 {% endif %}
 {% endfor -%}
-{{- acl_intfs|join(',') -}}
+{{- acl_intfs|join(';') -}}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
