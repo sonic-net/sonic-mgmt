@@ -5,14 +5,28 @@ from datetime import datetime
 
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import config_reload
 
 pytestmark = [
     pytest.mark.topology('t1')
 ]
 
+logger = logging.getLogger(__name__)
+
+
+def collect_info(duthost):
+    if duthost.facts['asic_type'] == "mellanox":
+        logger.info('************* Collect information for debug *************')
+        duthost.shell('ip link')
+        duthost.shell('ip addr')
+        duthost.shell('grep . /sys/class/net/Ethernet*/address', module_ignore_errors=True)
+        duthost.shell('grep . /sys/class/net/PortChannel*/address', module_ignore_errors=True)
+
+
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthost, ptfhost):
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     int_facts = duthost.interface_facts()['ansible_facts']
 
     ports = list(sorted(mg_facts['minigraph_ports'].keys(), key=lambda item: int(item.replace('Ethernet', ''))))
@@ -20,10 +34,10 @@ def common_setup_teardown(duthost, ptfhost):
     # Select port index 0 & 1 two interfaces for testing
     intf1 = ports[0]
     intf2 = ports[1]
-    logging.info("Selected ints are {0} and {1}".format(intf1, intf2))
+    logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
 
-    intf1_indice = mg_facts['minigraph_port_indices'][intf1]
-    intf2_indice = mg_facts['minigraph_port_indices'][intf2]
+    intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
+    intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
     po1 = get_po(mg_facts, intf1)
     po2 = get_po(mg_facts, intf2)
@@ -32,15 +46,21 @@ def common_setup_teardown(duthost, ptfhost):
         # Make sure selected interfaces are not in portchannel
         if po1 is not None:
             duthost.shell('config portchannel member del {0} {1}'.format(po1, intf1))
+            collect_info(duthost)
             duthost.shell('config interface startup {0}'.format(intf1))
+            collect_info(duthost)
 
         if po2 is not None:
             duthost.shell('config portchannel member del {0} {1}'.format(po2, intf2))
+            collect_info(duthost)
             duthost.shell('config interface startup {0}'.format(intf2))
+            collect_info(duthost)
 
         # Change SONiC DUT interface IP to test IP address
         duthost.shell('config interface ip add {0} 10.10.1.2/28'.format(intf1))
+        collect_info(duthost)
         duthost.shell('config interface ip add {0} 10.10.1.20/28'.format(intf2))
+        collect_info(duthost)
 
         if (po1 is not None) or (po2 is not None):
             time.sleep(40)
@@ -51,7 +71,7 @@ def common_setup_teardown(duthost, ptfhost):
         yield duthost, ptfhost, int_facts, intf1, intf2, intf1_indice, intf2_indice
     finally:
         # Recover DUT interface IP address
-        duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
+        config_reload(duthost, config_source='config_db', wait=120)
 
 def test_arp_unicast_reply(common_setup_teardown):
     duthost, ptfhost, int_facts, intf1, intf2, intf1_indice, intf2_indice = common_setup_teardown
@@ -134,7 +154,7 @@ def test_arp_garp_no_update(common_setup_teardown):
     for ip in switch_arptable['arptable']['v4'].keys():
         pytest_assert(ip != '10.10.1.7')
 
-    # Test Gratuitous ARP upate case, when received garp, no arp reply, update arp table if it was solved before
+    # Test Gratuitous ARP update case, when received garp, no arp reply, update arp table if it was solved before
     log_file = "/tmp/arptest.ExpectReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.ExpectReply", '/root/ptftests', params=params, log_file=log_file)
 

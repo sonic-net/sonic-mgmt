@@ -12,6 +12,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 import logging
 import random
+import time
 
 import ptf
 import ptf.packet as scapy
@@ -29,7 +30,7 @@ class FibTest(BaseTest):
     @summary: Overview of functionality
     Test routes advertised by BGP peers of SONIC are working properly.
     The setup of peers is described in 'VM set' section in
-    https://github.com/Azure/sonic-mgmt/blob/master/ansible/README.testbed.md
+    https://github.com/Azure/sonic-mgmt/blob/master/docs/ansible/README.testbed.md
 
     Routes advertized by the peers have ECMP groups. The purpose of the test is to make sure
     that packets are forwarded through one of the ports specified in route's ECMP group.
@@ -56,7 +57,7 @@ class FibTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 10000
+    BALANCING_TEST_TIMES = 625
     DEFAULT_BALANCING_TEST_RATIO = 0.0001
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
@@ -149,8 +150,9 @@ class FibTest(BaseTest):
             ip_ranges = self.fib.ipv6_ranges()
 
         for ip_range in ip_ranges:
-            next_hop = self.fib[ip_range.get_first_ip()]
-            self.check_ip_range(ip_range, next_hop, ipv4)
+            if ip_range.get_first_ip() in self.fib:
+                next_hop = self.fib[ip_range.get_first_ip()]
+                self.check_ip_range(ip_range, next_hop, ipv4)
 
     def check_ip_range(self, ip_range, next_hop, ipv4=True):
         # Get the expected list of ports that would receive the packets
@@ -172,7 +174,7 @@ class FibTest(BaseTest):
         # Send a packet with a random IP in the range
         if ip_range.length() > 2:
             self.check_ip_route(src_port, ip_range.get_random_ip(), exp_port_list, ipv4)
-
+        time.sleep(0.01)
         # Test traffic balancing across ECMP/LAG members
         if (self.test_balancing and self.pkt_action == self.ACTION_FWD
                 and len(exp_port_list) > 1
@@ -180,9 +182,11 @@ class FibTest(BaseTest):
             logging.info("Check IP range balancing...")
             dst_ip = ip_range.get_random_ip()
             hit_count_map = {}
-            for i in range(0, self.balancing_test_times):
+            # Change balancing_test_times according to number of next hop groups
+            for i in range(0, self.balancing_test_times*len(exp_port_list)):
                 (matched_index, received) = self.check_ip_route(src_port, dst_ip, exp_port_list, ipv4)
                 hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
+                time.sleep(0.01)
             self.check_balancing(next_hop.get_next_hop(), hit_count_map)
 
     def check_ip_route(self, src_port, dst_ip_addr, dst_port_list, ipv4=True):

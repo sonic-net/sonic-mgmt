@@ -5,6 +5,7 @@ import json
 import re
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common import reboot
 from tests.common  import config_reload
@@ -18,7 +19,8 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module',autouse=True)
-def setup(duthost, ptfhost):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
     global var
     var = {}
 
@@ -26,8 +28,8 @@ def setup(duthost, ptfhost):
     if 'sflow' not in feature_status or feature_status['sflow'] == 'disabled':
         pytest.skip("sflow feature is not eanbled")
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    var['host_facts']  = duthost.setup()['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    var['router_mac']  = duthost.facts['router_mac']
     vlan_dict = mg_facts['minigraph_vlans']
     var['test_ports'] = []
     var['ptf_test_indices'] = []
@@ -35,7 +37,7 @@ def setup(duthost, ptfhost):
 
     for i in range(0,3,1):
         var['test_ports'].append(vlan_dict['Vlan1000']['members'][i])
-        var['ptf_test_indices'].append(mg_facts['minigraph_port_indices'][vlan_dict['Vlan1000']['members'][i]])
+        var['ptf_test_indices'].append(mg_facts['minigraph_ptf_indices'][vlan_dict['Vlan1000']['members'][i]])
 
     collector_ips = ['20.1.1.2' ,'30.1.1.2']
     var['dut_intf_ips'] = ['20.1.1.1','30.1.1.1']
@@ -48,7 +50,7 @@ def setup(duthost, ptfhost):
         port = interfaces['members'][0]
         var['sflow_ports'][port] = {}
         var['sflow_ports'][port]['ifindex'] = get_ifindex(duthost,port)
-        var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_port_indices'][interfaces['members'][0]]
+        var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_ptf_indices'][interfaces['members'][0]]
         var['sflow_ports'][port]['sample_rate'] = 512
     var['portmap'] = json.dumps(var['sflow_ports'])
 
@@ -73,7 +75,6 @@ def setup_ptf(ptfhost, collector_ports):
     extra_vars = {'arp_responder_args' : '--conf /tmp/sflow_arpresponder.conf'}
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="../ansible/roles/test/templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
-    ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py", dest="/opt")
     ptfhost.shell('supervisorctl reread')
     ptfhost.shell('supervisorctl update')
     for i in range(len(collector_ports)):
@@ -152,10 +153,10 @@ def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
 # ----------------------------------------------------------------------------------
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, testbed):
+def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(**kwargs):
-        params = {'testbed_type': testbed['topo']['name'],
-                  'router_mac': var['host_facts']['ansible_Ethernet0']['macaddress'],
+        params = {'testbed_type': tbinfo['topo']['name'],
+                  'router_mac': var['router_mac'],
                   'dst_port' : var['ptf_test_indices'][2],
                   'agent_id' : var['mgmt_ip'],
                   'sflow_ports_file' : "/tmp/sflow_ports.json"}
@@ -172,7 +173,8 @@ def partial_ptf_runner(request, ptfhost, testbed):
 
 # ----------------------------------------------------------------------------------
 @pytest.fixture(scope='class')
-def sflowbase_config(duthost, testbed):
+def sflowbase_config(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     config_sflow(duthost,'enable')
     config_sflow_collector(duthost,'collector0','add')
     config_sflow_collector(duthost,'collector1','add')
@@ -193,7 +195,8 @@ class TestSflowCollector():
     Test Sflow with 2 collectors , adding or removibg collector and verify collector samples
     """
 
-    def test_sflow_config(self, duthost, partial_ptf_runner):
+    def test_sflow_config(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
+        duthost = duthosts[rand_one_dut_hostname]
         # Enable sflow globally and enable sflow on 4 test interfaces
         # add single collector , send traffic and check samples are received in collector
         config_sflow(duthost,'enable')
@@ -210,7 +213,8 @@ class TestSflowCollector():
               active_collectors="['collector0']" )
 
 
-    def test_collector_del_add(self, duthost, partial_ptf_runner):
+    def test_collector_del_add(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
+        duthost = duthosts[rand_one_dut_hostname]
         # Delete a collector and check samples are not received in collectors
         config_sflow_collector(duthost,'collector0','del')
         time.sleep(2)
@@ -228,7 +232,8 @@ class TestSflowCollector():
               active_collectors="['collector0']" )
 
 
-    def test_two_collectors(self, sflowbase_config, duthost, partial_ptf_runner):
+    def test_two_collectors(self, sflowbase_config, duthosts, rand_one_dut_hostname, partial_ptf_runner):
+        duthost = duthosts[rand_one_dut_hostname]
         #add 2 collectors with 2 different udp ports and check samples are received in both collectors
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         time.sleep(2)

@@ -1,11 +1,13 @@
-Value interface_name (\w+)
-Value policy_name (\S+)
-Value stage (\w+)
+Value Filldown interface_name ([\w\/]+|\w+)
+Value Filldown policy_name (\S+)
+Value Filldown policy_type (\w+)
+Value Filldown stage (\w+)
 Value policy_desc_name (\w+)
 Value class_desc_name (\w+)
-Value class_name ([\w\S]+)
-Value priority_val (\d+)
-Value flow_state ([\w\S]+)
+Value Filldown class_name ([\w\S]+)
+Value Filldown priority_val (\d+)
+Value Filldown flow_state ([\w\S]+)
+Value mirror_session (\S+)
 Value dscp_val (\d+)
 Value pcp_val (\d+)
 Value acl_name (\S+)
@@ -30,14 +32,20 @@ Value yellow_pkts_val (\d+)
 Value yellow_bytes_val (\d+)
 Value red_pkts_val (\d+)
 Value red_bytes_val (\d+)
-Value match_pkts_val (\d+)
-Value match_bytes_val (\d+)
+Value Fillup match_pkts_val (\d+)
+Value Fillup match_bytes_val (\d+)
 Value match_type (\S+)
 Value tcp_flags_type (\S+.*)
+Value next_hop ([\:\d\w\.]+)
+Value next_hop_vrf ([\S\_\-]+)
+Value next_hop_priority (\d+)
+Value selected (\S+)
+Value next_hop_interface ([\w\/]+|\w+)
 
 Start
-  ^${interface_name}
-  ^\s*Policy ${policy_name} Type qos at ${stage}\s*$$
+  ^${interface_name}$$
+  ^\s*Policy\s+${policy_name}\s+type\s+${policy_type}\s+at\s+${stage}\s*$$
+  ^\s*Policy\s+${policy_name}\s+Type\s+${policy_type}\s+at\s+${stage}\s*$$
   ^\s*Description:.*$$
   ^\s*${policy_desc_name}*$$
   ^\s*Flow\s+${class_name}\s+at\s+priority\s+${priority_val}\s+${flow_state}\s*$$
@@ -62,4 +70,27 @@ Start
   ^\s*green ${green_pkts_val} packets ${green_bytes_val} bytes action forward\s.*$$
   ^\s*yellow ${yellow_pkts_val} packets ${yellow_bytes_val} bytes action forward\s*$$
   ^\s*red ${red_pkts_val} packets ${red_bytes_val} bytes action drop\s*$$
-  ^\s*Packet matches:\s+${match_pkts_val}\s+frames\s+${match_bytes_val}\s+bytes\s*$$
+  ^\s*set\s*mirror-session\s*${mirror_session}\(${selected}\)$$ -> Record
+  ^\s*set\s*mirror-session\s*${mirror_session}$$ -> Record
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}\s+\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}$$ -> Record Start
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}\s+priority\s+${next_hop_priority}\s+\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}\s+priority\s+${next_hop_priority}$$ -> Record Start
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}\s+priority\s+${next_hop_priority}\s+\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}\s+priority\s+${next_hop_priority}$$ -> Record Start
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}\s*\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ip\s+nexthop\s+${next_hop}$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}\s+priority\s+${next_hop_priority}\s+\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}\s+priority\s+${next_hop_priority}$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}\s+\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}\s+vrf\s+${next_hop_vrf}$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}\s+priority\s+${next_hop_priority}\s+\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}\s+priority\s+${next_hop_priority}$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}\s*\(${selected}\)$$ -> Record Start
+  ^\s*set\s+ipv6\s+nexthop\s+${next_hop}$$ -> Record Start
+  ^\s+set\s+interface\s+${next_hop_interface}\s+\(${selected}\)$$
+  ^\s+set\s+interface\s+${next_hop_interface}
+  ^\s*Packet matches:\s+${match_pkts_val}\s+frames\s+${match_bytes_val}\s+bytes\s*$$ -> Record Start
+
+EOF
+

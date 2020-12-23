@@ -2,8 +2,10 @@ import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0')
 ]
 
@@ -19,6 +21,7 @@ def test_fast_reboot(request, get_advanced_reboot):
     advancedReboot.runRebootTestcase()
 
 @pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.device_type('vs')
 def test_warm_reboot(request, get_advanced_reboot):
     '''
     Warm reboot test case is run using advacned reboot test fixture
@@ -29,7 +32,7 @@ def test_warm_reboot(request, get_advanced_reboot):
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
     advancedReboot.runRebootTestcase()
 
-@pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
 def test_warm_reboot_sad(request, get_advanced_reboot):
     '''
     Warm reboot with sad path
@@ -56,7 +59,7 @@ def test_warm_reboot_sad(request, get_advanced_reboot):
         prebootFiles='peer_dev_info,neigh_port_info'
     )
 
-@pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
 def test_warm_reboot_multi_sad(request, get_advanced_reboot):
     '''
     Warm reboot with multi sad path
@@ -92,7 +95,7 @@ def test_warm_reboot_multi_sad(request, get_advanced_reboot):
         prebootFiles='peer_dev_info,neigh_port_info'
     )
 
-@pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
 def test_warm_reboot_multi_sad_inboot(request, get_advanced_reboot):
     '''
     Warm reboot with multi sad path (during boot)
@@ -113,7 +116,7 @@ def test_warm_reboot_multi_sad_inboot(request, get_advanced_reboot):
         prebootFiles='peer_dev_info,neigh_port_info'
     )
 
-@pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
 def test_warm_reboot_sad_bgp(request, get_advanced_reboot):
     '''
     Warm reboot with sad (bgp)
@@ -135,7 +138,7 @@ def test_warm_reboot_sad_bgp(request, get_advanced_reboot):
         prebootFiles='peer_dev_info,neigh_port_info'
     )
 
-@pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
 def test_warm_reboot_sad_lag_member(request, get_advanced_reboot):
     '''
     Warm reboot with sad path (lag member)
@@ -166,7 +169,7 @@ def test_warm_reboot_sad_lag_member(request, get_advanced_reboot):
         prebootFiles='peer_dev_info,neigh_port_info'
     )
 
-@pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
 def test_warm_reboot_sad_lag(request, get_advanced_reboot):
     '''
     Warm reboot with sad path (lag)
@@ -188,7 +191,7 @@ def test_warm_reboot_sad_lag(request, get_advanced_reboot):
         prebootFiles='peer_dev_info,neigh_port_info'
     )
 
-@pytest.mark.usefixtures('get_advanced_reboot')
+@pytest.mark.usefixtures('get_advanced_reboot', 'backup_and_restore_config_db')
 def test_warm_reboot_sad_vlan_port(request, get_advanced_reboot):
     '''
     Warm reboot with sad path (vlan port)

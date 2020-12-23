@@ -1,5 +1,6 @@
 import ipaddress
 import pytest
+import random
 import time
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -11,16 +12,32 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
+DEFAULT_DHCP_CLIENT_PORT = 68
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR snmp#snmp-subagent.*",
+        ]
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+
+    yield
+
+
 @pytest.fixture(scope="module")
-def dut_dhcp_relay_data(duthost, ptfhost, testbed):
+def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """ Fixture which returns a list of dictionaries where each dictionary contains
         data necessary to test one instance of a DHCP relay agent running on the DuT.
         This fixture is scoped to the module, as the data it gathers can be used by
         all tests in this module. It does not need to be run before each test.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     dhcp_relay_data_list = []
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     host_facts = duthost.setup()['ansible_facts']
 
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
@@ -46,7 +63,7 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
         client_iface = {}
         client_iface['name'] = vlan_info_dict['members'][0]
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
-        client_iface['port_idx'] = mg_facts['minigraph_port_indices'][client_iface['name']]
+        client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
         # Obtain uplink port indicies for this DHCP relay agent
         uplink_interfaces = []
@@ -68,7 +85,7 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
                     # If the uplink's physical interface is not a member of a portchannel, add it to our uplink interfaces list
                     if not iface_is_portchannel_member:
                         uplink_interfaces.append(iface_name)
-                    uplink_port_indices.append(mg_facts['minigraph_port_indices'][iface_name])
+                    uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
 
         dhcp_relay_data = {}
         dhcp_relay_data['downlink_vlan_iface'] = downlink_vlan_iface
@@ -80,9 +97,10 @@ def dut_dhcp_relay_data(duthost, ptfhost, testbed):
     return dhcp_relay_data_list
 
 @pytest.fixture(scope="module")
-def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
+def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     """Fixture to valid a route to each DHCP server exist
     """
+    duthost = duthosts[rand_one_dut_hostname]
     dhcp_servers = set()
     for dhcp_relay in dut_dhcp_relay_data:
         dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
@@ -92,11 +110,12 @@ def validate_dut_routes_exist(duthost, dut_dhcp_relay_data):
         assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
 
-def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+def test_dhcp_relay_default(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology.
 
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
+    duthost = duthosts[rand_one_dut_hostname]
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -111,16 +130,19 @@ def test_dhcp_relay_default(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask'])},
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
-def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+def test_dhcp_relay_after_link_flap(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology after uplinks flap
 
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
        then test whether the DHCP relay agent relays packets properly.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
@@ -149,17 +171,20 @@ def test_dhcp_relay_after_link_flap(duthost, ptfhost, dut_dhcp_relay_data, valid
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask'])},
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
-def test_dhcp_relay_start_with_uplinks_down(duthost, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+def test_dhcp_relay_start_with_uplinks_down(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology when relay agent starts with uplinks down
 
        For each DHCP relay agent running on the DuT, bring the uplinks down, then restart the
        relay agent while the uplinks are still down. Then test whether the DHCP relay agent
        relays packets properly.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
@@ -195,5 +220,61 @@ def test_dhcp_relay_start_with_uplinks_down(duthost, ptfhost, dut_dhcp_relay_dat
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask'])},
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+
+
+def test_dhcp_relay_unicast_mac(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+    """Test DHCP relay functionality on T0 topology with unicast mac
+
+       Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    for dhcp_relay in dut_dhcp_relay_data:
+        # Run the DHCP relay test on the PTF host
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": duthost.facts["router_mac"],
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+
+
+def test_dhcp_relay_random_sport(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+    """Test DHCP relay functionality on T0 topology with random source port (sport)
+
+       If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
+       Verify that DHCP relay works with random high sport.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))
+    for dhcp_relay in dut_dhcp_relay_data:
+        # Run the DHCP relay test on the PTF host
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": RANDOM_CLIENT_PORT},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")

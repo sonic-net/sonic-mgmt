@@ -27,13 +27,14 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='function', autouse=True)
-def stop_pfcwd(duthost):
+def stop_pfcwd(duthosts, rand_one_dut_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
         duthost(AnsibleHost) : dut instance
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
@@ -53,6 +54,19 @@ class PfcCmd(object):
         """
         cmd = "redis-cli -n 2 HGET COUNTERS:{}"
         return dut.command("{} {}".format(cmd.format(queue_oid), attr))['stdout']
+
+    @staticmethod
+    def set_storm_status(dut, queue_oid, storm_status):
+        """
+        Sets PFC storm status for the queue
+
+        Args:
+            dut(AnsibleHost) : dut instance
+            queue_oid(string) : queue oid for which the storm status needs to be set
+            storm_status(string) : debug storm status (enabled/disabled)
+        """
+        cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
+        dut.command(cmd.format(queue_oid, storm_status))
 
     @staticmethod
     def get_queue_oid(dut, port, queue_num):
@@ -162,11 +176,12 @@ class SetupPfcwdFunc(object):
             init(bool) : If the fanout needs to be initialized or not
         """
         logger.info("--- Setting up test params for port {} ---".format(port))
-        self.setup_port_params(port)
+        self.setup_port_params(port, init=init)
         self.resolve_arp(vlan)
-        self.storm_setup(init=init)
+        if not self.pfc_wd['fake_storm']:
+            self.storm_setup(init=init)
 
-    def setup_port_params(self, port):
+    def setup_port_params(self, port, init=False):
          """
          Gather all the parameters needed for storm generation and ptf test based off the DUT port
 
@@ -174,6 +189,7 @@ class SetupPfcwdFunc(object):
              port(string) : DUT port
          """
          self.pfc_wd = dict()
+         self.pfc_wd['fake_storm'] = False if init else self.fake_storm
          self.pfc_wd['test_pkt_count'] = 100
          self.pfc_wd['queue_index'] = 4
          self.pfc_wd['frames_number'] = 100000000
@@ -242,15 +258,15 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, eth0_mac, pfc_params):
+    def __init__(self, ptf, router_mac, pfc_params):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
-            eth0_mac(string) : mac addr of eth0
+            router_mac(string) : router mac address
             ptf_params(dict) : all PFC test params specific to the DUT port
         """
         self.ptf = ptf
-        self.eth0_mac = eth0_mac
+        self.router_mac = router_mac
         self.pfc_queue_index = pfc_params['queue_index']
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
@@ -273,7 +289,7 @@ class SendVerifyTraffic():
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
         if action == "forward" and  type(self.pfc_wd_test_port_ids) == list:
                 dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -299,7 +315,7 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -321,7 +337,7 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_test_port_ids) + " ]"
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index - 1,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -343,7 +359,7 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index - 1,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -361,7 +377,7 @@ class SendVerifyTraffic():
         Send traffic to fill up the buffer. No verification
         """
         logger.info("Send packets to {} to fill up the buffer".format(self.pfc_wd_test_port))
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -418,11 +434,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         if action != "dontcare":
             start_wd_on_ports(dut, port, restore_time, detect_time, action)
 
-        self.storm_hndle.start_storm()
+        if not self.pfc_wd['fake_storm']:
+            self.storm_hndle.start_storm()
 
         if action == "dontcare":
             self.traffic_inst.fill_buffer()
             start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
+
+        # placing this here to cover all action types. for 'dontcare' action, wd is started much later after the pfc storm is started
+        if self.pfc_wd['fake_storm']:
+            PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
         time.sleep(5)
 
@@ -434,7 +455,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.traffic_inst.verify_wd_func(action if action != "dontcare" else "drop")
         return loganalyzer
 
-    def storm_restore_path(self, loganalyzer, port, action):
+    def storm_restore_path(self, dut, loganalyzer, port, action):
         """
         Storm restoration action and associated verifications
 
@@ -451,7 +472,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer.expect_regex.extend([EXPECT_PFC_WD_RESTORE_RE])
         loganalyzer.match_regex = []
 
-        self.storm_hndle.stop_storm()
+        if self.pfc_wd['fake_storm']:
+            PfcCmd.set_storm_status(dut, self.queue_oid, "disabled")
+        else:
+            self.storm_hndle.stop_storm()
         time.sleep(self.timers['pfc_wd_wait_for_restore_time'])
         # storm restore
         logger.info("Verify if PFC storm is restored on port {}".format(port))
@@ -471,11 +495,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         logger.info("--- Storm detection path for port {} ---".format(port))
         loganalyzer = self.storm_detect_path(dut, port, action)
         logger.info("--- Storm restoration path for port {} ---".format(port))
-        self.storm_restore_path(loganalyzer, port, action)
+        self.storm_restore_path(dut, loganalyzer, port, action)
         logger.info("--- Verify PFCwd counters for port {} ---".format(port))
         self.stats.verify_pkt_cnts(self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
 
-    def test_pfcwd_actions(self, request, setup_pfc_test, fanout_graph_facts, ptfhost, duthost, fanouthosts):
+    def test_pfcwd_actions(self, request, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
         """
         PFCwd functional test
 
@@ -487,6 +511,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             duthost(AnsibleHost) : DUT instance
             fanouthosts(AnsibleHost): fanout instance
         """
+        duthost = duthosts[rand_one_dut_hostname]
         setup_info = setup_pfc_test
         self.fanout_info = fanout_graph_facts
         self.ptf = ptfhost
@@ -495,14 +520,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.setup()['ansible_facts']
+        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
+        self.fake_storm = request.config.getoption("--fake-storm")
 
         for idx, port in enumerate(self.ports):
+             self.storm_hndle = None
              logger.info("")
              logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
              self.setup_test_params(port, setup_info['vlan'], init=not idx)
-             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_eth0']['macaddress'], self.pfc_wd)
+             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
              pfc_wd_restore_time_large = request.config.getoption("--restore-time")
              # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
              self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
@@ -518,5 +545,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                      if self.storm_hndle:
                          logger.info("--- Stop pfc storm on port {}".format(port))
                          self.storm_hndle.stop_storm()
+                     else:
+                         logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
+                         PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
                      logger.info("--- Stop PFC WD ---")
                      self.dut.command("pfcwd stop")

@@ -1,4 +1,5 @@
 ## saskey are treated as credential in Credscan
 vmimage_saskey: use_own_value
 cdimage_saskey: use_own_value
-
+ceosimage_saskey: use_own_value
+k8s_vmimage_saskey: use_own_value

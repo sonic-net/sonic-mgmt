@@ -27,16 +27,18 @@ PTF_QLEN = 2000
 
 
 @pytest.fixture(scope="module")
-def config_facts(duthost):
+def config_facts(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
 @pytest.fixture(scope='module')
-def build_fib(duthost, ptfhost, config_facts):
+def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
     duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
@@ -56,10 +58,10 @@ def build_fib(duthost, ptfhost, config_facts):
             oports = []
             for ifname in ifnames:
                 if po.has_key(ifname):
-                    oports.append([str(mg_facts['minigraph_port_indices'][x]) for x in po[ifname]['members']])
+                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                 else:
                     if ports.has_key(ifname):
-                        oports.append([str(mg_facts['minigraph_port_indices'][ifname])])
+                        oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
                     else:
                         logger.info("Route point to non front panel port {}:{}".format(k, v))
                         skip = True
@@ -95,7 +97,7 @@ def get_vlan_untag_ports(config_facts):
     return vlan_untag_ports
 
 
-def get_router_interface_ports(config_facts, testbed):
+def get_router_interface_ports(config_facts, tbinfo):
     """
     get all physical ports associated with router interface (physical router interface, port channel router interface and vlan router interface)
     """
@@ -108,7 +110,7 @@ def get_router_interface_ports(config_facts, testbed):
         for po_name in portchannels_name:
             for port_name in config_facts.get('PORTCHANNEL', {})[po_name]['members']:
                 portchannels_member_ports.append(port_name)
-    if 't0' in testbed['topo']['name']:
+    if 't0' in tbinfo['topo']['name']:
         vlan_untag_ports = get_vlan_untag_ports(config_facts)
 
     router_interface_ports = ports + portchannels_member_ports + vlan_untag_ports
@@ -117,7 +119,8 @@ def get_router_interface_ports(config_facts, testbed):
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
+def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
+    duthost = duthosts[rand_one_dut_hostname]
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
@@ -129,7 +132,7 @@ def test_basic_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, bui
         test_balancing = True
 
     logging.info("run ptf test")
-    testbed_type = testbed['topo']['name']
+    testbed_type = tbinfo['topo']['name']
     router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
     log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -150,7 +153,8 @@ def test_basic_fib(testbed, duthost, ptfhost, ipv4, ipv6, mtu, config_facts, bui
 
 
 @pytest.fixture(scope="module")
-def setup_hash(testbed, duthost, config_facts):
+def setup_hash(tbinfo, duthosts, rand_one_dut_hostname, config_facts):
+    duthost = duthosts[rand_one_dut_hostname]
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     setup_info = {}
@@ -170,13 +174,16 @@ def setup_hash(testbed, duthost, config_facts):
     if duthost.facts['asic_type'] in ["mellanox"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
+    if duthost.facts['asic_type'] in ["barefoot"]:
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
     setup_info['hash_keys'] = hash_keys
 
-    setup_info['testbed_type'] = testbed['topo']['name']
+    setup_info['testbed_type'] = tbinfo['topo']['name']
     setup_info['router_mac'] = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
     vlan_untag_ports = get_vlan_untag_ports(config_facts)
-    in_ports_name = get_router_interface_ports(config_facts, testbed)
+    in_ports_name = get_router_interface_ports(config_facts, tbinfo)
     setup_info['in_ports'] = [config_facts.get('port_index_map', {})[p] for p in in_ports_name]
 
     # add some vlan for hash_key vlan-id test

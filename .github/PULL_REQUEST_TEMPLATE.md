@@ -7,7 +7,7 @@ Please provide following information to help code review process a bit easier:
 ### Description of PR
 <!--
 - Please include a summary of the change and which issue is fixed.
-- Please also include relevant motivation and context. Where should reviewer start? background contaxt?
+- Please also include relevant motivation and context. Where should reviewer start? background context?
 - List any dependencies that are required for this change.
 -->
 

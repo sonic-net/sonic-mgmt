@@ -3,14 +3,15 @@ import json
 import logging
 import time
 
-from tests.common.utilities import wait
+from tests.common.utilities import wait, wait_until
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
+MONIT_STABILIZE_MAX_TIME = 420
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 
 def check_services(dut):
-    logger.info("Checking services status...")
+    logger.info("Checking services status on %s..." % dut.hostname)
 
     networking_uptime = dut.get_networking_uptime().seconds
     timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
@@ -56,7 +57,7 @@ def _find_down_ports(dut, interfaces):
 
 
 def check_interfaces(dut):
-    logger.info("Checking interfaces status...")
+    logger.info("Checking interfaces status on %s..." % dut.hostname)
 
     networking_uptime = dut.get_networking_uptime().seconds
     timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
@@ -96,8 +97,62 @@ def check_interfaces(dut):
     logger.info("Done checking interfaces status.")
     return check_result
 
+
+def check_bgp_status(dut):
+
+    def _check_bgp_status_helper():
+        asic_check_results = []
+        bgp_facts = dut.bgp_facts(asic_index='all')
+        for asic_index, a_asic_facts in enumerate(bgp_facts):
+            a_asic_result = False
+            a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
+            if a_asic_neighbors:
+                down_neighbors = [k for k, v in a_asic_neighbors.items()
+                                  if v['state'] != 'established']
+                if down_neighbors:
+                    if dut.facts['num_asic'] == 1:
+                        check_result['bgp'] = {'down_neighbors' : down_neighbors }
+                    else:
+                        check_result['bgp' + str(asic_index)] = {'down_neighbors' : down_neighbors }
+                    a_asic_result = True
+                else:
+                    a_asic_result = False
+                    if dut.facts['num_asic'] == 1:
+                        if 'bgp' in check_result:
+                            check_result['bgp'].pop('down_neighbors', None)
+                    else:
+                        if 'bgp' + str(asic_index) in check_result:
+                            check_result['bgp' + str(asic_index)].pop('down_neighbors', None)
+            else:
+                a_asic_result = True
+
+            asic_check_results.append(a_asic_result)
+
+        if any(asic_check_results):
+            check_result['failed'] = True
+        return not check_result['failed']
+
+    logger.info("Checking bgp status on host %s ..." % dut.hostname)
+    check_result = {"failed": False, "check_item": "bgp"}
+
+    networking_uptime = dut.get_networking_uptime().seconds
+    timeout = max(SYSTEM_STABILIZE_MAX_TIME - networking_uptime, 1)
+    interval = 20
+    wait_until(timeout, interval, _check_bgp_status_helper)
+    if (check_result['failed']):
+        for a_result in check_result.keys():
+            if a_result != 'failed':
+                # Dealing with asic result
+                if 'down_neighbors' in check_result[a_result]:
+                    logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (check_result[a_result]['down_neighbors'], a_result, dut.hostname))
+    else:
+        logger.info('No BGP neighbors are down on %s' % dut.hostname)
+
+    logger.info("Done checking bgp status on %s" % dut.hostname)
+    return check_result
+
 def check_dbmemory(dut):
-    logger.info("Checking database memory...")
+    logger.info("Checking database memory on %s..." % dut.hostname)
 
     total_omem = 0
     re_omem = re.compile("omem=(\d+)")
@@ -117,8 +172,82 @@ def check_dbmemory(dut):
     logger.info("Done checking database memory")
     return check_result
 
+def check_monit_services_status(check_result, monit_services_status):
+    """
+    @summary: Check whether each type of service which was monitored by Monit was in correct status or not.
+              If a service was in "Not monitored" status, sanity check will skip it since this service
+              was temporarily set to not be monitored by Monit.
+    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
+    """
+    check_result["services_status"] = {}
+    for service_name, service_info in monit_services_status.items():
+        check_result["services_status"].update({service_name: service_info["service_status"]})
+        if service_info["service_status"] == "Not monitored":
+            continue
+        if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
+            or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
+            or (service_info["service_type"] == "Program" and service_info["service_status"] != "Status ok")):
+            check_result["failed"] = True
+
+    return check_result
+
+def check_monit(dut):
+    """
+    @summary: Check whether the Monit is running and whether the services which were monitored by Monit are 
+              in the correct status or not.
+    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
+    """
+    logger.info("Checking status of each Monit service...")
+    networking_uptime = dut.get_networking_uptime().seconds
+    timeout = max((MONIT_STABILIZE_MAX_TIME - networking_uptime), 0)
+    interval = 20
+    logger.info("networking_uptime = {} seconds, timeout = {} seconds, interval = {} seconds" \
+                .format(networking_uptime, timeout, interval))
+
+    check_result = {"failed": False, "check_item": "monit"}
+
+    if timeout == 0:
+        monit_services_status = dut.get_monit_services_status()
+        if not monit_services_status:
+            logger.info("Monit was not running.")
+            check_result["failed"] = True
+            check_result["failed_reason"] = "Monit was not running"
+            logger.info("Checking status of each Monit service was done!")
+            return check_result
+
+        check_result = check_monit_services_status(check_result, monit_services_status)
+    else:
+        start = time.time()
+        elapsed = 0
+        is_monit_running = False
+        while elapsed < timeout:
+            check_result["failed"] = False
+            monit_services_status = dut.get_monit_services_status()
+            if not monit_services_status:
+                wait(interval, msg="Monit was not started and wait {} seconds to retry. Remaining time: {}." \
+                    .format(interval, timeout - elapsed))
+                elapsed = time.time() - start
+                continue
+
+            is_monit_running = True
+            check_result = check_monit_services_status(check_result, monit_services_status)
+            if check_result["failed"]:
+                wait(interval, msg="Services were not monitored and wait {} seconds to retry. Remaining time: {}. Services status: {}" \
+                    .format(interval, timeout - elapsed, str(check_result["services_status"])))
+                elapsed = time.time() - start
+            else:
+                break
+
+        if not is_monit_running:
+            logger.info("Monit was not running.")
+            check_result["failed"] = True
+            check_result["failed_reason"] = "Monit was not running"
+
+    logger.info("Checking status of each Monit service was done!")
+    return check_result
+
 def check_processes(dut):
-    logger.info("Checking process status...")
+    logger.info("Checking process status on %s..." % dut.hostname)
 
     networking_uptime = dut.get_networking_uptime().seconds
     timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
@@ -139,6 +268,7 @@ def check_processes(dut):
         start = time.time()
         elapsed = 0
         while elapsed < timeout:
+            check_result["failed"] = False
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
@@ -157,23 +287,33 @@ def check_processes(dut):
     logger.info("Done checking processes status.")
     return check_result
 
-def do_checks(dut, check_items):
-    results = []
-    for item in check_items:
-        if item == "services":
-            results.append(check_services(dut))
-        elif item == "interfaces":
-            results.append(check_interfaces(dut))
-        elif item == "dbmemory":
-            results.append(check_dbmemory(dut))
-        elif item == "processes":
-            results.append(check_processes(dut))
+def do_checks(duthosts, check_items):
+    results = {}
+    for dut in duthosts:
+        results[dut.hostname] = []
+        for item in check_items:
+            if item == "services":
+                results[dut.hostname].append(check_services(dut))
+            elif item == "interfaces":
+                if dut in duthosts.frontend_nodes:
+                    results[dut.hostname].append(check_interfaces(dut))
+            elif item == "dbmemory":
+                results [dut.hostname].append(check_dbmemory(dut))
+            elif item == "processes":
+                results[dut.hostname].append(check_processes(dut))
+            elif item == "bgp":
+                if dut in duthosts.frontend_nodes:
+                    results[dut.hostname].append(check_bgp_status(dut))
+            elif item == "monit":
+                results[dut.hostname].append(check_monit(dut))
 
     return results
 
-def print_logs(dut, print_logs):
-    logger.info("Run commands to print logs, logs to be collected:\n%s" % json.dumps(print_logs, indent=4))
-    for item in print_logs:
-        cmd = print_logs[item]
-        res = dut.shell(cmd, module_ignore_errors=True)
-        logger.info("cmd='%s', output:\n%s" % (cmd, json.dumps(res["stdout_lines"], indent=4)))
+
+def print_logs(duthosts, print_logs):
+    for per_host in duthosts:
+        logger.info("Run commands to print logs, logs to be collected on %s:\n %s" % (per_host.hostname, json.dumps(print_logs, indent=4)))
+        for item in print_logs:
+            cmd = print_logs[item]
+            res = per_host.shell(cmd, module_ignore_errors=True)
+            logger.info("cmd='%s', output:\n%s" % (cmd, json.dumps(res["stdout_lines"], indent=4)))

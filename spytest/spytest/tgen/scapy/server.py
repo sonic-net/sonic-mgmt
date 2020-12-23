@@ -2,37 +2,34 @@ import os
 import sys
 import json
 import time
+from datetime import datetime
 
 from dicts import SpyTestDict
 from port import ScapyPort
 from logger import Logger
-
-# create port map
-portmap = SpyTestDict()
-tgen_portmap_model = os.getenv("SCAPY_TGEN_PORTMAP", "eth1")
-for i in range(0,16):
-    if tgen_portmap_model == "ens6":
-        portmap["1/{}".format(i+1)] = "ens{}".format(i+6)
-        portmap["{}".format(i+1)] = "ens{}".format(i+6)
-    elif tgen_portmap_model == "eth1":
-        portmap["1/{}".format(i+1)] = "eth{}".format(i)
-        portmap["{}".format(i+1)] = "eth{}".format(i)
-    else:
-        portmap["1/{}".format(i)] = "eth{}".format(i)
-        portmap["{}".format(i)] = "eth{}".format(i)
+from utils import Utils
 
 class ScapyServer(object):
     def __init__(self, dry=False, dbg=0):
+        self.node_name = ""
         self.dry = dry
         self.dbg = dbg
         self.ports = SpyTestDict()
         self.mgrps = SpyTestDict()
         self.msrcs = SpyTestDict()
-        self.logger = Logger()
-        os.system("ip -all netns del")
-        os.system("sysctl -w net.bridge.bridge-nf-call-arptables=0")
-        os.system("sysctl -w net.bridge.bridge-nf-call-ip6tables=0")
-        os.system("sysctl -w net.bridge.bridge-nf-call-iptables=0")
+        self.portmap = SpyTestDict()
+        if not dry:
+            os.system("ip -all netns del")
+            os.system("sysctl -w net.bridge.bridge-nf-call-arptables=0 >/dev/null 2>&1")
+            os.system("sysctl -w net.bridge.bridge-nf-call-ip6tables=0 >/dev/null 2>&1")
+            os.system("sysctl -w net.bridge.bridge-nf-call-iptables=0 >/dev/null 2>&1")
+        model = os.getenv("SCAPY_TGEN_PORTMAP", "eth1")
+        logs_root = os.getenv("SCAPY_TGEN_LOGS_PATH", "/tmp/scapy-tgen")
+        time_spec = datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f")
+        logs_path = "{}/inst-{}".format(logs_root, time_spec)
+        self.logger = Logger(logs_dir=logs_path, dry=dry)
+        self.portmap_init(model)
+        self.logger.set_node_name(self.node_name)
 
     def __del__(self):
         self.logger.debug("ScapyServer exiting...")
@@ -41,6 +38,9 @@ class ScapyServer(object):
         self.mgrps = SpyTestDict()
         self.msrcs = SpyTestDict()
 
+    def trace_api(self, *args, **kws):
+        print(self.node_name, args, kws)
+
     def cleanup_ports(self):
         for key in self.ports.keys():
             self.ports[key].cleanup()
@@ -48,6 +48,22 @@ class ScapyServer(object):
             self.mgrps[key].cleanup()
         for key in self.msrcs.keys():
             self.msrcs[key].cleanup()
+
+    def portmap_init(self, model):
+        self.portmap.clear()
+        for i in range(0,16):
+            if model == "ens6":
+                self.portmap["1/{}".format(i+1)] = "ens{}".format(i+6)
+                self.portmap["{}".format(i+1)] = "ens{}".format(i+6)
+            elif model == "eth1":
+                self.portmap["1/{}".format(i+1)] = "eth{}".format(i)
+                self.portmap["{}".format(i+1)] = "eth{}".format(i)
+            elif model == "vde":
+                self.portmap["1/{}".format(i+1)] = "vde{}".format(i)
+                self.portmap["{}".format(i+1)] = "vde{}".format(i)
+            else:
+                self.portmap["1/{}".format(i)] = "eth{}".format(i)
+                self.portmap["{}".format(i)] = "eth{}".format(i)
 
     def trace_args(self, *args, **kws):
         func = sys._getframe(1).f_code.co_name
@@ -63,14 +79,16 @@ class ScapyServer(object):
         self.logger.error("=================== {} ==================".format(msg))
         raise ValueError(msg)
 
-    def make_list(self, arg):
-        if isinstance(arg, list):
-            return arg
-        return [arg]
-
-    def exposed_server_control(self, req, data, *args, **kws):
+    def exposed_server_control(self, node_name, req, data, *args, **kws):
         self.trace_args(req, data, *args, **kws)
         retval = ""
+        if req == "set-name":
+            self.node_name = data
+            self.logger.set_node_name(self.node_name)
+            return retval
+        if node_name != self.node_name:
+            self.logger.error("node name mismatch need {} got {}".format(self.node_name, node_name))
+            return retval
         if req == "set-dbg-lvl":
             self.dbg = int(data)
         elif req == "set-dry-run":
@@ -89,6 +107,8 @@ class ScapyServer(object):
             for port in self.ports.values():
                 port.clean_streams()
                 port.clean_interfaces()
+        elif req == "set-model":
+            self.portmap_init(data)
         else:
             self.error("Invalid", "server request", req)
         return retval
@@ -107,7 +127,7 @@ class ScapyServer(object):
             for pobj in self.ports.values():
                 if pobj.name == pname:
                     delete_ports.append(pobj)
-            pobj = ScapyPort(pname, portmap.get(pname), dry=self.dry,
+            pobj = ScapyPort(pname, self.portmap.get(pname), dry=self.dry,
                              dbg=self.dbg, logger=self.logger)
             self.ports[pobj.port_handle] = pobj
             res.port_handle[pname0] = pobj.port_handle
@@ -123,30 +143,59 @@ class ScapyServer(object):
         res.status = 1
         return self.trace_result(res)
 
+    def get_handle_map(self, stream_handle):
+        rv = SpyTestDict()
+        for handle in Utils.make_list(stream_handle):
+            for port in self.ports.values():
+                if not port.stream_validate(handle):
+                    continue
+                if port not in rv:
+                    rv[port] = [handle]
+                else:
+                    rv[port].append(handle)
+        return rv
+
+    def port_traffic_control(self, port, complete, *args, **kws):
+        if port.traffic_control(*args, **kws):
+            handle = kws.pop('handle', None)
+            complete.append([port, handle])
+
     def exposed_tg_traffic_control(self, *args, **kws):
         self.trace_args(*args, **kws)
-        handle = kws.get('handle', None)
-        port_handle = kws.get('port_handle', None)
+        handle = kws.pop('handle', None)
+        port_handle = kws.pop('port_handle', None)
+        stream_handle = kws.pop('stream_handle', None)
         res = True
+        complete = []
         if port_handle:
-            for port_handle in self.make_list(port_handle):
-                port = self.ports[port_handle]
-                if not port.traffic_control(*args, **kws):
-                    res = False
+            phandle_list = Utils.make_list(port_handle)
+            for phandle in phandle_list:
+                port = self.ports[phandle]
+                self.port_traffic_control(port, complete, *args, **kws)
         elif handle:
-            for handle in self.make_list(handle):
-                for port in self.ports.values():
-                    if port.stream_validate(handle):
-                        if not port.traffic_control(*args, **kws):
-                            res = False
-                        break
+            handle_map = self.get_handle_map(handle)
+            for port, handle_list in handle_map.items():
+                for handle in handle_list:
+                    kws["handle"] = handle
+                    self.port_traffic_control(port, complete, *args, **kws)
+        elif stream_handle:
+            handle_map = self.get_handle_map(stream_handle)
+            for port, handle_list in handle_map.items():
+                for handle in handle_list:
+                    kws["handle"] = handle
+                    self.port_traffic_control(port, complete, *args, **kws)
         else:
             for port in self.ports.values():
-                if not port.traffic_control(*args, **kws):
-                    res = False
+                self.port_traffic_control(port, complete, *args, **kws)
+
+        # call complete callback
+        for port, handle in complete:
+            if not handle: kws.pop("handle", "")
+            else: kws["handle"] = handle
+            port.traffic_control_complete(*args, **kws)
 
         action = kws.get('action', None)
-        if action in ["stop", "start"]:
+        if action in ["stop", "start", "run"]:
             for port in self.ports.values():
                 stats = port.getStats()
                 msg = "{}: TX: {} RX: {}".format(port.name,
@@ -275,6 +324,13 @@ class ScapyServer(object):
                 return intf
         return None
 
+    def get_all_interfaces(self):
+        rv = {}
+        for port in self.ports.values():
+            for intf in port.interfaces:
+                rv[intf] = port
+        return rv
+
     def verify_handle(self, *args, **kws):
         port_handle = kws.get('port_handle', None)
         protocol_handle = kws.get('protocol_handle', None)
@@ -284,49 +340,51 @@ class ScapyServer(object):
             raise ValueError(msg)
         if port_handle:
             return self.ports[port_handle]
-        elif protocol_handle:
-            if isinstance(protocol_handle, list):
-                protocol_handle = protocol_handle[0]
-            for port in self.ports.values():
-                if port.interface_validate(protocol_handle):
-                    return port
+
+        intfs = self.get_all_interfaces()
+        if protocol_handle: handle = protocol_handle
+        if isinstance(handle, list): handle = handle[0]
+        if handle in intfs: return intfs[handle]
+
+        self.logger.info("valid interfaces: {}".format(intfs.keys()))
+        if protocol_handle:
             self.error("Invalid", "protocol_handle", protocol_handle)
         else:
-            if isinstance(handle, list):
-                handle = handle[0]
-            for port in self.ports.values():
-                if port.interface_validate(handle):
-                    return port
             self.error("Invalid", "handle", handle)
 
     def exposed_tg_interface_config(self, *args, **kws):
         self.trace_args(*args, **kws)
         port = self.verify_handle(*args, **kws)
         res = port.interface_config(*args, **kws)
+        time.sleep(2)
         return self.trace_result(res)
 
     def exposed_tg_emulation_bgp_config(self, *args, **kws):
         self.trace_args(*args, **kws)
         port = self.verify_handle(*args, **kws)
         res = port.emulation_bgp_config(*args, **kws)
+        time.sleep(2)
         return self.trace_result(res)
 
     def exposed_tg_emulation_bgp_route_config(self, *args, **kws):
         self.trace_args(*args, **kws)
         port = self.verify_handle(*args, **kws)
         res = port.emulation_bgp_route_config(*args, **kws)
+        time.sleep(2)
         return self.trace_result(res)
 
     def exposed_tg_emulation_bgp_control(self, *args, **kws):
         self.trace_args(*args, **kws)
         port = self.verify_handle(*args, **kws)
         res = port.emulation_bgp_control(*args, **kws)
+        time.sleep(2)
         return self.trace_result(res)
 
     def exposed_tg_emulation_igmp_config(self, *args, **kws):
         self.trace_args(*args, **kws)
         port = self.verify_handle(*args, **kws)
         res = port.emulation_igmp_config(*args, **kws)
+        time.sleep(2)
         return self.trace_result(res)
 
     def exposed_tg_emulation_multicast_group_config(self, *args, **kws):

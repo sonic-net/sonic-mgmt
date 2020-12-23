@@ -3,10 +3,12 @@
 
 import subprocess
 import re
+
 from spytest import st
 from spytest.utils import filter_and_select
-from apis.system.basic import replace_line_in_file, service_operations
 import utilities.utils as utils_obj
+
+from apis.system.basic import replace_line_in_file, service_operations
 from apis.system.connection import execute_command
 
 snmp_config_file_path = r'/etc/sonic/snmp.yml'
@@ -187,6 +189,10 @@ def get_snmp_operation(**kwargs):
         if retry:
             snmp_command += " -r {}".format(retry)
     st.log("Command: {}".format(snmp_command))
+
+    if st.is_dry_run():
+        return False
+
     if version in ["1", "2"]:
         pprocess = subprocess.Popen(snmp_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     universal_newlines=True)
@@ -345,10 +351,10 @@ def walk_snmp_operation(**kwargs):
             output = pprocess.stdout.readline()
             try:
                 output = output.decode(errors='ignore')
-            except:
+            except Exception:
                 pass  # already decoded in python3
             if pprocess.poll() is not None and output.strip() == '':
-                snmp_error_stderr = pprocess.communicate()[1].decode()
+                snmp_error_stderr = pprocess.communicate()[1].encode().decode()
                 if snmp_error_stderr != r'':
                     if "Timeout" in snmp_error_stderr:
                         st.error("SNMP Timeout occurs")
@@ -396,6 +402,18 @@ def walk_snmp_operation(**kwargs):
                 st.error(output)
                 return False
 
+def get_snmp_memory(ipaddress,oid,community_name):
+    res=dict()
+    output=walk_snmp_operation(ipaddress=ipaddress, oid=oid, community_name=community_name,skip_tmpl=False)
+    if len(output) == 0:
+        st.error("Failed to get the memory data")
+        return False
+    for data in output:
+        out = re.findall(r"UCD-SNMP-MIB::mem(TotalReal|AvailReal|TotalFree|Cached).0 = INTEGER: (\d+) kB", data)
+        if out:
+            for i in out:
+                res[i[0]] = i[1]
+    return res
 
 def poll_for_snmp(dut, iteration_count=30, delay=1, **kwargs):
     """
@@ -410,7 +428,7 @@ def poll_for_snmp(dut, iteration_count=30, delay=1, **kwargs):
     i = 1
     while True:
         snmp_operation = get_snmp_operation(report=False, **kwargs)
-        if snmp_operation:
+        if snmp_operation or st.is_dry_run():
             st.log("snmp o/p is found ...")
             return True
         if i > iteration_count:
@@ -433,7 +451,7 @@ def poll_for_snmp_walk(dut, iteration_count=30, delay=1, **kwargs):
     i = 1
     while True:
         snmp_operation = walk_snmp_operation(report=False, **kwargs)
-        if snmp_operation:
+        if snmp_operation or st.is_dry_run():
             st.log("snmp o/p is found ...")
             return True
         if i > iteration_count:
@@ -507,27 +525,37 @@ def config_snmp_trap(dut, **kwargs):
 
     """
     commands = []
-    cli_type = kwargs.get("cli_type", "click")
-    ip_addr = kwargs.get('ip_addr')
+    cli_type = st.get_ui_type(dut, **kwargs)
+    if cli_type in ['rest-patch', 'rest-put']:
+        cli_type = 'klish'
+    ip_addr = kwargs.get('ip_addr', None)
     port = kwargs.get("port", 162)
     vrf = kwargs.get("vrf", None)
     community = kwargs.get("community", "public")
     no_form = kwargs.get("no_form", False)
+
+    if not ip_addr or kwargs.get('version') != 2:
+        st.log("Mandatory parameters not passed")
+        return False
+
     if cli_type == 'klish':
-        st.log("UNSUPPORTED CLI TYPE {}".format(cli_type))
-        return True
+        version = 'v2c'
+        cmd = 'snmp-server enable trap'
+        if no_form:
+            cmd = 'no ' + cmd
+        commands.append(cmd)
+        cmd = 'snmp-server host {} community {} traps {}'.format(ip_addr, community, version)
+        if port > 1024:
+            cmd += ' port {}'.format(port)
+        if no_form:
+            cmd = 'no ' + 'snmp-server host {}'.format(ip_addr)
+        commands.append(cmd)
     elif cli_type == "click":
         st.log('Config SNMP Trap receiver')
         if not no_form:
-            if 'ip_addr' not in kwargs:
-                st.log("Mandatory parameter ipaddress not passed")
-                return False
             version = kwargs.get("version", 2)
             my_cmd = 'config snmptrap modify {} {} -p {} -v {} -c {}'.format(version, ip_addr, port, vrf, community)
         else:
-            if 'version' not in kwargs:
-                st.log("Mandatory parameter version  not passed")
-                return False
             my_cmd = 'config snmptrap del {}'.format(kwargs.get("version"))
         commands.append(my_cmd)
     if commands:
@@ -1028,7 +1056,7 @@ def poll_for_snmp_walk_output(dut, iteration_count=5, delay=1, expected_output="
             if expected_output in match:
                 st.log("Found expected output\n")
                 return snmp_walk_out_put
-        if i > iteration_count:
+        if st.is_dry_run() or i > iteration_count:
             st.log("Max {} tries Exceeded. Exiting..".format(i))
             return snmp_walk_out_put
         i += 1
@@ -1053,7 +1081,7 @@ def poll_for_snmp_get_output(dut, iteration_count=5, delay=1, expected_output=""
             if expected_output in match:
                 st.log("Found expected output\n")
                 return snmp_get_out_put
-        if i > iteration_count:
+        if st.is_dry_run() or i > iteration_count:
             st.log("Max {} tries Exceeded. Exiting..".format(i))
             return snmp_get_out_put
         i += 1
@@ -1103,7 +1131,7 @@ def get_auth_priv_keys(**kwargs):
     st.log("Command is:{}".format(command))
     pprocess1 = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  universal_newlines=True)
-    (stdout, stderr) = pprocess1.communicate()
+    (stdout, _) = pprocess1.communicate()
     st.log("Auth Priv Keys output: {}".format(stdout))
     if pprocess1.returncode == 0:
         result = stdout.rstrip('\n').split("\n")
@@ -1143,3 +1171,13 @@ def verify_snmp_details_using_docker(dut, **kwargs):
                         st.log("Expected value not found for {} -- {} in output".format(key, value))
                         return False
     return True
+
+
+def config_agentx(dut, config='yes', cli_type=''):
+    # cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    # No klish comnand to configure agentx(SONIC-31578). Revisit the API once the CLI available
+    cli_type = 'vtysh'
+    config = '' if config == 'yes' else 'no'
+    cmd = config + ' agentx'
+    st.config(dut, cmd, type=cli_type)
+

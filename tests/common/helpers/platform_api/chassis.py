@@ -41,6 +41,13 @@ def get_status(conn):
     return chassis_api(conn, 'get_status')
 
 
+def get_position_in_parent(conn):
+    return chassis_api(conn, 'get_position_in_parent')
+
+
+def is_replaceable(conn):
+    return chassis_api(conn, 'is_replaceable')
+
 #
 # Methods defined in ChassisBase class
 #
@@ -50,10 +57,6 @@ def get_status(conn):
 
 def get_base_mac(conn):
     return chassis_api(conn, 'get_base_mac')
-
-
-def get_serial_number(conn):
-    return chassis_api(conn, 'get_serial_number')
 
 
 def get_system_eeprom_info(conn):
@@ -150,6 +153,14 @@ def get_all_sfps(conn):
 
 def get_sfp(conn, index):
     return chassis_api(conn, 'get_sfp', [index])
+
+
+def set_status_led(conn, color):
+    return chassis_api(conn, 'set_status_led', [color])
+
+
+def get_status_led(conn):
+    return chassis_api(conn, 'get_status_led')
 
 
 def get_watchdog(conn):
