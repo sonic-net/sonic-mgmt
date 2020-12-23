@@ -30,7 +30,7 @@
 - [APIs for thermal added for modular chassis](#apis-for-thermal-added-for--chassis)
    - [5.1 Test api get_minimum_recorded](#51-test-api-get_minimum_recorded)
    - [5.2 Test api get_maximum_recorded](#52-test-api-get_maximum_recorded)
-- [APIs for fan_drawer added for modular chassis](#APIs-for-fan_drawer-added-for-modular-chassis)
+- [APIs for fan_drawer added for modular chassis](#apis-for-fan_drawer-added-for--chassis)
    - [6.1 Test api get_maximum_consumed_power](#61-test-api-get_maximum_consumed_power)
 
 ## Introduction
@@ -60,7 +60,7 @@ This test plan ONLY covers the changes associated with PRs below:
 
 The following are useful commands for validating the testcases that follow.
 
-1. Use redis cli dump config db using ` redis-dump -d 4 -y -k "*CHASSIS*" ` after shutdown line card, for example
+1. Use redis cli dump config db using `redis-dump -d 4 -y -k "*CHASSIS*"` after shutdown line card, for example
 ```
    admin@sonic:~$ redis-dump -d 4 -y -k "*CHASSI*"
    {
@@ -74,7 +74,7 @@ The following are useful commands for validating the testcases that follow.
       }
    }
 ```
-2. Use redis cli to dump state Db  ` redis-dump -d 6 -y -k "*CHASSIS*" `, for example: 
+2. Use redis cli to dump state Db `redis-dump -d 6 -y -k "*CHASSIS*"`, for example: 
 ```
    "CHASSIS_MODULE_TABLE|LINE-CARD1": {
       "expireat": 980474761.732194, 
@@ -87,7 +87,7 @@ The following are useful commands for validating the testcases that follow.
         }
    }
 ```
-3. Use redis dump  ` redis-dump  -d 6 -y -k "*MIDPLANE*" ` to get database information, for example:
+3. Use redis dump `redis-dump  -d 6 -y -k "*MIDPLANE*"` to get database information, for example:
 ```
    redis-dump  -d 6 -y -k "*MIDPLANE*"
    {
@@ -108,7 +108,7 @@ The following are useful commands for validating the testcases that follow.
 ### 1.1 Check platform chassis module status 
 
 #### Steps
- * Use command ` show chassis-modules status ` to get status of modular chassis 
+ * Use command `show chassis-modules status` to get status of modular chassis 
  
  
 #### Verify in
@@ -155,15 +155,15 @@ The following are useful commands for validating the testcases that follow.
 
 #### Steps
 
- * Shutdown line card use Run command ` sudo config chassis-modules shutdown <card> `
- * Startup line card use Run command ` sudo config chassis-modules startup <card> `
+ * Shutdown line card use Run command `sudo config chassis-modules shutdown <card>`
+ * Startup line card use Run command `sudo config chassis-modules startup <card>`
 
 #### Repeat steps on
  * Supervisor
  * Line Cards
 
 #### Pass/Fail Criteria
- * Verify ` show chassis-modules status ` report line-card down after shutdown on supervisor
+ * Verify `show chassis-modules status` report line-card down after shutdown on supervisor
 
   ```
      sudo config chassis-modules shutdown LINE-CARD1
@@ -174,7 +174,7 @@ The following are useful commands for validating the testcases that follow.
   ```
      
 
- * Verify  ` show chassis-modules status ` report line-card up after startup on supervisor
+ * Verify  `show chassis-modules status` report line-card up after startup on supervisor
      for example:
     
   ```
@@ -184,13 +184,13 @@ The following are useful commands for validating the testcases that follow.
     -------------  -----------------  ------  -------------  --------------
       LINE-CARD1  imm36-400g-qsfpdd       1       Online           up
   ```
- *  ` show chassis-modules status ` report card status unchanged after shutdown on line card
+ *  `show chassis-modules status` report card status unchanged after shutdown on line card
  
 
 ### 1.3 Check platform chassis midplane status 
 
 #### Steps
- * Use command ` show chassis-modules midplane-status ` to get status of midplane in modular chassis
+ * Use command `show chassis-modules midplane-status` to get status of midplane in modular chassis
 
 #### Verify in
  * Supervisor
@@ -262,7 +262,7 @@ The following are useful commands for validating the testcases that follow.
 ### 1.5 Check power budget output in chassis state db 
 
 #### Steps
- * Run command ` redis-dump -d 6 -y -k "*power*" ` 
+ * Run command `redis-dump -d 6 -y -k "*power*"` 
  * Manually take one of the PSU offline
  * Manually bring back PSU online
  * Manually remove line card
