@@ -88,5 +88,6 @@ vms20-t0-7050cx3-2,vms20-7,t0,docker-ptf-brcm,vms20-7,10.64.246.125/23,,server_2
 vms20-t0-sn3800-2,vms20-1,t0-120,docker-ptf-mlnx,vms20-1,10.64.246.105/23,,server_20,VM2088,str2-sn3800-02,stumkurv
 vms20-t0-7060,vms20-2,t0,docker-ptf-brcm,vms20-2,10.64.246.58/23,,server_20,VM2092,str2-7060cx-32s-29,vadixit
 vmsvc1-t1-n3164-acs-1,svc1-1,t1-64-lag,docker-ptf-brcm,svc1-1,10.206.144.19/24,,server_svc_1,VM1000,svcstr-n3164-acs-1,Mahesh
+vmsvc1-t1-n3164-acs-2,svc1-2,t1-64-lag,docker-ptf-brcm,svc1-2,10.206.144.20/24,,server_svc_1,VM1024,svcstr-n3164-acs-2,genhwa
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,superman
 spytest,spytest,fullmesh,docker-ptf-brcm,ptf-unknown,10.64.246.101/23,,server_16,,[str2-msn2700-spy-1;str2-msn2700-spy-2;str2-a7060-spy-1;str2-a7060-spy-2],hellospytest

@@ -15,6 +15,8 @@ all:
       hosts:
         svc1-1:
           ansible_host: 10.206.144.19
+        svc1-2:
+          ansible_host: 10.206.144.20  
 
 fanout:
   hosts:
