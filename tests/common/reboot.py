@@ -39,7 +39,9 @@ reboot_ctrl_dict = {
         "command": "reboot",
         "timeout": 300,
         "wait": 120,
-        "cause": "'reboot'",
+        # We are searching two types of reboot cause.
+        # This change relates to changes of PR #6130 in sonic-buildimage repository
+        "cause": r"'reboot'|Non-Hardware \(reboot",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_FAST: {
