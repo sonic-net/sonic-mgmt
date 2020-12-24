@@ -10,6 +10,8 @@ import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
 from ansible.module_utils.port_utils import get_port_alias_to_name_map
+from fractions import gcd
+ 
 
 from lxml import etree as ET
 from lxml.etree import QName
@@ -45,6 +47,7 @@ ANSIBLE_USER_MINIGRAPH_PATH = os.path.expanduser('~/.ansible/minigraph')
 ANSIBLE_LOCAL_MINIGRAPH_PATH = '{}.xml'
 ANSIBLE_USER_MINIGRAPH_MAX_AGE = 86400  # 24-hours (in seconds)
 
+
 class minigraph_encoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj,
@@ -53,7 +56,7 @@ class minigraph_encoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def parse_png(png, hname):
+def parse_png(png, hname, dpg_ecmp_content=None):
     neighbors = {}
     devices = {}
     neighbors_namespace = defaultdict(str)
@@ -61,19 +64,25 @@ def parse_png(png, hname):
     console_port = ''
     mgmt_dev = ''
     mgmt_port = ''
+    png_ecmp_content = []
+
     try:
         from sonic_py_common import multi_asic
         namespace_list = multi_asic.get_namespace_list()
     except ImportError:
         namespace_list = ['']
 
+    port_device_map = {}
     for child in png:
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
             for link in child.findall(str(QName(ns, "DeviceLinkBase"))):
                 linktype = link.find(str(QName(ns, "ElementType"))).text
                 if linktype != "DeviceInterfaceLink" and linktype != "UnderlayInterfaceLink":
                     continue
-
+                if linktype == "DeviceInterfaceLink":
+                    endport = link.find(str(QName(ns, "EndPort"))).text
+                    startdevice = link.find(str(QName(ns, "StartDevice"))).text
+                    port_device_map[endport] = startdevice
                 enddevice = link.find(str(QName(ns, "EndDevice"))).text
                 endport = link.find(str(QName(ns, "EndPort"))).text
                 startdevice = link.find(str(QName(ns, "StartDevice"))).text
@@ -136,10 +145,15 @@ def parse_png(png, hname):
                             elif node.tag == str(QName(ns, "EndDevice")):
                                 mgmt_dev = node.text
 
+
     for k, v in neighbors.iteritems():
          v['namespace'] = neighbors_namespace[k]
+        
+    if (len(dpg_ecmp_content)):
+         png_ecmp_content = formulate_ecmp_entry(dpg_ecmp_content, port_device_map)
 
-    return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
+    return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port, png_ecmp_content)
+ 
 
 
 def parse_dpg(dpg, hname):
@@ -148,6 +162,7 @@ def parse_dpg(dpg, hname):
         if hostname.text != hname:
             continue
 
+        ip_intfs_map = {}
         ipintfs = child.find(str(QName(ns, "IPInterfaces")))
         intfs = []
         for ipintf in ipintfs.findall(str(QName(ns, "IPInterface"))):
@@ -163,7 +178,7 @@ def parse_dpg(dpg, hname):
             addr_bits = ipn.max_prefixlen
             subnet = ipaddress.IPNetwork(str(ipn.network) + '/' + str(prefix_len))
             ipmask = ipn.netmask
-
+            ip_intfs_map[ipprefix] = intfalias
             intf = {'addr': ipaddr, 'subnet': subnet}
             if isinstance(ipn, ipaddress.IPv4Network):
                 intf['mask'] = ipmask
@@ -233,15 +248,56 @@ def parse_dpg(dpg, hname):
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list}
             fallback_node = pcintf.find(str(QName(ns, "Fallback")))
-            if  fallback_node is not None:
+            if fallback_node is not None:
                 pcs[pcintfname]['fallback'] = fallback_node.text
             ports.pop(pcintfname)
+        nhip_port_map = {}
+        port_nhipv4_map = {}
+        port_nhipv6_map = {}
+        nhgaddr = ["", ""]
+        nhg_int = ""
+        nhportlist = []
+        dpg_ecmp_content = []
+        ipnhs = child.find(str(QName(ns, "IPNextHops")))
+        if ipnhs is not None:
+            for ipnh in ipnhs.findall(str(QName(ns, "IPNextHop"))):
+                if ipnh.find(str(QName(ns, "Type"))).text == 'FineGrainedECMPGroupMember':
+                    ipnhfmbr = ipnh.find(str(QName(ns, "AttachTo"))).text
+                    ipnhaddr = ipnh.find(str(QName(ns, "Address"))).text
+                    nhportlist.append(ipnhfmbr)
+                    nhip_port_map[ipnhaddr] = ipnhfmbr
+                    if "." in ipnhaddr:
+                        port_nhipv4_map[ipnhfmbr] = ipnhaddr
+                    elif ":" in ipnhaddr:
+                        port_nhipv6_map[ipnhfmbr] = ipnhaddr
+
+            if port_nhipv4_map is not None and port_nhipv6_map is not None:
+                subnet_check_ip = port_nhipv4_map.values()[0]
+                for subnet_range in ip_intfs_map:
+                    if ("." in subnet_range):
+                        a = ipaddress.IPAddress(unicode(subnet_check_ip))
+                        n = ipaddress.IPNetwork(unicode(subnet_range))
+                        if (n.Contains(a)):
+                            nhg_int = ip_intfs_map[subnet_range]
+                dwnstrms = child.find(str(QName(ns, "DownstreamSummarySet")))
+                for dwnstrm in dwnstrms.findall(str(QName(ns, "DownstreamSummary"))):
+                    dwnstrmentry = str(ET.tostring(dwnstrm))
+                    if ("FineGrainedECMPGroupDestination" in dwnstrmentry):
+                        subnet_ip = dwnstrmentry[
+                                    dwnstrmentry.find("Subnet>") + len("Subnet>"):dwnstrmentry.rfind("</d4p1:Subnet>")]
+                        truncsubnet_ip = subnet_ip.split("/")[0]
+                        if "." in (truncsubnet_ip):
+                            nhgaddr[0] = subnet_ip
+                        elif ":" in (truncsubnet_ip):
+                            nhgaddr[1] = subnet_ip
+                dpg_ecmp_content = [port_nhipv4_map, port_nhipv6_map, nhgaddr, nhg_int, nhip_port_map]
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         vlan_intfs = []
         dhcp_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
+
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
@@ -276,8 +332,9 @@ def parse_dpg(dpg, hname):
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
-        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers
+        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dpg_ecmp_content
     return None, None, None, None, None, None
+
 
 def parse_cpg(cpg, hname):
     bgp_sessions = []
@@ -418,6 +475,7 @@ def reconcile_mini_graph_locations(filename, hostname):
     root = ET.parse(mini_graph_path).getroot()
     return mini_graph_path, root
 
+
 def port_alias_to_name_map_50G(all_ports, s100G_ports):
     # 50G ports
     s50G_ports = list(set(all_ports) - set(s100G_ports))
@@ -431,9 +489,11 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
 
     return port_alias_to_name_map
 
+
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
-
+    dpg_ecmp_content = []
+    png_ecmp_content = []
     u_neighbors = None
     u_devices = None
     hwsku = None
@@ -467,14 +527,109 @@ def parse_xml(filename, hostname):
     global port_alias_to_name_map
 
     port_alias_to_name_map = get_port_alias_to_name_map(hwsku)
+    if hwsku == "Force10-S6000":
+        for i in range(0, 128, 4):
+            port_alias_to_name_map["fortyGigE0/%d" % i] = "Ethernet%d" % i
+    elif hwsku == "Force10-S6100":
+        for i in range(0, 4):
+            for j in range(0, 16):
+                port_alias_to_name_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j)
+    elif hwsku == "Force10-Z9100":
+        for i in range(0, 128, 4):
+            port_alias_to_name_map["hundredGigE1/%d" % (i/4 + 1)] = "Ethernet%d" % i
+    elif hwsku == "Arista-7050-QX32":
+        for i in range(1, 25):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        for i in range(25, 33):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Arista-7050-QX-32S":
+        for i in range(5, 29):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
+        for i in range(29, 37):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
+    elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
+        for i in range(1, 65):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32":
+        for i in range(1, 33):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Mellanox-SN2700-D48C8":
+        # 50G ports
+        s50G_ports = [x for x in range(0, 24, 2)] + [x for x in range(40, 88, 2)] + [x for x in range(104, 128, 2)]
+        # 100G ports
+        s100G_ports = [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
+        for i in s50G_ports:
+            alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
+            port_alias_to_name_map[alias] = "Ethernet%d" % i
+        for i in s100G_ports:
+            alias = "etp%d" % (i / 4 + 1)
+            port_alias_to_name_map[alias] = "Ethernet%d" % i
+    elif hwsku == "Mellanox-SN2700" or hwsku == "ACS-MSN2700":
+        for i in range(1, 33):
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "ACS-MSN3800":
+        for i in range(1, 65):
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Arista-7060CX-32S-D48C8":
+        # All possible breakout 50G port numbers:
+        all_ports = [ x for x in range(1, 33)]
+        # 100G ports
+        s100G_ports = [ x for x in range(7, 11)]
+        s100G_ports += [ x for x in range(23, 27)]
+        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
+    elif hwsku == "Arista-7260CX3-D108C8":
+        # All possible breakout 50G port numbers:
+        all_ports = [ x for x in range(1, 65)]
+        # 100G ports
+        s100G_ports = [ x for x in range(13, 21)]
+        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
+    elif hwsku == "INGRASYS-S9100-C32":
+        for i in range(1, 33):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S9100-C32" or hwsku == "INGRASYS-S9130-32X" or hwsku == "INGRASYS-S8810-32Q":
+        for i in range(1, 33):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "INGRASYS-S8900-54XC":
+        for i in range(1, 49):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+        for i in range(49, 55):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+    elif hwsku == "INGRASYS-S8900-64XC":
+        for i in range(1, 49):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+        for i in range(49, 65):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+    elif hwsku == "Accton-AS7712-32X":
+        for i in range(1, 33):
+            port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Celestica-DX010-C32":
+        for i in range(1, 33):
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Seastone-DX010":
+        for i in range(1, 33):
+            port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Celestica-E1031-T48S4":
+        for i in range(1, 53):
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
+    elif hwsku == "et6448m":
+        for i in range(0, 52):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "newport":
+        for i in range(0, 256, 8):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    else:
+        for i in range(0, 128, 4):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
-            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
+            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dpg_ecmp_content) = parse_dpg(child, hostname)
         elif child.tag == str(QName(ns, "CpgDec")):
             (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
         elif child.tag == str(QName(ns, "PngDec")):
-            (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port) = parse_png(child, hostname)
+            (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port, png_ecmp_content) = parse_png(child,
+                                                                                                               hostname,
+                                                                                                               dpg_ecmp_content)
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
@@ -551,10 +706,22 @@ def parse_xml(filename, hostname):
     results['ntp_servers'] = ntp_servers
     results['forced_mgmt_routes'] = mgmt_routes
     results['deployment_id'] = deployment_id
+    if len(png_ecmp_content):
+        results['FG_NHG_MEMBER'] = png_ecmp_content[0]
+        results['FG_NHG_PREFIX'] = png_ecmp_content[1]
+        results['FG_NHG'] = png_ecmp_content[2]
+        results['NEIGH'] = png_ecmp_content[3]
+
+    if len(dpg_ecmp_content):
+        results['PORT_NHIPV4'] = dpg_ecmp_content[0]
+        results['PORT_NHIPV6'] = dpg_ecmp_content[1]
+        results['NHIP_PORT'] = dpg_ecmp_content[4]
     return results
+
 
 ports = {}
 port_alias_to_name_map = {}
+
 
 def main():
     module = AnsibleModule(
@@ -594,10 +761,89 @@ def main():
         module.fail_json(msg=e.message)
 
 
+def calculate_lcm_for_ecmp(nhdevices_bank_map, nhip_bank_map):
+    banks_enumerated = {}
+    lcm_array = []
+    for value in nhdevices_bank_map.values():
+        for key in nhip_bank_map.keys():
+            if nhip_bank_map[key] == value:
+                if value not in banks_enumerated:
+                    banks_enumerated[value] = 1
+                else:
+                    banks_enumerated[value] = banks_enumerated[value] + 1
+    for bank_enumeration in banks_enumerated.values():
+        lcm_list = range(1, bank_enumeration + 1)
+        lcm_comp = lcm_list[0]
+        for i in lcm_list[1:]:
+            lcm_comp = lcm_comp * i / gcd(lcm_comp, i)
+        lcm_array.append(lcm_comp)
+
+    LCM = sum(lcm_array)
+    return LCM
+
+
+def formulate_ecmp_entry(dpg_ecmp_content, port_device_map):
+    FG_NHG_MEMBER = [{}, {}]
+    FG_NHG_PREFIX = [{}, {}]
+    FG_NHG = [{}, {}]
+    FG_NEIGH = [{}, {}]
+    COMP_FG_NHG_MEMBER = {}
+    COMP_FG_NHG_PREFIX = {}
+    COMP_FG_NHG = {}
+    COMP_FG_NEIGH = {}
+    neigh_key_ipv4 = []
+    neigh_key_ipv6 = []
+    ipv4_tag = "fgnhg_v4"
+    ipv6_tag = "fgnhg_v6"
+    port_nhipv4_map = dpg_ecmp_content[0]
+    port_nhipv6_map = dpg_ecmp_content[1]
+    nhgaddr = dpg_ecmp_content[2]
+    nhg_int = dpg_ecmp_content[3]
+    nhipv4_device_map = {port_nhipv4_map[x]: port_device_map[x] for x in port_device_map
+                         if x in port_nhipv4_map}
+    nhipv6_device_map = {port_nhipv6_map[x]: port_device_map[x] for x in port_device_map
+                         if x in port_nhipv6_map}
+    nhipv4_devices = sorted(list(set(nhipv4_device_map.values())))
+    nhipv6_devices = sorted(list(set(nhipv6_device_map.values())))
+
+    nhdevices_ipv4_bank_map = {device: bank for bank, device in enumerate(nhipv4_devices)}
+    nhdevices_ipv6_bank_map = {device: bank for bank, device in enumerate(nhipv6_devices)}
+
+    nhipv4_bank_map = {ip: nhdevices_ipv4_bank_map[device] for ip, device in nhipv4_device_map.items()}
+    nhipv6_bank_map = {ip: nhdevices_ipv6_bank_map[device] for ip, device in nhipv6_device_map.items()}
+
+    ipv4_LCM = calculate_lcm_for_ecmp(nhdevices_ipv4_bank_map, nhipv4_bank_map)
+    ipv6_LCM = calculate_lcm_for_ecmp(nhdevices_ipv6_bank_map, nhipv6_bank_map)
+
+    FG_NHG_MEMBER[0] = {ip: {"FG_NHG": ipv4_tag, "bank": bank} for ip, bank in nhipv4_bank_map.items()}
+    FG_NHG_PREFIX[0] = {nhgaddr[0]: {"FG_NHG": ipv4_tag}}
+    FG_NHG[0] = {ipv4_tag: {"bucket_size": ipv4_LCM}}
+    for ip in nhipv4_bank_map:
+        neigh_key_ipv4.append(str(nhg_int + "|" + ip))
+    FG_NEIGH[0] = {neigh_key: {"family": "IPV4"} for neigh_key in neigh_key_ipv4}
+    FG_NHG_MEMBER[1] = {ip: {"FG_NHG": ipv6_tag, "bank": bank} for ip, bank in nhipv6_bank_map.items()}
+    FG_NHG_PREFIX[1] = {nhgaddr[1]: {"FG_NHG": ipv6_tag}}
+    FG_NHG[1] = {ipv6_tag: {"bucket_size": ipv6_LCM}}
+    for ip in nhipv6_bank_map:
+        neigh_key_ipv6.append(str(nhg_int + "|" + ip))
+    FG_NEIGH[1] = {neigh_key: {"family": "IPV6"} for neigh_key in neigh_key_ipv6}
+    COMP_FG_NHG_MEMBER.update(FG_NHG_MEMBER[0])
+    COMP_FG_NHG_MEMBER.update(FG_NHG_MEMBER[1])
+    COMP_FG_NHG_PREFIX.update(FG_NHG_PREFIX[0])
+    COMP_FG_NHG_PREFIX.update(FG_NHG_PREFIX[1])
+    COMP_FG_NHG.update(FG_NHG[0])
+    COMP_FG_NHG.update(FG_NHG[1])
+    COMP_FG_NEIGH.update(FG_NEIGH[0])
+    COMP_FG_NEIGH.update(FG_NEIGH[1])
+    png_ecmp_content = [COMP_FG_NHG_MEMBER, COMP_FG_NHG_PREFIX, COMP_FG_NHG, COMP_FG_NEIGH]
+    return png_ecmp_content
+
+
 def print_parse_xml(hostname):
     filename = hostname + '.xml'
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
+
 
 from ansible.module_utils.basic import *
 
