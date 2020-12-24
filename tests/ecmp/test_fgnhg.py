@@ -353,12 +353,12 @@ def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
         prefix_ipv6 = ""
 
         try:
-            NHG_PREFIXES = mg_facts['FG_NHG_PREFIX']
+            nhg_prefixes = mg_facts['FG_NHG_PREFIX']
         except:
             logger.info("Minigraph does not contain the required ECMP entries. Terminating test...")
             pytest.skip("")
 
-        for nhg_prefix in NHG_PREFIXES.keys():
+        for nhg_prefix in nhg_prefixes.keys():
             if "." in nhg_prefix:
                 prefix_ipv4 = nhg_prefix
             else:
@@ -390,11 +390,11 @@ def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
         for ip, port in nhipv6_port.iteritems():
             ipv6_to_port[ip] = int(port.replace('etp', ''))
 
-        DEFAULT_VLAN_IPv4_mg = IPv4Interface(unicode(str(ipv4_to_port.keys()[0]) + "/2"))
-        DEFAULT_VLAN_IPv6_mg = IPv6Interface(unicode(str(ipv6_to_port.keys()[0]) + "/32"))
+        default_vlan_ipv4_mg = IPv4Interface(unicode(str(ipv4_to_port.keys()[0]) + "/2"))
+        default_vlan_ipv6_mg = IPv6Interface(unicode(str(ipv6_to_port.keys()[0]) + "/32"))
 
         # IPv4 test
-        duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(DEFAULT_VLAN_IPv4_mg))
+        duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(default_vlan_ipv4_mg))
         generate_fgnhg_config(duthost, ipv4_to_port, bank_0_port_ipv4, bank_1_port_ipv4, prefix_ipv4)
         setup_neighbors(duthost, ptfhost, ipv4_to_port)
         create_fg_ptf_config(ptfhost, ipv4_to_port, port_list, bank_0_port_ipv4, bank_1_port_ipv4, router_mac,
@@ -403,7 +403,7 @@ def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
                 prefix_ipv4)
 
         # IPv6 test
-        duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(DEFAULT_VLAN_IPv6_mg))
+        duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(default_vlan_ipv6_mg))
         generate_fgnhg_config(duthost, ipv6_to_port, bank_0_port_ipv6, bank_1_port_ipv6, prefix_ipv6)
         setup_neighbors(duthost, ptfhost, ipv6_to_port)
         create_fg_ptf_config(ptfhost, ipv6_to_port, port_list, bank_0_port_ipv6, bank_1_port_ipv6, router_mac,
