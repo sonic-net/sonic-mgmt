@@ -33,11 +33,11 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
 
     yield
 
-def test_po_update(duthosts, rand_one_dut_hostname, tbinfo):
+def test_po_update(pre_selected_dut, tbinfo):
     """
     test port channel add/deletion as well ip address configuration
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     int_facts = duthost.interface_facts()['ansible_facts']
 

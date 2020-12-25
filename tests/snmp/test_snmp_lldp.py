@@ -7,15 +7,14 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
-    patch_lldpctl(localhost, duthost)
+def lldp_setup(pre_selected_dut, patch_lldpctl, unpatch_lldpctl, localhost):
+    patch_lldpctl(localhost, pre_selected_dut)
     yield
-    unpatch_lldpctl(localhost, duthost)
+    unpatch_lldpctl(localhost, pre_selected_dut)
 
 
 @pytest.mark.bsl
-def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
+def test_snmp_lldp(pre_selected_dut, localhost, creds, tbinfo):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -29,7 +28,7 @@ def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
     For remote values check for availability for at least 80% of minigraph neighbors
     (similar to lldp test)
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 

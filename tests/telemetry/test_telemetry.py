@@ -72,23 +72,22 @@ def assert_equal(actual, expected, message):
     pytest_assert(actual == expected, "{0}. Expected {1} vs actual {2}".format(message, expected, actual))
 
 @pytest.fixture(scope="module", autouse=True)
-def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
+def verify_telemetry_dockerimage(pre_selected_dut):
     """If telemetry docker is available in image then return true
     """
     docker_out_list = []
-    duthost = duthosts[rand_one_dut_hostname]
-    docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
+    docker_out = pre_selected_dut.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
     if not (len(matching) > 0):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
 @pytest.fixture
-def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost):
+def setup_streaming_telemetry(pre_selected_dut, localhost,  ptfhost):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     setup_telemetry_forpyclient(duthost)
 
     # Wait until telemetry was restarted
@@ -104,15 +103,13 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     pytest_assert(file_exists["stat"]["exists"] is True)
 
 # Test functions
-def test_config_db_parameters(duthosts, rand_one_dut_hostname):
+def test_config_db_parameters(pre_selected_dut):
     """Verifies required telemetry parameters from config_db.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
+    gnmi = pre_selected_dut.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
-    certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
+    certs = pre_selected_dut.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
 
     d = get_dict_stdout(gnmi, certs)
@@ -130,12 +127,10 @@ def test_config_db_parameters(duthosts, rand_one_dut_hostname):
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
-def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
+def test_telemetry_enabledbydefault(pre_selected_dut):
     """Verify telemetry should be enabled by default
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
+    status = pre_selected_dut.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     status_key_list = status_list[0::2]
@@ -146,13 +141,11 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
+def test_telemetry_ouput(pre_selected_dut, ptfhost, setup_streaming_telemetry, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
     logger.info('start telemetry output testing')
-    dut_ip = duthost.mgmt_ip
+    dut_ip = pre_selected_dut.mgmt_ip
     cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
@@ -162,11 +155,10 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+def test_osbuild_version(pre_selected_dut, ptfhost, localhost):
     """ Test osbuild/version query.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    cmd = generate_client_cli(duthost=duthost, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
+    cmd = generate_client_cli(duthost=pre_selected_dut, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
     logger.debug("Command to run: {0}".format(cmd))
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.debug(show_gnmi_out)
@@ -175,15 +167,14 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
 
-def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
+def test_sysuptime(pre_selected_dut, ptfhost, setup_streaming_telemetry, localhost):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was
               updated correctly.
     """
     logger.info("start test the dataset 'system uptime'")
-    duthost = duthosts[rand_one_dut_hostname]
-    dut_ip = duthost.mgmt_ip
+    dut_ip = pre_selected_dut.mgmt_ip
     cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]

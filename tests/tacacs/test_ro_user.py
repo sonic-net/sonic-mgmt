@@ -6,8 +6,8 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_ro_user(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_ro_user(localhost, pre_selected_dut, creds, test_tacacs):
+    duthost = pre_selected_dut
 
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     res = localhost.shell("sshpass -p {} ssh "\
@@ -20,8 +20,8 @@ def test_ro_user(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs)
         if fds[0] == "test":
             assert fds[4] == "remote_user"
 
-def test_ro_user_ipv6(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs_v6):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_ro_user_ipv6(localhost, pre_selected_dut, creds, test_tacacs_v6):
+    duthost = pre_selected_dut
 
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     res = localhost.shell("sshpass -p {} ssh "\

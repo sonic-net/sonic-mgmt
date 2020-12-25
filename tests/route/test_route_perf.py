@@ -48,24 +48,22 @@ def ip_versions(request):
     yield request.param
 
 @pytest.fixture(scope='function', autouse=True)
-def reload_dut(duthosts, rand_one_dut_hostname, request):
-    duthost = duthosts[rand_one_dut_hostname]
+def reload_dut(pre_selected_dut, request):
     yield
     if request.node.rep_call.failed:
         #Issue a config_reload to clear statically added route table and ip addr
         logging.info("Reloading config..")
-        config_reload(duthost)
+        config_reload(pre_selected_dut)
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthosts, rand_one_dut_hostname):
+def set_polling_interval(pre_selected_dut):
     """ Set CRM polling interval to 1 second """
-    duthost = duthosts[rand_one_dut_hostname]
     wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLL_INTERVAL))
+    pre_selected_dut.command("crm config polling interval {}".format(CRM_POLL_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
     yield
-    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    pre_selected_dut.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
 
@@ -189,8 +187,8 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthosts, rand_one_dut_hostname, request, ip_versions):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_perf_add_remove_routes(pre_selected_dut, request, ip_versions):
+    duthost = pre_selected_dut
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
 

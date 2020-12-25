@@ -10,21 +10,19 @@ file currently holds the following fixture(s):
 """
 
 @pytest.fixture(scope="module")
-def prio_dscp_map(duthosts, rand_one_dut_hostname):
+def prio_dscp_map(pre_selected_dut):
     """
     This fixture reads the QOS parameters from SONiC DUT, and creates
     priority Vs. DSCP priority port map
 
     Args:
-       duthosts (pytest fixture) : list of DUTs
-       rand_one_dut_hostname (pytest fixture): DUT hostname
+       pre_selected_dut (pytest fixture): A pre selected DUT
 
     Returns:
         Priority vs. DSCP map (dictionary, key = priority).
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = pre_selected_dut.config_facts(host=pre_selected_dut.hostname,
                                         source="running")['ansible_facts']
 
     if "DSCP_TO_TC_MAP" not in config_facts.keys():
@@ -58,19 +56,17 @@ def all_prio_list(prio_dscp_map):
     return list(prio_dscp_map.keys())
 
 @pytest.fixture(scope="module")
-def lossless_prio_list(duthosts, rand_one_dut_hostname):
+def lossless_prio_list(pre_selected_dut):
     """
     This fixture returns the list of lossless priorities
 
     Args:
-       duthosts (pytest fixture) : list of DUTs
-       rand_one_dut_hostname (pytest fixture): DUT hostname
+       pre_selected_dut (pytest fixture): A pre selected DUT
 
     Returns:
         Lossless priorities (list)
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = pre_selected_dut.config_facts(host=pre_selected_dut.hostname,
                                         source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in config_facts.keys():

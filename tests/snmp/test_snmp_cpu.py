@@ -10,7 +10,7 @@ pytestmark = [
 ]
 
 @pytest.mark.bsl
-def test_snmp_cpu(duthosts, rand_one_dut_hostname, localhost, creds):
+def test_snmp_cpu(pre_selected_dut, localhost, creds):
     """
     Test SNMP CPU Utilization
 
@@ -21,7 +21,7 @@ def test_snmp_cpu(duthosts, rand_one_dut_hostname, localhost, creds):
 
     TODO: abstract the snmp OID by SKU
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']

@@ -19,8 +19,8 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module',autouse=True)
-def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(pre_selected_dut, ptfhost, tbinfo):
+    duthost = pre_selected_dut
     global var
     var = {}
 
@@ -173,8 +173,8 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
 
 # ----------------------------------------------------------------------------------
 @pytest.fixture(scope='class')
-def sflowbase_config(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def sflowbase_config(pre_selected_dut):
+    duthost = pre_selected_dut
     config_sflow(duthost,'enable')
     config_sflow_collector(duthost,'collector0','add')
     config_sflow_collector(duthost,'collector1','add')
@@ -195,8 +195,8 @@ class TestSflowCollector():
     Test Sflow with 2 collectors , adding or removibg collector and verify collector samples
     """
 
-    def test_sflow_config(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_sflow_config(self, pre_selected_dut, partial_ptf_runner):
+        duthost = pre_selected_dut
         # Enable sflow globally and enable sflow on 4 test interfaces
         # add single collector , send traffic and check samples are received in collector
         config_sflow(duthost,'enable')
@@ -213,8 +213,8 @@ class TestSflowCollector():
               active_collectors="['collector0']" )
 
 
-    def test_collector_del_add(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_collector_del_add(self, pre_selected_dut, partial_ptf_runner):
+        duthost = pre_selected_dut
         # Delete a collector and check samples are not received in collectors
         config_sflow_collector(duthost,'collector0','del')
         time.sleep(2)
@@ -232,8 +232,8 @@ class TestSflowCollector():
               active_collectors="['collector0']" )
 
 
-    def test_two_collectors(self, sflowbase_config, duthosts, rand_one_dut_hostname, partial_ptf_runner):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_two_collectors(self, sflowbase_config, pre_selected_dut, partial_ptf_runner):
+        duthost = pre_selected_dut
         #add 2 collectors with 2 different udp ports and check samples are received in both collectors
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         time.sleep(2)

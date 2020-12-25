@@ -60,8 +60,8 @@ def get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo):
         bgp_v4nei[item['name']] = item['addr']
     return bgp_v4nei
 
-def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_bgp_multipath_relax(tbinfo, pre_selected_dut):
+    duthost = pre_selected_dut
 
     logger.info("Starting test_bgp_multipath_relax on topology {}".format(tbinfo['topo']['name']))
     topo_config = tbinfo['topo']['properties']['configuration']

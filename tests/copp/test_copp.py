@@ -59,15 +59,14 @@ class TestCOPP(object):
                                           "IP2ME",
                                           "SNMP",
                                           "SSH"])
-    def test_policer(self, protocol, duthosts, rand_one_dut_hostname, ptfhost, copp_testbed, dut_type):
+    def test_policer(self, protocol, pre_selected_dut, ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
 
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        _copp_runner(duthost,
+        _copp_runner(pre_selected_dut,
                      ptfhost,
                      protocol,
                      copp_testbed,
@@ -78,24 +77,22 @@ class TestCOPP(object):
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
-    def test_no_policer(self, protocol, duthosts, rand_one_dut_hostname, ptfhost, copp_testbed, dut_type):
+    def test_no_policer(self, protocol, pre_selected_dut, ptfhost, copp_testbed, dut_type):
         """
             Validates that non-rate-limited COPP groups work as expected.
 
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        _copp_runner(duthost,
+        _copp_runner(pre_selected_dut,
                      ptfhost,
                      protocol,
                      copp_testbed,
                      dut_type)
 
 @pytest.fixture(scope="class")
-def dut_type(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])  # return config db contents(running-config)
+def dut_type(pre_selected_dut):
+    cfg_facts = json.loads(pre_selected_dut.shell("sonic-cfggen -d --print-data")['stdout'])  # return config db contents(running-config)
     dut_type = None
 
     if "DEVICE_METADATA" in cfg_facts:
@@ -107,8 +104,7 @@ def dut_type(duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope="class")
 def copp_testbed(
-    duthosts,
-    rand_one_dut_hostname,
+    pre_selected_dut,
     creds,
     ptfhost,
     tbinfo,
@@ -118,17 +114,16 @@ def copp_testbed(
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    test_params = _gather_test_params(tbinfo, duthost, request)
+    test_params = _gather_test_params(tbinfo, pre_selected_dut, request)
 
     if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
     try:
-        _setup_testbed(duthost, creds, ptfhost, test_params)
+        _setup_testbed(pre_selected_dut, creds, ptfhost, test_params)
         yield test_params
     finally:
-        _teardown_testbed(duthost, creds, ptfhost, test_params)
+        _teardown_testbed(pre_selected_dut, creds, ptfhost, test_params)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(loganalyzer):
@@ -260,13 +255,12 @@ def _teardown_testbed(dut, creds, ptf, test_params):
 
 @pytest.fixture(scope="class")
 def disable_lldp_for_testing(
-    duthosts,
-    rand_one_dut_hostname,
+    pre_selected_dut,
     disable_container_autorestart,
     enable_container_autorestart
 ):
     """Disables LLDP during testing so that it doesn't interfere with the policer."""
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     logging.info("Disabling LLDP for the COPP tests")
 

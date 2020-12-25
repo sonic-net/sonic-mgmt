@@ -38,14 +38,14 @@ pytestmark = [pytest.mark.disable_loganalyzer,
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(autouse=True)
-def setup_pfcwd(duthosts, rand_one_dut_hostname):
+def setup_pfcwd(pre_selected_dut):
     """
     Setup PFCwd before the test run
 
     Args:
-        duthost(AnsibleHost) : dut instance
+        pre_selected_dut(AnsibleHost) : dut instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     logger.info("Setup the default pfcwd config for warm-reboot test")
     duthost.command("redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" "
                     "default_pfcwd_status enable")
@@ -519,7 +519,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield request.param
 
-    def test_pfcwd_wb(self, request, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, localhost, fanouthosts):
+    def test_pfcwd_wb(self, request, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, pre_selected_dut, localhost, fanouthosts):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -537,11 +537,10 @@ class TestPfcwdWb(SetupPfcwdFunc):
             setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
             fanout_graph_facts(fixture) : fanout graph info
             ptfhost(AnsibleHost) : ptf host instance
-            duthost(AnsibleHost) : DUT instance
+            pre_selected_dut(AnsibleHost) : DUT instance
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
-        duthost = duthosts[rand_one_dut_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(request, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
-                             fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts)
+                             fanout_graph_facts, ptfhost, pre_selected_dut, localhost, fanouthosts)

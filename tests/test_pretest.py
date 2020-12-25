@@ -3,8 +3,10 @@ import logging
 import json
 import time
 import os
+import random
 
 from common.helpers.assertions import pytest_require
+from tests.conftest import pre_select_one_dut
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ def collect_dut_info(dut):
     return { 'intf_status' : status, 'features' : features }
 
 
-def test_update_testbed_metadata(duthosts, tbinfo):
+def test_update_testbed_metadata(duthosts, tbinfo, request):
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
@@ -55,6 +57,7 @@ def test_update_testbed_metadata(duthosts, tbinfo):
         metadata[dut.hostname] = dutinfo
 
     info = { tbname : metadata }
+    info["pre_selected_tor"] = pre_select_one_dut(duthosts, request).hostname
     folder = 'metadata'
     filepath = os.path.join(folder, tbname + '.json')
     try:

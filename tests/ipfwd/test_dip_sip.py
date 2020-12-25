@@ -18,11 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
-    patch_lldpctl(localhost, duthost)
+def lldp_setup(pre_selected_dut, patch_lldpctl, unpatch_lldpctl, localhost):
+    patch_lldpctl(localhost, pre_selected_dut)
     yield
-    unpatch_lldpctl(localhost, duthost)
+    unpatch_lldpctl(localhost, pre_selected_dut)
 
 
 def lag_facts(dut, mg_facts):
@@ -101,8 +100,8 @@ def port_facts(dut, mg_facts):
 
 
 @pytest.fixture(scope='function')
-def gather_facts(tbinfo, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def gather_facts(tbinfo, pre_selected_dut):
+    duthost = pre_selected_dut
     facts = {}
 
     topo_type = tbinfo['topo']['type']

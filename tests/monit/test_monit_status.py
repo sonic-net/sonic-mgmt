@@ -14,9 +14,8 @@ pytestmark = [
 ]
 
 
-def test_monit_status(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    monit_status_result = duthost.shell("sudo monit status", module_ignore_errors=True)
+def test_monit_status(pre_selected_dut):
+    monit_status_result = pre_selected_dut.shell("sudo monit status", module_ignore_errors=True)
 
     exit_code = monit_status_result["rc"]
     pytest_assert(exit_code == 0, "Monit is either not running or not configured correctly")

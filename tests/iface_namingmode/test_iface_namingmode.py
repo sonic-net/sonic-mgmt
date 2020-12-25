@@ -13,17 +13,17 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthosts, rand_one_dut_hostname, tbinfo):
+def setup(pre_selected_dut, tbinfo):
     """
     Sets up all the parameters needed for the interface naming mode tests
 
     Args:
-        duthost: AnsiblecHost instance for DUT
+        pre_selected_dut: AnsiblecHost instance for DUT
     Yields:
         setup_info: dictionary containing port alias mappings, list of
         working interfaces, minigraph facts
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_alias_facts = duthost.port_alias(hwsku=hwsku)['ansible_facts']
@@ -79,20 +79,20 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         duthost.command('redis-cli -n 4 HSET "PORT|{}" alias {}'.format(item, port_alias_old))
 
 @pytest.fixture(scope='module', params=['alias', 'default'])
-def setup_config_mode(ansible_adhoc, duthosts, rand_one_dut_hostname, request):
+def setup_config_mode(ansible_adhoc, pre_selected_dut, request):
     """
     Creates a guest user and configures the interface naming mode
 
     Args:
         ansible_adhoc: Fixture provided by the pytest-ansible package
-        duthost: AnsibleHost instance for DUT
+        pre_selected_dut: AnsibleHost instance for DUT
         request: request parameters for setup_config_mode fixture
     Yields:
         dutHostGuest: AnsibleHost instance for DUT with user as 'guest'
         mode: Interface naming mode to be configured
         ifmode: Current interface naming mode present in the DUT
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     mode = request.param
 
     logger.info('Creating a guest user')
@@ -558,18 +558,18 @@ class TestConfigInterface():
             pytest.skip('Unsupported topology')
 
     @pytest.fixture(scope='class', autouse=True)
-    def reset_config_interface(self, duthosts, rand_one_dut_hostname, sample_intf):
+    def reset_config_interface(self, pre_selected_dut, sample_intf):
         """
         Resets the test interface's configurations on completion of
         all tests in the enclosing test class.
 
         Args:
-            duthost: AnsibleHost instance for DUT
+            pre_selected_dut: AnsibleHost instance for DUT
             test_intf: Fixture defined in this module
         Yields:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         interface = sample_intf['default']
         interface_ip = sample_intf['ip']
         native_speed = sample_intf['native_speed']
@@ -739,12 +739,12 @@ class TestNeighbors():
         if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
 
-    def test_show_arp(self, duthosts, rand_one_dut_hostname, setup, setup_config_mode):
+    def test_show_arp(self, pre_selected_dut, setup, setup_config_mode):
         """
         Checks whether 'show arp' lists the interface names as per the
         configured naming mode
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         dutHostGuest, mode, ifmode = setup_config_mode
         arptable = duthost.switch_arptable()['ansible_facts']['arptable']
         minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']
@@ -759,14 +759,13 @@ class TestNeighbors():
                 elif mode == 'default':
                     assert re.search(r'{}.*\s+{}'.format(item, arptable['v4'][item]['interface']), arp_output) is not None
 
-    def test_show_ndp(self, duthosts, rand_one_dut_hostname, setup, setup_config_mode):
+    def test_show_ndp(self, pre_selected_dut, setup, setup_config_mode):
         """
         Checks whether 'show ndp' lists the interface names as per the
         configured naming mode
         """
-        duthost = duthosts[rand_one_dut_hostname]
         dutHostGuest, mode, ifmode = setup_config_mode
-        arptable = duthost.switch_arptable()['ansible_facts']['arptable']
+        arptable = pre_selected_dut.switch_arptable()['ansible_facts']['arptable']
         minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']
 
         ndp_output = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ndp'.format(ifmode))['stdout']

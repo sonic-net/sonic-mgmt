@@ -109,19 +109,18 @@ class TestFdbMacExpire:
         )
 
     @pytest.fixture(scope="class", autouse=True)
-    def copyFdbInfo(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    def copyFdbInfo(self, pre_selected_dut, ptfhost, tbinfo):
         """
             Compies FDB info file to PTF host
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        mgFacts = pre_selected_dut.get_extended_minigraph_facts(tbinfo)
         ptfhost.host.options['variable_manager'].extra_vars.update({
             "minigraph_vlan_interfaces": mgFacts["minigraph_vlan_interfaces"],
             "minigraph_port_indices": mgFacts["minigraph_ptf_indices"],
@@ -132,39 +131,37 @@ class TestFdbMacExpire:
         ptfhost.template(src="fdb/files/fdb.j2", dest=self.FDB_INFO_FILE)
 
     @pytest.fixture(scope="class", autouse=True)
-    def clearSonicFdbEntries(self, duthosts, rand_one_dut_hostname):
+    def clearSonicFdbEntries(self, pre_selected_dut):
         """
             Clears SONiC FDB entries before and after test
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
 
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        duthost.shell(argv=["sonic-clear", "fdb", "all"])
+        pre_selected_dut.shell(argv=["sonic-clear", "fdb", "all"])
 
         yield
 
-        duthost.shell(argv=["sonic-clear", "fdb", "all"])
+        pre_selected_dut.shell(argv=["sonic-clear", "fdb", "all"])
 
     @pytest.fixture(scope="class", autouse=True)
-    def validateDummyMacAbsent(self, duthosts, rand_one_dut_hostname):
+    def validateDummyMacAbsent(self, pre_selected_dut):
         """
             Validates that test/dummy MAC entry is absent before the test runs
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
 
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        pytest_assert(self.__getFdbTableCount(duthost, self.DUMMY_MAC_PREFIX) == 0, "Test dummy MAC is already present")
+        pytest_assert(self.__getFdbTableCount(pre_selected_dut, self.DUMMY_MAC_PREFIX) == 0, "Test dummy MAC is already present")
 
     @pytest.fixture(scope="class", autouse=True)
-    def prepareDut(self, request, duthosts, rand_one_dut_hostname):
+    def prepareDut(self, request, pre_selected_dut):
         """
             Prepare DUT for FDB test
 
@@ -173,12 +170,12 @@ class TestFdbMacExpire:
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
 
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
 
         self.__deleteTmpSwitchConfig(duthost)

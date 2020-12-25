@@ -24,20 +24,18 @@ def _backup_and_restore_config_db(duthost):
 
 
 @pytest.fixture
-def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
+def backup_and_restore_config_db(pre_selected_dut):
     """Back up and restore config DB at the function level."""
-    duthost = duthosts[rand_one_dut_hostname]
     # TODO: Use the neater "yield from _function" syntax when we move to python3
-    for func in _backup_and_restore_config_db(duthost):
+    for func in _backup_and_restore_config_db(pre_selected_dut):
         yield func
 
 
 @pytest.fixture(scope="module")
-def backup_and_restore_config_db_module(duthosts, rand_one_dut_hostname):
+def backup_and_restore_config_db_module(pre_selected_dut):
     """Back up and restore config DB at the module level."""
-    duthost = duthosts[rand_one_dut_hostname]
     # TODO: Use the neater "yield from _function" syntax when we move to python3
-    for func in _backup_and_restore_config_db(duthost):
+    for func in _backup_and_restore_config_db(pre_selected_dut):
         yield func
 
 
@@ -56,22 +54,20 @@ def _disable_route_checker(duthost):
 
 
 @pytest.fixture
-def disable_route_checker(duthosts, rand_one_dut_hostname):
+def disable_route_checker(pre_selected_dut):
     """
     Wrapper for _disable_route_checker, function level
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    for func in _disable_route_checker(duthost):
+    for func in _disable_route_checker(pre_selected_dut):
         yield func
 
 
 @pytest.fixture(scope='module')
-def disable_route_checker_module(duthosts, rand_one_dut_hostname):
+def disable_route_checker_module(pre_selected_dut):
     """
     Wrapper for _disable_route_checker, module level
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    for func in _disable_route_checker(duthost):
+    for func in _disable_route_checker(pre_selected_dut):
         yield func
 
 @pytest.fixture(scope='module')

@@ -429,7 +429,7 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
-def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+def test_continuous_reboot(request, pre_selected_dut, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -450,7 +450,7 @@ def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, lo
         Status of transceivers - ports in lab_connection_graph should be present
         Status of BGP neighbors - should be established
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
     continuous_reboot.start_continuous_reboot(request, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()

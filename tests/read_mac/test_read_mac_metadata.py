@@ -20,8 +20,8 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope='function')
-def cleanup_read_mac(duthosts, rand_one_dut_hostname, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def cleanup_read_mac(pre_selected_dut, localhost):
+    duthost = pre_selected_dut
     yield
     logger.info('Remove temporary images')
     duthost.shell("rm -rf {}".format(BINARY_FILE_ON_DUTHOST))

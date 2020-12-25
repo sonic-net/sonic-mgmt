@@ -7,7 +7,6 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 
 
 @pytest.fixture(autouse=True)
-def flush_neighbors(duthosts, rand_one_dut_hostname):
+def flush_neighbors(pre_selected_dut):
     """ Clear ARP table to make sure that neighbors learning will be triggered """
-    duthost = duthosts[rand_one_dut_hostname]
-    duthost.command("sonic-clear arp")
+    pre_selected_dut.command("sonic-clear arp")

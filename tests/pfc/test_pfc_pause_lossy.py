@@ -16,8 +16,7 @@ def test_pfc_pause_single_lossy_prio(ixia_api,
                                      ixia_testbed,
                                      conn_graph_facts,
                                      fanout_graph_facts,
-                                     duthosts,
-                                     rand_one_dut_hostname,
+                                     pre_selected_dut,
                                      enum_dut_portname_oper_up,
                                      enum_dut_lossy_prio,
                                      all_prio_list,
@@ -30,8 +29,7 @@ def test_pfc_pause_single_lossy_prio(ixia_api,
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
-        duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
+        pre_selected_dut (pytest fixture): A pre selected DUT
         enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
         enum_dut_lossy_prio (str): name of lossy priority to test, e.g., 's6100-1|2'
         all_prio_list (pytest fixture): list of all the priorities
@@ -43,10 +41,9 @@ def test_pfc_pause_single_lossy_prio(ixia_api,
 
     dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
     dut_hostname2, lossy_prio = enum_dut_lossy_prio.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
+    pytest_require(pre_selected_dut.hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
-    duthost = duthosts[rand_one_dut_hostname]
     lossy_prio = int(lossy_prio)
 
     pause_prio_list = [lossy_prio]
@@ -58,7 +55,7 @@ def test_pfc_pause_single_lossy_prio(ixia_api,
                  testbed_config=ixia_testbed,
                  conn_data=conn_graph_facts,
                  fanout_data=fanout_graph_facts,
-                 duthost=duthost,
+                 duthost=pre_selected_dut,
                  dut_port=dut_port,
                  global_pause=False,
                  pause_prio_list=pause_prio_list,
@@ -72,8 +69,7 @@ def test_pfc_pause_multi_lossy_prio(ixia_api,
                                     ixia_testbed,
                                     conn_graph_facts,
                                     fanout_graph_facts,
-                                    duthosts,
-                                    rand_one_dut_hostname,
+                                    pre_selected_dut,
                                     enum_dut_portname_oper_up,
                                     lossless_prio_list,
                                     lossy_prio_list,
@@ -87,7 +83,7 @@ def test_pfc_pause_multi_lossy_prio(ixia_api,
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
+        pre_selected_dut (pytest fixture): A pre selected DUT
         enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
@@ -98,10 +94,9 @@ def test_pfc_pause_multi_lossy_prio(ixia_api,
     """
 
     dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname,
+    pytest_require(pre_selected_dut.hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
 
-    duthost = duthosts[rand_one_dut_hostname]
     pause_prio_list = lossy_prio_list
     test_prio_list = lossy_prio_list
     bg_prio_list = lossless_prio_list
@@ -110,7 +105,7 @@ def test_pfc_pause_multi_lossy_prio(ixia_api,
                  testbed_config=ixia_testbed,
                  conn_data=conn_graph_facts,
                  fanout_data=fanout_graph_facts,
-                 duthost=duthost,
+                 duthost=pre_selected_dut,
                  dut_port=dut_port,
                  global_pause=False,
                  pause_prio_list=pause_prio_list,

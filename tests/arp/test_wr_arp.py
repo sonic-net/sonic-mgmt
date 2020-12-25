@@ -51,7 +51,7 @@ class TestWrArp:
         ptfhost.copy(src=VXLAN_CONFIG_FILE, dest='/tmp/')
 
     @pytest.fixture(scope='class', autouse=True)
-    def setupFerret(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    def setupFerret(self, pre_selected_dut, ptfhost, tbinfo):
         '''
             Sets Ferret service on PTF host. This class-scope fixture runs once before test start
 
@@ -62,7 +62,6 @@ class TestWrArp:
             Returns:
                 None
         '''
-        duthost = duthosts[rand_one_dut_hostname]
         ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
 
         '''
@@ -93,7 +92,7 @@ class TestWrArp:
             (except the one for the deafult route) and take host IP from the subnet IP. For the output
             above 192.168.8.0/25 subnet will be taken and host IP given to ferret script will be 192.168.8.1
         '''
-        result = duthost.shell(
+        result = pre_selected_dut.shell(
             cmd='''ip route show type unicast |
             sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
             head -n 1 |
@@ -120,31 +119,30 @@ class TestWrArp:
             chdir='/opt'
         )
 
-        self.__prepareVxlanConfigData(duthost, ptfhost, tbinfo)
+        self.__prepareVxlanConfigData(pre_selected_dut, ptfhost, tbinfo)
 
         logger.info('Refreshing supervisor control with ferret configuration')
         ptfhost.shell('supervisorctl reread && supervisorctl update')
 
     @pytest.fixture(scope='class', autouse=True)
-    def clean_dut(self, duthosts, rand_one_dut_hostname):
-        duthost = duthosts[rand_one_dut_hostname]
+    def clean_dut(self, pre_selected_dut):
         yield
         logger.info("Clear ARP cache on DUT")
-        duthost.command('sonic-clear arp')
+        pre_selected_dut.command('sonic-clear arp')
 
     @pytest.fixture(scope='class', autouse=True)
-    def setupRouteToPtfhost(self, duthosts, rand_one_dut_hostname, ptfhost):
+    def setupRouteToPtfhost(self, pre_selected_dut, ptfhost):
         '''
             Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): A pre selected Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
             Returns:
                 None
         '''
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         result = duthost.shell(cmd="ip route show table default | sed -n 's/default //p'")
         assert len(result['stderr_lines']) == 0, 'Could not find the gateway for management port'
 

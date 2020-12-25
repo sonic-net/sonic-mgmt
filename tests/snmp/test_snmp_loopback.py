@@ -35,14 +35,14 @@ def get_snmp_output(ip, duthost, nbr, creds):
     return out 
 
 @pytest.mark.bsl
-def test_snmp_loopback(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, localhost, creds):
+def test_snmp_loopback(pre_selected_dut, nbrhosts, tbinfo, localhost, creds):
     """
     Test SNMP query to DUT over loopback IP 
       - Send SNMP query over loopback IP from one of the BGP Neighbors
       - Get SysDescr from snmpfacts 
       - compare result from snmp query over loopback IP and snmpfacts
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']

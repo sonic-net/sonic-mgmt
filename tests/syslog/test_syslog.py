@@ -38,24 +38,23 @@ def config_syslog_srv(ptfhost):
 
 
 @pytest.fixture(scope="module")
-def config_dut(tbinfo, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def config_dut(tbinfo, pre_selected_dut):
     logger.info("Configuring the DUT")
     local_syslog_srv_ip = tbinfo["ptf_ip"]
     logger.info("test_syslog_srv_ip %s", local_syslog_srv_ip)
 
     # Add Rsyslog destination for testing
-    duthost.shell("sudo config syslog add {}".format(local_syslog_srv_ip))
+    pre_selected_dut.shell("sudo config syslog add {}".format(local_syslog_srv_ip))
     logger.debug("Added new rsyslog server IP {}".format(local_syslog_srv_ip))
 
     yield
 
     # Remove the syslog configuration
-    duthost.shell("sudo config syslog del {}".format(local_syslog_srv_ip))
+    pre_selected_dut.shell("sudo config syslog del {}".format(local_syslog_srv_ip))
 
 
-def test_syslog(duthosts, rand_one_dut_hostname, ptfhost, config_dut):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_syslog(pre_selected_dut, ptfhost, config_dut):
+    duthost = pre_selected_dut
     logger.info("Starting syslog tests")
     test_message = "Basic Test Message"
 

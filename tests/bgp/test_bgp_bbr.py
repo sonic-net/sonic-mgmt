@@ -38,12 +38,11 @@ DUMMY_ASN2 = 64102
 
 
 @pytest.fixture(scope='module', autouse=True)
-def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def prepare_bbr_config_files(pre_selected_dut):
     bgp_bbr_config = Template(open("./bgp/templates/bgp_bbr_config.json.j2").read())
 
-    duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
-    duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
+    pre_selected_dut.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
+    pre_selected_dut.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
 
 
 @pytest.fixture(scope='module')
@@ -64,30 +63,27 @@ def disable_bbr(duthost):
 
 
 @pytest.fixture
-def restore_bbr_default_state(duthosts, rand_one_dut_hostname, bbr_default_state):
+def restore_bbr_default_state(pre_selected_dut, bbr_default_state):
     yield
-    duthost = duthosts[rand_one_dut_hostname]
     if bbr_default_state == 'enabled':
-        enable_bbr(duthost)
+        enable_bbr(pre_selected_dut)
     else:
-        disable_bbr(duthost)
+        disable_bbr(pre_selected_dut)
 
 
 @pytest.fixture
-def config_bbr_disabled(duthosts, rand_one_dut_hostname, restore_bbr_default_state):
-    duthost = duthosts[rand_one_dut_hostname]
-    disable_bbr(duthost)
+def config_bbr_disabled(pre_selected_dut, restore_bbr_default_state):
+    disable_bbr(pre_selected_dut)
 
 
 @pytest.fixture
-def config_bbr_enabled(duthosts, rand_one_dut_hostname, restore_bbr_default_state):
-    duthost = duthosts[rand_one_dut_hostname]
-    enable_bbr(duthost)
+def config_bbr_enabled(pre_selected_dut, restore_bbr_default_state):
+    enable_bbr(pre_selected_dut)
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(pre_selected_dut, tbinfo, nbrhosts):
+    duthost = pre_selected_dut
     if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
 
@@ -271,28 +267,25 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         .format(str(route), json.dumps(failed_results, indent=2)))
 
 
-def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_enabled, setup, prepare_routes):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_bbr_enabled_dut_asn_in_aspath(pre_selected_dut, nbrhosts, config_bbr_enabled, setup, prepare_routes):
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
     prepare_routes([bbr_route, bbr_route_v6])
     for route in [bbr_route, bbr_route_v6]:
-        check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True)
+        check_bbr_route_propagation(pre_selected_dut, nbrhosts, setup, route, accepted=True)
 
 
-def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_enabled, setup, prepare_routes):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_bbr_enabled_dual_dut_asn_in_aspath(pre_selected_dut, nbrhosts, config_bbr_enabled, setup, prepare_routes):
     bbr_route_dual_dut_asn = setup['bbr_route_dual_dut_asn']
     bbr_route_v6_dual_dut_asn = setup['bbr_route_v6_dual_dut_asn']
     prepare_routes([bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn])
     for route in [bbr_route_dual_dut_asn, bbr_route_v6_dual_dut_asn]:
-        check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
+        check_bbr_route_propagation(pre_selected_dut, nbrhosts, setup, route, accepted=False)
 
 
-def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_disabled, setup, prepare_routes):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_bbr_disabled_dut_asn_in_aspath(pre_selected_dut, nbrhosts, config_bbr_disabled, setup, prepare_routes):
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
     prepare_routes([bbr_route, bbr_route_v6])
     for route in (bbr_route, bbr_route_v6):
-        check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
+        check_bbr_route_propagation(pre_selected_dut, nbrhosts, setup, route, accepted=False)

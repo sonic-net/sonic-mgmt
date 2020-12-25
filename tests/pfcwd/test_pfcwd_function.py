@@ -27,16 +27,15 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='function', autouse=True)
-def stop_pfcwd(duthosts, rand_one_dut_hostname):
+def stop_pfcwd(pre_selected_dut):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
-        duthost(AnsibleHost) : dut instance
+        pre_selected_dut(AnsibleHost) : dut instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Stop Pfcwd --")
-    duthost.command("pfcwd stop")
+    pre_selected_dut.command("pfcwd stop")
 
 class PfcCmd(object):
     @staticmethod
@@ -499,7 +498,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         logger.info("--- Verify PFCwd counters for port {} ---".format(port))
         self.stats.verify_pkt_cnts(self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
 
-    def test_pfcwd_actions(self, request, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+    def test_pfcwd_actions(self, request, setup_pfc_test, fanout_graph_facts, ptfhost, pre_selected_dut, fanouthosts):
         """
         PFCwd functional test
 
@@ -508,14 +507,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
             fanout_graph_facts(fixture) : fanout graph info
             ptfhost(AnsibleHost) : ptf host instance
-            duthost(AnsibleHost) : DUT instance
+            pre_selected_dut(AnsibleHost) : DUT instance
             fanouthosts(AnsibleHost): fanout instance
         """
-        duthost = duthosts[rand_one_dut_hostname]
         setup_info = setup_pfc_test
         self.fanout_info = fanout_graph_facts
         self.ptf = ptfhost
-        self.dut = duthost
+        self.dut = pre_selected_dut
         self.fanout = fanouthosts
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']

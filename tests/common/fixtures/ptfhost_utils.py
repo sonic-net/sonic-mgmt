@@ -123,20 +123,19 @@ def copy_arp_responder_py(ptfhost):
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
 
 @pytest.fixture(scope='class')
-def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
+def ptf_portmap_file(pre_selected_dut, ptfhost):
     """
         Prepare and copys port map file to PTF host
 
         Args:
             request (Fixture): pytest request object
-            duthost (AnsibleHost): Device Under Test (DUT)
+            pre_selected_dut (AnsibleHost): A pre selected Device Under Test (DUT)
             ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
+    intfInfo = pre_selected_dut.show_interface(command = "status")['ansible_facts']['int_status']
     portList = natsorted([port for port in intfInfo if port.startswith('Ethernet')])
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:

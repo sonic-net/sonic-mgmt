@@ -92,8 +92,8 @@ def generate_vxlan_config_files(duthost, mg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(pre_selected_dut, ptfhost, tbinfo):
+    duthost = pre_selected_dut
 
     logger.info("Gather some facts")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -120,8 +120,8 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
-def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def vxlan_status(setup, request, pre_selected_dut):
+    duthost = pre_selected_dut
     #clear FDB and arp cache on DUT
     duthost.shell('sonic-clear arp; fdbclear')
     if request.param == "Enabled":
@@ -137,8 +137,8 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_vxlan_decap(setup, vxlan_status, pre_selected_dut, ptfhost, creds):
+    duthost = pre_selected_dut
 
     vxlan_enabled, scenario = vxlan_status
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))

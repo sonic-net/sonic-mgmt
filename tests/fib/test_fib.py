@@ -27,14 +27,13 @@ PTF_QLEN = 2000
 
 
 @pytest.fixture(scope="module")
-def config_facts(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+def config_facts(pre_selected_dut):
+    return pre_selected_dut.config_facts(host=pre_selected_dut.hostname, source="running")['ansible_facts']
 
 
 @pytest.fixture(scope='module')
-def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def build_fib(pre_selected_dut, ptfhost, config_facts, tbinfo):
+    duthost = pre_selected_dut
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
@@ -119,8 +118,8 @@ def get_router_interface_ports(config_facts, tbinfo):
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_basic_fib(tbinfo, pre_selected_dut, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
+    duthost = pre_selected_dut
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
@@ -153,8 +152,8 @@ def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6,
 
 
 @pytest.fixture(scope="module")
-def setup_hash(tbinfo, duthosts, rand_one_dut_hostname, config_facts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_hash(tbinfo, pre_selected_dut, config_facts):
+    duthost = pre_selected_dut
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     setup_info = {}

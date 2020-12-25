@@ -14,19 +14,18 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
-def stop_pfcwd(duthosts, rand_one_dut_hostname):
+def stop_pfcwd(pre_selected_dut):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
-        duthost (AnsibleHost): DUT instance
+        pre_selected_dut (AnsibleHost): DUT instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Stop Pfcwd --")
-    duthost.command("pfcwd stop")
+    pre_selected_dut.command("pfcwd stop")
 
 @pytest.fixture(autouse=True)
-def ignore_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_loganalyzer_exceptions(loganalyzer):
     """
     Fixture that ignores expected failures during test execution.
 
@@ -44,21 +43,20 @@ def ignore_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     yield
 
 @pytest.fixture(scope='class', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand_one_dut_hostname, fanouthosts):
+def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, pre_selected_dut, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
     Args:
         setup_pfc_test (fixture): module scoped, autouse PFC fixture
         fanout_graph_facts (fixture): fanout graph info
-        duthost (AnsibleHost): DUT instance
+        pre_selected_dut (AnsibleHost): DUT instance
         fanouthosts (AnsibleHost): fanout instance
 
     Yields:
         timers (dict): pfcwd timer values
         storm_handle (PFCStorm): class PFCStorm instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Pfcwd timer test setup ---")
     setup_info = setup_pfc_test
     test_ports = setup_info['test_ports']
@@ -67,7 +65,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand
     pfc_wd_test_port = test_ports.keys()[0]
     neighbors = setup_info['neighbors']
     fanout_info = fanout_graph_facts
-    dut = duthost
+    dut = pre_selected_dut
     fanout = fanouthosts
     peer_params = populate_peer_info(neighbors, fanout_info, pfc_wd_test_port)
     storm_handle = set_storm_params(dut, fanout_info, fanout, peer_params)
@@ -204,19 +202,18 @@ class TestPfcwdAllTimer(object):
         timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
         return int(timestamp_ms)
 
-    def test_pfcwd_timer_accuracy(self, duthosts, rand_one_dut_hostname, pfcwd_timer_setup_restore):
+    def test_pfcwd_timer_accuracy(self, pre_selected_dut, pfcwd_timer_setup_restore):
         """
         Tests PFCwd timer accuracy
 
         Args:
-            duthost (AnsibleHost): DUT instance
+            pre_selected_dut (AnsibleHost): DUT instance
             pfcwd_timer_setup_restore (fixture): class scoped autouse setup fixture
         """
-        duthost = duthosts[rand_one_dut_hostname]
         setup_info = pfcwd_timer_setup_restore
         self.storm_handle = setup_info['storm_handle']
         self.timers = setup_info['timers']
-        self.dut = duthost
+        self.dut = pre_selected_dut
         self.all_detect_time = list()
         self.all_restore_time = list()
         try:
