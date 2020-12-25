@@ -3,7 +3,6 @@ import logging
 import json
 import time
 import os
-import random
 
 from common.helpers.assertions import pytest_require
 from tests.conftest import pre_select_one_dut
@@ -102,8 +101,8 @@ def collect_dut_lossless_prio(dut):
     if 'pfc_enable' not in port_qos_map[intf]:
         return []
 
-    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]    
-    return result 
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
+    return result
 
 def collect_dut_all_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
@@ -139,7 +138,7 @@ def test_collect_testbed_prio(duthosts, tbinfo):
         lossless_prio[dut.hostname] = collect_dut_lossless_prio(dut)
         lossy_prio[dut.hostname] = collect_dut_lossy_prio(dut)
 
-    prio_info = [all_prio, lossless_prio, lossy_prio]  
+    prio_info = [all_prio, lossless_prio, lossy_prio]
     file_names = [tbname + '-' + x + '.json' for x in ['all', 'lossless', 'lossy']]
     folder = 'priority'
 
