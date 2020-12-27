@@ -368,8 +368,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         FAULT_LED_COLOR_LIST = [
             "amber",
-            "red",
-            "orange"
+            "red"
         ]
 
         NORMAL_LED_COLOR_LIST = [
