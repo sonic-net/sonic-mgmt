@@ -380,7 +380,8 @@ def config_stp_interface_params(dut, iface, **kwargs):
             else:
                 command.append("{} spanning-tree {}".format(no_form, click_2_klish[each_key]))
         command.append('exit')
-        if not st.config(dut, command, skip_error_check=True, type=cli_type):
+        out = st.config(dut, command, skip_error_check=True, type=cli_type)
+        if "%Error" in out:
             return False
         return True
     elif cli_type in ["rest-put", "rest-patch"]:
@@ -1278,7 +1279,7 @@ def get_stp_next_root_port(dut, vlan, cli_type=""):
     # Preparing DATA to process and find the next Root/Forwarding port.
     cut_data = {}
     pc_list = []
-    for lag_intf in portchannel.get_portchannel_list(partner):
+    for lag_intf in cutils.iterable(portchannel.get_portchannel_list(partner)):
         if cli_type == "click":
             pc_list.append(lag_intf["teamdev"])
         elif cli_type in ["klish", "rest-put", "rest-patch"]:
@@ -1405,6 +1406,7 @@ def check_for_single_root_bridge_per_vlan(dut_list, vlan_list, dut_vlan_data, cl
     st.log("Verifying the single root bridge per vlan ...")
     dut_li = list([str(e) for e in dut_list]) if isinstance(dut_list, list) else [dut_list]
     vlan_li = list([str(e) for e in vlan_list]) if isinstance(vlan_list, list) else [vlan_list]
+    st.log("DUT LIST : {}, VLAN LIST :{}".format(dut_list, vlan_list))
     if len(vlan_list) != len(dut_list):
         st.log("Invalid data provided to check the root bridge per vlan ...")
         st.report_fail("invalid_data_for_root_bridge_per_vlan")

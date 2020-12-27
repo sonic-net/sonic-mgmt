@@ -73,6 +73,9 @@ defaults = {
     "SPYTEST_BGP_API_UITYPE": "",
     "SPYTEST_BGP_CFG_API_UITYPE": "",
     "SPYTEST_BGP_SHOW_API_UITYPE": "",
+    "SPYTEST_RECOVERY_CTRL_C": "1",
+    "SPYTEST_RECOVERY_CTRL_Q": "1",
+    "SPYTEST_SOFT_TGEN_WAIT_MULTIPLIER": "2",
 }
 
 dev_defaults = {

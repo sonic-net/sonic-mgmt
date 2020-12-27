@@ -1,3 +1,4 @@
+from __future__ import division
 from spytest.utils import filter_and_select
 from spytest import st
 import re
@@ -528,8 +529,9 @@ def verify_pim_show(dut,**kwargs):
                 pattern = re.compile(r'\w+')
                 result = pattern.findall(entry['oif'])
                 res = result[::2] + result[1::2]
-                oif_list = [str(oif) for oif in res[:len(res) / 2]]
-                flag_list = [str(flag) for flag  in res[len(res) / 2:]]
+                res_by_2 = int(len(res)/2)
+                oif_list = [str(oif) for oif in res[:res_by_2]]
+                flag_list = [str(flag) for flag  in res[res_by_2:]]
                 output[entry_index]['oif'] = oif_list
                 output[entry_index]['flag'] = flag_list
     #Converting all kwargs to list type to handle single or list of mroute instances

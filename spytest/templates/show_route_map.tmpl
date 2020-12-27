@@ -1,8 +1,8 @@
 Value Filldown,Required MAP_NAME ([\w\-_]+)
 Value Required FILTER_TYPE ((permit)|(deny))
 Value SEQ_NUM (\d{1,5})
-Value List MATCH_CLAUSE ([\w\-\s_\.]+)
-Value List SET_CLAUSE ([\w\-\s_\.\:\,]+)
+Value List MATCH_CLAUSE ([\w\-\s_\.\/]+)
+Value List SET_CLAUSE ([\w\-\s_\.\:\,\/]+)
 Value List CALL_CLAUSE ([\w\-\s_\.]+)
 # If more actions are defined later, add them by appending "|(next_action)"
 # after "(current_last_defined_action)".
@@ -21,7 +21,7 @@ MatchList
   ^\s*Set clauses:.* -> Next.NoRecord SetList
   ^\s*${MATCH_CLAUSE}
 
-SetList  
+SetList
   ^\s*Call clauses:.* -> Next.NoRecord CallList
   ^\s*${SET_CLAUSE}
 

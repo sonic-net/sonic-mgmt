@@ -839,6 +839,7 @@ def l3tc_vrfipv4v6_address_leafspine_tg_bgp_config(config='yes', vrf_type='all',
                 bgpapi.config_bgp_multi_neigh_use_peergroup(data[device_type], local_asn=dut_as,
                                                             peer_grp_name='leaf_tg6', remote_asn=tg_as+j-1,
                                                             neigh_ip_list=tg_neigh6_list, family='ipv6', activate=1)
+                
 
     else:
         bgpapi.cleanup_bgp_config([data[dut] for dut in data['leaf_routers']+data['spine_routers']])
@@ -1288,7 +1289,7 @@ def configure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
     :return:
     """
     cli_type = st.get_ui_type(dut2, cli_type="")
-    cli_type = "vtysh" if cli_type in ['click', "vtysh"] else cli_type
+    cli_type = "vtysh" if cli_type in ['click', "vtysh"] else ("klish" if cli_type in ["rest-patch","rest-put"] else cli_type)
 
     use_global_rmap = rmapapi.RouteMap("UseGlobal")
     use_global_rmap.add_permit_sequence('10')
@@ -1412,7 +1413,8 @@ def unconfigure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
     """
 
     cli_type = st.get_ui_type(dut1, cli_type="")
-    cli_type = "vtysh" if cli_type in ['click', "vtysh"] else cli_type
+    cli_type = "vtysh" if cli_type in ['click', "vtysh"] else (
+        "klish" if cli_type in ["rest-patch", "rest-put"] else cli_type)
     bgpapi.config_bgp_network_advertise(dut1, topo['dut1_as'], '101.1.1.0/24', config='no')
     bgpapi.config_bgp_network_advertise(dut1, topo['dut1_as'], '102.1.1.0/24', config='no')
     bgpapi.config_bgp_network_advertise(dut1, topo['dut1_as'], '101:1::/64', addr_family='ipv6', config='no')
