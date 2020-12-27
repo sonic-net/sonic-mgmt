@@ -4,10 +4,10 @@
 import re
 from spytest import st
 from spytest.utils import filter_and_select
-import apis.common.asic_bcm as asicapi
+import apis.common.asic as asicapi
+from apis.system.rest import get_rest
 import utilities.utils as utils_obj
 from utilities.common import do_eval
-from apis.system.rest import get_rest
 
 def get_copp_config(dut, **kwargs):
     """
@@ -826,7 +826,7 @@ def get_show_c_cpuq_counter(dut,queue):
     for itercountvar in range(nooftimes):
         if itercountvar != 0:
             st.wait(5)
-        cli_out = asicapi.bcmcmd_show_c(dut)
+        cli_out = asicapi.get_counters(dut)
         fil_out = filter_and_select(cli_out, ["value"], {"key": queue})
         if not fil_out:
             fil_out = filter_and_select(cli_out, ["value"], {"key": queue_mc})
@@ -1018,4 +1018,54 @@ def config_coppgroup_copptrap_viarest(dut, **kwargs):
         st.log("PASS: Rest operation for copp group and copp trap config return status {}".format(output['status']))
 
     return True
+
+
+def set_copp_pir_config(dut, config, *args):
+    """
+    To set the config into copp_config.json
+    Author : vishnuvardhan.talluri@broadcom.com
+
+    :param dut:
+    :param config:
+    :param args:
+    :return:
+    """
+
+    command = "sudo cat /etc/sonic/copp_config.json"
+    output = st.show(dut, command, skip_tmpl=True)
+    reg_output = utils_obj.remove_last_line_from_string(output)
+    try:
+        data = eval(reg_output)
+    except Exception as e:
+        st.log(e)
+        reg_output = str(reg_output) + "\n" + "}"
+        data = eval(reg_output)
+    st.log("ARGS {}".format(args))
+    if config == "get":
+        return data
+
+    for eachli in args:
+        if len(eachli) != 3:
+            st.error("Invalid input is provided  {}".format(eachli))
+            return False
+        table = eachli[0]
+        attribute = eachli[1]
+        value = eachli[2]
+        found_table = False
+        if table in data['SCHEDULER'].keys():
+            data['SCHEDULER'][table][attribute] = value
+            found_table = True
+        if not found_table:
+            st.error("Table not found {}".format(table))
+            return False
+
+    file_path = utils_obj.write_to_json_file(data, "/tmp/00-copp.config.json")
+    st.log("FILE PATH -- {}".format(file_path))
+    st.upload_file_to_dut(dut, file_path, "/tmp/00-copp.config.json")
+    command = "sudo cp /tmp/00-copp.config.json /etc/sonic/copp_config.json"
+    st.config(dut, command)
+    command = "rm /tmp/00-copp.config.json"
+    st.config(dut, command)
+    return True
+
 

@@ -1,8 +1,8 @@
 from spytest import st
 from apis.system.rest import config_rest, get_rest, delete_rest
 from apis.routing.ip import get_interface_ip_address
-from utilities.utils import make_list, remove_last_line_from_string, get_interface_number_from_name
-from utilities.common import filter_and_select
+from utilities.utils import remove_last_line_from_string, get_interface_number_from_name
+from utilities.common import make_list, filter_and_select, iterable
 
 
 
@@ -481,7 +481,7 @@ def verify_dhcp_relay_detailed(dut, interface, **kwargs):
                 st.log("{} and {} is not match ".format(each, kwargs[each]))
                 return False
     if kwargs.get("server_addr"):
-        for result in output:
+        for result in iterable(output):
             if result.get("server_addr"):
                 server_addr = result.get("server_addr")
                 break

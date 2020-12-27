@@ -1234,8 +1234,8 @@ class BGPSP:
 
             return True
 
-        st.log("BGP SP - Dut {} FAILED".format(action_str))
-        return False
+        #st.log("BGP SP - Dut {} FAILED".format(action_str))
+        #return False
 
 
     @staticmethod
@@ -1287,8 +1287,8 @@ class BGPSP:
             del sp_topo[dut]['intf'][link_name]
             return True
 
-        st.log("BGP SP - Link {} FAILED".format(action_str))
-        return False
+        #st.log("BGP SP - Link {} FAILED".format(action_str))
+        #return False
 
 
     @staticmethod
@@ -1378,16 +1378,16 @@ class BGPSP:
                 st.log("BGP SP - {} {} does not exist".format(dut, link_name))
                 return True
 
-            if_data = sp_topo[dut]['intf'][link_name]
-            ip_data =  sp_topo[dut][addr_family]['link'][link_name]
+            #if_data = sp_topo[dut]['intf'][link_name]
+            #ip_data =  sp_topo[dut][addr_family]['link'][link_name]
 
             del sp_topo[dut][addr_family]['link'][link_name]
 
             #st.log("BGP SP - Deleted IP link {} {}".format(link_name, ip_data))
             return True
 
-        st.log("BGP SP - Link ip {} FAILED".format(action_str))
-        return False
+        #st.log("BGP SP - Link ip {} FAILED".format(action_str))
+        #return False
 
 
     @staticmethod
@@ -1648,8 +1648,8 @@ class BGPSP:
 
         match_selected ={'status_code': '*>'}
         selected_entries = BGPSP.bgp_sp_get_matching_entries(matched_entries, match_selected)
-        if not matched_entries:
-             return False
+        #if not matched_entries:
+             #return False
 
         if not match:
            return True
@@ -2055,12 +2055,12 @@ class BGPSP:
                 nwoct2 = from_dut_idx
 
                 st_rt = "{}.{}.{}.{}".format(nwoct4, nwoct3, nwoct2, 0)
-                next_hop = BGPSP.bgp_sp_get_dut_loopback_ip(from_dut, 0, 'ipv4')
+                #next_hop = BGPSP.bgp_sp_get_dut_loopback_ip(from_dut, 0, 'ipv4')
                 next_hop = BGPSP.bgp_sp_get_unused_dut_interface(from_dut)
                 BGPSP.bgp_sp_add_del_dut_static_route_prefix(from_dut, st_rt, 24, next_hop, 'ipv4', add='yes')
 
                 st_rt = "{}:{}:{}::{}".format(nwoct4, nwoct3, nwoct2, 0)
-                next_hop = BGPSP.bgp_sp_get_dut_loopback_ip(from_dut, 0, 'ipv6')
+                #next_hop = BGPSP.bgp_sp_get_dut_loopback_ip(from_dut, 0, 'ipv6')
                 next_hop = BGPSP.bgp_sp_get_unused_dut_interface(from_dut)
                 BGPSP.bgp_sp_add_del_dut_static_route_prefix(from_dut, st_rt, 64, next_hop, 'ipv6', add='yes')
 
@@ -2222,7 +2222,7 @@ class BGPSP:
             st.vtysh_config(tb_dut, "do show running-config bgp")
 
     @staticmethod
-    def bgp_sp_loopback_interface_config_unconfig(config='yes', vrf='default'):
+    def bgp_sp_loopback_interface_config_unconfig(config='yes', vrf='default', threaded_run=True):
         """
 
         :param config:
@@ -2233,7 +2233,7 @@ class BGPSP:
         st.banner("{}uring LOOPBACK Interface on all nodes.".format(action_str))
 
         result = True
-        threaded_run = True
+        #threaded_run = True
 
         dut_list = BGPSP.bgp_sp_get_dut_list() #+ BGPSP.bgp_sp_get_tg_list()
         dut_thread = []
@@ -2259,10 +2259,9 @@ class BGPSP:
                 dut_thread.append(putils.ExecAllFunc(ipapi.config_loopback_interfaces, tb_dut, loopback_name=loopback_names, config=config))
             else :
                 result = ipapi.config_loopback_interfaces(tb_dut, loopback_name=loopback_names, config=config)
-
-            if not result :
-                st.log("{}uring {} loopback interfaces FAILED".format(action_str, dut))
-                return False
+                if not result :
+                    st.log("{}uring {} loopback interfaces FAILED".format(action_str, dut))
+                    return False
 
         if threaded_run:
             [out, exceptions] = putils.exec_all(bgplib.fast_start, dut_thread)
@@ -2273,7 +2272,7 @@ class BGPSP:
 
 
     @staticmethod
-    def bgp_sp_loopback_address_config_unconfig(config='yes', vrf='default', addr_family='all'):
+    def bgp_sp_loopback_address_config_unconfig(config='yes', vrf='default', addr_family='all', threaded_run=True, debug_run=False):
         """
 
         :param config:
@@ -2289,8 +2288,8 @@ class BGPSP:
             st.log("SP topo:\n{}\n".format(sp_topo))
             return False
 
-        threaded_run = True
-        debug_run = False
+        #threaded_run = True
+        #debug_run = False
         result = True
         config = 'add' if config == 'yes' else 'remove'
 
@@ -2323,11 +2322,10 @@ class BGPSP:
                 dut_thread.append([ipapi.config_unconfig_interface_ip_addresses, tb_dut, if_data_list, config])
             else :
                 result = ipapi.config_unconfig_interface_ip_addresses(tb_dut, if_data_list, config=config)
-
-            if not result:
-                BGPSP.bgp_sp_show_dut_cmd_logs(dut)
-                st.log("{}uring {} loopback address FAILED".format(action_str, dut))
-                return False
+                if not result:
+                    BGPSP.bgp_sp_show_dut_cmd_logs(dut)
+                    st.log("{}uring {} loopback address FAILED".format(action_str, dut))
+                    return False
 
             if debug_run:
                 BGPSP.bgp_sp_show_dut_if_cmd_logs(dut)
@@ -2341,7 +2339,7 @@ class BGPSP:
 
 
     @staticmethod
-    def bgp_sp_interface_address_all_config_unconfig(config='yes', vrf='default', addr_family='all'):
+    def bgp_sp_interface_address_all_config_unconfig(config='yes', vrf='default', addr_family='all', threaded_run=True, debug_run=False):
         """
 
         :param config:
@@ -2358,8 +2356,8 @@ class BGPSP:
             st.log("SP topo:\n{}\n".format(sp_topo))
             return False
 
-        threaded_run = True
-        debug_run = False
+        #threaded_run = True
+        #debug_run = False
         result = True
 
         config = 'add' if config == 'yes' else 'remove'
@@ -2392,11 +2390,10 @@ class BGPSP:
                 dut_thread.append([ipapi.config_unconfig_interface_ip_addresses, tb_dut, if_data_list, config])
             else :
                 result = ipapi.config_unconfig_interface_ip_addresses(tb_dut, if_data_list, config=config)
-
-            if not result:
-                BGPSP.bgp_sp_show_dut_cmd_logs(dut)
-                st.log("{}uring {} Interface address FAILED".format(action_str, dut))
-                return False
+                if not result:
+                    BGPSP.bgp_sp_show_dut_cmd_logs(dut)
+                    st.log("{}uring {} Interface address FAILED".format(action_str, dut))
+                    return False
 
             if debug_run:
                 BGPSP.bgp_sp_show_dut_if_cmd_logs(dut)
@@ -2410,7 +2407,7 @@ class BGPSP:
 
 
     @staticmethod
-    def bgp_sp_tg_interface_ip_all_config_unconfig(config='yes', vrf='default', addr_family='all'):
+    def bgp_sp_tg_interface_ip_all_config_unconfig(config='yes', vrf='default', addr_family='all', threaded_run=True):
         """
 
         :param config:
@@ -2428,7 +2425,7 @@ class BGPSP:
             return False
 
         result = True
-        threaded_run = True
+        #threaded_run = True
         dut_thread = []
 
         dut_list = BGPSP.bgp_sp_get_tg_list()
@@ -2454,10 +2451,9 @@ class BGPSP:
                     dut_thread.append([BGPSP.bgp_sp_tg_link_ip_config_unconfig, dut, link_name, addr_family, vrf, config])
                 else :
                     result = BGPSP.bgp_sp_tg_link_ip_config_unconfig(dut, link_name, addr_family, vrf, config=config)
-
-            if not result:
-                BGPSP.bgp_sp_show_dut_cmd_logs(dut)
-                st.log("{}uring TG {} Interface address FAILED".format(action_str, dut))
+                    if not result:
+                        BGPSP.bgp_sp_show_dut_cmd_logs(dut)
+                        st.log("{}uring TG {} Interface address FAILED".format(action_str, dut))
 
         if threaded_run:
             [out, exceptions] = putils.exec_all(bgplib.fast_start, dut_thread)
@@ -2592,7 +2588,7 @@ class BGPSP:
 
 
     @staticmethod
-    def bgp_sp_static_route_config_unconfig(config='yes', vrf='default', addr_family='all'):
+    def bgp_sp_static_route_config_unconfig(config='yes', vrf='default', addr_family='all', threaded_run=True, debug_run=False):
         """
 
         :param config:
@@ -2608,8 +2604,8 @@ class BGPSP:
             st.log("SP topo:\n{}\n".format(sp_topo))
             return False
 
-        threaded_run = True
-        debug_run = False
+        #threaded_run = True
+        #debug_run = False
         result = True
         config = 'add' if config == 'yes' else 'remove'
 
@@ -2650,11 +2646,10 @@ class BGPSP:
                 dut_thread.append([ipapi.config_unconfig_static_routes, tb_dut, rt_data_list, "vtysh", config])
             else :
                 result = ipapi.config_unconfig_static_routes(tb_dut, rt_data_list, shell="vtysh", config=config)
-
-            if not result:
-                BGPSP.bgp_sp_show_dut_cmd_logs(dut)
-                st.log("{}uring {} Static route FAILED".format(action_str, dut))
-                return False
+                if not result:
+                    BGPSP.bgp_sp_show_dut_cmd_logs(dut)
+                    st.log("{}uring {} Static route FAILED".format(action_str, dut))
+                    return False
 
             if debug_run:
                 BGPSP.bgp_sp_show_dut_route_cmd_logs(dut)
@@ -3381,8 +3376,9 @@ class BGPSP:
     def bgp_sp_route_map_config_unconfig(dut, rmap_name, condition='permit', sequence='', config='yes', **kwargs):
 
         cli_type = st.get_ui_type(dut, cli_type="")
-        cli_type = "vtysh" if cli_type in ['click', "vtysh"] else cli_type
-
+        # cli_type = "vtysh" if cli_type in ['click', "vtysh"] else cli_type
+        # cli_type = "vtysh" if cli_type in ["rest-patch", "rest-put"] else cli_type
+        cli_type = "vtysh" if cli_type in ['click', "vtysh"] else ("klish" if cli_type in ["rest-patch", "rest-put"] else cli_type)
         action_str = 'Config' if config == 'yes' else 'Unconfig'
         st.log("{}uring route map".format(action_str))
 
@@ -3800,7 +3796,7 @@ class BGPSP:
 
 
     @staticmethod
-    def bgp_sp_bgp_asn_map_config_unconfig(dut_asn_map={}, config='yes', vrf='default', addr_family='all', max_adjacency='all', cli_type="vtysh"):
+    def bgp_sp_bgp_asn_map_config_unconfig(dut_asn_map={}, config='yes', vrf='default', addr_family='all', max_adjacency='all', cli_type="vtysh", debug_run=False):
         """
 
         :param dut_asn_map
@@ -3824,7 +3820,7 @@ class BGPSP:
             return False
 
         #threaded_run = False
-        debug_run = False
+        #debug_run = False
         result = True
 
         addr_family_list = BGPSP.bgp_sp_get_address_family_list(addr_family)
@@ -3964,7 +3960,7 @@ class BGPSP:
 
 
     @staticmethod
-    def bgp_sp_cleanup_bgp_routers(dut_list = []):
+    def bgp_sp_cleanup_bgp_routers(dut_list = [], threaded_run=True):
 
         if len(dut_list) == 0:
             dut_list = sp_topo['dut_list']
@@ -3972,7 +3968,7 @@ class BGPSP:
         st.log("BGP SP - Unconfiguring BGP routers {}".format(dut_list))
 
         result = True
-        threaded_run = True
+        #threaded_run = True
         device_list = []
         dut_thread = []
 
@@ -4026,18 +4022,33 @@ class BGPSP:
             for afmly in addr_family_list:
                 nbr_list = bgp_topo[dut][vrf][afmly]['nbr'].keys()
 
-                result = bgpapi.verify_bgp_summary(tb_dut, family=afmly, neighbor=nbr_list, state='Established')
-                if result :
-                    if state == 'down' :
-                        st.log("BGP SP - BGP session not down for nghbor {}".format(nbr_list))
-                        BGPSP.bgp_sp_show_dut_route_cmd_logs(dut)
-                        break
+                loop_flag = 0
+                for iter in range(6):
+                    result_flag = 0
+                    result = bgpapi.verify_bgp_summary(tb_dut, family=afmly, neighbor=nbr_list, state='Established')
+                    if result :
+                        if state == 'down' :
+                            st.log("BGP SP - BGP session not down for nghbor {}".format(nbr_list))
+                            BGPSP.bgp_sp_show_dut_route_cmd_logs(dut)
+                            #break
+                            result_flag = 1
 
-                if not result :
-                    if state == 'up' :
-                        st.log("BGP SP - BGP session not up for nghbor {}".format(nbr_list))
-                        BGPSP.bgp_sp_show_dut_route_cmd_logs(dut)
+                    if not result :
+                        if state == 'up' :
+                            st.log("BGP SP - BGP session not up for nghbor {}".format(nbr_list))
+                            BGPSP.bgp_sp_show_dut_route_cmd_logs(dut)
+                            #break
+                            result_flag = 1
+
+                    if result_flag == 0:
+                        loop_flag = 0
                         break
+                    else:
+                        loop_flag = 1
+                        st.wait(10, "Waiting or the connectios establishement")
+
+                if loop_flag == 1:
+                    break
 
             if not result :
                 break
@@ -4335,7 +4346,7 @@ class BGPSP:
             spine_leaf_session_count += 1
 
         if result and spine_leaf_session_count < 1 :
-            result = False
+            #result = False
             st.log("BGP SP - Zero spine leaf sessions")
             return False
 

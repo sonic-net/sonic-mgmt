@@ -100,7 +100,6 @@ def initialize_variables():
     data.oid_dot1q_Vlan_Static_Untagged_Ports = '1.3.6.1.2.1.17.7.1.4.3.1.4'
     data.oid_dot1q_Vlan_Static_Row_Status = '1.3.6.1.2.1.17.7.1.4.3.1.5'
     data.oid_dot1q_Pvid = '1.3.6.1.2.1.17.7.1.4.5.1.1'
-    data.oid_memory = "UCD-SNMP-MIB::memory"
     data.source_mac = "00:0a:01:00:00:01"
     data.source_mac1 = "00:0a:02:00:00:01"
     data.vlan = str(random_vlan_list()[0])
@@ -111,7 +110,31 @@ def initialize_variables():
     data.nsNotifyShutdown='8072.4.0.2'
     data.filter = '-Oqv'
     data.brcmSonicConfigChange = '2.1.2.0.1'
-
+    data.oid_ifx_table = '1.3.6.1.2.1.31.1.1'
+    data.oid_ip_System_Stats_Table = '1.3.6.1.2.1.4.31.1'
+    data.oid_ip_IfStats_Table = '1.3.6.1.2.1.4.31.3'
+    data.oid_ip_Address_Table = '1.3.6.1.2.1.4.34'
+    data.oid_ip_NetToPhysical_Table = '1.3.6.1.2.1.4.35'
+    data.oid_icmp_Msgs = '1.3.6.1.2.1.5'
+    data.oid_tcp_mib = '1.3.6.1.2.1.6'
+    data.oid_udp_mib = '1.3.6.1.2.1.7'
+    data.oid_snmpv2_mib = '1.3.6.1.2.1.11'
+    data.oid_host_resource_mib = '1.3.6.1.2.1.25'
+    data.oid_framework_mib = '1.3.6.1.6.3.10'
+    data.oid_mpd_mib = '1.3.6.1.6.3.11'
+    data.oid_target_mib = '1.3.6.1.6.3.12'
+    data.oid_notification_mib = '1.3.6.1.6.3.13'
+    data.oid_user_based_sm_mib = '1.3.6.1.6.3.15'
+    data.oid_view_based_acm_mib = '1.3.6.1.6.3.16'
+    data.oid_ent_physical_table = '1.3.6.1.2.1.47.1.1.1'
+    data.oid_ent_phy_sensor_table = '1.3.6.1.2.1.99.1.1'
+    data.oid_dot3_stats_table = '1.3.6.1.2.1.10.7.2'
+    data.oid_net_snmp_agent_mib = '1.3.6.1.4.1.8072.1'
+    data.oid_net_snmp_vacm_mib = '1.3.6.1.4.1.8072.1.9'
+    data.oid_ucd_diskio_mib = '1.3.6.1.4.1.2021.13.15'
+    data.oid_ucd_memory = '1.3.6.1.4.1.2021.4'
+    data.oid_ucd_la_table = '1.3.6.1.4.1.2021.10'
+    data.oid_ucd_system_stats = '1.3.6.1.4.1.2021.11'
 
 def snmp_pre_config():
     """
@@ -357,14 +380,6 @@ def test_ft_snmp_sysContact():
         st.report_fail("sysContact_verification_fail")
     st.report_pass("test_case_passed")
 
-def test_ft_snmp_mib_memory():
-    output=basic_obj.get_memory_info(vars.D1)
-    get_snmp_output = snmp_obj.get_snmp_memory(ipaddress, data.oid_memory,data.ro_community)
-    if output['total']==int(get_snmp_output['TotalReal']) and output['used']==int(get_snmp_output['AvailReal']):
-        st.report_pass("test_case_passed")
-    st.report_fail("test_case_failed, output= {}, dnmp_output={}".format(output,get_snmp_output))
-
-
 @pytest.mark.regression
 @pytest.mark.snmp_mib_2
 @pytest.mark.community
@@ -561,6 +576,356 @@ def test_ft_snmp_ipcidr_route_table():
                                 oid=data.oid_ipcidr_route_table, community_name=data.ro_community)
     get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ipcidr_route_table,
                                                    community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ifx_table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for ifXTable Object gives list of interface entries on the switch.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ifx_table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ip_System_Stats_Table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for ipSystemStatsTable Object gives the table containing system wide, IP version specific traffic statistics.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ip_System_Stats_Table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ip_IfStats_Table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for ipIfStatsTable Object gives the table containing per-interface traffic statistics.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ip_IfStats_Table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ip_Address_Table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for ipAddressTable Object gives table contains addressing information relevant to the entity's interfaces.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ip_Address_Table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ip_NetToPhysical_Table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for ipNetToPhysicalTable Object gives each entry contains one IP address to physical address equivalence.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ip_NetToPhysical_Table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_icmp_Msgs():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for icmpMsgs Object gives Internet Control Message Protocol related information.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_icmp_Msgs,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_tcp_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for TCP-MIB Object gives Transmission Control Protocol related information.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_tcp_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_udp_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for UDP-MIB Object gives User Datagram Protocol related information.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_udp_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_snmpv2_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for SNMPv2-MIB Object gives system SNMP variables.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_snmpv2_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_host_resource_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for HOST-RESOURCES-MIB Object gives a uniform set of objects useful for the management of host computers.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_host_resource_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_framework_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for SNMP-FRAMEWORK-MIB Object gives The SNMP Management Architecture information.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_framework_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_mpd_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for SNMP-MPD-MIB Object gives the compliance statement for SNMP entities which implement the SNMP-MPD-MIB.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_mpd_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_target_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for SNMP-TARGET-MIB Object it defines MIB objects which provide mechanisms to remotely configure the parameters.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_target_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_notification_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for SNMP-NOTIFICATION-MIB Object defines MIB objects which provide mechanisms to remotely configure the parameters.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_notification_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_user_based_sm_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for SNMP-USER-BASED-SM-MIB Object gives the management information definitions for the SNMP User-based Security Model.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_user_based_sm_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_view_based_acm_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for SNMP-VIEW-BASED-ACM-MIB Object gives the management information definitions for the View-based Access Control Model for SNMP.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_view_based_acm_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ent_physical_table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for entPhysicalTableObject gives the Information about a particular physical entity.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ent_physical_table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ent_phy_sensor_table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for entPhySensorTable gives The type of data returned by the associated entPhySensorValue object.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ent_phy_sensor_table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_dot3_stats_table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify snmpwalk for dot3StatsTable gives Statistics for a collection of ethernet-like interfaces attached to a particular system.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_dot3_stats_table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_net_snmp_agent_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmpwalk for NET-SNMP-AGENT-MIB is successfull.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_net_snmp_agent_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_net_snmp_vacm_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmpwalk for NET-SNMP-VACM-MIB defines Net-SNMP extensions to the standard VACM view table.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_net_snmp_vacm_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ucd_diskio_mib():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmpwalk for UCD-DISKIO-MIB defines objects for disk IO statistics.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ucd_diskio_mib,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ucd_memory():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmpwalk for UCD-MEMORY-MIB it gives Memory Statistics.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ucd_memory,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ucd_la_table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmpwalk for UCD-LaTable-MIB it gives the 1,5 and 15 minute load averages.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ucd_la_table,
+                                                  community_name=data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_new
+def test_ft_snmp_ucd_system_stats():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmpwalk for UCD-SystemStats-MIB it gives the CPU related information.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    get_snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_ucd_system_stats,
+                                                  community_name=data.ro_community)
     if not get_snmp_output:
         st.report_fail("get_snmp_output_fail")
     st.report_pass("test_case_passed")
@@ -1163,5 +1528,67 @@ def test_ft_snmp_docker_restart():
     st.log("hostname Device('{}') and SNMP('{}')".format(hostname, get_snmp_output[0]))
     if not get_snmp_output[0] == hostname:
         st.report_fail("sysName_verification_fail_after_docker_restart")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_counters
+def test_ft_snmp_basic_counters():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmp basic counters.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    snmp_obj.clear_snmp_counters(vars.D1)
+    # simulating snmp counters
+    snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_sysName,
+                                 community_name=data.ro_community, filter=data.filter)
+
+    output = snmp_obj.verify_snmp_counters(vars.D1, map={"snmp_packets_input": 2, "requested_variables": 2,
+                                                         "get_request_pdus": 1, "get_next_pdus": 1,
+                                                         "snmp_packets_output": 2, "response_pdus": 2})
+
+    if not output:
+        st.report_fail("snmp_counter_not_incremented")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_counters
+def test_ft_snmp_trap_counter():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmp trap pdus.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    snmp_obj.clear_snmp_counters(vars.D1)
+    # simulating trap pdu
+    intf_obj.interface_shutdown(vars.D1, vars.D1T1P1)
+    intf_obj.interface_noshutdown(vars.D1, vars.D1T1P1)
+
+    result = snmp_obj.verify_snmp_counters(vars.D1, map={"trap_pdus":3})
+
+    if not result:
+        st.report_fail("snmp_counter_not_incremented")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+@pytest.mark.snmp_counters
+def test_ft_snmp_counter_negative_tests():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    *Verify snmp trap pdus.
+    Reference Test Bed : D1 --- Mgmt Network
+    """
+    snmp_obj.clear_snmp_counters(vars.D1)
+    # simulating snmp counters
+
+    snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid=data.oid_sysName,
+                                 community_name="test_test", filter=data.filter, report=False)
+    snmp_obj.walk_snmp_operation(ipaddress=ipaddress, version='1', oid=data.oid_sysName,
+                                 community_name=data.ro_community, filter=data.filter, report=False)
+
+    output = snmp_obj.verify_snmp_counters(vars.D1, map={"unknown_community_name": 6, "snmp_version_errors": 6})
+
+    if not output:
+        st.report_fail("snmp_counter_not_incremented")
     st.report_pass("test_case_passed")
 

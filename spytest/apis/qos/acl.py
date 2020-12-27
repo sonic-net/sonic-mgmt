@@ -261,14 +261,14 @@ def create_acl_rule(dut, skip_verify=True, acl_type=None, host_1=None, host_2=No
         packet_action = action_mapping[packet_action.lower()]
         rule_create = json.loads("""
         {
-	"openconfig-acl:acl-entries": {
-		"acl-entry": [{
-			"sequence-id": 0,
-			"config": {"sequence-id": 0,"description": "string"},
-			"actions": {"config": {"forwarding-action": "string"}},
-			"transport": {"config": {}}
-		}]
-	}
+    "openconfig-acl:acl-entries": {
+        "acl-entry": [{
+            "sequence-id": 0,
+            "config": {"sequence-id": 0,"description": "string"},
+            "actions": {"config": {"forwarding-action": "string"}},
+            "transport": {"config": {}}
+        }]
+    }
 }
         """)
         config = dict()
@@ -307,16 +307,36 @@ def create_acl_rule(dut, skip_verify=True, acl_type=None, host_1=None, host_2=No
             if src_ip != "any":
                 config["config"]["source-address"] = src_ip
         # config ports
-        if dst_port:
+        if dst_comp_operator == 'lt':
+            dst_port_range = "0 {}".format(dst_port)
+            transport_data["destination-port"] = "{}..{}".format(dst_port_range.split()[0],dst_port_range.split()[1])
+        elif dst_comp_operator == 'gt':
+            dst_port_range = "{} 65500".format(dst_port)
+            transport_data["destination-port"] = "{}..{}".format(dst_port_range.split()[0],dst_port_range.split()[1])
+        elif dst_port:
             transport_data["destination-port"] = int(dst_port)
+            st.log(transport_data)
         elif dst_port_range:
             transport_data["destination-port"] = "{}..{}".format(dst_port_range.split()[0],dst_port_range.split()[1])
-        if src_port:
-            transport_data["source-port"] = int(src_port)
-        elif src_port_range:
+        if src_comp_operator == 'lt':
+            src_port_range = "0 {}".format(src_port)
             transport_data["source-port"] = "{}..{}".format(src_port_range.split()[0],src_port_range.split()[1])
+        elif src_comp_operator == 'gt':
+            src_port_range = "{} 65500".format(src_port)
+            transport_data["source-port"] = "{}..{}".format(src_port_range.split()[0],src_port_range.split()[1])
+        elif src_port:
+            transport_data["source-port"] = int(src_port)
+            st.log(transport_data)
+        elif src_port_range:
+            st.log(src_port_range)
+            transport_data["source-port"] = "{}..{}".format(src_port_range.split()[0],src_port_range.split()[1])
+            st.log(transport_data)
         if tcp_flag:
-            transport_data["tcp-flags"] = ["TCP_RST"]
+            transport_data["tcp-flags"] = ["TCP_{}".format(temp.upper().replace('-','_')) for temp in tcp_flag.split()]
+            st.log(transport_data)
+            if tcp_flag == "established":
+                transport_data["openconfig-acl-ext:tcp-session-established"] = True
+                transport_data.pop("tcp-flags")
         rule_create["openconfig-acl:acl-entries"]["acl-entry"][0]["transport"]["config"] = transport_data
         if acl_type == "ip":
             acl_type = "ipv4"
@@ -844,28 +864,28 @@ def config_access_group(dut, acl_type=None, **kwargs):
     elif cli_type in ["rest-patch","rest-put"]:
         config_group = json.loads("""
                     {
-        	"openconfig-acl:interface": [{
-        		"id": "string",
-        		"config": {
-        			"id": "string"
-        		},
-        		"interface-ref": {
-        			"config": {
-        				"interface": "string"
-        			}
-        		}
-        	}]
+            "openconfig-acl:interface": [{
+                "id": "string",
+                "config": {
+                    "id": "string"
+                },
+                "interface-ref": {
+                    "config": {
+                        "interface": "string"
+                    }
+                }
+            }]
         }
                     """)
         acl_set = json.loads("""
         [{
-			"type": "string",
-			"config": {
-				"type": "string",
-				"set-name": "string"
-			},
-			"set-name": "string"
-		}]
+            "type": "string",
+            "config": {
+                "type": "string",
+                "set-name": "string"
+            },
+            "set-name": "string"
+        }]
         """)
         acl_set[0]["type"] = acl_set[0]["config"]["type"] = acl_type
         acl_set[0]["set-name"] = acl_set[0]["config"]["set-name"] = table_name

@@ -173,7 +173,7 @@ class TestBGPCommon:
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
         tg_ob.tg_traffic_control(action='stop', handle=stream_id1)
-        st.wait(5)
+        st.tg_wait(5)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D1)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D2)])
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):
@@ -972,7 +972,7 @@ class TestBGPRif(TestBGPCommon):
                           conf_identf=confed_identifier,cli_type=vtysh_cli_type)
         bgpapi.config_bgp(spine_name, config='yes', config_type_list='', local_as=spine_as, conf_peers=leaf_as,cli_type=vtysh_cli_type)
 
-        ipapi.config_access_list(spine_name, 'confed-access-list1', '125.5.1.0/16', 'permit', seq_num="9")
+        ipapi.config_access_list(spine_name, 'confed-access-list1', '125.5.1.0/24', 'permit', seq_num="9")
         ipapi.config_route_map_match_ip_address(spine_name, 'confed-rmap', 'permit', '10', 'confed-access-list1')
 
         bgpapi.config_bgp(spine_name, local_as=spine_as, neighbor=info['D2D1P1_ipv4'], config_type_list=["routeMap"],
@@ -985,7 +985,7 @@ class TestBGPRif(TestBGPCommon):
                                             prefix='125.5.1.0', as_path='as_seq:1')
         tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
 
-        n1 = st.poll_wait(ipapi.verify_ip_route, 120, topo.dut_list[1], ip_address='125.5.5.0/24')
+        n1 = st.poll_wait(ipapi.verify_ip_route, 120, topo.dut_list[1], ip_address='125.5.1.0/24')
         if not n1:
             st.error('Route-map matching prefexis from the Spine DUT are not advertised to leaf DUT.')
             utils.exec_all(True, [[st.generate_tech_support, topo.dut_list[0], 'ft_bgp_ebgp_confed'], [st.generate_tech_support, topo.dut_list[1], 'ft_bgp_ebgp_confed']])
@@ -1007,7 +1007,7 @@ class TestBGPRif(TestBGPCommon):
         # Unconfig section
         tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='stop')
         ipapi.config_route_map_mode(topo.dut_list[0], 'confed-rmap', 'permit', '10', config='no')
-        ipapi.config_access_list(topo.dut_list[0], 'confed-access-list1', '121.5.1.0/16', 'permit', config='no', seq_num="9")
+        ipapi.config_access_list(topo.dut_list[0], 'confed-access-list1', '121.5.1.0/24', 'permit', config='no', seq_num="9")
         bgpapi.config_bgp(topo.dut_list[0], local_as=spine_as, config='no', neighbor=info['D2D1P1_ipv4'],
                           config_type_list=["routeMap"], routeMap='confed-rmap', diRection='out',cli_type=vtysh_cli_type)
         bgpapi.create_bgp_next_hop_self(topo.dut_list[0], spine_as, 'ipv4', info['D2D1P1_ipv4'], 'no', 'no')
@@ -1072,6 +1072,12 @@ class TestBGPIPvxRouteAdvertisementFilter:
 
     @pytest.fixture(scope="function", autouse=False)
     def bgp_ipvx_route_adv_func_hook(self, request):
+        if st.get_func_name(request) == "test_route_map_in_ipv6":
+            bgpapi.config_bgp(dut=self.local_topo['dut2'], local_as=self.local_topo['dut2_as'], addr_family='ipv6',
+                              config='no',
+                              neighbor=self.local_topo['dut1_addr_ipv6'],
+                              config_type_list=["routeMap"], routeMap='UseGlobal', diRection='in',
+                              cli_type=vtysh_cli_type)
         yield
         if st.get_func_name(request) == "test_route_map_in_ipv4":
             bgpapi.config_bgp(dut=self.local_topo['dut2'], local_as=self.local_topo['dut2_as'], addr_family='ipv4',
@@ -1079,12 +1085,23 @@ class TestBGPIPvxRouteAdvertisementFilter:
                               neighbor=self.local_topo['dut1_addr_ipv4'],
                               config_type_list=["routeMap"], routeMap='SETPROPS', diRection='in',
                               cli_type=vtysh_cli_type)
+        elif st.get_func_name(request) == "test_route_map_in_ipv6":
+            bgpapi.config_bgp(dut=self.local_topo['dut2'], local_as=self.local_topo['dut2_as'], addr_family='ipv6',
+                              config='no',
+                              neighbor=self.local_topo['dut1_addr_ipv6'],
+                              config_type_list=["routeMap"], routeMap='SETPROPS6', diRection='in',
+                              cli_type=vtysh_cli_type)
+            bgpapi.config_bgp(dut=self.local_topo['dut2'], local_as=self.local_topo['dut2_as'], addr_family='ipv6',
+                              config='yes',
+                              neighbor=self.local_topo['dut1_addr_ipv6'],
+                              config_type_list=["routeMap"], routeMap='UseGlobal', diRection='in',
+                              cli_type=vtysh_cli_type)
 
     def configure_base_for_filter_prefix_on_community(self, peer_grp4_name, config, cli_type=""):
         bgpapi.config_bgp(dut=self.local_topo['dut1'], local_as=self.local_topo['dut1_as'], config=config,
                           config_type_list=["redist"], redistribute='static',cli_type=cli_type)
         bgpapi.config_bgp(dut=self.local_topo['dut2'], local_as=self.local_topo['dut2_as'],
-                          neighbor=peer_grp4_name, addr_family='ipv4', config=config,
+                          neighbor=self.local_topo['dut1_addr_ipv4'],conf_peers=peer_grp4_name, addr_family='ipv4', config=config,
                           config_type_list=["routeMap"], routeMap='rmap1', diRection='in',cli_type=cli_type)
 
     @pytest.mark.community
@@ -1175,7 +1192,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
     @pytest.mark.community_pass
     def test_distribute_list_in_ipv4(self, bgp_ipvx_route_adv_filter_fixture):
 
-        if st.get_ui_type() in ['klish']:
+        if st.get_ui_type() in ['klish','rest-patch','rest-put']:
             st.report_unsupported('test_execution_skipped',
                                   'Skipping Distribute list test case for ui_type={}'.format(st.get_ui_type()))
 
@@ -1365,7 +1382,12 @@ class TestBGPIPvxRouteAdvertisementFilter:
     @pytest.mark.community
     @pytest.mark.community_pass
     def test_route_map_in_ipv4(self, bgp_ipvx_route_adv_filter_fixture, bgp_ipvx_route_adv_func_hook):
-
+        metric_match = "400"
+        local_ref_match = "200"
+        bgpapi.config_bgp(dut=self.local_topo['dut1'], local_as=self.local_topo['dut1_as'], addr_family='ipv4',
+                          config='no',
+                          neighbor=self.local_topo['dut2_addr_ipv4'],
+                          config_type_list=['import-check'], cli_type=bgp_cli_type)
         bgpapi.fetch_ip_bgp_route(self.local_topo['dut2'], family='ipv4',
                                            match={'next_hop': self.local_topo['dut1_addr_ipv4']},
                                            select=['network', 'local_pref', 'metric'])
@@ -1382,27 +1404,31 @@ class TestBGPIPvxRouteAdvertisementFilter:
         for x in output:
             if x['network'] == '102.1.1.0/24':
                 if "metric" in x:
-                    metric = x["metric"]
-                    break
+                    if x["metric"] == metric_match:
+                        metric = x["metric"]
+                        break
+                    else:
+                        metric = "0"
                 else:
                     metric = "0"
             else:
                 metric = "0"
-        # metric = [x for x in output if x['network'] == '102.1.1.0/24'][0]['metric']
 
         local_pref = "no"
         for x in output:
             if x['network'] == '101.1.1.0/24':
                 if "local_pref" in x:
-                    local_pref = x["local_pref"]
-                    break
+                    if x["local_pref"] == local_ref_match:
+                        local_pref = x["local_pref"]
+                        break
+                    else:
+                        local_pref = "0"
                 else:
                     local_pref = "0"
             else:
                 local_pref = "0"
-        # local_pref = [x for x in output if x['network'] == '101.1.1.0/24'][0]['local_pref']
 
-        if metric == '400' and local_pref == '200':
+        if metric == metric_match and local_pref == local_ref_match:
             st.report_pass("operation_successful")
         else:
             st.report_fail("operation_failed")
@@ -1726,7 +1752,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
 
     @pytest.mark.community
     @pytest.mark.community_pass
-    def test_route_map_in_ipv6(self, bgp_ipvx_route_adv_filter_fixture):
+    def test_route_map_in_ipv6(self, bgp_ipvx_route_adv_filter_fixture, bgp_ipvx_route_adv_func_hook):
 
         bgpapi.fetch_ip_bgp_route(self.local_topo['dut2'], family='ipv6',
                                            match={'next_hop': self.local_topo['dut1_addr_ipv6']},
@@ -1742,10 +1768,6 @@ class TestBGPIPvxRouteAdvertisementFilter:
                                            select=['network',  'local_pref', 'metric'])
         metric = bgplib.get_route_attribute(output, 'metric', network='102:1::/64')
         local_pref = bgplib.get_route_attribute(output, 'local_pref', network='101:1::/64')
-        bgpapi.config_bgp(dut=self.local_topo['dut2'], local_as=self.local_topo['dut2_as'], addr_family='ipv6',
-                          config='yes',
-                          neighbor=self.local_topo['dut1_addr_ipv6'],
-                          config_type_list=["routeMap"], routeMap='UseGlobal', diRection='in',cli_type=vtysh_cli_type)
 
         if metric == '6400' and local_pref == '6200':
             st.report_pass("operation_successful")
@@ -1934,7 +1956,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
                                       rate_pps=rate_pps)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
-        st.wait(20)
+        st.tg_wait(20)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D1)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D2)])
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):
@@ -1993,7 +2015,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
                                       rate_pps=rate_pps)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
-        st.wait(20)
+        st.tg_wait(20)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D2)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D1)])
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):
@@ -2119,7 +2141,7 @@ class TestBGPIPvxRouteAdvertisementFilter:
                                            select=['network', 'as_path', 'metric'])
 
         metric = bgplib.get_route_attribute(output, 'metric', network = '2012:1::/64')
-        if metric == '50':
+        if (metric == '50' or metric == int('50')):
             st.log('static blackhole route with metric 50 redistributed from dut1 to dut2')
             result = True
         else:
@@ -2271,7 +2293,7 @@ def bgp_l3_lag_pre_config_cleanup():
     bgplib.l3tc_vrfipv4v6_address_leafspine_bgp_config(config='no')
     bgplib.l3tc_vrfipv4v6_address_leafspine_config_unconfig(config='no')
     bgpapi.cleanup_bgp_config(st.get_dut_names())
-    ipapi.clear_ip_configuration(st.get_dut_names(), family='all', thread=True)
+    ipapi.clear_ip_configuration(st.get_dut_names(), family='all', thread=True, skip_error_check=True)
     bgplib.l3tc_underlay_config_unconfig(config='no', config_type='l3Lag')
     st.banner("BGP L3 OVER LAG CLASS CONFIG CLEANUP - END")
 

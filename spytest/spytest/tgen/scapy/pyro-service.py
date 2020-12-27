@@ -59,13 +59,12 @@ def startNameServer(host, hmac=None):
 
 class CustomDaemon(Pyro4.Daemon):
     def clientDisconnect(self, conn):
-        # If required, you *can* override this to do custom resource freeing.
-        # But this is not needed if your resource objects have a proper 'close' method;
-        # this method is called by Pyro itself once the client connection gets closed.
-        # In this example this override is only used to print out some info.
         try:
-            print("client disconnects:", conn.sock.getpeername())
-            print("    resources: ", [r.name for r in conn.tracked_resources])
+            logger.info("client disconnects: %s", conn.sock.getpeername())
+            logger.info("Remove Connection %s", id(conn))
+            obj = conn.pyroInstances.get(PyRoScapyService)
+            logger.info("Remove Instance %s", id(obj))
+            del obj
         except Exception:
             pass
 
@@ -74,7 +73,7 @@ class PyRoScapyService(ScapyService):
     @classmethod
     def create_instance(cls):
         obj = cls()
-        print("Created {}".format(id(obj)))
+        logger.info("Created %s", id(obj))
         obj.correlation_id = Pyro4.current_context.correlation_id
         return obj
 
@@ -91,13 +90,13 @@ def main():
                 custom_daemon = CustomDaemon()
             break
         except Exception as exp:
-            print(exp)
+            logger.info(exp)
             custom_daemon = None
             time.sleep(2)
 
     if use_ns: startNameServer("0.0.0.0")
 
-    print("PYRO ScapyService started: {}".format(custom_daemon))
+    logger.info("PYRO ScapyService started: %s", custom_daemon)
     Pyro4.Daemon.serveSimple(
         {
             PyRoScapyService: "scapy-tgen"

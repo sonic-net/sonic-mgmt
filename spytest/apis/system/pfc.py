@@ -746,7 +746,7 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             update_retval([buffer_pg, buffer_queue])
         st.debug(retval)
     
-    elif hwsku.lower() in constants['TD3_PLATFORMS']:
+    elif hwsku.lower() in constants['TD3_PLATFORMS']+constants['MV2_PLATFORMS']:
         if core_buffer_config:
             buffer_pool = {"BUFFER_POOL": {"egress_lossless_pool": {"mode": "static", "size": "33004032", "type": "egress"},
                                            "egress_lossy_pool": {"mode": "dynamic", "size": "12766208", "type": "egress"},

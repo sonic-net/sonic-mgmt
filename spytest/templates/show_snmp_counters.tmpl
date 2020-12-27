@@ -1,0 +1,36 @@
+Value snmp_packets_input (\d+)
+Value snmp_version_errors (\d+)
+Value unknown_community_name (\d+)
+Value illegal_operation (\d+)
+Value encoding_errors (\d+)
+Value requested_variables (\d+)
+Value altered_variables (\d+)
+Value get_request_pdus (\d+)
+Value get_next_pdus (\d+)
+Value set_request_pdus (\d+)
+Value snmp_packets_output (\d+)
+Value too_big_errors (\d+)
+Value no_name_errors (\d+)
+Value bad_values_errors (\d+)
+Value general_errors (\d+)
+Value response_pdus (\d+)
+Value trap_pdus (\d+)
+
+Start
+  ^\s*${snmp_packets_input}\s*SNMP packets input$$ -> Start
+  ^\s*${snmp_version_errors}\s*Bad SNMP version errors$$ -> Start
+  ^\s*${unknown_community_name}\s*Unknown community name$$ -> Start
+  ^\s*${illegal_operation}\s*Illegal operation for community name supplied$$ -> Start
+  ^\s*${encoding_errors}\s*Encoding errors$$ -> Start
+  ^\s*${requested_variables}\s*Number of requested variables$$ -> Start
+  ^\s*${altered_variables}\s*Number of altered variables$$ -> Start
+  ^\s*${get_request_pdus}\s*Get-request PDUs$$ -> Start
+  ^\s*${get_next_pdus}\s*Get-next PDUs$$ -> Start
+  ^\s*${set_request_pdus}\s*Set-request PDUs$$ -> Start
+  ^\s*${snmp_packets_output}\s*SNMP packets output$$ -> Start
+  ^\s*${too_big_errors}\s*Too big errors \(Maximum packet size 1500\)$$ -> Start
+  ^\s*${no_name_errors}\s*No such name errors$$ -> Start
+  ^\s*${bad_values_errors}\s*Bad values errors$$ -> Start
+  ^\s*${general_errors}\s*General errors$$ -> Start
+  ^\s*${response_pdus}\s*Response PDUs$$ -> Start
+  ^\s*${trap_pdus}\s*Trap PDUs$$ -> Record

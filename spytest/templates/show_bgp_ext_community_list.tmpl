@@ -1,39 +1,35 @@
-Value Required CommunityType ((Standard)|(Expanded))
-Value Required LIST_NAME ([\w_]+)
-Value MATCHTYPE ((ANY)|(ALL))
-Value List PERMITDENY ((permit)|(deny))
+Value Required,Filldown CommunityType ((Standard)|(Expanded))
+Value Required,Filldown LIST_NAME ([\w_]+)
+Value Required,Filldown MATCHTYPE ((ANY)|(ALL))
+Value PERMITDENY ((permit)|(deny))
 Value List ATTRIBUTE (((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5})
 Value List ExpAttribute (.*$$)
 
 Start
-  ^\s*((Standard)|(Expanded)) extended community list.* -> Continue.Record
   ^\s*${CommunityType} extended community list ${LIST_NAME}:\s*match: ${MATCHTYPE}$$
-  # FIXME: Is appearance of a prompt in the output a bug?
-  #Prompt: Record the current row.
-  ^\s*(\-\-sonic.*) -> Next.Record
   # One attribute or first on a line:
-  ^\s*${PERMITDENY}\s*${ATTRIBUTE}$$ -> Next
-  ^\s*${ATTRIBUTE}$$ -> Next
+  ^\s*${PERMITDENY}\s*${ATTRIBUTE}$$ -> Record
   ^\s*${PERMITDENY}\s*${ATTRIBUTE}, -> Continue
+  ^\s*${ATTRIBUTE}$$ -> Record
   ^\s*${ATTRIBUTE}, -> Continue
   # Two attributes or second on a line (capture:
-  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),${ATTRIBUTE}$$ -> Next
-  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),${ATTRIBUTE}$$ -> Next
-  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),${ATTRIBUTE}, -> Continue
-  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),${ATTRIBUTE}, -> Continue
+  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*)${ATTRIBUTE}$$ -> Record
+  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*)${ATTRIBUTE}, -> Continue
+  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*)*${ATTRIBUTE}$$ -> Record
+  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*)*${ATTRIBUTE}, -> Continue
   # Three attributes or third on a line:
-  ^\s*(permit|deny)\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){2}${ATTRIBUTE}$$ -> Next
-  ^\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){2}${ATTRIBUTE}$$ -> Next
-  ^\s*(permit|deny)\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){2}${ATTRIBUTE}, -> Continue
-  ^\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){2}${ATTRIBUTE}, -> Continue
+  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){2}${ATTRIBUTE}$$ -> Record
+  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){2}${ATTRIBUTE}, -> Continue
+  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){2}${ATTRIBUTE}$$ -> Record
+  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){2}${ATTRIBUTE}, -> Continue
   # Four attributes or fourth on a line:
-  ^\s*(permit|deny)\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){3}${ATTRIBUTE}$$ -> Next
-  ^\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){3}${ATTRIBUTE}$$ -> Next
-  ^\s*(permit|deny)\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){3}${ATTRIBUTE}, -> Continue
-  ^\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){3}${ATTRIBUTE}, -> Continue
+  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){3}${ATTRIBUTE}$$ -> Record
+  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){3}${ATTRIBUTE}, -> Continue
+  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){3}${ATTRIBUTE}$$ -> Record
+  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){3}${ATTRIBUTE}, -> Continue
   # Five attributes on a line:
-  ^\s*(permit|deny)\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){4}${ATTRIBUTE}$$ -> Next
-  ^\s*((((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5}),){4}${ATTRIBUTE}$$ -> Next
-  ^\s*${PERMITDENY}\s*${ExpAttribute}$$
-  ^\s*${ExpAttribute}$$
-
+  ^\s*(permit|deny)\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){4}${ATTRIBUTE}$$ -> Record
+  ^\s*(((rt)|(soo)):(((\d{1,3}\.){3}\d{1,3})|(\d{1,5})):\d{1,5},\s*){4}${ATTRIBUTE}$$ -> Record
+  # Expanded (wildcard) attribute
+  ^\s*${PERMITDENY}\s*${ExpAttribute}$$ -> Record
+  ^\s*${ExpAttribute}$$ -> Record

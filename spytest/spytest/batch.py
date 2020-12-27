@@ -79,7 +79,8 @@ def load_module_csv():
 
     # append augmented lines
     for line in wa.augment_modules_csv:
-        for row in csv.reader(line):
+        line2 = " ".join(utils.make_list(line))
+        for row in csv.reader([line2]):
             rows.append(row)
 
     # parse the rows
@@ -1280,7 +1281,7 @@ def parse_args(numprocesses, buckets_csv, logs_path, augment_modules_csv):
     for i,part in enumerate(parts):
         os.environ["SPYTEST_TESTBED_FILE_gw{}".format(i)] = part
     os.environ["SPYTEST_TESTBED_FILE"] = parts[0]
-    if numprocesses or count > 1:
+    if numprocesses or count > 1 or buckets_csv:
         os.environ["SPYTEST_BATCH_RUN"] = "1"
         numprocesses2 = len(wa.slaves) or 1
         numprocesses = numprocesses or 0

@@ -17,7 +17,6 @@ import apis.system.interface as intf_obj
 import apis.routing.route_map as rmap_obj
 import apis.switching.mac as mac_obj
 import apis.routing.arp as arp_obj
-import apis.common.asic_bcm as asicbcm_obj
 
 vars = dict()
 data = SpyTestDict()
@@ -65,7 +64,7 @@ def ip_module_hooks(request):
     global vars, tg_handler, tg
     # Min topology verification
     st.log("Ensuring minimum topology")
-    vars = st.ensure_min_topology("D1T1:2", "D2T1:2", "D1D2:4")
+    vars = st.ensure_min_topology("D1T1:4", "D2T1:2", "D1D2:4")
     # Initialize TG and TG port handlers
     tg_handler = tgapi.get_handles_byname("T1D1P1", "T1D1P2", "T1D2P1", "T1D2P2")
     tg = tg_handler["tg"]
@@ -643,21 +642,25 @@ def test_ft_verify_interfaces_order():
 
 @pytest.fixture(scope="function")
 def ceta_31902_fixture(request,ip_module_hooks):
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P2, data.ip6_addr[1],
+                                                           96, family=data.af_ipv6,config="remove")
     vlan_obj.create_vlan(vars.D1, [data.host1_vlan,data.host2_vlan])
-    vlan_obj.add_vlan_member(vars.D1, data.host1_vlan, [vars.D1T1P3,vars.D1T1P4], tagging_mode=True)
-    vlan_obj.add_vlan_member(vars.D1, data.host2_vlan, [vars.D1T1P3, vars.D1T1P4], tagging_mode=True)
+    vlan_obj.add_vlan_member(vars.D1, data.host1_vlan, [vars.D1T1P1,vars.D1T1P2], tagging_mode=True)
+    vlan_obj.add_vlan_member(vars.D1, data.host2_vlan, [vars.D1T1P1, vars.D1T1P2], tagging_mode=True)
     ipfeature.config_ip_addr_interface(vars.D1, "Vlan"+data.host1_vlan, data.vlan1_ip, 24, family=data.af_ipv4)
     ipfeature.config_ip_addr_interface(vars.D1, "Vlan" + data.host2_vlan, data.vlan2_ip, 24, family=data.af_ipv4)
     yield
     ipfeature.delete_ip_interface(vars.D1, "Vlan"+data.host1_vlan, data.vlan1_ip, "24", family="ipv4")
     ipfeature.delete_ip_interface(vars.D1, "Vlan"+data.host2_vlan, data.vlan2_ip, "24", family="ipv4")
-    vlan_obj.delete_vlan_member(vars.D1, data.host1_vlan, [vars.D1T1P3, vars.D1T1P4], True)
-    vlan_obj.delete_vlan_member(vars.D1, data.host2_vlan, [vars.D1T1P3, vars.D1T1P4], True)
+    vlan_obj.delete_vlan_member(vars.D1, data.host1_vlan, [vars.D1T1P1, vars.D1T1P2], True)
+    vlan_obj.delete_vlan_member(vars.D1, data.host2_vlan, [vars.D1T1P1, vars.D1T1P2], True)
     vlan_obj.delete_vlan(vars.D1, [data.host1_vlan,data.host2_vlan])
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P2, data.ip6_addr[1], 96, family=data.af_ipv6)
+
 
 def test_Ceta_31902(ceta_31902_fixture):
     success=True
-    mac_obj.config_mac(dut=vars.D1,mac=data.host1_mac, vlan=data.host1_vlan, intf=vars.D1T1P3)
+    mac_obj.config_mac(dut=vars.D1,mac=data.host1_mac, vlan=data.host1_vlan, intf=vars.D1T1P1)
     arp_obj.add_static_arp(dut=vars.D1, ipaddress=data_tg_ip, macaddress=data.host1_mac,
                        interface="Vlan"+data.host1_vlan)
 
@@ -669,14 +672,14 @@ def test_Ceta_31902(ceta_31902_fixture):
                        interface="Vlan"+data.host1_vlan)
     arp_obj.delete_static_arp(dut=vars.D1, ipaddress=data_tg_ip, interface="Vlan"+data.host1_vlan, mac=data.host2_mac)
 
-    mac_obj.config_mac(dut=vars.D1,mac=data.host2_mac, vlan=data.host1_vlan, intf=vars.D1T1P4)
+    mac_obj.config_mac(dut=vars.D1,mac=data.host2_mac, vlan=data.host1_vlan, intf=vars.D1T1P2)
     arp_obj.add_static_arp(dut=vars.D1, ipaddress=data_tg_ip, macaddress=data.host2_mac,
                        interface="Vlan"+data.host1_vlan)
 
     mac_obj.delete_mac(dut=vars.D1, mac=data.host1_mac, vlan=data.host1_vlan)
-    mac_obj.config_mac(dut=vars.D1,mac=data.host1_mac, vlan=data.host1_vlan, intf=vars.D1T1P3)
-    l2_out=asicbcm_obj.get_param_from_bcmcmd_output(vars.D1,'l2 show',["gport"],{"mac" : data.host2_mac})
-    l3_out= asicbcm_obj.get_param_from_bcmcmd_output(vars.D1,'l3 egress show',["port"],{"mac" : data.host2_mac})
+    mac_obj.config_mac(dut=vars.D1,mac=data.host1_mac, vlan=data.host1_vlan, intf=vars.D1T1P1)
+    l2_out = asicapi.get_l2_out(vars.D1, data.host2_mac)
+    l3_out = asicapi.get_l3_out(vars.D1, data.host2_mac)
     if l2_out and l3_out:
         l2_gport=l2_out[0]["gport"][9]
         l3_port=l3_out[0]["port"]

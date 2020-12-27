@@ -20,6 +20,7 @@ quanta-ix8-56x: !include quanta-ix8-56x.yaml
 quanta-ix8a-bwde-56x: !include quanta-ix8a-bwde-56x.yaml
 quanta-ix9-32x: !include quanta-ix9-32x.yaml
 quanta-ix7-32x: !include quanta-ix7-32x.yaml
+quanta-ix7-bwde-32x: !include quanta-ix7-bwde-32x.yaml
 quanta-ix9-c64o16: !include quanta-ix9-c64o16.yaml
 accton-as5835-54x: !include accton-as5835-54x.yaml
 
@@ -45,5 +46,6 @@ constants:
   quanta-ix8a-bwde-56x: [common, quanta-ix8a-bwde-56x]
   quanta-ix9-32x: [common, quanta-ix9-32x]
   quanta-ix7-32x: [common, quanta-ix7-32x]
+  quanta-ix7-bwde-32x: [common, quanta-ix7-bwde-32x]
   quanta-ix9-c64o16: [common, quanta-ix9-c64o16]
   accton-as5835-54x: [common, accton-as5835-54x]

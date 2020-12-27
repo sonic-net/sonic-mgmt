@@ -147,7 +147,7 @@ def check_end_to_end_intf_traffic_counters():
             p1_txmt = p1_txmt.replace(" KB/s","")
             p1_txmt = p1_txmt.replace(" B/s","")
         if (abs(int(float(p1_txmt))) == 0):
-            output = st.show(dut1, "show arp")
+            st.show(dut1, "show arp")
             st.error("End to End traffic is Zero")
             return False
         else:
@@ -224,7 +224,7 @@ def check_inter_dut_intf_traffic_counters():
 
         st.log("Inter Dut port stats  tx_ok xounter value on DUT Egress ports : {} {} {} {}".format(p1_txmt, p2_txmt, p3_txmt, p4_txmt))
         if (abs(int(float(p1_txmt))) == 0) | (abs(int(float(p2_txmt))) == 0) | (abs(int(float(p3_txmt))) == 0) | (abs(int(float(p4_txmt))) == 0):
-            output = st.show(dut1, "show arp")
+            st.show(dut1, "show arp")
             st.error("Inter Dut port stats  tx_ok xounter value on DUT Egress ports are non zero")
             return False
         else:
@@ -273,7 +273,7 @@ def create_bgp_neighbor_config(dut, local_asn, neighbor_ip, remote_asn, routemap
         st.vtysh_config(dut, command)
         command = "neighbor {} route-map {} in".format(neighbor_ip, routemap)
         st.vtysh_config(dut, command)
-        command = "neighbor {} route-map {} out".format(neighbor_ip, routemap)
+        #command = "neighbor {} route-map {} out".format(neighbor_ip, routemap)
     return True
 
 
@@ -303,7 +303,7 @@ def check_intf_traffic_counters():
             p2_txmt = p2_txmt.replace(" B/s","")
         st.log("RETRY tx_ok xounter value on DUT Egress port : {}".format(p2_txmt))
         if (abs(int(float(p2_txmt))) == 0):
-            output = st.show(dut1, "show arp")
+            st.show(dut1, "show arp")
             asicapi.dump_l3_egress(dut1)
             return False
         else:
@@ -362,7 +362,7 @@ def check_intf_traffic_bo_counters():
 
         st.log("RETRY tx_ok xounter value on DUT Egress ports : {} {} {} {}".format(p1_txmt, p2_txmt, p3_txmt, p4_txmt))
         if (abs(int(float(p2_txmt))) == 0) | (abs(int(float(p3_txmt))) == 0) | (abs(int(float(p4_txmt))) == 0):
-            output = st.show(dut1, "show arp")
+            st.show(dut1, "show arp")
             return False
         else:
             return True
@@ -478,8 +478,8 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
         bgpfeature.create_bgp_router(dut2, data.new_as_num, '')
         dut1_neigh_ip_addr = data.neigh_ip_addr
         dut2_neigh_ip_addr = data.dut1_start_ip_addr
-        formatted_dut1_neigh_ip_addr = dut1_neigh_ip_addr.replace("/24","")
-        formatted_dut2_neigh_ip_addr = dut2_neigh_ip_addr.replace("/24","")
+        #formatted_dut1_neigh_ip_addr = dut1_neigh_ip_addr.replace("/24","")
+        #formatted_dut2_neigh_ip_addr = dut2_neigh_ip_addr.replace("/24","")
         formatted_dut1_neigh_ip_addr = "10.2.2.3"
         bgpfeature.create_bgp_neighbor(dut, data.as_num, formatted_dut1_neigh_ip_addr, data.remote_as_num)
 
@@ -1010,7 +1010,7 @@ def test_l3_ecmp_4paths_on_bo_tc():
         st.config(dut, command)
         command = "config vlan member add 104 {}".format(member4)
         st.config(dut, command)
-        ip_addr = data.start_ip_addr
+        #ip_addr = data.start_ip_addr
         ip_addr = "10.2.100.1/24"
         for index in range(base_range, max_range):
             command = "config interface ip add "+ "Vlan" + str(index) + " " + ip_addr

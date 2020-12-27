@@ -133,7 +133,7 @@ def add_static_arp(dut, ipaddress, macaddress, interface="", cli_type=""):
         if interface:
             intf = get_interface_number_from_name(interface)
             command = "interface {} {}".format(intf['type'], intf['number'])
-            command = command + "\n" + "ip arp {} {}".format(ipaddress, macaddress)
+            command = command + "\n" + "ip arp {} {}".format(ipaddress, macaddress) + "\n" + "exit"
         else:
             st.error("'interface' option is mandatory for adding static arp entry in KLISH")
             return False
@@ -156,7 +156,7 @@ def add_static_arp(dut, ipaddress, macaddress, interface="", cli_type=""):
     return True
 
 
-def delete_static_arp(dut, ipaddress, interface="", mac="", cli_type=""):
+def delete_static_arp(dut, ipaddress, interface="", mac="", cli_type="",vrf=""):
     """
     To delete static arp
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -176,7 +176,7 @@ def delete_static_arp(dut, ipaddress, interface="", mac="", cli_type=""):
             if mac:
                 macaddress = mac
             else:
-                output = show_arp(dut, ipaddress=ipaddress, interface=interface)
+                output = show_arp(dut, ipaddress=ipaddress, interface=interface,vrf=vrf)
                 if len(output) == 0:
                     st.error("Did not find static arp entry with IP : {} and Interface : {}".format(ipaddress, interface))
                     return False
@@ -184,7 +184,7 @@ def delete_static_arp(dut, ipaddress, interface="", mac="", cli_type=""):
                     macaddress = output[0]["macaddress"]
             intf = get_interface_number_from_name(interface)
             command = "interface {} {}".format(intf['type'], intf['number'])
-            command = command + "\n" + "no ip arp {} {}".format(ipaddress, macaddress)
+            command = command + "\n" + "no ip arp {} {}".format(ipaddress, macaddress) + "\n" + "exit"
         else:
             st.error("'interface' option is mandatory for deleting static arp entry in KLISH")
             return False
@@ -652,7 +652,16 @@ def _get_rest_neighbor_entries(dut, interface, is_arp=True):
     non_physical_ports = ['vlan']
     rest_urls = st.get_datastore(dut, 'rest_urls')
     intf_index = get_subinterface_index(dut, interface)
-    url = rest_urls['get_arp_per_port'].format(name=interface, index=intf_index) if is_arp else rest_urls['get_ndp_per_port'].format(name=interface, index=intf_index)
+    if is_arp:
+        if any(port in interface.lower() for port in non_physical_ports):
+            url = rest_urls['get_arp_per_vlan_port'].format(name=interface)
+        else:
+            url = rest_urls['get_arp_per_port'].format(name=interface, index=intf_index)
+    else:
+        if any(port in interface.lower() for port in non_physical_ports):
+            url = rest_urls['get_ndp_per_vlan_port'].format(name=interface)
+        else:
+            url = rest_urls['get_ndp_per_port'].format(name=interface, index=intf_index)
     intf = 'iface' if is_arp else 'interface'
     out = get_rest(dut, rest_url=url)
     arp_entries = out['output']['openconfig-if-ip:neighbors']['neighbor'] if isinstance(out, dict) and out.get('output') and 'openconfig-if-ip:neighbors' in out['output'] and out['output']['openconfig-if-ip:neighbors'].get('neighbor') and isinstance(out['output']['openconfig-if-ip:neighbors']['neighbor'], list) else ''

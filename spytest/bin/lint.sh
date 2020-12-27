@@ -100,7 +100,7 @@ if [ "$LINT_DAILY" == "1" ]; then
   REPORT=daily_lint_report.log
   ERR_FILE=daily_lint_errors.log
   #IGNORE2="$IGNORE2 --disable=W0611" #unused-import
-  IGNORE2="$IGNORE2 --disable=W0612" #unused-variable
+  #IGNORE2="$IGNORE2 --disable=W0612" #unused-variable
   IGNORE2="$IGNORE2 --disable=W0106" #expression-not-assigned
   exclude="__init__.py ddm/ tests/ut/ tests/systb/ scheduler/ tests/dell"
 fi
@@ -150,6 +150,7 @@ rm -f $REPORT $ERR_FILE $ERR_TEMP
 line="\--------------------------------------------------------------------"
 score="Your code has been rated at 10.00"
 using="Using config file "
+date | tee -a $REPORT | tee -a $ERR_FILE
 for f in $files2;do
   if [ -n "$FLAKE8" ]; then
     echo ================== FLAKES8 $f  | tee -a $REPORT

@@ -1172,7 +1172,7 @@ acl_json_config_control_plane = {
         "IP_PROTOCOL":"17"
      },
      "SNMP_SSH|RULE_1":{
-        "PRIORITY":"9999",
+        "PRIORITY":"9997",
         "PACKET_ACTION":"ACCEPT",
         "SRC_IP":"",
         "IP_PROTOCOL":"17"
@@ -1191,7 +1191,7 @@ acl_json_config_control_plane = {
         "IP_PROTOCOL":"6"
      },
      "V6_SSH_ONLY|DEFAULT_RULE100":{
-        "PRIORITY":"1",
+        "PRIORITY":"3",
         "PACKET_ACTION":"DROP",
         "L4_DST_PORT":"22",
         "ETHER_TYPE":"0x86dd"
@@ -1199,7 +1199,7 @@ acl_json_config_control_plane = {
      "V6_SSH_ONLY|RULE_1":{
         "IP_PROTOCOL":"6",
         "PACKET_ACTION":"ACCEPT",
-        "PRIORITY":"9999",
+        "PRIORITY":"9996",
         "L4_DST_PORT":"22",
         "SRC_IPV6":""
      }

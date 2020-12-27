@@ -121,7 +121,7 @@ def gnmi_call(dut, **kwargs):
             st.report_fail('rbac_call_fail', "gNMI", mode, login_type)
 
     msg = 'Failed to execute set command using gNMI session with mode- {mode}, type- {login_type}'
-    if mode == 'rw' and "op: UPDATE" not in gnmi_set_out and "description" not in str(gnmi_get_out):
+    if mode == 'rw' and "op: UPDATE" not in str(gnmi_set_out) and "description" not in str(gnmi_get_out):
         st.error(msg.format(**kwargs))
         result2 = False
     if mode == 'ro' and not gnmi_set_out and "description" not in str(gnmi_get_out):
@@ -160,7 +160,7 @@ def rest_rbac_call(dut, **kwargs):
     url = kwargs.get('url')
     if model == 'oc-yang':
         operation1 = {"openconfig-interfaces:mtu": 9216}
-        operation2 = {"openconfig-interfaces:mtu": 9100}        
+        operation2 = {"openconfig-interfaces:mtu": 9100}
     else:
         operation1 = {"sonic-port:admin_status": "down"}
         operation2 = {"sonic-port:admin_status": "up"}

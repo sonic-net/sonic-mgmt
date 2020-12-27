@@ -5,7 +5,7 @@ from spytest import st
 import spytest.utils as utils
 from apis.common import redis
 from utilities.utils import get_interface_number_from_name
-from apis.system.rest import get_rest
+from apis.system.rest import get_rest, config_rest, delete_rest
 
 def config_domain(dut,domain_id,**kwargs):
     '''
@@ -399,6 +399,19 @@ def config_mclag_system_mac(dut,skip_error=False, **kwargs):
         if "Could not connect to Management REST Server" in output:
             st.error("klish mode not working.")
             return False
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        url = rest_urls['mclag_config_mclag_system_mac'].format(int(domain_id))
+        if config == "add":
+            payload = {"openconfig-mclag:mclag-system-mac": mac_val}
+            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                return False
+        else:
+            if not delete_rest(dut, rest_url=url):
+                return False
+    else:
+        st.log("Invalid cli_type provided: {}".format(cli_type))
+        return False
     return True
 
 def verify_domain(dut,**kwargs):

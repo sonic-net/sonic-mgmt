@@ -2,11 +2,14 @@
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
 import re
-from spytest import st
-import apis.common.asic_bcm as asicapi
-from apis.system.interface import verify_ifname_type
-from spytest.utils import filter_and_select
+from spytest import st, SpyTestDict
+import apis.common.asic as asicapi
 from apis.common import redis
+from apis.system.interface import verify_ifname_type
+
+from utilities.common import filter_and_select
+
+vars = SpyTestDict()
 
 def verify_error_db(dut, table, **kwargs):
     """
@@ -242,7 +245,7 @@ def verify_error_db_redis(dut, table, **kwargs):
 
 def verify_route_count_bcmshell(dut, route_count, af='ipv4', itter=30, delay=1, flag='ge', timeout=120):
     """
-    Poll and verify the route count using bcmcmd
+    Poll and verify the route count using asic api
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     :param dut:
     :param route_count:
@@ -256,9 +259,9 @@ def verify_route_count_bcmshell(dut, route_count, af='ipv4', itter=30, delay=1, 
     i = 1
     while True:
         if af == 'ipv4':
-            curr_count = asicapi.bcmcmd_route_count_hardware(dut, timeout=timeout)
+            curr_count = asicapi.get_ipv4_route_count(dut, timeout=timeout)
         if af == 'ipv6':
-            curr_count = asicapi.bcmcmd_ipv6_route_count_hardware(dut, timeout=timeout)
+            curr_count = asicapi.get_ipv6_route_count(dut, timeout=timeout)
 
         if flag == 'ge' and int(curr_count) >= int(route_count):
             st.log("Route count matched Provided {}, Detected {} - flag = {}".format(route_count, curr_count, flag))
@@ -409,14 +412,14 @@ def eh_bcm_debug_show(dut, af='both', table_type='all', ifname_type=None):
     st.banner("Error handling DEBUG Calls - START")
     if af == 'ipv4' or af == 'both':
         if table_type == 'route' or table_type == 'all':
-            asicapi.bcmcmd_l3_defip_show(dut)
+            asicapi.dump_l3_defip(dut)
         if table_type == 'nbr' or table_type == 'all':
-            asicapi.bcmcmd_l3_l3table_show(dut)
+            asicapi.dump_l3_l3table(dut)
     if af == 'ipv6' or af == 'both':
         if table_type == 'route' or table_type == 'all':
-            asicapi.bcmcmd_l3_ip6route_show(dut)
+            asicapi.dump_l3_ip6route(dut)
         if table_type == 'nbr' or table_type == 'all':
-            asicapi.bcmcmd_l3_ip6host_show(dut)
+            asicapi.dump_l3_ip6host(dut)
     if table_type == 'all':
         verify_show_error_db(dut, ifname_type=ifname_type)
     st.banner("Error handling DEBUG Calls - END")

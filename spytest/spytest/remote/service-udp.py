@@ -17,6 +17,7 @@ def eprint(*args, **kwargs):
 
 def udp_server(host='0.0.0.0', port=1234):
     port = int(os.getenv("udp_server_port", port))
+    host = os.getenv("udp_server_host", host)
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind((host, port))
     eprint("Listening on udp %s:%s" % (host, port))

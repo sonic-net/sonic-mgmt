@@ -2,12 +2,12 @@
 import datetime
 
 from spytest import st
-from apis.common.asic_bcm import bcmcmd_l3_ip6route_show, bcmcmd_l3_defip_show
+import apis.common.asic as asicapi
 from apis.system.interface import clear_interface_counters, show_interface_counters_all
 from apis.routing.arp import show_arp, show_ndp
 from apis.system.rest import config_rest, get_rest, delete_rest
-
-from utilities.common import filter_and_select, make_list, exec_all
+from apis.routing import ip as ip_api
+from utilities.common import filter_and_select, make_list, exec_all, is_valid_ipv4
 
 def verify_bfd_counters(dut,**kwargs):
     """
@@ -471,6 +471,9 @@ def verify_bfd_peer(dut,**kwargs):
     else:
         is_mhop = False
 
+    ping_verify = True if 'ping_verify' in kwargs else False
+    kwargs.pop('ping_verify', '')
+
     rv = False
     #Converting all kwargs to list type to handle single or multiple peers
     for key in kwargs:
@@ -548,7 +551,8 @@ def verify_bfd_peer(dut,**kwargs):
         try:
             parsed_output = st.show(dut, cmd, type=cli_type)
         except Exception as e:
-            st.error("The BFD session is not existing either deleted or not configured: exception is {} ".format(e))
+            st.error("The BFD session is not exist either deleted or not configured: exception is {} ".format(e))
+            if ping_verify: debug_bfd_ping(dut, kwargs['peer'], vrf_name=vrf, cli_type=cli_type)
             return False
     elif cli_type in ['rest-patch', 'rest-put']:
         # st.show(dut, cmd, type='klish')
@@ -578,6 +582,7 @@ def verify_bfd_peer(dut,**kwargs):
 
     if len(parsed_output) == 0:
         st.error("OUTPUT is Empty")
+        if ping_verify: debug_bfd_ping(dut, kwargs['peer'], vrf_name=vrf, cli_type=cli_type)
         return False
     #Get the index of peer from list of parsed output
     for i in range(len(kwargs['peer'])):
@@ -594,9 +599,11 @@ def verify_bfd_peer(dut,**kwargs):
                     rv=True
                 else:
                     st.error('Match Not Found for %s :: Expected: %s  Actual : %s'%(k,kwargs[k][i],parsed_output[peer_index][k]))
+                    if ping_verify: debug_bfd_ping(dut, kwargs['peer'][i], vrf_name=vrf, enable_debug=False, cli_type=cli_type)
                     return False
         else:
             st.error(" BFD Peer %s not in output"%kwargs['peer'][i])
+            if ping_verify: debug_bfd_ping(dut, kwargs['peer'], vrf_name=vrf, cli_type=cli_type)
             return False
     return rv
 
@@ -815,14 +822,26 @@ def get_bfd_peers_brief(dut, cli_type=''):
         return False
 
 
+def debug_bfd_ping(dut, addresses, vrf_name='default', enable_debug=True, cli_type=''):
+    st.banner("********* Ping Dubug commands starts ************")
+    for addr in addresses:
+        family = 'ipv4' if is_valid_ipv4(addr) else 'ipv6'
+        if vrf_name in ['default', 'default-vrf']:
+            ip_api.ping(dut, addr, family, cli_type=cli_type)
+        else:
+            ip_api.ping(dut, addr, family, interface=vrf_name, cli_type=cli_type)
+    if enable_debug: debug_bgp_bfd(dut)
+
+
 def debug_bgp_bfd(dut):
     dut_list = make_list(dut)
-    st.log("********* Dubug commands starts ************")
-    func_list = [clear_interface_counters, show_arp, show_ndp, show_interface_counters_all, bcmcmd_l3_ip6route_show, bcmcmd_l3_defip_show]
+    st.banner("********* Dubug commands starts ************")
+    func_list = [clear_interface_counters, show_arp, show_ndp, show_interface_counters_all,
+                 asicapi.dump_l3_ip6route, asicapi.dump_l3_defip]
     for func in func_list:
         api_list = [[func, dut] for dut in dut_list]
         exec_all(True, api_list)
-    st.log(" ******** End of Dubug commands ************")
+    st.banner(" ******** End of Dubug commands ************")
 
 
 def rest_get_bfd_peer_info(dut, type, bfd_type=None, peer_list=True, **kwargs):

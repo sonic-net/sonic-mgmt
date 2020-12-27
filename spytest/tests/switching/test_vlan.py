@@ -12,6 +12,7 @@ import apis.switching.portchannel as portchannel
 import apis.system.reboot as reboot
 import apis.common.wait as waitapi
 import apis.system.basic as basic_obj
+import apis.system.snmp as snmp_obj
 
 import utilities.utils as utils
 from utilities.common import poll_wait
@@ -41,6 +42,9 @@ def vlan_func_hooks(request):
                           "test_ft_stormcontrol_fast_reboot", "test_ft_stormcontrol_warm_reboot"]
     if st.get_func_name(request) in bum_test_functions:
         platform_check()
+    if request.function.func_name == "test_ft_snmp_max_vlan_scale":
+        vlan.clear_vlan_configuration(st.get_dut_names(), thread=False, cli_type="click")
+        portchannel.clear_portchannel_configuration(st.get_dut_names(), thread=True)
     yield
 
 
@@ -82,6 +86,11 @@ def vlan_variables():
     sc_data.vlan_data = [{"dut": [vars.D1], "vlan_id": sc_data.vlan, "tagged": [vars.D1T1P1, vars.D1T1P2]}]
     hw_constants_DUT = st.get_datastore(vars.D1, "constants")
     sc_data.warm_reboot_supported_platforms = hw_constants_DUT['WARM_REBOOT_SUPPORTED_PLATFORMS']
+    sc_data.oid_sysName = '1.3.6.1.2.1.1.5.0'
+    sc_data.ro_community = 'test_community'
+    sc_data.location = 'hyderabad'
+    sc_data.oid_dot1qBase = '1.3.6.1.2.1.17.7.1.1'
+    sc_data.mgmt_int = 'eth0'
 
 
 def vlan_module_prolog():
@@ -325,6 +334,7 @@ def test_ft_vlan_syslog_verify():
     vars = st.ensure_min_topology("D1")
     sc_data.vlan_test = str(random_vlan_list(1, [int(sc_data.vlan)])[0])
     result = 1
+    slog.clear_logging(vars.D1)
     st.log("checking vlan count before vlan addition or deletion")
     count_before_add = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["addVlan"])
     count_before_delete = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["removeVlan"])
@@ -333,9 +343,9 @@ def test_ft_vlan_syslog_verify():
     vlan.create_vlan(vars.D1, sc_data.vlan_test)
     vlan.delete_vlan(vars.D1, sc_data.vlan_test)
     st.log("checking vlan count after adding vlan")
-    count_after_add = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["addVlan"])
+    count_after_add = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["addVlan:"])
     st.log("vlan count after  adding vlan:{}".format(count_after_add))
-    count_after_delete = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["removeVlan"])
+    count_after_delete = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["removeVlan:"])
     st.log("vlan count after  deleting vlan:{}".format(count_after_delete))
     if not count_after_add > count_before_add:
         st.error("vlan log count increamented after adding vlan:{}".format(count_after_add))
@@ -781,3 +791,33 @@ def test_ft_vlan_save_config_warm_and_fast_reboot():
         st.report_fail("traffic_transmission_failed", vars.T1D1P1)
 
     report_result(status, msg_id)
+
+@pytest.mark.snmp_hardening
+def test_ft_snmp_max_vlan_scale():
+    '''
+    Author: Prasad Darnasi <prasad.darnasi@broadcom.com>
+    verify The BRIDGE-MIB requirements functionality by scaling DUT with max Vlans
+    '''
+
+    vlan_module_config(config='yes')
+
+    st.log("Checking VLAN config after reboot")
+    max_vlan_verify()
+    global ipaddress
+    ipaddress_list = basic_obj.get_ifconfig_inet(vars.D1, sc_data.mgmt_int)
+    st.log("Checking Ip address of the Device ")
+    if not ipaddress_list:
+        st.report_env_fail("ip_verification_fail")
+    ipaddress = ipaddress_list[0]
+    st.log("Device ip addresse - {}".format(ipaddress))
+    snmp_obj.set_snmp_config(vars.D1, snmp_rocommunity=sc_data.ro_community, snmp_location=sc_data.location)
+    if not snmp_obj.poll_for_snmp(vars.D1, 30, 1, ipaddress=ipaddress,
+                                  oid=sc_data.oid_sysName, community_name=sc_data.ro_community):
+        st.log("Post SNMP config , snmp is not working")
+        st.report_fail("operation_failed")
+    basic_obj.get_top_info(vars.D1, proc_name='snmpd')
+    get_snmp_output = snmp_obj.poll_for_snmp_walk(vars.D1, 15, 1, ipaddress=ipaddress, oid=sc_data.oid_dot1qBase,
+                                                  community_name=sc_data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")

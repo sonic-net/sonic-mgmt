@@ -9,7 +9,7 @@ from spytest.utils import filter_and_select
 from spytest.utils import exec_all
 import apis.system.connection as conn_obj
 
-from utilities.common import delete_file, do_eval, make_list
+from utilities.common import delete_file, do_eval, make_list, iterable
 import utilities.utils as utils_obj
 from apis.system.rest import get_rest,config_rest
 
@@ -676,7 +676,7 @@ def copy_file_from_client_to_server(ssh_con_obj, **kwargs):
         st.report_fail("scp_file_transfer_failed", kwargs["src_path"], kwargs["dst_path"])
 
 
-def check_error_log(dut, file_path, error_string, lines=1, file_length=50, match=None):
+def check_error_log(dut, file_path, error_string, lines=1, file_length=50, match=None, start_line=0):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to check the error log
@@ -687,7 +687,10 @@ def check_error_log(dut, file_path, error_string, lines=1, file_length=50, match
     :param file_length:
     :return:
     """
-    command = 'sudo tail -{} {} | grep "{}" | tail -{}'.format(file_length, file_path, error_string, lines)
+    if start_line != 0:
+        command = 'sudo tail -n +{} {} | grep "{}" | grep -Ev "sudo tail"'.format(start_line, file_path, error_string)
+    else:
+        command = 'sudo tail -{} {} | grep "{}" | tail -{}'.format(file_length, file_path, error_string, lines)
     try:
         response = utils_obj.remove_last_line_from_string(st.show(dut, command, skip_tmpl=True, skip_error_check=True))
         result = response.find(error_string) > 1 if not match else response
@@ -953,7 +956,7 @@ def get_platform_syseeprom_as_dict(dut, tlv_name=None, key='value', decode=False
     """
     rv = {}
     output = get_platform_syseeprom(dut, tlv_name=tlv_name, key=key, decode=decode)
-    for each in output:
+    for each in iterable(output):
         rv[each['tlv_name']] = each[key]
     return rv
 
@@ -1422,7 +1425,7 @@ def get_number_of_lines_in_file(connection_obj, file_path, device="server"):
             match = re.match(r'^\d+', result)
             if match:
                 st.log("####### LINE NUMBER- {}".format(match.group(0)))
-                return match.group(0)
+                return int(match.group(0))
     return line_number
 
 
@@ -1624,21 +1627,19 @@ def delete_line_using_specific_string(connection_obj, specific_string, file_path
             return st.config(connection_obj, command)
 
 
-def cmd_validator(dut, commands, cli_type='klish', error_list=[]):
+def cmd_validator(dut, commands, cli_type='klish'):
     """
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     :param dut:
     :param commands:
     :param cli_type:
-    :param error_list:
     :return:
     """
     result = True
-    error_list.extend(['%Error'])
+    errs = ['%Error']
     command_list = commands if isinstance(commands, list) else commands.split('\n')
-    st.log(command_list)
     out = st.config(dut, command_list, type=cli_type, skip_error_check=True)
-    for each in error_list:
+    for each in errs:
         if each in out:
             st.error("Error string '{}' found in command execution.".format(each))
             result = False
@@ -1886,8 +1887,8 @@ def get_mgmt_ip(dut, interface):
     return None
 
 def renew_mgmt_ip(dut, interface):
-    output_1 = st.config(dut, "/sbin/dhclient -v -r {}".format(interface), skip_error_check=True)
-    output_2 = st.config(dut, "/sbin/dhclient -v {}".format(interface), skip_error_check=True)
+    output_1 = st.config(dut, "/sbin/dhclient -v -r {}".format(interface), skip_error_check=True, expect_ipchange=True)
+    output_2 = st.config(dut, "/sbin/dhclient -v {}".format(interface), skip_error_check=True, expect_ipchange=True)
     return "\n".join([output_1, output_2])
 
 def set_mgmt_vrf(dut, mgmt_vrf):
@@ -2264,3 +2265,9 @@ def swss_config(dut, data):
     st.config(dut, "docker cp {0} swss:{1}".format(file_path1, file_path2))
     st.config(dut, "docker exec -it swss bash -c 'swssconfig {0}'".format(file_path2))
 
+
+def flush_iptable(dut):
+    st.config(dut, "iptables -F")
+
+def execute_linux_cmd(dut, cmd):
+    st.show(dut, cmd, skip_tmpl=True)
