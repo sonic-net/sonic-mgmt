@@ -11,8 +11,6 @@ from tests.common import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses     # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
-from ipaddress import IPv4Interface
-from ipaddress import IPv6Interface
 
 # Constants
 NUM_NHs = 8
@@ -316,7 +314,7 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
 
     try:
         mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
-        host_facts = duthost.setup()['ansible_facts']
+        #host_facts = duthost.setup()['ansible_facts']
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         router_mac = duthost.facts['router_mac']
         net_ports = []
@@ -354,7 +352,7 @@ def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
 
         try:
             nhg_prefixes = mg_facts['FG_NHG_PREFIX']
-        except:
+        except Exception as e:
             logger.info("Minigraph does not contain the required ECMP entries. Terminating test...")
             pytest.skip("")
 
