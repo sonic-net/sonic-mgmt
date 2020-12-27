@@ -30,7 +30,6 @@ pytestmark = [
 
 STATUS_LED_COLOR_GREEN = "green"
 STATUS_LED_COLOR_AMBER = "amber"
-STATUS_LED_COLOR_ORANGE = "orange"
 STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
@@ -164,8 +163,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         FAULT_LED_COLOR_LIST = [
             STATUS_LED_COLOR_AMBER,
-            STATUS_LED_COLOR_RED,
-            STATUS_LED_COLOR_ORANGE
+            STATUS_LED_COLOR_RED
         ]
 
         NORMAL_LED_COLOR_LIST = [
