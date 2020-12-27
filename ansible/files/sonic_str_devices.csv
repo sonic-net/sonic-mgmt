@@ -29,15 +29,7 @@ str-msn2700-01,10.3.147.188/23,Mellanox-SN2700,DevSonic
 str-msn2700-02,10.3.147.45/23,Mellanox-SN2700,DevSonic
 str-msn2700-03,10.3.147.46/23,Mellanox-SN2700,DevSonic
 str-msn2700-04,10.3.147.47/23,Mellanox-SN2700,DevSonic
-str-msn2700-05,10.3.147.48/23,Mellanox-SN2700,DevSonic
 str-msn2700-06,10.3.147.49/23,Mellanox-SN2700,DevSonic
-str-msn2700-08,10.3.147.51/23,Mellanox-SN2700,DevSonic
-str-msn2700-09,10.3.147.52/23,Mellanox-SN2700,DevSonic
-str-cavium-acs-01,10.3.147.10/23/23,Cavium,DevSonic
-str-wedge100b-acs-1,10.64.246.30/23,Wedge-100B-C32,DevSonic
-str-wedge100b-acs-2,10.64.247.3/23,Wedge-100B-C32,DevSonic
-str-wedge100b65-acs-1,10.64.247.4/23,Wedge-100B-65X,DevSonic
-str-wedge100b65-acs-2,10.64.247.5/23,Wedge-100B-65X,DevSonic
 str-a7170-acs-1,10.64.246.73/23,Arista-7170-64C,DevSonic
 str-a7060cx-acs-10,10.64.247.240/23,Arista-7060CX-32S-C32,DevSonic
 str-a7060cx-acs-1,10.64.247.14/23,Arista-7060CX-32S-D48C8,DevSonic
@@ -51,7 +43,6 @@ str-dx010-acs-1,10.64.246.33/23,Celestica-DX010-C32,DevSonic
 str-dx010-acs-4,10.64.246.98/23,Celestica-DX010-C32,DevSonic
 str-dx010-acs-5,10.64.246.99/23,Celestica-DX010-C32,DevSonic
 str-agc7648-acs-1,10.64.246.40/23,Delta-AGC7648,DevSonic
-str-a7280cr3-1,10.3.146.218/23,Arista-7280CR3-C40,DevSonic
 str-a7280cr3-2,10.3.146.28/23,Arista-7280CR3-C40,DevSonic
 str-e1031-acs-1,10.64.247.24/23,Celestica-E1031-T48S4,DevSonic
 str-e1031-acs-2,10.64.247.25/23,Celestica-E1031-T48S4,FanoutLeafSonic

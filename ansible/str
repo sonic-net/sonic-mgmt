@@ -23,8 +23,6 @@ all:
           ansible_host: 10.64.246.8
         ptf1-5:
           ansible_host: 10.64.246.9
-        ptf1-6:
-          ansible_host: 10.64.246.10
         ptf1-7:
           ansible_host: 10.64.246.35
         ptf12-1:
@@ -101,8 +99,6 @@ all:
           ansible_host: 10.64.246.59
         vms7-12:
           ansible_host: 10.64.246.117
-        vms11-1:
-          ansible_host: 10.64.247.27
         vms11-4:
           ansible_host: 10.64.246.83
         vms11-5:
@@ -119,8 +115,6 @@ all:
           ansible_host: 10.64.247.26
         v12-21:
           ansible_host: 10.64.246.26
-        v12-22:
-          ansible_host: 10.64.246.25
         v12-31:
           ansible_host: 10.64.246.42
         vms12-5:
@@ -218,13 +212,11 @@ sonic:
     sonic_mlnx_40:
     sonic_mlnx_100:
     sonic_mlnx_3800:
-    sonic_cavium32:
     sonic_arista64_100:
     sonic_arista32_100:
     sonic_dell32_100:
     sonic_e1031:
     sonic_marvell:
-    sonic_wedge100b65_100:
     sonic_dx010_100:
     sonic_agc7648:
     sonic_nexus_3164:
@@ -536,8 +528,6 @@ sonic_mlnx_40:
         "0x2B": "Mellanox"
         "0xFE": "0x3556371B"
       pdu_host: pdu-99
-    str-msn2700-05:
-      ansible_host: 10.3.147.48
     str-msn2700-06:
       ansible_host: 10.3.147.49
       model: MSN2700-CS2FO
@@ -598,11 +588,6 @@ sonic_mlnx_3800:
     hwsku: ACS-MSN3800
     iface_speed: 100000
 
-sonic_cavium32:
-  hosts:
-    str-cavium-acs-01:
-      ansible_host: 10.3.147.10
-
 sonic_arista64_100:
   hosts:
     str-7260cx3-acs-1:
@@ -635,10 +620,6 @@ sonic_arista32_100:
       ansible_host: 10.64.247.14
       hwsku: Arista-7060CX-32S-D48C8
       pdu_host: pdu-108
-    str-a7280cr3-1:
-      ansible_host: 10.3.146.218
-      hwsku: Arista-7280CR3-C40
-      pdu_host: pdu-110
     str-a7280cr3-2:
       ansible_host: 10.3.146.28
       hwsku: Arista-7280CR3-C40
@@ -697,17 +678,6 @@ sonic_marvell:
   vars:
     hwsku: et6448m
     iface_speed: 1000
-
-sonic_wedge100b65_100:
-  hosts:
-    str-wedge100b64-acs-1:
-      ansible_host: 10.64.247.4
-      pdu_host: pdu-109
-    str-wedge100b65-acs-2:
-      ansible_host: 10.64.247.5
-  vars:
-    hwsku: mavericks
-    iface_speed: 100000
 
 sonic_dx010_100:
   hosts:
