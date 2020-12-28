@@ -602,19 +602,66 @@ class BaseEverflowTest(object):
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
-        logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
+        logging.info("mirror session configuration: %s", mirror_output["stdout"])
 
-        matching_session = list(filter(lambda line: line.startswith(mirror_session["session_name"]),
-                                       mirror_output["stdout_lines"]))
-        pytest_assert(matching_session, "Test mirror session {} not found".format(mirror_session["session_name"]))
-        logging.info("Found mirror session:\n%s", matching_session[0])
+        pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
+                      "Test mirror session {} not found".format(mirror_session["session_name"]))
 
-        monitor_port = matching_session[0].split()[-1]
+        sessions = {}
+        lns = mirror_output["stdout"].split("\n")
+        while True:
+            obj, lns = self._objectize(lns)
+            if obj == None:
+                break
+            sessions[obj["name"]] = obj
+
+        session = [x for x in sessions["ERSPAN Sessions"]["data"] if x["Name"] == mirror_session["session_name"]]
+        pytest_assert(0 < len(session))
+
+        monitor_port = session[0]["Monitor Port"]
+
         pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
-        logging.info("Selected monitor port %s (index=%s)", monitor_port, setup["port_index_map"][monitor_port])
+        logging.info("selected monitor interface %s (port=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
         return setup["port_index_map"][monitor_port]
+
+    def _objectize(self, lns):
+        while len(lns) and lns[0].strip() == "":
+            lns.pop(0)
+
+        if len(lns) < 3:
+            return None, lns
+
+        table_name = lns[0]
+        separator_line = lns[2]
+        header = lns[1]
+
+        obj = {
+            "name": table_name,
+            "data": []
+        }
+
+        separators = separator_line.split("  ")
+
+        lns = lns[3:]
+        for ln in lns[:]:
+            lns.pop(0)
+            if ln.strip() == "":
+                break
+
+            index = 0
+            data = {}
+            for s in separators:
+                end = index + len(s)
+                name = header[index:end].strip()
+                value = ln[index:end].strip()
+                index = index + len(s)+ 2
+                data[name] = value
+
+            obj["data"].append(data)
+
+        return obj, lns
 
     def _get_tx_port_id_list(self, tx_ports):
         tx_port_ids = []
