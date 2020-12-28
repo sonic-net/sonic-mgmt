@@ -43,16 +43,45 @@ def check_services(dut):
     return check_result
 
 
-def _find_down_ports(dut, interfaces):
-    down_ports = []
-    intf_facts = dut.interface_facts()['ansible_facts']
-    for intf in interfaces:
+def _find_down_phy_ports(dut, phy_interfaces):
+    down_phy_ports = []
+    intf_facts = dut.show_interface(command='status', include_internal_intfs=True)['ansible_facts']['int_status']
+    for intf in phy_interfaces:
         try:
-            port = intf_facts["ansible_interface_facts"][intf]
-            if not port["link"] or not port["active"]:
-                down_ports.append(intf)
+            if intf_facts[intf]['oper_state'] == 'down':
+                down_phy_ports.append(intf)
         except KeyError:
-            down_ports.append(intf)
+            down_phy_ports.append(intf)
+    return down_phy_ports
+
+
+def _find_down_ip_ports(dut, ip_interfaces):
+    down_ip_ports = []
+    ip_intf_facts = dut.show_ip_interface()['ansible_facts']['ip_interfaces']
+    for intf in ip_interfaces:
+        try:
+            if ip_intf_facts[intf]['oper_state'] == 'down':
+                down_ip_ports.append(intf)
+        except KeyError:
+            down_ip_ports.append(intf)
+    return down_ip_ports
+
+
+def _find_down_ports(dut, phy_interfaces, ip_interfaces):
+    """Finds the ports which are operationally down
+
+    Args:
+        dut (object): The sonichost/sonicasic object
+        phy_interfaces (list): List of all phyiscal operation in 'admin_up'
+        ip_interfaces (list): List of the L3 interfaces
+
+    Returns:
+        [list]: list of the down ports
+    """
+    down_ports = []
+    down_ports = _find_down_ip_ports(dut, ip_interfaces) + \
+        _find_down_phy_ports(dut, phy_interfaces)
+
     return down_ports
 
 
@@ -64,37 +93,44 @@ def check_interfaces(dut):
     interval = 20
     logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" % \
                 (networking_uptime, timeout, interval))
-
-    cfg_facts = dut.config_facts(host=dut.hostname, source="persistent")['ansible_facts']
-    interfaces = [k for k,v in cfg_facts["PORT"].items() if "admin_status" in v and v["admin_status"] == "up"]
-    if "PORTCHANNEL_INTERFACE" in cfg_facts:
-        interfaces += cfg_facts["PORTCHANNEL_INTERFACE"].keys()
-    if "VLAN_INTERFACE" in cfg_facts:
-        interfaces += cfg_facts["VLAN_INTERFACE"].keys()
-
-    logger.info(json.dumps(interfaces, indent=4))
-
+    
+    down_ports = []
     check_result = {"failed": True, "check_item": "interfaces"}
-    if timeout == 0:    # Check interfaces status, do not retry.
-        down_ports = _find_down_ports(dut, interfaces)
-        check_result["failed"] = True if len(down_ports) > 0 else False
-        check_result["down_ports"] = down_ports
-    else:               # Retry checking interface status
-        start = time.time()
-        elapsed = 0
-        while elapsed < timeout:
-            down_ports = _find_down_ports(dut, interfaces)
+    for asic in dut.asics:
+        ip_interfaces = []
+        cfg_facts = asic.config_facts(host=dut.hostname,
+                                      source="persistent")['ansible_facts']
+        phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if "admin_status" in v and v["admin_status"] == "up"]
+        if "PORTCHANNEL_INTERFACE" in cfg_facts:
+            ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
+        if "VLAN_INTERFACE" in cfg_facts:
+            ip_interfaces += cfg_facts["VLAN_INTERFACE"].keys()
+
+        logger.info(json.dumps(phy_interfaces, indent=4))
+        logger.info(json.dumps(ip_interfaces, indent=4))
+        
+        if timeout == 0:    # Check interfaces status, do not retry.
+            down_ports += _find_down_ports(asic, phy_interfaces, ip_interfaces)
             check_result["failed"] = True if len(down_ports) > 0 else False
             check_result["down_ports"] = down_ports
+        else:               # Retry checking interface status
+            start = time.time()
+            elapsed = 0
+            while elapsed < timeout:
+                down_ports = _find_down_ports(asic, phy_interfaces, ip_interfaces)
+                check_result["failed"] = True if len(down_ports) > 0 else False
+                check_result["down_ports"] = down_ports
 
-            if check_result["failed"]:
-                wait(interval, msg="Found down ports, wait %d seconds to retry. Remaining time: %d, down_ports=%s" % \
-                     (interval, int(timeout - elapsed), str(check_result["down_ports"])))
-                elapsed = time.time() - start
-            else:
-                break
+                if check_result["failed"]:
+                    wait(interval, msg="Found down ports, wait %d seconds to retry. Remaining time: %d, down_ports=%s" % \
+                        (interval, int(timeout - elapsed), str(check_result["down_ports"])))
+                    elapsed = time.time() - start
+                else:
+                    break
 
     logger.info("Done checking interfaces status.")
+    check_result["failed"] = True if len(down_ports) > 0 else False
+    check_result["down_ports"] = down_ports
     return check_result
 
 
@@ -151,24 +187,38 @@ def check_bgp_status(dut):
     logger.info("Done checking bgp status on %s" % dut.hostname)
     return check_result
 
-def check_dbmemory(dut):
-    logger.info("Checking database memory on %s..." % dut.hostname)
+
+def _is_db_omem_over_threshold(command_output):
 
     total_omem = 0
     re_omem = re.compile("omem=(\d+)")
-    res = dut.command("/usr/bin/redis-cli client list")
-    for l in res['stdout_lines']:
-        m = re_omem.search(l)
+    result = False
+
+    for line in command_output:
+        m = re_omem.search(line)
         if m:
             omem = int(m.group(1))
             total_omem += omem
-
-    logger.info(json.dumps(res['stdout_lines'], indent=4))
-    check_result = {"failed": False, "check_item": "dbmemory"}
+    logger.info(json.dumps(command_output, indent=4))
     if total_omem > OMEM_THRESHOLD_BYTES:
-        check_result["failed"] = True
-        check_result["total_omem"] = total_omem
+        result = True
 
+    return result, total_omem
+
+
+def check_dbmemory(dut):
+    logger.info("Checking database memory on %s..." % dut.hostname)
+    redis_cmd = "client list"
+    check_result = {"failed": False, "check_item": "dbmemory"}
+    # check the db memory on the redis instance running on each instance
+    for asic in dut.asics:
+        res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
+        result, total_omem = _is_db_omem_over_threshold(res)
+        if result:
+            check_result["failed"] = True
+            check_result["total_omem"] = total_omem
+            logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
+            break
     logger.info("Done checking database memory")
     return check_result
 
