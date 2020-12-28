@@ -197,7 +197,7 @@ def reset_critical_services_list(duthosts):
     Resets the critical services list between test modules to ensure that it is
     left in a known state after tests finish running.
     """
-    [a_dut.reset_critical_services_tracking_list() for a_dut in duthosts]
+    [a_dut.critical_services_tracking_list() for a_dut in duthosts]
 
 @pytest.fixture(scope="session")
 def localhost(ansible_adhoc):
