@@ -7,6 +7,7 @@ from test_vrf import gen_vrf_neigh_file
 from test_vrf import partial_ptf_runner     # lgtm[py/unused-import]
 
 from tests.ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -22,7 +23,7 @@ class TestVrfAttrSrcMac():
         # -------- Setup ----------
         extra_vars = { 'router_mac': self.new_vrf1_router_mac }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        duthost.template(src="vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
+        duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
