@@ -25,10 +25,10 @@ testparam_lossless_pg = None
 buffer_model_dynamic = True
 
 def detect_buffer_model(duthost):
-    """detect the current buffer model (dynamic or traditional) and store it for futher use. called only once when the module is initialized
+    """Detect the current buffer model (dynamic or traditional) and store it for futher use. Called only once when the module is initialized
 
     Args:
-        duthost: the DUT host object
+        duthost: The DUT host object
     """
     global buffer_model_dynamic
     buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
@@ -36,10 +36,10 @@ def detect_buffer_model(duthost):
 
 
 def detect_ingress_pool_number(duthost):
-    """detect the number of ingress buffer pools and store it for futher use. called only once when the module is initialized
+    """Detect the number of ingress buffer pools and store it for futher use. Called only once when the module is initialized
 
     Args:
-        duthost: the DUT host object
+        duthost: The DUT host object
     """
     global default_ingress_pool_number
     pools = duthost.shell('redis-cli -n 4 keys "BUFFER_POOL|ingress*"')['stdout']
@@ -47,10 +47,10 @@ def detect_ingress_pool_number(duthost):
 
 
 def detect_default_mtu(duthost, port_to_test):
-    """detect the mtu and store it for futher use. called only once when the module is initialized
+    """Detect the mtu and store it for futher use. Called only once when the module is initialized
 
     Args:
-        duthost: the DUT host object
+        duthost: The DUT host object
     """
     global default_mtu
     if not default_mtu:
@@ -59,7 +59,7 @@ def detect_default_mtu(duthost, port_to_test):
 
 
 def load_lossless_headroom_data(duthost):
-    """load test parameters from the json file. called only once when the module is initialized
+    """Load test parameters from the json file. Called only once when the module is initialized
 
     Args:
         duthost: the DUT host object
@@ -87,10 +87,10 @@ def load_lossless_headroom_data(duthost):
 
 
 def load_test_parameters(duthost):
-    """load test parameters from the json file. called only once when the module is initialized
+    """Load test parameters from the json file. Called only once when the module is initialized
 
     Args:
-        duthost: the DUT host object
+        duthost: The DUT host object
     """
     global default_cable_length_list
     global testparam_headroom_override
@@ -109,10 +109,10 @@ def load_test_parameters(duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_module(duthost):
-    """Set up module, called only once when the module is initialized
+    """Set up module. Called only once when the module is initialized
 
     Args:
-        duthost: the DUT host object
+        duthost: The DUT host object
     """
     detect_buffer_model(duthost)
     if buffer_model_dynamic:
@@ -137,10 +137,10 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
     and in the ASIC_DB
 
     Args:
-        ingress_lossless_pool_oid: the SAI OID of the ingress lossless pool in ASIC_DB
-        kwargs: the parameters based on which the expected pool size is calculated.
-                they are represeted in form of kwargs because different vendor can require different parameters
-                for Mellanox, it includes:
+        ingress_lossless_pool_oid: The SAI OID of the ingress lossless pool in ASIC_DB
+        kwargs: The parameters based on which the expected pool size is calculated.
+                They are represeted in form of kwargs because different vendor can require different parameters
+                For Mellanox, it includes:
                  - old / new pg size
                  - old / new pg numbers
                  - current pool size
@@ -202,8 +202,8 @@ def check_pg_profile(duthost, pg, expected_profile):
     """Check whether the profile in BUFFER_PG match the expected value in a wait_until loop with maximum timeout as 10 seconds
 
     Args:
-        pg: the key of buffer pg in BUFFER_PG table. Format: BUFFER_PG|<port>|<pg>
-        expected_profile: the name of the expected profile
+        pg: The key of buffer pg in BUFFER_PG table. Format: BUFFER_PG|<port>|<pg>
+        expected_profile: The name of the expected profile
     """
     def _check_pg_profile(duthost, pg, expected_profile):
         profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
@@ -216,8 +216,8 @@ def check_pfc_enable(duthost, port, expected_pfc_enable_map):
     """Check whether the pfc_enable map in port table is correct in a wait_until loop with maximum timeout as 10 seconds
 
     Args:
-        port: the port to be checked
-        expected_pfc_enable_map: the expected pfc_enable map
+        port: The port to be checked
+        expected_pfc_enable_map: The expected pfc_enable map
     """
     def _check_pfc_enable(duthost, port, expected_pfc_enable_map):
         pfc_enable = duthost.shell('redis-cli -n 4 hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']
@@ -234,9 +234,9 @@ def check_lossless_profile_removed(duthost, profile, sai_oid = None):
     """Check whether the lossless profile has been removed from APPL_DB, STATE_DB and ASIC_DB (if sai_oid provided)
 
     Args:
-        profile: the name of the buffer profile to be checked
-        sai_oid: the SAI OID in ASIC_DB of the buffer profile
-                 if it is None the ASIC_DB won't be checked
+        profile: The name of the buffer profile to be checked
+        sai_oid: The SAI OID in ASIC_DB of the buffer profile
+                 If it is None the ASIC_DB won't be checked
     """
     profile_info = duthost.shell('redis-cli -n 6 hgetall "BUFFER_PROFILE_TABLE|{}"'.format(profile))['stdout']
     pytest_assert(not profile_info, "Profile {} isn't removed from STATE_DB".format(profile))
@@ -257,7 +257,7 @@ def _compose_dict_from_cli(fields_list):
     """Convert the out put of hgetall command to a dict object containing the field, key pairs of the database table content
 
     Args:
-        fields_list: a list of lines, the output of redis-cli hgetall command
+        fields_list: A list of lines, the output of redis-cli hgetall command
     """
     return dict(zip(fields_list[0::2], fields_list[1::2]))
 
@@ -266,29 +266,29 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
     """Check buffer profile details.
 
     The following items are tested:
-     - whether the headroom information, like xoff, is correct.
-       this is tested by comparing with standard profile in pg_profile_lookup table
-     - whether the profile information in APPL_DB matches that in ASIC_DB
+     - Whether the headroom information, like xoff, is correct.
+       This is tested by comparing with standard profile in pg_profile_lookup table
+     - Whether the profile information in APPL_DB matches that in ASIC_DB
 
     Args:
-        initial_profiles: the keys of buffer profiles in ASIC_DB at the beginning of the test
-        profile_name: name of the profile
+        initial_profiles: The keys of buffer profiles in ASIC_DB at the beginning of the test
+        profile_name: Name of the profile
         profile_oid: SAI OID of the profile
-        pool_oid: SIA OID of ingress lossless pool
+        pool_oid: SAI OID of ingress lossless pool
     """
     profile_appldb = _compose_dict_from_cli(duthost.shell('redis-cli hgetall BUFFER_PROFILE_TABLE:{}'.format(profile_name))['stdout'].split('\n'))
     logging.debug("APPL_DB buffer profile {}: {} ".format(profile_name, profile_appldb))
 
-    # check the profile against the standard value
+    # Check the profile against the standard value
     m = re.search(lossless_profile_pattern, profile_name)
     if m:
-        # this means it's a dynamic profile
+        # This means it's a dynamic profile
         speed = m.group(1)
         cable_length = m.group(2)
         std_profiles_for_speed = default_lossless_headroom_data.get(speed)
         std_profile = std_profiles_for_speed.get(cable_length)
         if std_profile:
-            # this means it's a profile with std speed and cable length. we can check whether the headroom data is correct
+            # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
             pytest_assert(profile_appldb['xon'] == std_profile['xon'] and profile_appldb['xoff'] == std_profile['xoff'] and profile_appldb['size'] == std_profile['size'],
                           "Generated profile {} doesn't match the std profile {}".format(profile_appldb, std_profile))
         else:
@@ -333,10 +333,10 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
 
 @pytest.fixture(params=['50000', '10000'])
 def speed_to_test(request):
-    """used to parametrized test cases for speeds
+    """Used to parametrized test cases for speeds
 
     Args:
-        param request: pytest request object
+        param request: The pytest request object
 
     Return:
         speed_to_test
@@ -346,10 +346,10 @@ def speed_to_test(request):
 
 @pytest.fixture(params=['15m', '40m'])
 def cable_len_to_test(request):
-    """used to parametrized test cases for cable length
+    """Used to parametrized test cases for cable length
 
     Args:
-        request: pytest request object
+        request: The pytest request object
 
     Return:
         cable_len_to_test
@@ -359,10 +359,10 @@ def cable_len_to_test(request):
 
 @pytest.fixture(params=['1500', '9100'])
 def mtu_to_test(request):
-    """used to parametrized test cases for mtu
+    """Used to parametrized test cases for mtu
 
     Args:
-        request: pytest request object
+        request: The pytest request object
 
     Return:
         cable_len_to_test
@@ -372,10 +372,10 @@ def mtu_to_test(request):
 
 @pytest.fixture()
 def port_to_test(request, duthost):
-    """used to parametrized test cases for port
+    """Used to parametrized test cases for port
 
     Args:
-        request: pytest request object
+        request: The pytest request object
 
     Return:
         port_to_test
@@ -395,10 +395,10 @@ def port_to_test(request, duthost):
 
 @pytest.fixture(params=['3-4', '6'])
 def pg_to_test(request):
-    """used to parametrized test cases for PGs under test
+    """Used to parametrized test cases for PGs under test
 
     Args:
-        request: pytest request object
+        request: The pytest request object
 
     Return:
         pg_to_test
@@ -417,8 +417,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         1. Update the port configuration according to input parameters
         2. Determine whether the profile removing behavior can be verifyed:
            If neither mtu nor cable length is default value, they will be applied on the port_to_test only,
-           and the generated profile will be removed after the configuration change because the profile is referenced
-           by this port only.
+           and the generated profile will be removed after the configuration change because the profile is referenced by this port only.
            For example:
                The mtu_to_test 1500 only applied on the port_to_test, thus the *_mtu1500_* profile is referenced by the port only
                The *_mtu1500_* mtu will be removed after the mtu of the port is updated to default value.
@@ -426,18 +425,18 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                Other the other hand, if the mtu is 9100, the buffer profile can be referenced by many other ports and it's less possible for us to verify the removing behavior.
            We will remove and readd an extra PG 6 to verify the removing behavior as well.
         3. Each time the port configuration updated, the following items will be checked as much as possible:
-            - whether the new profile is generated in APPL_DB, STATE_DB and ASIC_DB
-            - whether the pool size is updated in APPL_DB and ASIC_DB
+            - Whether the new profile is generated in APPL_DB, STATE_DB and ASIC_DB.
+            - Whether the pool size is updated in APPL_DB and ASIC_DB.
         4. Each time the PG on a port is added or removed, the following items will be checked:
-            - whether the profile referenced by PGs is as expected according to the port configuration
-            - whether the profile is removed if all PGs are removed and we are able to check removing behavior (result of step 2)
-            - whether the pfc_enable filed of the port has been updated accordingly
+            - Whether the profile referenced by PGs is as expected according to the port configuration.
+            - Whether the profile is removed if all PGs are removed and we are able to check removing behavior (result of step 2).
+            - Whether the pfc_enable filed of the port has been updated accordingly.
 
     Args:
-        port_to_test: on which port will the test be performed
-        speed_to_test: to what speed will the port's be changed
-        mtu_to_test: to what mtu will the port's be changed
-        cable_len_to_test: to what cable length will the port's be changed
+        port_to_test: On which port will the test be performed
+        speed_to_test: To what speed will the port's be changed
+        mtu_to_test: To what mtu will the port's be changed
+        cable_len_to_test: To what cable length will the port's be changed
     """
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
@@ -466,7 +465,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
         check_profile_removed = cable_len_to_test not in default_cable_length_list
 
-        # check whether profile is correct in PG table
+        # Check whether profile is correct in PG table
         if mtu_to_test != default_mtu:
             expected_profile = 'pg_lossless_{}_{}_mtu{}_profile'.format(speed_to_test, cable_len_to_test, mtu_to_test)
             check_profile_removed = True
@@ -479,7 +478,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None)
         logging.info('SAI OID for newly created profile {} ingress lossless pool {}'.format(profile_oid, pool_oid))
 
-        # check whether profile exist
+        # Check whether profile exist
         headroom_size = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(expected_profile))['stdout'])
         check_pool_size(duthost,
                         pool_oid,
@@ -525,7 +524,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                 logging.info('[Revert the mtu to the default value] Checking whether the profile is updated')
                 duthost.shell('config interface mtu {} {}'.format(port_to_test, default_mtu))
 
-            # remove old profile on cable length change
+            # Remove old profile on cable length change
             logging.info('[Remove dynamic profile on cable length and/or MTU updated] Checking whether the old profile is removed')
             check_lossless_profile_removed(duthost, expected_profile, profile_oid)
             expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_to_test, original_cable_len)
@@ -604,13 +603,13 @@ def _parse_buffer_profile_params(param, cmd, name):
     """A helper for test_headroom_override, parsing the parameters from the pre-provided json file
 
     Args:
-        param: the dict containing test parameters parsed from dynamic_buffer_param.json
-        return: tuple: new headroom size and cli string
+        param: The dict containing test parameters parsed from dynamic_buffer_param.json
+        return: A tuple consisting of new headroom size and cli string
 
     Return:
-        a tuple consists of:
-            the CLI string by which a headroom-override profile can be configured
-            the size of new profile
+        A tuple consists of:
+            - The CLI string by which a headroom-override profile can be configured
+            - The size of new profile
     """
     cli_str = "config buffer profile {} {}".format(cmd, name)
     xon = ""
@@ -649,10 +648,10 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
         1. Fetch the parameters
         2. Add the headroom override profile and apply it to PG 3-4 on port_to_test
         3. Verify:
-            - whether the profile referenced by PG is correct
-            - whether the pfc_enable matches the PG
-            - whether the buffer profile is correct deployed in APPL_DB, STATE_DB and ASIC_DB
-            - whether the pool size has been updated correctly
+            - Whether the profile referenced by PG is correct
+            - Whether the pfc_enable matches the PG
+            - Whether the buffer profile is correct deployed in APPL_DB, STATE_DB and ASIC_DB
+            - Whether the pool size has been updated correctly
         4. Add PG 6, verify the related info
         5. Update the headroom override profile and verify the related info
         6. Negative test: try to remove the headroom override profile.
@@ -660,11 +659,11 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
         7. Revert the PG configurations, verify the related info
 
     Args:
-        port_to_test: on which port will the test be performed
+        port_to_test: On which port will the test be performed
     """
     duthost = duthosts[rand_one_dut_hostname]
     if not testparam_headroom_override:
-        pytest.skip("headroom override test skipped due to no parameters provided")
+        pytest.skip("Headroom override test skipped due to no parameters provided")
 
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
@@ -678,14 +677,14 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
         # Configure a static profile
         param = testparam_headroom_override.get("add")
         if not param:
-            pytest.skip('headroom override test skipped due to no parameters for "add" command provided')
+            pytest.skip('Headroom override test skipped due to no parameters for "add" command provided')
         else:
             cli_str, new_headroom = _parse_buffer_profile_params(param, "add", "headroom-override")
 
         logging.info("[Prepare configuration] {}".format(cli_str))
         duthost.shell(cli_str)
 
-        logging.info("[Test: headroom override on lossless PG 3-4] apply the profile on the PG and check pool size")
+        logging.info("[Test: headroom override on lossless PG 3-4] Apply the profile on the PG and check pool size")
         duthost.shell('config interface buffer priority-group lossless set {} 3-4 headroom-override'.format(port_to_test))
 
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), 'headroom-override')
@@ -699,7 +698,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
                         new_headroom = new_headroom)
 
         # Add another headroom override
-        logging.info("[Test: headroom override on more lossless PGs 6] apply the profile on the PG and check pool size")
+        logging.info("[Test: headroom override on more lossless PGs 6] Apply the profile on the PG and check pool size")
         duthost.shell('config interface buffer priority-group lossless add {} 6 headroom-override'.format(port_to_test))
 
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), 'headroom-override')
@@ -715,10 +714,10 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
         param = testparam_headroom_override.get("set")
         if not param:
-            pytest.skip('headroom override test skipped due to no parameters for "set" command provided')
+            pytest.skip('Headroom override test skipped due to no parameters for "set" command provided')
         else:
             cli_str, new_headroom = _parse_buffer_profile_params(param, "set", "headroom-override")
-        logging.info("[Test: update headroom-override profile] update the profile and check pool size: {}".format(cli_str))
+        logging.info("[Test: update headroom-override profile] Update the profile and check pool size: {}".format(cli_str))
         duthost.shell(cli_str)
 
         check_pool_size(duthost,
@@ -771,8 +770,8 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         8. Recover the configuration
 
     Args:
-        port_to_test: on which port will the test be performed
-        pg_to_test: to what PG will the profiles be applied
+        port_to_test: On which port will the test be performed
+        pg_to_test: To what PG will the profiles be applied
     """
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
@@ -796,75 +795,75 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         else:
             cli_str, new_headroom = _parse_buffer_profile_params(param, "add", "headroom-override")
 
-        # create profiles
-        logging.info('[Preparing]: create static buffer profile for headroom override')
+        # Create profiles
+        logging.info('[Preparing]: Create static buffer profile for headroom override')
         duthost.shell(cli_str)
         headroom_override_profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", None, None)
 
         initial_asic_db_profiles = fetch_initial_asic_db(duthost)
 
-        # this is a dynamic profile with non default dynamic-th.
-        # profile won't be created until configured on some pg
+        # This is a dynamic profile with non default dynamic-th.
+        # Profile won't be created until configured on some pg
         param = testparam_lossless_pg.get("non-default-dynamic_th")
         if not param:
-            pytest.skip('lossless pg test skipped due to no parameters for "non-default-dynamic_th" command provided')
+            pytest.skip('Lossless pg test skipped due to no parameters for "non-default-dynamic_th" command provided')
         else:
             cli_str, new_headroom = _parse_buffer_profile_params(param, "add", "non-default-dynamic_th")
 
-        logging.info('[Preparing]: create static buffer profile for non default dynamic_th')
+        logging.info('[Preparing]: Create static buffer profile for non default dynamic_th')
         duthost.shell(cli_str)
 
-        # update cable length to 15m
-        logging.info('[Preparing]: update cable length')
+        # Update cable length to 15m
+        logging.info('[Preparing]: Update cable length')
         duthost.shell('config interface cable-length {} 15m'.format(port_to_test))
         expected_profile = 'pg_lossless_{}_15m_profile'.format(original_speed)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, pool_oid)
 
-        # original it should be a dynamic PG, update it to override
+        # Originally, it should be a dynamic PG, update it to override
         logging.info('[Testcase: dynamic headroom => headroom override]')
         duthost.shell(first_command + 'headroom-override')
-        # check whether lossless dynamic profile is removed
+        # Check whether lossless dynamic profile is removed
         check_pg_profile(duthost, buffer_pg, 'headroom-override')
         if pg_to_test == '3-4':
             check_lossless_profile_removed(duthost, expected_profile, profile_oid)
 
-        # update it to non-default dynamic_th
+        # Update it to non-default dynamic_th
         logging.info('[Testcase: headroom override => dynamically calculated headroom with non-default dynamic_th]')
         duthost.shell(set_command + 'non-default-dynamic_th')
         expected_nondef_profile = 'pg_lossless_{}_15m_th2_profile'.format(original_speed)
         check_pg_profile(duthost, buffer_pg, expected_nondef_profile)
-        # a new profile should be created in ASIC DB
+        # A new profile should be created in ASIC DB
         profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid)
 
-        # update it to dynamic PG
+        # Update it to dynamic PG
         logging.info('[Testcase: dynamically calculated headroom with non-default dynamic_th => dynamic headroom]')
         duthost.shell(set_command)
         check_pg_profile(duthost, buffer_pg, expected_profile)
         check_lossless_profile_removed(duthost, expected_nondef_profile, profile_oid)
 
-        # update it to non-default dynamic_th
+        # Update it to non-default dynamic_th
         logging.info('[Testcase: dynamic headroom => dynamically calculated headroom with non-default dynamic_th]')
         duthost.shell(set_command + 'non-default-dynamic_th')
         check_pg_profile(duthost, buffer_pg, expected_nondef_profile)
-        # a new profile should be created in ASIC DB
+        # A new profile should be created in ASIC DB
         profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid)
         if pg_to_test == '3-4':
-            # the oid can be reused by SAI. so don't check whether profile_oid is removed.
+            # The oid can be reused by SAI. So we don't check whether profile_oid is removed.
             check_lossless_profile_removed(duthost, expected_profile)
 
-        # update it to headroom override
+        # Update it to headroom override
         logging.info('[Testcase: dynamically calculated headroom with non-default dynamic_th => headroom override]')
         duthost.shell(set_command + 'headroom-override')
         check_pg_profile(duthost, buffer_pg, 'headroom-override')
         check_lossless_profile_removed(duthost, expected_nondef_profile, profile_oid)
 
-        # update it to dynamic PG, recover
+        # Update it to dynamic PG, recover
         logging.info('[Testcase: headroom override => dynamic headroom]')
         duthost.shell(set_command)
         check_pg_profile(duthost, buffer_pg, expected_profile)
 
-        # remove all static profiles
+        # Remove all static profiles
         logging.info('[Restoring configuration]')
         duthost.shell('config buffer profile remove headroom-override')
         duthost.shell('config buffer profile remove non-default-dynamic_th')
@@ -902,7 +901,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     original_profile = 'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len)
 
     try:
-        # set to super long cable length
+        # Set to super long cable length
         logging.info('[Config a super long cable length]')
         duthost.shell('config interface cable-length {} 10000m'.format(port_to_test))
 
@@ -920,12 +919,12 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         logging.info('Add another PG and make sure the system isn\'t broken')
         duthost.shell('config interface buffer priority-group lossless add {} {}'.format(port_to_test, '5-7'))
 
-        # we can't say whether this will accumulative headroom exceed the limit, but the system should not crash
-        # leverage sanity check to verify that
+        # We can't say whether this will accumulative headroom exceed the limit, but the system should not crash
+        # Leverage sanity check to verify that
         duthost.shell('config interface buffer priority-group lossless remove {} {}'.format(port_to_test, '5-7'))
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len))
 
-        # static profile
+        # Static profile
         logging.info('[Config headroom override to PG 3-4]')
         duthost.shell('config buffer profile add test-headroom --xon 18432 --xoff 50000 -headroom 68432')
         duthost.shell('config interface buffer priority-group lossless set {} {} {}'.format(port_to_test, '3-4', 'test-headroom'))
@@ -934,14 +933,14 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), 'test-headroom')
         duthost.shell('config interface buffer priority-group lossless add {} {} {}'.format(port_to_test, '5-7', 'test-headroom'))
 
-        # again, we can't say for sure whether the accumulative headroom exceeding.
-        # just make sure the system doesn't crash
+        # Again, we can't say for sure whether the accumulative headroom exceeding.
+        # Just make sure the system doesn't crash
         duthost.shell('config interface buffer priority-group lossless remove {} {}'.format(port_to_test, '5-7'))
 
         logging.info('[Update headroom override to a larger size]')
         duthost.shell('config buffer profile set test-headroom --xon 18432 --xoff 860160 -headroom 878592')
 
-        # this should make it exceed the limit, so the profile should not applied to the APPL_DB
+        # This should make it exceed the limit, so the profile should not applied to the APPL_DB
         size_in_appldb = duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" size')['stdout']
         pytest_assert(size_in_appldb == '68432', 'The profile with a large size was applied to APPL_DB, which can make headroom exceeding')
         duthost.shell('config interface buffer priority-group lossless set {} {}'.format(port_to_test, '3-4'))
@@ -962,10 +961,10 @@ def _recovery_to_dynamic_buffer_model(duthost):
 
 
 def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):
-    """verify whether the buffer model is expected after configuration operations:
+    """Verify whether the buffer model is expected after configuration operations:
     The following items are verified
-     - whether the buffer model is traditional after executing config load_minigraph
-     - whether the buffer model is dynamic after recovering the buffer model to dynamic
+     - Whether the buffer model is traditional after executing config load_minigraph
+     - Whether the buffer model is dynamic after recovering the buffer model to dynamic
     """
     duthost = duthosts[rand_one_dut_hostname]
     try:
