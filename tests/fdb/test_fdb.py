@@ -183,7 +183,7 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
 
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type, tbinfo):
+def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type):
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
@@ -195,7 +195,6 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     2. verify show mac command on DUT for learned mac.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     # reinitialize data plane due to above changes on PTF interfaces
@@ -203,7 +202,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     router_mac = duthost.facts['router_mac']
 
-    port_index_to_name = { v: k for k, v in mg_facts['minigraph_port_indices'].items() }
+    port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
 
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
@@ -237,8 +236,6 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             dummy_mac_count += 1
         if "dynamic" in l.lower():
             total_mac_count += 1
-
-    print res
 
     assert vlan_member_count > 0
 
