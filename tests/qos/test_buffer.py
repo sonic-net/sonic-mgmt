@@ -307,7 +307,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
     pytest_assert(profile_oid, "Unable to fetch SAI OID for profile {}, initial SAI OID set {} current set {}".format(
         profile_name, initial_profiles, profiles_in_asicdb))
 
-    logging.debug("Initial profiles {} and current profiles {} has the following difference(s) {}".format(initial_profiles, profiles_in_asicdb, diff))
+    logging.debug("Initial profiles {} and current profiles {} have the following difference(s) {}".format(initial_profiles, profiles_in_asicdb, diff))
 
     profile_sai = _compose_dict_from_cli(duthost.shell('redis-cli -n 1 hgetall {}'.format(profile_oid))['stdout'].split('\n'))
 
