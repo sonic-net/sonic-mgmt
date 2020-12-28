@@ -25,7 +25,7 @@ class TestNeighborMacNoPtf:
     }
 
     @pytest.fixture(scope="module", autouse=True)
-    def restoreDutConfig(self, duthosts, rand_one_dut_hostname):
+    def restoreDutConfig(self, pre_selected_dut):
         """
             Restores DUT configuration after test completes
 
@@ -35,11 +35,10 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
         yield
 
         logger.info("Reload Config DB")
-        config_reload(duthost, config_source='config_db', wait=120)
+        config_reload(pre_selected_dut, config_source='config_db', wait=120)
 
     @pytest.fixture(params=[4, 6])
     def ipVersion(self, request):
@@ -56,7 +55,7 @@ class TestNeighborMacNoPtf:
         yield request.param
 
     @pytest.fixture(scope="module")
-    def routedInterface(self, duthosts, rand_one_dut_hostname):
+    def routedInterface(self, pre_selected_dut):
         """
             Find routed interface to test neighbor MAC functionality with
 
@@ -66,10 +65,9 @@ class TestNeighborMacNoPtf:
             Retruns:
                 routedInterface (str): Routed interface used for testing
         """
-        duthost = duthosts[rand_one_dut_hostname]
         testRoutedInterface = None
 
-        intfStatus = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
+        intfStatus = pre_selected_dut.show_interface(command="status")["ansible_facts"]["int_status"]
         for intf, status in intfStatus.items():
             if "routed" in status["vlan"] and "up" in status["oper_state"]:
                 testRoutedInterface = intf
@@ -78,7 +76,7 @@ class TestNeighborMacNoPtf:
         yield testRoutedInterface
 
     @pytest.fixture
-    def verifyOrchagentPresence(self, duthosts, rand_one_dut_hostname):
+    def verifyOrchagentPresence(self, pre_selected_dut):
         """
             Verify orchagent is running before and after the test is finished
 
@@ -88,7 +86,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         def verifyOrchagentRunningOrAssert(duthost):
             """
                 Verifyes that orchagent is running, asserts otherwise
@@ -158,7 +156,7 @@ class TestNeighborMacNoPtf:
         ])
 
     @pytest.fixture(autouse=True)
-    def updateNeighborIp(self, duthosts, rand_one_dut_hostname, routedInterface, ipVersion, verifyOrchagentPresence):
+    def updateNeighborIp(self, pre_selected_dut, routedInterface, ipVersion, verifyOrchagentPresence):
         """
             Update Neighbor/Interface IP
 
@@ -166,7 +164,7 @@ class TestNeighborMacNoPtf:
             the neighbor MAC 2 times.
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut: A pre selected DUT
                 routedInterface (Fixture<str>): test Interface name
                 ipVersion (Fixture<int>): IP version
                 verifyOrchagentPresence (Fixture): Make sure orchagent is running before and
@@ -175,7 +173,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         self.__updateInterfaceIp(duthost, routedInterface, ipVersion, action="add")
         self.__updateNeighborIp(duthost, routedInterface, ipVersion, 0, action="add")
         self.__updateNeighborIp(duthost, routedInterface, ipVersion, 0, action="change")
@@ -189,36 +187,35 @@ class TestNeighborMacNoPtf:
         self.__updateInterfaceIp(duthost, routedInterface, ipVersion, action="remove")
 
     @pytest.fixture
-    def arpTableMac(self, duthosts, rand_one_dut_hostname, ipVersion, updateNeighborIp):
+    def arpTableMac(self, pre_selected_dut, ipVersion, updateNeighborIp):
         """
             Retreive DUT ARP table MAC entry of neighbor IP
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): A pre selected DUT
                 ipVersion (Fixture<int>): IP version
                 updateNeighborIp (Fixture<str>): test fixture that assign/update IP/neighbor MAC
 
             Returns:
                 arpTableMac (str): ARP MAC entry of neighbor IP
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        dutArpTable = duthost.switch_arptable()["ansible_facts"]["arptable"]
+        dutArpTable = pre_selected_dut.switch_arptable()["ansible_facts"]["arptable"]
         yield dutArpTable["v{0}".format(ipVersion)][self.TEST_INTF[ipVersion]["NeighborIp"]]["macaddress"]
 
     @pytest.fixture
-    def redisNeighborMac(self, duthosts, rand_one_dut_hostname, ipVersion, updateNeighborIp):
+    def redisNeighborMac(self, pre_selected_dut, ipVersion, updateNeighborIp):
         """
             Retreive DUT Redis MAC entry of neighbor IP
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut: A pre-selected DUT
                 ipVersion (Fixture<int>): IP version
                 updateNeighborIp (Fixture<str>): test fixture that assign/update IP/neighbor MAC
 
             Returns:
                 redisNeighborMac (str): Redis MAC entry of neighbor IP
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         result = duthost.shell(argv=["redis-cli", "-n", "1", "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"])
         neighborKey = None
         for key in result["stdout_lines"]:

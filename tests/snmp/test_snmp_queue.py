@@ -5,8 +5,8 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_snmp_queues(duthosts, rand_one_dut_hostname, localhost, creds, collect_techsupport):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_snmp_queues(pre_selected_dut, localhost, creds, collect_techsupport):
+    duthost = pre_selected_dut
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 

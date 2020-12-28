@@ -53,19 +53,18 @@ def vnet_test_params(request):
     return params
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
+def minigraph_facts(pre_selected_dut, tbinfo):
     """
     Fixture to get minigraph facts
 
     Args:
-        duthost: DUT host object
+        pre_selected_dut: DUT host object
 
     Returns:
         Dictionary containing minigraph information
     """
-    duthost = duthosts[rand_one_dut_hostname]
 
-    return duthost.get_extended_minigraph_facts(tbinfo)
+    return pre_selected_dut.get_extended_minigraph_facts(tbinfo)
 
 @pytest.fixture(scope="module")
 def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):

@@ -28,19 +28,19 @@ def pytest_addoption(parser):
                      help='Fake storm for most ports instead of using pfc gen')
 
 @pytest.fixture(scope="module")
-def setup_pfc_test(duthosts, rand_one_dut_hostname, ptfhost, conn_graph_facts, tbinfo):
+def setup_pfc_test(pre_selected_dut, ptfhost, conn_graph_facts, tbinfo):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
 
     Args:
-        duthost: AnsibleHost instance for DUT
+        pre_selected_dut: AnsibleHost instance for DUT
         ptfhost: AnsibleHost instance for PTF
         conn_graph_facts: fixture that contains the parsed topology info
 
     Yields:
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = mg_facts['minigraph_ports'].keys()
     ports = (' ').join(port_list)

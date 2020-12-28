@@ -11,20 +11,18 @@ pytestmark = [
 
 
 @pytest.fixture(scope='module')
-def setup_thresholds(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_thresholds(pre_selected_dut):
     cpu_threshold = 50
     memory_threshold = 60
-    if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0'):
+    if pre_selected_dut.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0'):
         memory_threshold = 80
     return memory_threshold, cpu_threshold
 
 
-def test_cpu_memory_usage(duthosts, rand_one_dut_hostname, setup_thresholds):
+def test_cpu_memory_usage(pre_selected_dut, setup_thresholds):
     """Check DUT memory usage and process cpu usage are within threshold."""
-    duthost = duthosts[rand_one_dut_hostname]
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
-    monit_results = duthost.monit_process(iterations=12)['monit_results']
+    monit_results = pre_selected_dut.monit_process(iterations=12)['monit_results']
 
     memory_threshold, cpu_threshold = setup_thresholds
     persist_threshold = 4

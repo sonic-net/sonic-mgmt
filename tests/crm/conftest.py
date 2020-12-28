@@ -56,15 +56,14 @@ def pytest_runtest_teardown(item, nextitem):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_thresholds(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def crm_thresholds(pre_selected_dut):
     cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
     crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor",
         "ipv6_neighbor", "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
     res = {}
     for item in crm_res_list:
-        high = duthost.command(cmd.format(threshold_name=item, type="high"))["stdout_lines"][0]
-        low = duthost.command(cmd.format(threshold_name=item, type="low"))["stdout_lines"][0]
+        high = pre_selected_dut.command(cmd.format(threshold_name=item, type="high"))["stdout_lines"][0]
+        low = pre_selected_dut.command(cmd.format(threshold_name=item, type="low"))["stdout_lines"][0]
         res[item] = {}
         res[item]["high"] = high
         res[item]["low"] = low
@@ -73,10 +72,9 @@ def crm_thresholds(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthosts, rand_one_dut_hostname, tbinfo):
+def crm_interface(pre_selected_dut, tbinfo):
     """ Return tuple of two DUT interfaces """
-    duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = pre_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
         crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]
@@ -88,11 +86,10 @@ def crm_interface(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthosts, rand_one_dut_hostname):
+def set_polling_interval(pre_selected_dut):
     """ Set CRM polling interval to 1 second """
-    duthost = duthosts[rand_one_dut_hostname]
     wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
+    pre_selected_dut.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
 

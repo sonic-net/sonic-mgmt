@@ -298,43 +298,41 @@ class QosSaiBase:
                       )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
     @pytest.fixture(scope='class')
-    def swapSyncd(self, request, duthosts, rand_one_dut_hostname, creds):
+    def swapSyncd(self, request, pre_selected_dut, creds):
         """
             Swap syncd on DUT host
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
 
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
         swapSyncd = request.config.getoption("--qos_swap_syncd")
         if swapSyncd:
-            docker.swap_syncd(duthost, creds)
+            docker.swap_syncd(pre_selected_dut, creds)
 
         yield
 
         if swapSyncd:
-            docker.restore_default_syncd(duthost, creds)
+            docker.restore_default_syncd(pre_selected_dut, creds)
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutConfig(self, request, duthosts, rand_one_dut_hostname, tbinfo):
+    def dutConfig(self, request, pre_selected_dut, tbinfo):
         """
             Build DUT host config pertaining to QoS SAI tests
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
 
             Returns:
                 dutConfig (dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs, and
                     test ports
         """
-        duthost = duthosts[rand_one_dut_hostname]
         dutLagInterfaces = []
-        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        mgFacts = pre_selected_dut.get_extended_minigraph_facts(tbinfo)
 
         for _, lag in mgFacts["minigraph_portchannels"].items():
             for intf in lag["members"]:
@@ -342,7 +340,7 @@ class QosSaiBase:
 
         testPortIds = set(mgFacts["minigraph_ptf_indices"][port] for port in mgFacts["minigraph_ports"].keys())
         testPortIds -= set(dutLagInterfaces)
-        if isMellanoxDevice(duthost):
+        if isMellanoxDevice(pre_selected_dut):
             # The last port is used for up link from DUT switch
             testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
         testPortIds = sorted(testPortIds)
@@ -368,7 +366,7 @@ class QosSaiBase:
         }
 
     @pytest.fixture(scope='class')
-    def updateIptables(self, duthosts, rand_one_dut_hostname, swapSyncd):
+    def updateIptables(self, pre_selected_dut, swapSyncd):
         """
             Update iptables on DUT host with drop rule for BGP SYNC packets
 
@@ -379,7 +377,6 @@ class QosSaiBase:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
         def updateIptablesDropRule(duthost, ipVersion,  state='present'):
             duthost.iptables(
                 ip_version=ipVersion,
@@ -397,16 +394,16 @@ class QosSaiBase:
 
         logger.info("Add ip[6]tables rule to drop BGP SYN Packet from peer so that we do not ACK back")
         for ipVersion in ipVersions:
-            updateIptablesDropRule(duthost, state="present", **ipVersion)
+            updateIptablesDropRule(pre_selected_dut, state="present", **ipVersion)
 
         yield
 
         logger.info("Remove ip[6]tables rule to drop BGP SYN Packet from Peer")
         for ipVersion in ipVersions:
-            updateIptablesDropRule(duthost, state="absent", **ipVersion)
+            updateIptablesDropRule(pre_selected_dut, state="absent", **ipVersion)
 
     @pytest.fixture(scope='class')
-    def stopServices(self, duthosts, rand_one_dut_hostname, swapSyncd, \
+    def stopServices(self, pre_selected_dut, swapSyncd, \
         enable_container_autorestart, disable_container_autorestart):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -418,7 +415,7 @@ class QosSaiBase:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         def updateDockerService(host, docker="", action="", service=""):
             """
                 Helper function to update docker services
@@ -496,18 +493,18 @@ class QosSaiBase:
         yield
 
     @pytest.fixture(scope='class', autouse=True)
-    def disablePacketAging(self, duthosts, rand_one_dut_hostname, stopServices):
+    def disablePacketAging(self, pre_selected_dut, stopServices):
         """
             disable packet aging on DUT host
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 stopServices (Fxiture): stopServices fixture is required to run prior to disabling packet aging
 
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         if isMellanoxDevice(duthost):
             logger.info("Disable Mellanox packet aging")
             duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
@@ -522,19 +519,19 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, tbinfo):
+    def dutQosConfig(self, pre_selected_dut, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, tbinfo):
         """
             Prepares DUT host QoS configuration
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 ingressLosslessProfile (Fxiture): ingressLosslessProfile fixture is required to run prior to collecting
                     QoS configuration
 
             Returns:
                 QoSConfig (dict): Map containing DUT host QoS configuration
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         pytest_assert("minigraph_hwsku" in mgFacts, "Could not find DUT SKU")
 
@@ -581,19 +578,19 @@ class QosSaiBase:
         }
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
+    def dutTestParams(self, pre_selected_dut, tbinfo, ptf_portmap_file):
         """
             Prepares DUT host test params
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 tbinfo (Fixture, dict): Map containing testbed information
                 ptfPortMapFile (Fxiture, str): filename residing on PTF host and contains port maps information
 
             Returns:
                 dutTestParams (dict): DUT host test params
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
@@ -627,12 +624,12 @@ class QosSaiBase:
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.ReleaseAllPorts", testParams=dutTestParams["basicParams"])
 
     @pytest.fixture(scope='class', autouse=True)
-    def populateArpEntries(self, duthosts, rand_one_dut_hostname, ptfhost, dutTestParams, dutConfig, releaseAllPorts):
+    def populateArpEntries(self, pre_selected_dut, ptfhost, dutTestParams, dutConfig, releaseAllPorts):
         """
             Update ARP entries of QoS SAI test ports
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -645,15 +642,14 @@ class QosSaiBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        duthost = duthosts[rand_one_dut_hostname]
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulate"
         elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulatePTF"
         else:
-            result = duthost.command(argv = ["arp", "-n"])
-            pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(duthost.hostname))
+            result = pre_selected_dut.command(argv = ["arp", "-n"])
+            pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(pre_selected_dut.hostname))
             if result["stdout"].find("incomplete") == -1:
                 saiQosTest = "sai_qos_tests.ARPpopulate"
 
@@ -663,144 +659,138 @@ class QosSaiBase:
             self.runPtfTest(ptfhost, testCase=saiQosTest, testParams=testParams)
 
     @pytest.fixture(scope='class', autouse=True)
-    def ingressLosslessProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def ingressLosslessProfile(self, request, pre_selected_dut, dutConfig):
         """
             Retreives ingress lossless profile
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
 
             Returns:
                 ingressLosslessProfile (dict): Map of ingress lossless buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
         yield self.__getBufferProfile(
             request,
-            duthost,
+            pre_selected_dut,
             "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
         )
 
     @pytest.fixture(scope='class', autouse=True)
-    def ingressLossyProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def ingressLossyProfile(self, request, pre_selected_dut, dutConfig):
         """
             Retreives ingress lossy profile
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
 
             Returns:
                 ingressLossyProfile (dict): Map of ingress lossy buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
         yield self.__getBufferProfile(
             request,
-            duthost,
+            pre_selected_dut,
             "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0"
         )
 
     @pytest.fixture(scope='class', autouse=True)
-    def egressLosslessProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def egressLosslessProfile(self, request, pre_selected_dut, dutConfig):
         """
             Retreives egress lossless profile
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
 
             Returns:
                 egressLosslessProfile (dict): Map of egress lossless buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
         yield self.__getBufferProfile(
             request,
-            duthost,
+            pre_selected_dut,
             "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
         )
 
     @pytest.fixture(scope='class', autouse=True)
-    def egressLossyProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def egressLossyProfile(self, request, pre_selected_dut, dutConfig):
         """
             Retreives egress lossy profile
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
 
             Returns:
                 egressLossyProfile (dict): Map of egress lossy buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
         yield self.__getBufferProfile(
             request,
-            duthost,
+            pre_selected_dut,
             "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0-2"
         )
 
     @pytest.fixture(scope='class')
-    def losslessSchedProfile(self, duthosts, rand_one_dut_hostname, dutConfig):
+    def losslessSchedProfile(self, pre_selected_dut, dutConfig):
         """
             Retreives lossless scheduler profile
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
 
             Returns:
                 losslessSchedProfile (dict): Map of scheduler parameters
         """
-        duthost = duthosts[rand_one_dut_hostname]
         yield self.__getSchedulerParam(
-            duthost,
+            pre_selected_dut,
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             self.TARGET_LOSSLESS_QUEUE_SCHED
         )
 
     @pytest.fixture(scope='class')
-    def lossySchedProfile(self, duthosts, rand_one_dut_hostname, dutConfig):
+    def lossySchedProfile(self, pre_selected_dut, dutConfig):
         """
             Retreives lossy scheduler profile
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
 
             Returns:
                 lossySchedProfile (dict): Map of scheduler parameters
         """
-        duthost = duthosts[rand_one_dut_hostname]
         yield self.__getSchedulerParam(
-            duthost,
+            pre_selected_dut,
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             self.TARGET_LOSSY_QUEUE_SCHED
         )
 
     @pytest.fixture
-    def updateSchedProfile(self, duthosts, rand_one_dut_hostname, dutQosConfig, losslessSchedProfile, lossySchedProfile):
+    def updateSchedProfile(self, pre_selected_dut, dutQosConfig, losslessSchedProfile, lossySchedProfile):
         """
             Updates lossless/lossy scheduler profiles
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
                 losslessSchedProfile (Fixture, dict): Map of lossless scheduler parameters
                 lossySchedProfile (Fixture, dict): Map of lossy scheduler parameters
@@ -808,7 +798,6 @@ class QosSaiBase:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
         def updateRedisSchedParam(schedParam):
             """
                 Helper function to updates lossless/lossy scheduler profiles
@@ -820,7 +809,7 @@ class QosSaiBase:
                     None
             """
             self.__runRedisCommandOrAssert(
-                duthost,
+                pre_selected_dut,
                 argv = [
                     "redis-cli",
                     "-n",
@@ -851,17 +840,16 @@ class QosSaiBase:
             updateRedisSchedParam(schedParam)
 
     @pytest.fixture
-    def resetWatermark(self, duthosts, rand_one_dut_hostname):
+    def resetWatermark(self, pre_selected_dut):
         """
             Reset queue watermark
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                pre_selected_dut (AnsibleHost): Device Under Test (DUT)
 
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        duthost.shell("counterpoll watermark enable")
-        duthost.shell("sleep 20")
-        duthost.shell("counterpoll watermark disable")
+        pre_selected_dut.shell("counterpoll watermark enable")
+        pre_selected_dut.shell("sleep 20")
+        pre_selected_dut.shell("counterpoll watermark disable")

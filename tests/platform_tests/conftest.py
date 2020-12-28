@@ -8,23 +8,22 @@ from .args.api_sfp_args import add_api_sfp_args
 
 
 @pytest.fixture(autouse=True, scope="module")
-def skip_on_simx(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    platform = duthost.facts["platform"]
+def skip_on_simx(pre_selected_dut):
+    platform = pre_selected_dut.facts["platform"]
     if "simx" in platform:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 
 @pytest.fixture()
-def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
+def bring_up_dut_interfaces(request, pre_selected_dut, tbinfo):
     """
     Bring up outer interfaces on the DUT.
 
     Args:
         request: pytest request object
-        duthost: Fixture for interacting with the DUT.
+        pre_selected_dut: Fixture for interacting with the DUT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     yield
     if request.node.rep_call.failed:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)

@@ -92,25 +92,24 @@ class DhcpPktFwdBase:
         ))
 
     @pytest.fixture(scope="class")
-    def dutPorts(self, duthosts, rand_one_dut_hostname, tbinfo):
+    def dutPorts(self, pre_selected_dut, tbinfo):
         """
         Build list of DUT ports and classify them as Upstream/Downstream ports.
 
         Args:
-            duthost(Ansible Fixture): instance of SonicHost class of DUT
+            pre_selected_dut(Ansible Fixture): instance of SonicHost class of DUT
             tbinfo(Ansible Fixture): testbed information
 
         Returns:
             dict: contains downstream/upstream ports information
         """
-        duthost = duthosts[rand_one_dut_hostname]
         if "t1" not in tbinfo["topo"]["name"]:
             pytest.skip("Unsupported topology")
 
         downstreamPorts = []
         upstreamPorts = []
 
-        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        mgFacts = pre_selected_dut.get_extended_minigraph_facts(tbinfo)
 
         for dutPort, neigh in mgFacts["minigraph_neighbors"].items():
             if "T0" in neigh["name"]:
@@ -121,7 +120,7 @@ class DhcpPktFwdBase:
         yield {"upstreamPorts": upstreamPorts, "downstreamPorts": downstreamPorts}
 
     @pytest.fixture(scope="class")
-    def testPorts(self, duthosts, rand_one_dut_hostname, dutPorts, tbinfo):
+    def testPorts(self, pre_selected_dut, dutPorts, tbinfo):
         """
         Select one upstream and one downstream ports for DHCP packet forwarding test
 
@@ -132,7 +131,7 @@ class DhcpPktFwdBase:
         Returns:
             dict: contains downstream/upstream port (or LAG members) information used for test
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         downstreamLags, downstreamPeerIp = self.__getPortLagsAndPeerIp(
             duthost,
             random.choice(dutPorts["downstreamPorts"]),

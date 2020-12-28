@@ -56,8 +56,8 @@ ALLOW_LIST = {
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(tbinfo, nbrhosts, pre_selected_dut):
+    duthost = pre_selected_dut
 
     if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
@@ -111,14 +111,13 @@ def update_routes(action, ptfip, port, route):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def prepare_allow_list(duthosts, rand_one_dut_hostname):
-    duthost=duthosts[rand_one_dut_hostname]
-    duthost.copy(content=json.dumps(ALLOW_LIST, indent=2), dest='/tmp/allow_list.json')
+def prepare_allow_list(pre_selected_dut):
+    pre_selected_dut.copy(content=json.dumps(ALLOW_LIST, indent=2), dest='/tmp/allow_list.json')
 
 
 @pytest.fixture
-def load_remove_allow_list(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def load_remove_allow_list(pre_selected_dut):
+    duthost = pre_selected_dut
     duthost.shell('sonic-cfggen -j /tmp/allow_list.json -w')
     time.sleep(3)
 
@@ -361,8 +360,8 @@ class BGPAllowListBase(object):
 class TestBGPAllowListPermit(BGPAllowListBase):
 
     @pytest.fixture(scope='class', autouse=True)
-    def default_action_permit(self, duthosts, rand_one_dut_hostname, tbinfo):
-        duthost = duthosts[rand_one_dut_hostname]
+    def default_action_permit(self, pre_selected_dut, tbinfo):
+        duthost = pre_selected_dut
         constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
         default_action = constants['constants']['bgp']['allow_list']['default_action']
 
@@ -378,24 +377,22 @@ class TestBGPAllowListPermit(BGPAllowListBase):
 
         return
 
-    def test_empty_allow_list_permit(self, duthosts, rand_one_dut_hostname, setup, nbrhosts):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_empty_allow_list_permit(self, pre_selected_dut, setup, nbrhosts):
         self.check_routes_on_tor1(setup, nbrhosts)
-        self.check_routes_on_dut(duthost)
+        self.check_routes_on_dut(pre_selected_dut)
         self.check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True)
 
-    def test_allow_list_permit(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_allow_list_permit(self, pre_selected_dut, setup, nbrhosts, load_remove_allow_list):
         self.check_routes_on_tor1(setup, nbrhosts)
-        self.check_routes_on_dut(duthost)
+        self.check_routes_on_dut(pre_selected_dut)
         self.check_routes_on_neighbors(nbrhosts, setup, permit=True)
 
 
 class TestBGPAllowListDeny(BGPAllowListBase):
 
     @pytest.fixture(scope='class', autouse=True)
-    def default_action_deny(self, duthosts, rand_one_dut_hostname, tbinfo):
-        duthost=duthosts[rand_one_dut_hostname]
+    def default_action_deny(self, pre_selected_dut, tbinfo):
+        duthost = pre_selected_dut
         constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
         default_action = constants['constants']['bgp']['allow_list']['default_action']
 
@@ -420,14 +417,12 @@ class TestBGPAllowListDeny(BGPAllowListBase):
         duthost.shell('systemctl restart bgp')
         wait_until(300, 20, self.bgp_started, duthost, tbinfo)
 
-    def test_empty_allow_list_deny(self, duthosts, rand_one_dut_hostname, setup, nbrhosts):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_empty_allow_list_deny(self, pre_selected_dut, setup, nbrhosts):
         self.check_routes_on_tor1(setup, nbrhosts)
-        self.check_routes_on_dut(duthost)
+        self.check_routes_on_dut(pre_selected_dut)
         self.check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=False)
 
-    def test_allow_list_deny(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list):
-        duthost = duthosts[rand_one_dut_hostname]
+    def test_allow_list_deny(self, pre_selected_dut, setup, nbrhosts, load_remove_allow_list):
         self.check_routes_on_tor1(setup, nbrhosts)
-        self.check_routes_on_dut(duthost)
+        self.check_routes_on_dut(pre_selected_dut)
         self.check_routes_on_neighbors(nbrhosts, setup, permit=False)

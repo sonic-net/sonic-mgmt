@@ -17,7 +17,7 @@ class TestPortToggle(object):
     TestPortToggle class for testing port toggle
     """
 
-    def test_port_toggle(self, duthosts, rand_one_dut_hostname, bring_up_dut_interfaces, tbinfo):
+    def test_port_toggle(self, pre_selected_dut, bring_up_dut_interfaces, tbinfo):
         """
         Validates that port toggle works as expected
 
@@ -27,5 +27,4 @@ class TestPortToggle(object):
 
         Pass Criteria: All interfaces are up correctly.
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        port_toggle(duthost, tbinfo)
+        port_toggle(pre_selected_dut, tbinfo)

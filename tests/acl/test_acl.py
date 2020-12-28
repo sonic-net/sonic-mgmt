@@ -57,19 +57,17 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
+def setup(pre_selected_dut, tbinfo, ptfadapter):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
-        duthosts: All DUTs belong to the testbed.
-        rand_one_dut_hostname: hostname of a random chosen dut to run test.
-        tbinfo: A fixture to gather information about the testbed.
+        pre_selected_dut: a pre selected dut to run test.
 
     Yields:
         A Dictionary with required test information.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -131,9 +129,9 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
 
 
 @pytest.fixture(scope="module")
-def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname):
+def populate_vlan_arp_entries(setup, ptfhost, pre_selected_dut):
     """Set up the ARP responder utility in the PTF container."""
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     if setup["topo"] != "t0":
         def noop():
             pass
@@ -185,19 +183,18 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthosts, rand_one_dut_hostname):
+def stage(request, pre_selected_dut):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
         request: A fixture to interact with Pytest data.
-        duthosts: All DUTs belong to the testbed.
-        rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        pre_selected_dut: a pre chosen dut to run test.
 
     Returns:
         str: The ACL stage to be tested.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     pytest_require(
         request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
@@ -207,12 +204,11 @@ def stage(request, duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def acl_table_config(duthosts, rand_one_dut_hostname, setup, stage):
+def acl_table_config(pre_selected_dut, setup, stage):
     """Generate ACL table configuration files and deploy them to the DUT.
 
     Args:
-        duthosts: All DUTs belong to the testbed.
-        rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        pre_selected_dut: a pre chosen dut to run test.
         setup: Parameters for the ACL tests.
         stage: The ACL stage under test.
 
@@ -220,7 +216,7 @@ def acl_table_config(duthosts, rand_one_dut_hostname, setup, stage):
         A dictionary containing the table name and the corresponding configuration file.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     stage_to_name_map = {
         "ingress": "DATA_INGRESS_TEST",
         "egress": "DATA_EGRESS_TEST"
@@ -252,12 +248,11 @@ def acl_table_config(duthosts, rand_one_dut_hostname, setup, stage):
 
 
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_restore_config_db_module):
+def acl_table(pre_selected_dut, acl_table_config, backup_and_restore_config_db_module):
     """Apply ACL table configuration and remove after tests.
 
     Args:
-        duthosts: All DUTs belong to the testbed.
-        rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        pre_selected_dut: a pre random chosen dut to run test.
         acl_table_config: A dictionary describing the ACL table configuration to apply.
         backup_and_restore_config_db_module: A fixture that handles restoring Config DB
                 after the tests are over.
@@ -266,7 +261,7 @@ def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_rest
         The ACL table configuration.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     table_name = acl_table_config["table_name"]
     config_file = acl_table_config["config_file"]
 
@@ -348,19 +343,19 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthosts, rand_one_dut_hostname, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo):
+    def acl_rules(self, pre_selected_dut, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo):
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
             duthosts: All DUTs belong to the testbed.
-            rand_one_dut_hostname: hostname of a random chosen dut to run test.
+            pre_selected_dut: a pre chosen dut to run test.
             localhost: The host from which tests are run.
             setup: Parameters for the ACL tests.
             acl_table: Configuration info for the ACL table.
             populate_vlan_arp_entries: A function to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
         loganalyzer.load_common_config()
 
@@ -385,7 +380,7 @@ class BaseAclTest(object):
                 self.teardown_rules(duthost)
 
     @pytest.yield_fixture(scope="class", autouse=True)
-    def counters_sanity_check(self, duthosts, rand_one_dut_hostname, acl_rules, acl_table):
+    def counters_sanity_check(self, pre_selected_dut, acl_rules, acl_table):
         """Validate that the counters for each rule in the rules list increased as expected.
 
         This fixture yields a list of rule IDs. The test case should add on to this list if
@@ -395,13 +390,12 @@ class BaseAclTest(object):
         check if the counters for each rule in the list were increased.
 
         Args:
-            duthosts: All DUTs belong to the testbed.
-            rand_one_dut_hostname: hostname of a random chosen dut to run test.
+            pre_selected_dut: a pre random chosen dut to run test.
             acl_rules: Fixture that sets up the ACL rules.
             acl_table: Fixture that sets up the ACL table.
 
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = pre_selected_dut
         table_name = acl_table["table_name"]
         acl_facts_before_traffic = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 

@@ -10,16 +10,15 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
-    patch_lldpctl(localhost, duthost)
+def lldp_setup(pre_selected_dut, patch_lldpctl, unpatch_lldpctl, localhost):
+    patch_lldpctl(localhost, pre_selected_dut)
     yield
-    unpatch_lldpctl(localhost, duthost)
+    unpatch_lldpctl(localhost, pre_selected_dut)
 
 
-def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
+def test_lldp(pre_selected_dut, localhost, collect_techsupport):
     """ verify the LLDP message on DUT """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     lldpctl_facts = duthost.lldpctl_facts(skip_interface_pattern_list=["eth0"])['ansible_facts']
@@ -31,10 +30,10 @@ def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
         assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
    
 
-def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
+def test_lldp_neighbor(pre_selected_dut, localhost, eos,
                        collect_techsupport, loganalyzer):
     """ verify LLDP information on neighbors """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     if loganalyzer:
         loganalyzer.ignore_regex.extend([

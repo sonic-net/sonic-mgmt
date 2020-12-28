@@ -11,8 +11,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(autouse=True)
-def loganalyzer(duthosts, rand_one_dut_hostname, request):
-    duthost = duthosts[rand_one_dut_hostname]
+def loganalyzer(pre_selected_dut, request):
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         logging.info("Log analyzer is disabled")
         yield
@@ -20,7 +19,7 @@ def loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     # Force rotate logs
     try:
-        duthost.shell(
+        pre_selected_dut.shell(
             "/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1"
             )
     except RunAnsibleModuleFail as e:
@@ -29,7 +28,7 @@ def loganalyzer(duthosts, rand_one_dut_hostname, request):
                         "Stderr: {}\n"
                         "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
+    loganalyzer = LogAnalyzer(ansible_host=pre_selected_dut, marker_prefix=request.node.name)
     logging.info("Add start marker into DUT syslog")
     marker = loganalyzer.init()
     logging.info("Load config and analyze log")

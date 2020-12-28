@@ -38,12 +38,12 @@ def check_kernel_po_interface_cleaned(duthost):
     return res == '0'
 
 
-def test_po_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
+def test_po_cleanup(pre_selected_dut, tbinfo):
     """
     test port channel are cleaned up correctly and teammgrd and teamsyncd process
     handle  SIGTERM gracefully
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts['minigraph_portchannels'].keys()) == 0:

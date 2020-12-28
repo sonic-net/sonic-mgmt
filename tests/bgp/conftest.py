@@ -16,10 +16,9 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module')
-def setup_keepalive_and_hold_timer(duthosts, rand_one_dut_hostname, nbrhosts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_keepalive_and_hold_timer(pre_selected_dut, nbrhosts):
     # incrase the keepalive and hold timer
-    duthost.command("vtysh -c \"configure terminal\" \
+    pre_selected_dut.command("vtysh -c \"configure terminal\" \
                            -c \"router bgp {}\" \
                            -c \"neighbor {} timers 60 180\"".format(
                                metadata['localhost']['bgp_asn'], \
@@ -48,8 +47,8 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_bgp_graceful_restart(pre_selected_dut, nbrhosts):
+    duthost = pre_selected_dut
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})

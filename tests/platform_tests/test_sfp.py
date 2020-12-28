@@ -90,7 +90,7 @@ def get_port_map(duthost):
     return port_mapping
 
 
-def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
+def test_check_sfp_status_and_configure_sfp(pre_selected_dut, conn_graph_facts, tbinfo):
     """
     @summary: Check SFP status and configure SFP
 
@@ -102,7 +102,7 @@ def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, con
     * show interface transceiver eeprom
     * sfputil reset <interface name>
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_cfg')
         loganalyzer.load_common_config()
@@ -180,7 +180,7 @@ def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, con
         loganalyzer.analyze(marker)
 
 
-def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
+def test_check_sfp_low_power_mode(pre_selected_dut, conn_graph_facts, tbinfo):
     """
     @summary: Check SFP low power mode
 
@@ -189,7 +189,7 @@ def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, conn_graph_fa
     * sfputil lpmode off
     * sfputil lpmode on
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_lpm')
         loganalyzer.load_common_config()

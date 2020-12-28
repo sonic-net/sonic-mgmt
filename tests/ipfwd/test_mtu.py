@@ -11,11 +11,10 @@ pytestmark = [
 ]
 
 @pytest.mark.parametrize("mtu", [1514,9114])
-def test_mtu(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, mtu):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_mtu(tbinfo, pre_selected_dut, ptfhost, mtu):
 
     testbed_type = tbinfo['topo']['name']
-    router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+    router_mac = pre_selected_dut.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
     log_file = "/tmp/mtu_test.{}-{}.log".format(mtu,datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
 

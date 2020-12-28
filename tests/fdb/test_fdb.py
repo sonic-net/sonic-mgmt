@@ -171,9 +171,9 @@ def fdb_table_has_no_dynamic_macs(duthost):
     return (get_fdb_dynamic_mac_count(duthost) == 0)
 
 
-def fdb_cleanup(duthosts, rand_one_dut_hostname):
+def fdb_cleanup(pre_selected_dut):
     """ cleanup FDB before and after test run """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     if fdb_table_has_no_dynamic_macs(duthost):
         return
     else:
@@ -183,10 +183,10 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
 
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type):
+def test_fdb(ansible_adhoc, ptfadapter, pre_selected_dut, ptfhost, pkt_type):
 
     # Perform FDB clean up before each test and at the end of the final test
-    fdb_cleanup(duthosts, rand_one_dut_hostname)
+    fdb_cleanup(pre_selected_dut)
     if pkt_type == "cleanup":
         return
 
@@ -194,7 +194,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 

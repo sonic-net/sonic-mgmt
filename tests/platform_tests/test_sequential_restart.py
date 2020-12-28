@@ -25,14 +25,13 @@ pytestmark = [
 
 
 @pytest.fixture(autouse=True, scope="function")
-def heal_testbed(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def heal_testbed(pre_selected_dut):
     # Nothing to do before test
     yield
-    status, details = get_critical_processes_status(duthost)
+    status, details = get_critical_processes_status(pre_selected_dut)
     if not status:
         logging.info("Restoring dut with critical process failure: {}".format(details))
-        config_reload(duthost, config_source='config_db', wait=120)
+        config_reload(pre_selected_dut, config_source='config_db', wait=120)
 
 def restart_service_and_check(localhost, dut, service, interfaces):
     """
@@ -67,18 +66,16 @@ def restart_service_and_check(localhost, dut, service, interfaces):
     check_critical_processes(dut, 60)
 
 
-def test_restart_swss(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts):
+def test_restart_swss(pre_selected_dut, localhost, conn_graph_facts):
     """
     @summary: This test case is to restart the swss service and check platform status
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    restart_service_and_check(localhost, duthost, "swss", conn_graph_facts["device_conn"][duthost.hostname])
+    restart_service_and_check(localhost, pre_selected_dut, "swss", conn_graph_facts["device_conn"][duthost.hostname])
 
 
 @pytest.mark.skip(reason="Restarting syncd is not supported yet")
-def test_restart_syncd(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts):
+def test_restart_syncd(pre_selected_dut, localhost, conn_graph_facts):
     """
     @summary: This test case is to restart the syncd service and check platform status
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    restart_service_and_check(localhost, duthost, "syncd", conn_graph_facts["device_conn"][duthost.hostname])
+    restart_service_and_check(localhost, pre_selected_dut, "syncd", conn_graph_facts["device_conn"][duthost.hostname])

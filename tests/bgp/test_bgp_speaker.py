@@ -50,8 +50,8 @@ def change_route(operation, ptfip, neighbor, route, nexthop, port):
     assert r.status_code == 200
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def common_setup_teardown(pre_selected_dut, ptfhost, localhost, tbinfo):
+    duthost = pre_selected_dut
 
     logging.info("########### Setup for bgp speaker testing ###########")
 
@@ -166,16 +166,15 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
 
-def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthosts, rand_one_dut_hostname, ptfhost, collect_techsupport):
+def test_bgp_speaker_bgp_sessions(common_setup_teardown, pre_selected_dut, ptfhost, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify bgp sessions are established
     """
-    duthost = duthosts[rand_one_dut_hostname]
     ptfip, mg_facts, interface_facts, vlan_ips, _, _, speaker_ips, port_num, http_ready = common_setup_teardown
     assert http_ready
 
     logging.info("Wait some time to verify that bgp sessions are established")
     time.sleep(20)
-    bgp_facts = duthost.bgp_facts()['ansible_facts']
+    bgp_facts = pre_selected_dut.bgp_facts()['ansible_facts']
     assert all([v["state"] == "established" for _, v in bgp_facts["bgp_neighbors"].items()]), \
         "Not all bgp sessions are established"
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
@@ -247,20 +246,18 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, p
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
-def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
+def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, pre_selected_dut, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[3]
-    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops)
+    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, pre_selected_dut, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops)
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 1514)])
-def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
+def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, pre_selected_dut, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[4]
-    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops)
+    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, pre_selected_dut, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops)

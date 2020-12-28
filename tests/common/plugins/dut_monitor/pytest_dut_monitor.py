@@ -29,19 +29,17 @@ class DUTMonitorPlugin(object):
         self.thresholds = thresholds
 
     @pytest.fixture(autouse=True, scope="module")
-    def dut_ssh(self, duthosts, rand_one_dut_hostname, creds):
+    def dut_ssh(self, pre_selected_dut, creds):
         """Establish SSH connection with DUT"""
-        duthost = duthosts[rand_one_dut_hostname]
-        ssh = DUTMonitorClient(host=duthost.hostname, user=creds["sonicadmin_user"],
+        ssh = DUTMonitorClient(host=pre_selected_dut.hostname, user=creds["sonicadmin_user"],
                                password=creds["sonicadmin_password"])
         yield ssh
 
     @pytest.fixture(autouse=True, scope="function")
-    def dut_monitor(self, dut_ssh, localhost, duthosts, rand_one_dut_hostname):
+    def dut_monitor(self, dut_ssh, localhost, pre_selected_dut):
         """
         For each test item starts monitoring of hardware resources consumption on the DUT
         """
-        duthost = duthosts[rand_one_dut_hostname]
         dut_thresholds = {}
         monitor_exceptions = []
         # Start monitoring on DUT
@@ -52,8 +50,8 @@ class DUTMonitorPlugin(object):
             general_thresholds = yaml.safe_load(stream)
         dut_thresholds = general_thresholds["default"]
 
-        dut_platform = duthost.facts["platform"]
-        dut_hwsku = duthost.facts["hwsku"]
+        dut_platform = pre_selected_dut.facts["platform"]
+        dut_hwsku = pre_selected_dut.facts["hwsku"]
         if dut_platform in general_thresholds:
             dut_thresholds.update(general_thresholds[dut_platform]["default"])
             if dut_hwsku in general_thresholds[dut_platform]["hwsku"]:

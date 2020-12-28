@@ -12,8 +12,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_hw_management_service_status(duthosts, rand_one_dut_hostname):
+def test_hw_management_service_status(pre_selected_dut):
     """This test case is to verify that the hw-management service is running properly
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    check_hw_management_service(duthost)
+    check_hw_management_service(pre_selected_dut)

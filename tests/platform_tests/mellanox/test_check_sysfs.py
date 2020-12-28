@@ -13,17 +13,16 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_hw_mgmt_sysfs(duthosts, rand_one_dut_hostname):
+def test_check_hw_mgmt_sysfs(pre_selected_dut):
     """This test case is to check the symbolic links under /var/run/hw-management
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    check_sysfs(duthost)
+    check_sysfs(pre_selected_dut)
 
 
-def test_hw_mgmt_sysfs_mapped_to_pmon(duthosts, rand_one_dut_hostname):
+def test_hw_mgmt_sysfs_mapped_to_pmon(pre_selected_dut):
     """This test case is to verify that the /var/run/hw-management folder is mapped to pmon container
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     logging.info("Verify that the /var/run/hw-management folder is mapped to the pmon container")
     files_under_dut = set(duthost.command("find /var/run/hw-management")["stdout_lines"])
     files_under_pmon = set(duthost.command("docker exec pmon find /var/run/hw-management")["stdout_lines"])

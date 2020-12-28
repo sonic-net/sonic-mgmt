@@ -17,10 +17,10 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
+def test_check_sfp_using_ethtool(pre_selected_dut, conn_graph_facts, tbinfo):
     """This test case is to check SFP using the ethtool.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     ports_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
 
     logging.info("Use the ethtool to check SFP information")

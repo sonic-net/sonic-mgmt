@@ -112,19 +112,18 @@ class PopulateFdb:
         )
 
 @pytest.fixture
-def populate_fdb(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def populate_fdb(request, pre_selected_dut, ptfhost, tbinfo):
     """
         Populates DUT FDB entries
 
         Args:
             request: pytest request object
-            duthost (AnsibleHost): Device Under Test (DUT)
+            pre_selected_dut (AnsibleHost): A pre selected Device Under Test (DUT)
             ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
         Returns:
             None
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    populateFdb = PopulateFdb(request, duthost, ptfhost)
+    populateFdb = PopulateFdb(request, pre_selected_dut, ptfhost)
 
     populateFdb.run(tbinfo)

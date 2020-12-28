@@ -37,7 +37,7 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 MOCK_DEST_IP = "2.2.2.2"
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
-def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, mock_server,
+def test_neighbor_link_down(testbed_params, setup_counters, pre_selected_dut, mock_server,
                             send_dropped_traffic, drop_reason):
     """
     Verifies counters that check for a neighbor link being down.
@@ -49,7 +49,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
     Args:
         drop_reason (str): The drop reason being tested.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     counter_type = setup_counters([drop_reason])
 
     rx_port = random.choice([port
@@ -72,17 +72,16 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
 
 
 @pytest.fixture(scope="module")
-def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
+def testbed_params(pre_selected_dut, tbinfo):
     """
     Gathers parameters about the testbed for the test cases to use.
 
     Returns: A Dictionary with the following information:
     """
-    duthost = duthosts[rand_one_dut_hostname]
     if tbinfo["topo"]["type"] != "t0":
         pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
 
-    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    mgFacts = pre_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     physical_port_map = {v: k
                          for k, v
@@ -99,7 +98,7 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def device_capabilities(duthosts, rand_one_dut_hostname):
+def device_capabilities(pre_selected_dut):
     """
     Gather information about the DUT's drop counter capabilities.
 
@@ -108,8 +107,7 @@ def device_capabilities(duthosts, rand_one_dut_hostname):
         `configurable_drop_counters` package).
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    capabilities = cdc.get_device_capabilities(duthost)
+    capabilities = cdc.get_device_capabilities(pre_selected_dut)
 
     pytest_assert(capabilities, "Error fetching device capabilities")
 
@@ -118,7 +116,7 @@ def device_capabilities(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(params=cdc.SUPPORTED_COUNTER_TYPES)
-def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname):
+def setup_counters(request, device_capabilities, pre_selected_dut):
     """
     Return a method to setup drop counters.
 
@@ -129,7 +127,7 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
         A method which, when called, will create a drop counter with the specified drop reasons.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     if request.param not in device_capabilities["counters"]:
         pytest.skip("Counter type not supported on target DUT")
 
@@ -158,7 +156,7 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
 
 
 @pytest.fixture
-def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_params):
+def send_dropped_traffic(pre_selected_dut, ptfadapter, testbed_params):
     """
     Return a method to send traffic to the DUT to be dropped.
 
@@ -167,7 +165,7 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
         drop counter has been incremented.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     def _runner(counter_type, pkt, rx_port):
         duthost.command("sonic-clear dropcounters")
 
@@ -225,7 +223,7 @@ def arp_responder(ptfhost, testbed_params):
 
 
 @pytest.fixture
-def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts, rand_one_dut_hostname):
+def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, pre_selected_dut):
     """
     Mock the presence of a server beneath a T0.
 
@@ -234,7 +232,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
         a server within a VLAN under a T0.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     server_dst_port = random.choice(arp_responder.keys())
     server_dst_addr = random.choice(arp_responder[server_dst_port].keys())
     server_dst_intf = testbed_params["physical_port_map"][server_dst_port]

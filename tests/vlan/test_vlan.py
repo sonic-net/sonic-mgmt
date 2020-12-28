@@ -23,9 +23,8 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+def cfg_facts(pre_selected_dut):
+    return pre_selected_dut.config_facts(host=pre_selected_dut.hostname, source="persistent")['ansible_facts']
 
 @pytest.fixture(scope="module")
 def vlan_intfs_list():
@@ -94,8 +93,8 @@ def create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_intfs_list, cfg_facts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_vlan(ptfadapter, pre_selected_dut, ptfhost, vlan_ports_list, vlan_intfs_list, cfg_facts):
+    duthost = pre_selected_dut
 
     # --------------------- Setup -----------------------
     try:

@@ -13,9 +13,9 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, creds):
+def setup_ntp(ptfhost, pre_selected_dut, creds):
     """setup ntp client and server"""
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
 
@@ -50,9 +50,9 @@ def check_ntp_status(host):
     return True
 
 
-def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
+def test_ntp(pre_selected_dut, setup_ntp):
     """ Verify that DUT is synchronized with configured NTP server """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     duthost.service(name='ntp', state='stopped')
     duthost.command("ntpd -gq")

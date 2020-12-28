@@ -389,15 +389,15 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
-def test_containers_autorestart(duthosts, enum_dut_feature, rand_one_dut_hostname, tbinfo):
+def test_containers_autorestart(duthosts, enum_dut_feature, pre_selected_dut, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
     dut_name, feature = decode_dut_port_name(enum_dut_feature)
-    pytest_require(dut_name == rand_one_dut_hostname and feature != "unknown",
-                   "Skip test on dut host {} (chosen {}) feature {}".format(dut_name, rand_one_dut_hostname, feature))
+    pytest_require(dut_name == pre_selected_dut.hostname and feature != "unknown",
+                   "Skip test on dut host {} (chosen {}) feature {}".format(dut_name, pre_selected_dut.hostname, feature))
 
     duthost = duthosts[dut_name]
     run_test_on_single_container(duthost, feature, tbinfo)

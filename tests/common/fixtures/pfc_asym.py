@@ -31,17 +31,15 @@ def get_fanout(fanout_graph_facts, setup):
 
 
 @pytest.fixture(scope="module")
-def ansible_facts(duthosts, rand_one_dut_hostname):
+def ansible_facts(pre_selected_dut):
     """ Ansible facts fixture """
-    duthost = duthosts[rand_one_dut_hostname]
-    yield duthost.setup()['ansible_facts']
+    yield pre_selected_dut.setup()['ansible_facts']
 
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
+def minigraph_facts(pre_selected_dut, tbinfo):
     """ DUT minigraph facts fixture """
-    duthost = duthosts[rand_one_dut_hostname]
-    yield duthost.get_extended_minigraph_facts(tbinfo)
+    yield pre_selected_dut.get_extended_minigraph_facts(tbinfo)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -141,11 +139,11 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
 
 
 @pytest.fixture(scope="function")
-def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
+def enable_pfc_asym(setup, pre_selected_dut):
     """
     Enable/disable asymmetric PFC on all server interfaces
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     get_pfc_mode = "docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
     srv_ports = " ".join([port["dut_name"] for port in setup["ptf_test_params"]["server_ports"]])
     pfc_asym_enabled = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE"
@@ -178,7 +176,7 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
             assert setup["pfc_bitmask"]["pfc_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"])
 
 @pytest.fixture(scope="module")
-def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minigraph_facts, request):
+def setup(tbinfo, pre_selected_dut, ptfhost, ansible_facts, minigraph_facts, request):
     """
     Fixture performs initial steps which is required for test case execution.
     Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is used in test case logic.
@@ -215,7 +213,6 @@ def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minig
     - Remove ARP responder
     - Restore supervisor configuration in PTF container
     """
-    duthost = duthosts[rand_one_dut_hostname]
     if tbinfo['topo']['name'] != "t0":
         pytest.skip('Unsupported topology')
     setup_params = {
@@ -239,7 +236,7 @@ def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minig
     }
 
     server_ports_num = request.config.getoption("--server_ports_num")
-    setup = Setup(duthost, ptfhost, setup_params, ansible_facts, minigraph_facts, server_ports_num)
+    setup = Setup(pre_selected_dut, ptfhost, setup_params, ansible_facts, minigraph_facts, server_ports_num)
     setup.generate_setup()
 
     yield setup_params

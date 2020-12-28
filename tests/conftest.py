@@ -182,14 +182,46 @@ def duthost(duthosts, request):
 
     return duthost
 
-@pytest.fixture(scope="module")
-def rand_one_dut_hostname(request):
+def pre_select_one_dut(duthosts, request):
     """
+    Pre select one dut from single/dual tor.
+    For dual tor testbeds, a random dut is selected and y_cable is toggled to the selected dut.
+    For single tor testbeds, nothing is changed.
     """
     dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1)
-    return dut_hostnames[0]
+        selected_dut = duthosts[random.sample(dut_hostnames, 1)[0]]
+        # todo: uncomment following line after muxcable CLI is implemented
+        # selected_dut.shell("config muxcable mode active all")
+    else:
+        selected_dut = duthosts[dut_hostnames[0]]
+    return selected_dut
+
+@pytest.fixture(scope="session")
+def pre_selected_dut(request, duthosts):
+    tbname = request.config.getoption("--testbed")
+    assert tbname
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+    try:
+        with open(filepath) as f:
+            metadata = json.load(f)
+    except (ValueError, IOError):
+        metadata = {}
+
+    KEY_NAME = "pre_selected_tor"
+    if KEY_NAME not in metadata:
+        # Update pre selected dut into metadata
+        metadata[KEY_NAME] = pre_select_one_dut(duthosts, request).hostname
+        try:
+            if not os.path.exists(folder):
+                os.mkdir(folder)
+            with open(filepath, 'w') as yf:
+                json.dump(metadata, yf, indent=4)
+        except IOError as e:
+            logger.warning('Unable to create file {}: {}'.format(filepath, e))
+    return duthosts[metadata[KEY_NAME]]
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
@@ -219,7 +251,7 @@ def k8smasters(ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
-    k8s_master_ansible_group = request.config.getoption("--kube_master") 
+    k8s_master_ansible_group = request.config.getoption("--kube_master")
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
     for inv_file in inv_files:
@@ -230,7 +262,7 @@ def k8smasters(ansible_adhoc, request):
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
             if 'haproxy' in attributes:
                 is_haproxy = True
-            else: 
+            else:
                 is_haproxy = False
             master_vms[hostname] = {'host': K8sMasterHost(ansible_adhoc,
                                                                hostname,
@@ -328,9 +360,9 @@ def pdu():
 
 
 @pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
+def creds(pre_selected_dut):
     """ read credential information according to the dut inventory """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
@@ -697,10 +729,10 @@ def generate_priority_lists(request, prio_scope):
             info = json.load(yf)
     except IOError as e:
         return empty
-    
+
     if tbname not in info:
         return empty
-    
+
     dut_prio = info[tbname]
     ret = []
 
@@ -714,7 +746,7 @@ def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
 
-    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
+    # Enumerators ("enum_dut_index", "enum_dut_hostname", "pre_selected_dut") are mutually exclusive
     if "enum_dut_index" in metafunc.fixturenames:
         dut_indices = generate_params_dut_index(metafunc)
         metafunc.parametrize("enum_dut_index",dut_indices)

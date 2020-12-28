@@ -11,8 +11,8 @@ pytestmark = [
 def to_json(obj):
     return json.dumps(obj, indent=4)
 
-def test_sensors(duthosts, rand_one_dut_hostname, creds):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_sensors(pre_selected_dut, creds):
+    duthost = pre_selected_dut
     # Get platform name
     platform = duthost.facts['platform']
 

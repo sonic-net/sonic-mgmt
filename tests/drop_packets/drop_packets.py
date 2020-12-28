@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
+def fanouthost(request, pre_selected_dut, localhost):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -36,15 +36,14 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
     By default 'fanouthost' fixture will not instantiate any instance so it will return None, and in such case
     'fanouthost' instance should not be used in test case logic.
     """
-    duthost = duthosts[rand_one_dut_hostname]
     fanout = None
     # Check that class to handle fanout config is implemented
-    if "mellanox" == duthost.facts["asic_type"]:
+    if "mellanox" == pre_selected_dut.facts["asic_type"]:
         for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "fanout")):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
                 module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
-                fanout = module.FanoutHandler(duthost, localhost)
+                fanout = module.FanoutHandler(pre_selected_dut, localhost)
                 break
 
     yield fanout
@@ -54,10 +53,9 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
 
 
 @pytest.fixture(scope="module")
-def pkt_fields(duthosts, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def pkt_fields(pre_selected_dut, tbinfo):
     # Gather ansible facts
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = pre_selected_dut.get_extended_minigraph_facts(tbinfo)
     ipv4_addr = None
     ipv6_addr = None
 
@@ -100,13 +98,12 @@ def expected_packet_mask(pkt):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, tbinfo):
+def setup(pre_selected_dut, tbinfo):
     """
     Setup fixture for collecting PortChannel, VLAN and RIF port members.
     @return: Dictionary with keys:
         port_channel_members, vlan_members, rif_members, dut_to_ptf_port_map, neighbor_sniff_ports, vlans, mg_facts
     """
-    duthost = duthosts[rand_one_dut_hostname]
     port_channel_members = {}
     vlan_members = {}
     configured_vlans = []
@@ -116,7 +113,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         pytest.skip("Unsupported topology {}".format(tbinfo["topo"]))
 
     # Gather ansible facts
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = pre_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
         for iface in interfaces["members"]:
@@ -149,12 +146,11 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthosts, rand_one_dut_hostname, setup, fanouthosts, loganalyzer):
+def rif_port_down(pre_selected_dut, setup, fanouthosts, loganalyzer):
     """Shut RIF interface and return neighbor IP address attached to this interface.
 
     The RIF member is shut from the fanout side so that the ARP entry remains in
     place on the DUT."""
-    duthost = duthosts[rand_one_dut_hostname]
     wait_after_ports_up = 30
 
     if not setup["rif_members"]:
@@ -171,7 +167,7 @@ def rif_port_down(duthosts, rand_one_dut_hostname, setup, fanouthosts, loganalyz
             break
     pytest_assert(ip_dst, 'Unable to find IP address for neighbor "{}"'.format(vm_name))
 
-    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
+    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, pre_selected_dut.hostname, rif_member_iface)
 
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:
@@ -194,7 +190,7 @@ def tx_dut_ports(request, setup):
 
 
 @pytest.fixture
-def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports):
+def ports_info(ptfadapter, pre_selected_dut, setup, tx_dut_ports):
     """
     Return:
         dut_iface - DUT interface name expected to receive packtes from PTF
@@ -202,11 +198,10 @@ def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports)
         dst_mac - DUT interface destination MAC address
         src_mac - PTF interface source MAC address
     """
-    duthost = duthosts[rand_one_dut_hostname]
     data = {}
     data["dut_iface"] = random.choice(tx_dut_ports.keys())
     data["ptf_tx_port_id"] = setup["dut_to_ptf_port_map"][data["dut_iface"]]
-    data["dst_mac"] = duthost.get_dut_iface_mac(data["dut_iface"])
+    data["dst_mac"] = pre_selected_dut.get_dut_iface_mac(data["dut_iface"])
     data["src_mac"] = ptfadapter.dataplane.ports[(0, data["ptf_tx_port_id"])].mac()
     return data
 

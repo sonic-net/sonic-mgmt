@@ -62,41 +62,40 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
+def setup(pre_selected_dut, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
     """
     Prepares DUT and PTF hosts for testing
 
     Args:
-        duthost: DUT host object
+        pre_selected_dut: DUT host object
         ptfhost: PTF host object
         minigraph_facts: Minigraph facts
         vnet_config: Configuration file generated from templates/vnet_config.j2
         vnet_test_params: Dictionary holding vnet test parameters
     """
-    duthost = duthosts[rand_one_dut_hostname]
 
-    dut_facts = duthost.facts
+    dut_facts = pre_selected_dut.facts
 
     prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
 
-    generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
+    generate_dut_config_files(pre_selected_dut, minigraph_facts, vnet_test_params, vnet_config)
 
     return minigraph_facts
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_params, vnet_config):
+def vxlan_status(setup, request, pre_selected_dut, vnet_test_params, vnet_config):
     """
     Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
 
     Args:
         setup: Pytest fixture that provides access to minigraph facts
         request: Contains the parameter (Disabled, Enabled, or Cleanup) for the current test iteration
-        duthost: DUT host object
+        pre_selected_dut: DUT host object
 
     Returns:
         A tuple containing the VxLAN status (True or False), and the test scenario (one of the pytest parameters)
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
     mg_facts = setup
     attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
     vlan_member = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
@@ -126,18 +125,18 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_para
     return vxlan_enabled, request.param
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
+def test_vnet_vxlan(setup, vxlan_status, pre_selected_dut, ptfhost, vnet_test_params, creds):
     """
     Test case for VNET VxLAN
 
     Args:
         setup: Pytest fixture that sets up PTF and DUT hosts
         vxlan_status: Parameterized pytest fixture used to test different VxLAN configurations
-        duthost: DUT host object
+        pre_selected_dut: DUT host object
         ptfhost: PTF host object
         vnet_test_params: Dictionary containing vnet test parameters
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = pre_selected_dut
 
     vxlan_enabled, scenario = vxlan_status
 
