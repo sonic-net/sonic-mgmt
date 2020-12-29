@@ -11,7 +11,7 @@
 
 
 ## About this Manual
-This documentation provides general information about the Testbed V2 feature implementation for `sonic-mgmt`. Testbed V2 aims to support multi-DUTs deployment with dynamic VLAN assignment and inter-DUTs link state propagation.
+This documentation provides general information about the Testbed V2 feature implementation for `sonic-mgmt`. Testbed V2 aims to support multi-DUTs deployment with dynamic VLAN assignment and inter-DUTs link state propagation. Based on the Redis Pub/Sub paradigm, the connection status changes(physical connections, virtual connections, VLAN assignments, etc) from test users into `connection_db` will signal the daemons over fanout switches about the key-space events to manipulate the physical devices/ports.
 
 ## Requirement Overview
 * Maintain compatibility with existing testbed.
@@ -23,7 +23,7 @@ This documentation provides general information about the Testbed V2 feature imp
 * `connection_db`
   * Redis databases running on certain test server hosting connection-related metadata.
 * `servercfgd`
-  * running on the same server as `connection_db`
+  * running on the same server as `connection_db`.
   * a RPC server that is responsible for `connection_db` initial setup and provision.
 * `labcfgd`
   * running on root/fanout switches
@@ -40,7 +40,7 @@ key                              = LAB_CONNECTION_GRAPH_VERSIONS
 ; Defines database metadata
 key                              = DB_META
 ; field                          = value
-ServerState                      = "active"/"provisioning"/"down"
+DBState                      = "active"/"provisioning"/"down"
 ```
 * `SWITCH_TABLE`
 ```
@@ -105,20 +105,25 @@ Status                           = "active"/"inactive"
    3. stage#3: link state propagation support
 
 ### Stage#1
-* In stage#1, only initial `connection_db` setup and provision is covered.
-* In the db provision during `add_topo`, the md5sum value of the connection graph file of current inventory will be calculated and check if it is in `LAB_CONNECTION_GRAPH_VERSIONS`.
-  * If yes, `add_topo` will skip provision the database because it indicates that current connection graph file had been used to provision the database.
-  * If no, `add_topo` will try to provision the database with the connection graph and add the md5sum value to `LAB_CONNECTION_GRAPH_VERSIONS` with current timestamp as score. Also, it will also trim `LAB_CONNECTION_GRAPH_VERSION` to only keep most-recent 20 entries.
-#### Ansible variables added:  
+* In stage#1, we only cover initial `connection_db` setup and provision:
+  1. Install Redis and its Python packages over selected test server.
+  2. Run `servercfgd` over the selected test server.
+  3. Provision the `connection_db` with the physical connections defined in the connection graph file.
+* All the modules/plays to cover the functionalities list above will be included in Ansible role `connection_db`.
+* Users are provided with a play `config_connection_db.yml` to call `connection_db` role to setup, provision or remove `connection_db`.
 
-| `variable name` | `behavior` |
-| - | - |
-| `enable_connection_db` | `True` to enable `connection_db` setup and provision in `add_topo`. |
-| `connection_db_host_mapping` | mapping from connection graph filename to server name that will be used to host `connection_db`. |
-| `enforce_provision_servercfgd` | enforce install `servercfgd` even there is one running. |
-|`provision_connection_db`| `True` to try to provision `connection_db` with the connection graph file. |
-| `enforce_provision_connection_db` | <br>enforce provision `connection_db` with current connection graph file.</br><br>**NOTE**: this will skip the version check and provision the `connection_db`.</br> |
-| `disable_connection_db` | `True` to disable `connection_db` and stops `servercfgd` in `remove_topo`. |
+#### db setup
+* Ensure Redis and py-redis packages are installed.
+* Ensure Redis service is running.
+* start `connection_db`.
+
+![start_db](img/testbed_v2_start_db.png)
+
+#### db provision
+* Provision the `connection_db` with the physical connections and static VLAN assignments defined in the connection graph file defined in [ansible/files](https://github.com/Azure/sonic-mgmt/tree/master/ansible/files).
+
+![provision_db](img/testbed_v2_provision_db.png)
+
 
 #### changes to `conn_graph_files`
 There will be an extra parameter added to `conn_graph_facts`: `conn_graph_facts_src`, it could be either `from_db`, which will retrieve the connection data from `connection_db`, or it could be `from_file` to get the data from parsing connection graph file like before. One thing to notice is that if `conn_graph_facts` fails with `conn_graph_facts_src=from_db`, it will fall back to `from_file`.
