@@ -193,14 +193,14 @@ class SflowTest(BaseTest):
 
     def analyze_flow_sample(self, data, collector): 
         logging.info("packets collected from interfaces ifindex : %s" %data['flow_port_count'])
-        logging.info("Expected number of packets from each port : %s to %s"%(50*0.6,50*1.4))
+        logging.info("Expected number of packets from each port : %s to %s"%(100*0.6,100*1.4))
         for port in self.interfaces:
             ifindex = self.interfaces[port]['ifindex'] 
             logging.info("....%s : Flow packets collected from port %s = %s"%(collector,port,data['flow_port_count'][ifindex]))
             if port in self.enabled_intf :
                 # Checking samples with tolerance of 40 % as the sampling is random and  not deterministic.Over many samples it should converge to a mean of 1:N
-                # Number of packets sent = 50 * sampling rate of interface 
-                self.assertTrue(50*0.6 <= data['flow_port_count'][ifindex] <= 50*1.4 ,
+                # Number of packets sent = 100 * sampling rate of interface
+                self.assertTrue(100*0.6 <= data['flow_port_count'][ifindex] <= 100*1.4 ,
                         "Expected Number of samples are not collected  collected from Interface %s  in collector %s , Received %s" %(port,collector,data['flow_port_count'][ifindex]))
             else:
                 self.assertTrue(data['flow_port_count'][ifindex] == 0 ,
@@ -213,8 +213,8 @@ class SflowTest(BaseTest):
         ip_dst_addr = '192.168.0.4'
         src_mac = self.dataplane.get_mac(0, 0)
         pktlen=100
-        #send 50*sampling_rate packets in each interface for better  analysis
-        for j in range(0,50,1):
+        #send 100*sampling_rate packets in each interface for better  analysis
+        for j in range(0,100,1):
             index = 0
             for intf in self.interfaces:
                 ip_src_addr = str(self.src_ip_list[index])
