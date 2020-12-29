@@ -6,7 +6,7 @@ SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS
 
 SWITCH_MODELS = {
     "x86_64-mlnx_msn2700-r0": {
-        "chip_type": "spectrum",
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -57,7 +57,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2740-r0": {
-        "chip_type": "spectrum",
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -105,7 +105,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2410-r0": {
-        "chip_type": "spectrum",
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -156,7 +156,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2010-r0": {
-        "chip_type": "spectrum",
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -200,7 +200,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2100-r0": {
-        "chip_type": "spectrum",
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -302,7 +302,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn3700-r0": {
-        "chip_type": "spectru2",
+        "chip_type": "spectrum2",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
