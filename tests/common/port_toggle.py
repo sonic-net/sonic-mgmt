@@ -136,6 +136,9 @@ def get_port_toggle_wait_time(duthost, port_count):
         if chip_type == 'spectrum':
             # spectrum based switch usually has less powerful cpu
             port_down_wait_time = 40
+            port_up_wait_time = 70
+        else:
+            port_down_wait_time = 30
 
         port_down_wait_time = int(port_down_wait_time * port_count_factor)
         port_up_wait_time = int(port_up_wait_time * port_count_factor)
