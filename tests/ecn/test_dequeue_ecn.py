@@ -33,7 +33,7 @@ def test_dequeue_ecn(ixia_api,
     kmax = 51000
     pmax = 100
     pkt_size = 1024
-    pkt_cnt = 60
+    pkt_cnt = 100
 
     ip_pkts = run_ecn_test(api=ixia_api,
                            testbed_config=ixia_testbed,
@@ -47,7 +47,9 @@ def test_dequeue_ecn(ixia_api,
                            pkt_size=pkt_size,
                            pkt_cnt=pkt_cnt,
                            lossless_prio=lossless_prio,
-                           prio_dscp_map=prio_dscp_map)
+                           prio_dscp_map=prio_dscp_map,
+                           iters=1)[0]
+
 
     """ Check if we capture all the packets """
     pytest_assert(len(ip_pkts) == pkt_cnt,

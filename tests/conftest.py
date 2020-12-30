@@ -191,6 +191,20 @@ def rand_one_dut_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
 
+@pytest.fixture(scope="module")
+def rand_one_dut_portname_oper_up(request):
+    oper_up_ports = generate_port_lists(request, "oper_up_ports")
+    if len(oper_up_ports) > 1:
+        oper_up_ports = random.sample(oper_up_ports, 1)
+    return oper_up_ports[0]
+
+@pytest.fixture(scope="module")
+def rand_one_dut_lossless_prio(request):
+    lossless_prio_list = generate_priority_lists(request, 'lossless')
+    if len(lossless_prio_list) > 1:
+        lossless_prio_list = random.sample(lossless_prio_list, 1)
+    return lossless_prio_list[0]
+
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
     """
@@ -219,7 +233,7 @@ def k8smasters(ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
-    k8s_master_ansible_group = request.config.getoption("--kube_master") 
+    k8s_master_ansible_group = request.config.getoption("--kube_master")
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
     for inv_file in inv_files:
@@ -230,7 +244,7 @@ def k8smasters(ansible_adhoc, request):
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
             if 'haproxy' in attributes:
                 is_haproxy = True
-            else: 
+            else:
                 is_haproxy = False
             master_vms[hostname] = {'host': K8sMasterHost(ansible_adhoc,
                                                                hostname,
@@ -683,7 +697,11 @@ def generate_dut_feature_list(request):
     return ret if ret else empty
 
 def generate_priority_lists(request, prio_scope):
+<<<<<<< HEAD
     empty = []
+=======
+    empty = None
+>>>>>>> dcea565c... Add RED/ECN accuracy test
 
     tbname = request.config.getoption("--testbed")
     if not tbname:
@@ -697,10 +715,10 @@ def generate_priority_lists(request, prio_scope):
             info = json.load(yf)
     except IOError as e:
         return empty
-    
+
     if tbname not in info:
         return empty
-    
+
     dut_prio = info[tbname]
     ret = []
 

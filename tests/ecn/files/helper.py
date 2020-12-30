@@ -8,7 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
-    enable_ecn
+    enable_ecn, config_ingress_lossless_buffer
 
 from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
     BasicFilter
@@ -41,7 +41,8 @@ def run_ecn_test(api,
                  pkt_size,
                  pkt_cnt,
                  lossless_prio,
-                 prio_dscp_map):
+                 prio_dscp_map,
+                 iters):
     """
     Run a ECN test
 
@@ -59,9 +60,10 @@ def run_ecn_test(api,
         pkt_cnt (int): data packet count
         lossless_prio (int): lossless priority
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        iters (int): # of iterations in the test
 
     Returns:
-        Return captured IP packets
+        Return captured IP packets (list of list)
     """
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
@@ -78,6 +80,11 @@ def run_ecn_test(api,
 
     """ Enable ECN marking """
     enable_ecn(host_ans=duthost, prio=lossless_prio)
+
+    """ Configure PFC threshold to 2 ^ 3 """
+    config_result = config_ingress_lossless_buffer(host_ans=duthost,
+                                                   alpha_log2=3)
+    pytest_assert(config_result is True, 'Failt to configure PFC threshold to 8')
 
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -108,19 +115,23 @@ def run_ecn_test(api,
     config.flows = flows
     config.captures = capture_config
 
-    """ Run traffic """
+    """ Run traffic and capture packets """
     capture_port_name = capture_config[0].port_names[0]
-    pcap_file_name = '{}.pcap'.format(capture_port_name)
+    result = []
 
-    __run_traffic(api=api,
-                  config=config,
-                  all_flow_names=[PAUSE_FLOW_NAME, DATA_FLOW_NAME],
-                  exp_dur_sec=EXP_DURATION_SEC,
-                  capture_port_name=capture_port_name,
-                  pcap_file_name=pcap_file_name)
+    for i in range(iters):
+        pcap_file_name = '{}-{}.pcap'.format(capture_port_name, i)
 
-    """ Parse captured packets """
-    return __get_ip_pkts(pcap_file_name)
+        __run_traffic(api=api,
+                      config=config,
+                      all_flow_names=[PAUSE_FLOW_NAME, DATA_FLOW_NAME],
+                      exp_dur_sec=EXP_DURATION_SEC,
+                      capture_port_name=capture_port_name,
+                      pcap_file_name=pcap_file_name)
+
+        result.append(__get_ip_pkts(pcap_file_name))
+
+    return result
 
 sec_to_nanosec = lambda x : x * 1e9
 

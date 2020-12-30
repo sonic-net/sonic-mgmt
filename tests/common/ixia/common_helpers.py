@@ -322,3 +322,57 @@ def disable_ecn(host_ans, prio):
         N/A
     """
     host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
+
+def config_buffer(host_ans, profile, alpha_log2):
+    """
+    Configure buffer threshold (a.k.a., alpha)
+
+    Args:
+        host_ans: Ansible host instance of the device
+        profile (str): buffer profile name
+        alpha_log2 (int): set threshold to 2^alpha_log2
+
+    Returns:
+        N/A
+    """
+    host_ans.shell('sudo mmuconfig -p {} -a {}'.format(profile, alpha_log2))
+
+def config_ingress_lossless_buffer(host_ans, alpha_log2):
+    """
+    Configure ingress buffer thresholds (a.k.a., alpha) of a device to 2^alpha_log2
+
+    Args:
+        host_ans: Ansible host instance of the device
+        alpha_log2 (int): set threshold to 2^alpha_log2
+
+    Returns:
+        If configuration succeeds (bool)
+    """
+    if not isinstance(alpha_log2, int):
+        return False
+
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    if "BUFFER_PROFILE" not in config_facts.keys():
+        return False
+
+    buffer_profiles = config_facts['BUFFER_PROFILE']
+    ingress_profiles = []
+    for profile in buffer_profiles:
+        if profile.startswith('ingress_lossless') or profile.startswith('pg_lossless'):
+            ingress_profiles.append(profile)
+
+    for profile in ingress_profiles:
+        config_buffer(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2)
+
+    """ Check if configuration succeeds """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    for profile in ingress_profiles:
+        dynamic_th = config_facts['BUFFER_PROFILE'][profile]['dynamic_th']
+        if int(dynamic_th) != alpha_log2:
+            return False
+
+    return True
