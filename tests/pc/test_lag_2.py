@@ -1,9 +1,7 @@
 import pytest
 
-import json
 import time
 import logging
-import os
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
@@ -13,11 +11,13 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
+from tests.common.fixtures.duthost_utils import disable_route_checker_module
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.usefixtures('disable_route_checker_module')
 ]
 
 @pytest.fixture(scope="module")
