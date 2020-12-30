@@ -46,7 +46,7 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp')
+        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp || ip6[40] = 135')
 
     def handler(self):
         return self.socket
@@ -85,6 +85,7 @@ class Poller(object):
 
 class ARPResponder(object):
     ARP_PKT_LEN = 64
+    NDP_PKT_LEN = 86
     ARP_OP_REQUEST = 1
     def __init__(self, ip_sets):
         self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
@@ -97,9 +98,12 @@ class ARPResponder(object):
     def action(self, interface):
         data = interface.recv()
 
-        if len(data) > self.ARP_PKT_LEN:
-            return
+        if len(data) <= self.ARP_PKT_LEN:
+            return self.reply_to_arp(data, interface)
+        elif len(data) <= self.NDP_PKT_LEN:
+            return self.reply_to_ndp(data, interface)
 
+    def reply_to_arp(self, data, interface):
         remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(data)
 
         # Don't send ARP response if the ARP op code is not request
@@ -120,6 +124,24 @@ class ARPResponder(object):
             interface.send(arp_reply)
 
         return
+
+    def reply_to_ndp(self, data, interface):
+        remote_mac, remote_ip, target_ip = self.extract_ndp_info(data)
+
+        target_ip_str = socket.inet_ntop(socket.AF_INET6, target_ip)
+        if target_ip_str in self.ip_sets[interface.name()]:
+            remote_ip_str = socket.inet_ntop(socket.AF_INET6, remote_ip)
+            neigh_adv_pkt = self.generate_neigh_adv(self.ip_sets[interface.name()][target_ip_str], remote_mac, target_ip_str, remote_ip_str)
+            interface.send(neigh_adv_pkt)
+
+        return
+        
+    def extract_ndp_info(self, data):
+        remote_mac = data[6:12]
+        remote_ip = data[22:38]
+        target_ip = data[62:78]
+
+        return remote_mac, remote_ip, target_ip
 
     def extract_arp_info(self, data):
         # remote_mac, remote_ip, request_ip, op_type
@@ -150,6 +172,13 @@ class ARPResponder(object):
             eth_hdr += eth_type + vlan_id
 
         return eth_hdr + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
+
+    def generate_neigh_adv(self, local_mac, remote_mac, target_ip, remote_ip):
+        neigh_adv_pkt = Ether(src=local_mac, dst=remote_mac)/IPv6(src=target_ip, dst=remote_ip)
+        neigh_adv_pkt /= ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)
+        neigh_adv_pkt /= ICMPv6NDOptDstLLAddr(lladdr=local_mac)
+
+        return neigh_adv_pkt
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
