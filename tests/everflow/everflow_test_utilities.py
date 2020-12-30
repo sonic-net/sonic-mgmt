@@ -602,18 +602,13 @@ class BaseEverflowTest(object):
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
-        logging.info("mirror session configuration: %s", mirror_output["stdout"])
+        logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
 
         pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
                       "Test mirror session {} not found".format(mirror_session["session_name"]))
 
-        sessions = {}
-        lns = mirror_output["stdout"].split("\n")
-        while True:
-            obj, lns = self._objectize(lns)
-            if obj == None:
-                break
-            sessions[obj["name"]] = obj
+        lines = mirror_output["stdout_lines"]
+        sessions = self._parse_mirror_session_running_config(lines)
 
         session = [x for x in sessions["ERSPAN Sessions"]["data"] if x["Name"] == mirror_session["session_name"]]
         pytest_assert(0 < len(session))
@@ -622,31 +617,41 @@ class BaseEverflowTest(object):
 
         pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
-        logging.info("selected monitor interface %s (port=%s)", monitor_port, setup["port_index_map"][monitor_port])
+        logging.info("Selected monitor interface %s (port=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
         return setup["port_index_map"][monitor_port]
 
-    def _objectize(self, lns):
-        while len(lns) and lns[0].strip() == "":
-            lns.pop(0)
+    def _parse_mirror_session_running_config(self, lines):
+        sessions = {}
+        while True:
+            session_group, lines = self._parse_mirror_session_group(lines)
+            if session_group is None:
+                break
+            sessions[session_group["name"]] = session_group
 
-        if len(lns) < 3:
-            return None, lns
+        return sessions
 
-        table_name = lns[0]
-        separator_line = lns[2]
-        header = lns[1]
+    def _parse_mirror_session_group(self, lines):
+        while len(lines) and lines[0].strip() == "":
+            lines.pop(0)
 
-        obj = {
+        if len(lines) < 3:
+            return None, lines
+
+        table_name = lines[0]
+        separator_line = lines[2]
+        header = lines[1]
+
+        session_group = {
             "name": table_name,
             "data": []
         }
 
-        separators = separator_line.split("  ")
+        separators = separator_line.split()
 
-        lns = lns[3:]
-        for ln in lns[:]:
-            lns.pop(0)
+        lines = lines[3:]
+        for ln in lines[:]:
+            lines.pop(0)
             if ln.strip() == "":
                 break
 
@@ -659,9 +664,9 @@ class BaseEverflowTest(object):
                 index = index + len(s)+ 2
                 data[name] = value
 
-            obj["data"].append(data)
+            session_group["data"].append(data)
 
-        return obj, lns
+        return session_group, lines
 
     def _get_tx_port_id_list(self, tx_ports):
         tx_port_ids = []
