@@ -697,11 +697,7 @@ def generate_dut_feature_list(request):
     return ret if ret else empty
 
 def generate_priority_lists(request, prio_scope):
-<<<<<<< HEAD
     empty = []
-=======
-    empty = None
->>>>>>> dcea565c... Add RED/ECN accuracy test
 
     tbname = request.config.getoption("--testbed")
     if not tbname:
