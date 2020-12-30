@@ -1,3 +1,4 @@
+from collections import defaultdict
 class DualTorParser:
 
     def __init__(self, hostname, testbed_facts, host_vars, vm_config):
@@ -27,6 +28,24 @@ class DualTorParser:
         upper_tor, lower_tor = sorted(self.testbed_facts['duts'])
         self.dual_tor_facts['positions'] = {'upper': upper_tor, 'lower': lower_tor}
 
+    def parse_loopback_ips(self):
+        '''
+        Parses the IPv4 and IPv6 loopback IPs for the DUTs
+
+        Similar to `parse_tor_position`, the ToR which comes first alphabetically is always assigned the first IP
+        '''
+
+        loopback_ips = defaultdict(dict)
+
+        ipv4_loopbacks = sorted(self.vm_config['DUT']['loopback']['ipv4'])
+        ipv6_loopbacks = sorted(self.vm_config['DUT']['loopback']['ipv6'])
+
+        for i, dut in enumerate(sorted(self.testbed_facts['duts'])):
+            loopback_ips[dut]['ipv4'] = ipv4_loopbacks[i]
+            loopback_ips[dut]['ipv6'] = ipv6_loopbacks[i] 
+
+        self.dual_tor_facts['loopback'] = loopback_ips     
+
     def generate_cable_names(self):
         cables = []
 
@@ -44,6 +63,7 @@ class DualTorParser:
             self.parse_neighbor_tor()
             self.parse_tor_position()
             self.generate_cable_names()
+            self.parse_loopback_ips()
 
         return self.dual_tor_facts
 
