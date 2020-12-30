@@ -99,6 +99,9 @@ def test_show_platform_psustatus(duthosts, rand_one_dut_hostname):
     @summary: Verify output of `show platform psustatus`
     """
     duthost = duthosts[rand_one_dut_hostname]
+    logging.info("Check pmon daemon status")
+    assert check_pmon_daemon_status(duthost), "Not all pmon daemons running."
+
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
