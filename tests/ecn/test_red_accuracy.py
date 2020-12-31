@@ -21,6 +21,24 @@ def test_red_accuracy(ixia_api,
                       rand_one_dut_portname_oper_up,
                       rand_one_dut_lossless_prio,
                       prio_dscp_map):
+    """
+    Measure RED/ECN marking accuracy of the device under test (DUT).
+    Dump queue length vs. ECN marking probability results into a file.
+
+    Args:
+        ixia_api (pytest fixture): IXIA session
+        ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+        duthosts (pytest fixture): list of DUTs
+        rand_one_dut_hostname (str): hostname of DUT
+        rand_one_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
+        rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+
+    Returns:
+        N/A
+    """
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = rand_one_dut_lossless_prio.split('|')
@@ -75,6 +93,7 @@ def test_red_accuracy(ixia_api,
             if is_ecn_marked(ip_pkt):
                 queue_mark_cnt[queue_len] += 1
 
+    """ Dump queue length vs. ECN marking probability into a file """
     queue_mark_cnt = collections.OrderedDict(sorted(queue_mark_cnt.items()))
     f = open(result_file_name, 'w')
     for queue, mark_cnt in queue_mark_cnt.iteritems():

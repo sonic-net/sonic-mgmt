@@ -20,6 +20,23 @@ def test_dequeue_ecn(ixia_api,
                      enum_dut_portname_oper_up,
                      enum_dut_lossless_prio,
                      prio_dscp_map):
+    """
+    Test if the device under test (DUT) performs ECN marking at the egress
+
+    Args:
+        ixia_api (pytest fixture): IXIA session
+        ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+        duthosts (pytest fixture): list of DUTs
+        rand_one_dut_hostname (str): hostname of DUT
+        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
+        enum_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+
+    Returns:
+        N/A
+    """
 
     dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')

@@ -146,6 +146,26 @@ def __gen_traffic(testbed_config,
                   exp_dur_sec,
                   prio_dscp_map):
 
+    """
+    Generate configurations of flows, including a data flow and a PFC pause storm.
+
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        port_id (int): ID of DUT port to test
+        pause_flow_name (str): name of the pause storm
+        data_flow_name (str): name of the data flow
+        prio (int): priority of the data flow and PFC pause storm
+        data_pkt_size (int): packet size of the data flow in byte
+        data_pkt_cnt (int): # of packets of the data flow
+        data_flow_delay_sec (float): start delay of the data flow in second
+        exp_dur_sec (float): experiment duration in second
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        Configurations of the data flow and the PFC pause storm (list)
+
+    """
+
     result = list()
 
     rx_port_id = port_id
@@ -227,6 +247,17 @@ def __gen_traffic(testbed_config,
 
 
 def __config_capture(testbed_config, port_id):
+    """
+    Generate packet capture configuration
+
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        port_id (int): ID of DUT port to capture packets
+
+    Returns:
+        Packet capture configuration (list)
+    """
+
     """ We only capture IP packets """
     ip_filter = CustomFilter(filter='40', mask='0f', offset=14)
     result = [Capture(name='rx_capture',
@@ -241,7 +272,19 @@ def __run_traffic(api,
                   exp_dur_sec,
                   capture_port_name,
                   pcap_file_name):
+    """
+    Run traffic and capture packets
 
+    Args:
+        api (obj): IXIA session
+        config (obj): experiment config
+        all_flow_names (list): names of all the flows
+        capture_port_name (str): name of the port to capture packets
+        pcap_file_name (str): name of the pcap file to store captured packets
+
+    Returns:
+        N/A
+    """
     api.set_state(State(ConfigState(config=config, state='set')))
 
     api.set_state(State(PortCaptureState(port_names=[capture_port_name],
@@ -274,7 +317,16 @@ def __run_traffic(api,
 
 
 def __get_ip_pkts(pcap_file_name):
-    """ Parse IP packets """
+    """
+    Get IP packets from the pcap file
+
+    Args:
+        pcap_file_name (str): name of the pcap file to store captured packets
+
+    Returns:
+        Captured IP packets (list)
+    """
+
     ip_pkts = []
     for ts, pkt in dpkt.pcap.Reader(open(pcap_file_name, 'rb')):
         eth = dpkt.ethernet.Ethernet(pkt)
@@ -284,5 +336,14 @@ def __get_ip_pkts(pcap_file_name):
     return ip_pkts
 
 def is_ecn_marked(ip_pkt):
-    """ If the IP packet gets ECN marked """
+    """
+    Determine if an IP packet is ECN marked
+
+    Args:
+        ip_pkt (obj): IP packet
+
+    Returns:
+        Return if the packet is ECN marked (bool)
+    """
+
     return (ip_pkt.tos & 3) == 3
