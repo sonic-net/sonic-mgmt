@@ -286,6 +286,9 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
         kmin_old = int(profiles[p]['green_min_threshold'])
         kmax_old = int(profiles[p]['green_max_threshold'])
 
+        if kmin_old > kmax_old:
+            return False
+
         """ Ensure that Kmin is no larger than Kmax during the update """
         if kmin > kmin_old:
             host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
