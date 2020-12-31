@@ -360,9 +360,10 @@ def creds(duthosts, rand_one_dut_hostname):
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
     # load creds for console
-    console_login_creds = hostvars["console_login"]
+    console_login_creds = getattr(hostvars, "console_login", {})
     creds["console_user"] = {}
     creds["console_password"] = {}
+
     for k, v in console_login_creds.iteritems():
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
