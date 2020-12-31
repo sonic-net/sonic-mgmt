@@ -4,18 +4,39 @@ Base class for console connection of SONiC devices
 
 import logging
 from netmiko.cisco_base_connection import CiscoBaseConnection
+from netmiko.ssh_exception import NetMikoAuthenticationException
+
+# All supported console types
+# Console login via telnet (mad console)
+CONSOLE_TELNET = "console_telnet"
+# Console login via SSH (digi)
+CONSOLE_SSH = "console_ssh"
+# Console login via SSH, then login to devices by 'menu ports'
+CONSOLE_SSH_MENU_PORTS = "console_ssh_menu_ports"
 
 class BaseConsoleConn(CiscoBaseConnection):
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
-        if kwargs.has_key('console_server_username'):
-            del kwargs['console_server_username']
-        if kwargs.has_key('console_server_password'):
-            del kwargs['console_server_password']
-        if kwargs.has_key('console_server_port'):
-            del kwargs['console_server_port']
-        super(BaseConsoleConn, self).__init__(**kwargs)
+        # Clear additional args before passing to BaseConsoleConn
+        all_passwords = kwargs['console_password']
+        key_to_rm = ['console_username', 'console_password', 
+                    'console_host', 'console_port',
+                    'sonic_username', 'sonic_password',
+                    'console_type']
+        for key in key_to_rm:
+            if kwargs.has_key(key):
+                del kwargs[key]
+
+        for i in range(0, len(all_passwords)):
+            kwargs['password'] = all_passwords[i]
+            try:
+                super(BaseConsoleConn, self).__init__(**kwargs)
+            except NetMikoAuthenticationException as e:
+                if i == len(all_passwords) - 1:
+                    raise e
+            else:
+                break
 
     def set_base_prompt(self, pri_prompt_terminator='#',
                         alt_prompt_terminator='$', delay_factor=1):
@@ -23,6 +44,13 @@ class BaseConsoleConn(CiscoBaseConnection):
             pri_prompt_terminator=pri_prompt_terminator,
             alt_prompt_terminator=alt_prompt_terminator,
             delay_factor=delay_factor)
+
+    def write_and_poll(self, command, pattern):
+        """
+        Write a command to terminal and poll until expected pattern is found or timeout 
+        """
+        self.write_channel(command + self.RETURN)
+        self.read_until_pattern(pattern=pattern)
 
     def disable_paging(self, command="", delay_factor=1):
         # not supported
