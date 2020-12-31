@@ -40,15 +40,15 @@ def intfs_for_test(duthosts, rand_one_dut_hostname, tbinfo):
     intf2 = ports[1]
     logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
 
-    intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
-    intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
+    intf1_index = mg_facts['minigraph_ptf_indices'][intf1]
+    intf2_index = mg_facts['minigraph_ptf_indices'][intf2]
 
-    return intf1, intf1_indice, intf2, intf2_indice, intf_facts, mg_facts, duthost
+    return intf1, intf1_index, intf2, intf2_index, intf_facts, mg_facts, duthost
 
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(ptfhost, intfs_for_test):
-    intf1, intf1_indice, intf2, intf2_indice, intf_facts, mg_facts, duthost = intfs_for_test
+    intf1, intf1_indice, intf2, intf2_index, intf_facts, mg_facts, duthost = intfs_for_test
 
     po1 = get_po(mg_facts, intf1)
     po2 = get_po(mg_facts, intf2)
@@ -76,7 +76,7 @@ def common_setup_teardown(ptfhost, intfs_for_test):
         if (po1 is not None) or (po2 is not None):
             time.sleep(40)
 
-        yield duthost, ptfhost, intf_facts, intf1, intf2, intf1_indice, intf2_indice
+        yield duthost, ptfhost, intf_facts, intf1, intf2, intf1_indice, intf2_index
     finally:
         # Recover DUT interface IP address
         config_reload(duthost, config_source='config_db', wait=120)

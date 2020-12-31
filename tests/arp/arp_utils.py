@@ -4,6 +4,7 @@ logger = logging.getLogger(__name__)
 
 
 def clear_dut_arp_cache(duthost):
+    logger.info("Clearing {} neighbor table".format(duthost.hostname))
     duthost.shell('ip -stats neigh flush all')
 
 
@@ -21,6 +22,14 @@ def collect_info(duthost):
         duthost.shell('ip addr')
         duthost.shell('grep . /sys/class/net/Ethernet*/address', module_ignore_errors=True)
         duthost.shell('grep . /sys/class/net/PortChannel*/address', module_ignore_errors=True)
+
+def increment_ipv4_addr(ipv4_addr, incr=1):
+    octets = str(ipv4_addr).split('.')
+    last_octet = int(octets[-1])
+    last_octet += incr
+    octets[-1] = str(last_octet)
+
+    return '.'.join(octets)
 
 def increment_ipv6_addr(ipv6_addr, incr=1):
     octets = str(ipv6_addr).split(':')

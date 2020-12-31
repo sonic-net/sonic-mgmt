@@ -1,45 +1,17 @@
+import logging
+import ptf.testutils as testutils
 import pytest
 import time
 
-from datetime import datetime
-from ipaddress import ip_network, IPv6Network
-from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr
-from tests.ptf_runner import ptf_runner
+from ipaddress import ip_network, IPv6Network, IPv4Network
+from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology(('t0', 'dualtor'))
 ]
 
-
-def test_arp_garp_enabled(intfs_for_test, ptfhost, config_facts):
-    '''
-    Send a gratuitous ARP (GARP) packet from the PTF to the DUT
-
-    The DUT should learn the (previously unseen) ARP info from the packet
-    '''
-    intf1, intf1_indice, intf2, intf2_indice, intf_facts, mg_facts, duthost = intfs_for_test
-    params = {
-        'acs_mac': intf_facts['ansible_interface_facts'][intf1]['macaddress'],
-        'port': intf1_indice
-    }
-    clear_dut_arp_cache(duthost)
-
-    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
-    garp_enable_cmd = 'redis-cli -n 4 HSET "VLAN_INTERFACE|{}" grat_arp enabled'
-    for vlan in vlan_intfs:
-        res = duthost.shell(garp_enable_cmd.format(vlan))
-
-        if res['rc'] != 0:
-            pytest.fail("Unable to enable GARP for {}".format(vlan))
-
-    log_file = "/tmp/arptest.GarpEnabledUpdate.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
-    ptf_runner(ptfhost, 'ptftests', "arptest.GarpEnabledUpdate", '/root/ptftests', params=params, log_file=log_file)
-
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
-    pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:00:07:08:09:0a')
-    pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['interface'] in vlan_intfs)
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -50,33 +22,85 @@ def setup_ptf_proxy_arp(config_facts, ptfhost, intfs_for_test):
     # Calculate the IPv6 address to assign to the PTF port
     vlan_addrs = config_facts['VLAN_INTERFACE'].items()[0][1].keys()
     intf_ipv6_addr = None
+    intf_ipv4_addr = None
 
     for addr in vlan_addrs:
         if type(ip_network(addr, strict=False)) is IPv6Network:
             intf_ipv6_addr = ip_network(addr, strict=False)
-            break
+        elif type(ip_network(addr, strict=False)) is IPv4Network:
+            intf_ipv4_addr = ip_network(addr, strict=False)
 
-    ptf_intf_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=2)
+    # The VLAN interface on the DUT has an x.x.x.1 address assigned (or x::1 in the case of IPv6)
+    # But the network_address property returns an x.x.x.0 address (or x::0 for IPv6) so we increment by two to avoid conflict
+    ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=2)
+    ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=2)
     ptf_intf_name = "eth{}".format(intf1_indice)
 
-    ptfhost.shell(ip_addr_config_cmd.format('add', ptf_intf_addr, intf_ipv6_addr.prefixlen, ptf_intf_name))
+    logger.info("Configuring {} and {} on PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
+    ptfhost.shell(ip_addr_config_cmd.format('add', ptf_intf_ipv4_addr, intf_ipv4_addr.prefixlen, ptf_intf_name))
+    ptfhost.shell(ip_addr_config_cmd.format('add', ptf_intf_ipv6_addr, intf_ipv6_addr.prefixlen, ptf_intf_name))
 
-    yield ptf_intf_addr, ptf_intf_name
+    yield ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name 
 
-    ptfhost.shell(ip_addr_config_cmd.format('del', ptf_intf_addr, intf_ipv6_addr.prefixlen, ptf_intf_name))
+    logger.info("Removing {} and {} from PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
+    ptfhost.shell(ip_addr_config_cmd.format('del', ptf_intf_ipv4_addr, intf_ipv4_addr.prefixlen, ptf_intf_name))
+    ptfhost.shell(ip_addr_config_cmd.format('del', ptf_intf_ipv6_addr, intf_ipv6_addr.prefixlen, ptf_intf_name))
 
-def test_proxy_arp(setup_ptf_proxy_arp, intfs_for_test, ptfhost, config_facts):
+
+def test_arp_garp_enabled(intfs_for_test, config_facts, ptfadapter):
     '''
-    Send a neighbor solicitation (NS) to the DUT for an IPv6 address within the subnet of the DUT's VLAN.
+    Send a gratuitous ARP (GARP) packet from the PTF to the DUT
 
-    DUT should reply with a neighbor advertisement (NA) containing the DUT's own MAC
+    The DUT should learn the (previously unseen) ARP info from the packet
     '''
-    intf1, intf1_indice, intf2, intf2_indice, intf_facts, mg_facts, duthost = intfs_for_test
-    ptf_intf_addr, ptf_intf_name = setup_ptf_proxy_arp
+    arp_request_ip = '10.10.1.3'
+    arp_src_mac = '00:00:07:08:09:0a'
+    _, intf1_index, _, _, _, _, duthost = intfs_for_test
+
+    clear_dut_arp_cache(duthost)
+
+    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
+    garp_enable_cmd = 'redis-cli -n 4 HSET "VLAN_INTERFACE|{}" grat_arp enabled'
+    for vlan in vlan_intfs:
+        res = duthost.shell(garp_enable_cmd.format(vlan))
+
+        if res['rc'] != 0:
+            pytest.fail("Unable to enable GARP for {}".format(vlan))
+        else:
+            logger.info("Enabled GARP for {}".format(vlan))
+
+    pkt = testutils.simple_arp_packet(pktlen=60,
+                                eth_dst='ff:ff:ff:ff:ff:ff',
+                                eth_src=arp_src_mac,
+                                vlan_pcp=0,
+                                arp_op=2,
+                                ip_snd=arp_request_ip,
+                                ip_tgt=arp_request_ip,
+                                hw_snd=arp_src_mac,
+                                hw_tgt='ff:ff:ff:ff:ff:ff'
+                            )
+
+    logger.info("Sending GARP for target {} from PTF interface {}".format(arp_request_ip, intf1_index))
+    testutils.send_packet(ptfadapter, intf1_index, pkt)
+
+    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'] == arp_src_mac)
+    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
+
+
+@pytest.mark.parametrize('ip_version', ['v4', 'v6'])
+def test_proxy_arp(setup_ptf_proxy_arp, intfs_for_test, ptfhost, config_facts, ip_version):
+    '''
+    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN.
+
+    DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
+    '''
+    intf1, _, _, _, intf_facts, _, duthost = intfs_for_test
+    ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name = setup_ptf_proxy_arp
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
 
-    # We are leveraging the fact that ping will automatically send a neighbor solicitation for us
-    # However, we expect the ping itself to always fail, so add '|| true' so we can continue
+    # We are leveraging the fact that ping will automatically send a neighbor solicitation/ARP request for us
+    # However, we expect the ping itself to always fail since no interface is configured with the pinged IP, so add '|| true' so we can continue
     ping_cmd = 'ping {} -I {} -c 1 || true' 
 
     # Enable proxy ARP/NDP for the VLANs on the DUT
@@ -85,18 +109,25 @@ def test_proxy_arp(setup_ptf_proxy_arp, intfs_for_test, ptfhost, config_facts):
 
     for vid in vlan_ids:
         duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
-        time.sleep(5)
+        time.sleep(3)
+        logger.info("Enabled proxy ARP for VLAN {}".format(vid))
 
-    ptfhost.shell("ip neigh flush all")
+    clear_dut_arp_cache(ptfhost)
 
-    ping_addr = increment_ipv6_addr(ptf_intf_addr)
+    ping_addr = None
+    if ip_version == 'v4':
+        ping_addr = increment_ipv4_addr(ptf_intf_ipv4_addr)
+    elif ip_version == 'v6':
+        ping_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     
+    logger.info("Pinging {} using PTF interface {}".format(ping_addr, ptf_intf_name))
     ptfhost.shell(ping_cmd.format(ping_addr, ptf_intf_name))
     time.sleep(2)
 
-    v6_neigh_table = ptfhost.switch_arptable()['ansible_facts']['arptable']['v6']
+    neighbor_table = ptfhost.switch_arptable()['ansible_facts']['arptable'][ip_version]
     dut_mac = intf_facts['ansible_interface_facts'][intf1]['macaddress']
-    pytest_assert(ping_addr in v6_neigh_table.keys())
-    pytest_assert(v6_neigh_table[ping_addr]['macaddress'] == dut_mac)
-    pytest_assert(v6_neigh_table[ping_addr]['interface'] == ptf_intf_name)
-    pytest_assert(v6_neigh_table[ping_addr]['state'] != 'FAILED')
+
+    pytest_assert(ping_addr in neighbor_table.keys())
+    pytest_assert(neighbor_table[ping_addr]['macaddress'] == dut_mac)
+    pytest_assert(neighbor_table[ping_addr]['interface'] == ptf_intf_name)
+    pytest_assert(neighbor_table[ping_addr]['state'].lower() != 'failed')
