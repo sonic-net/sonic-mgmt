@@ -56,8 +56,23 @@ LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
 
+@pytest.fixture(scope='module')
+def log_rate_limit(duthost):
+    logger.info('Disable log rate limit before to test.')
+    duthost.command('docker exec swss bash -c "sed -e \'/SystemLogRateLimitInterval/s/ [[:digit:]]*/ 0/\' /etc/rsyslog.conf > /etc/rsyslog.conf.new"')
+    duthost.command('docker exec swss bash -c "cp /etc/rsyslog.conf /etc/rsyslog.conf.old"')
+    duthost.command('docker exec swss bash -c "mv /etc/rsyslog.conf.new /etc/rsyslog.conf"')
+    duthost.command('docker exec swss bash -c "kill -9 `ps ax | grep \'[r]syslog\' | awk \'{ print $1 }\'`"')
+
+    yield
+
+    logger.info('Enable log rate limit after tests are finished.')
+    duthost.command('docker exec swss bash -c "mv /etc/rsyslog.conf.old /etc/rsyslog.conf"')
+    duthost.command('docker exec swss bash -c "kill -9 `ps ax | grep \'[r]syslog\' | awk \'{ print $1 }\'`"')
+
+
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
+def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter, log_rate_limit):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
