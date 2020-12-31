@@ -1139,8 +1139,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return asic
 
-    def ip_command(self, cmd):
-        return self.shell(cmd)
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1583,6 +1581,8 @@ class SonicAsic(object):
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
             self.cli_ns_option = ""
+        self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
+        self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
 
     def get_critical_services(self):
         """This function returns the list of the critical services
@@ -1666,10 +1666,6 @@ class SonicAsic(object):
         # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
         return self.sonichost.run_redis_cli_cmd(redis_cmd)
 
-    def ip_command(self, cmd):
-        if self.namespace != DEFAULT_NAMESPACE:
-            cmd.replace("ip", "sudo ip {}".format(self.namespace))
-        return self.sonichost.shell(cmd)
 
     def get_extended_minigraph_facts(self, tbinfo):
           return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
@@ -1699,6 +1695,10 @@ class SonicAsic(object):
     def switch_arptable(self, *module_args, **complex_args):
         complex_args['namespace'] = self.namespace
         return self.sonichost.switch_arptable(*module_args, **complex_args)
+    
+    def command(self, *module_args, **complex_args):
+        return self.sonichost.shell(*module_args, **complex_args)
+    
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
