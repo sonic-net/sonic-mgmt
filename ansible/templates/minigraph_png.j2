@@ -39,14 +39,31 @@
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
         <Hostname>{{ inventory_hostname }}</Hostname>
         <HwSku>{{ hwsku }}</HwSku>
+{% if 'loopback' in dual_tor_facts %}
+        <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv4'] }}</a:IPPrefix>
+        </Address>
+        <AddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv6'] }}</a:IPPrefix>
+        </AddressV6>
+{% endif %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
       </Device>
 {% if 'neighbor' in dual_tor_facts %}
+{% set neighbor_hostname = dual_tor_facts['neighbor']['hostname'] %}
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
-        <Hostname>{{ dual_tor_facts['neighbor']['hostname'] }}</Hostname>
+        <Hostname>{{ neighbor_hostname }}</Hostname>
         <HwSku>{{ dual_tor_facts['neighbor']['hwsku'] }}</HwSku>
+{% if 'loopback' in dual_tor_facts %}
+        <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv4'] }}</a:IPPrefix>
+        </Address>
+        <AddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
+        </AddressV6>
+{% endif %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
         </ManagementAddress>
