@@ -1097,8 +1097,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return DEFAULT_NAMESPACE
         return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
-    def get_extended_minigraph_facts(self, tbinfo):
-        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+    def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
+        mg_facts = self.minigraph_facts(host = self.hostname, namespace=namespace)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
@@ -1139,6 +1139,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return asic
 
+    def ip_command(self, cmd):
+        return self.shell(cmd)
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1576,9 +1578,11 @@ class SonicAsic(object):
         self.asic_index = asic_index
         if self.sonichost.is_multi_asic:
             self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
+            self.cli_ns_option = "-n {}".format(self.namespace)
         else:
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
+            self.cli_ns_option = ""
 
     def get_critical_services(self):
         """This function returns the list of the critical services
@@ -1661,6 +1665,40 @@ class SonicAsic(object):
             return self.sonichost.command(cmd)
         # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
         return self.sonichost.run_redis_cli_cmd(redis_cmd)
+
+    def ip_command(self, cmd):
+        if self.namespace != DEFAULT_NAMESPACE:
+            cmd.replace("ip", "sudo ip {}".format(self.namespace))
+        return self.sonichost.shell(cmd)
+
+    def get_extended_minigraph_facts(self, tbinfo):
+          return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
+    
+    def startup_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} startup {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def shutdown_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} shutdown {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def config_ip_intf(self, interface_name, ip_address, op):
+        return self.sonichost.shell("sudo config interface {ns} ip {op} {intf} {ip}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  intf=interface_name,
+                                  ip=ip_address))
+    
+    def config_portchannel_member(self, pc_name, interface_name, op):
+        return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  pc=pc_name,
+                                  intf=interface_name))
+    
+    def switch_arptable(self, *module_args, **complex_args):
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.switch_arptable(*module_args, **complex_args)
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
@@ -1754,6 +1792,10 @@ class MultiAsicSonicHost(object):
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
 
+    def get_asic(self, asic_id):
+        if asic_id == DEFAULT_ASIC_ID:
+            return self.asics[0]
+        return self.asics[asic_id]
 
 class DutHosts(object):
     """ Represents all the DUTs (nodes) in a testbed. class has 3 important attributes:
