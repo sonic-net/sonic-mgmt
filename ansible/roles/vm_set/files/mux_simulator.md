@@ -23,21 +23,21 @@ The default TCP port that the mux simulator will be listening on is configurable
 
 The mux simulator would be deployed to test server as a systemd server `mux-simulator` during `testbed-cli.sh add-topo`.
 ```
-azure@test-server:~/veos-vm$ sudo systemctl status mux-simulator
-鈼 mux-simulator.service - mux simulator
+azure@str2-acs-serv-17:~$ sudo systemctl status mux-simulator
+● mux-simulator.service - mux simulator
    Loaded: loaded (/etc/systemd/system/mux-simulator.service; static; vendor preset: enabled)
-   Active: active (running) since Fri 2020-12-25 07:56:21 UTC; 12s ago
+   Active: active (running) since Fri 2020-12-25 07:56:21 UTC; 6 days ago
  Main PID: 928 (python)
     Tasks: 1 (limit: 11059)
    CGroup: /system.slice/mux-simulator.service
-           鈹斺攢928 python /home/azure/veos-vm/mux_simulator.py 8080
+           └─928 python /home/azure/veos-vm/mux_simulator.py 8080
 
-Dec 25 07:56:21 test-server systemd[1]: Started mux simulator.
-Dec 25 07:56:21 test-server env[928]:  * Serving Flask app "mux_simulator" (lazy loading)
-Dec 25 07:56:21 test-server env[928]:  * Environment: production
-Dec 25 07:56:21 test-server env[928]:    WARNING: This is a development server. Do not use it in a production deployment.
-Dec 25 07:56:21 test-server env[928]:    Use a production WSGI server instead.
-Dec 25 07:56:21 test-server env[928]:  * Debug mode: off
+Dec 25 07:56:21 str2-acs-serv-17 systemd[1]: Started mux simulator.
+Dec 25 07:56:21 str2-acs-serv-17 env[928]:  * Serving Flask app "mux_simulator" (lazy loading)
+Dec 25 07:56:21 str2-acs-serv-17 env[928]:  * Environment: production
+Dec 25 07:56:21 str2-acs-serv-17 env[928]:    WARNING: This is a development server. Do not use it in a production deployment.
+Dec 25 07:56:21 str2-acs-serv-17 env[928]:    Use a production WSGI server instead.
+Dec 25 07:56:21 str2-acs-serv-17 env[928]:  * Debug mode: off
 ```
 
 You can update its service file to manually change the listening port.
