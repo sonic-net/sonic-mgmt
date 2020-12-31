@@ -13,8 +13,7 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wre
 from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
     BasicFilter
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause,\
-    EthernetPause, Continuous
+    Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -303,9 +302,6 @@ def __run_traffic(api,
             break
         else:
             time.sleep(1)
-
-    """ Dump per-flow statistics """
-    rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
 
     """ Dump captured packets """
     pcap_bytes = api.get_capture_results(CaptureRequest(port_name=capture_port_name))
