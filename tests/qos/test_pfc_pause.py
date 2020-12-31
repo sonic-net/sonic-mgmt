@@ -9,14 +9,16 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from qos_fixtures import lossless_prio_dscp_map, leaf_fanouts
 from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, start_pause, stop_pause, setup_testbed, gen_testbed_t0, PFC_GEN_FILE, PFC_GEN_REMOTE_PATH
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+
 pytestmark = [
     pytest.mark.topology('t0')
 ]
 
 PFC_PKT_COUNT = 1000000000
 
-PTF_FILE_LOCAL_PATH = '../../ansible/roles/test/files/ptftests/pfc_pause_test.py'
-PTF_FILE_REMOTE_PATH = '~/pfc_pause_test.py'
+PTF_FILE_REMOTE_PATH = '~/ptftests/pfc_pause_test.py'
 PTF_PKT_COUNT = 50
 PTF_PKT_INTVL_SEC = 0.1
 PTF_PASS_RATIO_THRESH = 0.6
@@ -84,8 +86,8 @@ def run_test_t0(fanouthosts,
         time.sleep(2)
 
         if send_pause:
-            peer_device = conn_graph_facts['device_conn'][dut_intf_paused]['peerdevice']
-            peer_port = conn_graph_facts['device_conn'][dut_intf_paused]['peerport']
+            peer_device = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerdevice']
+            peer_port = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerport']
             peer_port_name = eos_to_linux_intf(peer_port)
             peerdev_ans = fanouthosts[peer_device]
 
@@ -118,7 +120,7 @@ def run_test_t0(fanouthosts,
                        + "queue_paused=%s;" % queue_paused
                        + "dut_has_mac=False")
 
-        cmd = 'ptf --test-dir %s %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
+        cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
         print cmd
         stdout = ansible_stdout_to_str(ptfhost.shell(cmd)['stdout'])
         words = stdout.split()
@@ -146,7 +148,7 @@ def run_test_t0(fanouthosts,
 def run_test(fanouthosts,
              duthost,
              ptfhost,
-             testbed,
+             tbinfo,
              conn_graph_facts,
              leaf_fanouts,
              dscp,
@@ -159,7 +161,7 @@ def run_test(fanouthosts,
              max_test_intfs_count=128):
     """
     @Summary: Run a series of tests (only support T0 topology)
-    @param testbed: Testbed information
+    @param tbinfo: Testbed information
     @param conn_graph_facts: Testbed topology
     @param leaf_fanouts: Leaf fanout switches
     @param dscp: DSCP value of test data packets
@@ -173,8 +175,8 @@ def run_test(fanouthosts,
     return: Return # of iterations and # of passed iterations for each tested interface.
     """
 
-    print testbed
-    if testbed['topo']['name'].startswith('t0'):
+    print tbinfo
+    if tbinfo['topo']['name'].startswith('t0'):
         return run_test_t0(fanouthosts=fanouthosts,
                            duthost=duthost,
                            ptfhost=ptfhost,
@@ -194,22 +196,20 @@ def run_test(fanouthosts,
 def test_pfc_pause_lossless(fanouthosts,
                             duthost,
                             ptfhost,
-                            testbed,
+                            tbinfo,
                             conn_graph_facts,
                             leaf_fanouts,
                             lossless_prio_dscp_map):
 
     """
     @Summary: Test if PFC pause frames can pause a lossless priority without affecting the other priorities
-    @param testbed: Testbed information
+    @param tbinfo: Testbed information
     @param conn_graph_facts: Testbed topology
     @param lossless_prio_dscp_map: lossless priorities and their DSCP values
     """
     setup_testbed(fanouthosts=fanouthosts,
                   ptfhost=ptfhost,
-                  leaf_fanouts=leaf_fanouts,
-                  ptf_local_path=PTF_FILE_LOCAL_PATH,
-                  ptf_remote_path=PTF_FILE_REMOTE_PATH)
+                  leaf_fanouts=leaf_fanouts)
 
     errors = []
 
@@ -229,7 +229,7 @@ def test_pfc_pause_lossless(fanouthosts,
                 results = run_test(fanouthosts=fanouthosts,
                                    duthost=duthost,
                                    ptfhost=ptfhost,
-                                   testbed=testbed,
+                                   tbinfo=tbinfo,
                                    conn_graph_facts=conn_graph_facts,
                                    leaf_fanouts=leaf_fanouts,
                                    dscp=dscp,
@@ -266,7 +266,7 @@ def test_pfc_pause_lossless(fanouthosts,
 def test_no_pfc(fanouthosts,
                 duthost,
                 ptfhost,
-                testbed,
+                tbinfo,
                 conn_graph_facts,
                 leaf_fanouts,
                 lossless_prio_dscp_map):
@@ -274,15 +274,13 @@ def test_no_pfc(fanouthosts,
     """
     @Summary: Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames
     @param fanouthosts: Fixture for fanout hosts
-    @param testbed: Testbed information
+    @param tbinfo: Testbed information
     @param conn_graph_facts: Testbed topology
     @param lossless_prio_dscp_map: lossless priorities and their DSCP values
     """
     setup_testbed(fanouthosts=fanouthosts,
                   ptfhost=ptfhost,
-                  leaf_fanouts=leaf_fanouts,
-                  ptf_local_path=PTF_FILE_LOCAL_PATH,
-                  ptf_remote_path=PTF_FILE_REMOTE_PATH)
+                  leaf_fanouts=leaf_fanouts)
 
     errors = []
 
@@ -302,7 +300,7 @@ def test_no_pfc(fanouthosts,
                 results = run_test(fanouthosts=fanouthosts,
                                    duthost=duthost,
                                    ptfhost=ptfhost,
-                                   testbed=testbed,
+                                   tbinfo=tbinfo,
                                    conn_graph_facts=conn_graph_facts,
                                    leaf_fanouts=leaf_fanouts,
                                    dscp=dscp,

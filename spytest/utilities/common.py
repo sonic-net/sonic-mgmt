@@ -2,17 +2,19 @@ import os
 import re
 import sys
 import csv
-import time
+import glob
 import base64
 import random
 import socket
 import string
 import struct
+import shutil
 import hashlib
 import textwrap
 import datetime
+import fnmatch
 import subprocess
-from inspect import currentframe
+import inspect
 from collections import OrderedDict
 
 import yaml
@@ -21,7 +23,34 @@ from tabulate import tabulate
 from prettytable import PrettyTable
 from jinja2 import Environment
 
-from . import json_helpers as json
+from . import json_helpers as jsonutil
+
+if sys.version_info[0] >= 3:
+    unicode = str
+    basestring = str
+
+def to_ascii(msg):
+    msg = re.sub(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]', ' ', msg)
+    msg = re.sub(r'[^\x00-\x7F]+', ' ', msg)
+    try:
+        return msg.encode('ascii', 'ignore').decode('ascii')
+    except Exception as exp:
+        print(str(exp))
+    return "non-ascii characters"
+
+def list_files_tree(dir_path, pattern="*"):
+    matches = []
+    for root, _, filenames in os.walk(dir_path):
+        for filename in fnmatch.filter(filenames, pattern):
+            matches.append(os.path.join(root, filename))
+    return matches
+
+def list_files(entry, pattern="*"):
+    if os.path.isdir(entry):
+        return list_files_tree(entry, pattern)
+    if os.path.isfile(entry):
+        return [entry]
+    return glob.glob(entry)
 
 def find_file(filename, paths=[]):
     if os.path.isfile(filename):
@@ -34,11 +63,14 @@ def find_file(filename, paths=[]):
             return filename1
     return None
 
-def ensure_parent(filename):
-    path = os.path.dirname(filename)
+def ensure_folder(path):
     path = os.path.abspath(path)
     if not os.path.exists(path):
         os.makedirs(path)
+
+def ensure_parent(filename):
+    path = os.path.dirname(filename)
+    ensure_folder(path)
 
 def open_file(filename, mode="r"):
 
@@ -56,27 +88,56 @@ def delete_file(filename):
         return True
     return False
 
-def write_file(filename, data, mode="w"):
-    if filename:
-        ensure_parent(filename)
-        fh = open(filename, mode)
-        fh.write(data)
-        fh.close()
-    return data
+def copytree(src, dst, symlinks=False, ignore=None):
+    ensure_folder(dst)
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)
 
-def make_list(arg):
-    """
-    todo: Update Documentation
-    :param arg:
-    :type arg:
-    :return:
-    :rtype:
-    """
-    if arg is None:
+def write_file(filename, data, mode="w"):
+    if not filename: return data
+    ensure_parent(filename)
+    try:    data2 = to_ascii(data)
+    except Exception: data2 = data
+    fh = open(filename, mode)
+    fh.write(data2)
+    fh.close()
+    return data2
+
+def make_list(*args):
+    retval = []
+    for arg in args:
+        if arg is None:
+            retval.append(arg)
+        elif isinstance(arg, list):
+            retval.extend(arg)
+        else:
+            retval.append(arg)
+    return retval
+
+# same as make_list but excludes None
+def make_list2(*args):
+    retval = []
+    for arg in args:
+        if arg is None:
+            pass
+        elif isinstance(arg, list):
+            for a in arg:
+                if a is not None:
+                    retval.append(a)
+            retval.extend(arg)
+        else:
+            retval.append(arg)
+    return retval
+
+def iterable(obj):
+    if obj is None or isinstance(obj, bool):
         return []
-    if isinstance(arg, list):
-        return arg
-    return [arg]
+    return obj
 
 def filter_and_select(output, select=None, match=None):
     """
@@ -114,7 +175,7 @@ def filter_and_select(output, select=None, match=None):
 
     # collect the matched/all entries
     retval = []
-    for ent in output:
+    for ent in iterable(output):
         if not match or match_entry(ent, match):
             retval.append(ent)
 
@@ -130,25 +191,13 @@ def filter_and_select(output, select=None, match=None):
             retval2.append(tmp)
     return retval2
 
-
-def compare_data(data1, data2, ignore=None, expected=True):
-    """
-    todo: Update Documentation
-    :param data1:
-    :type data1:
-    :param data2:
-    :type data2:
-    :param ignore:
-    :type ignore:
-    :param expected:
-    :type expected:
-    :return:
-    :rtype:
-    """
-    print(data1)
-    print(data2)
-    return expected
-
+def sprint_obj(obj, msg=""):
+    rv = "========================{}===========================\n".format(msg)
+    for attr in dir(obj):
+        if hasattr( obj, attr ):
+            rv = rv + "obj.%s = %s\n" % (attr, getattr(obj, attr))
+    rv = rv + "\n=====================================================\n"
+    return rv
 
 def sprint_data(d, msg=""):
     rv = "========================{}===========================\n".format(msg)
@@ -168,6 +217,9 @@ def sprint_yaml(d, msg="", default_flow_style=False):
 def print_yaml(d, msg="", default_flow_style=False):
     print (sprint_yaml(d, msg, default_flow_style))
 
+def random_integer(min=0, max=10):
+    return random.randint(min, max)
+
 def random_string(slen=10):
     include_list = string.ascii_letters + string.digits
     return ''.join(random.choice(include_list) for i in range(slen))
@@ -182,15 +234,6 @@ def random_password(slen=10):
     return ''.join(random.choice(include_list) for _ in range(slen))
 
 def random_vlan_list(count=1, exclude=[]):
-    """
-    todo: Update Documentation
-    :param count:
-    :type count:
-    :param exclude:
-    :type exclude:
-    :return:
-    :rtype:
-    """
     retval = []
     while count > 0:
         val = random.randint(2, 4094)
@@ -202,15 +245,13 @@ def random_vlan_list(count=1, exclude=[]):
     return retval
 
 def get_proc_name():
-    """
-    todo: Update Documentation
-    :return:
-    :rtype:
-    """
     return sys._getframe(1).f_code.co_name
 
-def get_line_number():
-    cf = currentframe()
+def get_line_number(lvl=0):
+    cf = inspect.currentframe()
+    for _ in range(lvl):
+        if cf.f_back:
+            cf = cf.f_back
     return cf.f_back.f_lineno
 
 def trace(fmt, *args):
@@ -227,10 +268,24 @@ def trim_dict(d, match=["", None, {}]):
             new_dict[k] = v
     return new_dict
 
+def copy_items(src, dst, include=None, exclude=None):
+    if include is not None:
+        for k, v in src.items():
+            if k in include:
+                dst[k] = v
+    elif exclude is not None:
+        for k, v in src.items():
+            if k not in exclude:
+                dst[k] = v
+
 def is_unicode(arg):
-    if sys.version_info[0] >= 3:
-        return bool(isinstance(arg, str))
     return bool(isinstance(arg, unicode))
+
+def is_basestring(arg):
+    return bool(isinstance(arg, basestring))
+
+def do_eval(arg):
+    return eval(arg)
 
 def ipcheck(addr):
     try:
@@ -249,13 +304,26 @@ def md5(fname):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+def str_encode(s):
+    if sys.version_info[0] >= 3:
+        rv = str.encode(s)
+        return rv
+    return s
+
+def str_decode(s):
+    if sys.version_info[0] >= 3:
+        rv = s.decode() if s else s
+        return rv
+    return s
+
 def b64encode(file_path):
     fh = open_file(file_path)
-    text = fh.read()
+    text = str_encode(fh.read())
     encoded_data = base64.b64encode(text)
+    encoded_data = str_decode(encoded_data)
     retval = []
-    for i in xrange((len(encoded_data) / 76) + 1):
-        retval.append(encoded_data[i * 76:(i + 1) * 76])
+    for i in range(int((len(encoded_data)/76)) + 1):
+        retval.append(encoded_data[i*76:(i+1)*76])
     return retval
 
 ######################## to be removed after refactoring ####################
@@ -286,21 +354,21 @@ def sprint_vtable(header, rows, max_width=0):
         t.add_row(row)
     return str(t)
 
-def sprint_htable(header, row):
+def sprint_htable(header, rows):
     t = PrettyTable(["Name", "value"])
     t.hrules = True
-    for index in range(0, len(row)):
-        t.add_row([header[index], row[index]])
+    for index, row in enumerate(rows):
+        t.add_row([header[index], row])
     return str(t)
 
 def date_parse(datestr):
     try:
         return datetime.datetime.strptime(datestr, '%Y-%m-%d %H:%M:%S')
-    except:
+    except Exception:
         pass
     try:
         return datetime.datetime.strptime(datestr, '%Y-%m-%d %H:%M:%S.%f')
-    except:
+    except Exception:
         pass
     return None
 
@@ -308,16 +376,17 @@ def time_parse(timestr):
     try:
         (h,m,s) = timestr.split(':')
         secs = int(h) * 3600 + int(m) * 60 + int(s)
-    except:
+    except Exception:
         secs = 0
     return secs
 
-def time_format(seconds):
-    hour = seconds // 3600
-    seconds = seconds % 3600
-    minutes = seconds // 60
-    seconds = seconds % 60
-    return "%d:%02d:%02d" % (hour, minutes, seconds)
+def time_format(value, msec=False):
+    if msec: milli, value = value % 1000, value // 1000
+    minutes, seconds = divmod(value, 60)
+    hour, minutes = divmod(minutes, 60)
+    retval = "%d:%02d:%02d" % (hour, minutes, seconds)
+    if msec: retval = "%s.%03d" % (retval, milli)
+    return retval
 
 def time_diff(start, end, fmt=False, add=0):
     if not start or not end:
@@ -391,30 +460,44 @@ def split_byall(text, tostr=False, sep=",;"):
             retval.append(ent)
     return retval
 
-def read_lines(filepath):
+def read_lines(filepath, strip=True):
     fh = open(filepath, 'r')
     data = fh.readlines()
     fh.close()
-    data = map(str.strip, data)
+    if strip:
+        data = map(str.strip, data)
+    else:
+        data = map(str, data)
     return data
 
-def find_duplicate(items, unique=[]):
-    retval = []
+def find_duplicate(items):
+    retval, unique = [], []
     for item in items:
         if item not in unique:
             unique.append(item)
         else:
             retval.append(item)
-    return retval
+    return retval, unique
+
+def read_csv(filepath):
+    rows = []
+    try:
+        with open_file(filepath) as fd:
+            for row in csv.reader(fd):
+                rows.append(row)
+    except Exception:
+        pass
+
+    return rows
 
 def write_csv_writer(cols, rows, writer, append=False):
     if not append:
         writer.writeheader()
 
-    for i in range(0, len(rows)):
+    for row in rows:
         d = OrderedDict()
-        for j in range(0, len(cols)):
-            d[cols[j]] = rows[i][j]
+        for j, col in enumerate(cols):
+            d[col] = row[j]
         writer.writerow(d)
 
 def write_csv_file(cols, rows, filepath, append=False):
@@ -437,7 +520,7 @@ def write_html_table(cols, rows, filepath=None):
 
     return write_file(filepath, html)
 
-def write_html_table2(cols, rows, filepath=None, links=None):
+def write_html_table2(cols, rows, filepath=None, links=None, colors=None, color_col=None):
     template = textwrap.dedent("""\
     <table border='1'>
     <thead>
@@ -447,9 +530,10 @@ def write_html_table2(cols, rows, filepath=None, links=None):
     </thead>
     <tbody>
       {%- for row in rows %}
-      <tr>
+      <tr {{row_css[loop.index0]}}>
+        {% set outer_loop = loop %}
         {%- for cell in row %}
-        <td>{{cell}}</td>
+        <td {{cell_css[outer_loop.index0][loop.index0]}}>{{cell}}</td>
         {%- endfor %}
       </tr>
       {%- endfor %}
@@ -459,15 +543,180 @@ def write_html_table2(cols, rows, filepath=None, links=None):
 
     if links:
         l_rows = []
-        for index in range(0, len(rows)):
-            l_row = list(rows[index])
+        for index, row in enumerate(rows):
+            l_row = list(row)
             if links[index]:
                 l_row[0]="<a href='{}'>{}</a>".format(links[index],l_row[0])
             l_rows.append(l_row)
     else:
         l_rows = rows
-    html = Environment().from_string(template).render(cols=cols, rows=l_rows)
+
+    row_css = ["" for _ in l_rows]
+    cell_css = [["" for _ in cols] for _ in l_rows]
+    for col_index, col in enumerate(cols):
+        for row_index, l_row in enumerate(l_rows):
+            if not colors: continue
+            color = 'style="background-color:{}"'.format(colors[row_index])
+            if color_col is None:
+                row_css[row_index] = color
+            elif col == color_col:
+                cell_css[row_index][col_index] = color
+
+    html = j2_apply(template, cols=cols, rows=l_rows, row_css=row_css, cell_css=cell_css)
     return write_file(filepath, html)
+
+# links, colors and align are dictionaries or None
+# where key is column name or None and value is list of links/colors/align
+# None key is used for entire row
+# text-align None=center, True=Left, False=Right
+def write_html_table3(cols, rows, filepath=None, links=None, colors=None, align=None, total=True):
+    js_tmpl = textwrap.dedent("""\
+    <head>
+      <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+      <meta http-equiv="Pragma" content="no-cache" />
+      <meta http-equiv="Expires" content="0" />
+      <link href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css" rel="stylesheet" />
+      <link href="https://cdn.datatables.net/buttons/1.6.2/css/buttons.dataTables.min.css" rel="stylesheet" />
+      <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+      <script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+      <script src="https://cdn.datatables.net/buttons/1.6.2/js/dataTables.buttons.min.js"></script>
+      <script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.colVis.min.js"></script>
+      <script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.html5.min.js"></script>
+      <style>
+        table.dataTable thead th {text-align:center; padding:0px 15px 0px 5px; font-weight:normal;}
+        table.dataTable tbody td {text-align:center; padding:0px 5px 0px 5px}
+        table.dataTable tfoot td {text-align:center; padding:0px 5px 0px 5px}
+      </style>
+      <script>
+        $(function () {
+          {%- if total == 'True' %}
+          var last = $('table tr:last').remove()
+          var foot = $("table").find('tfoot');
+          if (!foot.length) foot = $('<tfoot>').appendTo("table");
+          foot.append(last)
+          {%- endif %}
+          function selectedColumn(idx, data, node) {
+            searchInput = $('table').parents('.dataTables_wrapper').find('select');
+            let columnIndex = ourSelect.prop('selectedIndex');
+            return ((columnIndex <= 0) || (idx == columnIndex - 1));
+          }
+          function get_uniq(data, obj) {
+            return data.split('\\n').filter((item, i, allItems) => {return i === allItems.indexOf(item);}).join('\\n');
+          }
+          buttons = [{ extend: 'colvis', className: 'btn btn-primary' },
+                     { extend: 'copy', className: 'btn btn-primary', title: '',
+                       text: 'Copy Column', header: false, customize: get_uniq,
+                       exportOptions: { columns: selectedColumn }
+                     }];
+          dataTable = $('table').DataTable({dom: 'Bfrtip', buttons: buttons,
+            iDisplayLength: 100, paging: false, "order": []
+          });
+          col_css = {{col_css}}
+          $('table.dataTable tr').filter(function() {
+             return this.parentNode !== "thead";
+            }).each(function(tr_idx,tr) {
+            $(tr).children('td').each(function(td_idx, td) {
+              $(td).css("text-align", col_css[td_idx]["align"])
+            });
+          });
+          // support for search by
+          searchInput = $('table').parents('.dataTables_wrapper').find('input[type=search]')
+          ourInput = $(document.createElement('input')).attr({type: 'search'});
+          scopeSpan = $(document.createElement('span')).text('Column Scope:').attr({style: "padding-right:5"})
+          searchSpan = $(document.createElement('span')).text('Search:').attr({style: "padding-left:5"})
+          ourLabel = $(document.createElement('label'))
+          ourSelect = $(document.createElement('select'))
+          var select = '<option/>';
+          $("table thead tr th").each(function(){
+            select += '<option>' + this.innerHTML + '</option>';
+          })
+          ourSelect.html(select);
+          ourLabel.append(scopeSpan).append(ourSelect).append(searchSpan).append(ourInput).insertBefore(searchInput.parent());
+          searchInput.parent().css("display", "none")
+          let query = undefined;
+          function hanleInputEvent() {
+            query = ourInput.val().toLowerCase();
+            if (query === '') { query = undefined; }
+            dataTable.draw();
+          }
+          ourInput.on('keyup', hanleInputEvent)
+          ourInput.on('search', hanleInputEvent)
+          function filterDataTable(settings, data, dataIndex) {
+            if (query === undefined) { return true; }
+            let columnIndex = ourSelect.prop('selectedIndex')
+            if (columnIndex > 0) {
+              return data[columnIndex-1].toLowerCase().indexOf(query) !== -1;
+            }
+            for (var i = 0; i < data.length; i++) {
+              if (data[i].toLowerCase().indexOf(query) !== -1) return true;
+            }
+            return 0
+          }
+          $.fn.dataTable.ext.search.push(filterDataTable);
+        });
+      </script>
+    </head>
+    """)
+
+    html_tmpl = textwrap.dedent("""\
+    {{js}}
+    <body>
+      <table border='1'>
+      <thead>
+        <tr>
+          {%- for col in cols %}
+          <th>{{col}}</th>
+          {%- endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr{{row_css[loop.index0]}}>
+          {%- set outer_loop = loop %}
+          {%- for cell in row %}
+          <td{{cell_css[outer_loop.index0][loop.index0]}}>{{cell}}</td>
+          {%- endfor %}
+        </tr>
+        {%- endfor %}
+      </tbody>
+      </table>
+    </body>
+    """)
+
+    l_rows = [[row[i] for i, _ in enumerate(cols)] for row in rows]
+    for col_index, col in enumerate(cols):
+        for row_index, l_row in enumerate(l_rows):
+            if not links: continue
+            if col in links and row_index < len(links[col]):
+                l_link = links[col][row_index]
+            elif None in links and row_index < len(links[None]):
+                l_link = links[None][row_index]
+            else: continue
+            if not l_link: continue
+            l_row[col_index]="<a href='{}'>{}</a>".format(l_link, l_row[col_index])
+
+    row_css = ["" for _ in l_rows]
+    col_css = [{prop: "center" for prop in ["align"]} for _ in cols]
+    cell_css = [["" for _ in cols] for _ in l_rows]
+    for col_index, col in enumerate(cols):
+        if align and col in align:
+            col_css[col_index]["align"] = "left" if align[col] else "center"
+        elif align and None in align:
+            col_css[col_index]["align"] = "left" if align[None] else "center"
+        for row_index, l_row in enumerate(l_rows):
+            if not colors: continue
+            if col in colors and row_index <= len(colors[col]):
+                color = ' style="background-color:{}"'.format(colors[col][row_index])
+                cell_css[row_index][col_index] = color
+            elif None in colors and row_index <= len(colors[None]):
+                color = ' style="background-color:{}"'.format(colors[None][row_index])
+                row_css[row_index] = color
+
+    js = j2_apply(js_tmpl, total=str(total), col_css=col_css)
+    html = j2_apply(html_tmpl, js=js, cols=cols, rows=l_rows, row_css=row_css,
+                    cell_css=cell_css, col_css=col_css)
+    return write_file(filepath, html)
+
 
 # entries should be output of traceback.format_exc()
 def stack_trace(entries):
@@ -482,25 +731,19 @@ def stack_trace(entries):
             msg = "[{}] {}:{} {} {}".format(index, fname, line, func, text)
             index = index + 1
             retval.append(msg)
-    except:
+    except Exception:
         retval.append("Failed to parse stack trace {}".format(str(entries)))
 
     return retval
 
 def poll_wait(method, timeout, *args, **kwargs):
-    t = time.time() + timeout
-    while True:
-      time.sleep(1)
-      if time.time() > t:
-        break
-      elif method(*args, **kwargs):
-        return True
-    return False
+    from spytest import st
+    return st.poll_wait(method, timeout, *args, **kwargs)
 
 def time_span_to_sec(time_span):
     try:
         return sum(x * int(t) for x, t in zip([3600, 60, 1], time_span.split(":")))
-    except:
+    except Exception:
         return 0
 
 def to_string(data):
@@ -520,7 +763,7 @@ def split_lines_trim(text):
 
 def dicts_list_values(dict_list, name):
     retval = []
-    for d in dict_list:
+    for d in iterable(dict_list):
         if name in d:
             retval.append(d[name])
     return  retval
@@ -544,6 +787,7 @@ def banner(msg, width=80, delimiter="#", wrap=True, func=None, tnl=True, lnl=Tru
     msg_list = [""] if lnl else []
     msg_list.append(delimiter*width)
     if msg != None:
+        msg = str(msg)
         if wrap: output = ["{0} {1} {0}".format(delimiter,each.center(width-4))
                             for each in textwrap.wrap(msg, width=width-4)]
         else: output = ["{0} {1:{2}} {0}".format(delimiter,each,(width-4))
@@ -553,6 +797,7 @@ def banner(msg, width=80, delimiter="#", wrap=True, func=None, tnl=True, lnl=Tru
     for each_line in msg_list:
         if func: func(each_line)
         else: print(each_line)
+    return "\n".join(msg_list)
 
 def split_with_quoted_strings(s):
     def strip_quotes(s):
@@ -576,7 +821,7 @@ def integer_parse(s, default=None):
     #return re.match(r"[-+]?\d+$", s) is not None
     try:
         return int(s)
-    except:
+    except Exception:
         return default
 
 def min(n1, n2):
@@ -585,21 +830,20 @@ def min(n1, n2):
 def max(n1, n2):
     return n1 if n1 > n2 else n2
 
-def j2_apply(text, **kwargs):
-    return Environment().from_string(text).render(**kwargs)
-
-def json_parse(text=None, file=None, paths=[], **kwargs):
-    root = None
+def j2_apply(text=None, file=None, paths=[], **kwargs):
     if text:
         text = Environment().from_string(text).render(**kwargs)
     elif file:
-        if "::" in file: [file, root] = file.split("::", 2)
         file = find_file(file, paths)
         text = "\n".join(read_lines(file))
         text = Environment().from_string(text).render(**kwargs)
     else:
         raise Exception("Neither text nor file argument provided")
-    data = json.fix(text, "Invalid json text/file supplied", True)
+    return text
+
+def json_parse(text=None, file=None, paths=[], **kwargs):
+    root, text = None, j2_apply(text, file, paths, **kwargs)
+    data = jsonutil.fix(text, "Invalid json text/file supplied", True)
     if not root: return data
     if root in data: return data[root]
     return None
@@ -624,14 +868,14 @@ def convert_to_bits(count_dict):
             count_dict[port][property] = float(re.findall(r"\d+[.]?[\d+]?", value.replace(',',''))[0])*multiple
     return count_dict
 
-def get_current_datetime():
+def get_current_datetime(fmt="%m%d%Y%H%M%S"):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Common function to get current date time
     :return:
     """
     now = datetime.datetime.now()
-    return now.strftime("%m%d%Y%H%M%S")
+    return now.strftime(fmt)
 
 
 def write_to_json_file(content, file_path):
@@ -660,10 +904,61 @@ def remove_last_line_from_string(data):
     """
     return data[:data.rfind('\n')]
 
+def get_random_seed():
+    if not os.getenv("SPYTEST_RAMDOM_SEED"):
+        value = str(random.randint(10000,20000))
+        os.environ["SPYTEST_RAMDOM_SEED"] = value
+    return int(os.getenv("SPYTEST_RAMDOM_SEED", "100"))
+
+def inject_module(mdl, depth=0, asvar=None):
+    if "__all__" in mdl.__dict__:
+        names = mdl.__dict__["__all__"]
+    else:
+        names = [x for x in mdl.__dict__ if not x.startswith("_")]
+    f_globals = inspect.stack()[depth+1][0].f_globals
+    upd_dict = {k: getattr(mdl, k) for k in names}
+    if asvar: upd_dict = {asvar: upd_dict}
+    f_globals.update(upd_dict)
+
+def import_file_path(path, depth=0, asvar=None, inject=True):
+    name = os.path.splitext(os.path.basename(path))[0]
+    if sys.version_info[0] == 2:
+        import imp
+        sys.path.append(os.path.dirname(path))
+        mdl = imp.load_source(name, path)
+    elif sys.version_info[:2] <= (3, 4):
+        from importlib.machinery import SourceFileLoader # pylint: disable=no-name-in-module,import-error
+        mdl = SourceFileLoader(name, path).load_module() # pylint: disable=deprecated-method
+    else:
+        import importlib.util as importlib_util # pylint: disable=no-name-in-module,import-error
+        spec = importlib_util.spec_from_file_location(name, path)
+        mod = importlib_util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mdl = mod
+    if inject:
+        inject_module(mdl, depth+1, asvar)
+    return mdl
+
+def set_repeat(path, name, topo):
+    import_file_path(path, 1)
+    frame = inspect.stack()[1]
+    filename = frame[0].f_code.co_filename
+    os.environ["SPYTEST_REPEAT_NAME_{}".format(filename)] = name
+    os.environ["SPYTEST_REPEAT_TOPO_{}".format(filename)] = topo
+
+def unused(*args):
+    pass
+
+def get_env_int(name, default):
+    try:
+        return int(os.getenv(name, default))
+    except Exception:
+        pass
+    return default
 
 if __name__ == "__main__":
     # indent the json file
     text = "\n".join(read_lines(sys.argv[1]))
-    data = json.fix(text, load=True)
-    print(json.dumps(data))
+    data = jsonutil.fix(text, load=True)
+    print(jsonutil.dumps(data))
 

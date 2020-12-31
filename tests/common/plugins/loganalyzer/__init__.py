@@ -2,6 +2,7 @@ import logging
 import pytest
 
 from loganalyzer import LogAnalyzer
+from tests.common.errors import RunAnsibleModuleFail
 
 
 def pytest_addoption(parser):
@@ -10,15 +11,24 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(autouse=True)
-def loganalyzer(duthost, request):
+def loganalyzer(duthosts, rand_one_dut_hostname, request):
+    duthost = duthosts[rand_one_dut_hostname]
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         logging.info("Log analyzer is disabled")
         yield
         return
+
     # Force rotate logs
-    duthost.shell(
-        "/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1"
-        )
+    try:
+        duthost.shell(
+            "/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1"
+            )
+    except RunAnsibleModuleFail as e:
+        logging.warning("logrotate is failed. Command returned:\n"
+                        "Stdout: {}\n"
+                        "Stderr: {}\n"
+                        "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
     logging.info("Add start marker into DUT syslog")
     marker = loganalyzer.init()
@@ -28,6 +38,6 @@ def loganalyzer(duthost, request):
 
     yield loganalyzer
     # Skip LogAnalyzer if case is skipped
-    if request.node.rep_call.skipped:
+    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped:
         return
     loganalyzer.analyze(marker)

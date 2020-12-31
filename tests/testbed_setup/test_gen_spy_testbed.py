@@ -2,10 +2,10 @@ import logging
 import json
 import os
 import pytest
-import yaml
 
 from collections import defaultdict
 from jinja2 import Template
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
 
 TESTBED_TEMPLATE = "templates/spytest_testbed.yaml.j2"
@@ -28,7 +28,7 @@ def hostvars(duthosts):
             for duthost in duthosts}
 
 
-def test_gen_spy_testbed(conn_graph_facts_multi_duts, hostvars, testbed,
+def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,
                          pytestconfig):
     """Generate spytest testbed file."""
 
@@ -36,14 +36,8 @@ def test_gen_spy_testbed(conn_graph_facts_multi_duts, hostvars, testbed,
         """Get interface key to sort."""
         return list(map(int, interface.lstrip("Ethernet").split("/")))
 
-    def _to_string(obj):
-        """Convert unicodes in obj to strings"""
-        return yaml.safe_load(json.dumps(obj))
-
-    hostnames = testbed["duts"]
-    device_conn = _to_string(conn_graph_facts_multi_duts["device_conn"])
-    connections = dict(
-        zip(hostnames, conn_graph_facts_multi_duts["device_conn"]))
+    hostnames = tbinfo["duts"]
+    connections = conn_graph_facts["device_conn"]
 
     # devices section
     devices = []
@@ -102,7 +96,7 @@ def test_gen_spy_testbed(conn_graph_facts_multi_duts, hostvars, testbed,
         logging.warn("testbed file(%s) exists, overwrite!", testbed_file)
     testbed_stream = testbed_tmpl.stream(
         devices=devices,
-        testbed=testbed,
+        tbinfo=tbinfo,
         ptf_connections=ptf_connections,
         dev_connections=dev_connections
     )

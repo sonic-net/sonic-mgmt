@@ -19,19 +19,23 @@ ip6_traffic_over_link_local_nh_fail : IPv6 traffic forwarding via link local add
 ip6_traffic_over_link_local_nh_fail_vrf : IPv6 traffic forwarding via link local address as next hop is failed in non default VRF.
 ip6_traffic_over_link_local_nh_fail_manual : IPv6 traffic forwarding via manual configured link local address as next hop is failed
 ip6_disable_link_local_failed: Disabling of IPV6 link local address on {} failed.
+link_local_address_not_found: DUT IPv6 Link Local Address not found
 
 ##BGP
 bgp_router_created: BGP Router created successfully
 bgp_ip_peer_establish_fail : Failed to Establish BGP IPv4 peer {}
 bgp_ip6_peer_establish_fail : Failed to Establish BGP IPv6 peer {}
-bgp_aggregation_pass : BGP prefix {} aggregated 
-bgp_aggregation_fail : Could not aggregate BGP prefix {}  
+bgp_aggregation_pass : BGP prefix {} aggregated
+bgp_aggregation_fail : Could not aggregate BGP prefix {}
 bgp_route_info : bgp route {} info {}
 traffic_verification_failed_during_warm_reboot: traffic loss observed during warm reboot
 BGP_established_over_portchannel_after_reboot: BGP established over portchannel after reboot
 BGP_failed_to_establish_over_portchannel_after_reboot: BGP failed to establish over portchannel after reboot
 BGP_unnumbered_neighbor_establish_status: BGP unnumbered neighbor {} to establish
 BGP_unnumbered_neighbor_route_learn_status: Learning of IPV4 route over IPV6 in BGP unnumbered neighbor is {}.
+bgp_router_create_delete : BGP Router {} through {} is {}.
+bgp_neighbor_create_delete : BGP IP{} neighbor {} through {} is {}.
+bgp_neighbor_status : BGP IP{} neighbor status(Established) is {} when created through {}.
 
 
 ##OSPF
@@ -71,6 +75,7 @@ v6_traceroute_fail_from_DUT_to_DUT : IPv6 Traceroute fail from dut{} to dut{}
 v6_ping_fail_from_DUT_to_DUT : IPv6 ping fail from dut{} to dut{}
 
 ##NAT
+static_twice_nat_translation_entry_create_fail : Static Twice NAT translation entry creation failed for local ip {} and global ip {}
 static_nat_translation_entry_create_fail : Static NAT translation entry creation failed for local ip {} and global ip {}
 static_nat_translation_entry_del_fail : Static NAT translation entry deletion failed for local ip {} and global ip {}
 snat_translation_failed_in_packet : NAT translation failed in packet, source ip {} not translated to {}
@@ -102,7 +107,7 @@ nat_translation_successful_after_reboot: NAT translation successful after reboot
 nat_translation_successful_after_config_reload: NAT translation successful after config save and reload
 dynamic_nat_scaling_failed: Failed to learn max supported dynamic nat entries
 ping_fail_across_nat_zone: ping failed across nat zones
-traceroute_over_nat_failed : Traceroute over NAT translation failed 
+traceroute_over_nat_failed : Traceroute over NAT translation failed
 traceroute_over_nat_translation_successful : Traceroute is successful over a NAT translation
 nat_warm_reboot_failed: Warm boot failed in NAT
 dynamic_napt_entry_exists_after_docker_restart: Dynamic NAPT entry is not cleared during nat docker restart
@@ -121,7 +126,7 @@ single_bfd_peer : In {} BFD peer parameters incorrect for {}
 bfd_peer_params : In {} one or more BFD peer parameters is incorrect
 bgp_bfd_params : In {} BGP BFD neighbor params failed for {}
 bfd_fail_tc : BGP BFD failed over {} port for {}
-bfd_fail_tcid : BFD test case id {} failed for mode {} version {} 
+bfd_fail_tcid : BFD test case id {} failed for mode {} version {}
 bfd_pass_tcid : BFD test case id {} passed for mode {} version {}
 bfd_convergence_time : Traffic Convergence with BFD failed
 bfd_counters_fail: BFD counters verification failed for {}
@@ -187,6 +192,7 @@ dhcp_relay_link_select_default_vrf_with_diff_boot_status: Verification the DHCP 
 dhcp_relay_link_select_ipv6_link_local_status: Verification the DHCP relay agent link-select functionality in default VRF with DHCP server rechability via IPv6 link local address is {}
 DHCP_relay_link_select_max_hop_count_status: Verification of max hop count configuration with DHCP relay configuration is {}.
 dhcp_relay_verification_rest_klish_status_default_vrf : DHCP{} Relay functionality verification in default VRF through {} is {}.
+dhcp_relay_mem_leak_verification_status : DHCP Relay memory leak verication is {}.
 
 
 #MCAST
@@ -220,3 +226,5 @@ All_configured_servers_received_packets : Test case passed. All configured helpe
 IP_helper_service_is_not_up : Test case failed, IP helper is not up
 Vrf_Config_verification_failed : VRF config verification failed
 IP_helper_test_case_msg_status : Test case {} {}
+
+accessing_shell_status: Accessing {} shell after enable/disalbe bgp error handling {}

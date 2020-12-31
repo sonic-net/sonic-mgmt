@@ -41,6 +41,8 @@ import sys
 import jinja2
 from ansible.module_utils.basic import *
 
+DEFAULT_DUMP_SCRIPT = "/usr/share/exabgp/dump.py"
+
 dump_py = '''\
 #!/usr/bin/env python
 
@@ -53,7 +55,7 @@ while True:
     try:
         line = stdin.readline()
         obj = json.loads(line)
-        f = open("/tmp/exabgp-" + obj["neighbor"]["ip"], "a")
+        f = open("/tmp/exabgp-" + obj["neighbor"]["address"]["local"], "a")
         print >> f, line,
         f.close()
     except:
@@ -94,7 +96,7 @@ group exabgp {
             parsed;
             update;
         }
-        run /usr/bin/python /usr/share/exabgp/dump.py;
+        run /usr/bin/python {{ dump_script }};
     }
 
     process http-api {
@@ -165,7 +167,7 @@ def restart_exabgp(module, name):
 def stop_exabgp(module, name):
     exec_command(module, cmd="supervisorctl stop exabgp-%s" % name, ignore_error=True)
 
-def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, auto_flush=True, group_updates=True):
+def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, auto_flush=True, group_updates=True, dump_script=DEFAULT_DUMP_SCRIPT):
     try:
         os.mkdir("/etc/exabgp", 0755)
     except OSError:
@@ -180,7 +182,8 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
                     peer_asn=peer_asn, \
                     port=port, \
                     auto_flush=auto_flush, \
-                    group_updates=group_updates)
+                    group_updates=group_updates, \
+                    dump_script=dump_script)
     with open("/etc/exabgp/%s.conf" % name, 'w') as out_file:
         out_file.write(data)
 
@@ -203,14 +206,14 @@ def remove_exabgp_supervisord_conf(name):
     except Exception:
         pass
 
-def setup_exabgp_processor():
+def setup_exabgp_processor(use_default_dump_script):
     try:
         os.mkdir("/usr/share/exabgp", 0755)
     except OSError:
         pass
-
-    with open("/usr/share/exabgp/dump.py", 'w') as out_file:
-        out_file.write(dump_py)
+    if use_default_dump_script:
+        with open(DEFAULT_DUMP_SCRIPT, 'w') as out_file:
+            out_file.write(dump_py)
     with open("/usr/share/exabgp/http_api.py", 'w') as out_file:
         out_file.write(http_api_py)
 
@@ -225,6 +228,7 @@ def main():
             local_asn=dict(required=False, type='int'),
             peer_asn=dict(required=False, type='int'),
             port=dict(required=False, type='int', default=5000),
+            dump_script=dict(required=False, type='str', default=DEFAULT_DUMP_SCRIPT)
         ),
         supports_check_mode=False)
 
@@ -236,21 +240,22 @@ def main():
     local_asn = module.params['local_asn']
     peer_asn  = module.params['peer_asn']
     port      = module.params['port']
+    dump_script = module.params['dump_script']
 
-    setup_exabgp_processor()
+    setup_exabgp_processor(dump_script==DEFAULT_DUMP_SCRIPT)
 
     result = {}
     try:
         if state == 'started':
-            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port)
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script)
             setup_exabgp_supervisord_conf(name)
             start_exabgp(module, name)
         elif state == 'restarted':
-            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port)
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script)
             setup_exabgp_supervisord_conf(name)
             restart_exabgp(module, name)
         elif state == 'present':
-            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port)
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script)
             setup_exabgp_supervisord_conf(name)
             refresh_supervisord(module)
         elif state == 'stopped':

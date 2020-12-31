@@ -1,0 +1,17 @@
+####################################################################
+#show interface breakout Ethernet 0 | no-more
+#----------------------------------------------------
+#Interface           Breakout Mode       Status              
+#----------------------------------------------------
+#Ethernet0           4x10G               Completed         
+####################################################################
+Value interface (\S+)
+Value breakout_mode (\S+)
+Value status (\S+)
+
+Start
+  ^(-+\s*)*$$
+  ^\s*Interface\s*Breakout\s+Mode\s*Status\s*$$ 
+  ^(-+\s*)*$$
+  ^\s*${interface}\s*${breakout_mode}\s*${status}\s*$$ -> Record
+

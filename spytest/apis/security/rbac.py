@@ -2,7 +2,6 @@
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
 from spytest import st
-from utilities.utils import banner_log
 from apis.system.gnmi import gnmi_get, gnmi_set
 from apis.system.rest import rest_call, get_jwt_token
 
@@ -16,7 +15,7 @@ def ssh_call(dut, remote_dut=None, **kwargs):
     :param kwargs:
     :return:
     """
-    banner_log('Performing SSH call using - {}'.format(kwargs))
+    st.log('Performing SSH call using - {}'.format(kwargs))
     for each in ['login_type', 'username', 'password', 'mode']:
         if not kwargs.get(each):
             st.error("Mandatory argument is not found - {}".format(each))
@@ -74,7 +73,7 @@ def gnmi_call(dut, **kwargs):
     :param kwargs:
     :return:
     """
-    banner_log('Performing gnmi operations using - {}'.format(kwargs))
+    st.log('Performing gnmi operations using - {}'.format(kwargs))
 
     for each in ['login_type', 'username', 'password', 'mode']:
         if not kwargs.get(each):
@@ -90,7 +89,8 @@ def gnmi_call(dut, **kwargs):
     login_type = kwargs.get('login_type')
     mode = kwargs.get('mode')
     port = st.get_free_ports(dut)[0]
-    insecure = kwargs.get('insecure', '')
+    if "/" in port:
+        port = st.get_other_names(dut, [port])[0]
     xpath = '/openconfig-interfaces:interfaces/interface[name={}]/config/description'.format(port)
     json_content = {"openconfig-interfaces:description": "Eth"}
 
@@ -121,7 +121,7 @@ def gnmi_call(dut, **kwargs):
             st.report_fail('rbac_call_fail', "gNMI", mode, login_type)
 
     msg = 'Failed to execute set command using gNMI session with mode- {mode}, type- {login_type}'
-    if mode == 'rw' and "op: UPDATE" not in gnmi_set_out and "description" not in str(gnmi_get_out):
+    if mode == 'rw' and "op: UPDATE" not in str(gnmi_set_out) and "description" not in str(gnmi_get_out):
         st.error(msg.format(**kwargs))
         result2 = False
     if mode == 'ro' and not gnmi_set_out and "description" not in str(gnmi_get_out):
@@ -141,7 +141,7 @@ def rest_rbac_call(dut, **kwargs):
     :param kwargs:
     :return:
     """
-    banner_log('Performing REST call using - {}'.format(kwargs))
+    st.log('Performing REST call using - {}'.format(kwargs))
     for each in ['login_type', 'username', 'password', 'mode']:
         if not kwargs.get(each):
             st.error("Mandatory argument is not found - {}".format(each))
@@ -155,19 +155,22 @@ def rest_rbac_call(dut, **kwargs):
     password = kwargs.get('password')
     login_type = kwargs.get('login_type')
     mode = kwargs.get('mode')
-    operation_down = {"sonic-port:admin_status": "down"}
-    operation_up = {"sonic-port:admin_status": "up"}
-    port = st.get_free_ports(dut)[0]
-    device_ip = st.get_mgmt_ip(dut)
     cert = kwargs.get("cert")
-    url = 'restconf/data/sonic-port:sonic-port/PORT/PORT_LIST={}/admin_status'.format(port)
+    model = kwargs.get('model')
+    url = kwargs.get('url')
+    if model == 'oc-yang':
+        operation1 = {"openconfig-interfaces:mtu": 9216}
+        operation2 = {"openconfig-interfaces:mtu": 9100}
+    else:
+        operation1 = {"sonic-port:admin_status": "down"}
+        operation2 = {"sonic-port:admin_status": "up"}
 
     if login_type == 'cred':
         headers1 = {'Content-Type': 'application/yang-data+json', 'Accept': 'application/yang-data+json'}
         rest_get_out = rest_call(dut, headers=headers1, username=username, password=password, url=url, call_type='get')
         st.log(rest_get_out)
         rest_put_out = rest_call(dut, headers=headers1, username=username, password=password, url=url, call_type='put',
-                                 data=operation_down)
+                                 data=operation1)
         st.log(rest_put_out)
 
     elif login_type == 'token':
@@ -179,13 +182,13 @@ def rest_rbac_call(dut, **kwargs):
         headers2['Authorization'] = headers2['Authorization'].format(tocken)
         rest_get_out = rest_call(dut, headers=headers2, url=url, call_type='get')
         st.log(rest_get_out)
-        rest_put_out = rest_call(dut, headers=headers2, url=url, call_type='put', data=operation_up)
+        rest_put_out = rest_call(dut, headers=headers2, url=url, call_type='put', data=operation2)
         st.log(rest_put_out)
 
     elif login_type == 'cert':
-        get_curl = 'curl --key {} --cert {} ' \
-              '"https://localhost/restconf/data/sonic-port:sonic-port/PORT/PORT_LIST={}/admin_status"' \
-              ' -k'.format(cert[0], cert[1], port)
+        port1 = st.get_free_ports(dut)[0].replace("/", "%2F")
+        url2 = '/restconf/data/sonic-port:sonic-port/PORT/PORT_LIST={}/admin_status'.format(port1)
+        get_curl = 'curl --key {} --cert {} ' "'https://localhost{}'" ' -k'.format(cert[0], cert[1], url2)
         out = st.show(dut, get_curl, skip_tmpl=True, skip_error_check=True)
         rest_get_out = {'status': 401}
         rest_put_out = {'status': 200}
@@ -210,3 +213,14 @@ def rest_rbac_call(dut, **kwargs):
     if not result2:
         st.report_fail('rbac_test_status', 'Fail', mode, 'REST', login_type, result)
     st.report_pass('rbac_test_status', 'Pass', mode, 'REST', login_type, result)
+
+def add_user(dut, username):
+    """
+    Call to add user.
+    Author : Jagadish Chatrasi (jagadish.chatrasi@broadcom.com)
+    :param dut:
+    :param username:
+    :return:
+    """
+    st.config(dut, 'usermod -s /bin/bash {}'.format(username))
+    return True

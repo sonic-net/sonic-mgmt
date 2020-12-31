@@ -11,9 +11,13 @@ from datetime import datetime
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.sanity_check(skip_sanity=True),
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)
@@ -25,8 +29,9 @@ TMP_PORTS_FILE = '/tmp/ports.json'
 
 
 @pytest.fixture(scope="module")
-def setup(localhost, ptfhost, duthost, upgrade_path_lists):
-    prepare_ptf(ptfhost, duthost)
+def setup(localhost, ptfhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    prepare_ptf(ptfhost, duthost, tbinfo)
     yield
     cleanup(localhost, ptfhost, duthost, upgrade_path_lists)
 
@@ -47,14 +52,11 @@ def cleanup(localhost, ptfhost, duthost, upgrade_path_lists):
     os.remove(TMP_PORTS_FILE)
 
 
-def prepare_ptf(ptfhost, duthost):
+def prepare_ptf(ptfhost, duthost, tbinfo):
     logger.info("Preparing ptfhost")
-    ptfhost.script("./scripts/remove_ip.sh")
-    ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py",
-                 dest="/opt")
 
     # Prapare vlan conf file
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     with open(TMP_VLAN_PORTCHANNEL_FILE, "w") as file:
         file.write(json.dumps(mg_facts['minigraph_portchannels']))
@@ -67,7 +69,7 @@ def prepare_ptf(ptfhost, duthost):
                  dest=TMP_VLAN_FILE)
 
     with open(TMP_PORTS_FILE, "w") as file:
-        file.write(json.dumps(mg_facts['minigraph_port_indices']))
+        file.write(json.dumps(mg_facts['minigraph_ptf_indices']))
     ptfhost.copy(src=TMP_PORTS_FILE,
                  dest=TMP_PORTS_FILE)
 
@@ -80,9 +82,10 @@ def prepare_ptf(ptfhost, duthost):
 
 
 @pytest.fixture(scope="module")
-def ptf_params(duthost, nbrhosts):
+def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lo_v6_prefix = ""
     for intf in mg_facts["minigraph_lo_interfaces"]:
         ipn = ipaddress.IPNetwork(intf['addr'])
@@ -96,21 +99,19 @@ def ptf_params(duthost, nbrhosts):
         #TODO:Update to vm_hosts.append(value['host'].host.mgmt_ip)
         vm_hosts.append(value['host'].host.options['inventory_manager'].get_host(value['host'].hostname).vars['ansible_host'])
 
-    hostVars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    inventory = hostVars['inventory_file'].split('/')[-1]
-    secrets = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']
-
+    sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
     ptf_params = {
         "verbose": False,
-        "dut_username": secrets[inventory]['sonicadmin_user'],
-        "dut_password": secrets[inventory]['sonicadmin_password'],
+        "dut_username": creds.get('sonicadmin_user'),
+        "dut_password": creds.get('sonicadmin_password'),
+        "alt_password": sonicadmin_alt_password,
         "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
         "reboot_limit_in_seconds": 30,
         "reboot_type": "warm-reboot",
         "portchannel_ports_file": TMP_VLAN_PORTCHANNEL_FILE,
         "vlan_ports_file": TMP_VLAN_FILE,
         "ports_file": TMP_PORTS_FILE,
-        "dut_mac": duthost.setup()['ansible_facts']['ansible_Ethernet0']['macaddress'],
+        "dut_mac": duthost.facts["router_mac"],
         "dut_vlan_ip": "192.168.0.1",
         "default_ip_range": "192.168.100.0/18",
         "vlan_ip_range": mg_facts['minigraph_vlan_interfaces'][0]['subnet'],
@@ -121,6 +122,16 @@ def ptf_params(duthost, nbrhosts):
     }
     return ptf_params
 
+def get_reboot_type(duthost):
+    next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
+    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+
+    # warm-reboot has to be forced for an upgrade from 201811 to 201911 to bypass ASIC config changed error
+    if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201911' in next_os_version:
+        reboot_type = "warm-reboot -f"
+    else:
+        reboot_type = "warm-reboot"
+    return reboot_type
 
 def check_sonic_version(duthost, target_version):
     current_version = duthost.image_facts()['ansible_facts']['ansible_image_facts']['current']
@@ -132,12 +143,12 @@ def install_sonic(duthost, image_url):
     res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
     return res['ansible_facts']['downloaded_image_version']
 
-def test_upgrade_path(localhost, duthost, ptfhost, upgrade_path_lists, ptf_params, setup):
+def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgrade_path_lists, ptf_params, setup):
+    duthost = duthosts[rand_one_dut_hostname]
     from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')
     assert (from_list and to_list)
-    test_params = ptf_params
     for from_image in from_list:
         for to_image in to_list:
             logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
@@ -151,7 +162,9 @@ def test_upgrade_path(localhost, duthost, ptfhost, upgrade_path_lists, ptf_param
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
             target_version = install_sonic(duthost, to_image)
+            test_params = ptf_params
             test_params['target_version'] = target_version
+            test_params['reboot_type'] = get_reboot_type(duthost)
             prepare_testbed_ssh_keys(duthost, ptfhost, test_params['dut_username'])
             log_file = "/tmp/advanced-reboot.ReloadTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
 
@@ -161,6 +174,6 @@ def test_upgrade_path(localhost, duthost, ptfhost, upgrade_path_lists, ptf_param
                        platform_dir="ptftests",
                        params=test_params,
                        platform="remote",
-                       qlen=1000,
+                       qlen=10000,
                        log_file=log_file)
 

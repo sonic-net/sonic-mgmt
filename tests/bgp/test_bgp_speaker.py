@@ -50,14 +50,15 @@ def change_route(operation, ptfip, neighbor, route, nexthop, port):
     assert r.status_code == 200
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthost, ptfhost, localhost):
+def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
 
     logging.info("########### Setup for bgp speaker testing ###########")
 
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     logging.info("ptfip=%s" % ptfip)
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     interface_facts = duthost.interface_facts()['ansible_facts']
 
     constants_stat = duthost.stat(path="/etc/sonic/constants.yml")
@@ -85,7 +86,7 @@ def common_setup_teardown(duthost, ptfhost, localhost):
 
     vlan_ports = []
     for i in range(0, 3):
-        vlan_ports.append(mg_facts['minigraph_port_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
+        vlan_ports.append(mg_facts['minigraph_ptf_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
     logging.info("vlan_ports: %s" % str(vlan_ports))
 
     # Generate ipv6 nexthops
@@ -165,9 +166,10 @@ def common_setup_teardown(duthost, ptfhost, localhost):
     logging.info("########### Done teardown for bgp speaker testing ###########")
 
 
-def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, collect_techsupport):
+def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthosts, rand_one_dut_hostname, ptfhost, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify bgp sessions are established
     """
+    duthost = duthosts[rand_one_dut_hostname]
     ptfip, mg_facts, interface_facts, vlan_ips, _, _, speaker_ips, port_num, http_ready = common_setup_teardown
     assert http_ready
 
@@ -179,7 +181,7 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthost, ptfhost, colle
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
 
 
-def bgp_speaker_announce_routes_common(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, family, prefix, nexthop_ips):
+def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, family, prefix, nexthop_ips):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
@@ -215,11 +217,11 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, testbed, duthost, 
     extra_vars = {'announce_prefix': prefix,
                   'minigraph_portchannels': mg_facts['minigraph_portchannels'],
                   'minigraph_vlans': mg_facts['minigraph_vlans'],
-                  'minigraph_port_indices': mg_facts['minigraph_port_indices']}
+                  'minigraph_port_indices': mg_facts['minigraph_ptf_indices']}
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     logging.info("extra_vars: %s" % str(ptfhost.host.options['variable_manager'].extra_vars))
 
-    ptfhost.template(src="bgp_speaker/bgp_speaker_route.j2", dest="/root/bgp_speaker_route_%s.txt" % family)
+    ptfhost.template(src="bgp/templates/bgp_speaker_route.j2", dest="/root/bgp_speaker_route_%s.txt" % family)
 
     logging.info("run ptf test")
 
@@ -227,7 +229,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, testbed, duthost, 
                 "ptftests",
                 "fib_test.FibTest",
                 platform_dir="ptftests",
-                params={"testbed_type": testbed['topo']['name'],
+                params={"testbed_type": tbinfo['topo']['name'],
                         "router_mac": interface_facts['ansible_interface_facts']['Ethernet0']['macaddress'],
                         "fib_info": "/root/bgp_speaker_route_%s.txt" % family,
                         "ipv4": ipv4,
@@ -245,18 +247,20 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, testbed, duthost, 
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
-def test_bgp_speaker_announce_routes(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
+def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[3]
-    bgp_speaker_announce_routes_common(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops)
+    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops)
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 1514)])
-def test_bgp_speaker_announce_routes_v6(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
+def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, collect_techsupport):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
+    duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[4]
-    bgp_speaker_announce_routes_common(common_setup_teardown, testbed, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops)
+    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops)

@@ -1,19 +1,23 @@
 # This file contains the list of API's which performs logging / Syslog operations.
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
-from spytest import st
-import apis.system.switch_configuration as sc_obj
 import re
 import json
+
+from spytest import st, putils
+
 import apis.system.connection as conf_obj
+import apis.system.switch_configuration as sc_obj
+
 import utilities.utils as utils
-from utilities.common import exec_foreach
+from utilities.common import make_list
 
 
 log_files = [r'/var/log/syslog', r'/var/log/syslog.1']
 
 
-def show_logging(dut, severity=None, filter_list=None, lines=None):
+def show_logging(dut, severity=None, filter_list=None, lines=None, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     To get logs from DUT.
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -28,16 +32,23 @@ def show_logging(dut, severity=None, filter_list=None, lines=None):
     if filter_list is None:
         filter_list = []
     filter_list = list(filter_list) if isinstance(filter_list, list) else [filter_list]
+    cli_type = 'click' if cli_type in ['rest-patch', 'rest-put', 'klish'] else cli_type
     command = "show logging"
     if lines:
-        command += " -l {}".format(lines)
+        if cli_type == 'click':
+            command += " -l {}".format(lines)
+        elif cli_type == 'klish':
+            command += "lines {}".format(lines)
     if severity:
         command += " | grep '{}'".format(severity)
     for each_filter in filter_list:
-        command += " | grep -i '{}'".format(each_filter)
+        if cli_type == 'click':
+            command += " | grep -i '{}'".format(each_filter)
+        elif cli_type == 'klish':
+            command += " | grep '{}'".format(each_filter)
     output = st.show(dut, command, skip_tmpl=True, skip_error_check=True, faster_cli=False, max_time=1200)
     out_list = output.strip().split('\n')[:-1]
-    for each in range(out_list.count("'")):
+    for _ in range(out_list.count("'")):
         out_list.remove("'")
     return out_list
 
@@ -101,8 +112,7 @@ def clear_logging(dut, thread=True):
         return True
 
     dut_li = utils.make_list(dut)
-    [out, exceptions] = exec_foreach(thread, dut_li, _clear_logging)
-    st.log(exceptions)
+    [out, _] = putils.exec_foreach(thread, dut_li, _clear_logging)
     return False if False in out else True
 
 
@@ -124,21 +134,25 @@ def check_unwanted_logs_in_logging(dut, user_filter=None):
     """
     Check unwanted log based on uers filter list
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
-
     :param dut:
     :param user_filter:
     :return:
     """
     result = True
-    if user_filter is None:
-        user_filter = []
-    static_filter = ['error', 'i2c', 'fan', 'power']
-    over_all_filter = static_filter + user_filter
-    for each_string in over_all_filter:
-        temp_count = get_logging_count(dut, filter_list=each_string)
-        st.log("{} - logs found on the error string '{}'".format(temp_count, each_string))
+    static_filter = ['i2c', 'fan', 'power']
+    over_all_filter = static_filter + make_list(user_filter) if user_filter else static_filter
+    for filter in over_all_filter:
+        temp_count = get_logging_count(dut, filter_list=filter)
+        st.debug("{} - logs found on the error string '{}'".format(temp_count, filter))
         if temp_count:
-            result = False
+            if filter == 'fan':
+                filters = ["INFO system#monitor: MEM :: Name:fand"]
+                logs = show_logging(dut, filter_list=filter)
+                for log in logs:
+                    if not any(fil.lower() in log.lower() for fil in filters):
+                        result = False
+            else:
+                result = False
     return result
 
 
@@ -227,3 +241,21 @@ def get_syslog_from_remote_server(dut, severity=None, filter_list=None, lines=No
     syslog_con_obj = conf_obj.connect_to_device(syslog_ip, syslog_username, syslog_password, port=syslog_port)
     syslog_file_contents = conf_obj.execute_command(syslog_con_obj, command)
     return syslog_file_contents
+
+def sonic_clear(dut, skip_error_check=True):
+    if st.is_feature_supported("sonic-clear-logging-command", dut):
+        st.config(dut, "sonic-clear logging", skip_error_check=skip_error_check)
+
+def check_for_logs_after_reboot(dut, severity=None, log_severity=[], except_logs=[]):
+    output = show_logging(dut, severity)
+    for log in output:
+        results = re.findall(r".*.*sonic\s*(\S+)\s*.*", log)
+        retval = [result in log_severity for result in results]
+        if not all(retval):
+            for except_log in except_logs:
+                if not except_log.lower() in log.lower():
+                    st.error('Unexpected log: {}'.format(log))
+                    return False
+                else:
+                    continue
+    return True

@@ -1,4 +1,6 @@
 Value Global_Auth_type (\S+\s*\(\S+\)|\S+)
+Value Global_nas_ip (\S+)
+Value Global_statistics (\S+)
 Value Global_Retransmit (\d+)
 Value Global_Timeout (\d+\s*\(\S+\)|\d+)
 Value Global_Passkey (\S+\s*\(\S+\)|\S+)
@@ -11,6 +13,10 @@ Value Auth_type (\S+)
 Value Passkey (\S+)
 Value Timeout (\d+|-)
 Value vrf_mgmt (\S+)
+Value access_requests (\S+)
+Value access_accepts (\S+)
+Value access_rejects (\S+)
+Value si (\S+)
 
 Start
   ^\s*RADIUS\s+global\s+auth_type\s+${Global_Auth_type}\s*$$ -> CLICK
@@ -19,6 +25,8 @@ Start
 
 CLICK
   ^RADIUS\s+global\s+auth_type\s+${Global_Auth_type}\s*$$
+  ^RADIUS\s+global\s+nas_ip\s+${Global_nas_ip}\s*$$
+  ^RADIUS\s+global\s+statistics\s+${Global_statistics}\s*$$
   ^RADIUS\s+global\s+retransmit\s+${Global_Retransmit}\s*$$
   ^RADIUS\s+global\s+timeout\s+${Global_Timeout}\s*$$
   ^RADIUS\s+global\s+passkey\s+${Global_Passkey}\s*$$
@@ -31,6 +39,10 @@ CLICK
   ^\s*timeout\s+${Timeout}\s*$$
   ^\s*passkey\s+${Passkey}\s*$$
   ^\s*vrf\s+${vrf_mgmt}\s*$$
+  ^\s*Statistics\s+for\s+RADIUS_SERVER\s+address\s+${Address}\s*$$
+  ^\s*access_requests\s+${access_requests}\s*$$
+  ^\s*access_accepts\s+${access_accepts}\s*$$
+  ^\s*access_rejects\s+${access_rejects}\s*$$
   ^$$ -> Record
 
 KLISH
@@ -39,6 +51,7 @@ KLISH
   ^\s*auth-type\s*:\s*${Global_Auth_type}\s*$$
   ^\s*key\s*:\s*${Global_Passkey}\s*$$
   ^\s*retransmit\s*:\s*${Global_Retransmit}\s*$$ -> Record
+  ^\s*${Address}\s+${Auth_type}\s+${Passkey}\s+${Auth_Port}\s+${Priority}\s+${Timeout}\s+${Retransmit}\s+${vrf_mgmt}\s+${si}\s*$$ -> Record
   ^\s*${Address}\s+${Auth_type}\s+${Passkey}\s+${Auth_Port}\s+${Priority}\s+${Timeout}\s+${Retransmit}\s+${vrf_mgmt}\s*$$ -> Record
   ^\s*${Address}\s+${Auth_type}\s+${Passkey}\s+${Auth_Port}\s+${Priority}\s*$$ -> Record
   ^\s*${Address}\s+${Passkey}\s+${Auth_Port}\s+${Priority}\s*$$ -> Record

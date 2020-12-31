@@ -3,10 +3,14 @@ import os
 import importlib
 import netaddr
 import pytest
+import time
 
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -16,14 +20,14 @@ L3_COL_KEY = RX_ERR
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
 
-LOG_EXPECT_PORT_ADMIN_DOWN_RE = ".*Configure {} admin status to down.*"
-LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
+LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
+LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def fanouthost(request, duthost, localhost):
+def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -32,13 +36,14 @@ def fanouthost(request, duthost, localhost):
     By default 'fanouthost' fixture will not instantiate any instance so it will return None, and in such case
     'fanouthost' instance should not be used in test case logic.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     fanout = None
     # Check that class to handle fanout config is implemented
     if "mellanox" == duthost.facts["asic_type"]:
         for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "fanout")):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
-                module = importlib.import_module("fanout.{0}.{0}_fanout".format(file_name.strip(".py")))
+                module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
                 fanout = module.FanoutHandler(duthost, localhost)
                 break
 
@@ -49,9 +54,10 @@ def fanouthost(request, duthost, localhost):
 
 
 @pytest.fixture(scope="module")
-def pkt_fields(duthost):
+def pkt_fields(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
     # Gather ansible facts
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ipv4_addr = None
     ipv6_addr = None
 
@@ -94,22 +100,23 @@ def expected_packet_mask(pkt):
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, testbed):
+def setup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Setup fixture for collecting PortChannel, VLAN and RIF port members.
     @return: Dictionary with keys:
         port_channel_members, vlan_members, rif_members, dut_to_ptf_port_map, neighbor_sniff_ports, vlans, mg_facts
     """
+    duthost = duthosts[rand_one_dut_hostname]
     port_channel_members = {}
     vlan_members = {}
     configured_vlans = []
     rif_members = []
 
-    if testbed["topo"]["type"] == "ptf":
-        pytest.skip("Unsupported topology {}".format(testbed["topo"]))
+    if tbinfo["topo"]["type"] == "ptf":
+        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]))
 
     # Gather ansible facts
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
         for iface in interfaces["members"]:
@@ -124,7 +131,7 @@ def setup(duthost, testbed):
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
-        neighbor_sniff_ports.append(mg_facts['minigraph_port_indices'][dut_port])
+        neighbor_sniff_ports.append(mg_facts['minigraph_ptf_indices'][dut_port])
 
     for vlan_name, vlans_data in mg_facts["minigraph_vlans"].items():
         configured_vlans.append(int(vlans_data["vlanid"]))
@@ -133,7 +140,7 @@ def setup(duthost, testbed):
         "port_channel_members": port_channel_members,
         "vlan_members": vlan_members,
         "rif_members": rif_members,
-        "dut_to_ptf_port_map": mg_facts["minigraph_port_indices"],
+        "dut_to_ptf_port_map": mg_facts["minigraph_ptf_indices"],
         "neighbor_sniff_ports": neighbor_sniff_ports,
         "vlans": configured_vlans,
         "mg_facts": mg_facts
@@ -142,39 +149,41 @@ def setup(duthost, testbed):
 
 
 @pytest.fixture
-def rif_port_down(duthost, setup, loganalyzer):
-    """ Disable RIF interface and return neighbor IP address attached to this interface """
+def rif_port_down(duthosts, rand_one_dut_hostname, setup, fanouthosts, loganalyzer):
+    """Shut RIF interface and return neighbor IP address attached to this interface.
+
+    The RIF member is shut from the fanout side so that the ARP entry remains in
+    place on the DUT."""
+    duthost = duthosts[rand_one_dut_hostname]
     wait_after_ports_up = 30
 
     if not setup["rif_members"]:
         pytest.skip("RIF interface is absent")
     rif_member_iface = setup["rif_members"].keys()[0]
 
-    try:
-        vm_name = setup["mg_facts"]["minigraph_neighbors"][rif_member_iface]["name"]
-    except KeyError as err:
-        pytest.fail("Didn't found RIF interface in 'minigraph_neighbors'. {}".format(str(err)))
+    vm_name = setup["mg_facts"]["minigraph_neighbors"][rif_member_iface].get("name", None)
+    pytest_assert(vm_name, 'Neighbor not found for RIF member "{}"'.format(rif_member_iface))
 
     ip_dst = None
     for item in setup["mg_facts"]["minigraph_bgp"]:
-        if item["name"] == vm_name:
-            if netaddr.valid_ipv4(item["addr"]):
-                ip_dst = item["addr"]
-                break
-    else:
-        pytest.fail("Unable to find neighbor in 'minigraph_bgp' list")
+        if item["name"] == vm_name and netaddr.valid_ipv4(item["addr"]):
+            ip_dst = item["addr"]
+            break
+    pytest_assert(ip_dst, 'Unable to find IP address for neighbor "{}"'.format(vm_name))
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_ADMIN_DOWN_RE.format(rif_member_iface)]
-    with loganalyzer as analyzer:
-        duthost.command("config interface shutdown {}".format(rif_member_iface))
+    fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
+
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
+    with loganalyzer as _:
+        fanout_neighbor.shutdown(fanout_intf)
 
     time.sleep(1)
 
     yield ip_dst
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_ADMIN_UP_RE.format(rif_member_iface)]
-    with loganalyzer as analyzer:
-        duthost.command("config interface startup {}".format(rif_member_iface))
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+    with loganalyzer as _:
+        fanout_neighbor.no_shutdown(fanout_intf)
         time.sleep(wait_after_ports_up)
 
 
@@ -185,7 +194,7 @@ def tx_dut_ports(request, setup):
 
 
 @pytest.fixture
-def ports_info(ptfadapter, duthost, setup, tx_dut_ports):
+def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports):
     """
     Return:
         dut_iface - DUT interface name expected to receive packtes from PTF
@@ -193,6 +202,7 @@ def ports_info(ptfadapter, duthost, setup, tx_dut_ports):
         dst_mac - DUT interface destination MAC address
         src_mac - PTF interface source MAC address
     """
+    duthost = duthosts[rand_one_dut_hostname]
     data = {}
     data["dut_iface"] = random.choice(tx_dut_ports.keys())
     data["ptf_tx_port_id"] = setup["dut_to_ptf_port_map"][data["dut_iface"]]
@@ -635,7 +645,7 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, duthost, setup, tx_du
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"), ("v1", "membership_report"),
 ("v2", "membership_report"), ("v3", "membership_report"), ("v2", "leave_group")])
-def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
+def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, fanouthost, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Create an IGMP non-routable packets.
     """
@@ -663,6 +673,11 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, tx_dut_port
     # v3_membership_report = IGMPv3(type=0x22, mrcode=0, chksum=None)/scapy.contrib.igmpv3.IGMPv3mr(res2=0x00, numgrp=1,
     # records=[gr_obj]).build()
     # The rest packets are build like "simple_igmp_packet" function from PTF testutils.py
+
+    # FIXME: Need some sort of configuration for EOS and SONiC fanout hosts to
+    # not drop IGMP packets before they reach the DUT
+    if not fanouthost:
+        pytest.skip("Test case requires explicit fanout support")
 
     from scapy.contrib.igmp import IGMP
     Ether = testutils.scapy.Ether

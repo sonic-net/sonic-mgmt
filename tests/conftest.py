@@ -220,7 +220,7 @@ def k8smasters(ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
-    k8s_master_ansible_group = request.config.getoption("--kube_master")
+    k8s_master_ansible_group = request.config.getoption("--kube_master") 
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
     for inv_file in inv_files:
@@ -231,7 +231,7 @@ def k8smasters(ansible_adhoc, request):
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
             if 'haproxy' in attributes:
                 is_haproxy = True
-            else:
+            else: 
                 is_haproxy = False
             master_vms[hostname] = {'host': K8sMasterHost(ansible_adhoc,
                                                                hostname,
@@ -705,10 +705,10 @@ def generate_priority_lists(request, prio_scope):
             info = json.load(yf)
     except IOError as e:
         return empty
-
+    
     if tbname not in info:
         return empty
-
+    
     dut_prio = info[tbname]
     ret = []
 
