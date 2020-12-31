@@ -2,7 +2,7 @@ from tests.common.connections.base_console_conn import CONSOLE_SSH
 import time
 import re
 from base_console_conn import BaseConsoleConn
-from netmiko.ssh_exception import NetMikoTimeoutException, NetMikoAuthenticationException
+from netmiko.ssh_exception import NetMikoAuthenticationException
 
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
@@ -13,7 +13,7 @@ class SSHConsoleConn(BaseConsoleConn):
         # Console via SSH connection need two groups of user/passwd
         self.sonic_username = kwargs['sonic_username']
         self.sonic_password = kwargs['sonic_password']
-        
+
         if kwargs['console_type'] == CONSOLE_SSH:
             kwargs['username'] = kwargs['console_username'] + r':' + str(kwargs['console_port'])
             self.menu_port = None
@@ -46,7 +46,7 @@ class SSHConsoleConn(BaseConsoleConn):
                     raise e
             else:
                 break
-        
+
         self.set_base_prompt()
         # Clear the read buffer
         time.sleep(0.3 * self.global_delay_factor)
@@ -84,7 +84,7 @@ class SSHConsoleConn(BaseConsoleConn):
                     self.write_and_poll("menu ports", "Selection:")
                     self.write_channel(str(self.menu_port) + self.RETURN)
                     menu_port_sent = True
-                    
+
                 output = self.read_channel()
                 return_msg += output
 
@@ -113,7 +113,7 @@ class SSHConsoleConn(BaseConsoleConn):
                         alt_prompt_terminator, output, flags=re.M
                 ):
                     return return_msg
-                
+
                 # Check if login failed
                 if re.search(login_failure_prompt, output, flags=re.M):
                     # Wait a short time or the next login will be refused
