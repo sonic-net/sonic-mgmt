@@ -6,12 +6,9 @@ import array
 import errno
 import fcntl
 import fnmatch
-import glob
 import platform
 import re
 import signal
-import socket
-import struct
 import datetime
 import getpass
 import pwd
