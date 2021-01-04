@@ -15,9 +15,9 @@ import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.platform.interface_utils import get_port_map
 
 ans_host = None
-port_mapping = None
 
 def teardown_module():
     logging.info("remove script to retrieve port mapping")
@@ -58,38 +58,6 @@ def parse_eeprom(output_lines):
     return res
 
 
-def get_port_map(duthost):
-    """
-    @summary: Get the port mapping info from the DUT
-    @return: a dictionary containing the port map
-    """
-    global port_mapping
-    global ans_host
-
-    # we've already retrieve port mapping for the DUT, just return it
-    if not port_mapping is None:
-        logging.info("Return the previously retrievd port mapping")
-        return port_mapping
-
-    # this is the first running
-    logging.info("Retrieving port mapping from DUT")
-    # copy the helper to DUT
-    ans_host = duthost
-    src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files/getportmap.py')
-    dest_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/getportmap.py')
-    ans_host.copy(src=src_path, dest=dest_path)
-
-    # execute command on the DUT to get portmap
-    get_portmap_cmd = 'docker exec pmon python /usr/share/sonic/platform/plugins/getportmap.py'
-    portmap_json_string = ans_host.command(get_portmap_cmd)["stdout"]
-
-    # parse the json
-    port_mapping = json.loads(portmap_json_string)
-    assert port_mapping, "Retrieve port mapping from DUT failed"
-
-    return port_mapping
-
-
 def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
     """
     @summary: Check SFP status and configure SFP
@@ -116,7 +84,10 @@ def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, con
     cmd_xcvr_presence = "show interface transceiver presence"
     cmd_xcvr_eeprom = "show interface transceiver eeprom"
 
-    portmap = get_port_map(duthost)
+    global ans_host
+    ans_host = duthost
+
+    portmap = get_port_map(duthost, "all")
     logging.info("Got portmap {}".format(portmap))
 
     logging.info("Check output of '%s'" % cmd_sfp_presence)
@@ -171,10 +142,11 @@ def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, con
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
-    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname, namespace=namespace)["ansible_facts"]
+        intf_facts = duthost.interface_facts(namespace=namespace, up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+        assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
+            "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer.analyze(marker)
@@ -201,7 +173,10 @@ def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, conn_graph_fa
     cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
     cmd_sfp_set_lpmode = "sudo sfputil lpmode"
 
-    portmap = get_port_map(duthost)
+    global ans_host
+    ans_host = duthost
+
+    portmap = get_port_map(duthost, "all")
     logging.info("Got portmap {}".format(portmap))
 
     logging.info("Check output of '%s'" % cmd_sfp_show_lpmode)
@@ -277,10 +252,11 @@ def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, conn_graph_fa
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
-    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname, namespace=namespace)["ansible_facts"]
+        intf_facts = duthost.interface_facts(namespace=namespace, up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+        assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
+            "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
     if duthost.facts["asic_type"] in ["mellanox"]:
         loganalyzer.analyze(marker)
