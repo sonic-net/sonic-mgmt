@@ -694,7 +694,7 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface startup {}".format(ifname))
 
-    def get_ip_route_info(self, dstip):
+    def get_ip_route_info(self, dstip, ns=""):
         """
         @summary: return route information for a destionation. The destination coulb an ip address or ip prefix.
 
@@ -762,9 +762,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         if isinstance(dstip, ipaddress.IPv4Network) or isinstance(dstip, ipaddress.IPv6Network):
             if dstip.version == 4:
-                rt = self.command("ip route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} route list exact {}".format(ns, dstip))['stdout_lines']
             else:
-                rt = self.command("ip -6 route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} -6 route list exact {}".format(ns , dstip))['stdout_lines']
 
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
@@ -786,7 +786,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                     rtinfo['nexthops'].append((ipaddress.ip_address(unicode(m.group(2))), unicode(m.group(3))))
 
         elif isinstance(dstip, ipaddress.IPv4Address) or isinstance(dstip, ipaddress.IPv6Address):
-            rt = self.command("ip route get {}".format(dstip))['stdout_lines']
+            rt = self.command("ip {} route get {}".format(ns, dstip))['stdout_lines']
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
             if len(rt) == 0:
@@ -1576,9 +1576,11 @@ class SonicAsic(object):
         self.asic_index = asic_index
         if self.sonichost.is_multi_asic:
             self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
+            self.cli_ns_option = "-n {}".format(self.namespace)
         else:
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
+            self.cli_ns_option = ""
 
     def get_critical_services(self):
         """This function returns the list of the critical services
@@ -1661,6 +1663,9 @@ class SonicAsic(object):
             return self.sonichost.command(cmd)
         # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
         return self.sonichost.run_redis_cli_cmd(redis_cmd)
+
+    def get_ip_route_info(self, dstip):
+        return self.sonichost.get_ip_route_info(dstip, self.cli_ns_option)
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
@@ -1753,6 +1758,11 @@ class MultiAsicSonicHost(object):
             return self._run_on_asics
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
+    
+    def get_asic(self, asic_id):
+        if asic_id == DEFAULT_ASIC_ID:
+            return self.asics[0]
+        return self.asics[asic_id]
 
 
 class DutHosts(object):
