@@ -55,6 +55,7 @@ ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
+    request.cls.asic_type = duthost.facts.get("asic_type")
 
     # Get host vars from inventory file
     request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
@@ -364,22 +365,48 @@ class TestChassisApi(PlatformApiTestBase):
 
     def test_status_led(self, duthost, localhost, platform_api_conn):
         # TODO: Get a platform-specific list of available colors for the status LED
-        LED_COLOR_LIST = [
-            "off",
-            "red",
+
+        FAULT_LED_COLOR_LIST = [
             "amber",
-            "green",
+            "red"
         ]
 
-        for color in LED_COLOR_LIST:
-            result = chassis.set_status_led(platform_api_conn, color)
-            if self.expect(result is not None, "Failed to perform set_status_led"):
-                self.expect(result is True, "Failed to set status_led to {}".format(color))
+        NORMAL_LED_COLOR_LIST = [
+            "green"
+        ]
 
-            color_actual = chassis.get_status_led(platform_api_conn)
-            if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                    self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
+        OFF_LED_COLOR_LIST = [
+            "off"
+        ]
+
+        LED_COLOR_TYPES = []
+        LED_COLOR_TYPES.append(FAULT_LED_COLOR_LIST)
+        LED_COLOR_TYPES.append(NORMAL_LED_COLOR_LIST)
+
+        # Mellanox is not supporting set leds to 'off'
+        if self.asic_type != "mellanox":
+            LED_COLOR_TYPES.append(OFF_LED_COLOR_LIST)
+
+        LED_COLOR_TYPES_DICT = {
+            0: "fault",
+            1: "normal",
+            2: "off"
+        }
+
+        for index, led_type in enumerate(LED_COLOR_TYPES):
+            led_type_result = False
+            for color in led_type:
+                result = chassis.set_status_led(platform_api_conn, color)
+                if self.expect(result is not None, "Failed to perform set_status_led"):
+                    led_type_result = result or led_type_result
+                if ((result is None) or (not result)):
+                    continue
+                color_actual = chassis.get_status_led(platform_api_conn)
+                if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                    if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
+                        self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
+            self.expect(led_type_result is True, "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
+
         self.assert_expectations()
 
     def test_get_thermal_manager(self, duthost, localhost, platform_api_conn):
