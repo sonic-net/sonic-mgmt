@@ -83,7 +83,7 @@ class AdvancedReboot:
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
             if self.kvmTest:
-                self.rebootLimit = 150 # Default reboot limit for kvm
+                self.rebootLimit = 200 # Default reboot limit for kvm
             else:
                 self.rebootLimit = 30 # Default reboot limit for physical devices
 
