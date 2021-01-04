@@ -66,7 +66,6 @@ Verify VoQ system initializes correctly on startup.
 * Configure a VoQ system with valid configuration files and verify the system comes up.
 * Verify supervisor card is up, and all required containers and processes are running.
 * Verify redis on supervisor is running and Chassis AppDB is reachable.
-* Verify Chassis StateDB is reachable.
 * Verify line cards are up and reachable from supervisor.
     
 #### Test Case 2. Switch Creation
@@ -75,7 +74,7 @@ Verify ASIC Switch object is correct on all line cards.
 
 ##### Test Steps
 * Verify ASIC_DB gets switch object created on all asics and linecards (redis-dump -h <ip> -d 1 on each linecard)
-* Verify switch ID, cores, port list in ASIC DB have the same values as the configdb.json file.
+* Verify switch ID, cores, port list in ASIC DB have the same values as the config_db.json file.
 * Verify switch type is voq.
 
 ##### Sample output
@@ -105,7 +104,7 @@ Verify ASIC Switch object is correct on all line cards.
 Verify system ports are created on all line cards.
 
 ##### Test Steps
-* Verify ASIC_DB get all system ports referenced in configDB created on all hosts and ASICs.
+* Verify ASIC_DB get all system ports referenced in config_db.json created on all hosts and ASICs.
 * Verify object creation and values of port attributes.
 
 ##### Sample output
@@ -163,8 +162,8 @@ Verify router interfaces are created on all line cards and present in Chassis Ap
 * Verify router interface creation on local ports in ASIC DB.
 * PORT_ID should match system port table and traced back to config_db.json, mac and MTU should match as well.
 * Verify SYSTEM_INTERFACE table in Chassis AppDb (redis-dump -h <ip> -p 6380 -d 12 on supervisor).
-* Verify creation interfaces with different MTUs in configdb.json.
-* Verify creation of different subnet masks in configdb.json.
+* Verify creation interfaces with different MTUs in config_db.json.
+* Verify creation of different subnet masks in config_db.json.
 * Repeat with IPv4, IPv6, dual-stack.
 
 ##### Sample output 
@@ -581,54 +580,54 @@ VM02T3   -------------|B     LB1  |   LB2     |
 
 _VM01T3_
 * Loopbacks:
-    * ipv4: 100.1.0.1/32
-    * ipv6: 2064:100::1/128
+    * ipv4: `100.1.0.1/32`
+    * ipv6: `2064:100::1/128`
 * Ethernet:
-    * ipv4: 10.0.0.1/31
-    * ipv6: FC00:2/126
+    * ipv4: `10.0.0.1/31`
+    * ipv6: `FC00:2/126`
 
 
 _VM02T3_
 * Loopbacks:
-    * ipv4: 100.1.0.2/32
-    * ipv6: 2064:100::2/128
+    * ipv4: `100.1.0.2/32`
+    * ipv6: `2064:100::2/128`
 * Ethernet:
-    * ipv4: 10.0.0.3/31
-    * ipv6: FC00:6/126
+    * ipv4: `10.0.0.3/31`
+    * ipv6: `FC00:6/126`
 
 _VM01T1_
 * Loopbacks:
-    * ipv4: 100.1.0.33/32
-    * ipv6: 2064:100::21/128
+    * ipv4: `100.1.0.33/32`
+    * ipv6: `2064:100::21/128`
 * Ethernet:
-    * ipv4: 10.0.0.65/31
-    * ipv6: FC00:82/126
+    * ipv4: `10.0.0.65/31`
+    * ipv6: `FC00:82/126`
 
 _DUT_
 
 * Linecard 1
     * Port A (to VM01T3)
-        * 10.0.0.0/31
-        * FC00:1/126
+        * `10.0.0.0/31`
+        * `FC00:1/126`
     * Port B (to VM02T3)
-        * 10.0.0.2/31
-        * FC00:5/126
+        * `10.0.0.2/31`
+        * `FC00:5/126`
     * Inband IP ( Port F0)
-        * 133.133.133.1
-        * 2064:133::1
+        * `133.133.133.1`
+        * `2064:133::1`
     * Loopback LB1
-        * 11.1.0.1/32
-        * 2064:111::1/128
+        * `11.1.0.1/32`
+        * `2064:111::1/128`
 * Linecard 2
     * Port D (to VM01T1)
-        * 10.0.0.64/31
-        * FC00:81/126
+        * `10.0.0.64/31`
+        * `FC00:81/126`
     * Inband IP (Port F1)
-        * 133.133.133.5
-        * 2064:133::5
+        * `133.133.133.5`
+        * `2064:133::5`
     * Loopback LB2 
-        * 11.1.0.2/32
-        * 2064:111::2/128
+        * `11.1.0.2/32`
+        * `2064:111::2/128`
 
 #### Test Case 1. Table Verification
 ##### Test Objective
