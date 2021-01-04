@@ -23,6 +23,13 @@
 
 ## Current topologies
 
+### t2
+
+![](img/testbed-t2.png)
+
+ - Requires 72 VMs
+ - All DUT ports are connected to VMs
+ - PTF container has injected ports only
 ### t1
 
 ![](img/testbed-t1.png)
