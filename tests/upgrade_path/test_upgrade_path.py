@@ -2,14 +2,18 @@ import pytest
 import logging
 import json
 import os
+import time
 from urlparse import urlparse
-from tests.common import reboot
+from datetime import datetime
 from jinja2 import Template
 import ipaddr
 import ipaddress
 from tests.ptf_runner import ptf_runner
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
-from datetime import datetime
+from tests.common import reboot
+from tests.common.reboot import get_reboot_cause
+
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -157,7 +161,7 @@ def install_sonic(duthost, image_url, tbinfo):
             new_route_added = False
             break
     else:
-        # Temprarily change the default route to mgmt-gateway address. This is done so that
+        # Temporarily change the default route to mgmt-gateway address. This is done so that
         # DUT can download an image from a remote host over the mgmt network.
         logger.info("Add default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
         duthost.shell("ip route add default via {}".format(mg_gwaddr), module_ignore_errors=True)
@@ -180,6 +184,23 @@ def install_sonic(duthost, image_url, tbinfo):
         duthost.shell("ip route del default via {}".format(mg_gwaddr), module_ignore_errors=True)
     return res['ansible_facts']['downloaded_image_version']
 
+
+def check_services(duthost):
+    """
+    Perform a health check of services
+    """
+    logging.info("Wait until DUT uptime reaches {}s".format(300))
+    while duthost.get_uptime().total_seconds() < 300:
+            time.sleep(1)
+    logging.info("Wait until all critical services are fully started")
+    logging.info("Check critical service status")
+    pytest_assert(duthost.critical_services_fully_started(), "dut.critical_services_fully_started is False")
+
+    for service in duthost.critical_services:
+        status = duthost.get_service_props(service)
+        pytest_assert(status["ActiveState"] == "active", "ActiveState of {} is {}, expected: active".format(service, status["ActiveState"]))
+        pytest_assert(status["SubState"] == "running", "SubState of {} is {}, expected: running".format(service, status["SubState"]))
+        
 
 @pytest.mark.device_type('vs')
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgrade_path_lists, ptf_params, setup, tbinfo):
@@ -216,4 +237,7 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
                        platform="remote",
                        qlen=10000,
                        log_file=log_file)
+            reboot_cause = get_reboot_cause(duthost)
+            pytest_assert(reboot_cause == "warm-reboot", "Reboot cause {} did not match the trigger - warm-reboot".format(reboot_cause))
+            check_services(duthost)
 
