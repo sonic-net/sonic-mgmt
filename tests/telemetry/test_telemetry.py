@@ -167,9 +167,7 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """
     duthost = duthosts[rand_one_dut_hostname]
     cmd = generate_client_cli(duthost=duthost, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
-    logger.debug("Command to run: {0}".format(cmd))
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.debug(show_gnmi_out)
     result = str(show_gnmi_out)
 
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
@@ -218,3 +216,17 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
 
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
+
+def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
+    """
+    logger.info('start virtual db sample streaming testing')
+
+    duthost = duthosts[rand_one_dut_hostname]
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
+    show_gnmi_out = ptfhost.shell(cmd)['stdout']
+    result = str(show_gnmi_out)
+
+    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
+    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
+    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
