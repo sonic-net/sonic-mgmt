@@ -39,9 +39,9 @@ def _url(server_url, physical_port=None, action=None):
         server_url: a str, the url for mux server, like http://10.0.0.64:8080/mux/vms17-8
         physical_port: physical port on switch, an integer starting from 1
                         If physical_port is none, the returned url contains no '/port/action' (For polling/toggling all ports)
-        action: a str, output/drop or None. If action is None, the returned url contains no '/action'
+        action: a str, output|drop|None. If action is None, the returned url contains no '/action'
     Returns:
-        The url for posting flow update request, like http://10.0.0.64:8080/mux/vms17-8/1/drop(output)
+        The url for posting flow update request, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
     """
     if not physical_port:
         return server_url
@@ -54,7 +54,7 @@ def _get(server_url):
     Helper function for polling status from y_cable server.
 
     Args:
-        server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8/[1]
+        server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8[/1]
     Returns:
         dict: A dict decoded from server's response.
         None: Returns None is error is detected.
@@ -80,7 +80,7 @@ def _post(server_url, data):
     Helper function for posting data to y_cable server.
 
     Args:
-        server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8/[1/drop(output)]
+        server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
         data: data to post {"out_ports": ["nic", "tor_a", "tor_b"]}
     Returns:
         True if succeed. False otherwise
@@ -213,4 +213,24 @@ def toggle_all_simulator_ports_to_tor_b(mux_server_url):
     server_url = _url(mux_server_url)
     data = {"active_side": TOR_B}
     pytest_assert(_post(server_url, data), "Failed to toggle all ports to TOR A")
+
+@pytest.fixture(scope='module')
+def toggle_all_simulator_ports_to_another_side(mux_server_url):
+    """
+    A module level fixture to toggle all ports to another side
+    For example, if the current active side for a certain port is tor_a,
+    then it will be toggled to tor_b.
+    """
+    server_url = _url(mux_server_url)
+    data = {"active_side": "toggle"}
+    pytest_assert(_post(server_url, data), "Failed to toggle all ports to another side")
+
+@pytest.fixture(scope='module')
+def toggle_all_simulator_ports_to_random_side(mux_server_url):
+    """
+    A module level fixture to toggle all ports to an random side.
+    """
+    server_url = _url(mux_server_url)
+    data = {"active_side": "random"}
+    pytest_assert(_post(server_url, data), "Failed to toggle all ports to random side")
 
