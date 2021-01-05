@@ -21,6 +21,7 @@ from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 
+from tests.common.connections import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
@@ -358,6 +359,14 @@ def creds(duthosts, rand_one_dut_hostname):
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+    # load creds for console
+    console_login_creds = getattr(hostvars, "console_login", {})
+    creds["console_user"] = {}
+    creds["console_password"] = {}
+
+    for k, v in console_login_creds.iteritems():
+        creds["console_user"][k] = v["user"]
+        creds["console_password"][k] = v["passwd"]
 
     return creds
 
@@ -747,3 +756,21 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+
+@pytest.fixture(scope="module")
+def duthost_console(localhost, creds, request):
+    dut_hostname = request.config.getoption("ansible_host_pattern")
+
+    vars = localhost.host.options['inventory_manager'].get_host(dut_hostname).vars
+    # console password and sonic_password are lists, which may contain more than one password
+    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get("ansible_altpassword")
+    host = ConsoleHost(console_type=vars['console_type'],
+                       console_host=vars['console_host'],
+                       console_port=vars['console_port'],
+                       sonic_username=creds['sonicadmin_user'],
+                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
+                       console_username=creds['console_user'][vars['console_type']],
+                       console_password=creds['console_password'][vars['console_type']])
+    yield host
+    host.disconnect()
+
