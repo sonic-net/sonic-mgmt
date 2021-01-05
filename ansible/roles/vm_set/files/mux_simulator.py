@@ -9,6 +9,7 @@ This script should be started keep running in background when a topology is crea
 import json
 import logging
 import os
+import random
 import re
 import shlex
 import subprocess
@@ -268,18 +269,29 @@ def set_active_side(vm_set, port_index, new_active_side):
     Args:
         vm_set (string): The vm_set of test setup.
         port_index (int or string): Index of the port.
-        new_active_side (string): Either "tor_a" or "tor_b".
+        new_active_side (string): One of: 'tor_a', 'tor_b', 'toggle', 'random'. If new_active_side is 'toggle',
+            always toggled the active side. If new_active_side is 'random', randomly choose new side from 'tor_a'
+            and 'tor_b'.
 
     Returns:
         dict: Return the new full mux status in a dictionary.
     """
     mux_status = get_mux_status(vm_set, port_index)
+
+    if new_active_side == 'random':
+        new_active_side = random.choice(['tor_a', 'tor_b'])
+
     if mux_status['active_side'] == new_active_side:
+        # Current active side is same as new active side, no need to change.
         return mux_status
 
+    # Need to toggle active side anyway
     flows = get_flows(vm_set, port_index)
     active_port = get_active_port(flows)
     nic_port = mux_status['ports']['nic']
+    if new_active_side == 'toggle':
+        new_active_side = 'tor_a' if mux_status['active_side'] == 'tor_b' else 'tor_b'
+
     new_active_port = mux_status['ports'][new_active_side]
     run_cmd('ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'.format(vm_set, port_index, active_port))
     run_cmd('ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions=output:"{}"'
@@ -317,9 +329,9 @@ def _validate_posted_data(data):
     Returns:
         tuple: Return the result in a tuple. The first item is either True or False. The second item is extra message.
     """
-    if 'active_side' in data and data['active_side'] in ['tor_a', 'tor_b']:
+    if 'active_side' in data and data['active_side'] in ['tor_a', 'tor_b', 'toggle', 'random']:
         return True, ''
-    return False, 'Bad posted data, expected: {"active_side": "tor_a|tor_b"}'
+    return False, 'Bad posted data, expected: {"active_side": "tor_a|tor_b|toggle|random"}'
 
 
 @app.route('/mux/<vm_set>/<port_index>', methods=['GET', 'POST'])
@@ -382,11 +394,33 @@ def get_mux_bridges(vm_set):
     return mux_bridges
 
 
-@app.route('/mux/<vm_set>', methods=['GET'])
+def get_all_mux_status(vm_set):
+    bridge_prefix = 'mbr-{}-'.format(vm_set)
+    mux_bridges = get_mux_bridges(vm_set)
+    all_mux_status = {}
+    for bridge in mux_bridges:
+        port_index = int(bridge.replace(bridge_prefix, ''))
+        all_mux_status[bridge] = get_mux_status(vm_set, port_index)
+    return all_mux_status
+
+
+def update_all_active_side(all_mux_status, new_active_side):
+    new_all_mux_status = {}
+    for bridge, mux_status in all_mux_status.items():
+        vm_set = mux_status['vm_set']
+        port_index = mux_status['port_index']
+        new_all_mux_status[bridge] = set_active_side(vm_set, port_index, new_active_side)
+    return new_all_mux_status
+
+
+@app.route('/mux/<vm_set>', methods=['GET', 'POST'])
 def all_mux_status(vm_set):
     """Handler for requests to /mux/<vm_set>.
 
     For GET request, return detailed status of all the mux Y cables belong to the specified vm_set.
+    For POST request, update mux active side according to poseted data. Posted data format:
+        {"active_side": "tor_a|tor_b|random"}
+    The value of "active_side" must be one of "tor_a", "tor_b", "toggle" or "random".
 
     Args:
         vm_set (string): The vm_set of test setup.
@@ -394,16 +428,21 @@ def all_mux_status(vm_set):
     Returns:
         object: Return a flask response object.
     """
-    bridge_prefix = 'mbr-{}-'.format(vm_set)
+
     try:
-        mux_bridges = get_mux_bridges(vm_set)
-        all_mux_status = {}
-        for bridge in mux_bridges:
-            port_index = int(bridge.replace(bridge_prefix, ''))
-            all_mux_status[bridge] = get_mux_status(vm_set, port_index)
-        return jsonify(all_mux_status)
+        all_mux_status = get_all_mux_status(vm_set)
+        if request.method == 'GET':
+            return jsonify(all_mux_status)
+        else:
+            data = request.get_json()
+            valid, msg = _validate_posted_data(data)
+            if not valid:
+                app.logger.error('{} {} {}'.format(request.method, request.url, msg))
+                return jsonify({'err_msg': msg}), 400
+            new_all_mux_status = update_all_active_side(all_mux_status, data['active_side'])
+            return jsonify(new_all_mux_status)
     except Exception as e:
-        err_msg = 'Get all mux status failed, vm_set: {}, exception: {}'.format(vm_set, repr(e))
+        err_msg = 'GET/POST all mux status failed, vm_set: {}, exception: {}'.format(vm_set, repr(e))
         app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
         return jsonify({'err_msg': err_msg}), 500
 
