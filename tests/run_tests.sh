@@ -205,9 +205,6 @@ function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
     pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
-
-    # Give some delay for the newly announced routes to propagate.
-    sleep 120
 }
 
 function cleanup_dut()
@@ -269,7 +266,7 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
         a )
             AUTO_RECOVER=${OPTARG}
             ;;
-        b ) 
+        b )
             KUBE_MASTER_ID=${OPTARG}
             SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
