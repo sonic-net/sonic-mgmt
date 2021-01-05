@@ -17,6 +17,7 @@ import pytest
 import util
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.daemon_utils import check_pmon_daemon_status
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
