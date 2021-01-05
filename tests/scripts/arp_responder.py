@@ -15,7 +15,7 @@ import scapy.all as scapy2
 scapy2.conf.use_pcap=True
 import scapy.arch.pcapdnet
 
-NEIGH_ADV_ICMP_MSG_TYPE = 135
+NEIGH_SOLICIT_ICMP_MSG_TYPE = 135
 
 def hexdump(data):
     print " ".join("%02x" % ord(d) for d in data)
@@ -48,7 +48,7 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp || ip6[40] = {}'.format(NEIGH_ADV_ICMP_MSG_TYPE))
+        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp || ip6[40] = {}'.format(NEIGH_SOLICIT_ICMP_MSG_TYPE))
 
     def handler(self):
         return self.socket
