@@ -79,7 +79,6 @@ class QosParamMellanox(object):
         pkts_num_trig_egr_drp = egress_lossy_size + 1
 
         if self.sharedHeadroomPoolSize:
-            shp_size = int(math.ceil(float(self.sharedHeadroomPoolSize) / self.cell_size))
             ingress_ports_num_shp = 8
             pkts_num_trig_pfc_shp = []
             ing_port = 1

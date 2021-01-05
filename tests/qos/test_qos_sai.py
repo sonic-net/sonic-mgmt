@@ -209,7 +209,6 @@ class TestQosSai(QosSaiBase):
         margin = qosConfig["hdrm_pool_size"].get("margin")
         if margin:
             testParams["margin"] = margin
-        testParams.update(dutTestParams["basicParams"])
 
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
 
