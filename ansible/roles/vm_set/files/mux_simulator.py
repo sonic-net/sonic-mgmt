@@ -420,7 +420,7 @@ def all_mux_status(vm_set):
     For GET request, return detailed status of all the mux Y cables belong to the specified vm_set.
     For POST request, update mux active side according to poseted data. Posted data format:
         {"active_side": "tor_a|tor_b|random"}
-    The value of "active_side" must be one of "tor_a", "tor_b", or "random".
+    The value of "active_side" must be one of "tor_a", "tor_b", "toggle" or "random".
 
     Args:
         vm_set (string): The vm_set of test setup.
