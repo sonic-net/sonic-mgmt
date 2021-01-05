@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import time
+from pkg_resources import parse_version
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from device_mocker import device_mocker_factory
@@ -53,7 +54,8 @@ EXPECT_PSU_INVALID_VOLTAGE = '{} voltage is out of range'
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthost):
     """Skip the test for unsupported images."""
-    pytest_require("201911" not in duthost.os_version, "Test not supported for 201911 images. Skipping the test")
+    pytest_require(parse_version(duthost.kernel_version) > parse_version('4.9.0'),
+                   "Test not supported for 201911 images. Skipping the test")
     yield
 
 
