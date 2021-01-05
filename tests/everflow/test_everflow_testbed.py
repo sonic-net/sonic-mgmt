@@ -19,6 +19,11 @@ pytestmark = [
 ]
 
 
+MEGABYTE = 1024 * 1024
+DEFAULT_PTF_SOCKET_RCV_SIZE = 10 * MEGABYTE
+DEFAULT_PTF_QLEN = 15000
+
+
 @pytest.fixture
 def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
     """
@@ -50,7 +55,8 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
                    platform_dir="ptftests",
                    testname="everflow_tb_test.EverflowTest" if not test_name else test_name,
                    params=params,
-                   socket_recv_size=16384,
+                   socket_recv_size=DEFAULT_PTF_SOCKET_RCV_SIZE,
+                   qlen=DEFAULT_PTF_QLEN,
                    log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
 
     return _partial_ptf_runner
