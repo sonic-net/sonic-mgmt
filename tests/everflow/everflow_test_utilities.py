@@ -661,7 +661,7 @@ class BaseEverflowTest(object):
                 end = index + len(s)
                 name = header[index:end].strip()
                 value = ln[index:end].strip()
-                index = index + len(s)+ 2
+                index = index + len(s) + 2
                 data[name] = value
 
             session_group["data"].append(data)
