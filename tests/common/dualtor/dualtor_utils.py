@@ -228,7 +228,7 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url):
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports_to_random_side(mux_server_url):
     """
-    A module level fixture to toggle all ports to an random side.
+    A module level fixture to toggle all ports to a random side.
     """
     server_url = _url(mux_server_url)
     data = {"active_side": "random"}
