@@ -87,7 +87,7 @@ class Poller(object):
 
 class ARPResponder(object):
     ARP_PKT_LEN = 64
-    NDP_PKT_LEN = 86
+    NDP_PKT_LEN = 90
     ARP_OP_REQUEST = 1
     def __init__(self, ip_sets):
         self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
@@ -139,9 +139,14 @@ class ARPResponder(object):
         return
         
     def extract_ndp_info(self, data):
+        vlan_offset = 0
+
+        if len(data) == 90:
+            vlan_offset = 4
+
         remote_mac = data[6:12]
-        remote_ip = data[22:38]
-        target_ip = data[62:78]
+        remote_ip = data[22 + vlan_offset:38 + vlan_offset]
+        target_ip = data[62 + vlan_offset:78 + vlan_offset]
 
         return remote_mac, remote_ip, target_ip
 
