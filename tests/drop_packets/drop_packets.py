@@ -150,10 +150,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
 
 @pytest.fixture
 def rif_port_down(duthosts, rand_one_dut_hostname, setup, fanouthosts, loganalyzer):
-    """Shut RIF interface and return neighbor IP address attached to this interface.
-
-    The RIF member is shut from the fanout side so that the ARP entry remains in
-    place on the DUT."""
+    """Shut RIF interface and return neighbor IP address attached to this interface."""
     duthost = duthosts[rand_one_dut_hostname]
     wait_after_ports_up = 30
 
