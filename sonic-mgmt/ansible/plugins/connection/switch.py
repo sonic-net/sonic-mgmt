@@ -105,6 +105,7 @@ class Connection(ConnectionBase):
         self.before_backup = client.before.split()
 
         # determine the sku
+        client.sendline('terminal length 0')
         client.sendline('show version')
         while True:
             client.expect(['#', '>'])
