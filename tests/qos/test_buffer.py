@@ -12,17 +12,17 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 profile_format = 'pg_lossless_{}_{}_profile'
-lossless_profile_pattern = 'pg_lossless_([1-9][0-9]*000)_([1-9][0-9]*m)_profile'
+LOSSLESS_PROFILE_PATTERN = 'pg_lossless_([1-9][0-9]*000)_([1-9][0-9]*m)_profile'
 
-default_cable_length_list = None
-default_lossless_headroom_data = None
-default_ingress_pool_number = 0
-default_mtu = None
+DEFAULT_CABLE_LENGTH_LIST = None
+DEFAULT_LOSSLESS_HEADROOM_DATA = None
+DEFAULT_INGRESS_POOL_NUMBER = 0
+DEFAULT_MTU = None
 
-testparam_headroom_override = None
-testparam_lossless_pg = None
+TESTPARAM_HEADROOM_OVERRIDE = None
+TESTPARAM_LOSSLESS_PG = None
 
-buffer_model_dynamic = True
+BUFFER_MODEL_DYNAMIC = True
 
 def detect_buffer_model(duthost):
     """Detect the current buffer model (dynamic or traditional) and store it for futher use. Called only once when the module is initialized
@@ -30,9 +30,9 @@ def detect_buffer_model(duthost):
     Args:
         duthost: The DUT host object
     """
-    global buffer_model_dynamic
+    global BUFFER_MODEL_DYNAMIC
     buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
-    buffer_model_dynamic = (buffer_model == 'dynamic')
+    BUFFER_MODEL_DYNAMIC = (buffer_model == 'dynamic')
 
 
 def detect_ingress_pool_number(duthost):
@@ -41,21 +41,21 @@ def detect_ingress_pool_number(duthost):
     Args:
         duthost: The DUT host object
     """
-    global default_ingress_pool_number
+    global DEFAULT_INGRESS_POOL_NUMBER
     pools = duthost.shell('redis-cli -n 4 keys "BUFFER_POOL|ingress*"')['stdout']
-    default_ingress_pool_number = len(pools.split())
+    DEFAULT_INGRESS_POOL_NUMBER = len(pools.split())
 
 
-def detect_default_mtu(duthost, port_to_test):
+def detect_DEFAULT_MTU(duthost, port_to_test):
     """Detect the mtu and store it for futher use. Called only once when the module is initialized
 
     Args:
         duthost: The DUT host object
     """
-    global default_mtu
-    if not default_mtu:
-        logging.info("Default MTU {}".format(default_mtu))
-        default_mtu = duthost.shell('redis-cli -n 4 hget "PORT|{}" mtu'.format(port_to_test))['stdout']
+    global DEFAULT_MTU
+    if not DEFAULT_MTU:
+        logging.info("Default MTU {}".format(DEFAULT_MTU))
+        DEFAULT_MTU = duthost.shell('redis-cli -n 4 hget "PORT|{}" mtu'.format(port_to_test))['stdout']
 
 
 def load_lossless_headroom_data(duthost):
@@ -64,13 +64,13 @@ def load_lossless_headroom_data(duthost):
     Args:
         duthost: the DUT host object
     """
-    global default_lossless_headroom_data
-    if not default_lossless_headroom_data:
+    global DEFAULT_LOSSLESS_HEADROOM_DATA
+    if not DEFAULT_LOSSLESS_HEADROOM_DATA:
         dut_hwsku = duthost.facts["hwsku"]
         dut_platform = duthost.facts["platform"]
         skudir = "/usr/share/sonic/device/{}/{}/".format(dut_platform, dut_hwsku)
         lines = duthost.shell('cat {}/pg_profile_lookup.ini'.format(skudir))["stdout"]
-        default_lossless_headroom_data = {}
+        DEFAULT_LOSSLESS_HEADROOM_DATA = {}
         for line in lines.split('\n'):
             if line[0] == '#':
                 continue
@@ -80,10 +80,10 @@ def load_lossless_headroom_data(duthost):
             size = tokens[2]
             xon = tokens[3]
             xoff = tokens[4]
-            if not default_lossless_headroom_data.get(speed):
-                default_lossless_headroom_data[speed] = {}
-            default_lossless_headroom_data[speed][cable_length] = {'size': size, 'xon': xon, 'xoff': xoff}
-        default_lossless_headroom_data = default_lossless_headroom_data
+            if not DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed):
+                DEFAULT_LOSSLESS_HEADROOM_DATA[speed] = {}
+            DEFAULT_LOSSLESS_HEADROOM_DATA[speed][cable_length] = {'size': size, 'xon': xon, 'xoff': xoff}
+        DEFAULT_LOSSLESS_HEADROOM_DATA = DEFAULT_LOSSLESS_HEADROOM_DATA
 
 
 def load_test_parameters(duthost):
@@ -92,9 +92,9 @@ def load_test_parameters(duthost):
     Args:
         duthost: The DUT host object
     """
-    global default_cable_length_list
-    global testparam_headroom_override
-    global testparam_lossless_pg
+    global DEFAULT_CABLE_LENGTH_LIST
+    global TESTPARAM_HEADROOM_OVERRIDE
+    global TESTPARAM_LOSSLESS_PG
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -102,9 +102,9 @@ def load_test_parameters(duthost):
         logging.info("Loaded test parameters {} from {}".format(params, param_file_name))
         asic_type = duthost.facts['asic_type']
         vendor_specific_param = params[asic_type]
-        default_cable_length_list = vendor_specific_param['default_cable_length']
-        testparam_headroom_override = vendor_specific_param['headroom-override']
-        testparam_lossless_pg = vendor_specific_param['lossless_pg']
+        DEFAULT_CABLE_LENGTH_LIST = vendor_specific_param['default_cable_length']
+        TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
+        TESTPARAM_LOSSLESS_PG = vendor_specific_param['lossless_pg']
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -115,14 +115,14 @@ def setup_module(duthost):
         duthost: The DUT host object
     """
     detect_buffer_model(duthost)
-    if buffer_model_dynamic:
+    if BUFFER_MODEL_DYNAMIC:
         detect_ingress_pool_number(duthost)
         load_lossless_headroom_data(duthost)
         load_test_parameters(duthost)
 
-        logging.info("Cable length: default {}".format(default_cable_length_list))
-        logging.info("Ingress pool number {}".format(default_ingress_pool_number))
-        logging.info("Lossless headroom data {}".format(default_lossless_headroom_data))
+        logging.info("Cable length: default {}".format(DEFAULT_CABLE_LENGTH_LIST))
+        logging.info("Ingress pool number {}".format(DEFAULT_INGRESS_POOL_NUMBER))
+        logging.info("Lossless headroom data {}".format(DEFAULT_LOSSLESS_HEADROOM_DATA))
     else:
         pytest.skip("Dynamic buffer isn't enabled, skip the test")
 
@@ -171,8 +171,8 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
         curr_pool_size = int(kwargs["pool_size"])
 
-        original_memory = curr_pool_size * default_ingress_pool_number + old_headroom * old_pg_number
-        expected_pool_size = (original_memory - new_reserved) / default_ingress_pool_number
+        original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + old_headroom * old_pg_number
+        expected_pool_size = (original_memory - new_reserved) / DEFAULT_INGRESS_POOL_NUMBER
 
     def _get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid):
         pool_sai = _compose_dict_from_cli(duthost.shell('redis-cli -n 1 hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'.format(ingress_lossless_pool_oid))['stdout'].split('\n'))
@@ -230,7 +230,7 @@ def check_pfc_enable(duthost, port, expected_pfc_enable_map):
                       duthost.shell('redis-cli -n 4 hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']))
 
 
-def check_lossless_profile_removed(duthost, profile, sai_oid = None):
+def check_lossless_profile_removed(duthost, profile, sai_oid=None):
     """Check whether the lossless profile has been removed from APPL_DB, STATE_DB and ASIC_DB (if sai_oid provided)
 
     Args:
@@ -280,12 +280,12 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
     logging.debug("APPL_DB buffer profile {}: {} ".format(profile_name, profile_appldb))
 
     # Check the profile against the standard value
-    m = re.search(lossless_profile_pattern, profile_name)
+    m = re.search(LOSSLESS_PROFILE_PATTERN, profile_name)
     if m:
         # This means it's a dynamic profile
         speed = m.group(1)
         cable_length = m.group(2)
-        std_profiles_for_speed = default_lossless_headroom_data.get(speed)
+        std_profiles_for_speed = DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed)
         std_profile = std_profiles_for_speed.get(cable_length)
         if std_profile:
             # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
@@ -442,31 +442,31 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
-    detect_default_mtu(duthost, port_to_test)
+    detect_DEFAULT_MTU(duthost, port_to_test)
 
     original_headroom_size = int(duthost.shell('redis-cli hget "{}" size'.format(profile))['stdout'])
     original_pool_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout'])
 
     initial_asic_db_profiles = fetch_initial_asic_db(duthost)
 
-    if speed_to_test == original_speed and cable_len_to_test == original_cable_len and mtu_to_test == default_mtu:
+    if speed_to_test == original_speed and cable_len_to_test == original_cable_len and mtu_to_test == DEFAULT_MTU:
         pytest.skip('Speed, MTU and cable length matches the default value, nothing to test, skip')
 
     try:
         if not speed_to_test == original_speed:
             logging.info("Changing port's speed to {}".format(speed_to_test))
             duthost.shell('config interface speed {} {}'.format(port_to_test, speed_to_test))
-        if not mtu_to_test == default_mtu:
+        if not mtu_to_test == DEFAULT_MTU:
             logging.info("Changing port's mtu to {}".format(mtu_to_test))
             duthost.shell('config interface mtu {} {}'.format(port_to_test, mtu_to_test))
         if not cable_len_to_test == original_cable_len:
             logging.info("Changing port's cable length to {}".format(cable_len_to_test))
             duthost.shell('config interface cable-length {} {}'.format(port_to_test, cable_len_to_test))
 
-        check_profile_removed = cable_len_to_test not in default_cable_length_list
+        check_profile_removed = cable_len_to_test not in DEFAULT_CABLE_LENGTH_LIST
 
         # Check whether profile is correct in PG table
-        if mtu_to_test != default_mtu:
+        if mtu_to_test != DEFAULT_MTU:
             expected_profile = 'pg_lossless_{}_{}_mtu{}_profile'.format(speed_to_test, cable_len_to_test, mtu_to_test)
             check_profile_removed = True
         else:
@@ -520,9 +520,9 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                 logging.info('[Revert the cable length to the default value] Checking whether the profile is updated')
                 duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len))
 
-            if mtu_to_test != default_mtu:
+            if mtu_to_test != DEFAULT_MTU:
                 logging.info('[Revert the mtu to the default value] Checking whether the profile is updated')
-                duthost.shell('config interface mtu {} {}'.format(port_to_test, default_mtu))
+                duthost.shell('config interface mtu {} {}'.format(port_to_test, DEFAULT_MTU))
 
             # Remove old profile on cable length change
             logging.info('[Remove dynamic profile on cable length and/or MTU updated] Checking whether the old profile is removed')
@@ -550,9 +550,9 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             if cable_len_to_test != original_cable_len:
                 logging.info('[Update cable length without any lossless pg configured]')
                 duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len))
-            if mtu_to_test != default_mtu:
+            if mtu_to_test != DEFAULT_MTU:
                 logging.info('[Update mtu without any lossless pg configured]')
-                duthost.shell('config interface mtu {} {}'.format(port_to_test, default_mtu))
+                duthost.shell('config interface mtu {} {}'.format(port_to_test, DEFAULT_MTU))
 
         if speed_to_test != original_speed:
             logging.info('[Update speed without any lossless pg configured]')
@@ -594,7 +594,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     finally:
         duthost.shell('config interface buffer priority-group lossless remove {}'.format(port_to_test), module_ignore_errors = True)
         duthost.shell('config interface speed {} {}'.format(port_to_test, original_speed), module_ignore_errors = True)
-        duthost.shell('config interface mtu {} {}'.format(port_to_test, default_mtu), module_ignore_errors = True)
+        duthost.shell('config interface mtu {} {}'.format(port_to_test, DEFAULT_MTU), module_ignore_errors = True)
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len), module_ignore_errors = True)
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test), module_ignore_errors = True)
 
@@ -662,7 +662,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
         port_to_test: On which port will the test be performed
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if not testparam_headroom_override:
+    if not TESTPARAM_HEADROOM_OVERRIDE:
         pytest.skip("Headroom override test skipped due to no parameters provided")
 
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
@@ -675,7 +675,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
     try:
         # Configure a static profile
-        param = testparam_headroom_override.get("add")
+        param = TESTPARAM_HEADROOM_OVERRIDE.get("add")
         if not param:
             pytest.skip('Headroom override test skipped due to no parameters for "add" command provided')
         else:
@@ -712,7 +712,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
                         new_headroom = new_headroom,
                         new_pg_number = 3)
 
-        param = testparam_headroom_override.get("set")
+        param = TESTPARAM_HEADROOM_OVERRIDE.get("set")
         if not param:
             pytest.skip('Headroom override test skipped due to no parameters for "set" command provided')
         else:
@@ -789,7 +789,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
     buffer_pg = 'BUFFER_PG_TABLE:{}:{}'.format(port_to_test, pg_to_test)
 
     try:
-        param = testparam_lossless_pg.get("headroom-override")
+        param = TESTPARAM_LOSSLESS_PG.get("headroom-override")
         if not param:
             pytest.skip('Lossless pg test skipped due to no parameters for "headroom-override" command provided')
         else:
@@ -804,7 +804,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
 
         # This is a dynamic profile with non default dynamic-th.
         # Profile won't be created until configured on some pg
-        param = testparam_lossless_pg.get("non-default-dynamic_th")
+        param = TESTPARAM_LOSSLESS_PG.get("non-default-dynamic_th")
         if not param:
             pytest.skip('Lossless pg test skipped due to no parameters for "non-default-dynamic_th" command provided')
         else:
