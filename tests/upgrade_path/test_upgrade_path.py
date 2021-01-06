@@ -13,6 +13,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause
+from tests.common.reboot import REBOOT_TYPE_WARM
 
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -153,29 +154,36 @@ def check_sonic_version(duthost, target_version):
 
 
 def install_sonic(duthost, image_url, tbinfo):
-    mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
-    mg_gwaddr = ipaddress.IPv4Address(mg_gwaddr)
-    rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
-    for nexthop in rtinfo_v4['nexthops']:
-        if mg_gwaddr == nexthop[0]:
-            new_route_added = False
-            break
+    new_route_added = False
+    if urlparse(image_url).scheme in ('http', 'https',):
+        mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
+        mg_gwaddr = ipaddress.IPv4Address(mg_gwaddr)
+        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
+        for nexthop in rtinfo_v4['nexthops']:
+            if mg_gwaddr == nexthop[0]:
+                break
+        else:
+            # Temporarily change the default route to mgmt-gateway address. This is done so that
+            # DUT can download an image from a remote host over the mgmt network.
+            logger.info("Add default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
+            duthost.shell("ip route add default via {}".format(mg_gwaddr), module_ignore_errors=True)
+            new_route_added = True
+        res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
     else:
-        # Temporarily change the default route to mgmt-gateway address. This is done so that
-        # DUT can download an image from a remote host over the mgmt network.
-        logger.info("Add default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
-        duthost.shell("ip route add default via {}".format(mg_gwaddr), module_ignore_errors=True)
-        new_route_added = True
-
-    if urlparse(image_url).scheme not in ('http', 'https',):
         out = duthost.command("df -BM --output=avail /host",
                         module_ignore_errors=True)["stdout"]
         avail = int(out.split('\n')[1][:-1])
-        save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
+        if avail >= 2000:
+            # There is enough space to install directly
+            save_as = "/host/downloaded-sonic-image"
+        else:
+            save_as = "/tmp/tmpfs/downloaded-sonic-image"
+            # Create a tmpfs partition to download image to install
+            duthost.shell("mkdir -p /tmp/tmpfs", module_ignore_errors=True)
+            duthost.shell("umount /tmp/tmpfs", module_ignore_errors=True)
+            duthost.shell("mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs", module_ignore_errors=True)
         duthost.copy(src=image_url, dest=save_as)
-        res = duthost.reduce_and_add_sonic_images()
-    else:
-        res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
+        res = duthost.reduce_and_add_sonic_images(save_as=save_as)
 
     # if the new default mgmt-gateway route was added, remove it. This is done so that
     # default route src address matches Loopback0 address
@@ -238,6 +246,7 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
                        qlen=10000,
                        log_file=log_file)
             reboot_cause = get_reboot_cause(duthost)
-            pytest_assert(reboot_cause == "warm-reboot", "Reboot cause {} did not match the trigger - warm-reboot".format(reboot_cause))
+            logger.info("Check reboot cause. Expected cause {}".format(REBOOT_TYPE_WARM))
+            pytest_assert(reboot_cause == REBOOT_TYPE_WARM, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, REBOOT_TYPE_WARM))
             check_services(duthost)
 

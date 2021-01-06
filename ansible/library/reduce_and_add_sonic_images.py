@@ -59,12 +59,14 @@ def download_new_sonic_image(module, new_image_url, save_as):
         results['downloaded_image_version'] = out.rstrip('\n')
 
 
-def install_new_sonic_image(module, new_image_url):
+def install_new_sonic_image(module, new_image_url, save_as=None):
 
-    avail = get_disk_free_size(module, "/host")
-    if avail >= 2000:
+    if not save_as:
+        avail = get_disk_free_size(module, "/host")
+        save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
+
+    if save_as == "/host/downloaded-sonic-image":
         # There is enough space to install directly
-        save_as = "/host/downloaded-sonic-image"
         download_new_sonic_image(module, new_image_url, save_as)
         rc, out, err = exec_command(module,
                      cmd="sonic_installer install {} -y".format(save_as),
@@ -82,7 +84,6 @@ def install_new_sonic_image(module, new_image_url):
         exec_command(module,
                      cmd="mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs",
                      msg="mounting tmpfs")
-        save_as = "/tmp/tmpfs/downloaded-sonic-image"
         download_new_sonic_image(module, new_image_url, save_as)
         rc, out, err = exec_command(module,
                      cmd="sonic_installer install {} -y".format(save_as),
@@ -107,15 +108,17 @@ def main():
         argument_spec=dict(
             disk_used_pcent=dict(required=False, type='int', default=8),
             new_image_url=dict(required=False, type='str', default=None),
+            save_as=dict(required=False, type='str', default=None),
         ),
         supports_check_mode=False)
 
     disk_used_pcent = module.params['disk_used_pcent']
     new_image_url   = module.params['new_image_url']
+    save_as = module.params['save_as']
 
     try:
         reduce_installed_sonic_images(module, disk_used_pcent)
-        install_new_sonic_image(module, new_image_url)
+        install_new_sonic_image(module, new_image_url, save_as)
     except:
         err = str(sys.exc_info())
         module.fail_json(msg="Error: %s" % err)
