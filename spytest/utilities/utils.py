@@ -2,15 +2,17 @@
 # Author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com) / Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
 import re
-from spytest import st
+import socket
 import datetime
 import json
 import random
-from utilities.common import filter_and_select, dicts_list_values, make_list
-from socket import inet_aton, inet_pton, AF_INET6, AF_INET
-from binascii import hexlify
-from calendar import monthrange
 
+from binascii import hexlify
+
+from spytest import st
+
+import utilities.parallel as pll
+from utilities.common import filter_and_select, dicts_list_values, make_list
 
 def remove_last_line_from_string(data):
     """
@@ -362,11 +364,13 @@ def list_diff(list1, list2, identical=False):
 
 
 def get_random_vlans_in_sequence(count=1, start=2, end=3000):
+    vlan_list = []
     while True:
-        vlan_list = random.sample([range(start, end)[x:x + count] for x in xrange(0, len(range(start, end)), count)],
+        vlan_list = random.sample([range(start, end)[x:x + count] for x in range(0, len(range(start, end)), count)],
                                   k=1)[0]
         if len(vlan_list) == count:
-            return vlan_list
+            break
+    return vlan_list
 
 
 def check_empty_values_in_dict(data):
@@ -378,7 +382,7 @@ def check_empty_values_in_dict(data):
     if isinstance(data, dict):
         count = 0
         for key, value in data.items():
-            if not value:
+            if value == "":
                 st.debug("Getting empty value for key={} and value={}".format(key, value))
                 count += 1
         if count != 0:
@@ -398,21 +402,19 @@ def remove_duplicate_dicts_from_list(list_data):
 
 
 def get_interface_number_from_name(interface_name):
+
     """
     Common function to get the interface number from name using for KLISH CLI
     Author: Chaitanya-vella.kumar@broadcom.com
     :param interface_name:
     :return:
     """
-    if interface_name:
-        data = re.findall(r'\d+', interface_name)
+    if interface_name and not re.search(r':|\.',interface_name):
+        data = re.search(r'([A-Za-z\-]+)\s*([0-9\/]+)', interface_name)
         if data:
-            if "Ethernet" in interface_name:
-                return {"type": "Ethernet", "number": data[0]}
-            elif "PortChannel" in interface_name:
-                return {"type": "PortChannel", "number": data[0].lstrip("0")}
-            elif "Vlan" in interface_name:
-                return {"type": "Vlan", "number": data[0]}
+            if 'PortChannel' in interface_name:
+                return {'type': data.group(1), 'number': data.group(2).lstrip('0')}
+            return {'type': data.group(1), 'number': data.group(2)}
     return interface_name
 
 
@@ -429,7 +431,7 @@ def get_dict_from_redis_cli(data):
     return output: {'ipaddress-type': 'ipv4', 'sample': '100'}
     """
     id_list = dicts_list_values(data, 'id')
-    chunks = [id_list[x:x + 2] for x in xrange(0, len(id_list), 2)]
+    chunks = [id_list[x:x + 2] for x in range(0, len(id_list), 2)]
     output = {filter_and_select(data, ['name'], {'id': each[0]})[0]['name']:
                   filter_and_select(data, ['name'], {'id': each[1]})[0]['name'] for each in chunks}
     return output
@@ -459,7 +461,7 @@ def util_ip_addr_to_hexa_conv(ipaddr):
     :param ipaddr:
     :return:
     """
-    return hexlify(inet_aton(ipaddr)).upper()
+    return hexlify(socket.inet_aton(ipaddr)).upper()
 
 def util_ipv6_addr_to_hexa_conv(ip6addr):
     """
@@ -467,7 +469,7 @@ def util_ipv6_addr_to_hexa_conv(ip6addr):
     :param ipaddr:
     :return:
     """
-    return hexlify(inet_pton(AF_INET6, ip6addr)).upper()
+    return hexlify(socket.inet_pton(socket.AF_INET6, ip6addr)).upper()
 
 
 def util_int_to_hexa_conv(int_data, z_fill=4):
@@ -499,21 +501,11 @@ def hex2int(value, w=0):
     """
     return int("0x{}".format(value), w)
 
-
-def random_cli_type_wrt_day(cli_type_list=['click', 'klish']):
-    """
-    Get random CLI type w.r.t the day.
-    Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
-    :param cli_type_list: ['click', 'klish']
-    :return:
-    """
-    day = int(datetime.datetime.now().strftime("%d"))
-    num_days = range(1, monthrange(int(datetime.datetime.now().strftime("%Y")),
-                                   int(datetime.datetime.now().strftime("%m")))[1] + 1)
-    chunks = [num_days[x:x + len(cli_type_list)] for x in xrange(0, len(num_days), len(cli_type_list))]
-    for each in chunks:
-        if day in each:
-            return cli_type_list[each.index(day)]
+def int2hex(data):
+    try:
+        return hex(int(data))
+    except Exception:
+        return hex(int(data.replace('L', '').upper()[2:].zfill(8), 16))
 
 def fail_on_error(output):
     """
@@ -570,13 +562,13 @@ def verify_ip4_ip6_in_subnetwork(ip_address, subnetwork):
 
 
 def ip4_ip6_to_integer(ip_address):
-    for version in (AF_INET, AF_INET6):
+    for version in (socket.AF_INET, socket.AF_INET6):
         try:
-            ip_hex = inet_pton(version, ip_address)
+            ip_hex = socket.inet_pton(version, ip_address)
             ip_integer = int(hexlify(ip_hex), 16)
 
-            return (ip_integer, 4 if version == AF_INET else 6)
-        except:
+            return (ip_integer, 4 if version == socket.AF_INET else 6)
+        except Exception:
             pass
     raise ValueError("invalid IP address")
 
@@ -586,22 +578,22 @@ def subnetwork_to_ip4_ip6_range(subnetwork):
         fragments = subnetwork.split('/')
         network_prefix = fragments[0]
         netmask_len = int(fragments[1])
-        for version in (AF_INET, AF_INET6):
+        for version in (socket.AF_INET, socket.AF_INET6):
 
-            ip_len = 32 if version == AF_INET else 128
+            ip_len = 32 if version == socket.AF_INET else 128
             try:
                 suffix_mask = (1 << (ip_len - netmask_len)) - 1
                 netmask = ((1 << ip_len) - 1) - suffix_mask
-                ip_hex = inet_pton(version, network_prefix)
+                ip_hex = socket.inet_pton(version, network_prefix)
                 ip_lower = int(hexlify(ip_hex), 16) & netmask
                 ip_upper = ip_lower + suffix_mask
 
                 return (ip_lower,
                         ip_upper,
-                        4 if version == AF_INET else 6)
-            except:
+                        4 if version == socket.AF_INET else 6)
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
     raise ValueError("invalid subnetwork")
 
@@ -613,4 +605,123 @@ def bitwise_OR_to_char(char, val):
 
     return str(int(char) | int(val))
 
+def retry_api(func, *args,**kwargs):
+    retry_count = kwargs.pop("retry_count", 10)
+    delay = kwargs.pop("delay", 3)
+    for i in range(retry_count):
+        st.log("Attempt {} of {}".format((i+1),retry_count))
+        if func(*args,**kwargs):
+            #print('API_Call: {} Successful'.format(func))
+            return True
+        if retry_count != (i+1):
+            st.log("waiting for {} seconds before retyring again".format(delay))
+            st.wait(delay)
+    return False
 
+def retry_parallel(func,dict_list=[],dut_list=[],api_result=True,retry_count=3,delay=2):
+    for i in range(retry_count):
+        st.log("Attempt %s of %s" %((i+1),retry_count))
+        result = pll.exec_parallel(True,dut_list,func,dict_list)
+        if api_result:
+            if False not in result[0]:
+                return api_result
+        else:
+            if True not in result[0]:
+                return api_result
+        if retry_count != (i+1):
+            st.log("waiting for %s seconds before retrying again"%delay)
+            st.wait(delay)
+    return  False if api_result else True
+
+def hex_conversion(data):
+    try:
+        return hex(int(data))
+    except Exception:
+        return hex(int(data.replace('L', '').upper()[2:].zfill(8), 16))
+
+def get_portchannel_name_for_rest(interface_name):
+    portchanne_name = interface_name
+    if "PortChannel" in portchanne_name:
+        intf_name = interface_name.split("PortChannel")
+        portchanne_name = "PortChannel{}".format(int(intf_name[1]))
+    return portchanne_name
+
+def is_valid_ipv4_address(address):
+    """
+    Validate ipv4 address.
+    Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+
+    :param address:
+    :return:
+    """
+    try:
+        socket.inet_pton(socket.AF_INET, address)
+    except AttributeError:  # no inet_pton here, sorry
+        try:
+            socket.inet_aton(address)
+        except socket.error:
+            return False
+        return address.count('.') == 3
+    except socket.error:  # not a valid address
+        return False
+    return True
+
+def is_valid_ipv6_address(address):
+    """
+    Validate ipv6 address.
+    Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+
+    :param address:
+    :return:
+    """
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+    except socket.error:  # not a valid address
+        return False
+    return True
+
+def is_valid_ip_address(address, family, subnet=None):
+    """
+    Validate ip address.
+    Author: Naveena Suvarna (naveen.suvarna@broadcom.com)
+
+    :param address:
+    :param family
+    :param subnet
+    :return:
+    """
+
+    if not address or not family:
+        st.error("Parameter Family or address is Null")
+        return False
+
+    if family == "ipv4":
+        if not is_valid_ipv4_address(address):
+            st.error("Invalid IPv4 address {} ".format(address))
+            return False
+        if subnet:
+            subnet = int(subnet)
+            if subnet < 1 or subnet > 32:
+                st.error("Invalid IPv4 subnet {}".format(subnet))
+                return False
+    elif family == "ipv6":
+        if not is_valid_ipv6_address(address):
+            st.error("Invalid IPv6 address {} ".format(address))
+            return False
+        if subnet:
+            subnet = int(subnet)
+            if subnet < 1 or subnet > 128:
+                st.error("Invalid IPv6 subnet {}".format(subnet))
+                return False
+    else:
+        st.error("Invalid address family {} ".format(family))
+        return False
+
+    return True
+
+def convert_microsecs_to_time(microseconds):
+    from datetime import timedelta
+    time = str(timedelta(microseconds=int(microseconds))).split(".")
+    if time:
+        return time[0]
+    return "0:00:00"

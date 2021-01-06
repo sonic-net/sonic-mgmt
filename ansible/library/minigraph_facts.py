@@ -9,7 +9,7 @@ import copy
 import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
-
+from ansible.module_utils.port_utils import get_port_alias_to_name_map
 
 from lxml import etree as ET
 from lxml.etree import QName
@@ -56,10 +56,17 @@ class minigraph_encoder(json.JSONEncoder):
 def parse_png(png, hname):
     neighbors = {}
     devices = {}
+    neighbors_namespace = defaultdict(str)
     console_dev = ''
     console_port = ''
     mgmt_dev = ''
     mgmt_port = ''
+    try:
+        from sonic_py_common import multi_asic
+        namespace_list = multi_asic.get_namespace_list()
+    except ImportError:
+        namespace_list = ['']
+
     for child in png:
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
             for link in child.findall(str(QName(ns, "DeviceLinkBase"))):
@@ -75,11 +82,17 @@ def parse_png(png, hname):
                 if enddevice == hname:
                     if port_alias_to_name_map.has_key(endport):
                         endport = port_alias_to_name_map[endport]
-                    neighbors[endport] = {'name': startdevice, 'port': startport}
-                else:
+                    if startdevice.lower() in namespace_list:
+                        neighbors_namespace[endport] = startdevice.lower()
+                    else:
+                        neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace':''}
+                elif startdevice == hname:
                     if port_alias_to_name_map.has_key(startport):
                         startport = port_alias_to_name_map[startport]
-                    neighbors[startport] = {'name': enddevice, 'port': endport}
+                    if enddevice.lower() in namespace_list:
+                        neighbors_namespace[startport] = enddevice.lower()
+                    else:
+                        neighbors[startport] = {'name': enddevice, 'port': endport, 'namespace':''}
 
         if child.tag == str(QName(ns, "Devices")):
             for device in child.findall(str(QName(ns, "Device"))):
@@ -101,6 +114,9 @@ def parse_png(png, hname):
                     elif node.tag == str(QName(ns, "HwSku")):
                         hwsku = node.text
 
+                if name.lower() in namespace_list:
+                    continue
+
                 devices[name] = {'lo_addr': lo_addr, 'type': d_type, 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
 
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
@@ -119,6 +135,9 @@ def parse_png(png, hname):
                                 mgmt_port = node.text.split()[-1]
                             elif node.tag == str(QName(ns, "EndDevice")):
                                 mgmt_dev = node.text
+
+    for k, v in neighbors.iteritems():
+         v['namespace'] = neighbors_namespace[k]
 
     return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
 
@@ -151,7 +170,7 @@ def parse_dpg(dpg, hname):
             else:
                 intf['mask'] = str(prefix_len)
             intf.update({'attachto': intfname, 'prefixlen': int(prefix_len)})
-                    
+
             # TODO: remove peer_addr after dependency removed
             ipaddr_val = int(ipn.ip)
             peer_addr_val = None
@@ -165,7 +184,7 @@ def parse_dpg(dpg, hname):
                     peer_addr_val = ipaddr_val + 1
                 else:
                     peer_addr_val = ipaddr_val - 1
-                    
+
             if peer_addr_val is not None:
                 intf['peer_addr'] = ipaddress.IPAddress(peer_addr_val)
             intfs.append(intf)
@@ -447,102 +466,7 @@ def parse_xml(filename, hostname):
 
     global port_alias_to_name_map
 
-    if hwsku == "Force10-S6000":
-        for i in range(0, 128, 4):
-            port_alias_to_name_map["fortyGigE0/%d" % i] = "Ethernet%d" % i
-    elif hwsku == "Force10-S6100":
-        for i in range(0, 4):
-            for j in range(0, 16):
-                port_alias_to_name_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j)
-    elif hwsku == "Force10-Z9100":
-        for i in range(0, 128, 4):
-            port_alias_to_name_map["hundredGigE1/%d" % (i/4 + 1)] = "Ethernet%d" % i
-    elif hwsku == "Arista-7050-QX32":
-        for i in range(1, 25):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-        for i in range(25, 33):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7050-QX-32S":
-        for i in range(5, 29):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
-        for i in range(29, 37):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
-    elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
-        for i in range(1, 65):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32":
-        for i in range(1, 33):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Mellanox-SN2700-D48C8":
-        # 50G ports
-        s50G_ports = [x for x in range(0, 24, 2)] + [x for x in range(40, 88, 2)] + [x for x in range(104, 128, 2)]
-
-        # 100G ports
-        s100G_ports = [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
-
-        for i in s50G_ports:
-            alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
-            port_alias_to_name_map[alias] = "Ethernet%d" % i
-        for i in s100G_ports:
-            alias = "etp%d" % (i / 4 + 1)
-            port_alias_to_name_map[alias] = "Ethernet%d" % i
-    elif hwsku == "Mellanox-SN2700" or hwsku == "ACS-MSN2700":
-        for i in range(1, 33):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7060CX-32S-D48C8":
-        # All possible breakout 50G port numbers:
-        all_ports = [ x for x in range(1, 33)]
-
-        # 100G ports
-        s100G_ports = [ x for x in range(7, 11) ]
-        s100G_ports += [ x for x in range(23, 27) ]
-
-        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
-    elif hwsku == "Arista-7260CX3-D108C8":
-        # All possible breakout 50G port numbers:
-        all_ports = [ x for x in range(1, 65)]
-
-        # 100G ports
-        s100G_ports = [ x for x in range(13, 21) ]
-
-        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
-    elif hwsku == "INGRASYS-S9100-C32":
-        for i in range(1, 33):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "INGRASYS-S9100-C32" or hwsku == "INGRASYS-S9130-32X" or hwsku == "INGRASYS-S8810-32Q":
-        for i in range(1, 33):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "INGRASYS-S8900-54XC":
-        for i in range(1, 49):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
-        for i in range(49, 55):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
-    elif hwsku == "INGRASYS-S8900-64XC":
-        for i in range(1, 49):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
-        for i in range(49, 65):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
-    elif hwsku == "Accton-AS7712-32X":
-        for i in range(1, 33):
-            port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Celestica-DX010-C32":
-        for i in range(1, 33):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Seastone-DX010":
-        for i in range(1, 33):
-            port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Celestica-E1031-T48S4":
-        for i in range(1, 53):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
-    elif hwsku == "et6448m":
-        for i in range(0, 52):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-    elif hwsku == "newport":
-        for i in range(0, 256, 8):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-    else:
-        for i in range(0, 128, 4):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    port_alias_to_name_map = get_port_alias_to_name_map(hwsku)
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):

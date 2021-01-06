@@ -9,14 +9,16 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from qos_fixtures import lossless_prio_dscp_map, leaf_fanouts
 from qos_helpers import ansible_stdout_to_str, eos_to_linux_intf, start_pause, stop_pause, setup_testbed, gen_testbed_t0, PFC_GEN_FILE, PFC_GEN_REMOTE_PATH
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+
 pytestmark = [
     pytest.mark.topology('t0')
 ]
 
 PFC_PKT_COUNT = 1000000000
 
-PTF_FILE_LOCAL_PATH = '../../ansible/roles/test/files/ptftests/pfc_pause_test.py'
-PTF_FILE_REMOTE_PATH = '~/pfc_pause_test.py'
+PTF_FILE_REMOTE_PATH = '~/ptftests/pfc_pause_test.py'
 PTF_PKT_COUNT = 50
 PTF_PKT_INTVL_SEC = 0.1
 PTF_PASS_RATIO_THRESH = 0.6
@@ -118,7 +120,7 @@ def run_test_t0(fanouthosts,
                        + "queue_paused=%s;" % queue_paused
                        + "dut_has_mac=False")
 
-        cmd = 'ptf --test-dir %s %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
+        cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
         print cmd
         stdout = ansible_stdout_to_str(ptfhost.shell(cmd)['stdout'])
         words = stdout.split()
@@ -207,9 +209,7 @@ def test_pfc_pause_lossless(fanouthosts,
     """
     setup_testbed(fanouthosts=fanouthosts,
                   ptfhost=ptfhost,
-                  leaf_fanouts=leaf_fanouts,
-                  ptf_local_path=PTF_FILE_LOCAL_PATH,
-                  ptf_remote_path=PTF_FILE_REMOTE_PATH)
+                  leaf_fanouts=leaf_fanouts)
 
     errors = []
 
@@ -280,9 +280,7 @@ def test_no_pfc(fanouthosts,
     """
     setup_testbed(fanouthosts=fanouthosts,
                   ptfhost=ptfhost,
-                  leaf_fanouts=leaf_fanouts,
-                  ptf_local_path=PTF_FILE_LOCAL_PATH,
-                  ptf_remote_path=PTF_FILE_REMOTE_PATH)
+                  leaf_fanouts=leaf_fanouts)
 
     errors = []
 

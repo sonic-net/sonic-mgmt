@@ -1,8 +1,9 @@
-from spytest import st
 import json
 import pprint
-import utilities.utils as utils_obj
+from spytest import st
 import apis.system.basic as basic_obj
+import utilities.utils as utils_obj
+from utilities.common import do_eval
 
 
 def verify_running_config(dut, table, object, attribute=None, value=None, max_retry=3):
@@ -66,7 +67,7 @@ def get_running_config(dut, table=None, object=None, attribute=None, max_retry=3
         try:
             output = st.show(dut, command, skip_tmpl=True)
             reg_output = utils_obj.remove_last_line_from_string(output)
-            data = eval(json.dumps(json.loads(reg_output)))
+            data = do_eval(json.dumps(json.loads(reg_output)))
             break
         except Exception as e:
             st.error("Exception occured in try-{} - {}".format(i,e))
@@ -106,7 +107,7 @@ def verify_config_db(dut, table, object, attribute=None, value=None, max_retry=3
         try:
             output = st.show(dut, command, skip_tmpl=True)
             reg_output = utils_obj.remove_last_line_from_string(output)
-            data = eval(json.dumps(json.loads(reg_output)))
+            data = do_eval(json.dumps(json.loads(reg_output)))
             break
         except Exception as e:
             st.error("Exception occured in try-{} - {}".format(i,e))
@@ -157,7 +158,7 @@ def get_config_db(dut, table=None, object=None, attribute=None):
     output = st.show(dut, command, skip_tmpl=True)
     reg_output = utils_obj.remove_last_line_from_string(output)
     try:
-        data = eval(json.dumps(json.loads(reg_output)))
+        data = do_eval(json.dumps(json.loads(reg_output)))
         if table is None and object is None and attribute is None:
             return data
         elif table is not None and object is None and attribute is None:

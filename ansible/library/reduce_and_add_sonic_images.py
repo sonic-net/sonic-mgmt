@@ -105,6 +105,13 @@ def install_new_sonic_image(module, new_image_url):
                      cmd="rm -f /host/old_config/config_db.json",
                      msg="Remove config_db.json in preference of minigraph.xml")
 
+
+def work_around_for_slow_disks(module):
+    # Increase hung task timeout to 600 seconds to avoid kernel panic
+    # while writing lots of data to a slow disk.
+    exec_command(module, cmd="sysctl -w kernel.hung_task_timeout_secs=600", ignore_error=True)
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -117,6 +124,7 @@ def main():
     new_image_url   = module.params['new_image_url']
 
     try:
+        work_around_for_slow_disks(module)
         reduce_installed_sonic_images(module, disk_used_pcent)
         install_new_sonic_image(module, new_image_url)
     except:

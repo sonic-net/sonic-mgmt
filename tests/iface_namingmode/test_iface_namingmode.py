@@ -13,7 +13,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthosts, rand_one_dut_hostname):
+def setup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Sets up all the parameters needed for the interface naming mode tests
 
@@ -25,7 +25,7 @@ def setup(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     hwsku = duthost.facts['hwsku']
-    minigraph_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_alias_facts = duthost.port_alias(hwsku=hwsku)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
@@ -772,12 +772,17 @@ class TestNeighbors():
         ndp_output = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ndp'.format(ifmode))['stdout']
         logger.info('ndp:\n{}'.format(ndp_output))
 
-        for item in arptable['v6']:
-            if (arptable['v6'][item]['interface'] != 'eth0') and (arptable['v6'][item]['interface'] not in minigraph_portchannels):
+        for addr, detail in arptable['v6'].items():
+            if (
+                    detail['macaddress'] != 'None' and
+                    detail['interface'] != 'eth0' and
+                    detail['interface'] not in minigraph_portchannels
+            ):
                 if mode == 'alias':
-                    assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v6'][item]['interface']]), ndp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(addr, setup['port_name_map'][detail['interface']]), ndp_output) is not None
                 elif mode == 'default':
-                    assert re.search(r'{}.*\s+{}'.format(item, arptable['v6'][item]['interface']), ndp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(addr, detail['interface']), ndp_output) is not None
+
 
 class TestShowIP():
 

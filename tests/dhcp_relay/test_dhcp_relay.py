@@ -28,7 +28,7 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
 
 
 @pytest.fixture(scope="module")
-def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost):
+def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """ Fixture which returns a list of dictionaries where each dictionary contains
         data necessary to test one instance of a DHCP relay agent running on the DuT.
         This fixture is scoped to the module, as the data it gathers can be used by
@@ -37,7 +37,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
     dhcp_relay_data_list = []
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     host_facts = duthost.setup()['ansible_facts']
 
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
@@ -63,7 +63,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost):
         client_iface = {}
         client_iface['name'] = vlan_info_dict['members'][0]
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
-        client_iface['port_idx'] = mg_facts['minigraph_port_indices'][client_iface['name']]
+        client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
         # Obtain uplink port indicies for this DHCP relay agent
         uplink_interfaces = []
@@ -85,7 +85,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost):
                     # If the uplink's physical interface is not a member of a portchannel, add it to our uplink interfaces list
                     if not iface_is_portchannel_member:
                         uplink_interfaces.append(iface_name)
-                    uplink_port_indices.append(mg_facts['minigraph_port_indices'][iface_name])
+                    uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
 
         dhcp_relay_data = {}
         dhcp_relay_data['downlink_vlan_iface'] = downlink_vlan_iface

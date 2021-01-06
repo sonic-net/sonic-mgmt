@@ -21,6 +21,7 @@ from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 
+from tests.common.connections import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
@@ -63,9 +64,9 @@ def pytest_addoption(parser):
     ############################
     # test_techsupport options #
     ############################
-    parser.addoption("--loop_num", action="store", default=10, type=int,
+    parser.addoption("--loop_num", action="store", default=2, type=int,
                     help="Change default loop range for show techsupport command")
-    parser.addoption("--loop_delay", action="store", default=10, type=int,
+    parser.addoption("--loop_delay", action="store", default=2, type=int,
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
@@ -197,7 +198,7 @@ def reset_critical_services_list(duthosts):
     Resets the critical services list between test modules to ensure that it is
     left in a known state after tests finish running.
     """
-    [a_dut.reset_critical_services_tracking_list() for a_dut in duthosts]
+    [a_dut.critical_services_tracking_list() for a_dut in duthosts]
 
 @pytest.fixture(scope="session")
 def localhost(ansible_adhoc):
@@ -358,6 +359,14 @@ def creds(duthosts, rand_one_dut_hostname):
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+    # load creds for console
+    console_login_creds = getattr(hostvars, "console_login", {})
+    creds["console_user"] = {}
+    creds["console_password"] = {}
+
+    for k, v in console_login_creds.iteritems():
+        creds["console_user"][k] = v["user"]
+        creds["console_password"][k] = v["passwd"]
 
     return creds
 
@@ -443,9 +452,41 @@ def clear_neigh_entries(duthosts, tbinfo):
 
     yield
 
-    if tbinfo['topo']['name'] == 'dualtor':
+    if 'dualtor' in tbinfo['topo']['name']:
         for dut in duthosts:
             dut.command("sudo ip neigh flush nud permanent")
+
+
+@pytest.fixture(scope="module")
+def patch_lldpctl():
+    def patch_lldpctl(localhost, duthost):
+        output = localhost.shell('ansible --version')
+        if 'ansible 2.8.12' in output['stdout']:
+            """
+                Work around a known lldp module bug in ansible version 2.8.12:
+                When neighbor sent more than one unknown tlv. Ansible will throw
+                exception.
+                This function applies the patch before test.
+            """
+            duthost.shell('sudo sed -i -e \'s/lldp lldpctl "$@"$/lldp lldpctl "$@" | grep -v "unknown-tlvs"/\' /usr/bin/lldpctl')
+
+    return patch_lldpctl
+
+
+@pytest.fixture(scope="module")
+def unpatch_lldpctl():
+    def unpatch_lldpctl(localhost, duthost):
+        output = localhost.shell('ansible --version')
+        if 'ansible 2.8.12' in output['stdout']:
+            """
+                Work around a known lldp module bug in ansible version 2.8.12:
+                When neighbor sent more than one unknown tlv. Ansible will throw
+                exception.
+                This function removes the patch after the test is done.
+            """
+            duthost.shell('sudo sed -i -e \'s/lldp lldpctl "$@"$/lldp lldpctl "$@" | grep -v "unknown-tlvs"/\' /usr/bin/lldpctl')
+
+    return unpatch_lldpctl
 
 
 @pytest.fixture(scope="module")
@@ -650,6 +691,34 @@ def generate_dut_feature_list(request):
 
     return ret if ret else empty
 
+def generate_priority_lists(request, prio_scope):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'priority'
+    filepath = os.path.join(folder, tbname + '-' + prio_scope + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError as e:
+        return empty
+    
+    if tbname not in info:
+        return empty
+    
+    dut_prio = info[tbname]
+    ret = []
+
+    for dut, priorities in dut_prio.items():
+        for p in priorities:
+            ret.append('{}|{}'.format(dut, p))
+
+    return ret if ret else empty
+
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -682,3 +751,26 @@ def pytest_generate_tests(metafunc):
 
     if "enum_dut_feature" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_feature", generate_dut_feature_list(metafunc))
+
+    if 'enum_dut_lossless_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
+    if 'enum_dut_lossy_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+
+@pytest.fixture(scope="module")
+def duthost_console(localhost, creds, request):
+    dut_hostname = request.config.getoption("ansible_host_pattern")
+
+    vars = localhost.host.options['inventory_manager'].get_host(dut_hostname).vars
+    # console password and sonic_password are lists, which may contain more than one password
+    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get("ansible_altpassword")
+    host = ConsoleHost(console_type=vars['console_type'],
+                       console_host=vars['console_host'],
+                       console_port=vars['console_port'],
+                       sonic_username=creds['sonicadmin_user'],
+                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
+                       console_username=creds['console_user'][vars['console_type']],
+                       console_password=creds['console_password'][vars['console_type']])
+    yield host
+    host.disconnect()
+

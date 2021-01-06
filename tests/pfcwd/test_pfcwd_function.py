@@ -258,15 +258,15 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, eth0_mac, pfc_params):
+    def __init__(self, ptf, router_mac, pfc_params):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
-            eth0_mac(string) : mac addr of eth0
+            router_mac(string) : router mac address
             ptf_params(dict) : all PFC test params specific to the DUT port
         """
         self.ptf = ptf
-        self.eth0_mac = eth0_mac
+        self.router_mac = router_mac
         self.pfc_queue_index = pfc_params['queue_index']
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
@@ -289,7 +289,7 @@ class SendVerifyTraffic():
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
         if action == "forward" and  type(self.pfc_wd_test_port_ids) == list:
                 dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -315,7 +315,7 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -337,7 +337,7 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_test_port_ids) + " ]"
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index - 1,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -359,7 +359,7 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index - 1,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -377,7 +377,7 @@ class SendVerifyTraffic():
         Send traffic to fill up the buffer. No verification
         """
         logger.info("Send packets to {} to fill up the buffer".format(self.pfc_wd_test_port))
-        ptf_params = {'router_mac': self.eth0_mac,
+        ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -520,7 +520,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.setup()['ansible_facts']
+        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = request.config.getoption("--fake-storm")
 
@@ -529,7 +529,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
              logger.info("")
              logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
              self.setup_test_params(port, setup_info['vlan'], init=not idx)
-             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['ansible_eth0']['macaddress'], self.pfc_wd)
+             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
              pfc_wd_restore_time_large = request.config.getoption("--restore-time")
              # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
              self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)

@@ -1,0 +1,15 @@
+Value AdminMode (\w+)
+Value Service (\S+)
+Value Status (.+?)
+#Value Source (\S+)
+#Value TimeStamp (\S+)
+
+Start
+  ^\s*ZTP\s+Admin\s+Mode\s+:\s*${AdminMode}\s*$$
+  ^\s*ZTP\s+Service\s+:\s*${Service}\s*$$
+  ^\s*ZTP\s+Status\s+:\s*${Status}\s*$$ -> Record
+  #^\s*ZTP\s+Source\s+:\s*${Source}\s*$$
+  #^\s*Timestamp\s+:\s*${TimeStamp}\s*$$
+  #^\s*$$ -> Record
+
+EOF

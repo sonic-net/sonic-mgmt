@@ -21,5 +21,5 @@ RECOVER_METHODS = {
     "adaptive": {"cmd": None, "reboot": False, "adaptive": True, 'recover_wait': 30},
 }       # All supported recover methods
 
-SUPPORTED_CHECK_ITEMS = ["services", "interfaces", "dbmemory", "processes", "bgp"]          # Supported checks
-DEFAULT_CHECK_ITEMS = ["services", "interfaces", "dbmemory", "processes", "bgp"]            # Default checks
+SUPPORTED_CHECK_ITEMS = ["services", "interfaces", "dbmemory", "processes", "bgp", "monit"]          # Supported checks
+DEFAULT_CHECK_ITEMS = ["services", "interfaces", "dbmemory", "processes", "bgp", "monit"]            # Default checks

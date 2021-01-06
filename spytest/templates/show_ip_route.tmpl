@@ -17,17 +17,26 @@ Start
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*is directly connected,\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE}\(vrf\s${dest_vrf_name}\),\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE}\s*inactive,\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${FIB}\s*via\s*${NEXTHOP},\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*onlink,\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*inactive\s*onlink,\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*inactive\s*onlink,\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*${NEXTHOP}\s*\(${INTERFACE}\),\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}${NOT_INSTALLED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP}\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}${NOT_INSTALLED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}(\(vrf\s*${dest_vrf_name}\))*\s*${NH_TYPE},\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}${NOT_INSTALLED}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}(\(vrf\s*${dest_vrf_name}\))*\s*${NH_TYPE},\s*${DURATION}\s*$$ -> Record
   ^\s*Codes:.* -> Clearall
-  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*via\s*${NEXTHOP}\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
-  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*Direct\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*via\s*${NEXTHOP}\s*${INTERFACE}\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*Direct\s*${INTERFACE}\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*via\s*${NEXTHOP}\s*${INTERFACE}(\(vrf\s*${dest_vrf_name}\))\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*Direct\s*${INTERFACE}(\(vrf\s*${dest_vrf_name}\))\s*${DISTANCE}\/${COST}\s*${DURATION}\s* -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*${NEXTHOP}\s*\(${INTERFACE}\)\s*${DISTANCE}\/${COST}\s*${DURATION}\s*$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*via\s*${NEXTHOP}\s*${INTERFACE}\s* -> Record
+  ^\s*${FIB}\s*via\s*${NEXTHOP}\s*${INTERFACE}\s*$$ -> Record
+  ^\s*Direct\s*${INTERFACE}\s*$$ -> Record
+  ^\s*via\s*${NEXTHOP}\s*${INTERFACE}\s*$$ -> Record
   ^\s*via\s*${NEXTHOP}$$ -> Record
   ^$$
-

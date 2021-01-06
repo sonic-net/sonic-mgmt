@@ -108,9 +108,6 @@ def get_cfg_facts(duthost):
 
     return tmp_facts
 
-def get_host_facts(duthost):
-    return duthost.setup()['ansible_facts']
-
 def get_vrf_intfs(cfg_facts):
     intf_tables = ['INTERFACE', 'PORTCHANNEL_INTERFACE', 'VLAN_INTERFACE', 'LOOPBACK_INTERFACE']
     vrf_intfs = {}
@@ -337,10 +334,12 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
     ptfhost.template(src="vrf/vrf_neigh.j2", dest=render_file)
 
 # fixtures
+
 @pytest.fixture(scope="module")
-def host_facts(duthosts, rand_one_dut_hostname):
+def dut_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
-    return get_host_facts(duthost)
+    return duthost.facts
+
 
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
@@ -363,7 +362,7 @@ def restore_config_db(localhost, duthost, ptfhost):
         cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, host_facts):
+def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost):
     duthost = duthosts[rand_one_dut_hostname]
 
     # backup config_db.json
@@ -419,10 +418,10 @@ def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, host_
 
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, tbinfo, host_facts):
+def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
     def _partial_ptf_runner(testname, **kwargs):
         params = {'testbed_type': tbinfo['topo']['name'],
-                  'router_mac': host_facts['ansible_Ethernet0']['macaddress']}
+                  'router_mac': dut_facts['router_mac']}
         params.update(kwargs)
         ptf_runner(host=ptfhost,
                    testdir="ptftests",
@@ -533,10 +532,14 @@ class TestVrfFib():
             bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf {} summary json'".format(vrf))['stdout']
             bgp_summary = json.loads(bgp_summary_string)
 
-            for info in bgp_summary.itervalues():
-                for peer, attr in info['peers'].iteritems():
+            for info in bgp_summary:
+                for peer, attr in bgp_summary[info]['peers'].iteritems():
                     prefix_count = attr['prefixReceivedCount']
-                    assert int(prefix_count) == route_count, "%s should received %s route prefixs!" % (peer, route_count)
+                    # skip ipv6 peers under 'ipv4Unicast' and compare only ipv4 peers under 'ipv4Unicast', and ipv6 peers under 'ipv6Unicast'
+                    if info == "ipv4Unicast" and attr['idType'] == 'ipv6':
+                        continue
+                    else:
+                        assert int(prefix_count) == route_count, "%s should received %s route prefixs!" % (peer, route_count)
 
     def test_vrf1_fib(self, partial_ptf_runner):
         partial_ptf_runner(

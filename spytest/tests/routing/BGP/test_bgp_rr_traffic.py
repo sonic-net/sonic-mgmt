@@ -7,11 +7,14 @@ import apis.routing.ip as ipapi
 import apis.routing.bgp as bgpapi
 import BGP.bgplib as bgplib
 
-bgp_cli_type = 'vtysh'
 
 @pytest.fixture(scope="module", autouse=True)
 def bgp_module_hooks(request):
+    global bgp_cli_type
     st.ensure_min_topology('D1D2:1', 'D1T1:1', 'D2T1:1')
+    bgp_cli_type = st.get_ui_type()
+    if bgp_cli_type == 'click':
+        bgp_cli_type = 'vtysh'
     bgplib.init_resource_data(st.get_testbed_vars())
     bgp_pre_config()
     yield
@@ -62,7 +65,6 @@ def bgp_rr_traffic_pre_config():
     if not bgplib.l3tc_vrfipv4v6_address_leafspine_ping_test(config_type='all', ping_count=3):
         st.error("Ping failed in between Spine - Leaf")
         st.report_fail('test_case_failed')
-    ibgp_as = bgplib.data['spine_as']
 
     bgplib.l3tc_vrfipv4v6_address_leafspine_rr_tg_bgp_config(config='yes', rr_enable='true')
     bgplib.l3tc_vrfipv4v6_address_leafspine_bgp_config(config='yes', rr_enable='true')
@@ -78,7 +80,6 @@ def bgp_rr_traffic_pre_config():
 
 def bgp_rr_traffic_pre_config_cleanup():
     st.banner("BGP RR WITH TRAFFIC CLASS CONFIG CLEANUP - START")
-    ibgp_as = bgplib.data['spine_as']
     bgplib.l3tc_vrfipv4v6_address_leafspine_bgp_config(config='no', rr_enable='true')
     bgplib.l3tc_vrfipv4v6_address_leafspine_config_unconfig(config='no')
     bgpapi.cleanup_router_bgp(st.get_dut_names())
@@ -107,12 +108,12 @@ class TestBGPRrTraffic():
         bgp_handle = topo['T1{}P1_ipv4_tg_bh'.format(TG_D1)]
         tc_fail_flag = 0
         spine_as = int(bgplib.data['spine_as'])
-        bgp_ctrl = tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='stop')
+        tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='stop')
         st.wait(10)
         st.log("Advertising Routes from one of the Leaf Router")
         bgp_route = tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='add', num_routes='100',
                                                         prefix='121.1.1.0', as_path='as_seq:1')
-        bgp_ctrl = tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
+        tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)
@@ -139,20 +140,15 @@ class TestBGPRrTraffic():
             tc_fail_flag = 1
 
         st.log("Initiating the Ipv4 traffic for those Routes from another Leaf Router")
-        src_handle = 'handle'
-        dst_handle = 'handles'
-        if tg_ob.tg_type == 'ixia':
-            src_handle = 'ipv4_handle'
-            dst_handle = 'handle'
         tr1 = tg_ob.tg_traffic_config(port_handle=topo['T1{}P1_ipv4_tg_ph'.format(TG_D2)],
-                                      emulation_src_handle=topo['T1{}P1_ipv4_tg_ih'.format(TG_D2)][src_handle],
-                                      emulation_dst_handle=bgp_route[dst_handle], circuit_endpoint_type='ipv4',
+                                      emulation_src_handle=topo['T1{}P1_ipv4_tg_ih'.format(TG_D2)]['handle'],
+                                      emulation_dst_handle=bgp_route['handle'], circuit_endpoint_type='ipv4',
                                       mode='create',
                                       transmit_mode='single_burst', pkts_per_burst='2000', length_mode='fixed',
                                       rate_pps=1000)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
-        st.wait(20)
+        st.tg_wait(20)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D1)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D2)])
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):
@@ -183,7 +179,7 @@ class TestBGPRrTraffic():
         bgp_route = tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='add',  ip_version='6',
                                                         num_routes='100',
                                                         prefix='1001::1', as_path='as_seq:1')
-        bgp_ctrl = tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
+        tg_ob.tg_emulation_bgp_control(handle=bgp_handle['handle'], mode='start')
 
         # Sleep for some time and the check the route count in neighbour
         st.wait(10)
@@ -210,20 +206,15 @@ class TestBGPRrTraffic():
             tc_fail_flag = 1
 
         st.log("Initiating the Ipv6 traffic for those Routes from another Leaf Router")
-        src_handle = 'handle'
-        dst_handle = 'handles'
-        if tg_ob.tg_type == 'ixia':
-            src_handle = 'ipv6_handle'
-            dst_handle = 'handle'
         tr1 = tg_ob.tg_traffic_config(port_handle=topo['T1{}P1_ipv6_tg_ph'.format(TG_D2)],
-                                      emulation_src_handle=topo['T1{}P1_ipv6_tg_ih'.format(TG_D2)][src_handle],
-                                      emulation_dst_handle=bgp_route[dst_handle], circuit_endpoint_type='ipv6',
+                                      emulation_src_handle=topo['T1{}P1_ipv6_tg_ih'.format(TG_D2)]['handle'],
+                                      emulation_dst_handle=bgp_route['handle'], circuit_endpoint_type='ipv6',
                                       mode='create',
                                       transmit_mode='single_burst', pkts_per_burst='2000', length_mode='fixed',
                                       rate_pps=1000)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
-        st.wait(20)
+        st.tg_wait(20)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D1)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D2)])
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):

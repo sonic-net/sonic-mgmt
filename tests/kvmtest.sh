@@ -1,25 +1,86 @@
 #!/bin/bash -xe
 
-tbname=$1
-dut=$2
+usage() {
+    cat >&2 <<EOF
+Usage:
+  kvmtest.sh [-n] [-i inventory] [-t testbed_file] [-d SONIC_MGMT_DIR] tbname dut
+
+Description:
+  -n
+       Do not refresh DUT
+  -i inventory
+       inventory file (default: veos_vtb)
+  -t testbed_file
+       testbed file (default: vtestbed.csv)
+  -d SONIC_MGMT_DIR
+       sonic-mgmt repo directory (default: /data/sonic-mgmt)
+  tbname
+       testbed name
+  dut
+       DUT name
+
+Example:
+  ./kvmtest.sh vms-kvm-t0 vlab-01
+EOF
+}
+
 inventory="veos_vtb"
 testbed_file="vtestbed.csv"
-
+refresh_dut=true
 SONIC_MGMT_DIR=/data/sonic-mgmt
 
-cd $HOME
-mkdir -p .ssh
-cp /data/pkey.txt .ssh/id_rsa
-chmod 600 .ssh/id_rsa
+while getopts "ni:t:d:" opt; do
+  case $opt in
+    n)
+      refresh_dut=""
+      ;;
+    i)
+      inventory=$OPTARG
+      ;;
+    t)
+      testbed_file=$OPTARG
+      ;;
+    d)
+      SONIC_MGMT_DIR=$OPTARG
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+shift "$((OPTIND - 1))"
 
-# Refresh dut in the virtual switch topology
-cd $SONIC_MGMT_DIR/ansible
-./testbed-cli.sh -m $inventory -t $testbed_file refresh-dut $tbname password.txt
-sleep 120
+if [ $# -lt 2 ]; then
+    usage
+    exit 1
+fi
+
+tbname=$1
+dut=$2
+
+
+if [ -f /data/pkey.txt ]; then
+    pushd $HOME
+    mkdir -p .ssh
+    cp /data/pkey.txt .ssh/id_rsa
+    chmod 600 .ssh/id_rsa
+    popd
+fi
+
+pushd $SONIC_MGMT_DIR/ansible
+if [ -n "$refresh_dut" ]; then
+    # Refresh dut in the virtual switch topology
+    ./testbed-cli.sh -m $inventory -t $testbed_file refresh-dut $tbname password.txt
+    sleep 120
+fi
 
 # Create and deploy default vlan configuration (one_vlan_a) to the virtual switch
 ./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab password.txt
 sleep 180
+
+popd
 
 export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
@@ -36,10 +97,9 @@ PYTEST_CLI_COMMON_OPTS="\
 -m individual \
 -q 1 \
 -a False \
--e --disable_loganalyzer \
 -O"
 
-cd $SONIC_MGMT_DIR/tests
+pushd $SONIC_MGMT_DIR/tests
 rm -rf logs
 mkdir -p logs
 
@@ -56,6 +116,7 @@ bgp/test_bgp_speaker.py \
 cacl/test_cacl_application.py \
 cacl/test_cacl_function.py \
 dhcp_relay/test_dhcp_relay.py \
+lldp/test_lldp.py \
 ntp/test_ntp.py \
 pc/test_po_cleanup.py \
 pc/test_po_update.py \
@@ -67,6 +128,7 @@ snmp/test_snmp_interfaces.py \
 snmp/test_snmp_lldp.py \
 snmp/test_snmp_pfc_counters.py \
 snmp/test_snmp_queue.py \
+snmp/test_snmp_loopback.py \
 syslog/test_syslog.py \
 tacacs/test_rw_user.py \
 tacacs/test_ro_user.py \
@@ -74,23 +136,16 @@ telemetry/test_telemetry.py \
 test_features.py \
 test_procdockerstatsd.py \
 iface_namingmode/test_iface_namingmode.py \
-platform_tests/test_cpu_memory_usage.py"
+platform_tests/test_cpu_memory_usage.py \
+bgp/test_bgpmon.py"
 
-# FIXME: The lldp test has been temporarily disabled for https://github.com/Azure/sonic-mgmt/pull/2413
-# and https://github.com/Azure/sonic-buildimage/pull/5698. The reason is that these two PRs dependent on each other.
-# If PR#2413 is not merged, PR#5698 would fail PR test and cannot be merged. If PR#2413 is merged firstly, all
-# sonic-mgmt-pr testing would fail before a new image with PR#5698 is ready. The workaround is to temporarily disable
-# LLDP for sonic-mgmt-pr testing. Merge PR#2413 to unblock PR#5698. After a new image with PR#5698 is ready, then
-# enable LLDP testing again.
-# lldp/test_lldp.py
-
-pushd $SONIC_MGMT_DIR/tests
 ./run_tests.sh $PYTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
 popd
 
 # Create and deploy two vlan configuration (two_vlan_a) to the virtual switch
-cd $SONIC_MGMT_DIR/ansible
+pushd $SONIC_MGMT_DIR/ansible
 ./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab password.txt -e vlan_config=two_vlan_a
+popd
 sleep 180
 
 # Run tests_2vlans on vlab-01 virtual switch

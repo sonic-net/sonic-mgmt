@@ -5,6 +5,7 @@ import re
 import yaml
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.system_utils import docker
 
@@ -35,8 +36,8 @@ class QosSaiBase:
                 stdout (list): List of stdout lines spewed by the invoked command
         """
         result = duthost.shell(argv=argv)
-        assert result["rc"] == 0, \
-            "Failed to run Redis command '{0}' with error '{1}'".format(" ".join(argv), result["stderr"])
+        pytest_assert(result["rc"] == 0,
+                      "Failed to run Redis command '{0}' with error '{1}'".format(" ".join(map(str, argv)), result["stderr"]))
 
         return result["stdout_lines"]
 
@@ -117,8 +118,8 @@ class QosSaiBase:
             self.__computeBufferThreshold(duthost, bufferProfile)
 
         if "pg_lossless" in bufferProfileName:
-            assert "xon" in bufferProfile.keys() and "xoff" in bufferProfile.keys(), \
-                "Could not find xon and/or xoff values for profile '{0}'".format(bufferProfileName)
+            pytest_assert("xon" in bufferProfile.keys() and "xoff" in bufferProfile.keys(),
+                          "Could not find xon and/or xoff values for profile '{0}'".format(bufferProfileName))
 
         disableTest = request.config.getoption("--disable_test")
         if not disableTest:
@@ -214,10 +215,10 @@ class QosSaiBase:
                 if mgFacts["minigraph_vlans"][testVlan]["name"] in vlan["attachto"]:
                     testVlanIp = ipaddress.ip_address(unicode(vlan["addr"]))
                     break
-            assert testVlanIp, "Failed to obtain vlan IP"
+            pytest_assert(testVlanIp, "Failed to obtain vlan IP")
 
             for i in range(len(testVlanMembers)):
-                portIndex = mgFacts["minigraph_port_indices"][testVlanMembers[i]]
+                portIndex = mgFacts["minigraph_ptf_indices"][testVlanMembers[i]]
                 dutPortIps.update({portIndex: str(testVlanIp + portIndex + 1)})
 
         return dutPortIps
@@ -237,11 +238,11 @@ class QosSaiBase:
         dstPorts = request.config.getoption("--qos_dst_ports")
         srcPorts = request.config.getoption("--qos_src_ports")
 
-        assert len(set(dstPorts).intersection(set(srcPorts))) == 0, \
-            "Duplicate destination and source ports '{0}'".format(set(dstPorts).intersection(set(srcPorts)))
+        pytest_assert(len(set(dstPorts).intersection(set(srcPorts))) == 0,
+                      "Duplicate destination and source ports '{0}'".format(set(dstPorts).intersection(set(srcPorts))))
 
-        assert len(dstPorts) == 3 and len(srcPorts) == 1, \
-            "Invalid number of ports provided, qos_dst_ports:{0}, qos_src_ports:{1}".format(len(dstPorts), len(srcPorts))
+        pytest_assert(len(dstPorts) == 3 and len(srcPorts) == 1,
+                      "Invalid number of ports provided, qos_dst_ports:{0}, qos_src_ports:{1}".format(len(dstPorts), len(srcPorts)))
 
         #TODO: Randomize port selection
         return {
@@ -270,31 +271,31 @@ class QosSaiBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        assert ptfhost.shell(
-            argv = [
-                "ptf",
-                "--test-dir",
-                "saitests",
-                testCase,
-                "--platform-dir",
-                "ptftests",
-                "--platform",
-                "remote",
-                "-t",
-                ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
-                "--disable-ipv6",
-                "--disable-vxlan",
-                "--disable-geneve",
-                "--disable-erspan",
-                "--disable-mpls",
-                "--disable-nvgre",
-                "--log-file",
-                "/tmp/{0}.log".format(testCase),
-                "--test-case-timeout",
-                "600"
-            ],
-            chdir = "/root",
-        )["rc"] == 0, "Failed when running test '{0}'".format(testCase)
+        pytest_assert(ptfhost.shell(
+                      argv = [
+                          "ptf",
+                          "--test-dir",
+                          "saitests",
+                          testCase,
+                          "--platform-dir",
+                          "ptftests",
+                          "--platform",
+                          "remote",
+                          "-t",
+                          ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
+                          "--disable-ipv6",
+                          "--disable-vxlan",
+                          "--disable-geneve",
+                          "--disable-erspan",
+                          "--disable-mpls",
+                          "--disable-nvgre",
+                          "--log-file",
+                          "/tmp/{0}.log".format(testCase),
+                          "--test-case-timeout",
+                          "600"
+                      ],
+                      chdir = "/root",
+                      )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
     @pytest.fixture(scope='class')
     def swapSyncd(self, request, duthosts, rand_one_dut_hostname, creds):
@@ -319,7 +320,7 @@ class QosSaiBase:
             docker.restore_default_syncd(duthost, creds)
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutConfig(self, request, duthosts, rand_one_dut_hostname):
+    def dutConfig(self, request, duthosts, rand_one_dut_hostname, tbinfo):
         """
             Build DUT host config pertaining to QoS SAI tests
 
@@ -333,24 +334,24 @@ class QosSaiBase:
         """
         duthost = duthosts[rand_one_dut_hostname]
         dutLagInterfaces = []
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
         for _, lag in mgFacts["minigraph_portchannels"].items():
             for intf in lag["members"]:
-                dutLagInterfaces.append(mgFacts["minigraph_port_indices"][intf])
+                dutLagInterfaces.append(mgFacts["minigraph_ptf_indices"][intf])
 
-        testPortIds = set(mgFacts["minigraph_port_indices"][port] for port in mgFacts["minigraph_ports"].keys())
+        testPortIds = set(mgFacts["minigraph_ptf_indices"][port] for port in mgFacts["minigraph_ports"].keys())
         testPortIds -= set(dutLagInterfaces)
         if isMellanoxDevice(duthost):
             # The last port is used for up link from DUT switch
-            testPortIds -= {len(mgFacts["minigraph_port_indices"]) - 1}
+            testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
         testPortIds = sorted(testPortIds)
 
         # get current DUT port IPs
         dutPortIps = {}
         for portConfig in mgFacts["minigraph_interfaces"]:
             if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
-                portIndex = mgFacts["minigraph_port_indices"][portConfig["attachto"]]
+                portIndex = mgFacts["minigraph_ptf_indices"][portConfig["attachto"]]
                 if portIndex in testPortIds:
                     dutPortIps.update({portIndex: portConfig["peer_addr"]})
 
@@ -360,7 +361,7 @@ class QosSaiBase:
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps)
         yield {
-            "dutInterfaces" : {index: port for port, index in mgFacts["minigraph_port_indices"].items()},
+            "dutInterfaces" : {index: port for port, index in mgFacts["minigraph_ptf_indices"].items()},
             "testPortIds": testPortIds,
             "testPortIps": testPortIps,
             "testPorts": testPorts,
@@ -443,6 +444,7 @@ class QosSaiBase:
             {"docker": "lldp", "service": "lldp-syncd"},
             {"docker": "lldp", "service": "lldpd"},
             {"docker": "bgp",  "service": "bgpd"},
+            {"docker": "bgp",  "service": "bgpmon"}
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
@@ -472,21 +474,21 @@ class QosSaiBase:
         """
         if loganalyzer:
             ignoreRegex = [
-                ".*ERR monit.*'lldpd_monitor' process is not running",
-                ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.",
+                ".*ERR monit.*'lldpd_monitor' process is not running.*",
+                ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.*",
 
-                ".*ERR monit.*'lldp_syncd' process is not running",
-                ".*ERR monit.* 'lldp\|lldp_syncd' status failed.*-- 'python2 -m lldp_syncd' is not running.",
+                ".*ERR monit.*'lldp_syncd' process is not running.*",
+                ".*ERR monit.*'lldp\|lldp_syncd' status failed.*-- 'python.* -m lldp_syncd' is not running.*",
 
-                ".*ERR monit.*'bgpd' process is not running",
-                ".*ERR monit.* 'bgp\|bgpd' status failed.*-- '/usr/lib/frr/bgpd' is not running.",
+                ".*ERR monit.*'bgpd' process is not running.*",
+                ".*ERR monit.*'bgp\|bgpd' status failed.*-- '/usr/lib/frr/bgpd' is not running.*",
 
-                ".*ERR monit.*'bgpcfgd' process is not running",
-                ".*ERR monit.* 'bgp\|bgpcfgd' status failed.*-- '/usr/bin/python /usr/local/bin/bgpcfgd' is not running.",
+                ".*ERR monit.*'bgpcfgd' process is not running.*",
+                ".*ERR monit.*'bgp\|bgpcfgd' status failed.*-- '/usr/bin/python.* /usr/local/bin/bgpcfgd' is not running.*",
 
                 ".*ERR syncd#syncd:.*brcm_sai_set_switch_attribute:.*updating switch mac addr failed.*",
 
-                ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python /usr/local/bin/bgpmon' is not running",
+                ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python.* /usr/local/bin/bgpmon' is not running.*",
                 ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
             ]
             loganalyzer.ignore_regex.extend(ignoreRegex)
@@ -520,7 +522,7 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile):
+    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, tbinfo):
         """
             Prepares DUT host QoS configuration
 
@@ -533,12 +535,12 @@ class QosSaiBase:
                 QoSConfig (dict): Map containing DUT host QoS configuration
         """
         duthost = duthosts[rand_one_dut_hostname]
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        assert "minigraph_hwsku" in mgFacts, "Could not find DUT SKU"
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        pytest_assert("minigraph_hwsku" in mgFacts, "Could not find DUT SKU")
 
         profileName = ingressLosslessProfile["profileName"]
         m = re.search("^BUFFER_PROFILE\|pg_lossless_(.*)_profile$", profileName)
-        assert m.group(1), "Cannot find port speed/cable length"
+        pytest_assert(m.group(1), "Cannot find port speed/cable length")
 
         portSpeedCableLength = m.group(1)
 
@@ -555,7 +557,7 @@ class QosSaiBase:
                 dutAsic = asic
                 break
 
-        assert dutAsic, "Cannot identify DUT ASIC type"
+        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
 
         if isMellanoxDevice(duthost):
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
@@ -592,15 +594,14 @@ class QosSaiBase:
                 dutTestParams (dict): DUT host test params
         """
         duthost = duthosts[rand_one_dut_hostname]
-        dutFacts = duthost.setup()['ansible_facts']
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
         yield {
             "topo": topo,
             "hwsku": mgFacts["minigraph_hwsku"],
             "basicParams": {
-                "router_mac": '' if topo in self.SUPPORTED_T0_TOPOS else dutFacts['ansible_Ethernet0']['macaddress'],
+                "router_mac": '' if topo in self.SUPPORTED_T0_TOPOS else duthost.facts["router_mac"],
                 "server": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
                 "port_map_file": ptf_portmap_file,
                 "sonic_asic_type": duthost.facts['asic_type'],
@@ -652,7 +653,7 @@ class QosSaiBase:
             saiQosTest = "sai_qos_tests.ARPpopulatePTF"
         else:
             result = duthost.command(argv = ["arp", "-n"])
-            assert result["rc"] == 0, "failed to run arp command on {0}".format(duthost.hostname)
+            pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(duthost.hostname))
             if result["stdout"].find("incomplete") == -1:
                 saiQosTest = "sai_qos_tests.ARPpopulate"
 

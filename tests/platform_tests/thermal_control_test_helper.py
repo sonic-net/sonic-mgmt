@@ -6,6 +6,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
+from tests.common.reboot import reboot
 
 DUT_THERMAL_POLICY_FILE = '/usr/share/sonic/device/{}/thermal_policy.json'
 DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json.bak'
@@ -86,12 +87,13 @@ def mocker(type_name):
 
 
 @pytest.fixture
-def mocker_factory():
+def mocker_factory(localhost, duthosts, rand_one_dut_hostname):
     """
     Fixture for thermal control data mocker factory.
     :return: A function for creating thermal control related data mocker.
     """
     mockers = []
+    duthost = duthosts[rand_one_dut_hostname]
 
     def _create_mocker(dut, mocker_name):
         """
@@ -115,8 +117,12 @@ def mocker_factory():
 
     yield _create_mocker
 
-    for m in mockers:
-        m.deinit()
+    try:
+        for m in mockers:
+            m.deinit()
+    except Exception as e:
+        reboot(duthost, localhost)
+        assert 0, "Caught exception while recovering from mock - {}".format(repr(e))
 
 
 class FanStatusMocker(BaseMocker):
@@ -250,8 +256,8 @@ def restart_thermal_control_daemon(dut):
     :return:
     """
     logging.info('Restarting thermal control daemon...')
-    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep thermalctld | sort\''
-    output = dut.command(find_thermalctld_pid_cmd)
+    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
+    output = dut.shell(find_thermalctld_pid_cmd)
     assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
     assert len(output["stdout_lines"]) == 2, "There should be 2 thermalctld process"
     pid_0 = int(output["stdout_lines"][0].strip())
@@ -267,7 +273,7 @@ def restart_thermal_control_daemon(dut):
     max_wait_time = 30
     while max_wait_time > 0:
         max_wait_time -= 1
-        output = dut.command(find_thermalctld_pid_cmd)
+        output = dut.shell(find_thermalctld_pid_cmd)
         assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
         if len(output["stdout_lines"]) != 2:
             time.sleep(1)

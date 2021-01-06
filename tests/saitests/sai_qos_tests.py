@@ -40,6 +40,8 @@ PFC_PRIO_3 = 5
 PFC_PRIO_4 = 6
 TRANSMITTED_OCTETS = 10
 TRANSMITTED_PKTS = 11
+INGRESS_PORT_BUFFER_DROP = 12
+EGRESS_PORT_BUFFER_DROP = 13
 QUEUE_0 = 0
 QUEUE_1 = 1
 QUEUE_2 = 2
@@ -603,8 +605,10 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             # send 1 packet to trigger pfc
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
@@ -619,8 +623,10 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             # send packets short of ingress drop
             send_packet(self, src_port_id, pkt, pkts_num_trig_ingr_drp - pkts_num_trig_pfc - 1 - 2 * margin)
@@ -635,8 +641,10 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             # send 1 packet to trigger ingress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
@@ -651,8 +659,10 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port ingress drop
             assert(recv_counters[INGRESS_DROP] > recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] > recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
@@ -758,10 +768,14 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
             assert(xmit_2_counters[EGRESS_DROP] == xmit_2_counters_base[EGRESS_DROP])
+            assert(xmit_2_counters[EGRESS_PORT_BUFFER_DROP] == xmit_2_counters_base[EGRESS_PORT_BUFFER_DROP])
             assert(xmit_3_counters[EGRESS_DROP] == xmit_3_counters_base[EGRESS_DROP])
+            assert(xmit_3_counters[EGRESS_PORT_BUFFER_DROP] == xmit_3_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_2_id])
 
@@ -778,10 +792,14 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
             assert(xmit_2_counters[EGRESS_DROP] == xmit_2_counters_base[EGRESS_DROP])
+            assert(xmit_2_counters[EGRESS_PORT_BUFFER_DROP] == xmit_2_counters_base[EGRESS_PORT_BUFFER_DROP])
             assert(xmit_3_counters[EGRESS_DROP] == xmit_3_counters_base[EGRESS_DROP])
+            assert(xmit_3_counters[EGRESS_PORT_BUFFER_DROP] == xmit_3_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_3_id])
 
@@ -791,6 +809,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # queue counters value is not of our interest here
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             recv_counters_base = recv_counters
 
             time.sleep(30)
@@ -804,10 +823,14 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
             assert(xmit_2_counters[EGRESS_DROP] == xmit_2_counters_base[EGRESS_DROP])
+            assert(xmit_2_counters[EGRESS_PORT_BUFFER_DROP] == xmit_2_counters_base[EGRESS_PORT_BUFFER_DROP])
             assert(xmit_3_counters[EGRESS_DROP] == xmit_3_counters_base[EGRESS_DROP])
+            assert(xmit_3_counters[EGRESS_PORT_BUFFER_DROP] == xmit_3_counters_base[EGRESS_PORT_BUFFER_DROP])
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
@@ -975,6 +998,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
                 # assert no ingress drop
                 assert(recv_counters[INGRESS_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_DROP])
+                assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_PORT_BUFFER_DROP])
 
             print >> sys.stderr, "all but the last pg hdrms filled"
             sys.stderr.flush()
@@ -988,10 +1012,12 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
             # assert ingress drop
             assert(recv_counters[INGRESS_DROP] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_PORT_BUFFER_DROP])
 
             # assert no egress drop at the dut xmit port
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_id])
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             print >> sys.stderr, "pg hdrm filled"
             sys.stderr.flush()
@@ -1117,7 +1143,9 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 assert (non_marked_data >= limit*0.95)
                 assert (marked_cnt == (num_of_pkts - not_marked_cnt))
                 assert (port_counters[EGRESS_DROP]  == 0)
+                assert (port_counters[EGRESS_PORT_BUFFER_DROP] == 0)
                 assert (port_counters[INGRESS_DROP] == 0)
+                assert (port_counters[INGRESS_PORT_BUFFER_DROP] == 0)
 
         finally:
             # RELEASE PORT
@@ -1401,8 +1429,10 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port no egress drop
             assert(xmit_counters[EGRESS_DROP] == xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             # send 1 packet to trigger egress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
@@ -1416,8 +1446,10 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             assert(recv_counters[INGRESS_DROP] == recv_counters_base[INGRESS_DROP])
+            assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_base[INGRESS_PORT_BUFFER_DROP])
             # xmit port egress drop
             assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
+            assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] > xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])

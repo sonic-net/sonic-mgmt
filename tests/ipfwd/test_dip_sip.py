@@ -17,6 +17,14 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="module", autouse="True")
+def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    patch_lldpctl(localhost, duthost)
+    yield
+    unpatch_lldpctl(localhost, duthost)
+
+
 def lag_facts(dut, mg_facts):
     facts = {}
 
@@ -48,11 +56,11 @@ def lag_facts(dut, mg_facts):
 
     facts['dst_port_ids'] = []
     for intf in mg_facts['minigraph_portchannels'][dst_lag]['members']:
-        facts['dst_port_ids'].append(mg_facts['minigraph_port_indices'][intf])
+        facts['dst_port_ids'].append(mg_facts['minigraph_ptf_indices'][intf])
 
     facts['src_port_ids'] = []
     for intf in mg_facts['minigraph_portchannels'][src_lag]['members']:
-        facts['src_port_ids'].append(mg_facts['minigraph_port_indices'][intf])
+        facts['src_port_ids'].append(mg_facts['minigraph_ptf_indices'][intf])
 
     return facts
 
@@ -86,8 +94,8 @@ def port_facts(dut, mg_facts):
                 facts['dst_router_ipv6'] = intf['addr']
                 facts['dst_host_ipv6'] = intf['peer_addr']
 
-    facts['dst_port_ids'] = [mg_facts['minigraph_port_indices'][dst_port]]
-    facts['src_port_ids'] = [mg_facts['minigraph_port_indices'][src_port]]
+    facts['dst_port_ids'] = [mg_facts['minigraph_ptf_indices'][dst_port]]
+    facts['src_port_ids'] = [mg_facts['minigraph_ptf_indices'][src_port]]
 
     return facts
 
@@ -102,7 +110,7 @@ def gather_facts(tbinfo, duthosts, rand_one_dut_hostname):
         pytest.skip("Unsupported topology")
 
     logger.info("Gathering facts on DUT ...")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # if minigraph_portchannel_interfaces is not empty - topology with lag
     if mg_facts['minigraph_portchannel_interfaces']:

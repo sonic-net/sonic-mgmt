@@ -13,6 +13,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
 from tests.common.fixtures.duthost_utils import disable_route_checker
+from tests.common.fixtures.duthost_utils import disable_fdb_aging
 
 
 pytestmark = [
@@ -804,14 +805,18 @@ def test_acl_counter(duthosts, rand_one_dut_hostname, collector):
     pytest_assert(original_crm_stats_acl_counter_available - new_crm_stats_acl_counter_available == 0, \
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
-
+@pytest.mark.usefixtures('disable_fdb_aging')
 def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
-
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
-    iface = "Ethernet0"
+    topology = tbinfo["topo"]["properties"]["topology"]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    port_dict = dict(zip(cfg_facts['port_index_map'].values(), cfg_facts['port_index_map'].keys()))
+    # Use for test 1st in list hosts interface port to add into dummy VLAN
+    host_port_id = [id for id in topology["host_interfaces"]][0]
+    iface = port_dict[host_port_id]
     vlan_id = 2
     cmd_add_vlan_member = "config vlan member add {vid} {iface}"
     cmd_add_vlan = "config vlan add {}".format(vlan_id)
@@ -884,12 +889,18 @@ def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
-
-    # Get new "crm_stats_fdb_entry" used and available counter value
-    new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+    # Timeout for asyc fdb clear 
+    FDB_CLEAR_TIMEOUT = 10
+    while FDB_CLEAR_TIMEOUT > 0:
+        # Get new "crm_stats_fdb_entry" used and available counter value
+        new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+        if new_crm_stats_fdb_entry_used == 0:
+            break
+        FDB_CLEAR_TIMEOUT -= CRM_POLLING_INTERVAL
+        time.sleep(CRM_POLLING_INTERVAL)
 
     # Verify "crm_stats_fdb_entry_used" counter was decremented
-    pytest_assert(new_crm_stats_fdb_entry_used == 0, "Counter 'crm_stats_fdb_entry_used' was not decremented. \
+    pytest_assert(new_crm_stats_fdb_entry_used == 0, "FDB entry is not completely cleared. \
         Used == {}".format(new_crm_stats_fdb_entry_used))
 
     # Verify "crm_stats_fdb_entry_available" counter was incremented

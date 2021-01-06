@@ -57,7 +57,7 @@ EOF
 
 DOCKER_SONIC_MGMT="docker-sonic-mgmt"
 DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
-LOCAL_IMAGE_NAME=docker-sonic-mgmt-$USER
+LOCAL_IMAGE_NAME=docker-sonic-mgmt-`echo "$USER" | tr '[:upper:]' '[:lower:]'`
 
 function show_help_and_exit() {
     echo "Usage $0 [options]"

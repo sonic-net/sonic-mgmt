@@ -65,10 +65,20 @@
   - topo_facts: topo={{ topo }}
     delegate_to: localhost
 
+  - name: set default dualtor facts
+    set_fact:
+      dual_tor_facts: {}
+    when: "'dualtor' not in topo"
+    
   - name: gather dual ToR information
     dual_tor_facts: hostname="{{ inventory_hostname }}" testbed_facts="{{ testbed_facts }}" hostvars="{{ hostvars }}" vm_config="{{ vm_topo_config }}"
     delegate_to: localhost
+    when: "'dualtor' in topo"
 
+  - name: generate y_cable simulator driver
+    include_tasks: dualtor/config_y_cable_simulator.yml
+    when: "'dualtor' in topo"
+    
   - name: set default vm file path
     set_fact:
       vm_file: veos

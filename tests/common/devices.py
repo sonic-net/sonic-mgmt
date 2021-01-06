@@ -127,7 +127,6 @@ class SonicHost(AnsibleHostBase):
     and also provides the ability to run Ansible modules on the SONiC device.
     """
 
-    _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None):
@@ -158,8 +157,9 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
+        self._kernel_version = self._get_kernel_version()
 
-        self.reset_critical_services_tracking_list()
 
     @property
     def facts(self):
@@ -193,6 +193,16 @@ class SonicHost(AnsibleHostBase):
         return self._os_version
 
     @property
+    def kernel_version(self):
+        """
+        The kernel version running on this SONiC device.
+
+        Returns:
+            str: The SONiC kernel version (e.g. "4.9.0")
+        """
+        return self._kernel_version
+
+    @property
     def critical_services(self):
         """
         The critical services running on this SONiC device.
@@ -217,20 +227,16 @@ class SonicHost(AnsibleHostBase):
             This list is used for tracking purposes ONLY. Updating the list does
             not actually modify any services running on the device.
         """
-
-        if self.facts["num_asic"] > 1:
-            self._critical_services = self._generate_critical_services_for_multi_asic(var)
-        else:
-            self._critical_services = var
+        self._critical_services = var
 
         logging.debug(self._critical_services)
 
-    def reset_critical_services_tracking_list(self):
+    def reset_critical_services_tracking_list(self, service_list):
         """
-        Resets the list of critical services to the default.
+        Resets the list of critical services.
         """
 
-        self.critical_services = self._DEFAULT_CRITICAL_SERVICES
+        self.critical_services = service_list
 
     def _gather_facts(self):
         """
@@ -270,21 +276,6 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
-    def _generate_critical_services_for_multi_asic(self, services):
-        """
-        Generates a fully-qualified list of critical services for multi-asic platforms, based on a
-        base list of services.
-
-        Example:
-        ["swss", "syncd"] -> ["swss0", "swss1", "swss2", "syncd0", "syncd1", "syncd2"]
-        """
-
-        m_service = []
-        for service in services:
-            for asic in range(self.facts["num_asic"]):
-                asic_service = service + str(asic)
-                m_service.insert(asic, asic_service)
-        return m_service
 
     def _get_platform_info(self):
         """
@@ -326,6 +317,14 @@ class SonicHost(AnsibleHostBase):
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
         return output["stdout_lines"][0].strip()
 
+    def _get_kernel_version(self):
+        """
+        Gets the SONiC kernel version
+        :return:
+        """
+        output = self.command('uname -r')
+        return output["stdout"].split('-')[0]
+
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
         @summary: Use 'systemctl show' command to get detailed properties of a service. By default, only get
@@ -346,6 +345,29 @@ class SonicHost(AnsibleHostBase):
             if len(fields) >= 2:
                 result[fields[0]] = fields[1]
         return result
+
+    def is_supervisor_node(self):
+        """Check if the current node is a supervisor node in case of multi-DUT.
+
+        Returns:
+            Currently, we are using 'type' in the inventory to make the decision. If 'type' for the node is defined in
+            the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
+            logic if possible to derive it from the DUT.
+        """
+        if 'type' in self.host.options["inventory_manager"].get_host(self.hostname).get_vars():
+            node_type = self.host.options["inventory_manager"].get_host(self.hostname).get_vars()["type"]
+            if node_type is not None and node_type == 'supervisor':
+                return True
+        return False
+
+    def is_frontend_node(self):
+        """Check if the current node is a frontend node in case of multi-DUT.
+
+        Returns:
+            True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
+            node. If we add more types of nodes, then we need to exclude them from this method as well.
+        """
+        return not self.is_supervisor_node()
 
     def is_service_fully_started(self, service):
         """
@@ -379,6 +401,34 @@ class SonicHost(AnsibleHostBase):
         result = self.critical_services_status()
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
+
+    def get_monit_services_status(self):
+        """
+        @summary: Get metadata (service name, service status and service type) of services
+                  which were monitored by Monit.
+        @return: A dictionary in which key is the service name and values are service status
+                 and service type.
+        """
+        monit_services_status = {}
+
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True)
+
+        exit_code = services_status_result["rc"]
+        if exit_code != 0:
+            return monit_services_status
+
+        for index, service_info in enumerate(services_status_result["stdout_lines"]):
+            if "status" in service_info and "monitoring status" not in service_info:
+                service_type_name = services_status_result["stdout_lines"][index - 1]
+                service_type = service_type_name.split("'")[0].strip()
+                service_name = service_type_name.split("'")[1].strip()
+                service_status = service_info[service_info.find("status") + len("status"):].strip()
+
+                monit_services_status[service_name] = {}
+                monit_services_status[service_name]["service_status"] = service_status
+                monit_services_status[service_name]["service_type"] = service_type
+
+        return monit_services_status
 
     def get_critical_group_and_process_lists(self, container_name):
         """
@@ -521,7 +571,7 @@ class SonicHost(AnsibleHostBase):
         # some services are meant to have a short life span or not part of the daemons
         exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
 
-        daemons = self.shell('docker exec pmon supervisorctl status')['stdout_lines']
+        daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
         daemon_list = [ line.strip().split()[0] for line in daemons if len(line.strip()) > 0 ]
 
@@ -1066,6 +1116,29 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return mg_facts
 
+    def get_route(self, prefix):
+        cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
+        return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
+
+    def run_redis_cli_cmd(self, redis_cmd):
+        cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
+        return self.command(cmd)
+        
+    def get_asic_name(self):
+        asic = "unknown"
+        output = self.shell("lspci", module_ignore_errors=True)["stdout"]
+        if ("Broadcom Limited Device b960" in output or
+            "Broadcom Limited Broadcom BCM56960" in output):
+            asic = "th"
+        elif "Broadcom Limited Device b971" in output:
+            asic = "th2"
+        elif "Broadcom Limited Device b850" in output:
+            asic = "td2"
+        elif "Broadcom Limited Device b870" in output:
+            asic = "td3"
+
+        return asic
+
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1076,12 +1149,12 @@ class K8sMasterHost(AnsibleHostBase):
 
     def __init__(self, ansible_adhoc, hostname, is_haproxy):
         """ Initialize an object for interacting with Ubuntu KVM using ansible modules
-        
+
         Args:
             ansible_adhoc (): The pytest-ansible fixture
             hostname (string): hostname of the Ubuntu KVM
             is_haproxy (boolean): True if node is haproxy load balancer, False if node is backend master server
-        
+
         """
         self.hostname = hostname
         self.is_haproxy = is_haproxy
@@ -1090,7 +1163,7 @@ class K8sMasterHost(AnsibleHostBase):
             'ansible_become_method': 'enable'
         }
         self.host.options['variable_manager'].extra_vars.update(evars)
-    
+
     def check_k8s_master_ready(self):
         """
         @summary: check if all Kubernetes master node statuses reflect target state "Ready"
@@ -1103,7 +1176,7 @@ class K8sMasterHost(AnsibleHostBase):
             if "NotReady" in line:
                 return False
         return True
-    
+
     def shutdown_api_server(self):
         """
         @summary: Shuts down API server container on one K8sMasterHost server
@@ -1120,7 +1193,7 @@ class K8sMasterHost(AnsibleHostBase):
     def start_api_server(self):
         """
         @summary: Starts API server container on one K8sMasterHost server
-        
+
         """
         self.shell('sudo systemctl start kubelet')
         logging.info("Starting API server on backend master server hostname: {}".format(self.hostname))
@@ -1146,10 +1219,10 @@ class K8sMasterHost(AnsibleHostBase):
                 self.shell("sudo systemctl start kubelet")
 
 
-class K8sMasterCluster():
+class K8sMasterCluster(object):
     """
     @summary: Class that encapsulates Kubernetes master cluster
-    
+
     For operating on a group of K8sMasterHost objects that compose one HA Kubernetes master cluster
     """
 
@@ -1158,7 +1231,7 @@ class K8sMasterCluster():
 
         Args:
             k8smasters: fixture that allows retrieval of K8sMasterHost objects
-        
+
         """
         self.backend_masters = []
         for hostname, k8smaster in k8smasters.items():
@@ -1166,27 +1239,28 @@ class K8sMasterCluster():
                 self.haproxy = k8smaster['host']
             else:
                 self.backend_masters.append(k8smaster)
-   
-    def get_master_vip(self):
+
+    @property
+    def vip(self):
         """
         @summary: Retrieve VIP of Kubernetes master cluster
-        
+
         """
         return self.haproxy.mgmt_ip
 
     def shutdown_all_api_server(self):
         """
         @summary: shut down API server on all backend master servers
-        
+
         """
         for k8smaster in self.backend_masters:
             logger.info("Shutting down API Server on master node {}".format(k8smaster['host'].hostname))
             k8smaster['host'].shutdown_api_server()
-    
+
     def start_all_api_server(self):
         """
         @summary: Start API server on all backend master servers
-        
+
         """
         for k8smaster in self.backend_masters:
             logger.info("Starting API server on master node {}".format(k8smaster['host'].hostname))
@@ -1195,7 +1269,7 @@ class K8sMasterCluster():
     def check_k8s_masters_ready(self):
         """
         @summary: Ensure that Kubernetes master is in healthy state
-        
+
         """
         for k8smaster in self.backend_masters:
             assert k8smaster['host'].check_k8s_master_ready()
@@ -1203,11 +1277,11 @@ class K8sMasterCluster():
     def ensure_all_kubelet_running(self):
         """
         @summary: Ensures kubelet is started on all backend masters, start kubelet if necessary
-        
+
         """
         for k8smaster in self.backend_masters:
             k8smaster['host'].ensure_kubelet_running()
-            
+
 
 class EosHost(AnsibleHostBase):
     """
@@ -1364,6 +1438,13 @@ class EosHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["stdout"]))
 
+    def get_route(self, prefix):
+        cmd = 'show ip bgp' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show ipv6 bgp'
+        return self.eos_command(commands=[{
+            'command': '{} {}'.format(cmd, prefix),
+            'output': 'json'
+        }])['stdout'][0]
+
 
 class OnyxHost(AnsibleHostBase):
     """
@@ -1482,6 +1563,8 @@ class SonicAsic(object):
     The purpose is to hide the complexity of handling ASIC/namespace specific details.
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
+
+    _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
     def __init__(self, sonichost, asic_index):
         """ Initializing a ASIC on a SONiC host.
 
@@ -1491,7 +1574,26 @@ class SonicAsic(object):
         """
         self.sonichost = sonichost
         self.asic_index = asic_index
+        if self.sonichost.is_multi_asic:
+            self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
+        else:
+            # set the namespace to DEFAULT_NAMESPACE(None) for single asic
+            self.namespace = DEFAULT_NAMESPACE
 
+    def get_critical_services(self):
+        """This function returns the list of the critical services
+           for the namespace(asic)
+
+           If the dut is multi asic, then the asic_id is appended t0 the 
+            _DEFAULT_ASIC_SERVICES list
+        Returns:
+            [list]: list of the services running the namespace/asic
+        """
+        a_service = []
+        for service in self._DEFAULT_ASIC_SERVICES:
+           a_service.append("{}{}".format(
+               service, self.asic_index if self.sonichost.is_multi_asic else ""))
+        return a_service
 
     def bgp_facts(self, *module_args, **complex_args):
         """ Wrapper method for bgp_facts ansible module.
@@ -1522,10 +1624,43 @@ class SonicAsic(object):
         """
         if 'host' not in complex_args:
             complex_args['host'] = self.sonichost.hostname
-        if self.sonichost.facts['num_asic'] != 1:
-            complex_args['namespace'] = 'asic{}'.format(self.asic_index)
+        if self.sonichost.is_multi_asic:
+            complex_args['namespace'] = self.namespace
         return self.sonichost.config_facts(*module_args, **complex_args)
 
+    def show_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_interface'
+        
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show interface status command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_interface(*module_args, **complex_args)
+
+    def show_ip_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ip_interface'
+        
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show interface status command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ip_interface(*module_args, **complex_args)
+
+    def run_redis_cli_cmd(self, redis_cmd):
+        if self.namespace != DEFAULT_NAMESPACE:
+            redis_cli = "/usr/bin/redis-cli"
+            cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli,redis_cmd)
+            return self.sonichost.command(cmd)
+        # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
+        return self.sonichost.run_redis_cli_cmd(redis_cmd)
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
@@ -1536,6 +1671,8 @@ class MultiAsicSonicHost(object):
     So, even a single asic pizza box is represented as a MultiAsicSonicHost with 1 SonicAsic.
     """
 
+    _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
+
     def __init__(self, ansible_adhoc, hostname):
         """ Initializing a MultiAsicSonicHost.
 
@@ -1545,6 +1682,21 @@ class MultiAsicSonicHost(object):
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+        self.critical_services_tracking_list()
+
+    def critical_services_tracking_list(self):
+        """Get the list of services running on the DUT
+           The services on the sonic devices are:
+              - services running on the host 
+              - services which are replicated per asic
+            Returns:
+            [list]: list of the services running the device
+        """
+        service_list = []
+        service_list+= self._DEFAULT_SERVICES
+        for asic in self.asics:
+            service_list += asic.get_critical_services()
+        self.sonichost.reset_critical_services_tracking_list(service_list)
 
     def _run_on_asics(self, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
@@ -1649,8 +1801,8 @@ class DutHosts(object):
         """
         # TODO: Initialize the nodes in parallel using multi-threads?
         self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"]])
-        self.supervisor_nodes = self._Nodes([node for node in self.nodes if self.is_supervisor_node(node)])
-        self.frontend_nodes = self._Nodes([node for node in self.nodes if self.is_frontend_node(node)])
+        self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
+        self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
 
     def __getitem__(self, index):
         """To support operations like duthosts[0] and duthost['sonic1_hostname']
@@ -1706,35 +1858,6 @@ class DutHosts(object):
             on that MultiAsicSonicHost
         """
         return getattr(self.nodes, attr)
-
-    def is_supervisor_node(self, node):
-        """ Is node a supervisor node
-
-        Args:
-            node: MultiAsicSonicHost object represent a DUT in the testbed.
-
-        Returns:
-            Currently, we are using 'type' in the inventory to make the decision.
-                if 'type' for the node is defined in the inventory, and it is 'supervisor', then return True, else return False
-            In future, we can change this logic if possible to derive it from the DUT.
-        """
-        if 'type' in node.host.options["inventory_manager"].get_host(node.hostname).get_vars():
-            card_type = node.host.options["inventory_manager"].get_host(node.hostname).get_vars()["type"]
-            if card_type is not None and card_type == 'supervisor':
-                return True
-        return False
-
-    def is_frontend_node(self, node):
-        """ Is not a frontend node
-        Args:
-            node: MultiAsicSonicHost object represent a DUT in the testbed.
-
-        Returns:
-            True if it is not any other type of node.
-            Currently, the only other type of node supported is 'supervisor' node. If we add more types of nodes, then
-            we need to exclude them from this method as well.
-        """
-        return node not in self.supervisor_nodes
 
 
 class FanoutHost(object):
