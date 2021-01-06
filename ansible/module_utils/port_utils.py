@@ -219,6 +219,9 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "Celestica-E1031-T48S4":
         for i in range(1, 53):
             port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
+    elif hwsku == "Arista-7260QX-64":
+        for i in range(1, 67):
+            port_alias_to_name_map["Et%d" % i] = "Ethernet%d" % i
     else:
         for i in range(0, 128, 4):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
