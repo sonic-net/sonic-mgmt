@@ -24,7 +24,6 @@ class QosSaiBase:
     buffer_model_initialized = False
     buffer_model = None
 
-    @pytest.fixture(scope='class', autouse=True)
     def isBufferInApplDb(self, duthost):
         if not self.buffer_model_initialized:
             self.buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')["stdout"]
