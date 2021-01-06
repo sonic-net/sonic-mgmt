@@ -13,6 +13,8 @@ def test_snmp_queues(duthosts, rand_one_dut_hostname, localhost, creds, collect_
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
 
     for k, v in snmp_facts['snmp_interfaces'].items():
-        if "Ethernet" in v['description']:
+        description = v.get('description', '')
+        is_fp_port = 'Ethernet' in description
+        if is_fp_port:
             if not v.has_key('queues'):
                 pytest.fail("port %s does not have queue counters" % v['name'])

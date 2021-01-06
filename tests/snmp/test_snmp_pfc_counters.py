@@ -15,7 +15,9 @@ def test_snmp_pfc_counters(duthosts, rand_one_dut_hostname, localhost, creds):
     # Check PFC counters
     # Ignore management ports, assuming the names starting with 'eth', eg. eth0
     for k, v in snmp_facts['snmp_interfaces'].items():
-        if "Ethernet" in v['description']:
+        description = v.get('description', '')
+        is_fp_port = 'Ethernet' in description
+        if is_fp_port:
             if not v.has_key('cpfcIfRequests') or \
                not v.has_key('cpfcIfIndications') or \
                not v.has_key('requestsPerPriority') or \
