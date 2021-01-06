@@ -3,7 +3,9 @@ import logging
 import os
 import pytest
 import time
+from pkg_resources import parse_version
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_require
 from device_mocker import device_mocker_factory
 
 pytestmark = [
@@ -47,6 +49,14 @@ EXPECT_PSU_MISSING = '{} is missing or not available'
 EXPECT_PSU_NO_POWER = '{} is out of power'
 EXPECT_PSU_HOT = '{} temperature is too hot'
 EXPECT_PSU_INVALID_VOLTAGE = '{} voltage is out of range'
+
+
+@pytest.fixture(autouse=True, scope="module")
+def check_image_version(duthost):
+    """Skip the test for unsupported images."""
+    pytest_require(parse_version(duthost.kernel_version) > parse_version('4.9.0'),
+                   "Test not supported for 201911 images. Skipping the test")
+    yield
 
 
 def test_service_checker(duthosts, rand_one_dut_hostname):
