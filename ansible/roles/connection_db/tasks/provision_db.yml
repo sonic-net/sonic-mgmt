@@ -1,3 +1,8 @@
+- name: Set enforce_provision_connection_db
+  set_fact:
+    enforce_provision_connection_db: False
+  when: enforce_provision_connection_db is not defined
+
 - name: Retrieve connection graph xml file content
   set_fact:
     conn_graph_file_data: "{{ lookup('file', connection_graph_filename) }}"

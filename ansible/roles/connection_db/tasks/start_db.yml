@@ -6,7 +6,7 @@
 
 - name: Check if enforce provision servercfgd
   set_fact:
-    enforce_provision_servercfg: False
+    enforce_provision_servercfgd: True
   when: enforce_provision_servercfgd is not defined
 
 - name: Install Redis
@@ -29,10 +29,8 @@
     mode: "0644"
   notify:
     - Restart Redis
+    - Sleep
     - Init connection db
-
-- name: Flush handlers
-  meta: flush_handlers
 
 - name: Install pip3
   apt:
@@ -72,3 +70,16 @@
   systemd:
     name: servercfgd
     state: restarted
+  when: copy_result.changed
+
+- name: Get Lua scripts
+  set_fact:
+    db_scripts: "{{ db_scripts|default([]) + [ item ]}}"
+  with_fileglob:
+    - "*.lua"
+
+- name: Register scripts to connection_db
+  debug:
+    msg: >
+      Run 'register_script'
+      {{ lookup('servercfgd_client', 'register_scripts', servercfgd_host=connection_db_host_ip, scripts=db_scripts) }}

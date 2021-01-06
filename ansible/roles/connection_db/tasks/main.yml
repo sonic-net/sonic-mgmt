@@ -3,21 +3,6 @@
   set_fact:
     pip_executable: pip3
 
-- name: Find connection graph file
-  set_fact:
-    connection_graph_filename: "{{ lookup('graphfile', duts_name.split(',')) }}"
-
-- name: Set connection db server hostname
-  set_fact:
-    connection_db_host: "{{ item.value }}"
-  loop: "{{ connection_db_host_mapping | dict2items }}"
-  when: item.key == connection_graph_filename
-
-- name: Get connection db server ip
-  set_fact:
-    connection_db_host_ip: "{{ ansible_ssh_host }}"
-  delegate_to: "{{ connection_db_host }}"
-
 - name: Start connection database
   include_tasks: start_db.yml
   args:
@@ -35,5 +20,5 @@
   when: action == 'stop_db'
 
 - name: Start db provision
-  include_tasks: start_provision_db.yml
-  when: action == 'start_provision_db'
+  include_tasks: provision_db.yml
+  when: action == 'provision_db'

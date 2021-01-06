@@ -73,22 +73,6 @@
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
 
-  - name: Setup the connection database
-    include_role:
-      name: connection_db
-    vars:
-      action: "start_db"
-    when: enable_connection_db is defined and enable_connection_db | bool
-
-  - name: Provision connection_db
-    include_role:
-      name: connection_db
-    vars:
-      action: "start_provision_db"
-    when: >
-      provision_connection_db is defined and provision_connection_db | bool or
-      enforce_provision_connection_db and enforce_provision_connection_db | bool
-
   - name: Read duts minigraph
     conn_graph_facts:
       host: "{{ duts_name }}"

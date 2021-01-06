@@ -1,4 +1,6 @@
 from __future__ import (absolute_import, division, print_function)
+import os.path
+
 try:
     from xmlrpclib import ServerProxy
 except ImportError:
@@ -29,7 +31,10 @@ DOCUMENTATION = """
             description: True to enforce provisioning db
             type: boolean
             required: False
-            default: False
+          scripts:
+            description: List of Lua scripts to register
+            type: list
+            required: False
 """
 
 display = Display()
@@ -53,5 +58,10 @@ class LookupModule(LookupBase):
                 if not conn_graph_file_content:
                     raise AnsibleError("'conn_graph_file_content' is required for %s" % fname)
                 servercfgd.provision_connection_db(conn_graph_file_content, enforce_provision)
+            elif fname == 'register_scripts':
+                for script in self.get_option('scripts'):
+                    script_name = os.path.splitext(os.path.basename(script))[0]
+                    script_content = open(script).read()
+                    servercfgd.register_script(script_name, script_content)
             else:
                 raise AnsibleError('%s unsupported by servercfgd.' % fname)

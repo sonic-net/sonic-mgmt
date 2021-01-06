@@ -50,13 +50,6 @@
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
 
-  - name: Disable the connection database
-    include_role:
-      name: connection_db
-    vars:
-      action: "stop_db"
-    when: disable_connection_db is defined and disable_connection_db | bool
-
   - name: Read dut minigraph
     conn_graph_facts:
       host: "{{ duts_name }}"
