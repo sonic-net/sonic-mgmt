@@ -46,7 +46,7 @@ def detect_ingress_pool_number(duthost):
     DEFAULT_INGRESS_POOL_NUMBER = len(pools.split())
 
 
-def detect_DEFAULT_MTU(duthost, port_to_test):
+def detect_default_mtu(duthost, port_to_test):
     """Detect the mtu and store it for futher use. Called only once when the module is initialized
 
     Args:
@@ -442,7 +442,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
-    detect_DEFAULT_MTU(duthost, port_to_test)
+    detect_default_mtu(duthost, port_to_test)
 
     original_headroom_size = int(duthost.shell('redis-cli hget "{}" size'.format(profile))['stdout'])
     original_pool_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout'])
