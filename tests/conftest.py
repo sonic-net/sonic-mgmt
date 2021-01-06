@@ -802,10 +802,10 @@ def pytest_generate_tests(metafunc):
 
     if "enum_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_asic_index",
-                             generate_param_asic_index(metafunc, duts_in_testbed, tbname, dut_indices, ASIC_PARAM_TYPE_ALL))
+                             generate_param_asic_index(metafunc, duts_in_testbed, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_frontend_asic_index",
-                             generate_param_asic_index(metafunc, duts_in_testbed, tbname, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+                             generate_param_asic_index(metafunc, duts_in_testbed, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
