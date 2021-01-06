@@ -108,7 +108,7 @@ class SerialSession(object):
 
 def session(new_params):
     seq = [
-        ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
+        ('while true; do if [ $(systemctl is-system-running) == "degraded" ]; then break; fi; echo $(systemctl is-system-running); sleep 1; done', [r'#'], 180),
         ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
         ('sed -i s:sonic:%s: /etc/hosts' % str(new_params['hostname']), [r'#']),
@@ -118,11 +118,6 @@ def session(new_params):
         ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ]
-    # For multi-asic VS testbed swss service will not be running. 
-    # Hence, remove the check for swss service for multi-asic VS.
-    # TODO: Refine this check for multi-asic platform. 
-    if int(new_params['num_asic']) > 1:
-        seq.pop(0)
 
     curtime = datetime.datetime.now().isoformat()
     debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
