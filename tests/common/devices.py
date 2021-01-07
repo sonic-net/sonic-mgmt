@@ -24,6 +24,7 @@ from ansible.plugins.loader import connection_loader
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
+from tests.common.helpers.dut_utils import is_supervisor_node
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -354,11 +355,9 @@ class SonicHost(AnsibleHostBase):
             the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
             logic if possible to derive it from the DUT.
         """
-        if 'type' in self.host.options["inventory_manager"].get_host(self.hostname).get_vars():
-            node_type = self.host.options["inventory_manager"].get_host(self.hostname).get_vars()["type"]
-            if node_type is not None and node_type == 'supervisor':
-                return True
-        return False
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        return is_supervisor_node(inv_files, self.hostname)
 
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
