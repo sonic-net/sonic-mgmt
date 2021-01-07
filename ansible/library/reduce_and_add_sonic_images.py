@@ -65,18 +65,7 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
         avail = get_disk_free_size(module, "/host")
         save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
 
-    if save_as == "/host/downloaded-sonic-image":
-        # There is enough space to install directly
-        download_new_sonic_image(module, new_image_url, save_as)
-        rc, out, err = exec_command(module,
-                     cmd="sonic_installer install {} -y".format(save_as),
-                     msg="installing new image", ignore_error=True)
-        # Always remove the downloaded temp image inside /host/ before proceeding
-        exec_command(module, cmd="rm -f {}".format(save_as))
-        if rc != 0:
-            module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" %
-                         (rc, out, err))
-    else:
+    if save_as.startswith("/tmp/tmpfs"):
         # Create a tmpfs partition to download image to install
         exec_command(module, cmd="mkdir -p /tmp/tmpfs", ignore_error=True)
         exec_command(module, cmd="umount /tmp/tmpfs", ignore_error=True)
@@ -92,6 +81,17 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
         exec_command(module, cmd="sync", ignore_error=True)
         exec_command(module, cmd="umount /tmp/tmpfs", ignore_error=True)
         exec_command(module, cmd="rm -rf /tmp/tmpfs", ignore_error=True)
+        if rc != 0:
+            module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" %
+                         (rc, out, err))
+    else:
+        # There is enough space to install directly
+        download_new_sonic_image(module, new_image_url, save_as)
+        rc, out, err = exec_command(module,
+                     cmd="sonic_installer install {} -y".format(save_as),
+                     msg="installing new image", ignore_error=True)
+        # Always remove the downloaded temp image inside /host/ before proceeding
+        exec_command(module, cmd="rm -f {}".format(save_as))
         if rc != 0:
             module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" %
                          (rc, out, err))
