@@ -39,11 +39,11 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                              state='stopped',
                              search_regex=SONIC_SSH_REGEX,
                              delay=0,
-                             timeout=10,
+                             timeout=20,
                              module_ignore_errors=True)
 
-    if "failed" in res.get('msg', ''):
-        pytest.fail("SSH connection did not get severed")
+    if res.is_failed:
+        pytest.fail("SSH port did not stop. {}".format(res.get('msg', '')))
 
     # Try to SSH back into the DuT, it should time out
     res = localhost.wait_for(host=dut_mgmt_ip,
@@ -54,8 +54,8 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                              timeout=10,
                              module_ignore_errors=True)
 
-    if "Timeout when waiting for search string" not in res.get('msg', ''):
-        pytest.fail("SSH did not time out when expected")
+    if not res.is_failed:
+        pytest.fail("SSH did not timeout when expected. {}".format(res.get('msg', '')))
 
     # Ensure we CANNOT gather basic SNMP facts from the device
     res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
@@ -77,8 +77,8 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                              timeout=90,
                              module_ignore_errors=True)
 
-    if "Timeout when waiting for search string" in res.get('msg', ''):
-        pytest.fail("SSH did not start working when expected")
+    if res.is_failed:
+        pytest.fail("SSH did not start working when expected. {}".format(res.get('msg', '')))
 
     # Delete config_service_acls.sh from the DuT
     duthost.file(path="/tmp/config_service_acls.sh", state="absent")
