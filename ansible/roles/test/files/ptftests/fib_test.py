@@ -218,7 +218,7 @@ class FibTest(BaseTest):
         dport = random.randint(0, 65535)
         ip_src = "10.0.0.1"
         ip_dst = dst_ip_addr
-        src_mac = self.dataplane.get_mac(0, 0)
+        src_mac = self.dataplane.get_mac(0, src_port)
 
         pkt = simple_tcp_packet(
                             pktlen=self.pktlen,
@@ -267,7 +267,7 @@ class FibTest(BaseTest):
         dport = random.randint(0, 65535)
         ip_src = '2000::1'
         ip_dst = dst_ip_addr
-        src_mac = self.dataplane.get_mac(0, 0)
+        src_mac = self.dataplane.get_mac(0, src_port)
 
         pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
