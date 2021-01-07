@@ -294,8 +294,16 @@ def set_active_side(vm_set, port_index, new_active_side):
 
     new_active_port = mux_status['ports'][new_active_side]
     run_cmd('ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'.format(vm_set, port_index, active_port))
-    run_cmd('ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions=output:"{}"'
-        .format(vm_set, port_index, new_active_port, nic_port))
+    actions = []
+    for action in flows[active_port]:
+        action_desc = action['action']
+        if action['out_port']:
+            action_desc += ':"{}"'.format(action['out_port'])
+        actions.append(action_desc)
+    run_cmd('ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions={}'
+        .format(vm_set, port_index, new_active_port, ','.join(actions)))
+    new_flows = get_flows(vm_set, port_index)
+    mux_status['flows'] = new_flows
     mux_status['active_side'] = new_active_side
     mux_status['active_port'] = new_active_port
     return mux_status
@@ -487,7 +495,8 @@ def update_flow_action_to_nic(mux_status, action):
         action_desc)
     run_cmd(cmdline)
     flow = {in_port: [{'action': action, 'out_port': out_port}]}
-    mux_status['flows'].update(flow)
+    new_flows = get_flows(mux_status['vm_set'], mux_status['port_index'])
+    mux_status['flows'] = new_flows
     return mux_status
 
 
@@ -526,8 +535,8 @@ def update_flow_action_to_tor(mux_status, action, tor_ports):
         nic_port,
         action_desc)
     run_cmd(cmdline)
-    flow = {nic_port: [{'action': 'output', 'out_port': port} for port in output_tor_ports]}
-    mux_status['flows'].update(flow)
+    new_flows = get_flows(mux_status['vm_set'], mux_status['port_index'])
+    mux_status['flows'] = new_flows
     return mux_status
 
 
