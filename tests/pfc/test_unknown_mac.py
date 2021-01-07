@@ -41,7 +41,7 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
 
     Args:
         duthosts(AnsibleHost) : multi dut instance
-        rand_one_dut_hostname(AnsibleHost) : one of the dut instances from the multi dut
+        rand_one_dut_hostname(string) : one of the dut instances from the multi dut
         tbinfo(TestbedInfo) : testbed info
 
     Yields:
@@ -97,7 +97,7 @@ def flushArpFdb(duthosts, rand_one_dut_hostname):
 
     Args:
         duthosts(AnsibleHost) : multi dut instance
-        rand_one_dut_hostname(AnsibleHost) : one of the dut instances from the multi dut
+        rand_one_dut_hostname(string) : one of the dut instances from the multi dut
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Clear all ARP and FDB entries on the DUT")
@@ -120,7 +120,7 @@ def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_ho
         flushArpFdb(fixture) : func scope fixture
         ptfhost(AnsibleHost) : ptf host instance
         duthosts(AnsibleHost) : multi dut instance
-        rand_one_dut_hostname(AnsibleHost) : one of the dut instances from the multi dut
+        rand_one_dut_hostname(string) : one of the dut instances from the multi dut
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = unknownMacSetup
@@ -149,11 +149,13 @@ class PreTestVerify(object):
         self.dst_port = dst_port
         self.arp_entry = dict()
 
-    def _checkArpEntry(self):
+    def _checkArpEntryExist(self):
         """
         Check if the ARP entry is present and populate the ARP to mac mapping
         """
         logger.info("Verify if the ARP entry is present for {}".format(self.dst_ip))
+        result = self.duthost.command("show arp {}".format(self.dst_ip))
+        pytest_assert("Total number of entries 1" in result['stdout'], "ARP entry for {} missing in ASIC".format(self.dst_ip))
         result = self.duthost.shell("ip neigh show {}".format(self.dst_ip))
         pytest_assert(result['stdout_lines'], "{} not in arp table".format(self.dst_ip))
         match = re.match("{}.*lladdr\s+(.*)\s+[A-Z]+".format(self.dst_ip),
@@ -162,14 +164,14 @@ class PreTestVerify(object):
                       "Regex failed while retreiving arp entry for {}".format(self.dst_ip))
         self.arp_entry.update({self.dst_ip : match.group(1)})
 
-    def _checkFdbEntry(self):
+    def _checkFdbEntryMiss(self):
         """
         Check if the FDB entry is missing for the port
         """
         result = self.duthost.command("show mac -p {}".format(self.dst_port),
                                       module_ignore_errors=True)
         out = result['stdout']
-        pytest_assert("not in list" in out)
+        pytest_assert("not in list" in out, "{} present in FDB".format(self.arp_entry[self.dst_ip]))
         logger.info("'{}' not present in fdb as expected".format(self.arp_entry[self.dst_ip]))
 
     def verifyArpFdb(self):
@@ -179,11 +181,11 @@ class PreTestVerify(object):
         Returns:
                arp_entry(dict) : ARP to mac mapping
         """
-        self._checkArpEntry()
+        self._checkArpEntryExist()
         logger.info("Clear all FDB entries")
         self.duthost.shell("sonic-clear fdb all")
-        time.sleep(1)
-        self._checkFdbEntry()
+        time.sleep(5)
+        self._checkFdbEntryMiss()
         return self.arp_entry
 
 
