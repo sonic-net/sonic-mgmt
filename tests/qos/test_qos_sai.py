@@ -212,7 +212,7 @@ class TestQosSai(QosSaiBase):
 
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
 
-    def testQosSaiHeadroomPoolWatermark(self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, resetWatermark):
+    def testQosSaiHeadroomPoolWatermark(self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize, resetWatermark):
         """
             Test QoS SAI Headroom pool watermark
 
@@ -261,7 +261,7 @@ class TestQosSai(QosSaiBase):
             "hdrm_pool_wm_multiplier": dutQosConfig["param"]["hdrm_pool_wm_multiplier"],
             "cell_size": dutQosConfig["param"]["cell_size"],
             "buf_pool_roid": ingressLosslessProfile["bufferPoolRoid"],
-            "max_headroom": ingressLosslessProfile["poolXoff"]
+            "max_headroom": sharedHeadroomPoolSize
         })
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
 

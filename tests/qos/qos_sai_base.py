@@ -72,13 +72,6 @@ class QosSaiBase:
         bufferScale /= (bufferScale + 1)
         bufferProfile.update({"static_th": int(bufferProfile["size"]) + int(bufferScale * bufferSize)})
 
-        poolHeadroom = self.__runRedisCommandOrAssert(
-            duthost,
-            argv = ["redis-cli", "-n", "4", "HGET", pool, "xoff"]
-        )
-        if poolHeadroom:
-           bufferProfile.update({"poolXoff": int(poolHeadroom[0])})
-
     def __updateVoidRoidParams(self, duthost, bufferProfile):
         """
             Updates buffer profile with VOID/ROID params
