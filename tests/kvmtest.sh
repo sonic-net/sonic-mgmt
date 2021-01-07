@@ -97,7 +97,8 @@ PYTEST_CLI_COMMON_OPTS="\
 -m individual \
 -q 1 \
 -a False \
--O"
+-O \
+-r"
 
 pushd $SONIC_MGMT_DIR/tests
 rm -rf logs
