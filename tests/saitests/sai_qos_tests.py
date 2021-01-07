@@ -10,6 +10,7 @@ import ptf.dataplane as dataplane
 import sai_base_test
 import operator
 import sys
+import math
 from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
@@ -857,10 +858,24 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.pgs_num = self.test_params['pgs_num']
         self.asic_type = self.test_params['sonic_asic_type']
         self.pkts_num_leak_out = self.test_params['pkts_num_leak_out']
-        self.pkts_num_trig_pfc = self.test_params['pkts_num_trig_pfc']
+        self.pkts_num_trig_pfc = self.test_params.get('pkts_num_trig_pfc')
+        if not self.pkts_num_trig_pfc:
+            self.pkts_num_trig_pfc_shp = self.test_params.get('pkts_num_trig_pfc_shp')
         self.pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         self.pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
-        print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial))
+        packet_size = self.test_params.get('packet_size')
+        if packet_size:
+            self.pkt_size = packet_size
+            cell_size = self.test_params.get('cell_size')
+            self.pkt_size_factor = int(math.ceil(float(packet_size)/cell_size))
+        else:
+            self.pkt_size = 64
+            self.pkt_size_factor = 1
+
+        if self.pkts_num_trig_pfc:
+            print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d, pkt_size %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))
+        elif self.pkts_num_trig_pfc_shp:
+            print >> sys.stderr, ("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))            
         sys.stderr.flush()
 
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
@@ -894,7 +909,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
-        margin = 0
+        margin = self.test_params.get('margin')
+        if not margin:
+            margin = 0
         sidx_dscp_pg_tuples = [(sidx, dscp, self.pgs[pgidx]) for sidx, sid in enumerate(self.src_port_ids) for pgidx, dscp in enumerate(self.dscps)]
         assert(len(sidx_dscp_pg_tuples) >= self.pgs_num)
         print >> sys.stderr, sidx_dscp_pg_tuples
@@ -911,7 +928,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         try:
             # send packets to leak out
             sidx = 0
-            pkt = simple_tcp_packet(pktlen=64,
+            pkt = simple_tcp_packet(pktlen=self.pkt_size,
                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                         eth_src=self.src_port_macs[sidx],
                         ip_src=self.src_port_ips[sidx],
@@ -926,7 +943,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -934,7 +951,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_dst=self.dst_port_ip,
                                         ip_tos=tos,
                                         ip_ttl=ttl)
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_trig_pfc)
+                if self.pkts_num_trig_pfc:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                else:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc / self.pkt_size_factor)
 
             print >> sys.stderr, "Service pool almost filled"
             sys.stderr.flush()
@@ -946,7 +967,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -982,7 +1003,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -991,7 +1012,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
 
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial)
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full / self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial / self.pkt_size_factor)
                 # allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
 
