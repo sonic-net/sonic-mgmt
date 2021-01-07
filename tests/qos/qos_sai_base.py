@@ -148,6 +148,26 @@ class QosSaiBase:
 
         return bufferProfile
 
+    def __getSharedHeadroomPoolSize(self, request, duthost):
+        """
+            Get shared headroom pool size from Redis db
+
+            Args:
+                request (Fixture): pytest request object
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                size (str) size of shared headroom pool
+                None if shared headroom pool isn't enabled
+        """
+        result = self.__runRedisCommandOrAssert(
+            duthost,
+            argv = ["redis-cli", "-n", "4", "HGETALL", "BUFFER_POOL|ingress_lossless_pool"]
+        )
+        it = iter(result)
+        ingressLosslessPool = dict(zip(it, it))
+        return ingressLosslessPool.get("xoff")
+
     def __getEcnWredParam(self, duthost, table, port):
         """
             Get ECN/WRED parameters from Redis db
@@ -543,7 +563,7 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, tbinfo):
+    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, tbinfo):
         """
             Prepares DUT host QoS configuration
 
@@ -591,11 +611,13 @@ class QosSaiBase:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
             qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'], dutAsic,
-                                                      portSpeedCableLength,
-                                                      ingressLosslessProfile,
-                                                      ingressLossyProfile,
-                                                      egressLosslessProfile,
-                                                      egressLossyProfile)
+                                                       portSpeedCableLength,
+                                                       ingressLosslessProfile,
+                                                       ingressLossyProfile,
+                                                       egressLosslessProfile,
+                                                       egressLossyProfile,
+                                                       sharedHeadroomPoolSize
+            )
             qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic]
@@ -686,6 +708,25 @@ class QosSaiBase:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
             self.runPtfTest(ptfhost, testCase=saiQosTest, testParams=testParams)
+
+    @pytest.fixture(scope='class', autouse=True)
+    def sharedHeadroomPoolSize(self, request, duthosts, rand_one_dut_hostname):
+        """
+            Retreives shared headroom pool size
+
+            Args:
+                request (Fixture): pytest request object
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                size: shared headroom pool size
+                      none if it is not defined
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        yield self.__getSharedHeadroomPoolSize(
+            request,
+            duthost
+        )
 
     @pytest.fixture(scope='class', autouse=True)
     def ingressLosslessProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
