@@ -1357,7 +1357,8 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        if out['changed'] == False:
+        
+        if out['failed'] == True:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
