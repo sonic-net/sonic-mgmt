@@ -288,7 +288,6 @@ def set_active_side(vm_set, port_index, new_active_side):
     # Need to toggle active side anyway
     flows = get_flows(vm_set, port_index)
     active_port = get_active_port(flows)
-    nic_port = mux_status['ports']['nic']
     if new_active_side == 'toggle':
         new_active_side = 'tor_a' if mux_status['active_side'] == 'tor_b' else 'tor_b'
 
@@ -494,7 +493,6 @@ def update_flow_action_to_nic(mux_status, action):
         in_port,
         action_desc)
     run_cmd(cmdline)
-    flow = {in_port: [{'action': action, 'out_port': out_port}]}
     new_flows = get_flows(mux_status['vm_set'], mux_status['port_index'])
     mux_status['flows'] = new_flows
     return mux_status
