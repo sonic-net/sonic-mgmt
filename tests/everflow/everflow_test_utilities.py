@@ -604,17 +604,69 @@ class BaseEverflowTest(object):
         mirror_output = duthost.command("show mirror_session")
         logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
 
-        matching_session = list(filter(lambda line: line.startswith(mirror_session["session_name"]),
-                                       mirror_output["stdout_lines"]))
-        pytest_assert(matching_session, "Test mirror session {} not found".format(mirror_session["session_name"]))
-        logging.info("Found mirror session:\n%s", matching_session[0])
+        pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
+                      "Test mirror session {} not found".format(mirror_session["session_name"]))
 
-        monitor_port = matching_session[0].split()[-1]
+        lines = mirror_output["stdout_lines"]
+        sessions = self._parse_mirror_session_running_config(lines)
+
+        session = [x for x in sessions["ERSPAN Sessions"]["data"] if x["Name"] == mirror_session["session_name"]]
+        pytest_assert(0 < len(session))
+
+        monitor_port = session[0]["Monitor Port"]
+
         pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
-        logging.info("Selected monitor port %s (index=%s)", monitor_port, setup["port_index_map"][monitor_port])
+        logging.info("Selected monitor interface %s (port=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
         return setup["port_index_map"][monitor_port]
+
+    def _parse_mirror_session_running_config(self, lines):
+        sessions = {}
+        while True:
+            session_group, lines = self._parse_mirror_session_group(lines)
+            if session_group is None:
+                break
+            sessions[session_group["name"]] = session_group
+
+        return sessions
+
+    def _parse_mirror_session_group(self, lines):
+        while len(lines) and lines[0].strip() == "":
+            lines.pop(0)
+
+        if len(lines) < 3:
+            return None, lines
+
+        table_name = lines[0]
+        separator_line = lines[2]
+        header = lines[1]
+
+        session_group = {
+            "name": table_name,
+            "data": []
+        }
+
+        separators = separator_line.split()
+
+        lines = lines[3:]
+        for ln in lines[:]:
+            lines.pop(0)
+            if ln.strip() == "":
+                break
+
+            index = 0
+            data = {}
+            for s in separators:
+                end = index + len(s)
+                name = header[index:end].strip()
+                value = ln[index:end].strip()
+                index = index + len(s) + 2
+                data[name] = value
+
+            session_group["data"].append(data)
+
+        return session_group, lines
 
     def _get_tx_port_id_list(self, tx_ports):
         tx_port_ids = []
