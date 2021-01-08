@@ -44,8 +44,6 @@ LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fan
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument must be a string or a number.*',
                                      '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*']
 
-SKIP_ERROR_LOG_SHOW_PLATFORM_FAN = SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP + ['.*ERR pmon#thermalctld.*Failed to get cooling level.*No such file or directory.*']
-
 SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*']
 
 
