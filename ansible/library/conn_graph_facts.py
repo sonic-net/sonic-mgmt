@@ -362,25 +362,28 @@ def main():
             if host_vlan:
                 device_vlan_range.append(host_vlan["VlanRange"])
                 device_vlan_list.append(host_vlan["VlanList"])
-                port_vlans = lab_graph.get_host_port_vlans(hostname)
-                device_vlan_map_list[hostname] = {}
+                if dev["Type"] == "FanoutLeaf":
+                    device_vlan_map_list[hostname] = host_vlan["VlanList"]
+                else:
+                    port_vlans = lab_graph.get_host_port_vlans(hostname)
+                    device_vlan_map_list[hostname] = {}
 
-                port_name_list_sorted = get_port_name_list(dev['HwSku'])
-                print_debug_msg(debug_fname,"For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
-                for a_host_vlan in host_vlan["VlanList"]:
-                    # Get the corresponding port for this vlan from the port vlan list for this hostname
-                    found_port_for_vlan = False
-                    for a_port in port_vlans:
-                        if a_host_vlan in port_vlans[a_port]['vlanlist']:
-                            if a_port in port_name_list_sorted:
-                                port_index = port_name_list_sorted.index(a_port)
-                                device_vlan_map_list[hostname][port_index] = a_host_vlan
-                                found_port_for_vlan = True
-                                break
-                            else:
-                                module.fail_json(msg="Did not find port for %s in the ports based on hwsku '%s' for host %s" % (a_port, dev['HwSku'], hostname))
-                    if not found_port_for_vlan:
-                        module.fail_json(msg="Did not find corresponding link for vlan %d in %s for host %s" % (a_host_vlan, port_vlans, hostname))
+                    port_name_list_sorted = get_port_name_list(dev['HwSku'])
+                    print_debug_msg(debug_fname,"For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
+                    for a_host_vlan in host_vlan["VlanList"]:
+                        # Get the corresponding port for this vlan from the port vlan list for this hostname
+                        found_port_for_vlan = False
+                        for a_port in port_vlans:
+                            if a_host_vlan in port_vlans[a_port]['vlanlist']:
+                                if a_port in port_name_list_sorted:
+                                    port_index = port_name_list_sorted.index(a_port)
+                                    device_vlan_map_list[hostname][port_index] = a_host_vlan
+                                    found_port_for_vlan = True
+                                    break
+                                else:
+                                    module.fail_json(msg="Did not find port for %s in the ports based on hwsku '%s' for host %s" % (a_port, dev['HwSku'], hostname))
+                        if not found_port_for_vlan:
+                            module.fail_json(msg="Did not find corresponding link for vlan %d in %s for host %s" % (a_host_vlan, port_vlans, hostname))
             device_port_vlans.append(lab_graph.get_host_port_vlans(hostname))
         results = {k: v for k, v in locals().items()
                    if (k.startswith("device_") and v)}
