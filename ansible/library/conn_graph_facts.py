@@ -362,7 +362,7 @@ def main():
             if host_vlan:
                 device_vlan_range.append(host_vlan["VlanRange"])
                 device_vlan_list.append(host_vlan["VlanList"])
-                if dev["Type"] == "FanoutLeaf":
+                if dev["Type"].lower() != "devsonic":
                     device_vlan_map_list[hostname] = host_vlan["VlanList"]
                 else:
                     port_vlans = lab_graph.get_host_port_vlans(hostname)
