@@ -26,6 +26,7 @@ from switch import (switch_init,
                     sai_thrift_read_port_watermarks,
                     sai_thrift_read_pg_counters,
                     sai_thrift_read_buffer_pool_watermark,
+                    sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_port_tx_disable,
                     sai_thrift_port_tx_enable)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
@@ -876,6 +877,18 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d, pkt_size %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))
         elif self.pkts_num_trig_pfc_shp:
             print >> sys.stderr, ("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))            
+
+        # used only for headroom pool watermark
+        if all(key in self.test_params for key in ['hdrm_pool_wm_multiplier', 'buf_pool_roid', 'cell_size', 'max_headroom']):
+           self.cell_size = int(self.test_params['cell_size'])
+           self.wm_multiplier = self.test_params['hdrm_pool_wm_multiplier']
+           print >> sys.stderr, "Wm multiplier: %d buf_pool_roid: %s" % (self.wm_multiplier, self.test_params['buf_pool_roid'])
+           self.buf_pool_roid = int(self.test_params['buf_pool_roid'], 0)
+           print >> sys.stderr, "buf_pool_roid: 0x%lx" % (self.buf_pool_roid)
+           self.max_headroom = int(self.test_params['max_headroom'])
+        else:
+           self.wm_multiplier = None
+
         sys.stderr.flush()
 
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
@@ -997,6 +1010,15 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, "PFC triggered"
             sys.stderr.flush()
 
+            upper_bound = 2
+            if self.wm_multiplier:
+                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+                print >> sys.stderr, "Actual headroom pool watermark value to start: %d" % hdrm_pool_wm
+                assert (hdrm_pool_wm <= (upper_bound * self.cell_size * self.wm_multiplier))
+
+            expected_wm = 0
+            wm_pkt_num = 0
+            upper_bound_wm = 0
             # send packets to all pgs to fill the headroom pool
             for i in range(0, self.pgs_num):
                 # Prepare TCP packet data
@@ -1021,6 +1043,18 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert(recv_counters[INGRESS_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_DROP])
                 assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_PORT_BUFFER_DROP])
 
+                if self.wm_multiplier:
+                    wm_pkt_num += (self.pkts_num_hdrm_full if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial)
+                    hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+                    expected_wm = wm_pkt_num * self.cell_size * self.wm_multiplier
+                    upper_bound_wm = expected_wm + (upper_bound * self.cell_size * self.wm_multiplier)
+                    if upper_bound_wm > self.max_headroom:
+                        upper_bound_wm = self.max_headroom
+
+                    print >> sys.stderr, "pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" %(wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm)
+                    assert(expected_wm <= hdrm_pool_wm)
+                    assert(hdrm_pool_wm <= upper_bound_wm)
+
             print >> sys.stderr, "all but the last pg hdrms filled"
             sys.stderr.flush()
 
@@ -1041,6 +1075,16 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             print >> sys.stderr, "pg hdrm filled"
+            if self.wm_multiplier:
+               # assert hdrm pool wm still remains the same
+               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+               assert(expected_wm <= hdrm_pool_wm)
+               assert(hdrm_pool_wm <= upper_bound_wm)
+               # at this point headroom pool should be full. send few more packets to continue causing drops
+               print >> sys.stderr, "overflow headroom pool"
+               send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
+               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+               assert(hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
         finally:

@@ -212,6 +212,59 @@ class TestQosSai(QosSaiBase):
 
         self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
 
+    def testQosSaiHeadroomPoolWatermark(self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize, resetWatermark):
+        """
+            Test QoS SAI Headroom pool watermark
+
+            Args:
+                duthosts (AnsibleHost): Dut hosts
+                rand_one_dut_hostname (AnsibleHost): select one of the duts in multi dut testbed
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+                resetWatermark (Fixture): reset watermarks
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        cmd_output = duthost.shell("show headroom-pool watermark", module_ignore_errors=True)
+        if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS or cmd_output['rc'] != 0:
+            pytest.skip("Headroom pool watermark is not supported")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        testPortIps = dutConfig["testPortIps"]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "testbed_type": dutTestParams["topo"],
+            "dscps": qosConfig["hdrm_pool_size"]["dscps"],
+            "ecn": qosConfig["hdrm_pool_size"]["ecn"],
+            "pgs": qosConfig["hdrm_pool_size"]["pgs"],
+            "src_port_ids": qosConfig["hdrm_pool_size"]["src_port_ids"],
+            "src_port_ips": [testPortIps[port] for port in qosConfig["hdrm_pool_size"]["src_port_ids"]],
+            "dst_port_id": qosConfig["hdrm_pool_size"]["dst_port_id"],
+            "dst_port_ip": testPortIps[qosConfig["hdrm_pool_size"]["dst_port_id"]],
+            "pgs_num": qosConfig["hdrm_pool_size"]["pgs_num"],
+            "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
+            "pkts_num_trig_pfc": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc"],
+            "pkts_num_hdrm_full": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_full"],
+            "pkts_num_hdrm_partial": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_partial"],
+            "hdrm_pool_wm_multiplier": dutQosConfig["param"]["hdrm_pool_wm_multiplier"],
+            "cell_size": dutQosConfig["param"]["cell_size"],
+            "buf_pool_roid": ingressLosslessProfile["bufferPoolRoid"],
+            "max_headroom": sharedHeadroomPoolSize
+        })
+        self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
+
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(self, request, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, egressLossyProfile, resetWatermark):
         """
