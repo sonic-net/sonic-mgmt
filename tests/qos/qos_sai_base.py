@@ -142,9 +142,7 @@ class QosSaiBase:
             pytest_assert("xon" in bufferProfile.keys() and "xoff" in bufferProfile.keys(),
                           "Could not find xon and/or xoff values for profile '{0}'".format(bufferProfileName))
 
-        disableTest = request.config.getoption("--disable_test")
-        if not disableTest:
-            self.__updateVoidRoidParams(duthost, bufferProfile)
+        self.__updateVoidRoidParams(duthost, bufferProfile)
 
         return bufferProfile
 
