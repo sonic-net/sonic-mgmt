@@ -1756,6 +1756,32 @@ class SonicAsic(object):
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
+    def is_it_frontend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'frontend':
+                return True
+        return False
+
+    def is_it_backend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'backend':
+                return True
+        return False
+
+    def get_docker_cmd(self, cmd, container_name):
+        if self.sonichost.is_multi_asic:
+            return "sudo docker exec {}{} {}".format(container_name, self.asic_index, cmd)
+        return cmd
+
+    def get_asic_namespace(self):
+        if self.sonichost.is_multi_asic:
+            return self.namespace
+        return DEFAULT_NAMESPACE
+
     def bgp_facts(self, *module_args, **complex_args):
         """ Wrapper method for bgp_facts ansible module.
         If number of asics in SonicHost are more than 1, then add 'instance_id' param for this Asic
@@ -1850,6 +1876,17 @@ class MultiAsicSonicHost(object):
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+
+        # Get the frontend and backend asics in a multiAsic device.
+        self.frontend_asics = []
+        self.backend_asics = []
+        if self.sonichost.is_multi_asic:
+            for asic in self.asics:
+                if asic.is_it_frontend():
+                    self.frontend_asics.append(asic)
+                elif asic.is_it_backend():
+                    self.backend_asics.append(asic)
+
         self.critical_services_tracking_list()
 
     def critical_services_tracking_list(self):
@@ -1902,6 +1939,46 @@ class MultiAsicSonicHost(object):
                 return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def get_frontend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        frontend_asic_list = []
+        for asic in self.frontend_asics:
+            frontend_asic_list.append(asic.asic_index)
+
+        return frontend_asic_list
+
+    def get_frontend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        frontend_ns_list = []
+        for asic in self.frontend_asics:
+            frontend_ns_list.append(asic.namespace)
+
+        return frontend_ns_list
+
+    def get_backend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        backend_asic_list = []
+        for asic in self.backend_asics:
+            backend_asic_list.append(asic.asic_index)
+
+        return backend_asic_list
+
+    def get_backend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        backend_ns_list = []
+        for asic in self.backend_asics:
+            backend_ns_list.append(asic.namespace)
+
+        return backend_ns_list
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.

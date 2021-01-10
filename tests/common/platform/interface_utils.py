@@ -39,7 +39,8 @@ def check_interface_status(dut, asic_index, interfaces):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
-    namespace = dut.get_namespace_from_asic_id(asic_index)
+    asichost = dut.get_asic(asic_index)
+    namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
     mg_ports = dut.minigraph_facts(host=dut.hostname, namespace=namespace)["ansible_facts"]["minigraph_ports"]
     output = dut.command("show interface description")

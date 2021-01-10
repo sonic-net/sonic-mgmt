@@ -9,7 +9,6 @@ import re
 import os
 import time
 import copy
-import json
 
 import pytest
 

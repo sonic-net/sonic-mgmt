@@ -7,6 +7,7 @@ import logging
 import re
 import json
 
+
 def parse_transceiver_info(output_lines):
     """
     @summary: Parse the list of transceiver from DB table TRANSCEIVER_INFO content
@@ -42,13 +43,15 @@ def all_transceivers_detected(dut, asic_index, interfaces):
     Check if transceiver information of all the specified interfaces have been detected.
     """
     cmd = "redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
-    docker_cmd = dut.get_docker_cmd_for_namespace(asic_index, cmd, "database")
+    asichost = dut.get_asic(asic_index)
+    docker_cmd = asichost.get_docker_cmd(cmd, "database")
     db_output = dut.command(docker_cmd)["stdout_lines"]
     not_detected_interfaces = [intf for intf in interfaces if "TRANSCEIVER_INFO|%s" % intf not in db_output]
     if len(not_detected_interfaces) > 0:
         logging.info("Interfaces not detected: %s" % str(not_detected_interfaces))
         return False
     return True
+
 
 def check_transceiver_basic(dut, asic_index, interfaces):
     """
@@ -58,11 +61,13 @@ def check_transceiver_basic(dut, asic_index, interfaces):
     """
     logging.info("Check whether transceiver information of all ports are in redis")
     cmd = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
-    docker_cmd = dut.get_docker_cmd_for_namespace(asic_index, cmd, "database")
+    asichost = dut.get_asic(asic_index)
+    docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_info = dut.command(docker_cmd)
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     for intf in interfaces:
         assert intf in parsed_xcvr_info, "TRANSCEIVER INFO of %s is not found in DB" % intf
+
 
 def check_transceiver_details(dut, asic_index, interfaces):
     """
@@ -70,11 +75,12 @@ def check_transceiver_details(dut, asic_index, interfaces):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
+    asichost = dut.get_asic(asic_index)
     logging.info("Check detailed transceiver information of each connected port")
     expected_fields = ["type", "hardware_rev", "serial", "manufacturer", "model"]
     for intf in interfaces:
         cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_INFO|%s"' % intf
-        docker_cmd = dut.get_docker_cmd_for_namespace(asic_index, cmd, "database")
+        docker_cmd = asichost.get_docker_cmd(cmd, "database")
         port_xcvr_info = dut.command(docker_cmd)
         for field in expected_fields:
             assert port_xcvr_info["stdout"].find(field) >= 0, \
@@ -89,7 +95,8 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces):
     """
     logging.info("Check whether TRANSCEIVER_DOM_SENSOR of all ports in redis")
     cmd = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
-    docker_cmd = dut.get_docker_cmd_for_namespace(asic_index, cmd, "database")
+    asichost = dut.get_asic(asic_index)
+    docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_dom_sensor = dut.command(docker_cmd)
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
@@ -107,11 +114,12 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces):
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
     for intf in interfaces:
         cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf
-        docker_cmd = dut.get_docker_cmd_for_namespace(asic_index, cmd, "database")
+        docker_cmd = asichost.get_docker_cmd(cmd, "database")
         port_xcvr_dom_sensor = dut.command(docker_cmd)
         for field in expected_fields:
             assert port_xcvr_dom_sensor["stdout"].find(field) >= 0, \
                 "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_dom_sensor["stdout"], intf)
+
 
 def check_transceiver_status(dut, asic_index, interfaces):
     """
