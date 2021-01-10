@@ -1903,6 +1903,9 @@ class MultiAsicSonicHost(object):
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
 
+    def get_default_critical_services_list(self):
+        return self._DEFAULT_SERVICES
+
     def _run_on_asics(self, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
 

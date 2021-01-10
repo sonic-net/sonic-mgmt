@@ -18,8 +18,8 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import wait_until
 from tests.common.reboot import *
-from tests.common.platform.interface_utils import check_interface_information
 from tests.common.platform.transceiver_utils import check_transceiver_basic
+from tests.common.platform.interface_utils import check_interface_information, get_port_map
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 
@@ -84,8 +84,13 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
     assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_interface_information, dut, interfaces), \
         "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
 
+
     logging.info("Check transceiver status")
-    check_transceiver_basic(dut, interfaces)
+    for asic_index in dut.get_frontend_asic_ids():
+        # Get the interfaces pertaining to that asic
+        interface_list = get_port_map(dut, asic_index)
+        interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
+        check_transceiver_basic(dut, asic_index, interfaces_per_asic)
 
     logging.info("Check pmon daemon status")
     assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
@@ -114,6 +119,10 @@ def test_fast_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
+
+    if duthost.is_multi_asic:
+        pytest.skip("Multi-ASIC devices not supporting fast reboot")
+
     duthost = duthosts[rand_one_dut_hostname]
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], reboot_type=REBOOT_TYPE_FAST)
 
@@ -122,6 +131,10 @@ def test_warm_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
+
+    if duthost.is_multi_asic:
+        pytest.skip("Multi-ASIC devices not supporting warm reboot")
+
     duthost = duthosts[rand_one_dut_hostname]
     asic_type = duthost.facts["asic_type"]
 
