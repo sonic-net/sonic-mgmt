@@ -18,7 +18,6 @@ import json
 
 from ansible.module_utils.basic import *
 from collections import defaultdict
-from sonic_py_common import multi_asic
 
 INTF_IP_GET_INFO_SCRIPT = "/tmp/gather_intf_ip_info.py"
 DOCUMENTATION = '''
