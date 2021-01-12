@@ -32,13 +32,14 @@ devices:
 topology:
     R3:
         interfaces:
-            Ethernet2: {EndDevice: R4, EndPort: Ethernet2, params: def_link}
+            Ethernet3: {EndDevice: R4, EndPort: Ethernet3, params: def_link}
             Ethernet12: {EndDevice: R4, EndPort: Ethernet12, params: def_link}
             Ethernet22: {EndDevice: R4, EndPort: Ethernet22, params: def_link}
             Ethernet30: {EndDevice: R4, EndPort: Ethernet30, params: def_link}
             Ethernet15: {EndDevice: T1, EndPort: 3/21, params: def_tg_link}
             Ethernet25: {EndDevice: T1, EndPort: 3/25, params: def_tg_link}
             Ethernet31: {EndDevice: T1, EndPort: 3/29, params: def_tg_link}
+            Ethernet8: {EndDevice: T1, EndPort: 3/17, params: def_tg_link}
     R4:
         interfaces:
             Ethernet15: {EndDevice: T1, EndPort: 3/5, params: def_tg_link}
