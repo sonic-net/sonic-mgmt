@@ -69,7 +69,7 @@
     set_fact:
       dual_tor_facts: {}
     when: "'dualtor' not in topo"
-    
+
   - name: gather dual ToR information
     dual_tor_facts: hostname="{{ inventory_hostname }}" testbed_facts="{{ testbed_facts }}" hostvars="{{ hostvars }}" vm_config="{{ vm_topo_config }}"
     delegate_to: localhost
@@ -78,7 +78,7 @@
   - name: generate y_cable simulator driver
     include_tasks: dualtor/config_y_cable_simulator.yml
     when: "'dualtor' in topo"
-    
+
   - name: set default vm file path
     set_fact:
       vm_file: veos
@@ -121,7 +121,7 @@
     when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
   - name: find any tunnel configurations
-    tunnel_config: 
+    tunnel_config:
       vm_topo_config: "{{ vm_topo_config }}"
       tunnel_config: "{{ tunnel_config | default(None) }}"
     delegate_to: localhost
@@ -334,4 +334,10 @@
         become: true
         shell: config save -y
         when: save is defined and save|bool == true
+
+      - name: cleanup cached facts
+        shell: python ../tests/common/cache/facts_cache.py {{ inventory_hostname }}
+        delegate_to: localhost
+        ignore_errors: true
+
     when: deploy is defined and deploy|bool == true
