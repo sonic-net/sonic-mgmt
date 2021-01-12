@@ -1,14 +1,14 @@
 # PMON test plan
 
-* [Overview](#Overview)
-   * [Scope](#Scope)
-   * [Testbed](#Testbed)
-* [Setup configuration](#Setup%20configuration)
-   * [Pytest scripts to setup and run test](#Ansible%20scripts%20to%20setup%20and%20run%20test)
-* [Test](#Test)
-* [Test cases](#Test%20cases)
-* [TODO](#TODO)
-* [Open questions](#Open%20questions)
+* [Overview](#overview)
+   * [Scope](#scope)
+   * [Testbed](#testbed)
+* [Setup configuration](#setup-configuration)
+   * [Pytest scripts to setup and run test](#ansible-scripts-to-setup-and-run-test)
+* [Test](#test)
+* [Test cases](#test-cases)
+* [TODO](#todo)
+* [Open questions](#open-questions)
 
 ## Overview
 The purpose is to test stablity and functionality of PMON on the SONIC switch DUT, closely resembling production environment.
