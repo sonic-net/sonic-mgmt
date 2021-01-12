@@ -298,7 +298,7 @@ def upload_t1_files(data):
     ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
     ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
     ftp_client.put('testbed-sherman-t1.yaml','sonic-test/sonic-mgmt/ansible/testbed-sherman-t1.yaml')
-    #ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+    ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):
