@@ -110,6 +110,9 @@ def deploy_mg(data):
     finally:
         print(buff)
     
+    ftp_client=ssh.open_sftp()
+    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/sherman-01.xml', 'minigraph.xml')
+    ftp_client.close()
     ssh.close()
 
 def vEOS_inital_cfg(data,vEOS_count):
@@ -298,7 +301,7 @@ def upload_t1_files(data):
     ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
     ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
     ftp_client.put('testbed-sherman-t1.yaml','sonic-test/sonic-mgmt/ansible/testbed-sherman-t1.yaml')
-    #ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+    ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):
@@ -328,14 +331,23 @@ def replace_dut_mgmt_address(data):
     ssh.connect(data['sonic_dut']['HostAgent'], data['sonic_dut']['xr_redir22'], data['sonic_dut']['uname'], data['sonic_dut']['passwd'])
     ftp_client=ssh.open_sftp()
     ftp_client.put('config_db.json','/tmp/config_db_new.json')
+    ftp_client.put('minigraph.xml', '/tmp/minigraph.xml')
     ftp_client.close()
     ssh.close()
 
 def reload_dut_with_newCFG(data):
     cmd_list = list()
     cmd_list.append('sudo cp /tmp/config_db_new.json /etc/sonic/config_db.json\n')
+    cmd_list.append('sudo cp /tmp/minigraph.xml /etc/sonic/minigraph.xml\n')
     cmd_list.append('sudo reboot\n')
     run_exec_cmds(data['sonic_dut']['HostAgent'], data['sonic_dut']['xr_redir22'], data['sonic_dut']['uname'], data['sonic_dut']['passwd'], cmd_list)
+
+def add_ptf_backplane_addr(data):
+    cmd_list = list()
+    cmd_list.append('ip address add 10.10.246.254/24 dev eth32')
+    cmd_list.append('ip -6 address add fc0a::ff/64 dev eth32')
+    cmd_list.append('for i in {0..32}; do /sbin/ifconfig eth$i mtu 9216 up; done')
+    run_exec_cmds(data['ptf']['HostAgent'], data['ptf']['xr_redir22'], 'root', 'root', cmd_list)
 
 def add_vEOS_cfg(data):
     ssh = paramiko.SSHClient()
@@ -452,6 +464,9 @@ def main():
     print("********** Add vEOS config ***********")
     add_vEOS_cfg(data)
 
+    print("Configure PTF backplane ip address")
+    add_ptf_backplane_addr(data)
+
     print("Sonic DUT:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
     print("Sonic Mgmt:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
@@ -460,6 +475,7 @@ def main():
 
     for i in range (1,vEOS_count+1):
         print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
-        
+
+
 if __name__ == '__main__':
   main()

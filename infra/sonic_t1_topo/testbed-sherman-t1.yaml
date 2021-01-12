@@ -113,7 +113,7 @@ testbed:
     topo: t1
     vm_base: VM0100
     ansible:
-      ansible_ssh_usr: root
+      ansible_ssh_user: root
       ansible_host: 192.168.122.66/24
       ansible_ssh_pass: root
     credentials:
