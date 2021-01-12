@@ -337,6 +337,12 @@ def reload_dut_with_newCFG(data):
     cmd_list.append('sudo reboot\n')
     run_exec_cmds(data['sonic_dut']['HostAgent'], data['sonic_dut']['xr_redir22'], data['sonic_dut']['uname'], data['sonic_dut']['passwd'], cmd_list)
 
+def add_ptf_backplane_addr(data):
+    cmd_list = list()
+    cmd_list.append('ip address add 10.10.246.254/24 dev eth32')
+    cmd_list.append('ip -6 address add fc0a::ff/64 dev eth32')
+    run_exec_cmds(data['ptf']['HostAgent'], data['ptf']['xr_redir22'], 'root', 'root', cmd_list)
+
 def add_vEOS_cfg(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -460,6 +466,9 @@ def main():
 
     for i in range (1,vEOS_count+1):
         print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
-        
+
+    print("Configure PTF backplane ip address")
+    add_ptf_backplane_addr(data)
+
 if __name__ == '__main__':
   main()
