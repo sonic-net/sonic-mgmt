@@ -344,11 +344,16 @@ def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
         fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6)
 
     else:
-
+        logger.info("Minigraph Parsing Test Case Running...")
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    
         prefix_ipv4 = ""
         prefix_ipv6 = ""
+        bank_0_port_ipv4 = []
+        bank_1_port_ipv4 = []
+        bank_0_port_ipv6 = []
+        bank_1_port_ipv6 = []
+        ipv4_to_port = {}
+        ipv6_to_port = {}
 
         try:
             nhg_prefixes = mg_facts['FG_NHG_PREFIX']
@@ -362,34 +367,31 @@ def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
             else:
                 prefix_ipv6 = nhg_prefix
 
-        bank_0_port_ipv4 = []
-        bank_1_port_ipv4 = []
-        bank_0_port_ipv6 = []
-        bank_1_port_ipv6 = []
-        ipv4_to_port = {}
-        ipv6_to_port = {}
+        #We make the assumption below that IPV4 and IPV6 NHIPs are associated with the same set of ports
+        port_list =[int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][port]]) for port in mg_facts['PORT_NHIPV4'].keys()]
 
-        port_list = mg_facts['PORT_NHIPV4'].keys()
-        port_list = [int(k.replace('etp', '')) for k in port_list]
         nhipv4_port = dict((v, k) for k, v in mg_facts['PORT_NHIPV4'].items())
         nhipv6_port = dict((v, k) for k, v in mg_facts['PORT_NHIPV6'].items())
+
+
         for ip, bank_mapping in mg_facts['FG_NHG_MEMBER'].iteritems():
             if ip in nhipv4_port and bank_mapping['bank'] == 0:
-                bank_0_port_ipv4.append(int(nhipv4_port[ip].replace('etp', '')))
+                bank_0_port_ipv4.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv4_port[ip]]]))
             if ip in nhipv4_port and bank_mapping['bank'] == 1:
-                bank_1_port_ipv4.append(int(nhipv4_port[ip].replace('etp', '')))
+                bank_1_port_ipv4.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv4_port[ip]]]))
             if ip in nhipv6_port and bank_mapping['bank'] == 0:
-                bank_0_port_ipv6.append(int(nhipv6_port[ip].replace('etp', '')))
+                bank_0_port_ipv6.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv6_port[ip]]]))
             if ip in nhipv6_port and bank_mapping['bank'] == 1:
-                bank_1_port_ipv6.append(int(nhipv6_port[ip].replace('etp', '')))
+                bank_1_port_ipv6.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv6_port[ip]]]))
 
         for ip, port in nhipv4_port.iteritems():
-            ipv4_to_port[ip] = int(port.replace('etp', ''))
+            ipv4_to_port[ip] = int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv4_port[ip]]])
         for ip, port in nhipv6_port.iteritems():
-            ipv6_to_port[ip] = int(port.replace('etp', ''))
+            ipv6_to_port[ip] = int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv6_port[ip]]])
 
-        default_vlan_ipv4_mg = IPv4Interface(unicode(str(ipv4_to_port.keys()[0]) + "/2"))
-        default_vlan_ipv6_mg = IPv6Interface(unicode(str(ipv6_to_port.keys()[0]) + "/32"))
+
+        default_vlan_ipv4_mg = ipaddress.IPv4Interface(unicode(str(ipv4_to_port.keys()[0]) + "/2"))
+        default_vlan_ipv6_mg = ipaddress.IPv6Interface(unicode(str(ipv6_to_port.keys()[0]) + "/32"))
 
         # IPv4 test
         duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(default_vlan_ipv4_mg))

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import calendar
 import os
 import sys
@@ -10,11 +9,10 @@ import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
 from ansible.module_utils.port_utils import get_port_alias_to_name_map
-from fractions import gcd
- 
 
 from lxml import etree as ET
 from lxml.etree import QName
+from fractions import gcd
 
 DOCUMENTATION = '''
 ---
@@ -64,7 +62,12 @@ def parse_png(png, hname, dpg_ecmp_content=None):
     console_port = ''
     mgmt_dev = ''
     mgmt_port = ''
-    png_ecmp_content = []
+    png_ecmp_content = {}
+    port_device_map = {}
+    FG_NHG_MEMBER = {}
+    FG_NHG_PREFIX = {}
+    FG_NHG = {}
+    NEIGH = {}
 
     try:
         from sonic_py_common import multi_asic
@@ -72,7 +75,6 @@ def parse_png(png, hname, dpg_ecmp_content=None):
     except ImportError:
         namespace_list = ['']
 
-    port_device_map = {}
     for child in png:
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
             for link in child.findall(str(QName(ns, "DeviceLinkBase"))):
@@ -83,6 +85,7 @@ def parse_png(png, hname, dpg_ecmp_content=None):
                     endport = link.find(str(QName(ns, "EndPort"))).text
                     startdevice = link.find(str(QName(ns, "StartDevice"))).text
                     port_device_map[endport] = startdevice
+
                 enddevice = link.find(str(QName(ns, "EndDevice"))).text
                 endport = link.find(str(QName(ns, "EndPort"))).text
                 startdevice = link.find(str(QName(ns, "StartDevice"))).text
@@ -94,14 +97,14 @@ def parse_png(png, hname, dpg_ecmp_content=None):
                     if startdevice.lower() in namespace_list:
                         neighbors_namespace[endport] = startdevice.lower()
                     else:
-                        neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace':''}
+                        neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace': ''}
                 elif startdevice == hname:
                     if port_alias_to_name_map.has_key(startport):
                         startport = port_alias_to_name_map[startport]
                     if enddevice.lower() in namespace_list:
                         neighbors_namespace[startport] = enddevice.lower()
                     else:
-                        neighbors[startport] = {'name': enddevice, 'port': endport, 'namespace':''}
+                        neighbors[startport] = {'name': enddevice, 'port': endport, 'namespace': ''}
 
         if child.tag == str(QName(ns, "Devices")):
             for device in child.findall(str(QName(ns, "Device"))):
@@ -145,15 +148,22 @@ def parse_png(png, hname, dpg_ecmp_content=None):
                             elif node.tag == str(QName(ns, "EndDevice")):
                                 mgmt_dev = node.text
 
-
     for k, v in neighbors.iteritems():
-         v['namespace'] = neighbors_namespace[k]
-        
+        v['namespace'] = neighbors_namespace[k]
+
     if (len(dpg_ecmp_content)):
-         png_ecmp_content = formulate_ecmp_entry(dpg_ecmp_content, port_device_map)
+        for version, content in dpg_ecmp_content.items():  # version is ipv4 or ipv6
+            fine_grained_content = formulate_fine_grained_ecmp(version, content, port_device_map,
+                                                               port_alias_to_name_map)  # port_alias_map
+            FG_NHG_MEMBER.update(fine_grained_content['FG_NHG_MEMBER'])
+            FG_NHG_PREFIX.update(fine_grained_content['FG_NHG_PREFIX'])
+            FG_NHG.update(fine_grained_content['FG_NHG'])
+            NEIGH.update(fine_grained_content['NEIGH'])
+
+        png_ecmp_content = {"FG_NHG_PREFIX": FG_NHG_PREFIX, "FG_NHG_MEMBER": FG_NHG_MEMBER, "FG_NHG": FG_NHG,
+                            "NEIGH": NEIGH}
 
     return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port, png_ecmp_content)
- 
 
 
 def parse_dpg(dpg, hname):
@@ -257,7 +267,7 @@ def parse_dpg(dpg, hname):
         nhgaddr = ["", ""]
         nhg_int = ""
         nhportlist = []
-        dpg_ecmp_content = []
+        dpg_ecmp_content = {}
         ipnhs = child.find(str(QName(ns, "IPNextHops")))
         if ipnhs is not None:
             for ipnh in ipnhs.findall(str(QName(ns, "IPNextHop"))):
@@ -283,21 +293,22 @@ def parse_dpg(dpg, hname):
                 for dwnstrm in dwnstrms.findall(str(QName(ns, "DownstreamSummary"))):
                     dwnstrmentry = str(ET.tostring(dwnstrm))
                     if ("FineGrainedECMPGroupDestination" in dwnstrmentry):
-                        subnet_ip = dwnstrmentry[
-                                    dwnstrmentry.find("Subnet>") + len("Subnet>"):dwnstrmentry.rfind("</d4p1:Subnet>")]
+                        subnet_ip = dwnstrm.find(str(QName(ns1, "Subnet"))).text
                         truncsubnet_ip = subnet_ip.split("/")[0]
                         if "." in (truncsubnet_ip):
                             nhgaddr[0] = subnet_ip
                         elif ":" in (truncsubnet_ip):
                             nhgaddr[1] = subnet_ip
-                dpg_ecmp_content = [port_nhipv4_map, port_nhipv6_map, nhgaddr, nhg_int, nhip_port_map]
+                ipv4_content = {"port_nhip_map": port_nhipv4_map, "nhgaddr": nhgaddr[0], "nhg_int": nhg_int}
+                ipv6_content = {"port_nhip_map": port_nhipv6_map, "nhgaddr": nhgaddr[1], "nhg_int": nhg_int}
+                dpg_ecmp_content['ipv4'] = ipv4_content
+                dpg_ecmp_content['ipv6'] = ipv6_content
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         vlan_intfs = []
         dhcp_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
-
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
@@ -492,8 +503,8 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
 
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
-    dpg_ecmp_content = []
-    png_ecmp_content = []
+    dpg_ecmp_content = {}
+    png_ecmp_content = {}
     u_neighbors = None
     u_devices = None
     hwsku = None
@@ -527,99 +538,6 @@ def parse_xml(filename, hostname):
     global port_alias_to_name_map
 
     port_alias_to_name_map = get_port_alias_to_name_map(hwsku)
-    if hwsku == "Force10-S6000":
-        for i in range(0, 128, 4):
-            port_alias_to_name_map["fortyGigE0/%d" % i] = "Ethernet%d" % i
-    elif hwsku == "Force10-S6100":
-        for i in range(0, 4):
-            for j in range(0, 16):
-                port_alias_to_name_map["fortyGigE1/%d/%d" % (i+1, j+1)] = "Ethernet%d" % (i * 16 + j)
-    elif hwsku == "Force10-Z9100":
-        for i in range(0, 128, 4):
-            port_alias_to_name_map["hundredGigE1/%d" % (i/4 + 1)] = "Ethernet%d" % i
-    elif hwsku == "Arista-7050-QX32":
-        for i in range(1, 25):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-        for i in range(25, 33):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7050-QX-32S":
-        for i in range(5, 29):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
-        for i in range(29, 37):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
-    elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
-        for i in range(1, 65):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32":
-        for i in range(1, 33):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Mellanox-SN2700-D48C8":
-        # 50G ports
-        s50G_ports = [x for x in range(0, 24, 2)] + [x for x in range(40, 88, 2)] + [x for x in range(104, 128, 2)]
-        # 100G ports
-        s100G_ports = [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
-        for i in s50G_ports:
-            alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
-            port_alias_to_name_map[alias] = "Ethernet%d" % i
-        for i in s100G_ports:
-            alias = "etp%d" % (i / 4 + 1)
-            port_alias_to_name_map[alias] = "Ethernet%d" % i
-    elif hwsku == "Mellanox-SN2700" or hwsku == "ACS-MSN2700":
-        for i in range(1, 33):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "ACS-MSN3800":
-        for i in range(1, 65):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7060CX-32S-D48C8":
-        # All possible breakout 50G port numbers:
-        all_ports = [ x for x in range(1, 33)]
-        # 100G ports
-        s100G_ports = [ x for x in range(7, 11)]
-        s100G_ports += [ x for x in range(23, 27)]
-        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
-    elif hwsku == "Arista-7260CX3-D108C8":
-        # All possible breakout 50G port numbers:
-        all_ports = [ x for x in range(1, 65)]
-        # 100G ports
-        s100G_ports = [ x for x in range(13, 21)]
-        port_alias_to_name_map = port_alias_to_name_map_50G(all_ports, s100G_ports)
-    elif hwsku == "INGRASYS-S9100-C32":
-        for i in range(1, 33):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "INGRASYS-S9100-C32" or hwsku == "INGRASYS-S9130-32X" or hwsku == "INGRASYS-S8810-32Q":
-        for i in range(1, 33):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "INGRASYS-S8900-54XC":
-        for i in range(1, 49):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
-        for i in range(49, 55):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
-    elif hwsku == "INGRASYS-S8900-64XC":
-        for i in range(1, 49):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
-        for i in range(49, 65):
-            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
-    elif hwsku == "Accton-AS7712-32X":
-        for i in range(1, 33):
-            port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Celestica-DX010-C32":
-        for i in range(1, 33):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Seastone-DX010":
-        for i in range(1, 33):
-            port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Celestica-E1031-T48S4":
-        for i in range(1, 53):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
-    elif hwsku == "et6448m":
-        for i in range(0, 52):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-    elif hwsku == "newport":
-        for i in range(0, 256, 8):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-    else:
-        for i in range(0, 128, 4):
-            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
@@ -707,15 +625,14 @@ def parse_xml(filename, hostname):
     results['forced_mgmt_routes'] = mgmt_routes
     results['deployment_id'] = deployment_id
     if len(png_ecmp_content):
-        results['FG_NHG_MEMBER'] = png_ecmp_content[0]
-        results['FG_NHG_PREFIX'] = png_ecmp_content[1]
-        results['FG_NHG'] = png_ecmp_content[2]
-        results['NEIGH'] = png_ecmp_content[3]
-
+        if len(png_ecmp_content):
+            results['FG_NHG_MEMBER'] = png_ecmp_content['FG_NHG_MEMBER']
+        results['FG_NHG_PREFIX'] = png_ecmp_content['FG_NHG_PREFIX']
+        results['FG_NHG'] = png_ecmp_content['FG_NHG']
+        results['NEIGH'] = png_ecmp_content['NEIGH']
     if len(dpg_ecmp_content):
-        results['PORT_NHIPV4'] = dpg_ecmp_content[0]
-        results['PORT_NHIPV6'] = dpg_ecmp_content[1]
-        results['NHIP_PORT'] = dpg_ecmp_content[4]
+        results['PORT_NHIPV4'] = dpg_ecmp_content['ipv4']['port_nhip_map']
+        results['PORT_NHIPV6'] = dpg_ecmp_content['ipv6']['port_nhip_map']
     return results
 
 
@@ -782,61 +699,45 @@ def calculate_lcm_for_ecmp(nhdevices_bank_map, nhip_bank_map):
     return LCM
 
 
-def formulate_ecmp_entry(dpg_ecmp_content, port_device_map):
-    FG_NHG_MEMBER = [{}, {}]
-    FG_NHG_PREFIX = [{}, {}]
-    FG_NHG = [{}, {}]
-    FG_NEIGH = [{}, {}]
-    COMP_FG_NHG_MEMBER = {}
-    COMP_FG_NHG_PREFIX = {}
-    COMP_FG_NHG = {}
-    COMP_FG_NEIGH = {}
-    neigh_key_ipv4 = []
-    neigh_key_ipv6 = []
-    ipv4_tag = "fgnhg_v4"
-    ipv6_tag = "fgnhg_v6"
-    port_nhipv4_map = dpg_ecmp_content[0]
-    port_nhipv6_map = dpg_ecmp_content[1]
-    nhgaddr = dpg_ecmp_content[2]
-    nhg_int = dpg_ecmp_content[3]
-    nhipv4_device_map = {port_nhipv4_map[x]: port_device_map[x] for x in port_device_map
-                         if x in port_nhipv4_map}
-    nhipv6_device_map = {port_nhipv6_map[x]: port_device_map[x] for x in port_device_map
-                         if x in port_nhipv6_map}
-    nhipv4_devices = sorted(list(set(nhipv4_device_map.values())))
-    nhipv6_devices = sorted(list(set(nhipv6_device_map.values())))
+def formulate_fine_grained_ecmp(version, dpg_ecmp_content, port_device_map, port_alias_to_name_map):
+    family = ""
+    tag = ""
+    neigh_key = []
+    if version == "ipv4":
+        family = "IPV4"
+        tag = "fgnhg_v4"
+    elif version == "ipv6":
+        family = "IPV6"
+        tag = "fgnhg_v6"
 
-    nhdevices_ipv4_bank_map = {device: bank for bank, device in enumerate(nhipv4_devices)}
-    nhdevices_ipv6_bank_map = {device: bank for bank, device in enumerate(nhipv6_devices)}
+    port_nhip_map = dpg_ecmp_content['port_nhip_map']
+    nhgaddr = dpg_ecmp_content['nhgaddr']
+    nhg_int = dpg_ecmp_content['nhg_int']
 
-    nhipv4_bank_map = {ip: nhdevices_ipv4_bank_map[device] for ip, device in nhipv4_device_map.items()}
-    nhipv6_bank_map = {ip: nhdevices_ipv6_bank_map[device] for ip, device in nhipv6_device_map.items()}
+    nhip_device_map = {port_nhip_map[x]: port_device_map[x] for x in port_device_map
+                       if x in port_nhip_map}
+    nhip_devices = sorted(list(set(nhip_device_map.values())))
+    nhdevices_ip_bank_map = {device: bank for bank, device in enumerate(nhip_devices)}
+    nhip_bank_map = {ip: nhdevices_ip_bank_map[device] for ip, device in nhip_device_map.items()}
+    LCM = calculate_lcm_for_ecmp(nhdevices_ip_bank_map, nhip_bank_map)
 
-    ipv4_LCM = calculate_lcm_for_ecmp(nhdevices_ipv4_bank_map, nhipv4_bank_map)
-    ipv6_LCM = calculate_lcm_for_ecmp(nhdevices_ipv6_bank_map, nhipv6_bank_map)
+    FG_NHG_MEMBER = {ip: {"FG_NHG": tag, "bank": bank} for ip, bank in nhip_bank_map.items()}
+    nhip_port_map = dict(zip(port_nhip_map.values(), port_nhip_map.keys()))
 
-    FG_NHG_MEMBER[0] = {ip: {"FG_NHG": ipv4_tag, "bank": bank} for ip, bank in nhipv4_bank_map.items()}
-    FG_NHG_PREFIX[0] = {nhgaddr[0]: {"FG_NHG": ipv4_tag}}
-    FG_NHG[0] = {ipv4_tag: {"bucket_size": ipv4_LCM}}
-    for ip in nhipv4_bank_map:
-        neigh_key_ipv4.append(str(nhg_int + "|" + ip))
-    FG_NEIGH[0] = {neigh_key: {"family": "IPV4"} for neigh_key in neigh_key_ipv4}
-    FG_NHG_MEMBER[1] = {ip: {"FG_NHG": ipv6_tag, "bank": bank} for ip, bank in nhipv6_bank_map.items()}
-    FG_NHG_PREFIX[1] = {nhgaddr[1]: {"FG_NHG": ipv6_tag}}
-    FG_NHG[1] = {ipv6_tag: {"bucket_size": ipv6_LCM}}
-    for ip in nhipv6_bank_map:
-        neigh_key_ipv6.append(str(nhg_int + "|" + ip))
-    FG_NEIGH[1] = {neigh_key: {"family": "IPV6"} for neigh_key in neigh_key_ipv6}
-    COMP_FG_NHG_MEMBER.update(FG_NHG_MEMBER[0])
-    COMP_FG_NHG_MEMBER.update(FG_NHG_MEMBER[1])
-    COMP_FG_NHG_PREFIX.update(FG_NHG_PREFIX[0])
-    COMP_FG_NHG_PREFIX.update(FG_NHG_PREFIX[1])
-    COMP_FG_NHG.update(FG_NHG[0])
-    COMP_FG_NHG.update(FG_NHG[1])
-    COMP_FG_NEIGH.update(FG_NEIGH[0])
-    COMP_FG_NEIGH.update(FG_NEIGH[1])
-    png_ecmp_content = [COMP_FG_NHG_MEMBER, COMP_FG_NHG_PREFIX, COMP_FG_NHG, COMP_FG_NEIGH]
-    return png_ecmp_content
+    for nhip, memberinfo in FG_NHG_MEMBER.items():
+        if nhip in nhip_port_map:
+            memberinfo["link"] = port_alias_to_name_map[nhip_port_map[nhip]]
+            FG_NHG_MEMBER[nhip] = memberinfo
+
+    FG_NHG_PREFIX = {nhgaddr: {"FG_NHG": tag}}
+    FG_NHG = {tag: {"bucket_size": LCM}}
+    for ip in nhip_bank_map:
+        neigh_key.append(str(nhg_int + "|" + ip))
+    NEIGH = {neigh_key: {"family": family} for neigh_key in neigh_key}
+
+    fine_grained_content = {"FG_NHG_MEMBER": FG_NHG_MEMBER, "FG_NHG": FG_NHG, "FG_NHG_PREFIX": FG_NHG_PREFIX,
+                            "NEIGH": NEIGH}
+    return fine_grained_content
 
 
 def print_parse_xml(hostname):
@@ -849,3 +750,4 @@ from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
+
