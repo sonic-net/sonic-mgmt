@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def setup_ptf_proxy_arp(config_facts, ptfhost, intfs_for_test):
-    _, intf1_indice, _, _, _, _, _ = intfs_for_test
+def setup_ptf_arp(config_facts, ptfhost, intfs_for_test):
+    _, intf1_index, _, _, _, _, _ = intfs_for_test
     ip_addr_config_cmd = 'ip addr {} {}/{} dev {}'
 
     # Calculate the IPv6 address to assign to the PTF port
@@ -34,7 +34,7 @@ def setup_ptf_proxy_arp(config_facts, ptfhost, intfs_for_test):
     # But the network_address property returns an x.x.x.0 address (or x::0 for IPv6) so we increment by two to avoid conflict
     ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=2)
     ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=2)
-    ptf_intf_name = "eth{}".format(intf1_indice)
+    ptf_intf_name = "eth{}".format(intf1_index)
 
     logger.info("Configuring {} and {} on PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
     ptfhost.shell(ip_addr_config_cmd.format('add', ptf_intf_ipv4_addr, intf_ipv4_addr.prefixlen, ptf_intf_name))
@@ -47,13 +47,16 @@ def setup_ptf_proxy_arp(config_facts, ptfhost, intfs_for_test):
     ptfhost.shell(ip_addr_config_cmd.format('del', ptf_intf_ipv6_addr, intf_ipv6_addr.prefixlen, ptf_intf_name))
 
 
-def test_arp_garp_enabled(intfs_for_test, config_facts, ptfadapter):
+def test_arp_garp_enabled(setup_ptf_arp, intfs_for_test, config_facts, ptfadapter):
     '''
     Send a gratuitous ARP (GARP) packet from the PTF to the DUT
 
     The DUT should learn the (previously unseen) ARP info from the packet
     '''
-    arp_request_ip = '10.10.1.3'
+
+    ptf_intf_ipv4_addr, _, ptf_intf_name = setup_ptf_arp
+
+    arp_request_ip = increment_ipv4_addr(ptf_intf_ipv4_addr)
     arp_src_mac = '00:00:07:08:09:0a'
     _, intf1_index, _, _, _, _, duthost = intfs_for_test
 
@@ -89,14 +92,14 @@ def test_arp_garp_enabled(intfs_for_test, config_facts, ptfadapter):
 
 
 @pytest.mark.parametrize('ip_version', ['v4', 'v6'])
-def test_proxy_arp(setup_ptf_proxy_arp, intfs_for_test, ptfhost, config_facts, ip_version):
+def test_proxy_arp(setup_ptf_arp, intfs_for_test, ptfhost, config_facts, ip_version, tbinfo):
     '''
     Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN.
 
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
     '''
     intf1, _, _, _, intf_facts, _, duthost = intfs_for_test
-    ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name = setup_ptf_proxy_arp
+    ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name = setup_ptf_arp
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
 
     # We are leveraging the fact that ping will automatically send a neighbor solicitation/ARP request for us
@@ -125,9 +128,17 @@ def test_proxy_arp(setup_ptf_proxy_arp, intfs_for_test, ptfhost, config_facts, i
     time.sleep(2)
 
     neighbor_table = ptfhost.switch_arptable()['ansible_facts']['arptable'][ip_version]
-    dut_mac = intf_facts['ansible_interface_facts'][intf1]['macaddress']
+
+    topology = tbinfo['topo']['name']
+    if 'dualtor' in topology:
+        dut_macs = []
+
+        for vlan_details in vlans.values():
+            dut_macs.append(vlan_details['mac'])
+    else:
+        dut_macs = [intf_facts['ansible_interface_facts'][intf1]['macaddress']]
 
     pytest_assert(ping_addr in neighbor_table.keys())
-    pytest_assert(neighbor_table[ping_addr]['macaddress'] == dut_mac)
+    pytest_assert(neighbor_table[ping_addr]['macaddress'] in dut_macs)
     pytest_assert(neighbor_table[ping_addr]['interface'] == ptf_intf_name)
-    pytest_assert(neighbor_table[ping_addr]['state'].lower() != 'failed')
+    pytest_assert(neighbor_table[ping_addr]['state'].lower() not in ['failed', 'incomplete'])
