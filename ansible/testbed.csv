@@ -21,7 +21,6 @@ vms1-t1-2700,vms1-2,t1-lag,docker-ptf-mlnx,vms1-2,10.64.246.57/23,2a01:111:e210:
 vms1-8,vms1-8,t1-lag,docker-ptf-mlnx,vms1-8,10.64.246.43/23,,server_1,VM0160,str-msn2700-06,Jenkins
 vms1-t0-3132,vms1-10,t0,docker-ptf-brcm,vms1-10,10.64.246.82/23,,server_1,VM0184,str-n3132-acs-1,Jenkins
 vms2-2-t0-2700,vms2-2,t0-56,docker-ptf-mlnx,vms2-2,10.64.246.27/23,,server_2,VM0232,str-msn2700-20,weibai
-vms2-3-t1-2700,vms2-3,t1,docker-ptf-mlnx,vms2-3,10.64.246.131/23,,server_2,VM0240,str-msn2700-22,stumkurv
 vms2-4-t0-2700,vms2-4,t0,docker-ptf-mlnx,vms2-4,10.64.246.131/23,,server_2,VM0240,str-msn2700-22,stumkurv
 vms2-5-t0-7050-1,vms2-5,t0,docker-ptf-brcm,vms2-5,10.64.247.23/23,,server_2,VM0272,str-a7050-acs-1,daall
 vms3-t0-s6100,vms3-61,t0-64,docker-ptf-brcm,vms3-61,10.64.246.21/23,,server_3,VM0356,str-s6100-acs-1,Pavel
@@ -64,7 +63,6 @@ vms13-t0-n9232-2,vms13-2,t0,docker-ptf-brcm,vms13-2,10.64.247.28/23,,server_13,V
 vms13-t1-n9232-3,vms13-3,t1,docker-ptf-brcm,vms13-3,10.64.246.49/23,,server_13,VM1336,str-n9232-acs-3,Jenkins
 vms13-4-t0,v13-41,t0,docker-ptf-brcm,v13-41,10.64.246.17/23,,server_13,VM1368,str-s6000-acs-12,lawlee
 vms13-5-t1-lag,v13-51,t1-lag,docker-ptf-brcm,v13-51,10.64.246.19/23,,server_13,VM1372,str-s6000-on-2,Jenkins
-vms17-1,v17-1,t0-120,docker-ptf-mlnx,v17-1,10.64.246.105/23,,server_17,VM1700,str2-sn3800-02,stumkurv
 vms17-t1-n3164-3,vms17-2,t1-64-lag,docker-ptf-brcm,vms17-2,10.64.246.106/23,,server_17,VM1704,str2-n3164-acs-3,abdosi
 vms17-t0-3800-azd,vms17-3,t0,docker-ptf-mlnx,vms17-3,10.64.246.107/23,,server_17,VM1728,str2-sn3800-azd,annarsia
 vms17-t0-3800-azd-2,v17-4,t0,docker-ptf-mlnx,v17-4,10.64.246.110/23,,server_17,VM1732,str2-sn3800-azd-2,annarsia
