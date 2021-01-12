@@ -25,6 +25,7 @@ DEFAULT_MTU = None
 
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
+TESTPARAM_SHARED_HEADROOM_POOL = None
 
 BUFFER_MODEL_DYNAMIC = True
 
@@ -120,6 +121,7 @@ def load_test_parameters(duthost):
     global DEFAULT_CABLE_LENGTH_LIST
     global TESTPARAM_HEADROOM_OVERRIDE
     global TESTPARAM_LOSSLESS_PG
+    global TESTPARAM_SHARED_HEADROOM_POOL
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -130,6 +132,7 @@ def load_test_parameters(duthost):
         DEFAULT_CABLE_LENGTH_LIST = vendor_specific_param['default_cable_length']
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
         TESTPARAM_LOSSLESS_PG = vendor_specific_param['lossless_pg']
+        TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -556,8 +559,12 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
     initial_asic_db_profiles = fetch_initial_asic_db(duthost)
 
-    if speed_to_test == original_speed and cable_len_to_test == original_cable_len and mtu_to_test == DEFAULT_MTU:
-        pytest.skip('Speed, MTU and cable length matches the default value, nothing to test, skip')
+    if mtu_to_test == DEFAULT_MTU:
+        if speed_to_test == original_speed and cable_len_to_test == original_cable_len:
+            pytest.skip('Speed, MTU and cable length matches the default value, nothing to test, skip')
+        expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_to_test, cable_len_to_test)
+        if duthost.shell('redis-cli hget BUFFER_PROFILE_TABLE:{}'.format(expected_profile))['stdout']:
+            pytest.skip('The buffer profile has existed, most of the checks can not be performed, skip')
 
     try:
         if not speed_to_test == original_speed:
@@ -949,9 +956,15 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
     """
     duthost = duthosts[rand_one_dut_hostname]
     original_over_subscribe_ratio = duthost.shell('redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
-    original_shp_size = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
+    original_configured_shp_size = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+
+    if not TESTPARAM_SHARED_HEADROOM_POOL:
+        pytest.skip('Shared headroom pool test skipped due to no parameters defined')
+    shp_size_to_test = TESTPARAM_SHARED_HEADROOM_POOL.get("size")
+    if not shp_size_to_test:
+        pytest.skip('Shared headroom pool test skipped due to size not defined')
 
     try:
         # First, we need to fetch the SAI OID of ingress lossless pool.
@@ -966,9 +979,9 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len))
         time.sleep(20)
 
-        if 'original_over_subscribe_ratio' != '2':
+        if original_over_subscribe_ratio != '2':
             duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio 2')
-        if 'original_shp_size' and 'original_shp_size' != '0':
+        if original_configured_shp_size and original_configured_shp_size != '0':
             duthost.shell('config buffer shared-headroom-pool size 0')
 
         # Make sure the shp configuration has been deployed
@@ -1001,17 +1014,17 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
                         new_pg_number = 0)
 
         logging.info('[Test: configure shared headroom pool size and check APPL_DB and ASIC_DB]')
-        duthost.shell('config buffer shared-headroom-pool size 1024000')
+        duthost.shell('config buffer shared-headroom-pool size {}'.format(shp_size_to_test))
         check_pool_size(duthost,
                         pool_oid,
-                        config_shp_size = '1024000')
+                        config_shp_size = shp_size_to_test)
         check_buffer_profiles_for_shp(duthost)
 
         logging.info('[Test: remove the over subscribe ratio configuration while size is configured]')
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio 0')
         check_pool_size(duthost,
                         pool_oid,
-                        config_shp_size = '1024000')
+                        config_shp_size = shp_size_to_test)
         check_buffer_profiles_for_shp(duthost)
 
         logging.info('[Test: remove the size configuration while over subscribe ratio is configured]')
@@ -1041,17 +1054,17 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         logging.info('[Test: remove over subscribe ratio and then the size]')
         # Configure over subscribe ratio and shared headroom pool size
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio 2')
-        duthost.shell('config buffer shared-headroom-pool size 1024000')
+        duthost.shell('config buffer shared-headroom-pool size {}'.format(shp_size_to_test))
         check_pool_size(duthost,
                         pool_oid,
-                        config_shp_size = '1024000')
+                        config_shp_size = shp_size_to_test)
         # Remove the over subscribe ratio and then the size
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio 0')
         duthost.shell('config buffer shared-headroom-pool size 0')
         check_buffer_profiles_for_shp(duthost, shp_enabled = False)
     finally:
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio {}'.format(original_over_subscribe_ratio), module_ignore_errors = True)
-        duthost.shell('config buffer shared-headroom-pool size {}'.format(original_shp_size), module_ignore_errors = True)
+        duthost.shell('config buffer shared-headroom-pool size {}'.format(original_configured_shp_size), module_ignore_errors = True)
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len), module_ignore_errors = True)
 
 
