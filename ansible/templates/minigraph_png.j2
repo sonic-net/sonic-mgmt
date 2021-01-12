@@ -70,6 +70,9 @@
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}
+{% set server_base_address = (vlan_configs.values() | list)[0]['prefix'] %}
+{% set server_base_address = server_base_address | ipaddr('network') %}
+{% set server_base_address = '.'.join(server_base_address.split('.')[:-1]) + '.{}' %}
 {% for cable in dual_tor_facts['cables'] %}
       <Device i:type="SmartCable">
         <ElementType>SmartCable</ElementType>
@@ -87,6 +90,16 @@
         </ManagementAddressV6>
         <SerialNumber i:nil="true" />
         <Hostname>cable</Hostname>
+      </Device>
+      <Device i:type="Server">
+        <ElementType>Server</ElementType>
+        <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>{{ server_base_address.format(loop.index + 1) }}/26</d5p1:IPPrefix>
+        </Address> 
+        <ManagementAddress xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
+        </ManagementAddress>
+        <Hostname>Server{{ loop.index }}</Hostname>
       </Device>
 {% endfor %}
 {% endif %}
