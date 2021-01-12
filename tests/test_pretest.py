@@ -149,3 +149,18 @@ def test_collect_testbed_prio(duthosts, tbinfo):
                 json.dump({ tbname : prio_info[i]}, yf, indent=4)
         except IOError as e:
             logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+def test_update_saithrift_ptf(request, ptfhost):
+    '''
+    Install the correct python saithrift package on the ptf
+    '''
+    py_saithrift_url = request.config.getoption("--py_saithrift_url")
+    if not py_saithrift_url:
+        pytest.skip("No URL specified for python saithrift package")
+    pkg_name = py_saithrift_url.split("/")[-1]
+    ptfhost.shell("rm -f {}".format(pkg_name))
+    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True)
+    if result["failed"] != False or "OK" not in result["msg"]:
+        pytest.skip("Download failed/error while installing python saithrift package")
+    ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
+    logging.info("Python saithrift package installed successfully")
