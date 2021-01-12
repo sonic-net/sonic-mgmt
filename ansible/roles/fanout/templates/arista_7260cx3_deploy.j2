@@ -15,7 +15,7 @@ ntp server vrf management {{ ntp_server }}
 {% endfor %}
 !
 spanning-tree mode none
-no spanning-tree vlan {{ device_vlan_range | list | join(',') }}
+no spanning-tree vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
 !
 !
 aaa authorization exec default local
@@ -24,18 +24,18 @@ aaa root secret 0 {{ lab_admin_pass }}
 username admin privilege 15 role network-admin secret 0 {{ lab_admin_pass }}
 username eapi privilege 15 secret 0 {{ lab_admin_pass }}
 !
-vlan {{ device_vlan_range | list | join(',') }}
+vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
 !
 vrf definition management
    rd 1:1
 !
 {% for i in range(1,65) %}
 {% set intf =  'Ethernet' + i|string + '/1'  %}
-{% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
+{% if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != "Trunk" %}
 {%     if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
    interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 100gfull
@@ -44,7 +44,7 @@ vrf definition management
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "40000" %}
    interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 40gfull
@@ -54,7 +54,7 @@ vrf definition management
 {%             set subintf = 'Ethernet' + i|string + '/' + sub|string %}
    interface {{ subintf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 10gfull
@@ -64,7 +64,7 @@ vrf definition management
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
 interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 50gfull
@@ -73,9 +73,9 @@ interface {{ intf }}
 !
 {% set intf =  'Ethernet' + i|string + '/3'  %}
 interface {{ intf }}
-{%         if intf in device_port_vlans and device_port_vlans[intf]['mode'] != "Trunk" %}
+{%         if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != "Trunk" %}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 50gfull
@@ -88,11 +88,11 @@ interface {{ intf }}
 {#        Not valid speed value #}
    shutdown
 {%     endif %}
-{% elif intf in device_port_vlans and device_port_vlans[intf]['mode'] == 'Trunk' %}
+{% elif intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %}
    interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport mode trunk
-   switchport trunk allowed vlan {{ device_port_vlans[intf]['vlanids'] }}
+   switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    spanning-tree portfast
 {%       if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
             speed forced 100gfull
@@ -110,7 +110,7 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
- ip address {{ device_info["ManagementIp"] }} 
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }} 
  no shutdown
 !
 # LACP packets pass through
@@ -118,8 +118,8 @@ mac address-table reserved forward 0180.c200.0002
 # LLDP packets pass through
 mac address-table reserved forward 0180.c200.000e
 !
-ip route 0.0.0.0/0 {{ device_info["ManagementGw"] }}
-ip route vrf management 0.0.0.0/0 {{ device_info["ManagementGw"] }}
+ip route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
+ip route vrf management 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
 !
 ip routing
 no ip routing vrf management
