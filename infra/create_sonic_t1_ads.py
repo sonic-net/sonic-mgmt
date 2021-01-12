@@ -42,6 +42,7 @@ def _create_parser():
                       default=False)
     return parser
 
+
 def deploy_mg(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -110,9 +111,6 @@ def deploy_mg(data):
     finally:
         print(buff)
     
-    ftp_client=ssh.open_sftp()
-    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/sherman-01.xml', 'minigraph.xml')
-    ftp_client.close()
     ssh.close()
 
 def vEOS_inital_cfg(data,vEOS_count):
@@ -290,6 +288,15 @@ def add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout):
     time.sleep(1)
     tn.close()
 
+def download_mg(data):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ftp_client=ssh.open_sftp()
+    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/sherman-01.t1.xml', 'minigraph.xml')
+    ftp_client.close()
+    ssh.close()
+
 def upload_t1_files(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -452,6 +459,10 @@ def main():
     print("********** Start docker container, deploy DUT minigraph ***********")
     deploy_mg(data)
 
+    # Start docker container, deploy DUT minigraph
+    print("********** Download DUT minigraph ***********")
+    download_mg(data)
+
     # Replace DUT Mgmt Address
     print("********** Replace DUT Mgmt Address ***********")
     replace_dut_mgmt_address(data)
@@ -464,7 +475,7 @@ def main():
     print("********** Add vEOS config ***********")
     add_vEOS_cfg(data)
 
-    print("Configure PTF backplane ip address")
+    print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
     print("Sonic DUT:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
