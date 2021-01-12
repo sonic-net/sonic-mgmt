@@ -1,11 +1,10 @@
-# CRM test plan
+# PMON test plan
 
 * [Overview](#Overview)
    * [Scope](#Scope)
    * [Testbed](#Testbed)
 * [Setup configuration](#Setup%20configuration)
    * [Pytest scripts to setup and run test](#Ansible%20scripts%20to%20setup%20and%20run%20test)
-     * [pmon.yml](#pmon.yml)
 * [Test](#Test)
 * [Test cases](#Test%20cases)
 * [TODO](#TODO)
@@ -15,10 +14,12 @@
 The purpose is to test stablity and functionality of PMON on the SONIC switch DUT, closely resembling production environment.
 
 ### Scope
-The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is not to test specific API, but functional testing of PMON on SONIC system.
-1. check if pmon docker is running
-2. check if all daemon/critical process is running for the platform - /usr/share/sonic/templates/docker-pmon.supervisord.conf.j2 and /usr/share/sonic/platform/pmon_daemon_control.json
-3. check the uptime and/or the expected data status of each daemon/process if it can be checked
+The test is targeting a running SONIC PMON docker with fully functioning configuration. The purpose of the test is not to test specific API, but functional testing of PMON on SONIC system.
+1. check if pmon docker is running: this can be covered by the critical process check  from sanity_check plugin
+2. check if all expected daemons are running on the platform based on the two platform specific configurations:  
+   - /usr/share/sonic/templates/docker-pmon.supervisord.conf.j2
+   - /usr/share/sonic/platform/pmon_daemon_control.json
+3. check the expected data status for the daemon if it's running as expected
 
 ### Testbed
 The test will run on the all testbeds.
@@ -26,24 +27,13 @@ The test will run on the all testbeds.
 ## Setup configuration
 No setup pre-configuration is required, test will configure and clean-up all the configuration.
 ### Pytest scripts to setup and run test
-#### pmon.json
-pmon.json which hold the data structure he following for each daemon in the PMON docker:
+The sanity-check plugin needs to be run before running this test, which will cover the verification of pmon docker running on SONiC system.
 
 ## Test
 
 ## Test cases
 
-### Test case # 1 – PMON running on the DUT
-#### Test objective
-Verify PMON docker status
-#### Test steps
-* Verify the uptime to see if all dockers are running
-* Perform the following steps
-	* Verify the PMON running status and uptime
-	* Restart the PMON
-	* Verify the PMON running status and uptime
-
-### Test case # 2 – All daemons are running
+### Test case # 1 – All daemons are running
 #### Test objective
 Verify each daemon status in PMON docker
 #### Test steps
@@ -51,10 +41,10 @@ Verify each daemon status in PMON docker
 * Find the list of daemons running in PMON docker for the specific platform of DUT
 * Perform the following steps for the list of the expected daemon
 	* Verify the daemon is running
-	* Restart the daemon
-	* Verify the daemon is running again
+	* Restart the daemon if any critical daemon is not running
+	* Verify the daemon is running
 
-### Test case # 3 – Data for chassisd daemon
+### Test case # 2 – Data for chassisd daemon
 #### Test objective
 Verify the expected data for chassisd daemon (if not skip_chassisd)
 #### Test steps
@@ -74,49 +64,49 @@ CHASSIS_MODULE_INFO_SLOT_FIELD = 'slot'
 CHASSIS_MODULE_INFO_OPERSTATUS_FIELD = 'oper_status'
 ```
 
-### Test case # 4 – Data for ledd daemon
+### Test case # 3 – Data for ledd daemon
 #### Test objective
 Verify the expected data for ledd daemon (if not skip_ledd)
 #### Test steps
 * Verify the ledd running status
 
-### Test case # 5 – Data for pcied daemon
+### Test case # 4 – Data for pcied daemon
 #### Test objective
 Verify the expected data for pcied daemon (if not skip_pcied)
 #### Test steps
 * Verify the pcie config file "/usr/share/sonic/platform/pcie.yaml" exists
 * Verify the "PCIE_DEVICES" has "status" field set to "SUCCESS" 
 
-### Test case # 6 – Data for psud daemon
+### Test case # 5 – Data for psud daemon
 #### Test objective
 Verify the expected data for psud daemon (if not skip_psud)
 #### Test steps
 * Verify the 'PSU_INFO|PSU {}' is/are available
 * Verify the information data for each 'PSU {}' is expected to compare "/usr/share/sonic/platform/platform.json"
 
-### Test case # 7 – Data for syseepromd daemon
+### Test case # 6 – Data for syseepromd daemon
 #### Test objective
 Verify the expected data for syseepromd daemon (if not skip_syseepromd)
 #### Test steps
 * Verify the 'EEPROM_INFO|State' in state_db has the 'Initialized' field set to '1'
 * Verify the 'EEPROM_INFO|*' has valid pairs of key and value
-   * Q) how to verify the data is valid value or if we can skip the check for the value?
+   * Verify the data to check with the output of the platform api 
 
-### Test case # 8 – Data for thermalctld daemon
+### Test case # 7 – Data for thermalctld daemon
 #### Test objective
 Verify the expected data for thermalctld daemon (if not skip_thermalctld)
 #### Test steps
 * Verify the policy file "/usr/share/sonic/platform/thermal_policy.json" exists
 * Verify the 'FAN_INFO|{}' and 'TEMPERATURE_INFO|{}' available
-   * Q) how to verify the data is valid value ? log check?
+   * Verify the data to check with the output of the platform api 
 
-### Test case # 9 – Data for xcvrd daemon
+### Test case # 8 – Data for xcvrd daemon
 #### Test objective
 Verify the expected data for xcvrd daemon (if not skip_xcvrd)
 #### Test steps
 * Verify the 'TRANSCEIVER_INFO', 'TRANSCEIVER_DOM_SENSOR' and 'TRANSCEIVER_STATUS' state_db table has data
 * Verify the information data for each 'TRANSCEIVER_INFO' is expected to compare "/usr/share/sonic/platform/platform.json"
-   * Q) how to verify the data is valid value? log check?
+   * Verify the data to check with the output of the platform api 
 
 ## TODO
 
