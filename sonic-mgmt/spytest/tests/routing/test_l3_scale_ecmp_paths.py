@@ -152,6 +152,23 @@ def l3_scale_ecmp_paths_module_hooks(request):
     data.t1d2p1_ip_addr = "200.0.1.2"
     data.port_channel = "PortChannel100"
 
+    data.loopback_d1_addr_v6 = "2010::1"
+    data.loopback_d2_addr_v6 = "2020::1"
+    data.loopback_mask_v6 = 128
+    data.d1d2p1_ip_addr_v6 = "2011::1"
+    data.d1d2p2_ip_addr_v6 = "2012::1"
+    data.d1d2p3_ip_addr_v6 = "2013::1"
+    data.d1d2p4_ip_addr_v6 = "2014::1"
+    data.d2d1p1_ip_addr_v6 = "2011::2"
+    data.d2d1p2_ip_addr_v6 = "2012::2"
+    data.d2d1p3_ip_addr_v6 = "2013::2"
+    data.d2d1p4_ip_addr_v6 = "2014::2"
+    data.d1t1p1_ip_addr_v6 = "2015::1"
+    data.t1d1p1_ip_addr_v6 = "2015::2"
+    data.d2t1p1_ip_addr_v6 = "2016::1"
+    data.t1d2p1_ip_addr_v6 = "2016::2"
+    data.mask_v6 = "64"
+    data.routemap = "set-next-hop-global-v6"
     # create required random vlans excluding existing vlans
 
     # create required random vlans excluding existing vlans
@@ -866,7 +883,7 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
 
 def ECMP_common_setup():
 
-    st.log("configure IP for loopback and interfaces for")
+    st.log("configure IP for loopback and interfaces")
     ipfeature.config_ip_addr_interface(vars.D1, data.loopback_d1, data.loopback_d1_addr, data.loopback_mask)
     ipfeature.config_ip_addr_interface(vars.D2, data.loopback_d2, data.loopback_d2_addr, data.loopback_mask)
 
@@ -952,6 +969,149 @@ def ECMP_common_setup():
         st.warn("Traffic is not equally distributed across the paths")
         st.report_fail("operation_failed")
 
+def ECMP_common_setup_v6():
+
+    st.log("configure v6 Ip on loopback and interfaces")
+    ipfeature.config_ip_addr_interface(vars.D1, data.loopback_d1, data.loopback_d1_addr, data.loopback_mask)
+    ipfeature.config_ip_addr_interface(vars.D2, data.loopback_d2, data.loopback_d2_addr, data.loopback_mask)
+    ipfeature.config_ip_addr_interface(vars.D1, data.loopback_d1, data.loopback_d1_addr_v6, data.loopback_mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(vars.D2, data.loopback_d2, data.loopback_d2_addr_v6, data.loopback_mask_v6, family='ipv6')
+
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P1, data.d1d2p1_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P2, data.d1d2p2_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr_v6, data.mask_v6, family='ipv6')
+
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P1, data.d2d1p1_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P2, data.d2d1p2_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P3, data.d2d1p3_ip_addr_v6, data.mask_v6, family='ipv6')
+
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P1, data.d1t1p1_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2T1P1, data.d2t1p1_ip_addr_v6, data.mask_v6, family='ipv6')
+
+    command = "route-map {} permit 10".format(data.routemap)
+    st.vtysh_config(vars.D1, command)
+    command = "set ipv6 next-hop prefer-global"
+    st.vtysh_config(vars.D1, command)
+
+    command = "route-map {} permit 10".format(data.routemap)
+    st.vtysh_config(vars.D2, command)
+    command = "set ipv6 next-hop prefer-global"
+    st.vtysh_config(vars.D2, command)
+
+    st.log("configure the Ipv6 bgp on UUT and Peer")
+    bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, router_id=data.loopback_d1_addr, remote_as=data.dut2_as,
+                          network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap = data.routemap, diRection = "in", redistribute = "connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor=data.d2d1p1_ip_addr_v6)
+    bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, router_id=data.loopback_d1_addr, remote_as=data.dut2_as,
+                          network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor=data.d2d1p2_ip_addr_v6)
+    bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, router_id=data.loopback_d1_addr, remote_as=data.dut2_as,
+                          network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor=data.d2d1p3_ip_addr_v6)
+
+    bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr, remote_as=data.dut1_as,
+                          network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor= data.d1d2p1_ip_addr_v6)
+    bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr, remote_as=data.dut1_as,
+                          network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor=data.d1d2p2_ip_addr_v6)
+    bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr, remote_as=data.dut1_as,
+                          network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor=data.d1d2p3_ip_addr_v6)
+
+    bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, router_id=data.loopback_d1_addr, remote_as=data.t1_as,
+                          network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor=data.t1d1p1_ip_addr_v6)
+    bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr, remote_as=data.t2_as,
+                          network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                          routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                          config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                          neighbor=data.t1d2p1_ip_addr_v6)
+
+    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p1_ip_addr_v6, data.dut2_as, family="ipv6")
+    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p2_ip_addr_v6, data.dut2_as, family="ipv6")
+    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr_v6, data.dut2_as, family="ipv6")
+
+    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p1_ip_addr_v6, data.dut1_as, family="ipv6")
+    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p2_ip_addr_v6, data.dut1_as, family="ipv6")
+    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p3_ip_addr_v6, data.dut1_as, family="ipv6")
+
+    # configure TGN side BGP neighbor
+    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.t1d1p1_ip_addr_v6, data.t1_as, family="ipv6")
+    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.t1d2p1_ip_addr_v6, data.t2_as, family="ipv6")
+
+    st.log("configure v6 Ip on TGN and ipv6 BGP")
+    vars.tg1, vars.tg_ph_1 = tgapi.get_handle_byname("T1D1P1")
+    vars.tg2, vars.tg_ph_2 = tgapi.get_handle_byname("T1D2P1")
+
+    vars.tg1.tg_traffic_control(action='reset', port_handle=vars.tg_ph_1)
+    vars.tg2.tg_traffic_control(action='reset', port_handle=vars.tg_ph_2)
+
+    res1_v6 = vars.tg1.tg_interface_config(port_handle=vars.tg_ph_1, mode='config',
+                                           ipv6_intf_addr=data.t1d1p1_ip_addr_v6,
+                                           ipv6_gateway=data.d1t1p1_ip_addr_v6, ipv6_prefix_length='64',
+                                           arp_send_req='1')
+    st.log("INTFCONF: " + str(res1_v6))
+
+    res2_v6 = vars.tg2.tg_interface_config(port_handle=vars.tg_ph_2, mode='config',
+                                           ipv6_intf_addr=data.t1d2p1_ip_addr_v6,
+                                           ipv6_gateway=data.d2t1p1_ip_addr_v6, ipv6_prefix_length='64',
+                                           arp_send_req='1')
+    st.log("INTFCONF: " + str(res2_v6))
+
+    bgplib.config_bgp_on_tg(vars.tg1, res1_v6, data.dut1_as, data.t1_as, data.d1t1p1_ip_addr_v6, action='start', af='ipv6')
+
+    bgplib.config_bgp_on_tg(vars.tg2, res2_v6, data.dut2_as, data.t2_as, data.d2t1p1_ip_addr_v6, action='start', af='ipv6')
+
+    st.log("verify Ipv6 BGP summary")
+    result1_v6 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr_v6,
+                                                            data.d2d1p2_ip_addr_v6, data.d2d1p3_ip_addr_v6,
+                                                            data.t1d1p1_ip_addr_v6], state='Established', family='ipv6')
+
+    result2_v6 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p1_ip_addr_v6,
+                                                            data.d1d2p2_ip_addr_v6, data.d1d2p3_ip_addr_v6,
+                                                            data.t1d2p1_ip_addr_v6], state='Established', family='ipv6')
+    if not result1_v6 and not result2_v6:
+        st.warn("Ipv6 BGP didn't come up")
+
+    st.log("Advertising Routes from peer Router")
+    bgp_route_v6 = vars.tg2.tg_emulation_bgp_route_config(handle=res2_v6['handle'], mode='add', num_routes='100',
+                                                       prefix='2040::1', as_path='as_seq:1', ip_version='6')
+
+    st.log("creating traffic stream")
+    vars.tr_stream_v6 = vars.tg1.tg_traffic_config(port_handle=vars.tg_ph_1, emulation_src_handle=res1_v6['handle'],
+                                                emulation_dst_handle=bgp_route_v6['handle'], circuit_endpoint_type='ipv6',
+                                                mode='create',
+                                                transmit_mode='single_burst', pkts_per_burst='2000',
+                                                length_mode='fixed', rate_pps=10000)
+
+    vars.jumbo_stream_v6 = vars.tg1.tg_traffic_config(port_handle=vars.tg_ph_1, emulation_src_handle=res1_v6['handle'],
+                                                   emulation_dst_handle=bgp_route_v6['handle'],
+                                                   circuit_endpoint_type='ipv6', mode='create',
+                                                   transmit_mode='single_burst', pkts_per_burst='2000',
+                                                   length_mode='fixed', rate_pps=10000, frame_size=9000)
+
+    tg1_stats, tg2_stats, counters = get_traffic_int_counters(family='ipv6')
+
+    min_counters = int(tg1_stats.tx.total_packets) / 3 * .60
+    if counters[vars.D1D2P1]['tx_ok'] < min_counters or counters[vars.D1D2P2]['tx_ok'] < min_counters or \
+            counters[vars.D1D2P3]['tx_ok'] < min_counters:
+        st.warn("Traffic is not equally distributed across the paths")
+        st.report_fail("operation_failed")
 
 def ECMP_common_cleanup():
     st.log("clean up begins")
@@ -961,18 +1121,31 @@ def ECMP_common_cleanup():
     vars.tg1.clean_all()
     vars.tg2.clean_all()
 
-def get_traffic_int_counters(stream=None):
-    if stream:
-        stream_id = stream['stream_id']
+def ECMP_common_cleanup_v6():
+    st.log("clean up begins")
+    bgpfeature.cleanup_router_bgp([vars.D1, vars.D2])
+    portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
+    ipfeature.clear_ip_configuration(st.get_dut_names(),family='ipv6')
+    vars.tg1.clean_all()
+    vars.tg2.clean_all()
+
+def get_traffic_int_counters(stream=None, family='ipv4'):
+    if family == 'ipv6':
+        if stream:
+            stream_id = stream['stream_id']
+        else:
+            stream_id = vars.tr_stream_v6['stream_id']
     else:
-        stream_id = vars.tr_stream['stream_id']
+        if stream:
+            stream_id = stream['stream_id']
+        else:
+            stream_id = vars.tr_stream['stream_id']
 
     vars.tg1.tg_traffic_control(port_handle=vars.tg_ph_1, action='clear_stats')
     st.wait(5)
     vars.tg2.tg_traffic_control(port_handle=vars.tg_ph_2, action='clear_stats')
 
     st.show(vars.D1, "sonic-clear counters")
-    st.wait(2)
     st.show(vars.D2, "sonic-clear counters")
 
     vars.tg1.tg_traffic_control(action='run', handle=stream_id)
@@ -985,7 +1158,7 @@ def get_traffic_int_counters(stream=None):
         st.warn("Traffic is not ran")
         st.report_fail("operation_failed")
 
-    counters = interface.get_interface_counter_value(vars.D1, [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4], ["tx_ok"])
+    counters = interface.get_interface_counter_value(vars.D1, [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4],["tx_ok"])
     st.log(counters)
 
     return tg1_stats, tg2_stats, counters
@@ -995,6 +1168,12 @@ def ecmp_lb_class_hook(request):
     ECMP_common_setup()
     yield
     ECMP_common_cleanup()
+
+@pytest.fixture(scope='class')
+def ecmp_lb_class_hook_ipv6(request):
+    ECMP_common_setup_v6()
+    yield
+    ECMP_common_cleanup_v6()
 
 # TestBGPRif class
 @pytest.mark.usefixtures('ecmp_lb_class_hook')
@@ -1018,7 +1197,8 @@ class TestBGPLB():
         ipfeature.delete_ip_interface(vars.D1, vars.D1D2P3, "1.1.1.1", data.ip_prefixlen)
         ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr, data.ip_prefixlen)
 
-        if counters[vars.D1D2P3]['tx_ok'] < min_counters:
+        if counters[vars.D1D2P3]['tx_ok'] < min_counters and counters[vars.D1D2P1]['tx_ok'] > min_counters and \
+                counters[vars.D1D2P2]['tx_ok'] > min_counters:
             st.report_pass("operation_successful")
         else:
             st.warn("counters are greater than min counters")
@@ -1026,7 +1206,8 @@ class TestBGPLB():
 
 
     def test_lbbgp_delete_nexthop_address(self):
-
+    
+        result = 0
         st.log("delete one of the next hop address")
         bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as, config = "no")
         st.wait(5)
@@ -1034,14 +1215,24 @@ class TestBGPLB():
         result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr], state='Established')
         if result:
             st.warn("nexthop didn't got deleted")
-
-        tg1_stats, tg2_stats, counters = get_traffic_int_counters()
-        min_counters = int(tg1_stats.tx.total_packets) / 3 * .10
+        
+        retry = 5
+        while retry > 0:
+            try:
+                tg1_stats, tg2_stats, counters = get_traffic_int_counters()
+                min_counters = int(tg1_stats.tx.total_packets) / 3 * .10
+                if counters[vars.D1D2P3]['tx_ok'] < min_counters and counters[vars.D1D2P1]['tx_ok'] > min_counters and \
+                        counters[vars.D1D2P2]['tx_ok'] > min_counters:
+                    result = 1
+                    break
+            except Exception as e:
+                st.error(e)
+            retry = retry - 1
 
         st.log("revert back the deleted next hop")
         bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as)
 
-        if counters[vars.D1D2P3]['tx_ok'] < min_counters:
+        if result == 1:
             st.report_pass("operation_successful")
         else:
             st.warn("counters are greater than min counters")
@@ -1060,8 +1251,8 @@ class TestBGPLB():
         tg1_stats, tg2_stats, counters = get_traffic_int_counters()
         min_counters = int(tg1_stats.tx.total_packets) / 3 * .60
 
-        if counters[vars.D1D2P1]['tx_ok'] < min_counters or counters[vars.D1D2P2]['tx_ok'] < min_counters or \
-                counters[vars.D1D2P3]['tx_ok'] < min_counters:
+        if counters[vars.D1D2P1]['tx_ok'] > min_counters and counters[vars.D1D2P2]['tx_ok'] > min_counters and \
+                counters[vars.D1D2P3]['tx_ok'] > min_counters:
             st.warn("Traffic is not equally distributed across the paths")
             st.report_fail("operation_failed")
         else:
@@ -1069,24 +1260,34 @@ class TestBGPLB():
 
     def test_lbbgp_add_nexthop_address(self):
 
+        result = 0
         st.log("Add new next hop address")
         ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P4, data.d1d2p4_ip_addr, data.ip_prefixlen)
         ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P4, data.d2d1p4_ip_addr, data.ip_prefixlen)
 
         bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p4_ip_addr, data.dut2_as)
         bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p4_ip_addr, data.dut1_as)
-
-        st.log("verify BGP summary")
-        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr], state='Established')
-        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr], state='Established')
+        
+        st.wait(60)
+        retry = 10
+        while retry > 0:
+            st.log("verify BGP summary")
+            st.wait(10)
+            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr_v6], state='Established', family="ipv6")
+            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr_v6], state='Established', family="ipv6")
+            if result1 and result2:
+                tg1_stats, tg2_stats, counters = get_traffic_int_counters(family="ipv6")
+                min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
+                if counters[vars.D1D2P4]['tx_ok'] > min_counters and counters[vars.D1D2P1]['tx_ok'] > min_counters and \
+                        counters[vars.D1D2P2]['tx_ok'] > min_counters and counters[vars.D1D2P3]['tx_ok'] > min_counters:
+                    result = 1
+                    break
+            retry = retry - 1
 
         if not result1 and not result2:
             st.warn("new added nexthop didn't come up")
 
-        tg1_stats, tg2_stats, counters = get_traffic_int_counters()
-        min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
-
-        if counters[vars.D1D2P4]['tx_ok'] < min_counters :
+        if result == 0:
             st.warn("Traffic is not flowing through the newly added interface")
             st.report_fail("operation_failed")
         else:
@@ -1097,12 +1298,12 @@ class TestBGPLB():
         tg1_stats, tg2_stats, counters = get_traffic_int_counters(stream=vars.jumbo_stream)
         min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
 
-        if counters[vars.D1D2P1]['tx_ok'] < min_counters and counters[vars.D1D2P2]['tx_ok'] < min_counters and \
-                counters[vars.D1D2P3]['tx_ok'] < min_counters and counters[vars.D1D2P4]['tx_ok'] < min_counters:
-            st.warn("Traffic is not equally distributed across the paths")
-            st.report_fail("operation_failed")
-        else:
+        if counters[vars.D1D2P1]['tx_ok'] > min_counters and counters[vars.D1D2P2]['tx_ok'] > min_counters and \
+                counters[vars.D1D2P3]['tx_ok'] > min_counters and counters[vars.D1D2P4]['tx_ok'] > min_counters:
             st.report_pass("operation_successful")
+        else:
+            st.warn("Traffic is not equally distributed across the paths")
+            st.report_fail("operation_failed")            
 
     def test_lbbgp_with_portchannel(self):
 
@@ -1147,13 +1348,234 @@ class TestBGPLB():
         if (counters[vars.D1D2P2]['tx_ok'] + counters[vars.D1D2P3]['tx_ok']) < min_counters:
             st.warn("Traffic is not flowing through the port channel interface")
             st.report_fail("operation_failed")
-        elif counters[vars.D1D2P2]['tx_ok'] < pc_min_counters and counters[vars.D1D2P3]['tx_ok'] < pc_min_counters:
+        elif counters[vars.D1D2P2]['tx_ok'] > pc_min_counters and counters[vars.D1D2P3]['tx_ok'] > pc_min_counters:
+            st.report_pass("operation_successful")
+        else:
             st.warn("Traffic is not equally flowing through all port channel interface")
             st.report_fail("operation_failed")
-        else:
+            
+
+# TestBGPRif class
+@pytest.mark.usefixtures('ecmp_lb_class_hook_ipv6')
+class TestBGPLBIPv6():
+
+    def test_lbbgp_change_nexthop_address_v6(self):
+
+        st.log("change the IP address of one of the nexthop")
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr_v6, data.mask_v6, family="ipv6")
+        ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, "100::1", data.mask_v6, family="ipv6")
+        st.wait(5)
+
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6], state='Established', family='ipv6')
+        if result:
+            st.warn("BGP didn't go down")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters(family='ipv6')
+        min_counters = int(tg1_stats.tx.total_packets) / 3 * .10
+
+        st.log("revert back the ip address for next tc")
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P3, "100::1", data.mask_v6, family="ipv6")
+        ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr_v6, data.mask_v6, family="ipv6")
+
+        if counters[vars.D1D2P3]['tx_ok'] < min_counters and counters[vars.D1D2P1]['tx_ok'] > min_counters and \
+                counters[vars.D1D2P2]['tx_ok'] > min_counters:
             st.report_pass("operation_successful")
+        else:
+            st.warn("counters are greater than min counters")
+            st.report_fail("operation_failed")
 
 
+    def test_lbbgp_delete_nexthop_address_v6(self):
+        result = 0
+        st.log("delete one of the next hop address")
+        bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
+                              network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="no",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["neighbor", "network", "activate", "routeMap", "redist"],
+                              neighbor=data.d2d1p3_ip_addr_v6)
+
+        st.wait(10)
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6], state='Established', family='ipv6')
+        if result:
+            st.warn("nexthop didn't got deleted")
+
+        retry = 5
+        while retry > 0:
+            try:
+                tg1_stats, tg2_stats, counters = get_traffic_int_counters(family="ipv6")
+                min_counters = int(tg1_stats.tx.total_packets) / 3 * .10
+                if counters[vars.D1D2P3]['tx_ok'] < min_counters and counters[vars.D1D2P1]['tx_ok'] > min_counters and \
+                        counters[vars.D1D2P2]['tx_ok'] > min_counters:
+                    result = 1
+                    break
+            except Exception as e:
+                st.error(e)
+            retry = retry - 1
+
+        st.log("revert back the deleted next hop")
+        bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
+                              network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["neighbor", "network", "activate", "routeMap", "redist"],
+                              neighbor=data.d2d1p3_ip_addr_v6)
+
+        if result == 1:
+            st.report_pass("operation_successful")
+        else:
+            st.warn("counters are greater than min counters")
+            st.report_fail("operation_failed")
+
+    def test_lbbgp_flap_nexthop_address_v6(self):
+
+        st.log("flap the next hop address")
+        trigger_link_flap(vars.D1, vars.D1D2P3)
+
+        st.log("verify BGP summary")
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6], state='Established', family='ipv6')
+        if not result:
+            st.warn("after flap nexthop didn't come up")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters(family="ipv6")
+        min_counters = int(tg1_stats.tx.total_packets) / 3 * .60
+
+        if counters[vars.D1D2P1]['tx_ok'] > min_counters and counters[vars.D1D2P2]['tx_ok'] > min_counters and \
+                counters[vars.D1D2P3]['tx_ok'] > min_counters:
+            st.report_pass("operation_successful")
+        else:
+            st.warn("Traffic is not equally distributed across the paths")
+            st.report_fail("operation_failed")
+
+    def test_lbbgp_add_nexthop_address_v6(self):
+        result = 0
+        st.log("Add new next hop address")
+        ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P4, data.d1d2p4_ip_addr_v6, data.mask_v6, family="ipv6")
+        ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P4, data.d2d1p4_ip_addr_v6, data.mask_v6, family="ipv6")
+
+        bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
+                              network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d2d1p4_ip_addr_v6)
+        bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr,
+                              remote_as=data.dut1_as,
+                              network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d1d2p4_ip_addr_v6)
+        st.wait(60)
+        retry = 10
+        while retry > 0:
+            st.log("verify BGP summary")
+            st.wait(10)
+            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr_v6], state='Established', family="ipv6")
+            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr_v6], state='Established', family="ipv6")
+            if result1 and result2:
+                tg1_stats, tg2_stats, counters = get_traffic_int_counters(family="ipv6")
+                min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
+                if counters[vars.D1D2P4]['tx_ok'] > min_counters and counters[vars.D1D2P1]['tx_ok'] > min_counters and \
+                        counters[vars.D1D2P2]['tx_ok'] > min_counters and counters[vars.D1D2P3]['tx_ok'] > min_counters:
+                    result = 1
+                    break
+            retry = retry - 1
+
+        if not result1 and not result2:
+            st.warn("new added nexthop didn't come up")
+
+        if result == 1:
+            st.report_pass("operation_successful")
+        else:
+            st.warn("Traffic is not flowing through the newly added interface")
+            st.report_fail("operation_failed")
+
+    def test_lbbgp_jumbo_traffic_v6(self):
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters(stream=vars.jumbo_stream_v6, family="ipv6")
+        min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
+
+        if counters[vars.D1D2P1]['tx_ok'] > min_counters and counters[vars.D1D2P2]['tx_ok'] > min_counters and \
+                counters[vars.D1D2P3]['tx_ok'] > min_counters and counters[vars.D1D2P4]['tx_ok'] > min_counters:
+            st.report_pass("operation_successful")
+        else:
+            st.warn("Traffic is not equally distributed across the paths")
+            st.report_fail("operation_failed")
+
+    def test_lbbgp_with_portchannel_v6(self):
+
+        st.log("remove the IP of int which will be added in bundle and remove the same from BGP")
+        bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
+                              network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="no",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d2d1p2_ip_addr_v6)
+        bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr,
+                              remote_as=data.dut1_as,
+                              network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="no",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d1d2p2_ip_addr_v6)
+        bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
+                              network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="no",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d2d1p3_ip_addr_v6)
+        bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr,
+                              remote_as=data.dut1_as,
+                              network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="no",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d1d2p3_ip_addr_v6)
+
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P2, data.d1d2p2_ip_addr_v6, data.mask_v6, family="ipv6")
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr_v6, data.mask_v6, family="ipv6")
+        ipfeature.delete_ip_interface(vars.D2, vars.D2D1P2, data.d2d1p2_ip_addr_v6, data.mask_v6, family="ipv6")
+        ipfeature.delete_ip_interface(vars.D2, vars.D2D1P3, data.d2d1p3_ip_addr_v6, data.mask_v6, family="ipv6")
+
+        st.log("Create port channel and add member under BGP")
+        portchannel_obj.create_portchannel(vars.D1, data.port_channel)
+        portchannel_obj.create_portchannel(vars.D2, data.port_channel)
+
+        portchannel_obj.add_portchannel_member(vars.D1, data.port_channel, vars.D1D2P2)
+        portchannel_obj.add_portchannel_member(vars.D1, data.port_channel, vars.D1D2P3)
+        portchannel_obj.add_portchannel_member(vars.D2, data.port_channel, vars.D2D1P2)
+        portchannel_obj.add_portchannel_member(vars.D2, data.port_channel, vars.D2D1P3)
+
+        ipfeature.config_ip_addr_interface(vars.D1, data.port_channel, data.d1d2p2_ip_addr_v6, data.mask_v6, family="ipv6")
+        ipfeature.config_ip_addr_interface(vars.D2, data.port_channel, data.d2d1p2_ip_addr_v6, data.mask_v6, family="ipv6")
+
+        bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
+                              network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d2d1p2_ip_addr_v6)
+        bgpfeature.config_bgp(dut=vars.D2, local_as=data.dut2_as, router_id=data.loopback_d2_addr,
+                              remote_as=data.dut1_as,
+                              network=data.loopback_d2_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
+                              routeMap=data.routemap, diRection="in", redistribute="connected", addr_family='ipv6',
+                              config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
+                              neighbor=data.d1d2p2_ip_addr_v6)
+
+        st.log("verify BGP summary")
+        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr_v6, data.d2d1p2_ip_addr_v6,
+                                                            data.t1d1p1_ip_addr_v6], state='Established', family="ipv6")
+
+        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p1_ip_addr_v6, data.d1d2p2_ip_addr_v6,
+                                                            data.t1d2p1_ip_addr_v6], state='Established', family="ipv6")
+        if not result1 and not result2:
+            st.warn("BGP didn't come up")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters(family="ipv6")
+        min_counters = int(tg1_stats.tx.total_packets) / 3 * .60
+        pc_min_counters = (counters[vars.D1D2P2]['tx_ok'] + counters[vars.D1D2P3]['tx_ok']) / 2 * .60
+
+        if (counters[vars.D1D2P2]['tx_ok'] + counters[vars.D1D2P3]['tx_ok']) < min_counters:
+            st.warn("Traffic is not flowing through the port channel interface")
+            st.report_fail("operation_failed")
+        elif counters[vars.D1D2P2]['tx_ok'] > pc_min_counters and counters[vars.D1D2P3]['tx_ok'] > pc_min_counters:
+            st.report_pass("operation_successful")
+        else:
+            st.warn("Traffic is not equally flowing through all port channel members")
+            st.report_fail("operation_failed")
+"""
 @pytest.mark.l3_scale_ut_ft
 def test_ft_l3_Xecmp_scaling_tc():
     (dut) = (data.dut)
@@ -1400,5 +1822,5 @@ def test_l3_ecmp_4paths_on_bo_tc():
         st.log("Test Case FAILED")
         st.report_fail("operation_failed")
 
-
+"""
 
