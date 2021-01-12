@@ -1,6 +1,7 @@
 import os
 import pytest
 from collections import OrderedDict
+import json
 
 from spytest import st, tgapi, SpyTestDict
 from spytest.utils import filter_and_select
@@ -10,6 +11,9 @@ import apis.routing.ip as ipfeature
 import apis.switching.mac as macapi
 import apis.system.port as papi
 import apis.routing.bgp as bgpfeature
+import BGP.bgplib as bgplib
+import apis.system.interface as interface
+import apis.switching.portchannel as portchannel_obj
 
 def clear_arp_entries(dut):
     """
@@ -122,6 +126,31 @@ def l3_scale_ecmp_paths_module_hooks(request):
     data.new_as_num = 300
     data.routemap = "preferGlobal"
     data.vrf = "Vrf-Green"
+    data.d1_sub_int, data.d1_sub_int['VLAN_SUB_INTERFACE'], data.d1_sub_int_list = {}, {}, {}
+    data.d2_sub_int, data.d2_sub_int['VLAN_SUB_INTERFACE'], data.d2_sub_int_list = {}, {}, {}
+    data.paths = 8
+    data.loopback_d1 = "Loopback0"
+    data.loopback_d2 = "Loopback0"
+    data.loopback_d1_addr = "10.1.0.1"
+    data.loopback_d2_addr = "20.1.0.1"
+    data.loopback_mask = 32
+    data.t1_as = "65100"
+    data.dut1_as = "65200"
+    data.dut2_as = "65300"
+    data.t2_as = "65400"
+    data.d1d2p1_ip_addr = "192.168.1.1"
+    data.d1d2p2_ip_addr = "192.168.2.1"
+    data.d1d2p3_ip_addr = "192.168.3.1"
+    data.d1d2p4_ip_addr = "192.168.4.1"
+    data.d2d1p1_ip_addr = "192.168.1.2"
+    data.d2d1p2_ip_addr = "192.168.2.2"
+    data.d2d1p3_ip_addr = "192.168.3.2"
+    data.d2d1p4_ip_addr = "192.168.4.2"
+    data.d1t1p1_ip_addr = "100.0.1.1"
+    data.t1d1p1_ip_addr = "100.0.1.2"
+    data.d2t1p1_ip_addr = "200.0.1.1"
+    data.t1d2p1_ip_addr = "200.0.1.2"
+    data.port_channel = "PortChannel100"
 
     # create required random vlans excluding existing vlans
 
@@ -835,6 +864,296 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
     st.log("operation_successful")
     return ret
 
+def ECMP_common_setup():
+
+    st.log("configure IP for loopback and interfaces for")
+    ipfeature.config_ip_addr_interface(vars.D1, data.loopback_d1, data.loopback_d1_addr, data.loopback_mask)
+    ipfeature.config_ip_addr_interface(vars.D2, data.loopback_d2, data.loopback_d2_addr, data.loopback_mask)
+
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P1, data.d1d2p1_ip_addr, data.ip_prefixlen)
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P2, data.d1d2p2_ip_addr, data.ip_prefixlen)
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr, data.ip_prefixlen)
+
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P1, data.d2d1p1_ip_addr, data.ip_prefixlen)
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P2, data.d2d1p2_ip_addr, data.ip_prefixlen)
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P3, data.d2d1p3_ip_addr, data.ip_prefixlen)
+
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P1, data.d1t1p1_ip_addr, data.ip_prefixlen)
+    ipfeature.config_ip_addr_interface(vars.D2, vars.D2T1P1, data.d2t1p1_ip_addr, data.ip_prefixlen)
+
+    st.log("configure the bgp on UUT and Peer")
+    bgpfeature.config_bgp(dut=vars.D1, router_id=data.loopback_d1_addr, local_as=data.dut1_as, network=data.loopback_d1_addr
+                      , remote_as=data.dut2_as, config ="yes", config_type_list=["network"])
+
+    bgpfeature.config_bgp(dut=vars.D2, router_id=data.loopback_d2_addr, local_as=data.dut2_as, network=data.loopback_d2_addr
+                      , remote_as=data.dut1_as, config="yes", config_type_list=["network"])
+
+    st.log("Add neighbor to BGP")
+    bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p1_ip_addr, data.dut2_as)
+    bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p2_ip_addr, data.dut2_as)
+    bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as)
+
+    bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p1_ip_addr, data.dut1_as)
+    bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p2_ip_addr, data.dut1_as)
+    bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p3_ip_addr, data.dut1_as)
+
+    #configure TGN side BGP neighbor
+    bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.t1d1p1_ip_addr, data.t1_as)
+    bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.t1d2p1_ip_addr, data.t2_as)
+
+    st.log("configure TGN IP and BGP")
+    vars.tg1, vars.tg_ph_1 = tgapi.get_handle_byname("T1D1P1")
+    vars.tg2, vars.tg_ph_2 = tgapi.get_handle_byname("T1D2P1")
+
+    vars.tg1.tg_traffic_control(action='reset', port_handle=vars.tg_ph_1)
+    vars.tg2.tg_traffic_control(action='reset', port_handle=vars.tg_ph_2)
+
+    res1 = vars.tg1.tg_interface_config(port_handle=vars.tg_ph_1, mode='config', intf_ip_addr=data.t1d1p1_ip_addr,
+                                   gateway=data.d1t1p1_ip_addr, netmask="255.255.255.0", arp_send_req='1')
+    st.log("INTFCONF: " + str(res1))
+
+    res2 = vars.tg2.tg_interface_config(port_handle=vars.tg_ph_2, mode='config', intf_ip_addr=data.t1d2p1_ip_addr,
+                                   gateway=data.d2t1p1_ip_addr, netmask="255.255.255.0", arp_send_req='1')
+    st.log("INTFCONF: " + str(res2))
+
+    bgplib.config_bgp_on_tg(vars.tg1, res1, data.dut1_as, data.t1_as, data.d1t1p1_ip_addr, action='start', af='ipv4')
+
+    bgplib.config_bgp_on_tg(vars.tg2, res2, data.dut2_as, data.t2_as, data.d2t1p1_ip_addr, action='start', af='ipv4')
+
+    st.log("verify BGP summary")
+    result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr, data.d2d1p2_ip_addr,
+                                                        data.d2d1p3_ip_addr, data.t1d1p1_ip_addr], state='Established')
+
+    result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p1_ip_addr, data.d1d2p2_ip_addr,
+                                                        data.d1d2p3_ip_addr, data.t1d2p1_ip_addr], state='Established')
+    if not result1 and not result2:
+        st.warn("BGP didn't come up")
+
+    st.log("Advertising Routes from peer Router")
+    bgp_route = vars.tg2.tg_emulation_bgp_route_config(handle = res2['handle'], mode = 'add', num_routes = '100',
+                                                  prefix= '40.1.1.0', as_path='as_seq:1')
+
+    st.log("creating traffic stream")
+    vars.tr_stream = vars.tg1.tg_traffic_config(port_handle = vars.tg_ph_1, emulation_src_handle = res1['handle'],
+                        emulation_dst_handle = bgp_route['handle'], circuit_endpoint_type = 'ipv4',mode = 'create',
+                        transmit_mode = 'single_burst', pkts_per_burst='2000', length_mode='fixed',rate_pps=10000)
+
+    vars.jumbo_stream = vars.tg1.tg_traffic_config(port_handle=vars.tg_ph_1, emulation_src_handle=res1['handle'],
+                                                   emulation_dst_handle=bgp_route['handle'],
+                                                   circuit_endpoint_type='ipv4', mode='create',
+                                                   transmit_mode='single_burst', pkts_per_burst='2000',
+                                                   length_mode='fixed', rate_pps=10000, frame_size=9000)
+
+    tg1_stats, tg2_stats, counters = get_traffic_int_counters()
+
+    min_counters = int(tg1_stats.tx.total_packets) / 3 * .60
+    if counters[vars.D1D2P1]['tx_ok'] < min_counters or counters[vars.D1D2P2]['tx_ok'] < min_counters or \
+            counters[vars.D1D2P3]['tx_ok'] < min_counters:
+        st.warn("Traffic is not equally distributed across the paths")
+        st.report_fail("operation_failed")
+
+
+def ECMP_common_cleanup():
+    st.log("clean up begins")
+    bgpfeature.cleanup_router_bgp([vars.D1, vars.D2])
+    portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
+    ipfeature.clear_ip_configuration(st.get_dut_names())
+    vars.tg1.clean_all()
+    vars.tg2.clean_all()
+
+def get_traffic_int_counters(stream=None):
+    if stream:
+        stream_id = stream['stream_id']
+    else:
+        stream_id = vars.tr_stream['stream_id']
+
+    vars.tg1.tg_traffic_control(port_handle=vars.tg_ph_1, action='clear_stats')
+    st.wait(5)
+    vars.tg2.tg_traffic_control(port_handle=vars.tg_ph_2, action='clear_stats')
+
+    st.show(vars.D1, "sonic-clear counters")
+    st.wait(2)
+    st.show(vars.D2, "sonic-clear counters")
+
+    vars.tg1.tg_traffic_control(action='run', handle=stream_id)
+    vars.tg2.tg_traffic_control(action='stop', port_handle=vars.tg_ph_2)
+    st.wait(5)
+    tg1_stats = tgapi.get_traffic_stats(vars.tg1, port_handle=vars.tg_ph_1)
+    tg2_stats = tgapi.get_traffic_stats(vars.tg1, port_handle=vars.tg_ph_2)
+
+    if int(tg1_stats.tx.total_packets) == 0 or int(tg2_stats.rx.total_packets) == 0:
+        st.warn("Traffic is not ran")
+        st.report_fail("operation_failed")
+
+    counters = interface.get_interface_counter_value(vars.D1, [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4], ["tx_ok"])
+    st.log(counters)
+
+    return tg1_stats, tg2_stats, counters
+
+@pytest.fixture(scope='class')
+def ecmp_lb_class_hook(request):
+    ECMP_common_setup()
+    yield
+    ECMP_common_cleanup()
+
+# TestBGPRif class
+@pytest.mark.usefixtures('ecmp_lb_class_hook')
+class TestBGPLB():
+
+    def test_lbbgp_change_nexthop_address(self):
+
+        st.log("change the IP address of one of the nexthop")
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr, data.ip_prefixlen)
+        ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, "1.1.1.1", data.ip_prefixlen)
+        st.wait(5)
+
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr], state='Established')
+        if result:
+            st.warn("BGP didn't go down")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters()
+        min_counters = int(tg1_stats.tx.total_packets) / 3 * .10
+
+        st.log("revert back the ip address for next tc")
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P3, "1.1.1.1", data.ip_prefixlen)
+        ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr, data.ip_prefixlen)
+
+        if counters[vars.D1D2P3]['tx_ok'] < min_counters:
+            st.report_pass("operation_successful")
+        else:
+            st.warn("counters are greater than min counters")
+            st.report_fail("operation_failed")
+
+
+    def test_lbbgp_delete_nexthop_address(self):
+
+        st.log("delete one of the next hop address")
+        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as, config = "no")
+        st.wait(5)
+
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr], state='Established')
+        if result:
+            st.warn("nexthop didn't got deleted")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters()
+        min_counters = int(tg1_stats.tx.total_packets) / 3 * .10
+
+        st.log("revert back the deleted next hop")
+        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as)
+
+        if counters[vars.D1D2P3]['tx_ok'] < min_counters:
+            st.report_pass("operation_successful")
+        else:
+            st.warn("counters are greater than min counters")
+            st.report_fail("operation_failed")
+
+    def test_lbbgp_flap_nexthop_address(self):
+
+        st.log("flap the next hop address")
+        trigger_link_flap(vars.D1, vars.D1D2P3)
+
+        st.log("verify BGP summary")
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr], state='Established')
+        if not result:
+            st.warn("after flap nexthop didn't come up")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters()
+        min_counters = int(tg1_stats.tx.total_packets) / 3 * .60
+
+        if counters[vars.D1D2P1]['tx_ok'] < min_counters or counters[vars.D1D2P2]['tx_ok'] < min_counters or \
+                counters[vars.D1D2P3]['tx_ok'] < min_counters:
+            st.warn("Traffic is not equally distributed across the paths")
+            st.report_fail("operation_failed")
+        else:
+            st.report_pass("operation_successful")
+
+    def test_lbbgp_add_nexthop_address(self):
+
+        st.log("Add new next hop address")
+        ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P4, data.d1d2p4_ip_addr, data.ip_prefixlen)
+        ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P4, data.d2d1p4_ip_addr, data.ip_prefixlen)
+
+        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p4_ip_addr, data.dut2_as)
+        bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p4_ip_addr, data.dut1_as)
+
+        st.log("verify BGP summary")
+        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr], state='Established')
+        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr], state='Established')
+
+        if not result1 and not result2:
+            st.warn("new added nexthop didn't come up")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters()
+        min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
+
+        if counters[vars.D1D2P4]['tx_ok'] < min_counters :
+            st.warn("Traffic is not flowing through the newly added interface")
+            st.report_fail("operation_failed")
+        else:
+            st.report_pass("operation_successful")
+
+    def test_lbbgp_jumbo_traffic(self):
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters(stream=vars.jumbo_stream)
+        min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
+
+        if counters[vars.D1D2P1]['tx_ok'] < min_counters and counters[vars.D1D2P2]['tx_ok'] < min_counters and \
+                counters[vars.D1D2P3]['tx_ok'] < min_counters and counters[vars.D1D2P4]['tx_ok'] < min_counters:
+            st.warn("Traffic is not equally distributed across the paths")
+            st.report_fail("operation_failed")
+        else:
+            st.report_pass("operation_successful")
+
+    def test_lbbgp_with_portchannel(self):
+
+        st.log("remove the IP of int which will be added in bundle and remove the same from BGP")
+        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p2_ip_addr, data.dut2_as, config="no")
+        bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p2_ip_addr, data.dut1_as, config="no")
+        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as, config="no")
+        bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p3_ip_addr, data.dut1_as, config="no")
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P2, data.d1d2p2_ip_addr, data.ip_prefixlen)
+        ipfeature.delete_ip_interface(vars.D1, vars.D1D2P3, data.d1d2p3_ip_addr, data.ip_prefixlen)
+        ipfeature.delete_ip_interface(vars.D2, vars.D2D1P2, data.d2d1p2_ip_addr, data.ip_prefixlen)
+        ipfeature.delete_ip_interface(vars.D2, vars.D2D1P3, data.d2d1p3_ip_addr, data.ip_prefixlen)
+
+        st.log("Create port channel and add member under BGP")
+        portchannel_obj.create_portchannel(vars.D1, data.port_channel)
+        portchannel_obj.create_portchannel(vars.D2, data.port_channel)
+
+        portchannel_obj.add_portchannel_member(vars.D1, data.port_channel, vars.D1D2P2)
+        portchannel_obj.add_portchannel_member(vars.D1, data.port_channel, vars.D1D2P3)
+        portchannel_obj.add_portchannel_member(vars.D2, data.port_channel, vars.D2D1P2)
+        portchannel_obj.add_portchannel_member(vars.D2, data.port_channel, vars.D2D1P3)
+
+        ipfeature.config_ip_addr_interface(vars.D1, data.port_channel, data.d1d2p2_ip_addr, data.ip_prefixlen)
+        ipfeature.config_ip_addr_interface(vars.D2, data.port_channel, data.d2d1p2_ip_addr, data.ip_prefixlen)
+
+        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p2_ip_addr, data.dut2_as)
+        bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p2_ip_addr, data.dut1_as)
+
+        st.log("verify BGP summary")
+        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr, data.d2d1p2_ip_addr,
+                                                                                data.t1d1p1_ip_addr], state='Established')
+
+        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p1_ip_addr, data.d1d2p2_ip_addr,
+                                                                                data.t1d2p1_ip_addr], state='Established')
+        if not result1 and not result2:
+            st.warn("BGP didn't come up")
+
+        tg1_stats, tg2_stats, counters = get_traffic_int_counters()
+        min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
+        pc_min_counters = (counters[vars.D1D2P2]['tx_ok'] + counters[vars.D1D2P3]['tx_ok']) / 2 * .60
+
+        if (counters[vars.D1D2P2]['tx_ok'] + counters[vars.D1D2P3]['tx_ok']) < min_counters:
+            st.warn("Traffic is not flowing through the port channel interface")
+            st.report_fail("operation_failed")
+        elif counters[vars.D1D2P2]['tx_ok'] < pc_min_counters and counters[vars.D1D2P3]['tx_ok'] < pc_min_counters:
+            st.warn("Traffic is not equally flowing through all port channel interface")
+            st.report_fail("operation_failed")
+        else:
+            st.report_pass("operation_successful")
+
+
 @pytest.mark.l3_scale_ut_ft
 def test_ft_l3_Xecmp_scaling_tc():
     (dut) = (data.dut)
@@ -1080,5 +1399,6 @@ def test_l3_ecmp_4paths_on_bo_tc():
     else:
         st.log("Test Case FAILED")
         st.report_fail("operation_failed")
+
 
 

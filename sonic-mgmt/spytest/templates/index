@@ -97,6 +97,7 @@ show_mac.tmpl, .*, sonic, show mac
 show_interfaces_portchannel.tmpl, .*, sonic, show interfaces portchannel
 show_interfaces_counters.tmpl, .*, sonic, show interfaces counters -a
 clear_counters.tmpl, .*, sonic, show interfaces counters -c
+clear_counters.tmpl, .*, sonic, sonic-clear counters
 show_arp.tmpl, .*, sonic,show arp
 unix_ifcfg.tmpl, .*, sonic, /sbin/ifconfig .*
 sonic_installer_list.tmpl, .*, sonic, sonic_installer list
