@@ -1,5 +1,7 @@
 # Dual ToR Test Plan Action Items
 
+This document is subject to change as the project evolves.
+
 Not covered in this doc:
 
 1. Method of interacting with/controlling OVS bridge
@@ -72,33 +74,33 @@ def tor_mux_intf():
     """
 
 @pytest.fixture
-def ptf_server_port():
+def ptf_server_intf():
     """
     Returns the port corresponding to the server on the PTF used during the test run (this should be consistent/deterministic between test runs, probably by just using the first server every time)
 
     Returns:
-        The port number of the server
+        The interface name of the server
     """
 @pytest.fixture
-def t1_upper_tor_port():
+def t1_upper_tor_intfs():
     """
-    Returns the PTF port that the upper ToR is connected to on the T1 (this should be consistent/deterministic between test runs, probably by just using the first T1 every time)
+    Returns the PTF interface(s) that the upper ToR is connected to on the T1 (this should be consistent/deterministic between test runs, probably by just using the first T1 every time)
 
     The upper ToR may also be known as ToR A
 
     Returns:
-        The port number on the T1 corresponding to the upper ToR
+        List containing the interface names on the T1 corresponding to the upper ToR
     """
 
 @pytest.fixture
-def t1_lower_tor_port():
+def t1_lower_tor_intfs():
     """
-    Returns the PTF port that the lower ToR is connected to on the T1 (this should be consistent/deterministic between test runs, probaobly by just using the first T1 every time)
+    Returns the PTF interface(s) that the lower ToR is connected to on the T1 (this should be consistent/deterministic between test runs, probaobly by just using the first T1 every time)
 
     The lower ToR may also be known as ToR B
 
     Returns:
-        The port number on the T1 corresponding to the lower ToR
+        List containing the interface names on the T1 corresponding to the lower ToR
     """
     
 def apply_dual_tor_config(duthost, active=True):
