@@ -129,7 +129,9 @@ def cached(name):
     cache = FactsCache()
     def decorator(target):
         def wrapper(*args, **kwargs):
-            hostname = args[0].hostname
+            hostname = getattr(args[0], 'hostname', None)
+            if not hostname or not isinstance(hostname, str):
+                raise Exception('Decorator is only applicable to bound method of class AnsibleHostBase and its sub-classes')
             cached_facts = cache.read(hostname, name)
             if cached_facts:
                 return cached_facts
