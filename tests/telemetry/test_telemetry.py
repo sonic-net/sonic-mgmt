@@ -4,7 +4,6 @@ import logging
 import re
 import pytest
 
-from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until, wait_tcp_connection
 
