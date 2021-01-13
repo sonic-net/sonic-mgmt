@@ -1,0 +1,9 @@
+{
+   "dut2": {
+       "modules": {
+                "skip": ["FABRIC-CARD0", "LINE-CARD4"]
+           }
+      }
+
+}
+
