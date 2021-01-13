@@ -13,7 +13,7 @@ from tests.common.utilities import wait_until
 from netaddr import *
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)
