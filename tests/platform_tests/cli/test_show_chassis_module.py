@@ -3,6 +3,7 @@ import re
 
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from util import get_field_range, get_fields
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -12,26 +13,22 @@ CMD_SHOW_CHASSIS_MODULE = "show chassis-module"
 
 
 def parse_chassis_module(output, expected_headers):
-
-    for ln_id, temp_line in enumerate(output):
-        if re.findall('----',temp_line):
-            h_line_id = ln_id - 1
-            h_line = output[h_line_id]
-            break
-
-    headers = h_line.split()
+    assert len(output) > 2
+    f_ranges = get_field_range(output[1])
+    headers = get_fields(output[0], f_ranges)
 
     for header_v in expected_headers:
         pytest_assert(header_v in headers, "Missing header {}".format(header_v))
 
     result = {}
-    num_h = len(headers)
-    for a_line in output[h_line_id+2:]:
-        tmp = a_line.split()
-        mod_idx = tmp[0]
+    for a_line in output[2:]:
+        field_val = get_fields(a_line, f_ranges)
+        mod_idx = field_val[0]
         result[mod_idx] = {}
-        for i in range(1, num_h):
-            result[mod_idx][headers[i]] = tmp[i]
+        cur_field = 1
+        for a_header in headers[1:]:
+            result[mod_idx][a_header] = field_val[cur_field]
+            cur_field += 1
 
     return result
 
@@ -90,4 +87,4 @@ def test_show_chassis_module_midplane_status(duthosts, enum_dut_hostname, skip_m
             mod_mid_status = res_mid_status[mod_idx]['Reachability']
             pytest_assert(mod_mid_status == "True", "reachability should be true for {}".format(mod_idx))
     else:
-        pytest.skip("test is valid on supervisor or fronend node of chassis")
+        pytest.skip("test is valid on supervisor or frontend node of chassis")
