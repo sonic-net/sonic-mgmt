@@ -36,7 +36,7 @@
     when: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code != 0'
     ignore_errors: true
 
-  - name: Kickstart gives error after {{ respin_retry }} retries, vm {{ vm_name }}
+  - name: Kickstart gives error after respin vm {{ vm_name }}
     set_fact:
       kickstart_failed_vms: "{{ kickstart_failed_vms + [vm_name] }}"
     when: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code != 0'

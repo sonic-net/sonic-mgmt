@@ -10,4 +10,5 @@
 - name: reboot vm_host
   reboot: reboot_timeout=600
   when: '"0 upgraded" not in apt_update_res.stdout'
+  become: true
 

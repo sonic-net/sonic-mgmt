@@ -42,7 +42,7 @@ function usage
   echo "To start VMs for specified topology on server: $0 start-topo-vms 'topo-name' ~/.password"
   echo "To stop all VMs on a server:  $0 stop-vms 'server-name' ~/.password"
   echo "To stop VMs for specified topology on server: $0 stop-topo-vms 'topo-name' ~/.password"
-  echo "To cleanup *all* vms and docker: $0 cleanup_vmhost 'server-name' ~/.password"
+  echo "To cleanup *all* vms and docker: $0 cleanup-vmhost 'server-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
