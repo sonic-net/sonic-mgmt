@@ -1042,18 +1042,6 @@ def ECMP_common_setup_v6():
                           config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
                           neighbor=data.t1d2p1_ip_addr_v6)
 
-    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p1_ip_addr_v6, data.dut2_as, family="ipv6")
-    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p2_ip_addr_v6, data.dut2_as, family="ipv6")
-    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr_v6, data.dut2_as, family="ipv6")
-
-    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p1_ip_addr_v6, data.dut1_as, family="ipv6")
-    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p2_ip_addr_v6, data.dut1_as, family="ipv6")
-    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p3_ip_addr_v6, data.dut1_as, family="ipv6")
-
-    # configure TGN side BGP neighbor
-    #bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.t1d1p1_ip_addr_v6, data.t1_as, family="ipv6")
-    #bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.t1d2p1_ip_addr_v6, data.t2_as, family="ipv6")
-
     st.log("configure v6 Ip on TGN and ipv6 BGP")
     vars.tg1, vars.tg_ph_1 = tgapi.get_handle_byname("T1D1P1")
     vars.tg2, vars.tg_ph_2 = tgapi.get_handle_byname("T1D2P1")
@@ -1156,7 +1144,6 @@ def get_traffic_int_counters(stream=None, family='ipv4'):
 
     if int(tg1_stats.tx.total_packets) == 0 or int(tg2_stats.rx.total_packets) == 0:
         st.warn("Traffic is not ran")
-        st.report_fail("operation_failed")
 
     counters = interface.get_interface_counter_value(vars.D1, [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4],["tx_ok"])
     st.log(counters)
@@ -1253,10 +1240,10 @@ class TestBGPLB():
 
         if counters[vars.D1D2P1]['tx_ok'] > min_counters and counters[vars.D1D2P2]['tx_ok'] > min_counters and \
                 counters[vars.D1D2P3]['tx_ok'] > min_counters:
+            st.report_pass("operation_successful")
+        else:
             st.warn("Traffic is not equally distributed across the paths")
             st.report_fail("operation_failed")
-        else:
-            st.report_pass("operation_successful")
 
     def test_lbbgp_add_nexthop_address(self):
 
@@ -1268,15 +1255,15 @@ class TestBGPLB():
         bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p4_ip_addr, data.dut2_as)
         bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p4_ip_addr, data.dut1_as)
         
-        st.wait(60)
+        st.wait(30)
         retry = 10
         while retry > 0:
             st.log("verify BGP summary")
             st.wait(10)
-            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr_v6], state='Established', family="ipv6")
-            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr_v6], state='Established', family="ipv6")
+            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr], state='Established')
+            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr], state='Established')
             if result1 and result2:
-                tg1_stats, tg2_stats, counters = get_traffic_int_counters(family="ipv6")
+                tg1_stats, tg2_stats, counters = get_traffic_int_counters()
                 min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
                 if counters[vars.D1D2P4]['tx_ok'] > min_counters and counters[vars.D1D2P1]['tx_ok'] > min_counters and \
                         counters[vars.D1D2P2]['tx_ok'] > min_counters and counters[vars.D1D2P3]['tx_ok'] > min_counters:
@@ -1331,6 +1318,12 @@ class TestBGPLB():
 
         bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p2_ip_addr, data.dut2_as)
         bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p2_ip_addr, data.dut1_as)
+
+        st.log("Verify Portchannel status")
+        port1 = portchannel_obj.verify_portchannel_state(vars.D1, data.port_channel, state="up")
+        port2 = portchannel_obj.verify_portchannel_state(vars.D2, data.port_channel, state="up")
+        if not port1 and not port2:
+            st.warn("port channel is in down state")
 
         st.log("verify BGP summary")
         result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr, data.d2d1p2_ip_addr,
@@ -1411,6 +1404,7 @@ class TestBGPLBIPv6():
             except Exception as e:
                 st.error(e)
             retry = retry - 1
+            st.wait(5)
 
         st.log("revert back the deleted next hop")
         bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
@@ -1554,6 +1548,12 @@ class TestBGPLBIPv6():
                               config_type_list=["network", "neighbor", "activate", "routeMap", "redist"],
                               neighbor=data.d1d2p2_ip_addr_v6)
 
+        st.log("Verify Portchannel status")
+        port1 = portchannel_obj.verify_portchannel_state(vars.D1, data.port_channel, state="up")
+        port2 = portchannel_obj.verify_portchannel_state(vars.D2, data.port_channel, state="up")
+        if not port1 and not port2:
+            st.warn("port channel is in down state")
+
         st.log("verify BGP summary")
         result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr_v6, data.d2d1p2_ip_addr_v6,
                                                             data.t1d1p1_ip_addr_v6], state='Established', family="ipv6")
@@ -1575,7 +1575,7 @@ class TestBGPLBIPv6():
         else:
             st.warn("Traffic is not equally flowing through all port channel members")
             st.report_fail("operation_failed")
-"""
+
 @pytest.mark.l3_scale_ut_ft
 def test_ft_l3_Xecmp_scaling_tc():
     (dut) = (data.dut)
@@ -1822,5 +1822,5 @@ def test_l3_ecmp_4paths_on_bo_tc():
         st.log("Test Case FAILED")
         st.report_fail("operation_failed")
 
-"""
+
 
