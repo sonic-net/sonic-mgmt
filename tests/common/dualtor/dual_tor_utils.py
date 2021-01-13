@@ -5,6 +5,9 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='session')
 def tor_mux_intf(duthosts):
+    '''
+    Returns the server-facing interface on the ToR to be used for testing 
+    '''
     dut = duthosts[0]
     config_facts = dut.config_facts(host=dut.hostname, source='running')['ansible_facts']
     portchannel_members = get_portchannel_members(config_facts)
@@ -17,6 +20,11 @@ def tor_mux_intf(duthosts):
 
 @pytest.fixture(scope='session')
 def ptf_server_intf(duthosts, tor_mux_intf, tbinfo):
+    '''
+    Returns the ToR-facing interface on the PTF to be used for testing
+
+    This should be connected to the interface returned by `tor_mux_intf`
+    '''
     mg_facts = duthosts[0].get_extended_minigraph_facts(tbinfo)
     ptf_port_index = mg_facts['minigraph_ptf_indices'][tor_mux_intf]
     ptf_intf = 'eth{}'.format(ptf_port_index)
@@ -26,18 +34,49 @@ def ptf_server_intf(duthosts, tor_mux_intf, tbinfo):
 
 
 @pytest.fixture(scope='session')
-def t1_upper_tor_intfs(duthosts, tbinfo):
-    dut = sorted(duthosts, key=lambda dut: dut.hostname)[0]
-    return get_t1_ptf_ports(dut, tbinfo)
+def t1_upper_tor_intfs(upper_tor_host, tbinfo):
+    '''
+    Gets the PTF ports connected to the upper ToR for the first T1
+    '''
+    return get_t1_ptf_ports(upper_tor_host, tbinfo)
 
 
 @pytest.fixture(scope='session')
-def t1_lower_tor_intfs(duthosts, tbinfo):
+def t1_lower_tor_intfs(lower_tor_host, tbinfo):
+    '''
+    Gets the PTF ports connected to the lower ToR for the first T1
+    '''
+    return get_t1_ptf_ports(lower_tor_host, tbinfo)
+
+
+@pytest.fixture(scope='session')
+def upper_tor_host(duthosts):
+    '''
+    Gets the host object for the upper ToR
+
+    Uses the convention that the first ToR alphabetically by hostname is the upper ToR
+    '''
+    dut = sorted(duthosts, key=lambda dut: dut.hostname)[0]
+    logger.info("Using {} as upper ToR".format(dut.hostname))
+    return dut
+
+
+@pytest.fixture(scope='session')
+def lower_tor_host(duthosts):
+    '''
+    Gets the host object for the lower ToR
+
+    Uses the convention that the first ToR alphabetically by hostname is the upper ToR
+    '''
     dut = sorted(duthosts, key=lambda dut: dut.hostname)[-1]
-    return get_t1_ptf_ports(dut, tbinfo)
+    logger.info("Using {} as lower ToR".format(dut.hostname))
+    return dut
 
 
 def get_t1_ptf_ports(dut, tbinfo):
+    '''
+    Gets the PTF ports connected to a given DUT for the first T1
+    '''
     config_facts = dut.config_facts(host=dut.hostname, source='running')['ansible_facts']
     mg_facts = dut.get_extended_minigraph_facts(tbinfo)
 
@@ -61,6 +100,9 @@ def get_t1_ptf_ports(dut, tbinfo):
             
 
 def get_portchannel_members(config_facts):
+    '''
+    Get any interfaces that belong to a portchannel
+    '''
     portchannel_members = []
 
     for portchannel_config in config_facts['PORTCHANNEL'].values():
