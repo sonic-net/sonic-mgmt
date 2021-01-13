@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 CURRENT_PATH = os.path.realpath(__file__)
 CACHE_LOCATION = os.path.join(CURRENT_PATH, '../../../_cache')
 
+SIZE_LIMIT = 1000000000  # 1G bytes, max disk usage allowed by cache
+ENTRY_LIMIT = 1000000    # Max number of json files allowed in cache.
+
 
 class Singleton(type):
 
@@ -41,6 +44,22 @@ class FactsCache(with_metaclass(Singleton, object)):
     def __init__(self, cache_location=CACHE_LOCATION):
         self._cache_location = os.path.abspath(cache_location)
         self._cache = defaultdict(dict)
+
+    def _check_usage(self):
+        """Check cache usage, raise exception if usage exceeds the limitations.
+        """
+        total_size = 0
+        total_entries = 0
+        for root, _, files in os.walk(self._cache_location):
+            for f in files:
+                fp = os.path.join(root, f)
+                total_size += os.path.getsize(fp)
+                total_entries += 1
+
+        if total_size > SIZE_LIMIT or total_entries > ENTRY_LIMIT:
+            msg = 'Cache usage exceeds limitations. total_size={}, SIZE_LIMIT={}, total_entries={}, ENTRY_LIMIT={}' \
+                .format(total_size, SIZE_LIMIT, total_entries, ENTRY_LIMIT)
+            raise Exception(msg)
 
     def read(self, hostname, key):
         """Read cached facts.
@@ -79,6 +98,7 @@ class FactsCache(with_metaclass(Singleton, object)):
         Returns:
             boolean: Caching facts is successful or not.
         """
+        self._check_usage()
         facts_file = os.path.join(self._cache_location, '{}/{}.json'.format(hostname, key))
         try:
             host_folder = os.path.join(self._cache_location, hostname)
