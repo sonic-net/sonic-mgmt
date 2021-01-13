@@ -21,7 +21,7 @@ On SONiC DUT side, script [y_cable_simulator_client.py](https://github.com/Azure
 ## Configuration
 The default TCP port that the mux simulator will be listening on is configurable by variable `mux_simulator_port` in [https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/all/variables](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/all/variables).
 
-The mux simulator would be deployed to test server as a systemd server `mux-simulator` during `testbed-cli.sh add-topo`.
+The mux simulator would be deployed to test server as a systemd service `mux-simulator` during `testbed-cli.sh add-topo`.
 ```
 azure@str2-acs-serv-17:~$ sudo systemctl status mux-simulator
 ● mux-simulator.service - mux simulator
@@ -118,14 +118,14 @@ The APIs using json for data exchange.
 }
 ```
 
-### GET /mux/<vm_set>/<port_index>
+### GET `/mux/<vm_set>/<port_index>`
 
 * `vm_set`: Value of column `group_name` in `testbed.csv` of current testbed.
 * `port_index`: Index of DUT front panel port. Starting from `0`.
 
 Response: `mux_status`
 
-### POST /mux/<vm_set>/<port_index>
+### POST `/mux/<vm_set>/<port_index>`
 Post json data format:
 ```
 {
@@ -140,10 +140,10 @@ Post json data format:
 
 Response: `mux_status`
 
-### GET /mux/<vm_set>
+### GET `/mux/<vm_set>`
 Response: `all_mux_status`
 
-### POST /mux/<vm_set>
+### POST `/mux/<vm_set>`
 
 Post json data format:
 ```
@@ -155,7 +155,7 @@ Set active side for all bridges of specified vm_set.
 
 Response: `all_mux_status`
 
-### POST /mux/<vm_set>/<port_index>/<action>
+### POST `/mux/<vm_set>/<port_index>/<action>`
 
 * `action`: one of: `output`, `drop`.
 
