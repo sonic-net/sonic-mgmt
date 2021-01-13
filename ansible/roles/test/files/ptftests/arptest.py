@@ -211,5 +211,3 @@ class GarpUpdate(ACSDataplaneTest):
                    )
         send_packet(self, self.test_params['port'], pkt)
         verify_no_packet(self, exp_pkt, self.test_params['port'])
-
-
