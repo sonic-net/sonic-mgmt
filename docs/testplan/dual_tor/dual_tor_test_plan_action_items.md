@@ -100,6 +100,17 @@ def t1_lower_tor_port():
     Returns:
         The port number on the T1 corresponding to the lower ToR
     """
+    
+def apply_dual_tor_config(duthost, active=True):
+    """
+    Applies dual ToR configurations to a regular ToR device
+    
+    Allows mocking/testing parts of a dual ToR system without requiring a dual ToR testbed
+    See dual ToR orchagent test plan for details.
+    Args:
+        duthost: The host on which to apply the config
+        active: if True, simulate apply an active ToR. If False, apply standby ToR configs
+    """
 ```
 
 ### CLI Configuration Utilities
