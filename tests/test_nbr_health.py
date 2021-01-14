@@ -7,6 +7,7 @@ from common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.topology('any', 't2'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
     pytest.mark.pretest,
@@ -52,11 +53,12 @@ def check_bgp_facts(hostname, host):
     if not res.has_key('stdout_lines') or u'BGP summary' not in res['stdout_lines'][0][0]:
         return "neighbor {} bgp not configured correctly".format(hostname)
 
-def test_neighbors_health(duthosts, localhost, nbrhosts, eos, enum_dut_hostname):
+def test_neighbors_health(duthosts, localhost, nbrhosts, eos, enum_frontend_dut_hostname):
     """Check each neighbor device health"""
 
     fails = []
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 

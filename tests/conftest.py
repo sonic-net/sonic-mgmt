@@ -779,6 +779,7 @@ def generate_priority_lists(request, prio_scope):
 
     return ret if ret else empty
 
+_frontend_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -798,8 +799,11 @@ def pytest_generate_tests(metafunc):
         frontend_hosts = generate_params_frontend_hostname(metafunc, duts_in_testbed, tbname)
         metafunc.parametrize("enum_frontend_dut_hostname", frontend_hosts, scope="module")
     elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
-        frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname)
-        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts_per_hwsku, scope="module")
+        if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
+            frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname)
+            _frontend_hosts_per_hwsku_per_module[metafunc.module] = frontend_hosts_per_hwsku
+        frontend_hosts = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts, scope="module")
 
 
     if "enum_asic_index" in metafunc.fixturenames:
