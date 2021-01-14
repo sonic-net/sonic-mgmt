@@ -8,22 +8,6 @@ def pytest_addoption(parser):
     """
 
     parser.addoption(
-        "--nn_target_port",
-        action="store",
-        type=int,
-        default=3,
-        help="Which port to send traffic to",
-    )
-
-    parser.addoption(
-        "--pkt_tx_count",
-        action="store",
-        type=int,
-        default=100000,
-        help="How many packets to send to the DUT"
-    )
-
-    parser.addoption(
         "--copp_swap_syncd",
         action="store_true",
         default=False,

@@ -54,13 +54,13 @@
       delegate_to: localhost
       tags: always
 
-    - debug: msg="{{ device_conn }}"
+    - debug: msg="{{ device_conn[inventory_hostname] }}"
 
     - name: include continuous_link_flap_helper.yml
       include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
 
     - debug: msg="Second Iteration flap all interfaces one by one on DUT"
 
@@ -73,7 +73,7 @@
       include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
 
     - debug: msg="Third Iteration flap all interfaces one by one on DUT"
 
@@ -86,7 +86,7 @@
       include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
 
     - debug: msg="First Iteration flap all interfaces one by one on Peer Device"
 
@@ -95,16 +95,16 @@
       delegate_to: localhost
       tags: always
 
-    - debug: msg="{{ device_conn }}"
+    - debug: msg="{{ device_conn[inventory_hostname] }}"
 
     - set_fact:
-        neighbors: "{{device_conn}}"
+        neighbors: "{{device_conn[inventory_hostname]}}"
 
     - name: include continuous_peer_link_flap_helper.yml
       include_tasks: continuous_link_flap/continuous_peer_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
 
     - debug: msg="Second Iteration flap all interfaces one by one on Peer Device"
 
@@ -114,13 +114,13 @@
       tags: always
 
     - set_fact:
-        neighbors: "{{device_conn}}"
+        neighbors: "{{device_conn[inventory_hostname]}}"
 
     - name: include continuous_peer_link_flap_helper.yml
       include_tasks: continuous_link_flap/continuous_peer_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
 
     - debug: msg="Third Iteration flap all interfaces one by one on Peer Device"
 
@@ -130,13 +130,13 @@
       tags: always
 
     - set_fact:
-        neighbors: "{{device_conn}}"
+        neighbors: "{{device_conn[inventory_hostname]}}"
 
     - name: include continuous_peer_link_flap_helper.yml
       include_tasks: continuous_link_flap/continuous_peer_link_flap_helper.yml
       vars:
         interface: "{{item}}"
-      with_items: "{{ device_conn.keys() }}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
 
     - name: wait 60 secs so that BGP routes are relearned
       pause: seconds=60

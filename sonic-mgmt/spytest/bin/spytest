@@ -26,7 +26,8 @@ if __name__ == '__main__':
   sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
   sys.argv.insert(1, "-c")
   sys.argv.insert(2, os.path.join(root, "spytest", "pytest.ini"))
-  sys.argv.extend(["-p", "splugin"])
+  sys.argv.extend(["-p", "spytest.splugin"])
+  
   os.chdir(os.path.join(root, "tests"))
   from spytest.main import main
   sys.exit(main())

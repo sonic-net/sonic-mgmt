@@ -1,0 +1,11 @@
+Value ID (\S+)
+Value Name (\S+)
+Value CPU (\S+)
+Value MEMUsage (\S+)
+Value MEMLimit (\S+)
+Value MEMPerc (\S+)
+Value pid (\d+)
+
+Start
+  ^\s*CONTAINER ID\s+NAME\s+CPU %\s+MEM USAGE / LIMIT\s+MEM %\s+.*PIDS\s*$$
+  ^\s*${ID}\s+${Name}\s+${CPU}%\s+${MEMUsage}\s*/\s*${MEMLimit}\s+${MEMPerc}%\s+.*\s*${pid}\s*$$ -> Record

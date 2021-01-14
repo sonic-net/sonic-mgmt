@@ -45,7 +45,8 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     duthost.shell("sudo config aaa authentication failthrough default")
 
 @pytest.fixture(scope="module")
-def test_tacacs(ptfhost, duthost, creds):
+def test_tacacs(ptfhost, duthosts, rand_one_dut_hostname, creds):
+    duthost = duthosts[rand_one_dut_hostname]
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
 
@@ -55,7 +56,8 @@ def test_tacacs(ptfhost, duthost, creds):
 
 
 @pytest.fixture(scope="module")
-def test_tacacs_v6(ptfhost, duthost, creds):
+def test_tacacs_v6(ptfhost, duthosts, rand_one_dut_hostname, creds):
+    duthost = duthosts[rand_one_dut_hostname]
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' not in ptfhost_vars:
         pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")

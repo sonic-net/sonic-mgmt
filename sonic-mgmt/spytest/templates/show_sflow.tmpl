@@ -1,10 +1,11 @@
-Value State (\S+)
-Value Polling_Interval (\S+)
-Value Collectors_Cnt (\d+)
+Value Filldown State (\S+)
+Value Filldown Polling_Interval (\S+)
+Value Filldown Collectors_Cnt (\d+)
 Value Collector_Name (\S+)
 Value Collector_IP (\S+)
 Value Collector_Port (\d+)
-Value Agent_ID (\S+)
+Value Collector_Vrf (\S+)
+Value Filldown Agent_ID (\S+)
 
 
 Start
@@ -20,9 +21,11 @@ CLICK
   ^\s*Name:\s*${Collector_Name}\s*IP\s*addr:\s*${Collector_IP}\s*UDP\s*port:\s*${Collector_Port}\s*$$ -> Record
 
 KLISH
-  ^\s*admin\s+state:\s+${State}\s*$$ -> Record
-  ^\s*polling-interval:\s+${Polling_Interval}\s*$$ -> Record
-  ^\s*agent-id:\s+${Agent_ID}\s*$$ -> Record
+  ^\s*admin\s+state:\s+${State}\s*$$
+  ^\s*polling-interval:\s+${Polling_Interval}\s*$$
+  ^\s*agent-id:\s+${Agent_ID}\s*$$
   ^\s*configured\s+collectors:\s+${Collectors_Cnt}\s*$$ -> Record
-  ^\s*${Collector_Name}\s+${Collector_IP}\s+${Collector_Port}\s*$$ -> Record
+  ^\s*${Collector_IP}\s+${Collector_Port}\s+${Collector_Vrf}\s*$$ -> Record
 
+
+EOF

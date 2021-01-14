@@ -1,0 +1,46 @@
+##################################################################
+#Command: show vtysh and klish running-config
+#Author: naveen.suvarna@broadcom.com
+##################################################################
+Value Filldown FRR_VERSION (\S+)
+Value Filldown SYSLOG_LEVEL (\S+)
+Value Filldown INTEGRATED_CFG (\S+)
+Value Filldown ROUTER_TYPE (\S+)
+Value Filldown ROUTER_VRF (\S+)
+Value Filldown ROUTER_ASN (\S+)
+Value Filldown INTERFACE (\S+)
+Value Filldown INTERFACE_NUM (\S+)
+Value Filldown INTERFACE_VRF (\S+)
+Value CFG_LINE ((\S+\s*)*)
+
+Start
+  ^\s*$$ -> Next
+  ^frr version\s+${FRR_VERSION}\s*$$
+  ^log syslog\s+${SYSLOG_LEVEL}\s*$$
+  ^${INTEGRATED_CFG}\s+service integrated-vtysh-config\s*$$ -> Record 
+  ^router ${ROUTER_TYPE}\s*$$ -> Record Router_record
+  ^router ${ROUTER_TYPE} vrf ${ROUTER_VRF}\s*$$ -> Record Router_record
+  ^router ${ROUTER_TYPE} ${ROUTER_ASN} vrf ${ROUTER_VRF}\s*$$ -> Record Router_record
+  ^interface ${INTERFACE}\s*$$ -> Record Interface_record
+  ^interface ${INTERFACE}\s+${INTERFACE_NUM}\s*$$ -> Record Interface_record 
+  ^interface ${INTERFACE}\s+vrf\s+${INTERFACE_VRF}\s*$$ -> Record Interface_record
+  ^route-map(\s+\S+)*\s*$$ -> Continue
+  ^ip protocol(\s+\S+)*\s*$$ -> Continue
+  ^end\s*$$ -> Record
+
+Emptyline_record
+  ^\s*$$ -> Next
+  ^\s*$$ -> Emptyline_record
+
+Router_record
+  ^\s+${CFG_LINE}\s*$$ -> Record
+  ^!\s*$$ -> Clearall Start
+  ^end\s*$$ -> Record
+
+Interface_record
+  ^\s+ip vrf forwarding\s+${INTERFACE_VRF}\s*$$
+  ^\s+${CFG_LINE}\s*$$ -> Record
+  ^end\s*$$ -> Record
+  ^!\s*$$ -> Clearall Start
+
+EOF

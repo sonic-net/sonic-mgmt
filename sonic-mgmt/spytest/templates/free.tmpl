@@ -1,0 +1,11 @@
+Value type (\w+:)
+Value total (\d+)
+Value used (\d+)
+Value free (\d+)
+Value shared (\d+)
+Value cache (\d+)
+Value available (\d+)
+
+
+Start
+  ^\s*${type}\s+${total}\s+${used}\s+${free}\s+${shared}\s+${cache}\s+${available}$$ -> Record

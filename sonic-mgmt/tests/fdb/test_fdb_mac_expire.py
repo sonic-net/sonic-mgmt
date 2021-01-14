@@ -109,7 +109,7 @@ class TestFdbMacExpire:
         )
 
     @pytest.fixture(scope="class", autouse=True)
-    def copyFdbInfo(self, duthost, ptfhost):
+    def copyFdbInfo(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         """
             Compies FDB info file to PTF host
 
@@ -120,10 +120,11 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
-        mgFacts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+        duthost = duthosts[rand_one_dut_hostname]
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         ptfhost.host.options['variable_manager'].extra_vars.update({
             "minigraph_vlan_interfaces": mgFacts["minigraph_vlan_interfaces"],
-            "minigraph_port_indices": mgFacts["minigraph_port_indices"],
+            "minigraph_port_indices": mgFacts["minigraph_ptf_indices"],
             "minigraph_vlans": mgFacts["minigraph_vlans"],
         })
 
@@ -131,7 +132,7 @@ class TestFdbMacExpire:
         ptfhost.template(src="fdb/files/fdb.j2", dest=self.FDB_INFO_FILE)
 
     @pytest.fixture(scope="class", autouse=True)
-    def clearSonicFdbEntries(self, duthost):
+    def clearSonicFdbEntries(self, duthosts, rand_one_dut_hostname):
         """
             Clears SONiC FDB entries before and after test
 
@@ -141,6 +142,7 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         duthost.shell(argv=["sonic-clear", "fdb", "all"])
 
         yield
@@ -148,7 +150,7 @@ class TestFdbMacExpire:
         duthost.shell(argv=["sonic-clear", "fdb", "all"])
 
     @pytest.fixture(scope="class", autouse=True)
-    def validateDummyMacAbsent(self, duthost):
+    def validateDummyMacAbsent(self, duthosts, rand_one_dut_hostname):
         """
             Validates that test/dummy MAC entry is absent before the test runs
 
@@ -158,10 +160,11 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         pytest_assert(self.__getFdbTableCount(duthost, self.DUMMY_MAC_PREFIX) == 0, "Test dummy MAC is already present")
 
     @pytest.fixture(scope="class", autouse=True)
-    def prepareDut(self, request, duthost):
+    def prepareDut(self, request, duthosts, rand_one_dut_hostname):
         """
             Prepare DUT for FDB test
 
@@ -175,6 +178,7 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
 
         self.__deleteTmpSwitchConfig(duthost)
@@ -196,7 +200,7 @@ class TestFdbMacExpire:
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    def testFdbMacExpire(self, request, testbed, duthost, ptfhost):
+    def testFdbMacExpire(self, request, tbinfo, duthost, ptfhost):
         """
             TestFdbMacExpire Verifies FDb aging timer is respected
 
@@ -206,24 +210,23 @@ class TestFdbMacExpire:
 
             Args:
                 request (Fixture): pytest request object
-                testbed (Fixture, dict): Map containing testbed information
+                tbinfo (Fixture, dict): Map containing testbed information
                 duthost (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
             Returns:
                 None
         """
-        if "t0" not in testbed["topo"]["type"]:
+        if "t0" not in tbinfo["topo"]["type"]:
             pytest.skip(
-                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(testbed["topo"]["type"])
+                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(tbinfo["topo"]["type"])
             )
 
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
-        hostFacts = duthost.setup()['ansible_facts']
 
         testParams = {
-            "testbed_type": testbed["topo"]["name"],
-            "router_mac": hostFacts['ansible_Ethernet0']['macaddress'],
+            "testbed_type": tbinfo["topo"]["name"],
+            "router_mac": duthost.facts["router_mac"],
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
         }

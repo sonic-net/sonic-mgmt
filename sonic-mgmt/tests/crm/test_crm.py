@@ -1,15 +1,19 @@
 import pytest
 import time
-import re
 import json
 import ipaddress
 import netaddr
 import copy
+import logging
+import os
+import tempfile
 
 from jinja2 import Template
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
+from tests.common.fixtures.duthost_utils import disable_route_checker
+from tests.common.fixtures.duthost_utils import disable_fdb_aging
 
 
 pytestmark = [
@@ -112,7 +116,7 @@ def generate_fdb_config(duthost, entry_num, vlan_id, iface, op, dest):
     entry_key_template = "FDB_TABLE:Vlan{vid}:{mac}"
 
     for mac_address in generate_mac(entry_num):
-        fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address): 
+        fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address):
             {"port": iface, "type": "dynamic"},
             "OP": op
         }
@@ -213,13 +217,19 @@ def verify_thresholds(duthost, **kwargs):
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
-            if used_percent < 1:
-                logger.warning("CRM used entries is < 1 percent")
             if key == "exceeded_percentage":
+                if used_percent < 1:
+                    logger.warning("The used percentage for {} is {} and verification for exceeded_percentage is skipped" \
+                               .format(kwargs["crm_cli_res"], used_percent))
+                    continue
                 kwargs["th_lo"] = used_percent - 1
                 kwargs["th_hi"] = used_percent
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
             elif key == "clear_percentage":
+                if used_percent >= 100:
+                    logger.warning("The used percentage for {} is {} and verification for clear_percentage is skipped" \
+                               .format(kwargs["crm_cli_res"], used_percent))
+                    continue
                 kwargs["th_lo"] = used_percent
                 kwargs["th_hi"] = used_percent + 1
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
@@ -333,13 +343,14 @@ def get_entries_num(used, available):
     """ Get number of entries needed to be created that 'used' counter reached one percent """
     return ((used + available) / 100) + 1
 
-
+@pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "ip route add 2.2.2.0/24 via {}",
                                                                 "ip route del 2.2.2.0/24 via {}"),
                                                                 ("6", "ip -6 route add 2001::/126 via {}",
                                                                 "ip -6 route del 2001::/126 via {}")],
                                                                 ids=["ipv4", "ipv6"])
-def test_crm_route(duthost, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+def test_crm_route(duthosts, rand_one_dut_hostname, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
 
     # Template used to speedup execution of many similar commands on DUT
@@ -431,7 +442,8 @@ def test_crm_route(duthost, crm_interface, ip_ver, route_add_cmd, route_del_cmd)
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthost, crm_interface, ip_ver, nexthop):
+def test_crm_nexthop(duthosts, rand_one_dut_hostname, crm_interface, ip_ver, nexthop):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
     nexthop_add_cmd = "ip neigh replace {nexthop} lladdr 11:22:33:44:55:66 dev {iface}".format(nexthop=nexthop,
         iface=crm_interface[0])
@@ -498,7 +510,8 @@ def test_crm_nexthop(duthost, crm_interface, ip_ver, nexthop):
 
 
 @pytest.mark.parametrize("ip_ver,neighbor", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_neighbor(duthost, crm_interface, ip_ver, neighbor):
+def test_crm_neighbor(duthosts, rand_one_dut_hostname, crm_interface, ip_ver, neighbor):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
     neighbor_add_cmd = "ip neigh replace {neighbor} lladdr 11:22:33:44:55:66 dev {iface}".format(neighbor=neighbor, iface=crm_interface[0])
     neighbor_del_cmd = "ip neigh del {neighbor} lladdr 11:22:33:44:55:66 dev {iface}".format(neighbor=neighbor, iface=crm_interface[0])
@@ -563,7 +576,8 @@ def test_crm_neighbor(duthost, crm_interface, ip_ver, neighbor):
 
 
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
-def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
+def test_crm_nexthop_group(duthosts, rand_one_dut_hostname, crm_interface, group_member, network):
+    duthost = duthosts[rand_one_dut_hostname]
     RESTORE_CMDS["crm_threshold_name"] = "nexthop_group_member" if group_member else "nexthop_group"
     redis_threshold = "nexthop group member" if group_member else "nexthop group object"
     get_group_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_nexthop_group_used crm_stats_nexthop_group_available"
@@ -573,6 +587,7 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
 
     # Get "crm_stats_nexthop_group_[member]" used and available counter value
     get_nexthop_group_stats = get_group_member_stats if group_member else get_group_stats
+    get_nexthop_group_another_stats = get_group_stats if group_member else get_group_member_stats
     nexthop_group_used, nexthop_group_available = get_crm_stats(get_nexthop_group_stats, duthost)
 
     # Get NH IP 1
@@ -636,7 +651,8 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
     used_percent = get_used_percent(new_nexthop_group_used, new_nexthop_group_available)
     if used_percent < 1:
         nexthop_group_num = get_entries_num(new_nexthop_group_used, new_nexthop_group_available)
-
+        _, nexthop_available_resource_num = get_crm_stats(get_nexthop_group_another_stats, duthost)
+        nexthop_group_num = min(nexthop_group_num, nexthop_available_resource_num)
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
@@ -657,7 +673,8 @@ def test_crm_nexthop_group(duthost, crm_interface, group_member, network):
         crm_avail=new_nexthop_group_available)
 
 
-def test_acl_entry(duthost, collector):
+def test_acl_entry(duthosts, rand_one_dut_hostname, collector):
+    duthost = duthosts[rand_one_dut_hostname]
     apply_acl_config(duthost, "test_acl_entry", collector)
     acl_tbl_key = collector["acl_tbl_key"]
     get_acl_entry_stats = "redis-cli --raw -n 2 HMGET {acl_tbl_key} crm_stats_acl_entry_used \
@@ -717,9 +734,10 @@ def test_acl_entry(duthost, collector):
         "\"crm_stats_acl_entry_available\" counter was not incremented")
 
 
-def test_acl_counter(duthost, collector):
+def test_acl_counter(duthosts, rand_one_dut_hostname, collector):
+    duthost = duthosts[rand_one_dut_hostname]
     if not "acl_tbl_key" in collector:
-        pytest.skip("acl_tbl_key is not retreived")
+        pytest.skip("acl_tbl_key is not retrieved")
     acl_tbl_key = collector["acl_tbl_key"]
 
     RESTORE_CMDS["crm_threshold_name"] = "acl_counter"
@@ -746,9 +764,13 @@ def test_acl_counter(duthost, collector):
     used_percent = get_used_percent(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
     if used_percent < 1:
         # Preconfiguration needed for used percentage verification
-        nexthop_group_num = get_entries_num(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
+        needed_acl_counter_num = get_entries_num(new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available)
 
-        apply_acl_config(duthost, "test_acl_counter", collector, nexthop_group_num)
+        get_acl_entry_stats = "redis-cli --raw -n 2 HMGET {acl_tbl_key} crm_stats_acl_entry_used \
+        crm_stats_acl_entry_available".format(acl_tbl_key=acl_tbl_key)
+        _, available_acl_entry_num = get_crm_stats(get_acl_entry_stats, duthost)
+        # The number we can applied is limited to available_acl_entry_num
+        apply_acl_config(duthost, "test_acl_counter", collector, min(needed_acl_counter_num, available_acl_entry_num))
 
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
@@ -783,13 +805,18 @@ def test_acl_counter(duthost, collector):
     pytest_assert(original_crm_stats_acl_counter_available - new_crm_stats_acl_counter_available == 0, \
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
-
-def test_crm_fdb_entry(duthost, testbed):
-    if "t0" not in testbed["topo"]["name"].lower():
+@pytest.mark.usefixtures('disable_fdb_aging')
+def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
-
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
-    iface = "Ethernet0"
+    topology = tbinfo["topo"]["properties"]["topology"]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    port_dict = dict(zip(cfg_facts['port_index_map'].values(), cfg_facts['port_index_map'].keys()))
+    # Use for test 1st in list hosts interface port to add into dummy VLAN
+    host_port_id = [id for id in topology["host_interfaces"]][0]
+    iface = port_dict[host_port_id]
     vlan_id = 2
     cmd_add_vlan_member = "config vlan member add {vid} {iface}"
     cmd_add_vlan = "config vlan add {}".format(vlan_id)
@@ -837,6 +864,9 @@ def test_crm_fdb_entry(duthost, testbed):
 
     used_percent = get_used_percent(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
     if used_percent < 1:
+        # Clear pre-set fdb entry
+        duthost.command("fdbclear")
+        time.sleep(5)
         # Preconfiguration needed for used percentage verification
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT
@@ -859,12 +889,18 @@ def test_crm_fdb_entry(duthost, testbed):
 
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
-
-    # Get new "crm_stats_fdb_entry" used and available counter value
-    new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+    # Timeout for asyc fdb clear 
+    FDB_CLEAR_TIMEOUT = 10
+    while FDB_CLEAR_TIMEOUT > 0:
+        # Get new "crm_stats_fdb_entry" used and available counter value
+        new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+        if new_crm_stats_fdb_entry_used == 0:
+            break
+        FDB_CLEAR_TIMEOUT -= CRM_POLLING_INTERVAL
+        time.sleep(CRM_POLLING_INTERVAL)
 
     # Verify "crm_stats_fdb_entry_used" counter was decremented
-    pytest_assert(new_crm_stats_fdb_entry_used == 0, "Counter 'crm_stats_fdb_entry_used' was not decremented. \
+    pytest_assert(new_crm_stats_fdb_entry_used == 0, "FDB entry is not completely cleared. \
         Used == {}".format(new_crm_stats_fdb_entry_used))
 
     # Verify "crm_stats_fdb_entry_available" counter was incremented

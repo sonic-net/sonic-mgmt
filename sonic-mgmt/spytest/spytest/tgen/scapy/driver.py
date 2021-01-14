@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import traceback
 import threading
@@ -8,11 +7,6 @@ from packet import ScapyPacket
 from or_event import OrEvent
 from utils import Utils
 from logger import Logger
-
-def tobytes(s):
-    if sys.version_info[0] < 3:
-        return buffer(s)
-    return s.encode()
 
 def isLinkUp(intf, dbg = False):
     flags_path = "/sys/class/net/{}/operstate".format(intf)
@@ -29,10 +23,12 @@ class ScapyDriver(object):
         self.port = port
         self.dry = dry
         self.dbg = dbg
+        self.errs = []
         self.finished = False
         self.logger = logger or Logger()
         self.utils = Utils(self.dry, logger=self.logger)
         self.iface = port.iface
+        self.iface_status = None
         self.packet = ScapyPacket(port.iface, dry=self.dry, dbg=self.dbg,
                                   logger=self.logger)
         self.rxInit()
@@ -43,6 +39,13 @@ class ScapyDriver(object):
         self.logger.debug("ScapyDriver {} exiting...".format(self.iface))
         self.cleanup()
         del self.packet
+
+    def get_alerts(self):
+        errs = []
+        errs.extend(self.errs)
+        errs.extend(self.packet.get_alerts())
+        self.errs = []
+        return errs
 
     def cleanup(self):
         print("ScapyDriver {} cleanup...".format(self.iface))
@@ -64,6 +67,10 @@ class ScapyDriver(object):
         self.rxThread = threading.Thread(target=self.rxThreadMain, args=())
         self.rxThread.daemon = True
         self.rxThread.start()
+        #self.linkThread = threading.Thread(target=self.linkThreadMain, args=())
+        #self.linkThread.daemon = True
+        #self.linkThread.start()
+        self.linkThread = None
 
     def captureQueueInit(self):
         self.pkts_captured = []
@@ -118,8 +125,22 @@ class ScapyDriver(object):
                     if str(e) != "[Errno 100] Network is down":
                         self.logger.debug(e, traceback.format_exc())
                     self.logger.debug("Driver(%s): '%s' - ignoring", self.iface, str(e))
-                    while self.rx_any_enable() and isLinkUp(self.iface) == False:
+                    while self.rx_any_enable() and not self.is_up():
                         time.sleep(1)
+
+    def is_up(self):
+        if self.linkThread:
+            return bool(self.iface_status)
+        return isLinkUp(self.iface)
+
+    def linkThreadMain(self):
+        self.iface_status = isLinkUp(self.iface)
+        while not self.finished:
+            time.sleep(2)
+            status = isLinkUp(self.iface)
+            if status != self.iface_status:
+                self.packet.set_link(status)
+            self.iface_status = status
 
     def handle_stats(self, packet):
         pktlen = 0 if not packet else len(packet)
@@ -133,6 +154,7 @@ class ScapyDriver(object):
             if self.packet.match_stream(stream, packet):
                 stream.incrStat('framesReceived')
                 stream.incrStat('bytesReceived', pktlen)
+                break # no need to check in other streams
 
     def handle_capture(self, packet):
         self.pkts_captured.append(packet)
@@ -146,47 +168,89 @@ class ScapyDriver(object):
     def txInit(self):
         self.txState = threading.Event()
         self.txState.clear()
-        self.txStateAck = threading.Event()
-        self.txStateAck.clear()
+        self.txStateAck = dict()
+        self.stream_pkts = dict()
         self.txThread = threading.Thread(target=self.txThreadMain, args=())
         self.txThread.daemon = True
         self.txThread.start()
 
+    def set_stream_enable2(self, handle, value, duration, msg):
+        requested_stream = None
+        for stream_id, stream in self.port.streams.items():
+            if not handle:
+                stream.enable2 = value
+                if value: self.stream_pkts[stream_id] = 0
+                self.logger.debug("{}-all: {} {} PKTS: {}".format(
+                    msg, self.iface, stream_id, self.stream_pkts[stream_id]))
+            elif stream_id == handle:
+                requested_stream = stream
+                stream.enable2 = value
+                if value: self.stream_pkts[stream_id] = 0
+                self.logger.debug("{}: {} {} PKTS: {}".format(
+                    msg, self.iface, stream_id, self.stream_pkts[stream_id]))
+            if duration > 0:
+                stream.kws["duration2"] = duration
+            else:
+                stream.kws.pop("duration2", 0)
+        return requested_stream
+
+    def stop_ack_wait(self, handle):
+        if handle in self.txStateAck:
+            self.txStateAck[handle].set()
+
+    def start_ack_wait(self, handle, wait=0):
+        if handle not in self.txStateAck:
+            self.txStateAck[handle] = threading.Event()
+            self.txStateAck[handle].clear()
+        elif wait <= 0:
+            self.txStateAck[handle].clear()
+
+        if wait:
+            self.txStateAck[handle].wait(wait)
+
     def startTransmit(self, **kws):
         self.logger.debug("start-tx: {} {}".format(self.iface, kws))
-        duration = self.utils.intval(kws, 'duration', 0)
-        non_continuous = False
 
         # enable selected streams
         handle = kws.get('handle', None)
-        if not handle:
-            handles = self.port.streams.keys()
-        else:
-            handles = self.utils.make_list(handle)
-
-        for stream_id, stream in self.port.streams.items():
-            stream.enable2 = bool(stream_id in handles)
-            if stream.kws.get("transmit_mode", "continuous") != "continuous":
-                non_continuous = True
+        duration = self.utils.intval(kws, 'duration', 0)
+        self.set_stream_enable2(handle, True, duration, "tx-enable")
 
         # signal the start
         self.logger.debug("signal-tx: {} {}".format(self.iface, kws))
-        self.txStateAck.clear()
-        self.txState.set()
+        self.start_ack_wait(handle, 0)
+
+        threading.Timer(1.0, self.txState.set).start()
+        #self.txState.set()
+
+    def startTransmitComplete(self, **kws):
 
         # wait for first packet to be sent
-        self.txStateAck.wait(10)
-        self.logger.debug("start-tx-ack: {} {}".format(self.iface, kws))
+        handle = kws.get('handle', None)
+        self.logger.debug("start-tx-ack-0: {} {}".format(self.iface, kws))
+        self.start_ack_wait(handle, 10)
+        self.logger.debug("start-tx-ack-1: {} {}".format(self.iface, kws))
 
-        # wait for max 30 seconds to finish
+        # check if all streams are non-contineous
+        duration = self.utils.intval(kws, 'duration', 0)
+        non_continuous = False
+        for stream in self.port.streams.values():
+            if stream.kws.get("transmit_mode", "continuous") != "continuous":
+                non_continuous = True
+
         if non_continuous:
-            for check in range(30):
+            # wait for max 30 seconds to finish ????
+            for _ in range(30):
+                time.sleep(1)
                 if not self.txState.is_set():
+                    self.logger.debug("TX Completed waiting 3 sec for RX")
+                    time.sleep(3)
                     break
         elif duration > 0:
             self.logger.debug("waiting for duration: {}".format(duration))
             time.sleep(duration)
-            self.txState.clear()
+            self.set_stream_enable2(handle, False, duration, "tx-disable")
+            if not handle: self.txState.clear()
         else:
             self.logger.debug("waiting 3 sec")
             time.sleep(3)
@@ -199,7 +263,7 @@ class ScapyDriver(object):
         handle = kws.get('handle', None)
         if handle:
             for stream_id, stream in self.port.streams.items():
-                if not handle or stream_id == handle:
+                if stream_id == handle:
                     stream.enable2 = False
             return
 
@@ -207,7 +271,7 @@ class ScapyDriver(object):
             return
         self.logger.debug("stop-tx: {}".format(self.iface))
         self.txState.clear()
-        for index in range(10):
+        for _ in range(10):
             time.sleep(1)
             if not self.txState.is_set():
                 break
@@ -226,40 +290,57 @@ class ScapyDriver(object):
                 self.logger.log_exception(e, traceback.format_exc())
             self.txState.clear()
 
-    def txThreadMainInner(self):
-        self.logger.debug("txThreadMainInner {} start {}".format(self.iface, self.port.streams))
-        pwa_list = []
+    def txThreadMainInnerStart(self, pwa_list, sids):
+        if self.dbg > 2:
+            self.logger.debug("txThreadMainInnerStart {} {}".format(self.iface, sids.keys()))
         try:
             for stream in self.port.streams.values():
-                self.logger.debug(" start {} {}/{}".format(stream.stream_id, stream.enable, stream.enable2))
+                if stream.stream_id in sids:
+                    continue
+                if self.dbg > 2:
+                    self.logger.debug(" start {} {}/{}".format(stream.stream_id, stream.enable, stream.enable2))
                 if stream.enable and stream.enable2:
                     pwa = self.packet.build_first(stream)
                     pwa.tx_time = time.clock()
                     pwa_list.append(pwa)
+                    sids[stream.stream_id] = 0
+                    self.stop_ack_wait(stream.stream_id)
         except Exception as exp:
             self.logger.log_exception(exp, traceback.format_exc())
 
-        if not pwa_list:
-            self.logger.debug("txThreadMainInner {} Nothing Todo".format(self.iface))
-            self.txStateAck.set()
-            return
+        return bool(pwa_list)
 
-        # signal first packet ready
-        self.txStateAck.set()
+    def txThreadMainInner(self):
+
+        sids = {}
+        pwa_list = []
+        self.logger.debug("txThreadMainInner {} start {}".format(self.iface, self.port.streams.keys()))
+        if not self.txThreadMainInnerStart(pwa_list, sids):
+            self.logger.debug("txThreadMainInner {} Nothing Todo".format(self.iface))
+            return
 
         tx_count = 0
         while (self.txState.is_set()):
+            # call start again to see if new streams are created
+            # while there are transmitting streams
+            if not self.txThreadMainInnerStart(pwa_list, sids):
+                break
+
+            # sort based on next packet send time
             pwa_list.sort(key=self.pwa_sort)
+
             pwa_next_list = []
             for pwa in pwa_list:
+                if not pwa.stream.enable or not pwa.stream.enable2:
+                    continue
                 self.pwa_wait(pwa)
                 try:
                     send_start_time = time.clock()
-                    pkt = self.send_packet(pwa)
-                    if pwa.stream.track_port:
-                        pwa.stream.track_pkts.append(pkt)
+                    pkt = self.send_packet(pwa, pwa.stream.stream_id)
                     bytesSent = len(pkt)
                     send_time = time.clock() - send_start_time
+
+                    # increment port counters
                     framesSent = self.port.incrStat('framesSent')
                     self.port.incrStat('bytesSent', bytesSent)
                     if self.dbg > 2:
@@ -267,27 +348,33 @@ class ScapyDriver(object):
                     pwa.stream.incrStat('framesSent')
                     pwa.stream.incrStat('bytesSent', bytesSent)
                     tx_count = tx_count + 1
+
+                    # increment stream counters
+                    stream_tx = self.stream_pkts[pwa.stream.stream_id] + 1
+                    self.stream_pkts[pwa.stream.stream_id] = stream_tx
+                    if self.dbg > 2 or (self.dbg > 1 and stream_tx%100 == 99):
+                        self.logger.debug("{}/{} framesSent: {}".format(self.iface,
+                                            pwa.stream.stream_id, stream_tx))
                 except Exception as e:
                     self.logger.log_exception(e, traceback.format_exc())
                     pwa.stream.enable2 = False
                 else:
-                    pps = pwa.rate_pps
                     build_start_time = time.clock()
                     pwa = self.packet.build_next(pwa)
                     if not pwa: continue
                     build_time = time.clock() - build_start_time
-                    if pps > self.packet.max_rate_pps: pps = self.packet.max_rate_pps
-                    pwa.tx_time = time.clock() + 1.0/float(pps) - build_time - send_time
+                    ipg = self.packet.build_ipg(pwa)
+                    pwa.tx_time = time.clock() + ipg - build_time - send_time
                     pwa_next_list.append(pwa)
             pwa_list = pwa_next_list
-        self.logger.debug("txThreadMainInner Completed {}".format(tx_count))
+        self.logger.debug("txThreadMainInner {} Completed {}".format(self.iface, tx_count))
 
     def pwa_sort(self, pwa):
         return pwa.tx_time
 
     def pwa_wait(self, pwa):
         delay = pwa.tx_time - time.clock()
-        if self.dbg > 1:
+        if self.dbg > 2 or (self.dbg > 1 and pwa.left != 0):
             self.logger.debug("stream: {} delay: {} pps: {}".format(pwa.stream.stream_id, delay, pwa.rate_pps))
         if delay <= 0:
             # yield
@@ -303,8 +390,8 @@ class ScapyDriver(object):
         else:
             self.utils.usleep(delay * 1000 * 1000)
 
-    def send_packet(self, pwa):
-        return self.packet.send_packet(pwa, self.iface)
+    def send_packet(self, pwa, stream_name):
+        return self.packet.send_packet(pwa, self.iface, stream_name, pwa.left)
 
     def createInterface(self, intf):
         return self.packet.if_create(intf)
@@ -318,8 +405,11 @@ class ScapyDriver(object):
     def send_arp(self, intf, index=0):
         return self.packet.send_arp(intf, index)
 
-    def config_bgp(self, enable, intf):
-        return self.packet.config_bgp(enable, intf)
+    def apply_bgp(self, op, enable, intf):
+        return self.packet.apply_bgp(op, enable, intf)
+
+    def apply_bgp_route(self, enable, route):
+        return self.packet.apply_bgp_route(enable, route)
 
     def config_igmp(self, mode, intf, host):
         return self.packet.config_igmp(mode, intf, host)

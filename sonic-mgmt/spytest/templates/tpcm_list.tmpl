@@ -1,0 +1,8 @@
+Value CONT_NAME (\S+)
+Value IMAGE (\S+)
+Value STATUS (\w+)
+
+Start
+  ^\s*${CONT_NAME}\s+${IMAGE}\s+${STATUS}\s*$$ -> Record
+
+

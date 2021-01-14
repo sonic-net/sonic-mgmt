@@ -41,6 +41,7 @@ sonic_sn2700_40:
   hosts:
     str-msn2700-01:
       ansible_host: 10.251.0.188
+      model: MSN2700-CS2FO
       serial: MT1234X56789
       base_mac: 24:8a:07:12:34:56
       syseeprom_info:
@@ -73,6 +74,12 @@ sonic_s6000:
     vlab-04:
       ansible_host: 10.250.0.107
       ansible_hostv6: fec0::ffff:afa:7
+    vlab-05:
+      ansible_host: 10.250.0.110
+      ansible_hostv6: fec0::ffff:afa:a
+    vlab-06:
+      ansible_host: 10.250.0.111
+      ansible_hostv6: fec0::ffff:afa:b
 
 sonic_s6100:
   vars:

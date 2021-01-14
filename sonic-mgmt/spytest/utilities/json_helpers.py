@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 class _Exception(Exception):
     def __init__(self, data, exp, msg):
+       super(_Exception, self).__init__(msg)
        self.exp = exp
        self.msg = msg
        self.data = data
@@ -31,7 +32,7 @@ def fix(text, msg="invalid json text", load=False, object_pairs_hook=OrderedDict
     try:
         obj = json.loads(text, object_pairs_hook=object_pairs_hook)
         return obj if load else text
-    except:
+    except Exception:
         pass
 
     # remove trailing object comma

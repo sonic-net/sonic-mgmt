@@ -1,2 +1,47 @@
-- include_tasks: remove_ceos.yml
-  with_items: "{{ VM_targets }}"
+- name: Remove cEOS containers
+  become: yes
+  docker_container:
+    name: ceos_{{ vm_set_name }}_{{ vm_name }}
+    state: absent
+  async: 300
+  poll: 0
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+  register: async_remove_ceos_results
+
+- name: Wait for removal of cEOS containers
+  become: yes
+  async_status:
+    jid: "{{ async_remove_ceos_result_item.ansible_job_id }}"
+  loop: "{{ async_remove_ceos_results.results }}"
+  loop_control:
+    loop_var: async_remove_ceos_result_item
+  register: async_remove_ceos_poll_results
+  until: async_remove_ceos_poll_results.finished
+  retries: 30
+  delay: 10
+
+- name: Remove net base containers
+  become: yes
+  docker_container:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    state: absent
+  async: 300
+  poll: 0
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+  register: async_remove_net_results
+
+- name: Wait for removal of net base containers
+  become: yes
+  async_status:
+    jid: "{{ async_remove_net_result_item.ansible_job_id }}"
+  loop: "{{ async_remove_net_results.results }}"
+  loop_control:
+    loop_var: async_remove_net_result_item
+  register: async_remove_net_poll_results
+  until: async_remove_net_poll_results.finished
+  retries: 30
+  delay: 10

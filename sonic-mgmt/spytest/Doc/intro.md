@@ -17,7 +17,7 @@ Please read [ROOT] as [git-repo-clone]/spytest in this document.
 ##### Framework
 Please refer to [ROOT]/spytest/infra.py for list of functions.
 
-These functions are expected to be called from feature API and they abstract the device iterations and other common operations like below.
+These functions are expected to be called from feature API and they abstract the device interaction and other common operations like below.
 
 * Error Pattern Detection and Result Classification
 * Crash Detection and Recovery
@@ -68,13 +68,12 @@ testbed file content for this topology is given below.
     version: 2.0
     services: {default: !include sonic_services.yaml}
 
+    params: !include sonic_params.yaml
+    instrument: !include sonic_instrument.yaml
     builds: !include sonic_builds.yaml
     speeds: !include sonic_speeds.yaml
     errors: !include sonic_errors.yaml
-
-    configs:
-        default: !include sonic_configs.yaml
-        empty: {current: [], restore: []}
+    configs: !include sonic_configs_all.yaml
 
     devices:
         DUT-01:
@@ -337,15 +336,23 @@ First step is to create the testbed file with physical connection details.
 
 #### Running test script(s)
 
-    [ROOT]/bin/SPyTest --testbed testbed_file.yaml  \
+    [ROOT]/bin/spytest --testbed testbed_file.yaml  \
         [ROOT]/tests/sanity/test_sanity_l2.py \
         [ROOT]/tests/sanity/test_sanity_l3.py \
         --logs-path <folder-to-create-logs>
 
 #### Running tests using PyTest marker
 
-    [ROOT]/bin/SPyTest --testbed testbed_file.yaml  \
-        -m community_pass
+    [ROOT]/bin/spytest --testbed testbed_file.yaml  \
+        -m community_pass --logs-path <folder-to-create-logs>
+
+#### Running tests using suite name
+
+    [ROOT]/bin/spytest --testbed testbed_file.yaml  \
+        --test-suite <suite name> --logs-path <folder-to-create-logs>
+
+The test suite files are expected to be present in [ROOT]/reporting/suites folder.
+*Please refer to community-ptf for example suite definition.
 
 #### Execution Results and Logs
 
@@ -418,56 +425,62 @@ The following custom command line options are added to SPyTest in addition to ex
     * Max time that a module initialization can take to execute -- default: 1200
 *   --random-order={0,1}
     * Enable executing tests in random order -- default: 1
-*   --community-build={0,1}
-    * Community build support -- default: 0
+*   --community-build={none,master,201911}
+    * Community build support -- default: none
 
 Log Files
 =========
 List of logs files generated are as given below where [PREFIX] = "results_%Y_%m_%d_%H_%M_%S"
 
-* [PREFIX]_[DUTID]-[DUTNAME].log
+* [PREFIX]_dlog-[DUTID]-[DUTNAME].log
     * This contains per DUT log, where DUTID is D1,D2 etc and DUTNAME is as given in testbed file
     * One file will be generated for each DUT in the testbed file
 * [PREFIX]_logs.log
     * This is consolidate log for all the entire run
 * [PREFIX]_stdout.log
     * This is same as [PREFIX]_logs.log except that any stdout/stderr messages from SPyTest and dependent libraries also get logged
-* [PREFIX]_report.txt
+* [PREFIX]_summary.txt
     * This contains final summary of run with how many tests executed, time taken, pass rate etc.
-* [PREFIX]_result.csv
+* [PREFIX]_functions.csv
     * This contains result of each test function executed in the run
     * It also contain result, description, time taken etc.
-* [PREFIX]_result.html
-    * This is same as [PREFIX]_result.csv in HTML table for readily viewing in browser.
-* [PREFIX]_tcresult.csv
+* [PREFIX]_functions.html
+    * This is same as [PREFIX]_functions.csv in HTML table for readily viewing in browser.
+* [PREFIX]_testcases.csv
     * This contains result of each test case executed in the run
     * As mentioned in the beginning each test function may have one or more test cases
     * It also contain result, description, time taken etc.
-* [PREFIX]_tcresult.html
-    * This is same as [PREFIX]_tcresult.csv in HTML table for readily viewing in browser.
-* [PREFIX]_result_modules.csv
+* [PREFIX]_testcases.html
+    * This is same as [PREFIX]_testcases.csv in HTML table for readily viewing in browser.
+* [PREFIX]_modules.csv
     * This contains result counts (number of test functions) in various categories per test module and the time taken for each module
-* [PREFIX]_result_modules.html
-    * This is same as [PREFIX]_result_modules.csv in HTML table for readily viewing in browser.
-* [PREFIX]_tcresult_components.csv
+* [PREFIX]_modules.html
+    * This is same as [PREFIX]_modules.csv in HTML table for readily viewing in browser.
+* [PREFIX]_features.csv
     * This contains result counts (number of test cases) in various categories per test component and the time taken for each
     * Please refer to [ROOT]/reporting/tcmap.csv for test cases association to components
     * Example component names: Regression, NAT
-* [PREFIX]_tcresult_components.html
-    * This is same as [PREFIX]_tcresult_components.csv in HTML table for readily viewing in browser.
+* [PREFIX]_features.html
+    * This is same as [PREFIX]_features.csv in HTML table for readily viewing in browser.
 * [PREFIX]_stats.txt
     * This contains statistics on time spent in each CLI command and TGen operation for each module
 * [PREFIX]_stats.csv
     * This contains statistics on total time spent in CLI and TGen for each module
+* [PREFIX]_stats.html
+    * This is same as [PREFIX]_stats.csv in HTML table for readily viewing in browser.
 * [PREFIX]_syslog.csv
     * This contains syslog messages collected on all DUTs in each test module
     * Please check for --syslog-check command line option to configure the severity of messages to be collected and frequency
 * [PREFIX]_syslog.html
     * This is same as [PREFIX]_syslog.csv in HTML table for readily viewing in browser.
-* [PREFIX]_tests_[module].log
+* [PREFIX]_mlog_[module].log
     * This is same as [PREFIX]_logs.log but per module
 * [PREFIX]_tgen
     * This contains TGen specific debug logs
+
+Dashboard
+===============
+The dashboard.html contains links to various files generated
 
 Internals
 ===============

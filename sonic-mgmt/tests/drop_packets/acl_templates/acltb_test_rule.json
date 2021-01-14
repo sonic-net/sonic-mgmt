@@ -19,6 +19,21 @@
                                         "source-ip-address": "20.0.0.0/24"
                                     }
                                 }
+                            },
+                            "2": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 2
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "2048"
+                                    }
+                                }
                             }
                         }
                     }

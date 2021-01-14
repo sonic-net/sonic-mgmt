@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import re
 import subprocess
 from ansible.module_utils.basic import *
 
@@ -15,7 +15,7 @@ description:
     - Retrieved raw values will be inserted to the 'raw' key.
     - Recognized alarms will be inserted to the 'alarms' key.
     - 'alarm' key will be set to True if the device has any alarm situation.
-    - If there's only one PSU on the device, 'warning' is set to True and 'warnings' have a message about it. 
+    - If there's only one PSU on the device, 'warning' is set to True and 'warnings' have a message about it.
     - sensors data: group_vars/sonic/sku-sensors/data.yml
 '''
 
@@ -148,17 +148,27 @@ class SensorsModule(object):
     def get_raw_value(self, path):
         '''
             Get value in raw output in the path 'path'
+            Note: Expected path contains two types of value(string and regex)
+                  Regular expression is wrapped with backslash '\'
         '''
         keys = path.split('/')
 
-        cur_value = self.raw
+        cur_values = self.raw
+        res = None
         for key in keys:
-            if key in cur_value:
-                cur_value = cur_value[key]
+            if '\\' not in key:
+                pattern = re.compile(re.escape(key))
             else:
+                pattern = re.compile(key.replace('\\', ''))
+            for cur_value in cur_values.keys():
+                res = re.match(pattern, cur_value)
+                if res is not None:
+                    cur_values = cur_values[res.group()]
+                    break
+            if res is None:
                 return None
 
-        return cur_value
+        return cur_values
 
     def check_alarms(self):
         '''
@@ -191,7 +201,7 @@ class SensorsModule(object):
             reasons = '%s_reasons' % hw_part
             for (path_input, path_max) in compare_list:
                 if skip_the_value(path_input):
-                    continue                
+                    continue
                 value_input = self.get_raw_value(path_input)
                 value_max = self.get_raw_value(path_max)
                 if value_input is None:

@@ -22,7 +22,7 @@ devices:
     {% endfor %}
     ptf-01:
         device_type: TGEN
-        properties: {type: scapy, version: 1.0, ip: {{ testbed.ptf_ip }}, params: def_tg}
+        properties: {type: scapy, version: 1.0, ip: {{ tbinfo.ptf_ip }}, params: def_tg}
 
 topology:
     ptf-01:
@@ -30,7 +30,7 @@ topology:
             {% for ptf_conn in ptf_connections %}
             {{ ptf_conn.start_port }}: {{ "{" }}EndDevice: {{ ptf_conn.end_device }}, EndPort: {{ ptf_conn.end_port }}, params: def_tg_link{{ "}" }}
             {% endfor %}
-    {% for hostname in testbed.duts %}
+    {% for hostname in tbinfo.duts %}
     {% if hostname in dev_connections %}
     {{ hostname }}:
         interfaces:

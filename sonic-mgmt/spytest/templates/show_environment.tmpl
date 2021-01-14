@@ -1,0 +1,40 @@
+# TextFSM auto lowercases all names, use underscores to make it more readable
+Value Core_ID (\d+)
+# Treat these values like floats
+Value Core_Temp ([-+]?\d*\.?\d*)
+Value High_Temp ([-+]?\d*\.?\d*)
+Value Crit_Temp ([-+]?\d*\.?\d*)
+# Create a list of fans under each fan tray
+Value List Fan_Tray_Info (\S+\s*\S*\s*\S*)
+# Create a list of PSU fields
+Value List PSU_ID (\d+)
+Value List PSU_Value ([^\s]+)
+Value List Total_Power (\d+)
+# Create a list of Onboard sensor fields
+Value List Onboard_Value (\S+\s*\S*\s*\S*)
+
+Start
+  ^\s*Fan\s*Trays:\s*$$ -> Fan_Tray_Parsing
+  # Hook from PSU's to Fan Trays for the Z9100
+  ^\s*([Pp][Ss][Uu][Ss]*\d*)+[^\n]+$$ -> PSU_Parsing
+  ^\s*Onboard\s*Temperature\s*Sensors:\s*$$ -> Onboard_Parsing
+  ^\s*(Core|Physical\s*id)+\s*${Core_ID}:\s*${Core_Temp}\s*C\s*\(high\s*=\s*${High_Temp}\s*C,\s*crit\s*=\s*${Crit_Temp}\s*C\)$$ -> Record
+
+Fan_Tray_Parsing
+  ^\s*${Fan_Tray_Info}:\s*\S*\s*degrees\s*C\s*$$ -> Continue
+  ^\s*\S*\s*\S*\s*\S*:\s*${Fan_Tray_Info}\s*\S*$$
+  ^$$ -> Record Start
+
+PSU_Parsing
+  ^PSUs:\s*$$ -> Continue
+  ^  PSU${PSU_ID}:\s*$$
+  ^       \s*${PSU_Value}:[^\n]$$ -> Continue
+  ^       \s*[^:]:\s*${PSU_Value}$$ -> Continue
+  ^\s+Airflow:[^\n+]$$ -> Record
+  ^\s*Total\s*Power:\s*${Total_Power}\s*Watts\s*$$ -> Record Start
+  ^$$ -> Start
+
+Onboard_Parsing
+  ^\s*${Onboard_Value}:\s*\S*\s*degrees\s*C\s*$$ -> Continue
+  ^\s*\S*\s*\S*\s*\S*:\s*${Onboard_Value}\s*degrees\s*C\s*$$
+  ^$$ -> Record Start

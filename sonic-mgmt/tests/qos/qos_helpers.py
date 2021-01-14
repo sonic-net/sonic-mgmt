@@ -2,6 +2,7 @@ from netaddr import IPAddress, IPNetwork
 from qos_fixtures import lossless_prio_dscp_map, leaf_fanouts
 import json
 import re
+import os
 import ipaddress
 import random
 
@@ -179,12 +180,10 @@ def gen_testbed_t0(duthost):
 
     return vlan_members, ptf_intfs, vlan_ip_addrs, vlan_mac_addrs
 
-def setup_testbed(fanouthosts, ptfhost, leaf_fanouts, ptf_local_path, ptf_remote_path):
+def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):
     """
     @Summary: Set up the testbed
     @param leaf_fanouts: Leaf fanout switches
-    @param ptf_local_path: local path of PTF script
-    @param ptf_remote_dest: remote path of PTF script
     """
 
     """ Copy the PFC generator to leaf fanout switches """
@@ -192,19 +191,10 @@ def setup_testbed(fanouthosts, ptfhost, leaf_fanouts, ptf_local_path, ptf_remote
         peerdev_ans = fanouthosts[peer_device]
         cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (PFC_GEN_FILE)
         peerdev_ans.host.shell(cmd)
-        peerdev_ans.host.copy(src=PFC_GEN_LOCAL_PATH, dest=PFC_GEN_REMOTE_PATH, force=True)
+        file_src = os.path.join(os.path.dirname(__file__), PFC_GEN_LOCAL_PATH)
+        peerdev_ans.host.copy(src=file_src, dest=PFC_GEN_REMOTE_PATH, force=True)
 
     """ Stop PFC storm at the leaf fanout switches """
     for peer_device in leaf_fanouts:
         peerdev_ans = fanouthosts[peer_device]
         stop_pause(peerdev_ans, PFC_GEN_FILE)
-
-    """ Remove existing python scripts on PTF """
-    result = ptfhost.find(paths=['~/'], patterns="*.py")['files']
-    files = [ansible_stdout_to_str(x['path']) for x in result]
-
-    for file in files:
-        ptfhost.file(path=file, mode="absent")
-
-    """ Copy the PFC test script to the PTF container """
-    ptfhost.copy(src=ptf_local_path, dest=ptf_remote_path, force=True)

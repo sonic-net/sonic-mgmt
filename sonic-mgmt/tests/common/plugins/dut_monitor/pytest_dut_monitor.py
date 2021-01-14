@@ -29,17 +29,19 @@ class DUTMonitorPlugin(object):
         self.thresholds = thresholds
 
     @pytest.fixture(autouse=True, scope="module")
-    def dut_ssh(self, duthost, creds):
+    def dut_ssh(self, duthosts, rand_one_dut_hostname, creds):
         """Establish SSH connection with DUT"""
+        duthost = duthosts[rand_one_dut_hostname]
         ssh = DUTMonitorClient(host=duthost.hostname, user=creds["sonicadmin_user"],
                                password=creds["sonicadmin_password"])
         yield ssh
 
     @pytest.fixture(autouse=True, scope="function")
-    def dut_monitor(self, dut_ssh, localhost, duthost):
+    def dut_monitor(self, dut_ssh, localhost, duthosts, rand_one_dut_hostname):
         """
         For each test item starts monitoring of hardware resources consumption on the DUT
         """
+        duthost = duthosts[rand_one_dut_hostname]
         dut_thresholds = {}
         monitor_exceptions = []
         # Start monitoring on DUT

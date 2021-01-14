@@ -1,0 +1,20 @@
+Value Required COPP_AGROUP (\S+|default)
+Value Fillup TRAP_ACTION (\S+)
+Value Fillup TRAP_QUEUE (\S+)
+Value Fillup TRAP_PRIORITY (\S+)
+Value Fillup CIR (\d+)
+Value Fillup CBS (\d+)
+Value Fillup METER_TYPE (\S+)
+Value Fillup POLICER_MODE (\S+)
+Value Fillup POL_RED_ACTION (\S+)
+
+Start
+  ^CoPP\saction\sgroup\s${COPP_AGROUP} -> Continue.Record
+  ^\s*trap-action\s*${TRAP_ACTION} -> Record
+  ^\s*trap-priority\s*${TRAP_PRIORITY} -> Record
+  ^\s*trap-queue\s*${TRAP_QUEUE} -> Record
+  ^\s*police\scir\s*${CIR}\scbs\s${CBS} -> Record
+  ^\s*meter-type\s*${METER_TYPE} -> Record
+  ^\s*mode\s*${POLICER_MODE} -> Record
+  ^\s*red-action\s*${POL_RED_ACTION} -> Record
+

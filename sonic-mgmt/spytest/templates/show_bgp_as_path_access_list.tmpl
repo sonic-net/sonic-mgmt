@@ -1,0 +1,9 @@
+Value Required LIST_NAME ([\w_]+)
+Value MEMBERLIST (.*$$)
+Value PERMITDENY ((permit)|(deny))
+
+Start
+  ^\s*AS path list \w+:$$ -> Continue.Record
+  ^\s*AS path list ${LIST_NAME}:$$
+  ^\s*action:\s*${PERMITDENY}$$
+  ^\s*members:\s*${MEMBERLIST}$$

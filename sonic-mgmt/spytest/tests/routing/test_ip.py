@@ -11,9 +11,12 @@ import apis.routing.ip as ipfeature
 import apis.switching.vlan as vlan_obj
 import apis.switching.portchannel as pc_obj
 import apis.system.basic as basic_obj
-import apis.switching.portchannel as portchannel_obj
 import apis.common.asic as asicapi
 import apis.routing.bgp as bgpfeature
+import apis.system.interface as intf_obj
+import apis.routing.route_map as rmap_obj
+import apis.switching.mac as mac_obj
+import apis.routing.arp as arp_obj
 
 vars = dict()
 data = SpyTestDict()
@@ -47,18 +50,24 @@ data.wait_tgstats = 2
 data.no_of_ports = 8
 data.ipv4_mask = '24'
 data.ipv6_mask = '96'
+data.host1_mac="00:00:01:00:00:01"
+data.host2_mac="00:00:02:00:00:02"
+data.host1_vlan="100"
+data.host2_vlan="101"
+data.vlan1_ip="10.10.10.2"
+data.vlan2_ip="10.10.11.3"
+data_tg_ip="10.10.10.1"
+
 
 @pytest.fixture(scope="module", autouse=True)
 def ip_module_hooks(request):
     global vars, tg_handler, tg
     # Min topology verification
     st.log("Ensuring minimum topology")
-    vars = st.ensure_min_topology("D1T1:2", "D2T1:2", "D1D2:4")
-
+    vars = st.ensure_min_topology("D1T1:4", "D2T1:2", "D1D2:4")
     # Initialize TG and TG port handlers
     tg_handler = tgapi.get_handles_byname("T1D1P1", "T1D1P2", "T1D2P1", "T1D2P2")
     tg = tg_handler["tg"]
-
     # IP module configuration
     st.log("Vlan routing configuration on D1D2P1,D2D1P1")
     vlan_obj.create_vlan(vars.D1, data.vlan_1)
@@ -85,14 +94,14 @@ def ip_module_hooks(request):
     ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P4, data.ip4_addr[7], 24, family=data.af_ipv4)
     ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P4, data.ip6_addr[6], 96, family=data.af_ipv6)
     ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P4, data.ip6_addr[7], 96, family=data.af_ipv6)
-    st.log("configuring the dut1 ports connected to ixias with ip addresses")
+    st.log("configuring the dut1 ports connected to TGen with ip addresses")
     ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P1, data.ip4_addr[1], 24, family=data.af_ipv4)
     ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P2, data.ip6_addr[1], 96, family=data.af_ipv6)
     ipfeature.create_static_route(vars.D1, data.ip6_addr[7], data.static_ip6_rt, shell=data.shell_vtysh,
                               family=data.af_ipv6)
     ipfeature.create_static_route(vars.D1, data.ip4_addr[7], data.static_ip_rt, shell=data.shell_vtysh,
                                   family=data.af_ipv4)
-    st.log("configuring the dut2 ports connected to ixias with ip addresses")
+    st.log("configuring the dut2 ports connected to TGen with ip addresses")
     ipfeature.config_ip_addr_interface(vars.D2, vars.D2T1P1, data.ip4_addr[8], 24, family=data.af_ipv4)
     ipfeature.config_ip_addr_interface(vars.D2, vars.D2T1P2, data.ip6_addr[8], 96, family=data.af_ipv6)
 
@@ -100,7 +109,7 @@ def ip_module_hooks(request):
     ipfeature.clear_ip_configuration(st.get_dut_names())
     ipfeature.clear_ip_configuration(st.get_dut_names(), 'ipv6')
     vlan_obj.clear_vlan_configuration(st.get_dut_names())
-    portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
+    pc_obj.clear_portchannel_configuration(st.get_dut_names())
     ipfeature.delete_static_route(vars.D1, data.ip4_addr[7], data.static_ip_rt, shell=data.shell_vtysh,
                                   family=data.af_ipv4)
     ipfeature.delete_static_route(vars.D1, data.static_ip6_rt_drop, data.static_ip6_rt, shell=data.shell_vtysh,
@@ -122,31 +131,24 @@ def delete_bgp_router(dut, router_id, as_num):
     :rtype:
     """
     st.log("delete bgp router info")
-    my_cmd = "router bgp {}".format(as_num)
-    st.vtysh_config(dut, my_cmd)
-    my_cmd = "no bgp router-id {}".format(router_id)
+    bgpfeature.config_bgp_router(dut, as_num, router_id=router_id, config='no')
 
 def create_bgp_neighbor_route_map_config(dut, local_asn, neighbor_ip, routemap):
-    command = "route-map {} permit 10".format(routemap)
-    st.vtysh_config(dut, command)
-    command = "set ipv6 next-hop prefer-global"
-    st.vtysh_config(dut, command)
-    command = "router bgp {}".format(local_asn)
-    st.vtysh_config(dut, command)
-    command = "address-family ipv6 unicast"
-    st.vtysh_config(dut, command)
-    command = "neighbor {} route-map {} in".format(neighbor_ip, routemap)
-    st.vtysh_config(dut, command)
-    command = "neighbor {} route-map {} out".format(neighbor_ip, routemap)
+    rmap = rmap_obj.RouteMap(routemap)
+    rmap.add_permit_sequence('10')
+    rmap.add_sequence_set_ipv6_next_hop_prefer_global('10')
+    rmap.execute_command(dut)
+    bgpfeature.config_bgp(dut, addr_family='ipv6', local_as=local_asn, neighbor=neighbor_ip, routeMap=routemap, diRection='in', config = 'yes', config_type_list =["routeMap"])
+    bgpfeature.config_bgp(dut, addr_family='ipv6', local_as=local_asn, neighbor=neighbor_ip, routeMap=routemap, diRection='out', config = 'yes', config_type_list =["routeMap"])
     return
 
 def create_v4_route(route_count):
     vars = st.get_testbed_vars()
     dut = vars.D1
 
-    st.show(dut, "show ip interfaces")
-    st.show(dut, "show ip route")
-    st.show(dut, "show interface status",skip_tmpl=True)
+    ipfeature.show_ip_route(dut)
+    ipfeature.get_interface_ip_address(dut)
+    intf_obj.interface_status_show(dut)
 
     bgpfeature.create_bgp_router(dut, data.as_num, '')
     bgpfeature.create_bgp_neighbor(dut, data.as_num, data.ip4_addr[0], data.remote_as_num)
@@ -237,12 +239,12 @@ def create_v6_route(route_count):
     vars = st.get_testbed_vars()
     dut = vars.D1
 
-    st.show(dut, "show ipv6 interfaces")
-    st.show(dut, "show ipv6 route")
+    ipfeature.show_ip_route(dut, family='ipv6')
+    ipfeature.get_interface_ip_address(dut, family='ipv6')
 
     bgpfeature.create_bgp_router(dut, data.as_num, '')
     bgpfeature.create_bgp_neighbor(dut, data.as_num, data.ip6_addr[0], data.remote_as_num, family="ipv6")
-    create_bgp_neighbor_route_map_config(dut, data.as_num, data.ip6_addr[1], data.routemap)
+    create_bgp_neighbor_route_map_config(dut, data.as_num, data.ip6_addr[0], data.routemap)
 
     tg_handler = tgapi.get_handles_byname("T1D1P2", "T1D2P2")
     tg = tg_handler["tg"]
@@ -339,10 +341,10 @@ def test_ft_ping__v4_v6_after_ip_change_pc():
     if not pc_obj.verify_portchannel_state(vars.D2, data.port_channel, state="up"):
         st.report_fail("portchannel_state_fail", data.port_channel, vars.D2, "Up")
     st.log("Checking IPv4 ping from {} to {} over portchannel routing interface".format(vars.D1, vars.D2))
-    if not ipfeature.ping(vars.D1, data.ip4_addr[5], family=data.af_ipv4, count=1):
+    if not ipfeature.ping_poll(vars.D1, data.ip4_addr[5], family=data.af_ipv4, iter=5, count=1):
         st.report_fail("ping_fail",data.ip4_addr[4], data.ip4_addr[5])
     st.log("Checking IPv6 ping from {} to {} over portchannel routing interface".format(vars.D1, vars.D2))
-    if not ipfeature.ping(vars.D2, data.ip6_addr[4], family=data.af_ipv6, count=1):
+    if not ipfeature.ping_poll(vars.D2, data.ip6_addr[4], family=data.af_ipv6, iter=5, count=1):
         st.report_fail("ping_fail",data.ip6_addr[5], data.ip6_addr[4])
     st.log("Removing the Ipv4 address on portchannel")
     ipfeature.delete_ip_interface(vars.D1, data.port_channel, data.ip4_addr[4],24, family = data.af_ipv4)
@@ -359,11 +361,11 @@ def test_ft_ping__v4_v6_after_ip_change_pc():
     ipfeature.config_ip_addr_interface(vars.D2, data.port_channel, data.ip6_addr[11], 96, family=data.af_ipv6)
     st.log("After Ipv4 address change, checking IPv4 ping from {} to {} over portchannel "
                "routing interface".format(vars.D1, vars.D2))
-    if not ipfeature.ping(vars.D1, data.ip4_addr[11], family=data.af_ipv4, count=1):
+    if not ipfeature.ping_poll(vars.D1, data.ip4_addr[11], family=data.af_ipv4, iter=5, count=1):
         st.report_fail("ping_fail",data.ip4_addr[10],data.ip4_addr[11])
     st.log("After Ipv6 address change, checking IPv6 ping from {} to {} over portchannel "
                "routing interface".format(vars.D1, vars.D2))
-    if not ipfeature.ping(vars.D1, data.ip6_addr[11], family=data.af_ipv6, count=1):
+    if not ipfeature.ping_poll(vars.D1, data.ip6_addr[11], family=data.af_ipv6, iter=5, count=1):
         st.report_fail("ping_fail",data.ip6_addr[10], data.ip6_addr[11])
     st.report_pass("test_case_passed")
 
@@ -539,7 +541,7 @@ def test_ft_ip_v4_v6_L2_L3_translation():
     tg.tg_traffic_control(action='stop', stream_handle=tr2['stream_id'])
     st.wait(data.wait_tgstats)
     st.log("TR_CTRL: " + str(res))
-    st.log("Fetching IXIA statistics")
+    st.log("Fetching TGen statistics")
     stats_tg1 = tgapi.get_traffic_stats(tg_handler["tg"], mode="aggregate", port_handle=tg_handler["tg_ph_2"])
     total_tx_tg1 = stats_tg1.tx.total_packets
     stats_tg2 = tgapi.get_traffic_stats(tg_handler["tg"], mode="aggregate", port_handle=tg_handler["tg_ph_1"])
@@ -548,11 +550,11 @@ def test_ft_ip_v4_v6_L2_L3_translation():
     total_tx_tg1_95_percentage = int(total_tx_tg1) * 0.95
     st.log("total_tx_tg1_95_percentage= {}".format(total_tx_tg1_95_percentage))
     st.log("total_rx_tg2 = {}".format(total_rx_tg2))
-    if not int(total_tx_tg1_95_percentage) <= int(total_rx_tg2):
+    if int(total_tx_tg1_95_percentage) > int(total_rx_tg2):
         st.report_fail("traffic_verification_failed")
     st.log("Removing vlan configuration")
-    vlan_obj.delete_vlan_member(vars.D1, data.vlan_2, [vars.D1D2P4, vars.D1T1P1])
-    vlan_obj.delete_vlan_member(vars.D2, data.vlan_2, [vars.D2D1P4, vars.D2T1P1])
+    vlan_obj.delete_vlan_member(vars.D1, data.vlan_2, [vars.D1D2P4, vars.D1T1P1], True)
+    vlan_obj.delete_vlan_member(vars.D2, data.vlan_2, [vars.D2D1P4, vars.D2T1P1], True)
     st.log("L2 to L3 port transition")
     ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P4, data.ip4_addr[6], 24, family=data.af_ipv4)
     ipfeature.config_ip_addr_interface(vars.D2, vars.D2D1P4, data.ip4_addr[7], 24, family=data.af_ipv4)
@@ -636,3 +638,67 @@ def test_ft_verify_interfaces_order():
     if flag == 0:
         st.report_fail("test_case_failed")
     st.report_pass("test_case_passed")
+
+
+@pytest.fixture(scope="function")
+def ceta_31902_fixture(request,ip_module_hooks):
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P2, data.ip6_addr[1],
+                                                           96, family=data.af_ipv6,config="remove")
+    vlan_obj.create_vlan(vars.D1, [data.host1_vlan,data.host2_vlan])
+    vlan_obj.add_vlan_member(vars.D1, data.host1_vlan, [vars.D1T1P1,vars.D1T1P2], tagging_mode=True)
+    vlan_obj.add_vlan_member(vars.D1, data.host2_vlan, [vars.D1T1P1, vars.D1T1P2], tagging_mode=True)
+    ipfeature.config_ip_addr_interface(vars.D1, "Vlan"+data.host1_vlan, data.vlan1_ip, 24, family=data.af_ipv4)
+    ipfeature.config_ip_addr_interface(vars.D1, "Vlan" + data.host2_vlan, data.vlan2_ip, 24, family=data.af_ipv4)
+    yield
+    ipfeature.delete_ip_interface(vars.D1, "Vlan"+data.host1_vlan, data.vlan1_ip, "24", family="ipv4")
+    ipfeature.delete_ip_interface(vars.D1, "Vlan"+data.host2_vlan, data.vlan2_ip, "24", family="ipv4")
+    vlan_obj.delete_vlan_member(vars.D1, data.host1_vlan, [vars.D1T1P1, vars.D1T1P2], True)
+    vlan_obj.delete_vlan_member(vars.D1, data.host2_vlan, [vars.D1T1P1, vars.D1T1P2], True)
+    vlan_obj.delete_vlan(vars.D1, [data.host1_vlan,data.host2_vlan])
+    ipfeature.config_ip_addr_interface(vars.D1, vars.D1T1P2, data.ip6_addr[1], 96, family=data.af_ipv6)
+
+
+def test_Ceta_31902(ceta_31902_fixture):
+    success=True
+    mac_obj.config_mac(dut=vars.D1,mac=data.host1_mac, vlan=data.host1_vlan, intf=vars.D1T1P1)
+    arp_obj.add_static_arp(dut=vars.D1, ipaddress=data_tg_ip, macaddress=data.host1_mac,
+                       interface="Vlan"+data.host1_vlan)
+
+    arp_obj.add_static_arp(dut=vars.D1, ipaddress=data_tg_ip, macaddress=data.host2_mac,
+                       interface="Vlan"+data.host2_vlan)
+    arp_obj.delete_static_arp(dut=vars.D1, ipaddress=data_tg_ip, interface="Vlan"+data.host2_vlan, mac=data.host2_mac)
+
+    arp_obj.add_static_arp(dut=vars.D1, ipaddress=data_tg_ip, macaddress=data.host2_mac,
+                       interface="Vlan"+data.host1_vlan)
+    arp_obj.delete_static_arp(dut=vars.D1, ipaddress=data_tg_ip, interface="Vlan"+data.host1_vlan, mac=data.host2_mac)
+
+    mac_obj.config_mac(dut=vars.D1,mac=data.host2_mac, vlan=data.host1_vlan, intf=vars.D1T1P2)
+    arp_obj.add_static_arp(dut=vars.D1, ipaddress=data_tg_ip, macaddress=data.host2_mac,
+                       interface="Vlan"+data.host1_vlan)
+
+    mac_obj.delete_mac(dut=vars.D1, mac=data.host1_mac, vlan=data.host1_vlan)
+    mac_obj.config_mac(dut=vars.D1,mac=data.host1_mac, vlan=data.host1_vlan, intf=vars.D1T1P1)
+    l2_out = asicapi.get_l2_out(vars.D1, data.host2_mac)
+    l3_out = asicapi.get_l3_out(vars.D1, data.host2_mac)
+    if l2_out and l3_out:
+        l2_gport=l2_out[0]["gport"][9]
+        l3_port=l3_out[0]["port"]
+        if l2_gport == l3_port:
+            st.log("MAC {} points port {} correctly in both ARP and MAC table".format(data.host2_mac,l2_gport))
+        else:
+            success=False
+            st.error("MAC and ARP table are NOT in SYNC; "
+                     "MAC {} points to gport {} in \"l2 show\""
+                     "but in \"l3 egress show\" it is port {}".format(data.host2_mac,l2_gport,l3_port))
+    else:
+        success=False
+        st.error("MAC NOT present in \"l2 show\" or \"l3 egress show\" output")
+
+    arp_obj.delete_static_arp(dut=vars.D1, ipaddress=data_tg_ip, interface="Vlan"+data.host1_vlan, mac=data.host2_mac)
+    mac_obj.delete_mac(dut=vars.D1, mac=data.host1_mac, vlan=data.host1_vlan)
+    mac_obj.delete_mac(dut=vars.D1, mac=data.host2_mac, vlan=data.host1_vlan)
+
+    if success:
+        st.report_pass("test_case_id_passed", "test_Ceta_31902")
+    else:
+        st.report_fail("test_case_id_failed", "test_Ceta_31902")

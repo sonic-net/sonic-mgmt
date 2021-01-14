@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuite errors="0" failures="0" name="pytest" skipped="1" tests="2" time="109.472">
+    <properties>
+        <property name="topology" value="t0"/>
+        <property name="timestamp" value="2020-09-14 18:24:19.675190" />
+        <property name="testbed" value="vms-kvm-t0" />
+        <property name="host" value="vlab-01"/>
+        <property name="asic" value="vs"/>
+        <property name="platform" value="x86_64-kvm_x86_64-r0"/>
+        <property name="hwsku" value="Force10-S6000"/>
+        <property name="os_version" value="master.449-9c22d19b"/>
+    </properties>
+    <testcase classname="bgp.test_bgp" file="bgp/test_bgp.py" line="161" name="test_bgp_fact" time="109.472" />
+    <testcase classname="acl.test_acl" file="acl/test_acl.py" line="369" name="test_acl_2" time="0.0">
+        <skipped message="test machine skipped">
+            a descriptive skip message
+        </skipped>
+    </testcase>
+</testsuite>

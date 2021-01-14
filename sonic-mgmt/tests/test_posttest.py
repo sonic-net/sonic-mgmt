@@ -1,6 +1,6 @@
 import pytest
 import logging
-import os.path
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,8 @@ pytestmark = [
 ]
 
 
-def test_collect_techsupport(duthost):
+def test_collect_techsupport(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
     """
     A util for collecting techsupport after tests.
 
@@ -30,3 +31,30 @@ def test_collect_techsupport(duthost):
         duthost.fetch(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     assert True
+
+
+def test_restore_container_autorestart(duthosts, enum_dut_hostname, enable_container_autorestart):
+    duthost = duthosts[enum_dut_hostname]
+    enable_container_autorestart(duthost)
+    # Wait sometime for snmp reloading
+    SNMP_RELOADING_TIME = 30
+    time.sleep(SNMP_RELOADING_TIME)
+
+def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
+    features_dict, succeed = duthost.get_feature_status()
+    if not succeed:
+        # Something unexpected happened.
+        # We don't want to fail here because it's an util
+        logging.warn("Failed to retrieve feature status")
+        return
+    cmd_enable_rate_limit = r"docker exec -i {} sed -i 's/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' /etc/rsyslog.conf"
+    cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
+    for feature_name, state in features_dict.items():
+        if state == "disabled":
+            continue
+        cmds = []
+        cmds.append(cmd_enable_rate_limit.format(feature_name))
+        cmds.append(cmd_reload.format(feature_name))
+        duthost.shell_cmds(cmds=cmds)
+

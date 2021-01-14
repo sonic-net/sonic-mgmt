@@ -1,0 +1,6 @@
+Value List port_list (\S+)
+
+Start
+  ^\s*Ports\s+disabled\s+due\s+to\s+MAC\s+Dampening:\s*$$
+  ^${port_list}$$
+  

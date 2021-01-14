@@ -6,6 +6,9 @@ Value Minutes (\d+)
 Value Seconds (\d+)
 Value Timezone (\S+)
 Value Year (\d+)
+Value Noon (\S+)
 
 Start
   ^${Day}\s+${Month}\s+${MonthDay}\s+${Hours}:${Minutes}:${Seconds}\s+${Timezone}\s+${Year}$$ -> Record
+  ^${Day}\s*${MonthDay}\s+${Month}\s*${Year}\s*${Hours}:${Minutes}:${Seconds}\s*${Noon}\s*${Timezone}$$ -> Record
+  ^${Day},\s*${MonthDay}\s+${Month}\s*${Year}\s*${Hours}:${Minutes}:${Seconds}\s*${Timezone}$$ -> Record

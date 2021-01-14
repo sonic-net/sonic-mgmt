@@ -1,0 +1,94 @@
+- name: update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+  environment: "{{ proxy_env | default({}) }}" 
+
+- name: Install haproxy
+  apt: name=haproxy state=present
+  environment: "{{ proxy_env | default({}) }}" 
+
+- name: Enable init script
+  replace: dest='/etc/default/haproxy'
+         regexp='ENABLED=0'
+         replace='ENABLED=1'
+
+- name: Setup haproxy config file
+  template:
+    src: haproxy.j2
+    dest: /etc/haproxy/haproxy.cfg
+    backup: yes
+
+- name: Restart HAProxy
+  become: yes
+  service: name=haproxy state=restarted
+
+- name: Allow necessary ports for ufw
+  become: yes
+  ufw:
+    rule: allow
+    port: '{{ item }}'
+  with_items: 
+    - '{{ http_port }}'
+    - '{{ ssl_port }}'
+    - '{{ ssh_port }}'
+    - '{{ k8s_port }}'
+
+- name: Enable ufw
+  become: yes
+  ufw:
+    state: enabled
+    policy: deny
+
+- name: Install Apache
+  apt: name=apache2 update_cache=yes state=latest
+  environment: "{{ proxy_env | default({}) }}" 
+
+- name: Create document root
+  file:
+    path: "/var/www/html"
+    state: directory
+    mode: '755'
+
+- name: Create SSL certificate root directory
+  become: yes
+  file:
+    path: "/etc/apache2/ssl"
+    state: directory
+
+- name: Generate SSL private key
+  openssl_privatekey:
+    path: /etc/apache2/ssl/apache.key
+    size: 2048
+
+- name: Generate certificate signing request
+  openssl_csr:
+    path: /etc/apache2/ssl/apache.csr
+    privatekey_path: /etc/apache2/ssl/apache.key
+
+- name: Set up certificates for Apache SSL
+  openssl_certificate:
+    path: /etc/apache2/ssl/apache.crt
+    privatekey_path: /etc/apache2/ssl/apache.key
+    csr_path: /etc/apache2/ssl/apache.csr
+    provider: selfsigned
+
+- name: Set up Apache SSL
+  template:
+    src: "default-ssl.conf.j2"
+    dest: "/etc/apache2/sites-available/default-ssl.conf"
+
+- name: Enable Apache SSL
+  shell: |
+    sudo a2enmod ssl
+    sudo a2ensite default-ssl.conf
+    
+- name: Reload Apache
+  become: yes
+  service:
+    name: apache2
+    state: reloaded
+
+- name: Restart Apache
+  become: yes
+  service:
+    name: apache2
+    state: restarted

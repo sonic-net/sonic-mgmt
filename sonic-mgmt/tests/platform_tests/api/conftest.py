@@ -45,7 +45,6 @@ def start_platform_api_service(duthost, localhost):
         # Reload the supervisor config and Start the HTTP server
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
-        duthost.command('docker exec -i pmon supervisorctl start platform_api_server.conf')
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
         assert 'exception' not in res

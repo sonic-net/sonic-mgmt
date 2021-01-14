@@ -1,0 +1,368 @@
+{
+    "sample-testbed": {
+        "sample-dut": {
+            "intf_status": {
+                "Ethernet8": {
+                    "alias": "etp3", 
+                    "oper_state": "up", 
+                    "name": "Ethernet8", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0005", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "PortChannel0005": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0005", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "Ethernet0": {
+                    "alias": "etp1", 
+                    "oper_state": "up", 
+                    "name": "Ethernet0", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0002", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet4": {
+                    "alias": "etp2", 
+                    "oper_state": "up", 
+                    "name": "Ethernet4", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0002", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet108": {
+                    "alias": "etp28", 
+                    "oper_state": "up", 
+                    "name": "Ethernet108", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet100": {
+                    "alias": "etp26", 
+                    "oper_state": "up", 
+                    "name": "Ethernet100", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet104": {
+                    "alias": "etp27", 
+                    "oper_state": "up", 
+                    "name": "Ethernet104", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "PortChannel0008": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0008", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "Ethernet96": {
+                    "alias": "etp25", 
+                    "oper_state": "up", 
+                    "name": "Ethernet96", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet124": {
+                    "alias": "etp32", 
+                    "oper_state": "up", 
+                    "name": "Ethernet124", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet92": {
+                    "alias": "etp24", 
+                    "oper_state": "up", 
+                    "name": "Ethernet92", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet120": {
+                    "alias": "etp31", 
+                    "oper_state": "up", 
+                    "name": "Ethernet120", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet52": {
+                    "alias": "etp14", 
+                    "oper_state": "up", 
+                    "name": "Ethernet52", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0020", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "PortChannel0002": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0002", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "PortChannel0023": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0023", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "Ethernet56": {
+                    "alias": "etp15", 
+                    "oper_state": "up", 
+                    "name": "Ethernet56", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0023", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "PortChannel0020": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0020", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "Ethernet76": {
+                    "alias": "etp20", 
+                    "oper_state": "up", 
+                    "name": "Ethernet76", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet72": {
+                    "alias": "etp19", 
+                    "oper_state": "up", 
+                    "name": "Ethernet72", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet32": {
+                    "alias": "etp9", 
+                    "oper_state": "up", 
+                    "name": "Ethernet32", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0014", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet16": {
+                    "alias": "etp5", 
+                    "oper_state": "up", 
+                    "name": "Ethernet16", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0008", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet36": {
+                    "alias": "etp10", 
+                    "oper_state": "up", 
+                    "name": "Ethernet36", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0014", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet12": {
+                    "alias": "etp4", 
+                    "oper_state": "up", 
+                    "name": "Ethernet12", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0005", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet28": {
+                    "alias": "etp8", 
+                    "oper_state": "up", 
+                    "name": "Ethernet28", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0011", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet88": {
+                    "alias": "etp23", 
+                    "oper_state": "up", 
+                    "name": "Ethernet88", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet24": {
+                    "alias": "etp7", 
+                    "oper_state": "up", 
+                    "name": "Ethernet24", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0011", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet116": {
+                    "alias": "etp30", 
+                    "oper_state": "up", 
+                    "name": "Ethernet116", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet80": {
+                    "alias": "etp21", 
+                    "oper_state": "up", 
+                    "name": "Ethernet80", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet112": {
+                    "alias": "etp29", 
+                    "oper_state": "up", 
+                    "name": "Ethernet112", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet84": {
+                    "alias": "etp22", 
+                    "oper_state": "up", 
+                    "name": "Ethernet84", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "PortChannel0017": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0017", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "PortChannel0014": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0014", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "Ethernet48": {
+                    "alias": "etp13", 
+                    "oper_state": "up", 
+                    "name": "Ethernet48", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0020", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet44": {
+                    "alias": "etp12", 
+                    "oper_state": "up", 
+                    "name": "Ethernet44", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0017", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet40": {
+                    "alias": "etp11", 
+                    "oper_state": "up", 
+                    "name": "Ethernet40", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0017", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet64": {
+                    "alias": "etp17", 
+                    "oper_state": "up", 
+                    "name": "Ethernet64", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "PortChannel0011": {
+                    "alias": "N/A", 
+                    "oper_state": "up", 
+                    "name": "PortChannel0011", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "200G", 
+                    "fec": "N/A"
+                }, 
+                "Ethernet60": {
+                    "alias": "etp16", 
+                    "oper_state": "up", 
+                    "name": "Ethernet60", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0023", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet20": {
+                    "alias": "etp6", 
+                    "oper_state": "up", 
+                    "name": "Ethernet20", 
+                    "admin_state": "up", 
+                    "vlan": "PortChannel0008", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }, 
+                "Ethernet68": {
+                    "alias": "etp18", 
+                    "oper_state": "up", 
+                    "name": "Ethernet68", 
+                    "admin_state": "up", 
+                    "vlan": "routed", 
+                    "speed": "100G", 
+                    "fec": "rs"
+                }
+            }
+        }
+    }
+}

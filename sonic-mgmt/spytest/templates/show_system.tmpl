@@ -1,0 +1,10 @@
+Value Hostname (\S+)
+Value Boot_Time (\S+)
+Value Current_Datetime (\S+)
+Value Domain_Name (\S+)
+
+Start
+  ^Hostname\s+:${Hostname}
+  ^Boot Time\s+:${Boot_Time}
+  ^Current Datetime\s+:${Current_Datetime}
+  ^Domain Name\s+:${Domain_Name} -> Record
