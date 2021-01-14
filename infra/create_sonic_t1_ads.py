@@ -308,7 +308,8 @@ def upload_tb_files(data,topo_type):
         ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
         ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
         ftp_client.put('testbed-sherman-t0.yaml','sonic-test/sonic-mgmt/ansible/testbed-sherman-t1.yaml')
-        ftp_client.put('topo_t0.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+        ftp_client.put('t0-leaf.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
+
     else:
         ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
         ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
