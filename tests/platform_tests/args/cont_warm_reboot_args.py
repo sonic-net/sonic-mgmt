@@ -38,3 +38,10 @@ def add_cont_warm_reboot_args(parser):
         default="current",
         help="Comma separated list of images to be installed during continuous reboot test",
     )
+
+    parser.addoption(
+        "--skip_image_install",
+        type=bool,
+        default=False,
+        help="Skip image installation and run test on installed image in DUT",
+    )

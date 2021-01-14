@@ -59,6 +59,7 @@ class ContinuousReboot:
         self.continuous_reboot_delay = request.config.getoption("--continuous_reboot_delay")
         self.reboot_type = request.config.getoption("--reboot_type")
         self.image_location = request.config.getoption("--image_location")
+        self.skip_image_install = request.config.getoption("--skip_image_install")
         self.image_list = request.config.getoption("--image_list")
         self.current_image = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         self.test_report = dict()
@@ -160,6 +161,13 @@ class ContinuousReboot:
         @param dut: The AnsibleHost object of DUT.
         @param interfaces: DUT's interfaces defined by minigraph
         """
+        logging.info("Check if all the interfaces are operational")
+        result = checks.check_interfaces(self.duthost)
+        if result["failed"]:
+            raise ContinuousRebootError("Interface check failed, not all interfaces are up")
+
+        if self.duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            return
         logging.info("Check whether transceiver information of all ports are in redis")
         xcvr_info = self.duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
         parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
@@ -167,11 +175,6 @@ class ContinuousReboot:
         for intf in interfaces:
             if intf not in parsed_xcvr_info:
                 raise ContinuousRebootError("TRANSCEIVER INFO of {} is not found in DB".format(intf))
-
-        logging.info("Check if all the interfaces are operational")
-        result = checks.check_interfaces(self.duthost)
-        if result["failed"]:
-            raise ContinuousRebootError("Interface check failed, not all interfaces are up")
 
 
     @handle_test_error
@@ -247,21 +250,24 @@ class ContinuousReboot:
 
 
     def handle_image_installation(self, count):
-        with open(self.input_file, "r") as f:
-            try:
-                install_info = json.load(f)
-                image_install_list = install_info.get('install_list').split(",")
-                # Use modulus operator to cycle through the image_install_list per reboot iteration
-                self.new_image = image_install_list[count % len(image_install_list)].strip()
-                image_path = install_info.get('location').strip() + "/" + self.new_image
-                file_exists = self.duthost.command("curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),\
-                    module_ignore_errors=True)["stdout"]
-                if file_exists != '200':
-                    logging.info("Remote image file {} does not exist. Curl returned: {}".format(image_path, file_exists))
-                    logging.warn("Continuing the test with current image")
-                    self.new_image = "current"
-            except ValueError:
-                logging.warn("Invalid json file, continuing the reboot test with old list of images")
+        if self.skip_image_install:
+            self.new_image = "current"
+        else:
+            with open(self.input_file, "r") as f:
+                try:
+                    install_info = json.load(f)
+                    image_install_list = install_info.get('install_list').split(",")
+                    # Use modulus operator to cycle through the image_install_list per reboot iteration
+                    self.new_image = image_install_list[count % len(image_install_list)].strip()
+                    image_path = install_info.get('location').strip() + "/" + self.new_image
+                    file_exists = self.duthost.command("curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),\
+                        module_ignore_errors=True)["stdout"]
+                    if file_exists != '200':
+                        logging.info("Remote image file {} does not exist. Curl returned: {}".format(image_path, file_exists))
+                        logging.warn("Continuing the test with current image")
+                        self.new_image = "current"
+                except ValueError:
+                    logging.warn("Invalid json file, continuing the reboot test with old list of images")
 
         if self.new_image == "current":
             logging.info("Next image is set to current - skip image installation")
@@ -429,6 +435,7 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
+@pytest.mark.device_type('vs')
 def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.

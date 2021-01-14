@@ -140,7 +140,8 @@ def get_reboot_type(duthost):
     current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
     # warm-reboot has to be forced for an upgrade from 201811 to 201911 to bypass ASIC config changed error
-    if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201911' in next_os_version:
+    if 'SONiC-OS-201811' in current_os_version and \
+                    ('SONiC-OS-201911' in next_os_version or 'SONiC-OS-202012' in next_os_version):
         reboot_type = "warm-reboot -f"
     else:
         reboot_type = "warm-reboot"
