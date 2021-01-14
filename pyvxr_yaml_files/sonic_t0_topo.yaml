@@ -57,33 +57,33 @@ connections:
     hub0:
       - ptf.eth[0..26]
       - sonic_dut.Ethernet[0..26]
-    custom:
-      ptf_injected28:
-        ports:
-        - ptf.eth27
-        - sonic_dut.Ethernet27
-        - veos28.Ethernet1
-      ptf_injected29:
-        ports:
-        - ptf.eth28
-        - sonic_dut.Ethernet28
-        - veos29.Ethernet1
-      ptf_injected30:
-        ports:
-        - ptf.eth29
-        - sonic_dut.Ethernet29
-        - veos30.Ethernet1
-      ptf_injected31:
-        ports:
-        - ptf.eth30
-        - sonic_dut.Ethernet30
-        - veos31.Ethernet1
-      ptf_injected32:
-        ports:
-        - ptf.eth31
-        - sonic_dut.Ethernet31
-        - veos32.Ethernet1
-      backplane:
-        ports:
-        - veos[1..32].Ethernet9
-        - ptf.eth32  
+  custom:
+    ptf_injected28:
+      ports:
+      - ptf.eth27
+      - sonic_dut.Ethernet27
+      - veos28.Ethernet1
+    ptf_injected29:
+      ports:
+      - ptf.eth28
+      - sonic_dut.Ethernet28
+      - veos29.Ethernet1
+    ptf_injected30:
+      ports:
+      - ptf.eth29
+      - sonic_dut.Ethernet29
+      - veos30.Ethernet1
+    ptf_injected31:
+      ports:
+      - ptf.eth30
+      - sonic_dut.Ethernet30
+      - veos31.Ethernet1
+    ptf_injected32:
+      ports:
+      - ptf.eth31
+      - sonic_dut.Ethernet31
+      - veos32.Ethernet1
+    backplane:
+      ports:
+      - veos[1..32].Ethernet9
+      - ptf.eth32  
