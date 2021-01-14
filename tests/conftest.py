@@ -91,6 +91,8 @@ def pytest_addoption(parser):
     ########################
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
+    parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
+                     help="Specify the url of the saithrift package to be installed on the ptf (should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
 
 
 @pytest.fixture(scope="session", autouse=True)
