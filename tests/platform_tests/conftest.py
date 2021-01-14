@@ -1,6 +1,7 @@
 import pytest
 import json
 import os
+import logging
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
@@ -28,9 +29,11 @@ def xcvr_skip_list(duthosts, rand_one_dut_hostname):
         for int_n in int_skip_info['interfaces']:
             if int_skip_info['interfaces'][int_n]['port_type'] == "RJ45":
                 intf_skip_list.append(int_n)
-    except:
-        # return empty list if hwsku.json does not exist
-        intf_skip_list = []
+
+    except Exception:
+        # hwsku.json does not exist will return empty skip list
+        logging.debug(
+            "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
 
     return intf_skip_list
 
