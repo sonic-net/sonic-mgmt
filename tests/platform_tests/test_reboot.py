@@ -61,7 +61,7 @@ def reboot_and_check(localhost, dut, interfaces, reboot_type=REBOOT_TYPE_COLD, r
     check_interfaces_and_services(dut, interfaces, reboot_type)
 
 
-def check_interfaces_and_services(dut, interfaces, reboot_type = None):
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type = None):
     """
     Perform a further check after reboot-cause, including transceiver status, interface status
     @param localhost: The Localhost object.
@@ -81,7 +81,7 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
             return
 
     logging.info("Wait %d seconds for all the transceivers to be detected" % MAX_WAIT_TIME_FOR_INTERFACES)
-    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces), \
+    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_interface_information, dut, interfaces, xcvr_skip_list), \
         "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
 
 
@@ -90,7 +90,7 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
         interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
-        check_transceiver_basic(dut, asic_index, interfaces_per_asic)
+        check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
     logging.info("Check pmon daemon status")
     assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
