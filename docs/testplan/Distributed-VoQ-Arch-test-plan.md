@@ -26,7 +26,7 @@ Redis CLI commands will be used for some validation until SONIC CLI commands are
 
 ## Scope
 
-The functionaity covered in this test plan is:
+The functionalty covered in this test plan is:
 * system ports, 
 * router interfaces, when configured on multiple cards, and
 * neighbors, when learned on local and remote ports. 
@@ -428,7 +428,7 @@ Verify tables, databases, and kernel routes are correctly deleted when a single 
 * Repeat with IPv4, IPv6, dual-stack.
 
 
-#### Test Case 3. Clear arp table via sonic command.
+#### Test Case 3. Clear ARP table via sonic command.
 ##### Test Objective
 Verify tables, databases, and kernel routes are correctly deleted when the entire neighbor table is cleared.
 ##### Test Steps
@@ -480,14 +480,14 @@ Verify tables, databases, and kernel routes are correctly updated when receiving
 * Verify that packets can be sent from local and remote linecards to learned address.
 * Repeat with IPv4, IPv6, dual-stack.
 
-#### Test Case 7. Gratuitous ARP - Known IP - Mac change
+#### Test Case 6. Gratuitous ARP - Known IP - Mac change
 ##### Test Objective
 Verify tables, databases, and kernel routes are correctly updated when a unsolicited ARP packet changes the MAC address of learned neighbor.
 ##### Test Steps
 * Send unsolicited ARP packet into DUT for an IP known by DUT with a different MAC address for the neighbor.
 * Change the MAC address of the neighbor VM.
 * On local linecard:
-    * Verify table entries in local ASIC, APP, and host arp table are updated with new MAC.
+    * Verify table entries in local ASIC, APP, and host ARP table are updated with new MAC.
 * On supervisor card:
     * Verify Chassis App DB entry is correct for with the updated MAC address. 
 * On remote linecards:
@@ -497,14 +497,14 @@ Verify tables, databases, and kernel routes are correctly updated when a unsolic
 * Verify that packets can be sent from local and remote linecards to learned address.
 * Repeat with IPv4, IPv6, dual-stack.
 
-#### Test Case 8. ARP Request/Reply - Mac change
+#### Test Case 7. ARP Request/Reply - Mac change
 ##### Test Objective
 Verify tables, databases, and kernel routes are correctly updated when the MAC address of a neighbor changes and is updated via request/reply exchange.
 ##### Test Steps
 * Change the MAC address on a remote host that is already present in the ARP table.
 * Without clearing the entry in the DUT, allow the existing entry to time out and the new reply to have the new MAC address.
 * On local linecard:
-    * Verify table entries in local ASIC, APP, and host arp table are updated with new MAC.
+    * Verify table entries in local ASIC, APP, and host ARP table are updated with new MAC.
 * On supervisor card:
     * Verify Chassis App DB entry is correct for with the updated MAC address. 
 * On remote linecards:
@@ -514,7 +514,7 @@ Verify tables, databases, and kernel routes are correctly updated when the MAC a
 * Verify that packets can be sent from local and remote linecards to the learned address.
 * Repeat with IPv4, IPv6, dual-stack.
 
-#### Test Case 9. Disruptive Events
+#### Test Case 8. Disruptive Events
 ##### Test Objective
 Verify port, router interface, and neighbor recovery after disruptive events.
 ##### Test Steps
@@ -549,7 +549,7 @@ Verify Chassis App DB is updated with new interface entry when a new IP Interfac
 ##### Test Objective
 Verify Chassis App DB is updated with new interface entry when an IP interface is removed from a port.
 ##### Test Steps
-* Remove IP configuration from a previouslyy configured port by removing the minigraph configuration for that port 
+* Remove IP configuration from a previously configured port by removing the minigraph configuration for that port 
 on the linecard minigraph.
 * Reload the new minigraph and line card.
 * On the line card:
@@ -740,6 +740,25 @@ Verify end to end routing IPv4/v6, packet sizes, ttl(0,1,2,255)
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6          
 
+#### Test Case 8. Front Panel port link flap
+##### Test Objective            
+Traffic to Sonic host interfaces recovers after the front panel port flaps.
+##### Test Steps
+* Admin down interface on fanout connected to DUT port A to cause LOS on DUT.
+* On linecard 1 verify ping is successful from: 
+    * DUT IP Interface B to DUT Interface D
+    * DUT Neighbor IP B to DUT Neighbor IP D
+* On Router 02T3, verify ping is successful from Router Interface to DUT IP Interface B and D.
+* On linecard 1, verify ping fails from:
+    * DUT IP Interface A to DUT IP interface B and D.
+    * DUT IP Interface A to attached neighbor.
+* On Router 01T3, verify ping fails to all DUT addresses.
+* On fanout switch, admin up the downed interface.
+* Validate all traffic flows are correct as in test cases 2-7.
+* Retry traffic with TTL 0,1,2,255
+* Retry traffic with 64, 1500, 9100B packets
+* Retry traffic with IPv6  
+
 ## VLAN Inband Mode <a name="inbandvlan"></a>
 
 #### Test Case 1. Inband VLAN mode configuration.
@@ -762,7 +781,7 @@ Verify neighbor adjacency as in [arp](#arp). Inband port will be replaced with V
 
 #### Test Case 3. Inband VLAN host connectivity
 ##### Test Objective 
-Verify host reachablilty as in [Host IP Connectivity](#ipfwd).  VLAN interface will replace inband port as next hop.
+Verify host reachability as in [Host IP Connectivity](#ipfwd).  VLAN interface will replace inband port as next hop.
 ##### Test Steps
 * Repeat traffic tests for:
     * router interface to remote ports,
@@ -773,7 +792,7 @@ Verify host reachablilty as in [Host IP Connectivity](#ipfwd).  VLAN interface w
 
 #### Test Case 4. Mode Switch.
 ##### Test Objective 
-Verify VoQ system can be swtiched between modes when configuration is replaced.
+Verify VoQ system can be switched between modes when configuration is replaced.
 ##### Test Steps
 * Regenerate configuration of VoQ system, switching device from inband port to inband VLAN.
 * Reboot the chassis.
