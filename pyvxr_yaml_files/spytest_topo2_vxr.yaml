@@ -47,7 +47,7 @@ devices:
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2.new
     linux_username: 'vxr'
     linux_password : 'cisco123'
     linux_prompt: 'vxr@ubuntu:~\$'

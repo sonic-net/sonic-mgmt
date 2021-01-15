@@ -30,20 +30,20 @@ def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
     parser.add_argument('-i', '--input_file', type=str, help='Input port file',
                       required=False,default=None)
-    parser.add_argument('-t', '--topo_yaml', type=str, help='topo yaml file',
+    parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
+    parser.add_argument('-t', '--topo_type', type=str, help='topo type',
+                      required=True,default='t1')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
                       required=False,default="admin")
-    parser.add_argument('-n', '--vEOS_count', type=int, help='Number of vEOS vm',
-                      required=False,default=32)
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     return parser
 
 
-def deploy_mg(data):
+def deploy_mg(data,base_topo_file):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -76,7 +76,7 @@ def deploy_mg(data):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
-    chan.send('python TestbedProcessing.py -i testbed-sherman-t1.yaml \n')
+    chan.send('python TestbedProcessing.py -i {} \n'.format(base_topo_file))
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
@@ -130,8 +130,8 @@ def vEOS_inital_cfg(data,vEOS_count):
         add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout)
 
 
-def create_testbed_file(data):    
-    input_file = "testbed-sherman-t1.yaml"
+def create_testbed_file(data,base_topo_file,vEOS_count):    
+    input_file = base_topo_file
     with open(input_file) as f:
         tdata = yaml.load(f, Loader=yaml.FullLoader)
         f.close()
@@ -141,7 +141,8 @@ def create_testbed_file(data):
     tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['ptf']['xr_mgmt_ip'] + '/24'
     base = 100
-    for i in range (1,33):
+
+    for i in range (1,vEOS_count+1):
         tdata['veos']['vms_1']['VM0' + str(base)]['ansible_host'] = data['veos'+str(i)]['xr_mgmt_ip']
         base +=1
 
@@ -288,27 +289,34 @@ def add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout):
     time.sleep(1)
     tn.close()
 
-def download_mg(data):
+def download_mg(data,topo_type):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
-    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/sherman-01.t1.xml', 'minigraph.xml')
+    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/sherman-01.{}.xml'.format(topo_type), 'minigraph.xml')
     ftp_client.close()
     ssh.close()
 
-def upload_t1_files(data):
+def upload_tb_files(data,topo_type,base_topo_file):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
-    ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
-    ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
-    ftp_client.put('t1-spine.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
-    ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
-    ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
-    ftp_client.put('testbed-sherman-t1.yaml','sonic-test/sonic-mgmt/ansible/testbed-sherman-t1.yaml')
-    ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+    if topo_type == 't0':
+        ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
+        ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
+        ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
+        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
+        ftp_client.put('t0-leaf.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
+    else:
+        ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
+        ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
+        ftp_client.put('t1-spine.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
+        ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
+        ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
+        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
+        ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):
@@ -323,6 +331,7 @@ def replace_dut_mgmt_address(data):
     with open('config_db_current.json') as cfg_file:
         cfg_data = json.load(cfg_file)
         current_mgm_intf = cfg_data["MGMT_INTERFACE"]
+        current_mac = cfg_data["DEVICE_METADATA"]["localhost"]["mac"]
         print(cfg_data["MGMT_INTERFACE"])
         cfg_file.close()
 
@@ -332,6 +341,7 @@ def replace_dut_mgmt_address(data):
         
     with open('config_db.json','w') as cfg_file:
         cfg_data["MGMT_INTERFACE"] = current_mgm_intf
+        cfg_data["DEVICE_METADATA"]["localhost"]["mac"] = current_mac
         json.dump(cfg_data, cfg_file, indent=4)
         cfg_file.close()
 
@@ -422,13 +432,22 @@ def main():
     clean_sim = args['clean_sim']
     dut_passwd = args['dut_passwd']
     dut_uname = args['dut_uname']
+    topo_type = args['topo_type']
+    if topo_type == 't0':
+        base_topo_file = 'testbed-sherman-t0.yaml'
+        os.system("cp sonic_t0_topo/* .")
+        vEOS_count = 4
+    else:
+        base_topo_file = 'testbed-sherman-t1.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 32
+
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd clean")
-    os.system("cp sonic_t1_topo/* .")
+    
     os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd start {}".format(topo_yaml))
     os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd ports > vxr_ports.yaml")
     input_file = args['input_file']
-    vEOS_count = args['vEOS_count']
     
     if input_file is None:
         input_file = "vxr_ports.yaml"
@@ -445,11 +464,11 @@ def main():
 
     # Create testbed file based on vxr_ports 
     print("****** Create testbed file based on vxr_ports *******")
-    create_testbed_file(data)
+    create_testbed_file(data,base_topo_file,vEOS_count)
 
     # Upload t1 specific files to sonic mgmt container
-    print("********** Upload t1 specific files to sonic mgmt container ***********")
-    upload_t1_files(data)
+    print("********** Upload testbed specific files to sonic mgmt container ***********")
+    upload_tb_files(data,topo_type,base_topo_file)
 
     # Change DUT password and set mgmt ip address
     print("********** Change DUT password and set mgmt ip address ***********")
@@ -457,11 +476,11 @@ def main():
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
-    deploy_mg(data)
+    deploy_mg(data,base_topo_file)
 
     # Start docker container, deploy DUT minigraph
     print("********** Download DUT minigraph ***********")
-    download_mg(data)
+    download_mg(data,topo_type)
 
     # Replace DUT Mgmt Address
     print("********** Replace DUT Mgmt Address ***********")
