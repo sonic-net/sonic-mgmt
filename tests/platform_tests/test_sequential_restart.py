@@ -53,7 +53,8 @@ def restart_service_and_check(localhost, dut, service, interfaces):
 
     logging.info("Restart the %s service" % service)
     for asic_index in dut.get_asic_ids():
-        service_name = dut.get_service_name(service, asic_index)
+        asichost = dut.get_asic(asic_index)
+        service_name = asichost.get_service_name(service)
         dut.command("sudo systemctl restart {}".format(service_name))
 
     for container in dut.get_default_critical_services_list():

@@ -110,6 +110,7 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces):
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check detailed TRANSCEIVER_DOM_SENSOR information of each connected ports")
+    asichost = dut.get_asic(asic_index)
     expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
     for intf in interfaces:

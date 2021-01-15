@@ -120,10 +120,11 @@ def test_fast_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
     @summary: This test case is to perform cold reboot and check platform status
     """
 
+    duthost = duthosts[rand_one_dut_hostname]
+
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
 
-    duthost = duthosts[rand_one_dut_hostname]
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], reboot_type=REBOOT_TYPE_FAST)
 
 
@@ -132,10 +133,11 @@ def test_warm_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
     @summary: This test case is to perform cold reboot and check platform status
     """
 
+    duthost = duthosts[rand_one_dut_hostname]
+
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting warm reboot")
 
-    duthost = duthosts[rand_one_dut_hostname]
     asic_type = duthost.facts["asic_type"]
 
     if asic_type in ["mellanox"]:

@@ -22,7 +22,7 @@ def test_xcvr_info_in_db(duthosts, rand_one_dut_hostname, enum_frontend_asic_ind
     """
     duthost = duthosts[rand_one_dut_hostname]
     logging.info("Check transceiver status")
-    all_interfaces = conn_graph_facts["device_conn"]
+    all_interfaces = conn_graph_facts["device_conn"][duthost.hostname]
 
     if enum_frontend_asic_index is not None:
         # Get the interface pertaining to that asic
