@@ -434,14 +434,16 @@ def main():
     topo_type = args['topo_type']
     if topo_type == 't0':
         base_topo_file = 'testbed-sherman-t0.yaml'
+        os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
     else:
         base_topo_file = 'testbed-sherman-t1.yaml'
+        os.system("cp sonic_t1_topo/* .")
         vEOS_count = 32
 
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd clean")
-    os.system("cp sonic_t1_topo/* .")
+    
     os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd start {}".format(topo_yaml))
     os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd ports > vxr_ports.yaml")
     input_file = args['input_file']
