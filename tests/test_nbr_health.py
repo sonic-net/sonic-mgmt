@@ -7,7 +7,7 @@ from common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any', 't2'),
+    pytest.mark.topology('any'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
     pytest.mark.pretest,
