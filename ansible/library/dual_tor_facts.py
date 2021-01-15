@@ -49,8 +49,9 @@ class DualTorParser:
     def generate_cable_names(self):
         cables = []
 
-        for vm in sorted(self.vm_config['vm'].keys()):
-            name = '{}-{}-SC'.format(self.hostname, vm)
+        dut_index = list(sorted(self.testbed_facts['duts'])).index(self.hostname)
+        for server_num in sorted(self.vm_config['host_interfaces_by_dut'][dut_index]):
+            name = '{}-Server{}-SC'.format(self.hostname, server_num + 1)
             cables.append(name)
 
         self.dual_tor_facts['cables'] = cables
