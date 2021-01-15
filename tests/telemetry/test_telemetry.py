@@ -4,6 +4,7 @@ import logging
 import re
 import pytest
 
+from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, wait_tcp_connection
 
@@ -103,6 +104,12 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
     pytest_assert(file_exists["stat"]["exists"] is True)
 
+def skip_201911_and_older(duthost):
+    """ Skip the current test if the DUT version is 201911 or older.
+    """
+    if parse_version(duthost.kernel_version) <= parse_version('4.9.0'):
+        pytest.skip("Test not supported for 201911 images. Skipping the test")
+
 # Test functions
 def test_config_db_parameters(duthosts, rand_one_dut_hostname):
     """Verifies required telemetry parameters from config_db.
@@ -166,6 +173,7 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """ Test osbuild/version query.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
@@ -181,6 +189,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     """
     logger.info("start test the dataset 'system uptime'")
     duthost = duthosts[rand_one_dut_hostname]
+    skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
     cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
@@ -223,6 +232,7 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
     logger.info('start virtual db sample streaming testing')
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
