@@ -233,7 +233,11 @@ def rand_one_frontend_dut_hostname(request):
     """
     tbname, testbedinfo = get_tbinfo(request)
     duts_in_testbed = testbedinfo["duts"]
-    frontend_dut_hostnames = generate_params_frontend_hostname(request, duts_in_testbed, tbname)
+    duts_vars = {}
+    inv_files = get_inventory_files(metafunc)
+    for dutname in _duthosts_in_testbed:
+      duts_vars_in_inv[dutname] = get_host_visible_vars(inv_files, dutname)
+    frontend_dut_hostnames = generate_params_frontend_hostname(request, duts_in_testbed, tbname, duts_vars)
     dut_hostnames = random.sample(frontend_dut_hostnames, 1)
     return dut_hostnames[0]
 
@@ -614,7 +618,6 @@ def get_host_data(request, dut):
 
 def generate_params_frontend_hostname(request, duts_in_testbed, tbname):
     frontend_duts = []
-    inv_files = get_inventory_files(request)
     for dut in duts_in_testbed:
         dut_vars = duts_vars[dut]
         if is_frontend_node_in_vars(dut_vars):
@@ -627,7 +630,6 @@ def generate_params_frontend_hostname(request, duts_in_testbed, tbname):
 
 def generate_params_frontend_hostname_rand_per_hwsku(request, duts_in_testbed, tbname, duts_vars):
     frontend_hosts = generate_params_frontend_hostname(request, duts_in_testbed, tbname, duts_vars)
-    inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
     for a_host in frontend_hosts:
@@ -660,7 +662,6 @@ def generate_params_supervisor_hostname(request, duts_in_testbed, tbname, duts_v
     if len(duts_in_testbed) == 1:
         # We have a single node - dealing with pizza box, return it
         return [duts_in_testbed[0]]
-    inv_files = get_inventory_files(request)
     for dut in duts_in_testbed:
         # Expecting only a single supervisor node
         dut_vars = duts_vars[dut]
@@ -815,7 +816,6 @@ def pytest_generate_tests(metafunc):
         inv_files = get_inventory_files(metafunc)
         for dutname in _duthosts_in_testbed:
             _duts_vars_in_inv[dutname] = get_host_visible_vars(inv_files, dutname)
-    logging.info('get tb info takes {}'.format(t2 - t1))
 
     # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
     if "enum_dut_index" in metafunc.fixturenames:
