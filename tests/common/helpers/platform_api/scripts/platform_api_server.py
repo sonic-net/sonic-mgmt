@@ -4,7 +4,6 @@ import json
 import os
 import sys
 import syslog
-from io import BytesIO
 
 # TODO: Clean this up once we no longer need to support Python 2
 if sys.version_info.major == 3:
@@ -94,10 +93,7 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         except NotImplementedError as e:
             syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
 
-        response = BytesIO()
-        response.write(json.dumps({'res': res}, default=obj_serialize).encode('ascii'))
-
-        self.wfile.write(response.getvalue())
+        self.wfile.write(json.dumps({'res': res}, default=obj_serialize).encode('utf-8'))
 
 
 if __name__ == '__main__':
