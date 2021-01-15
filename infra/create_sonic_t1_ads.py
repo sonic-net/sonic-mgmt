@@ -43,7 +43,7 @@ def _create_parser():
     return parser
 
 
-def deploy_mg(data):
+def deploy_mg(data,base_topo_file):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -76,7 +76,7 @@ def deploy_mg(data):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
-    chan.send('python TestbedProcessing.py -i testbed-sherman-t1.yaml \n')
+    chan.send('python TestbedProcessing.py -i {} \n'.format(base_topo_file))
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
@@ -289,16 +289,16 @@ def add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout):
     time.sleep(1)
     tn.close()
 
-def download_mg(data):
+def download_mg(data,topo_type):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
-    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/sherman-01.t1.xml', 'minigraph.xml')
+    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/sherman-01.{}.xml'.format(topo_type), 'minigraph.xml')
     ftp_client.close()
     ssh.close()
 
-def upload_tb_files(data,topo_type):
+def upload_tb_files(data,topo_type,base_topo_file):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -307,16 +307,15 @@ def upload_tb_files(data,topo_type):
         ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
         ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
         ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
-        ftp_client.put('testbed-sherman-t0.yaml','sonic-test/sonic-mgmt/ansible/testbed-sherman-t1.yaml')
+        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
         ftp_client.put('t0-leaf.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
-
     else:
         ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
         ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
         ftp_client.put('t1-spine.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
         ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
         ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
-        ftp_client.put('testbed-sherman-t1.yaml','sonic-test/sonic-mgmt/ansible/testbed-sherman-t1.yaml')
+        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
         ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
@@ -332,6 +331,7 @@ def replace_dut_mgmt_address(data):
     with open('config_db_current.json') as cfg_file:
         cfg_data = json.load(cfg_file)
         current_mgm_intf = cfg_data["MGMT_INTERFACE"]
+        current_mac = cfg_data["DEVICE_METADATA"]["localhost"]["mac"]
         print(cfg_data["MGMT_INTERFACE"])
         cfg_file.close()
 
@@ -341,6 +341,7 @@ def replace_dut_mgmt_address(data):
         
     with open('config_db.json','w') as cfg_file:
         cfg_data["MGMT_INTERFACE"] = current_mgm_intf
+        cfg_data["DEVICE_METADATA"]["localhost"]["mac"] = current_mac
         json.dump(cfg_data, cfg_file, indent=4)
         cfg_file.close()
 
@@ -467,7 +468,7 @@ def main():
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
-    upload_tb_files(data,topo_type)
+    upload_tb_files(data,topo_type,base_topo_file)
 
     # Change DUT password and set mgmt ip address
     print("********** Change DUT password and set mgmt ip address ***********")
@@ -475,11 +476,11 @@ def main():
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
-    deploy_mg(data)
+    deploy_mg(data,base_topo_file)
 
     # Start docker container, deploy DUT minigraph
     print("********** Download DUT minigraph ***********")
-    download_mg(data)
+    download_mg(data,topo_type)
 
     # Replace DUT Mgmt Address
     print("********** Replace DUT Mgmt Address ***********")
