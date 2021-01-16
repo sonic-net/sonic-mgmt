@@ -1,11 +1,13 @@
 from collections import defaultdict
 class DualTorParser:
 
-    def __init__(self, hostname, testbed_facts, host_vars, vm_config):
+    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs):
         self.hostname = hostname
         self.testbed_facts = testbed_facts
         self.host_vars = host_vars
         self.vm_config = vm_config
+        self.port_alias = port_alias
+        self.vlan_intfs = vlan_intfs
         self.dual_tor_facts = {}
 
     def parse_neighbor_tor(self):
@@ -49,9 +51,10 @@ class DualTorParser:
     def generate_cable_names(self):
         cables = []
 
-        for vm in sorted(self.vm_config['vm'].keys()):
-            name = '{}-{}-SC'.format(self.hostname, vm)
-            cables.append(name)
+        for server_num, dut_intf in enumerate(self.vlan_intfs):
+            name = '{}-Servers{}-SC'.format(self.hostname, server_num)
+            cable = {"hostname": name, "dut_intf": dut_intf}
+            cables.append(cable)
 
         self.dual_tor_facts['cables'] = cables
 
@@ -74,7 +77,9 @@ def main():
             hostname=dict(required=True, default=None, type='str'),
             testbed_facts=dict(required=True, default=None, type='dict'),
             hostvars=dict(required=True, default=None, type='dict'),
-            vm_config=dict(required=True, default=None, type='dict')
+            vm_config=dict(required=True, default=None, type='dict'),
+            port_alias=dict(required=True, default=None, type='list'),
+            vlan_intfs=dict(required=True, default=None, type='list')
         ),
         supports_check_mode=True
     )
@@ -84,8 +89,10 @@ def main():
     testbed_facts = m_args['testbed_facts']
     host_vars = m_args['hostvars']
     vm_config = m_args['vm_config']
+    port_alias = m_args['port_alias']
+    vlan_intfs = m_args['vlan_intfs']
     try:
-        dual_tor_parser = DualTorParser(hostname, testbed_facts, host_vars, vm_config)
+        dual_tor_parser = DualTorParser(hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs)
         module.exit_json(ansible_facts={'dual_tor_facts': dual_tor_parser.get_dual_tor_facts()})
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())

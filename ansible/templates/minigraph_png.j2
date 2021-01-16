@@ -11,16 +11,6 @@
         <StartDevice>{{ inventory_hostname }}</StartDevice>
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
       </DeviceLinkBase>
-{% if 'dualtor' in topo %}
-{% set cable_position = 'U' if inventory_hostname == dual_tor_facts['positions']['upper'] else 'L' %}
-      <DeviceLinkBase>
-        <ElementType>LogicalLink</ElementType>
-        <EndDevice>{{ inventory_hostname }}</EndDevice>
-        <EndPort>{{ port_alias[dut_intfs[if_index]] }}</EndPort>
-        <StartDevice>{{ dual_tor_facts['cables'][index] }}</StartDevice>
-        <StartPort>{{ cable_position }}</StartPort>
-      </DeviceLinkBase>
-{% endif %}
 {% endfor %}
 {% endfor %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
@@ -33,6 +23,18 @@
         <StartPort>eth0</StartPort>
       </DeviceLinkBase>
 {% endfor %}
+{% if 'dualtor' in topo %}
+{% set cable_position = 'U' if inventory_hostname == dual_tor_facts['positions']['upper'] else 'L' %}
+{% for cable in dual_tor_facts['cables'] %}
+      <DeviceLinkBase>
+        <ElementType>LogicalLink</ElementType>
+        <EndDevice>{{ inventory_hostname }}</EndDevice>
+        <EndPort>{{ cable['dut_intf'] }}</EndPort>
+        <StartDevice>{{ cable['hostname'] }}</StartDevice>
+        <StartPort>{{ cable_position }}</StartPort>
+      </DeviceLinkBase>
+{% endfor %}
+{% endif %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>
@@ -92,7 +94,7 @@
           <d5p1:IPPrefix>::/0</d5p1:IPPrefix>
         </ManagementAddressV6>
         <SerialNumber i:nil="true" />
-        <Hostname>cable</Hostname>
+        <Hostname>{{ cable['hostname'] }}</Hostname>
       </Device>
       <Device i:type="Server">
         <ElementType>Server</ElementType>
@@ -105,7 +107,7 @@
         <ManagementAddress xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
           <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
         </ManagementAddress>
-        <Hostname>Server{{ loop.index }}</Hostname>
+        <Hostname>Servers{{ loop.index - 1 }}</Hostname>
       </Device>
 {% endfor %}
 {% endif %}

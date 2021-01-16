@@ -65,34 +65,6 @@
   - topo_facts: topo={{ topo }}
     delegate_to: localhost
 
-  - name: set default dualtor facts
-    set_fact:
-      dual_tor_facts: {}
-    when: "'dualtor' not in topo"
-    
-  - name: gather dual ToR information
-    dual_tor_facts: hostname="{{ inventory_hostname }}" testbed_facts="{{ testbed_facts }}" hostvars="{{ hostvars }}" vm_config="{{ vm_topo_config }}"
-    delegate_to: localhost
-    when: "'dualtor' in topo"
-
-  - name: generate y_cable simulator driver
-    include_tasks: dualtor/config_y_cable_simulator.yml
-    when: "'dualtor' in topo"
-    
-  - name: set default vm file path
-    set_fact:
-      vm_file: veos
-    when: vm_file is not defined
-
-  - set_fact:
-      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
-      remote_dut: "{{ ansible_ssh_host }}"
-
-  - name: gather testbed VM informations
-    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
-    delegate_to: localhost
-    when: "VM_topo | bool"
-
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias: hwsku="{{ hwsku }}"
     when: deploy is defined and deploy|bool == true
@@ -111,6 +83,40 @@
       vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
     with_items: "{{ host_if_indexes }}"
     when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: set default dualtor facts
+    set_fact:
+      dual_tor_facts: {}
+    when: "'dualtor' not in topo"
+    
+  - name: gather dual ToR information
+    dual_tor_facts: 
+      hostname: "{{ inventory_hostname }}"
+      testbed_facts: "{{ testbed_facts }}"
+      hostvars: "{{ hostvars }}"
+      vm_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_intfs: "{{ vlan_intfs }}"
+    delegate_to: localhost
+    when: "'dualtor' in topo"
+
+  - name: generate y_cable simulator driver
+    include_tasks: dualtor/config_y_cable_simulator.yml
+    when: "'dualtor' in topo"
+
+  - name: set default vm file path
+    set_fact:
+      vm_file: veos
+    when: vm_file is not defined
+
+  - set_fact:
+      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      remote_dut: "{{ ansible_ssh_host }}"
+
+  - name: gather testbed VM informations
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
+    delegate_to: localhost
+    when: "VM_topo | bool"
 
   - name: find all vlan configurations for T0 topology
     vlan_config:
