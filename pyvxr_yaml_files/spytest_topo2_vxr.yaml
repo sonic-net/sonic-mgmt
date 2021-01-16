@@ -30,6 +30,10 @@ devices:
 
   spt:
     platform: spirent_cafy1
+    os_type: spirent
+    linux_username: admin
+    linux_password: spt_admin
+    linux_prompt: 'admin>>'
     spirent_images:
         windows: /auto/vxr/vxr_images/spirent/WindowsWithTestCenter_5_05
         api: /auto/vxr/vxr_images/spirent/Spirent_TestCenter_LabServer-5.05-dhcp.img
@@ -47,7 +51,7 @@ devices:
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2.new
+    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
     linux_username: 'vxr'
     linux_password : 'cisco123'
     linux_prompt: 'vxr@ubuntu:~\$'
