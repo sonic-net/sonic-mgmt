@@ -29,3 +29,4 @@ def ConsoleHost(console_type,
         "timeout": timeout_s
     }
     return ConsoleTypeMapper[console_type](**params)
+
