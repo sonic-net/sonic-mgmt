@@ -27,21 +27,25 @@ EOF
 inventory="veos_vtb"
 testbed_file="vtestbed.csv"
 refresh_dut=true
+exit_on_error=""
 SONIC_MGMT_DIR=/data/sonic-mgmt
 
-while getopts "ni:t:d:" opt; do
+while getopts "d:ei:nt:" opt; do
   case $opt in
-    n)
-      refresh_dut=""
+    d)
+      SONIC_MGMT_DIR=$OPTARG
       ;;
     i)
       inventory=$OPTARG
       ;;
+    e)
+      exit_on_error=true
+      ;;
+    n)
+      refresh_dut=""
+      ;;
     t)
       testbed_file=$OPTARG
-      ;;
-    d)
-      SONIC_MGMT_DIR=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -60,6 +64,22 @@ fi
 tbname=$1
 dut=$2
 
+RUNTEST_CLI_COMMON_OPTS="\
+-i $inventory \
+-d $dut \
+-n $tbname \
+-f $testbed_file \
+-k debug \
+-l warning \
+-m individual \
+-q 1 \
+-a False \
+-O \
+-r"
+
+if [ -n "$exit_on_error" ]; then
+    RUNTEST_CLI_COMMON_OPTS="$RUNTEST_CLI_COMMON_OPTS -E"
+fi
 
 if [ -f /data/pkey.txt ]; then
     pushd $HOME
@@ -85,20 +105,7 @@ popd
 export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
-export export ANSIBLE_KEEP_REMOTE_FILES=1
-
-PYTEST_CLI_COMMON_OPTS="\
--i $inventory \
--d $dut \
--n $tbname \
--f $testbed_file \
--k debug \
--l warning \
--m individual \
--q 1 \
--a False \
--O \
--r"
+export ANSIBLE_KEEP_REMOTE_FILES=1
 
 pushd $SONIC_MGMT_DIR/tests
 rm -rf logs
@@ -140,7 +147,7 @@ iface_namingmode/test_iface_namingmode.py \
 platform_tests/test_cpu_memory_usage.py \
 bgp/test_bgpmon.py"
 
-./run_tests.sh $PYTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
 popd
 
 # Create and deploy two vlan configuration (two_vlan_a) to the virtual switch
@@ -154,5 +161,5 @@ tgname=2vlans
 tests="dhcp_relay/test_dhcp_relay.py"
 
 pushd $SONIC_MGMT_DIR/tests
-./run_tests.sh $PYTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
 popd
