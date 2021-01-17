@@ -1,6 +1,4 @@
 import yaml
-import glob
-import jinja2
 
 try:
     from ansible.parsing.dataloader import DataLoader
@@ -50,7 +48,7 @@ class HostManager():
         self._dataloader = DataLoader()
         self._inv_mgr = InventoryManager(loader=self._dataloader, sources=inventory_files)
         self._var_mgr = VariableManager(loader=self._dataloader, inventory=self._inv_mgr)
-        
+
     def get_host_vars(self, hostname):
         host = self._inv_mgr.get_host(hostname)
         vars = self._var_mgr.get_vars(host=host)
@@ -73,7 +71,7 @@ class HostManager():
             if category in [group.name for group in host.groups]:
                 res.update({host.name: self.get_host_vars(host.name)})
         return res
-    
+
     def get_host_creds(self, hostname):
         res = {}
         host = self._inv_mgr.get_host(hostname)
@@ -113,5 +111,5 @@ class HostManager():
             res["console_password"][k] = v["passwd"]
 
         return res
-        
+
 

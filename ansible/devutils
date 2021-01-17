@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
-# Supress warning 
+# Supress warning
 import warnings
 warnings.filterwarnings("ignore")
 
 import argparse
-import os
 import subprocess
 from tabulate import tabulate
 
@@ -91,7 +90,7 @@ def action_dispatcher(parameters):
         parallel_run(parameters)
     else:
         parameters['action'](parameters)
-   
+
 
 def parallel_run(parameters):
     action = parameters['action']
