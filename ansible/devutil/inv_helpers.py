@@ -103,6 +103,15 @@ class HostManager():
                     res['username'] = vars['secret_group_vars'][cred['alias']][cred['username']]
                     res['password'] = [vars['secret_group_vars'][cred['alias']][p] for p in cred['password']]
                     break
+        # console username and password
+        console_login_creds = vars.get("console_login", {})
+        res["console_user"] = {}
+        res["console_password"] = {}
+
+        for k, v in console_login_creds.iteritems():
+            res["console_user"][k] = v["user"]
+            res["console_password"][k] = v["passwd"]
+
         return res
         
 

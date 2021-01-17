@@ -12,6 +12,9 @@ from tabulate import tabulate
 from devutil.inv_helpers import HostManager
 from devutil.ssh_utils import SSHClient
 from devutil.task_runner import TaskRunner
+import sys
+sys.path.append("..")
+from tests.common.connections.console_host import ConsoleHost
 
 g_inv_mgr = None
 g_task_runner = None
@@ -67,8 +70,18 @@ def action_ssh(parameters):
         client.connect(hostname=vars['ansible_host'], username=vars['creds']['username'], passwords=vars['creds']['password'])
         client.posix_shell()
 
-def action_console(kind, host, details, parameters):
-    print('Action console is not implemented')
+def action_console(parameters):
+    hosts = parameters['hosts']
+    # Todo: Retrieve console vars from conn_graph_fact
+    for name, vars in hosts.items():
+        console_host = ConsoleHost(console_type=vars['console_type'],
+                                    console_host=vars['console_host'],
+                                    console_port=vars['console_port'],
+                                    sonic_username=vars['creds']['username'],
+                                    sonic_password=vars['creds']['password'],
+                                    console_username=vars['creds']['console_user'][vars['console_type']],
+                                    console_password=vars['creds']['console_password'][vars['console_type']])
+        console_host.posix_shell()
 
 def action_dispatcher(parameters):
     # Actions that can run simultaneously in different hosts
