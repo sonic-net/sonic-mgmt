@@ -809,25 +809,38 @@ def pytest_generate_tests(metafunc):
     dut_indices = [0]
     global _duthosts_in_testbed, _frontend_hosts_per_hwsku_per_module
     tbname = None
-    if _duthosts_in_testbed is None:
-        tbname, testbedinfo = get_tbinfo(metafunc)
+   if _duthosts_in_testbed is None:
+        tbname, testbedinfo = get_tbinfo(request)
         _duthosts_in_testbed = testbedinfo["duts"]
         # Get vars defined for each DUT in the inventory
-        inv_files = get_inventory_files(metafunc)
+        inv_files = get_inventory_files(request)
         for dutname in _duthosts_in_testbed:
             _duts_vars_in_inv[dutname] = get_host_visible_vars(inv_files, dutname)
 
+    return tbname
+
+
+_frontend_hosts_per_hwsku_per_module = {}
+def pytest_generate_tests(metafunc):
+    # The topology always has atleast 1 dut
+    dut_indices = [0]
+    global _duthosts_in_testbed, _frontend_hosts_per_hwsku_per_module, _duts_vars_in_inv
+
     # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
     if "enum_dut_index" in metafunc.fixturenames:
+        tbname = _setup_duts_in_testbed(metafunc)
         dut_indices = generate_params_dut_index(_duthosts_in_testbed, tbname)
         metafunc.parametrize("enum_dut_index", dut_indices, scope="module")
     elif "enum_dut_hostname" in metafunc.fixturenames:
+        tbname = _setup_duts_in_testbed(metafunc)
         dut_hostnames = generate_params_dut_hostname(_duthosts_in_testbed, tbname)
         metafunc.parametrize("enum_dut_hostname", dut_hostnames, scope="module")
     elif "enum_supervisor_dut_hostname" in metafunc.fixturenames:
+        tbname = _setup_duts_in_testbed(metafunc)
         supervisor_hosts = generate_params_supervisor_hostname(metafunc, _duthosts_in_testbed, tbname, _duts_vars_in_inv)
         metafunc.parametrize("enum_supervisor_dut_hostname", supervisor_hosts, scope="module")
     elif "enum_frontend_dut_hostname" in metafunc.fixturenames:
+        tbname = _setup_duts_in_testbed(metafunc)
         frontend_hosts = generate_params_frontend_hostname(metafunc, _duthosts_in_testbed, tbname, _duts_vars_in_inv)
         metafunc.parametrize("enum_frontend_dut_hostname", frontend_hosts, scope="module")
     elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
@@ -841,10 +854,12 @@ def pytest_generate_tests(metafunc):
 
 
     if "enum_asic_index" in metafunc.fixturenames:
+        tbname = _setup_duts_in_testbed(metafunc)
         metafunc.parametrize("enum_asic_index",
                              generate_param_asic_index(metafunc, _duthosts_in_testbed, dut_indices,
                                                        ASIC_PARAM_TYPE_ALL, _duts_vars_in_inv))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
+        tbname = _setup_duts_in_testbed(metafunc)
         metafunc.parametrize("enum_frontend_asic_index",
                              generate_param_asic_index(metafunc, _duthosts_in_testbed, dut_indices,
                                                        ASIC_PARAM_TYPE_FRONTEND, _duts_vars_in_inv))
