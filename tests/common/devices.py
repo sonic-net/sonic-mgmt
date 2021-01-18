@@ -2004,7 +2004,7 @@ class MultiAsicSonicHost(object):
 
     def get_asic_id_from_namespace(self, namespace):
         if self.sonichost.facts['num_asic'] == 1:
-            return [DEFAULT_ASIC_ID]
+            return DEFAULT_ASIC_ID
 
         index = 0
         for asic in self.asics:
@@ -2012,13 +2012,19 @@ class MultiAsicSonicHost(object):
                 return index
             index = index + 1
 
+        # Raise an error if we reach here
+        raise ValueError("Invalid namespace '{}' passed as input".format(namespace))
+
     def get_namespace_from_asic_id(self, asic_id):
         if self.sonichost.facts['num_asic'] == 1:
-            return [DEFAULT_NAMESPACE]
+            return DEFAULT_NAMESPACE
 
         for asic in self.asics:
             if asic_id == asic.asic_index:
                 return asic.namespace
+
+        # Raise an error if we reach here
+        raise ValueError("Invalid asic_id '{}' passed as input".format(asic_id))
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
