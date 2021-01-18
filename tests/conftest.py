@@ -854,12 +854,12 @@ def pytest_generate_tests(metafunc):
 
 
     if "enum_asic_index" in metafunc.fixturenames:
-        tbname = _setup_duts_in_testbed(metafunc)
+        _setup_duts_in_testbed(metafunc)
         metafunc.parametrize("enum_asic_index",
                              generate_param_asic_index(metafunc, _duthosts_in_testbed, dut_indices,
                                                        ASIC_PARAM_TYPE_ALL, _duts_vars_in_inv))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
-        tbname = _setup_duts_in_testbed(metafunc)
+        _setup_duts_in_testbed(metafunc)
         metafunc.parametrize("enum_frontend_asic_index",
                              generate_param_asic_index(metafunc, _duthosts_in_testbed, dut_indices,
                                                        ASIC_PARAM_TYPE_FRONTEND, _duts_vars_in_inv))
