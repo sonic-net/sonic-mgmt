@@ -10,6 +10,7 @@ function show_help_and_exit()
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
+    echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
@@ -258,7 +259,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
+while getopts "h?a:b:c:d:e:Ef:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -278,6 +279,9 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
             ;;
         e )
             EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
+            ;;
+        E )
+            set -e
             ;;
         f )
             TESTBED_FILE=${OPTARG}
