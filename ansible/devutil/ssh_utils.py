@@ -7,8 +7,17 @@ import sys
 import socket
 
 class SSHClient(paramiko.client.SSHClient):
-
+    """
+    A subclass of paramiko's SSHClient.
+    The 'connect' interface is overwrite to support multi passowrds.
+    """
     def connect(self, hostname, username=None, passwords=None, port=22):
+        """
+        @summary: Overwrite 'connect' of SSHClient in paramiko to support multi passwords
+        @param hostname: The hostname or IP of target host
+        @param username: The username for SSH login
+        @param passwords: Passwords for SSH login, a list of string
+        """
         self.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         for i in range(0, len(passwords)):
             password = passwords[i]
@@ -22,14 +31,23 @@ class SSHClient(paramiko.client.SSHClient):
             else:
                 break
 
-    
     def run_command(self, cmd):
+        """
+        @summary: Run command in remote host (must be connected first)
+        @param cmd: The command to run
+        @return: A tuple contains 3 strings (stdin, stdout, stderr)
+        """
         stdin, stdout, stderr = super(SSHClient, self).exec_command(cmd)
-        return stdin.read().decode().strip() if stdin.readable() else "", \
-               stdout.read().decode().strip() if stdout.readable() else "", \
-               stderr.read().decode().strip() if stderr.readable() else ""
+
+        def _read_stream(stream):
+            return stream.read().decode().strip() if stream.readable() else ""
+
+        return _read_stream(stdin), _read_stream(stdout), _read_stream(stderr)
 
     def posix_shell(self):
+        """
+        @summary: Open an interactive shell
+        """
         oldtty = termios.tcgetattr(sys.stdin)
         try:
             tty.setraw(sys.stdin.fileno())
@@ -57,3 +75,4 @@ class SSHClient(paramiko.client.SSHClient):
 
         finally:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+

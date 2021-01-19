@@ -5,13 +5,14 @@ try:
     from ansible.vars.manager import VariableManager
     from ansible.inventory.manager import InventoryManager
     has_ansible = True
-except ImportError as error:
+except ImportError:
+    # ToDo: Support running without Ansible
     has_ansible = False
 
 def log(msg):
     print(msg)
 
-
+# deprecated since same method is implemented in HostManager
 def get_all_hosts(inventory):
     hosts = {}
     for key, val in inventory.items():
@@ -24,6 +25,7 @@ def get_all_hosts(inventory):
     return hosts
 
 
+# deprecated since same method is implemented in HostManager
 def get_host_list(inventory, category):
     with open(inventory, 'r') as file:
         inv = yaml.safe_load(file)
@@ -41,7 +43,6 @@ class HostManager():
     """
     A helper class for managing hosts
     """
-
     def __init__(self, inventory_files):
         if not has_ansible:
             raise Exception("Ansible is needed for this module")
@@ -50,6 +51,11 @@ class HostManager():
         self._var_mgr = VariableManager(loader=self._dataloader, inventory=self._inv_mgr)
 
     def get_host_vars(self, hostname):
+        """
+        @summary: Retrieve vars for given hostname
+        @param hostname: The hostname for retrieving vars
+        @return: A dict of hostvars
+        """
         host = self._inv_mgr.get_host(hostname)
         vars = self._var_mgr.get_vars(host=host)
         vars['creds'] = self.get_host_creds(hostname)
@@ -57,12 +63,22 @@ class HostManager():
         return vars
 
     def get_all_hosts(self):
+        """
+        @summary: Retrieve all hosts and vars in given inventory files
+        @return: A dict {hostname: vars}
+        """
         hosts = {}
         for hostname, _ in self._inv_mgr.hosts.items():
             hosts.update({hostname: self.get_host_vars(hostname)})
         return hosts
 
     def get_host_list(self, category, limit=None):
+        """
+        @summary: Retrieve host and vars for given category and limit
+        @param category: The Ansible group, like sonic, veos...
+        @param limit: The host patterns (None and empty string mean no limit)
+        @return: A dict {hostname:vars}
+        """
         if not limit or limit == '':
             limit = '*'
         res = {}
@@ -73,6 +89,11 @@ class HostManager():
         return res
 
     def get_host_creds(self, hostname):
+        """
+        @summary: A helper method for retrieving creds for given hostname
+        @param hostname: The hostname for retrieving creds
+        @return: A dict
+        """
         res = {}
         host = self._inv_mgr.get_host(hostname)
         vars = self._var_mgr.get_vars(host=host)
