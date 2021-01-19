@@ -17,21 +17,6 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 
-@pytest.fixture(scope="module")
-def skip_module_list(enum_dut_hostname):
-    """
-    Return a list of modules which are not present to skip in test based on dut
-    """
-    skip_list = []
-    f_path = os.path.join(os.path.dirname(__file__), "../../ansible/platform_skip_inventory.json")
-    platform_inv = open(f_path, "r")
-    json_val = json.load(platform_inv)
-
-    if enum_dut_hostname in json_val.keys():
-        skip_list = json_val[enum_dut_hostname]['modules']['skip']
-    return skip_list
-
-
 @pytest.fixture()
 def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
     """

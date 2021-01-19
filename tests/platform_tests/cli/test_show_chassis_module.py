@@ -1,9 +1,8 @@
 import logging
-import re
-
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from util import get_field_range, get_fields
+from util import get_field_range, get_fields, get_skip_mod_list
+
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -33,21 +32,19 @@ def parse_chassis_module(output, expected_headers):
     return result
 
 
-def test_show_chassis_module_status(duthosts, enum_dut_hostname, skip_module_list):
-    """
-       @summary: Verify output of `show chassis-module status`
-    """
+def test_show_chassis_module_status(duthosts, enum_dut_hostname):
     cmd = " ".join([CMD_SHOW_CHASSIS_MODULE, "status"])
     logging.info("verifying output of cli command {}".format(cmd))
     duthost = duthosts[enum_dut_hostname]
     exp_headers = ["Name", "Description", "Physical-Slot", "Oper-Status", "Admin-Status"]
+    skip_mod_list = get_skip_mod_list(duthost)
 
     output = duthost.command(cmd)
     res = parse_chassis_module(output['stdout_lines'], exp_headers)
 
     # by default will assume all modules should be shown online except in skip_module_list
     for mod_idx in res.keys():
-        if mod_idx in skip_module_list:
+        if mod_idx in skip_mod_list:
             pytest_assert(res[mod_idx]['Oper-Status'] == 'Empty',
                           "Oper-status for slot {} should be Empty but it is {}".format(
                               mod_idx, res[mod_idx]['Oper-Status']))
@@ -68,23 +65,18 @@ def test_show_chassis_module_midplane_status(duthosts, enum_dut_hostname, skip_m
     duthost = duthosts[enum_dut_hostname]
     output = duthost.command(cmd)
     res_mid_status = parse_chassis_module(output['stdout_lines'], expected_headers)
+    mod_key= ['line-cards']
+    skip_mod_list = get_skip_mod_list(duthost, mod_key)
 
-    if duthost.is_supervisor_node():
-        logging.info("supervisor node is {}".format(duthost.hostname))
-        # on supervisor check all applicable line cards are reachable except any modules from skip_module_list
-        for mod_idx in res_mid_status:
-            mod_mid_status = res_mid_status[mod_idx]['Reachability']
-            if mod_idx in skip_module_list:
-                pytest_assert(res_mid_status[mod_idx]['Reachability'] == "False",
-                              "reachability of line card {} expected false but is {}".format(mod_idx, mod_mid_status))
-            else:
-                pytest_assert(mod_mid_status == "True",
-                              "midplane reachability of line card {} expected true but is {}".format(mod_idx,
-                                                                                                     mod_mid_status))
-    # for line card only supervisor is shown so do not need to check skip
-    elif duthost.is_frontend_node():
-        for mod_idx in res_mid_status:
-            mod_mid_status = res_mid_status[mod_idx]['Reachability']
-            pytest_assert(mod_mid_status == "True", "reachability should be true for {}".format(mod_idx))
-    else:
-        pytest.skip("test is valid on supervisor or frontend node of chassis")
+    for mod_idx in res_mid_status:
+        mod_mid_status = res_mid_status[mod_idx]['Reachability']
+        if mod_idx in skip_mod_list:
+            pytest_assert(res_mid_status[mod_idx]['Reachability'] == "False",
+                          "reachability of line card {} expected false but is {}".format(mod_idx, mod_mid_status))
+        else:
+            pytest_assert(mod_mid_status == "True",
+                          "midplane reachability of line card {} expected true but is {}".format(mod_idx,
+                                                                                                 mod_mid_status))
+
+
+

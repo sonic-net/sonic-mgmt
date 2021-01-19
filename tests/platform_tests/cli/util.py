@@ -62,3 +62,38 @@ def get_fields(line, field_ranges):
         fields.append(field.strip())
 
     return fields
+
+
+def get_skip_mod_list(duthost, mod_key=None):
+    """
+    @summary: utility function returns list of modules / peripherals absent in chassis
+    by default if no keyword passed it will return all from inventory file
+    provides a list under skip_modules: in inventory file for each dut
+    returns a empty list if skip_modules not defined under host in inventory
+    inventory example:
+    DUTHOST:
+    skip_modules:
+        'line-cards':
+          - LINE-CARD0
+          - LINE-CARD2
+        'fabric-cards':
+          - FABRIC-CARD3
+        'psus':
+          - PSU4
+          - PSU5
+    @return a list of modules/peripherals to be skipped in check for platform test
+    """
+
+    skip_mod_list = []
+    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    if 'skip_modules' in dut_vars:
+        if mod_key is None:
+            for k in dut_vars['skip_modules'].keys():
+                for i in dut_vars['skip_modules'][k]:
+                    skip_mod_list.append(i)
+        else:
+            for key in mod_key:
+                if key in dut_vars['skip_modules'].keys():
+                    for i in dut_vars['skip_modules'][key]:
+                        skip_mod_list.append(i)
+    return skip_mod_list
