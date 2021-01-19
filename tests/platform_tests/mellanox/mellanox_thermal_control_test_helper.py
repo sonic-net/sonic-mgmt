@@ -144,7 +144,14 @@ class MockerHelper:
         content = output['stdout'].strip()
         if not content:
             return
+
         MockerHelper.FAN_NUM = int(content)
+        platform_data = get_platform_data(self.dut)
+        if not platform_data['fans']['hot_swappable']:
+            # For non swappable fan, there is no drawer. We put them in a "virtual" drawer.
+            MockerHelper.FAN_NUM_PER_DRAWER = MockerHelper.FAN_NUM
+            return
+
         if MockerHelper.FAN_NUM > fan_drawer_num:
             MockerHelper.FAN_NUM_PER_DRAWER = 2
         else:
