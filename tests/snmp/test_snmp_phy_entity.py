@@ -561,40 +561,13 @@ def redis_hgetall(duthost, db_id, key):
     :param key: Redis Key
     :return: A dictionary, key is field name, value is field value
     """
-    result = {}
-    """
-    Why we don't directly use HGETALL here? Because there are fields whose value contains line break.
-    And "sonic-db-cli XXX HGETALL XXX" may return something like:
-    
-    key1
-    value1
-    key2
-    part_of_value2
-                       part_of_value2
-                       part_of_value2
-    key3
-    value3
-    
-    Although we can still parse this kind of output to a dictionary, but the code will be very weird and not robust. 
-    So we use a solution here:
-        1. Get all field names of the table
-        2. Use HGET to get values for each fields
-    This solution is slower but more clear. 
-    """
-    cmd = 'sonic-db-cli {} HKEYS \"{}\"'.format(db_id, key)
+    cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
     if not content:
-        return result
+        return {}
 
-    field_names = content.split('\n')
-    for field_name in field_names:
-        field_name = field_name.strip()
-        cmd = 'sonic-db-cli {} HGET \"{}\" \"{}\"'.format(db_id, key, field_name)
-        output = duthost.shell(cmd)['stdout'].strip()
-        result[field_name] = output
-
-    return result
+    return eval(content)
 
 
 def is_null_str(value):
