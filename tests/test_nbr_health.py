@@ -66,10 +66,11 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, enum_dut_hostname)
         dut_type = dev_meta["localhost"]["type"]
 
     for k, v in nei_meta.items():
-        if 'SmartCable' == v['type'] or dut_type == v['type']:
+        if v['type'] in ['SmartCable', 'Server'] or dut_type == v['type']:
             # Smart cable doesn't respond to snmp, it doesn't have BGP session either.
             # DualToR has the peer ToR listed in device as well. If the device type
             # is the same as testing DUT, then it is the peer.
+            # The server neighbors need to be skipped too.
             continue
 
         failmsg = check_snmp(k, v['mgmt_addr'], localhost, eos['snmp_rocommunity'])
