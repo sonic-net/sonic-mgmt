@@ -330,7 +330,9 @@ And a method testing what happens to upstream traffic (server->T1) when the acti
 
 ```test_active_tor_bgp_down_upstream```
 
-For testing purposes, it's assumed that the upper ToR is the active ToR at the beginning of the test
+For testing purposes, the upper ToR will be set to the active ToR at the beginning of the test (via the mux simulator, not the SONiC CLI command).
+
+Note that the upper/lower ToR designations do not change throughout the test.
 
 ### Normal Operation
 
