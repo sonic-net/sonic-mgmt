@@ -50,7 +50,7 @@ def enable_counters(duthosts, rand_one_dut_hostname):
     for cmd in cmd_list:
         duthost.command(cmd)
 
-    namespace_list = duthost.get_frontend_asic_namespace_list() if duthost.is_multi_asic else ['']
+    namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
     for namespace in namespace_list:
         cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
         previous_cnt_status[namespace] = {item: duthost.command(cmd_get_cnt_status.format(namespace, item.upper()))["stdout"] for item in ["port", "rif"]}
