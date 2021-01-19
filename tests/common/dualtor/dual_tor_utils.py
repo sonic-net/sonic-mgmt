@@ -8,9 +8,9 @@ def tor_mux_intf(duthosts):
     '''
     Returns the server-facing interface on the ToR to be used for testing 
     '''
-    # The same ports on 
+    # The same ports on both ToRs should be connected to the same PTF port
     dut = duthosts[0]
-    return dut.get_vlan_intfs()[0]
+    return sorted(dut.get_vlan_intfs(), key=lambda intf: int(intf.replace('Ethernet', '')))[0]
 
 
 @pytest.fixture(scope='session')
