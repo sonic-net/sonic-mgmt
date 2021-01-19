@@ -1138,6 +1138,22 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return asic
 
+    def get_running_config_facts(self):
+        return self.config_facts(host=self.hostname, source='running')['ansible_facts']
+
+    def get_vlan_intfs(self):
+        '''
+        Get any interfaces belonging to a VLAN
+        '''
+        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_intfs = []
+
+        for vlan in vlan_members_facts:
+            for intf in vlan_members_facts[vlan]:
+                vlan_intfs.append(intf)
+
+        return list(sorted(vlan_intfs, key=lambda intf: int(intf.replace('Ethernet', ''))))
+
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1444,6 +1460,7 @@ class EosHost(AnsibleHostBase):
             'command': '{} {}'.format(cmd, prefix),
             'output': 'json'
         }])['stdout'][0]
+    
 
 
 class OnyxHost(AnsibleHostBase):

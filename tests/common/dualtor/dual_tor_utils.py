@@ -8,14 +8,9 @@ def tor_mux_intf(duthosts):
     '''
     Returns the server-facing interface on the ToR to be used for testing 
     '''
+    # The same ports on 
     dut = duthosts[0]
-    config_facts = dut.config_facts(host=dut.hostname, source='running')['ansible_facts']
-    portchannel_members = get_portchannel_members(config_facts)
-    intfs = list(sorted(config_facts['PORT'].keys(), key=lambda intf: int(intf.replace('Ethernet', ''))))
-    for intf in intfs:
-        if intf not in portchannel_members:
-            logger.info("Using ToR interface {} for test".format(intf))
-            return intf
+    return dut.get_vlan_intfs()[0]
 
 
 @pytest.fixture(scope='session')
@@ -77,35 +72,19 @@ def get_t1_ptf_ports(dut, tbinfo):
     '''
     Gets the PTF ports connected to a given DUT for the first T1
     '''
-    config_facts = dut.config_facts(host=dut.hostname, source='running')['ansible_facts']
+    config_facts = dut.get_running_config_facts()
     mg_facts = dut.get_extended_minigraph_facts(tbinfo)
 
     # Always choose the first portchannel
     portchannel = sorted(config_facts['PORTCHANNEL'].keys())[0]
     dut_portchannel_members = config_facts['PORTCHANNEL'][portchannel]['members']
 
-    ptf_portchannel_members = []
-
-    for intf in dut_portchannel_members:
-        ptf_portchannel_members.append(mg_facts['minigraph_ptf_indices'][intf])
-
     ptf_portchannel_intfs = []
 
-    for member in ptf_portchannel_members:
+    for intf in dut_portchannel_members:
+        member = mg_facts['minigraph_ptf_indices'][intf]
         intf_name = 'eth{}'.format(member)
         ptf_portchannel_intfs.append(intf_name)
 
     logger.info("Using portchannel ports {} on PTF for DUT {}".format(ptf_portchannel_intfs, dut.hostname))
     return ptf_portchannel_intfs 
-            
-
-def get_portchannel_members(config_facts):
-    '''
-    Get any interfaces that belong to a portchannel
-    '''
-    portchannel_members = []
-
-    for portchannel_config in config_facts['PORTCHANNEL'].values():
-        portchannel_members.extend(portchannel_config['members'])
-
-    return portchannel_members
