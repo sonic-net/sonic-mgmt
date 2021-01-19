@@ -1460,7 +1460,6 @@ class EosHost(AnsibleHostBase):
             'command': '{} {}'.format(cmd, prefix),
             'output': 'json'
         }])['stdout'][0]
-    
 
 
 class OnyxHost(AnsibleHostBase):
