@@ -1,3 +1,10 @@
+"""
+    Tests the sFlow feature in SONiC.
+
+    Parameters:
+        --enable_sflow_feature: Enable sFlow feature on DUT. Default is disabled
+"""
+
 import pytest
 import logging
 import time
@@ -19,7 +26,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module',autouse=True)
-def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature):
     duthost = duthosts[rand_one_dut_hostname]
     global var
     var = {}
@@ -106,7 +113,14 @@ def get_ifindex(duthost, port):
 def config_sflow(duthost, sflow_status='enable'):
     duthost.shell('config sflow %s'%sflow_status)
     time.sleep(2)
+# ----------------------------------------------------------------------------------
 
+@pytest.fixture(scope='module')
+def config_sflow_feature(request, duthost):
+    # Enable sFlow feature on DUT if enable_sflow_feature argument was passed
+    if request.config.getoption("--enable_sflow_feature"):
+        duthost.shell("sudo config feature state sflow enabled")
+        time.sleep(2)
 # ----------------------------------------------------------------------------------
 
 def config_sflow_interfaces(duthost, intf, **kwargs):
