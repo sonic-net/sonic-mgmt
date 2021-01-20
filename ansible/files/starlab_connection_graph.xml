@@ -50,6 +50,7 @@
       <Device Hostname="str-e1031-acs-2" HwSku="Celestica-E1031-T48S4" Type="FanoutLeafSonic"/>
       <Device Hostname="str-marvell-acs-1" HwSku="et6448m" Type="DevSonic"/>
       <Device Hostname="str-n3164-acs-2" HwSku="Nexus-3164" Type="DevSonic"/>
+      <Device Hostname="str-n3164-acs-1" HwSku="Nexus-3164" Type="DevSonic"/>
       <Device Hostname="str-s5232f-on-1" HwSku="DellEMC-S5232f-C32" Type="DevSonic"/>
       <Device Hostname="str-marvell-acs-2" HwSku="et6448m" Type="FanoutLeafSonic"/>
       <Device Hostname="str-sn3800-01" HwSku="ACS-MSN3800" Type="DevSonic"/>
@@ -3728,7 +3729,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet39" vlanids="1383"/>
       <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="1384"/>
       <InterfaceVlan mode="Access" portname="Ethernet62" vlanids="2524"/>
-      <InterfaceVlan mode="Access" portname="Ethernet61" vlanids="2620"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-23">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.253/23"/>
@@ -4816,69 +4816,6 @@
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-26">
       <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="2557-2619"/>
-      <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="2557"/>
-      <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="2558"/>
-      <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="2559"/>
-      <InterfaceVlan mode="Access" portname="Ethernet4/1" vlanids="2560"/>
-      <InterfaceVlan mode="Access" portname="Ethernet5/1" vlanids="2561"/>
-      <InterfaceVlan mode="Access" portname="Ethernet6/1" vlanids="2562"/>
-      <InterfaceVlan mode="Access" portname="Ethernet7/1" vlanids="2563"/>
-      <InterfaceVlan mode="Access" portname="Ethernet8/1" vlanids="2564"/>
-      <InterfaceVlan mode="Access" portname="Ethernet9/1" vlanids="2565"/>
-      <InterfaceVlan mode="Access" portname="Ethernet10/1" vlanids="2566"/>
-      <InterfaceVlan mode="Access" portname="Ethernet11/1" vlanids="2567"/>
-      <InterfaceVlan mode="Access" portname="Ethernet12/1" vlanids="2568"/>
-      <InterfaceVlan mode="Access" portname="Ethernet13/1" vlanids="2569"/>
-      <InterfaceVlan mode="Access" portname="Ethernet14/1" vlanids="2570"/>
-      <InterfaceVlan mode="Access" portname="Ethernet15/1" vlanids="2571"/>
-      <InterfaceVlan mode="Access" portname="Ethernet16/1" vlanids="2572"/>
-      <InterfaceVlan mode="Access" portname="Ethernet17/1" vlanids="2573"/>
-      <InterfaceVlan mode="Access" portname="Ethernet18/1" vlanids="2574"/>
-      <InterfaceVlan mode="Access" portname="Ethernet19/1" vlanids="2575"/>
-      <InterfaceVlan mode="Access" portname="Ethernet20/1" vlanids="2576"/>
-      <InterfaceVlan mode="Access" portname="Ethernet21/1" vlanids="2577"/>
-      <InterfaceVlan mode="Access" portname="Ethernet22/1" vlanids="2578"/>
-      <InterfaceVlan mode="Access" portname="Ethernet23/1" vlanids="2579"/>
-      <InterfaceVlan mode="Access" portname="Ethernet24/1" vlanids="2580"/>
-      <InterfaceVlan mode="Access" portname="Ethernet25/1" vlanids="2581"/>
-      <InterfaceVlan mode="Access" portname="Ethernet26/1" vlanids="2582"/>
-      <InterfaceVlan mode="Access" portname="Ethernet27/1" vlanids="2583"/>
-      <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="2584"/>
-      <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="2585"/>
-      <InterfaceVlan mode="Access" portname="Ethernet30/1" vlanids="2586"/>
-      <InterfaceVlan mode="Access" portname="Ethernet31/1" vlanids="2587"/>
-      <InterfaceVlan mode="Access" portname="Ethernet32/1" vlanids="2588"/>
-      <InterfaceVlan mode="Access" portname="Ethernet33/1" vlanids="2589"/>
-      <InterfaceVlan mode="Access" portname="Ethernet34/1" vlanids="2590"/>
-      <InterfaceVlan mode="Access" portname="Ethernet35/1" vlanids="2591"/>
-      <InterfaceVlan mode="Access" portname="Ethernet36/1" vlanids="2592"/>
-      <InterfaceVlan mode="Access" portname="Ethernet37/1" vlanids="2593"/>
-      <InterfaceVlan mode="Access" portname="Ethernet38/1" vlanids="2594"/>
-      <InterfaceVlan mode="Access" portname="Ethernet39/1" vlanids="2595"/>
-      <InterfaceVlan mode="Access" portname="Ethernet40/1" vlanids="2596"/>
-      <InterfaceVlan mode="Access" portname="Ethernet41/1" vlanids="2597"/>
-      <InterfaceVlan mode="Access" portname="Ethernet42/1" vlanids="2598"/>
-      <InterfaceVlan mode="Access" portname="Ethernet43/1" vlanids="2599"/>
-      <InterfaceVlan mode="Access" portname="Ethernet44/1" vlanids="2600"/>
-      <InterfaceVlan mode="Access" portname="Ethernet45/1" vlanids="2601"/>
-      <InterfaceVlan mode="Access" portname="Ethernet46/1" vlanids="2602"/>
-      <InterfaceVlan mode="Access" portname="Ethernet47/1" vlanids="2603"/>
-      <InterfaceVlan mode="Access" portname="Ethernet48/1" vlanids="2604"/>
-      <InterfaceVlan mode="Access" portname="Ethernet49/1" vlanids="2605"/>
-      <InterfaceVlan mode="Access" portname="Ethernet50/1" vlanids="2606"/>
-      <InterfaceVlan mode="Access" portname="Ethernet51/1" vlanids="2607"/>
-      <InterfaceVlan mode="Access" portname="Ethernet52/1" vlanids="2608"/>
-      <InterfaceVlan mode="Access" portname="Ethernet53/1" vlanids="2609"/>
-      <InterfaceVlan mode="Access" portname="Ethernet54/1" vlanids="2610"/>
-      <InterfaceVlan mode="Access" portname="Ethernet55/1" vlanids="2611"/>
-      <InterfaceVlan mode="Access" portname="Ethernet56/1" vlanids="2612"/>
-      <InterfaceVlan mode="Access" portname="Ethernet57/1" vlanids="2613"/>
-      <InterfaceVlan mode="Access" portname="Ethernet58/1" vlanids="2614"/>
-      <InterfaceVlan mode="Access" portname="Ethernet59/1" vlanids="2615"/>
-      <InterfaceVlan mode="Access" portname="Ethernet60/1" vlanids="2616"/>
-      <InterfaceVlan mode="Access" portname="Ethernet61/1" vlanids="2617"/>
-      <InterfaceVlan mode="Access" portname="Ethernet62/1" vlanids="2618"/>
-      <InterfaceVlan mode="Access" portname="Ethernet63/1" vlanids="2619"/>
     </DevicesL2Info>
   </DataPlaneGraph>
 </LabConnectionGraph>
