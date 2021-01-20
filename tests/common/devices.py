@@ -1155,7 +1155,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             for intf in vlan_members_facts[vlan]:
                 vlan_intfs.append(intf)
 
-        return list(vlan_intfs, key=lambda intf: int(intf.replace('Ethernet', '')))
+        return vlan_intfs
 
 
 class K8sMasterHost(AnsibleHostBase):
