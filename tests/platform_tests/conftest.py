@@ -1,6 +1,4 @@
 import pytest
-import json
-import os
 
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from .args.advanced_reboot_args import add_advanced_reboot_args
