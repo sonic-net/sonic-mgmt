@@ -57,15 +57,15 @@ def deploy_mg(data,base_topo_file):
 
     chan.send("cd sonic-test \n")
     buff = ''
-    while not buff.endswith(':~$ '):
+    while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git pull \n")
+    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git stash apply\n")
     buff = ''
-    while not buff.endswith(':~$ '):
+    while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
@@ -73,7 +73,7 @@ def deploy_mg(data,base_topo_file):
 
     chan.send("docker container start docker-sonic-mgmt \n")
     buff = ''
-    while not buff.endswith(':~$ '):
+    while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
