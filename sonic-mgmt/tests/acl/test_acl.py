@@ -54,6 +54,21 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
+# get the list of TOR/SPINE ports
+for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+    port_id = mg_facts['minigraph_port_indices'][dut_port]
+    if 'T0' in neigh['name'] and len(tor_ports)<8:
+        tor_ports.append(dut_port)
+        tor_ports_ids.append(port_id)
+    elif 'T2' in neigh['name'] and len(spine_ports)<8:
+        spine_ports.append(dut_port)
+        spine_ports_ids.append(port_id)
+
+# get the list of port channels
+port_channels = mg_facts['minigraph_portchannels']
+# get the list of port to be combined to ACL tables
+if testbed['topo']['name'] in ('t1', 't1-lag'):
+        acl_table_ports += tor_ports
 
 
 @pytest.fixture(scope="module")
@@ -184,7 +199,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname):
     duthost.command("sonic-clear arp")
 
 
-@pytest.fixture(scope="module", params=["ingress", "egress"])
+@pytest.fixture(scope="module", params=["ingress"])
 def stage(request, duthosts, rand_one_dut_hostname):
     """Parametrize tests for Ingress/Egress stage testing.
 
@@ -363,7 +378,6 @@ class BaseAclTest(object):
         duthost = duthosts[rand_one_dut_hostname]
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
         loganalyzer.load_common_config()
-
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
             with loganalyzer:
