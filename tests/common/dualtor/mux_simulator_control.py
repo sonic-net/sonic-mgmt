@@ -196,6 +196,22 @@ def check_simulator_read_side(mux_server_url, physical_port):
     else:
         return -1
 
+#@pytest.mark.usefixtures('mux_server_url', 'upper_tor_host', 'lower_tor_host')
+@pytest.fixture
+def get_active_torhost(mux_server_url, upper_tor_host, lower_tor_host):
+
+    def get_active_torhost():
+        active_tor_host = None
+        active_side = check_simulator_read_side(mux_server_url, 1)
+        pytest_assert(active_side != -1, "Failed to retrieve the current active tor from y_cable simulator server")
+        if active_side == 1:
+            active_tor_host = upper_tor_host
+        elif active_side == 2:
+            active_tor_host = lower_tor_host
+        return active_tor_host
+    
+    return get_active_torhost
+
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports_to_tor_a(mux_server_url):
     """
