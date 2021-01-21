@@ -117,10 +117,6 @@ class ContinuousReboot:
         if result is not True:
             # Create a failure report
             error = result.get("stderr")
-            if error and "DUT is not ready for test" in error:
-                # reboot test did not reboot the DUT, reboot externally to verify for image installation
-                logging.warn("Reboot test failed to reboot the DUT. Trying again..")
-                reboot(self.duthost, self.localhost, reboot_type=self.reboot_type, reboot_helper=None, reboot_kwargs=None)
             raise ContinuousRebootError("Reboot test failed with error: {}".format(error))
 
 
@@ -250,24 +246,21 @@ class ContinuousReboot:
 
 
     def handle_image_installation(self, count):
-        if self.skip_image_install:
-            self.new_image = "current"
-        else:
-            with open(self.input_file, "r") as f:
-                try:
-                    install_info = json.load(f)
-                    image_install_list = install_info.get('install_list').split(",")
-                    # Use modulus operator to cycle through the image_install_list per reboot iteration
-                    self.new_image = image_install_list[count % len(image_install_list)].strip()
-                    image_path = install_info.get('location').strip() + "/" + self.new_image
-                    file_exists = self.duthost.command("curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),\
-                        module_ignore_errors=True)["stdout"]
-                    if file_exists != '200':
-                        logging.info("Remote image file {} does not exist. Curl returned: {}".format(image_path, file_exists))
-                        logging.warn("Continuing the test with current image")
-                        self.new_image = "current"
-                except ValueError:
-                    logging.warn("Invalid json file, continuing the reboot test with old list of images")
+        with open(self.input_file, "r") as f:
+            try:
+                install_info = json.load(f)
+                image_install_list = install_info.get('install_list').split(",")
+                # Use modulus operator to cycle through the image_install_list per reboot iteration
+                self.new_image = image_install_list[count % len(image_install_list)].strip()
+                image_path = install_info.get('location').strip() + "/" + self.new_image
+                file_exists = self.duthost.command("curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),\
+                    module_ignore_errors=True)["stdout"]
+                if file_exists != '200':
+                    logging.info("Remote image file {} does not exist. Curl returned: {}".format(image_path, file_exists))
+                    logging.warn("Continuing the test with current image")
+                    self.new_image = "current"
+            except ValueError:
+                logging.warn("Invalid json file, continuing the reboot test with old list of images")
 
         if self.new_image == "current":
             logging.info("Next image is set to current - skip image installation")
