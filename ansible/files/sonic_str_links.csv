@@ -36,7 +36,7 @@ str-7260cx3-11,Ethernet34/1,str-7260-07,Ethernet64,40000,"873-904,1125-1151,2213
 str-7260cx3-11,Ethernet35/1,str-7060cx-32s-17,Ethernet32/1,40000,1389-1440,Trunk
 str-7260cx3-11,Ethernet36/1,str-7260-24,Ethernet64,40000,"681-712,2125-2152",Trunk
 str-7260cx3-11,Ethernet37/1,str-7060cx-32s-16,Ethernet32/1,40000,"1803-1856,1385-1388",Trunk
-str-7260cx3-11,Ethernet38/1,str-7260-23,Ethernet64,40000,"649-680,1179-1192",Trunk
+str-7260cx3-11,Ethernet38/1,str-7260-23,Ethernet64,40000,"649-680,1179-1192,1236",Trunk
 str-7260cx3-11,Ethernet39/1,str-7060cx-32s-15,Ethernet32/1,40000,1753-1802,Trunk
 str-7260cx3-11,Ethernet40/1,str-7260-04,Ethernet64,40000,"233-264,1097-1124",Trunk
 str-7260cx3-11,Ethernet42/1,str-7260-03,Ethernet64,40000,"585-616",Trunk
@@ -59,7 +59,7 @@ str-7260cx3-11,Ethernet59/1,str-7260-22,Ethernet64,40000,"1345-1384,2524,2620",T
 str-7260cx3-11,Ethernet60/1,str-7260-06,Ethernet64,40000,"329-348,809-840,865-872",Trunk
 str-7260cx3-11,Ethernet61/1,str-7260-21,Ethernet64,40000,1285-1344,Trunk
 str-7260cx3-11,Ethernet62/1,str-7260-05,Ethernet64,40000,"229-232,777-808,841-864",Trunk
-str-7260cx3-11,Ethernet63/1,str-7260-20,Ethernet64,40000,1225-1284,Trunk
+str-7260cx3-11,Ethernet63/1,str-7260-20,Ethernet64,40000,"1225-1235,1237-1284",Trunk
 str-7260cx3-11,Ethernet64/1,str-7260-01,Ethernet64,40000,"201-228,297-328",Trunk
 str-7260cx3-11,Ethernet65,str-e1031-acs-2,etp49,10000,1897-1944,Trunk
 
@@ -1002,7 +1002,7 @@ str-s6100-acs-2,Ethernet7,str-7260-20,Ethernet8,40000,1232,Access
 str-s6100-acs-2,Ethernet8,str-7260-20,Ethernet9,40000,1233,Access
 str-s6100-acs-2,Ethernet9,str-7260-20,Ethernet10,40000,1234,Access
 str-s6100-acs-2,Ethernet10,str-7260-20,Ethernet11,40000,1235,Access
-str-s6100-acs-2,Ethernet11,str-7260-20,Ethernet12,40000,1236,Access
+str-s6100-acs-2,Ethernet11,str-7260-23,Ethernet33,40000,1236,Access
 str-s6100-acs-2,Ethernet12,str-7260-20,Ethernet13,40000,1237,Access
 str-s6100-acs-2,Ethernet13,str-7260-20,Ethernet14,40000,1238,Access
 str-s6100-acs-2,Ethernet14,str-7260-20,Ethernet15,40000,1239,Access

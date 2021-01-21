@@ -1114,7 +1114,7 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet9" StartDevice="str-s6100-acs-2" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet10" StartDevice="str-s6100-acs-2" StartPort="Ethernet9"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet11" StartDevice="str-s6100-acs-2" StartPort="Ethernet10"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet12" StartDevice="str-s6100-acs-2" StartPort="Ethernet11"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-23" EndPort="Ethernet33" StartDevice="str-s6100-acs-2" StartPort="Ethernet11"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet13" StartDevice="str-s6100-acs-2" StartPort="Ethernet12"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet14" StartDevice="str-s6100-acs-2" StartPort="Ethernet13"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-20" EndPort="Ethernet15" StartDevice="str-s6100-acs-2" StartPort="Ethernet14"/>
@@ -3018,7 +3018,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet35/1" vlanids="1389-1440"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet36/1" vlanids="681-712,2125-2152"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet37/1" vlanids="1803-1856,1385-1388"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet38/1" vlanids="649-680,1179-1192"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet38/1" vlanids="649-680,1179-1192,1236"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet39/1" vlanids="1753-1802"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet40/1" vlanids="233-264,1097-1124"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet42/1" vlanids="585-616"/>
@@ -3041,7 +3041,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet60/1" vlanids="329-348,809-840,865-872"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet61/1" vlanids="1285-1344"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet62/1" vlanids="229-232,777-808,841-864"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet63/1" vlanids="1225-1284"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet63/1" vlanids="1225-1235,1237-1284"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="201-228,297-328"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="1897-1944"/>
     </DevicesL2Info>
@@ -3555,7 +3555,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.249/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-20">
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1225-1284"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1225-1235,1237-1284"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="1225"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="1226"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="1227"/>
@@ -3567,7 +3567,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet9" vlanids="1233"/>
       <InterfaceVlan mode="Access" portname="Ethernet10" vlanids="1234"/>
       <InterfaceVlan mode="Access" portname="Ethernet11" vlanids="1235"/>
-      <InterfaceVlan mode="Access" portname="Ethernet12" vlanids="1236"/>
       <InterfaceVlan mode="Access" portname="Ethernet13" vlanids="1237"/>
       <InterfaceVlan mode="Access" portname="Ethernet14" vlanids="1238"/>
       <InterfaceVlan mode="Access" portname="Ethernet15" vlanids="1239"/>
@@ -3734,7 +3733,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.253/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-23">
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="649-680,1179-1192"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="649-680,1179-1192,1236"/>
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="649"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="650"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="651"/>
@@ -3781,6 +3780,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet45" vlanids="1190"/>
       <InterfaceVlan mode="Access" portname="Ethernet46" vlanids="1191"/>
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="1192"/>
+      <InterfaceVlan mode="Access" portname="Ethernet33" vlanids="1236"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-24">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.254/23"/>
