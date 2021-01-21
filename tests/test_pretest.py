@@ -7,6 +7,7 @@ import os
 from jinja2 import Template
 from common.helpers.assertions import pytest_require
 from common.helpers.buffer import update_cable_len
+from common.helpers.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -267,6 +268,4 @@ def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
             logging.info("Skip updating buffer template {}".format(item))
     if buf_temp_changed:
         logging.info("Executing load minigraph ...")
-        duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
-        duthost.shell('config save -y')
-
+        config_reload(duthost, config_source='minigraph')
