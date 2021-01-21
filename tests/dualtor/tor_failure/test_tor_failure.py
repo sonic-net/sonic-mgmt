@@ -1,8 +1,8 @@
 import pytest
 from tests.common.dualtor.tor_failure_utils import tor_blackhole_traffic, reboot_tor
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import get_active_torhost
-from tests.common.dualtor.mux_simulator_control import mux_server_url
+from tests.common.dualtor.mux_simulator_control import mux_server_url # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
 import logging
 
@@ -55,7 +55,6 @@ def test_active_tor_reboot_upstream(reboot_tor, get_active_torhost):
     logger.info("Active ToR after performing reboot {}".format(active_host_after.hostname))
 
     pytest_assert(active_host_before != active_host_after, "ToR switchover failed")
-
 
 
 def test_active_tor_reboot_downstream_active():

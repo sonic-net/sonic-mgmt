@@ -196,7 +196,6 @@ def check_simulator_read_side(mux_server_url, physical_port):
     else:
         return -1
 
-#@pytest.mark.usefixtures('mux_server_url', 'upper_tor_host', 'lower_tor_host')
 @pytest.fixture
 def get_active_torhost(mux_server_url, upper_tor_host, lower_tor_host):
 

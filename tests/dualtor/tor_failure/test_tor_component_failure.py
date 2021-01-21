@@ -1,8 +1,8 @@
 import pytest
 from tests.common.dualtor.tor_failure_utils import shutdown_tor_bgp
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import get_active_torhost
-from tests.common.dualtor.mux_simulator_control import mux_server_url
+from tests.common.dualtor.mux_simulator_control import mux_server_url # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
 import logging
 
