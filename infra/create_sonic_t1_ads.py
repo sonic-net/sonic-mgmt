@@ -55,6 +55,22 @@ def deploy_mg(data,base_topo_file):
         print(resp.decode("ascii"))
     time.sleep(3)
 
+    chan.send("cd sonic-test \n")
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("git pull \n")
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(20)
+
     chan.send("docker container start docker-sonic-mgmt \n")
     buff = ''
     while not buff.endswith(':~$ '):
@@ -443,10 +459,10 @@ def main():
         vEOS_count = 32
 
     if clean_sim:
-        os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd clean")
+        os.system("/auto/vxr/pyvxr/pyvxr-1.0.4/vxr.py clean")
     
-    os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd start {}".format(topo_yaml))
-    os.system("/auto/vxr/pyvxr/pyvxr-0.6.2/vxr.py --cmd ports > vxr_ports.yaml")
+    os.system("/auto/vxr/pyvxr/pyvxr-1.0.4/vxr.py start {}".format(topo_yaml))
+    os.system("/auto/vxr/pyvxr/pyvxr-1.0.4/vxr.py ports > vxr_ports.yaml")
     input_file = args['input_file']
     
     if input_file is None:
