@@ -47,17 +47,19 @@ def enable_counters(duthosts, rand_one_dut_hostname):
     cmd_list_per_ns = ["counterpoll port enable", "counterpoll rif enable", "sonic-clear rifcounters"]
 
     """ Fixture which enables RIF and L2 counters """
-    for cmd in cmd_list:
-        duthost.command(cmd)
+    duthost.shell_cmds(cmds=cmd_list)
 
     namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
     for namespace in namespace_list:
         cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
         previous_cnt_status[namespace] = {item: duthost.command(cmd_get_cnt_status.format(namespace, item.upper()))["stdout"] for item in ["port", "rif"]}
 
+        ns_cmd_list = []
         CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
         for cmd in cmd_list_per_ns:
-            duthost.command(CMD_PREFIX + cmd, _uses_shell=True)
+            ns_cmd_list.append(CMD_PREFIX + cmd)
+        duthost.shell_cmds(cmds=ns_cmd_list)
+
     yield
     for namespace in namespace_list:
         for port, status in previous_cnt_status[namespace].items():
@@ -65,6 +67,7 @@ def enable_counters(duthosts, rand_one_dut_hostname):
                 logger.info("Restoring counter '{}' state to disable".format(port))
                 CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
                 duthost.command(CMD_PREFIX + "counterpoll {} disable".format(port))
+
 
 @pytest.fixture
 def acl_setup(duthosts, rand_one_dut_hostname, loganalyzer):
@@ -133,6 +136,7 @@ def get_pkt_drops(duthost, cli_cmd, asic_index):
     namespace = duthost.get_namespace_from_asic_id(asic_index)
 
     # Frame the correct cli command
+    # the L2 commands need _SUFFIX and L3 commands need _PREFIX
     if cli_cmd == GET_L3_COUNTERS:
         CMD_PREFIX = NAMESPACE_PREFIX if duthost.is_multi_asic else ''
         cli_cmd = CMD_PREFIX + cli_cmd
@@ -193,7 +197,7 @@ def verify_drop_counters(duthost, asic_index, dut_iface, get_cnt_cli_cmd, column
     """ Verify drop counter incremented on specific interface """
     get_drops = lambda: int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", ""))
     check_drops_on_dut = lambda: PKT_NUMBER == get_drops()
-    if not wait_until(30, 5, check_drops_on_dut):
+    if not wait_until(5, 1, check_drops_on_dut):
         fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
             column_key, dut_iface, column_key, get_drops(), PKT_NUMBER
         )
