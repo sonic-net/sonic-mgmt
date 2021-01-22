@@ -24,6 +24,8 @@ from ansible.plugins.loader import connection_loader
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
+from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.cache import cached
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -238,6 +240,7 @@ class SonicHost(AnsibleHostBase):
 
         self.critical_services = service_list
 
+    @cached(name='basic_facts')
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
@@ -354,11 +357,9 @@ class SonicHost(AnsibleHostBase):
             the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
             logic if possible to derive it from the DUT.
         """
-        if 'type' in self.host.options["inventory_manager"].get_host(self.hostname).get_vars():
-            node_type = self.host.options["inventory_manager"].get_host(self.hostname).get_vars()["type"]
-            if node_type is not None and node_type == 'supervisor':
-                return True
-        return False
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        return is_supervisor_node(inv_files, self.hostname)
 
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
@@ -852,7 +853,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         bgp_facts = self.bgp_facts()['ansible_facts']
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
-        return ret;
+        return ret
 
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
@@ -1097,6 +1098,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return DEFAULT_NAMESPACE
         return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
+    @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo):
         mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
@@ -1123,7 +1125,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd)
-        
+
     def get_asic_name(self):
         asic = "unknown"
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]
@@ -1138,6 +1140,22 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "td3"
 
         return asic
+
+    def get_running_config_facts(self):
+        return self.config_facts(host=self.hostname, source='running')['ansible_facts']
+
+    def get_vlan_intfs(self):
+        '''
+        Get any interfaces belonging to a VLAN
+        '''
+        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_intfs = []
+
+        for vlan in vlan_members_facts:
+            for intf in vlan_members_facts[vlan]:
+                vlan_intfs.append(intf)
+
+        return vlan_intfs
 
 
 class K8sMasterHost(AnsibleHostBase):
@@ -1358,7 +1376,8 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        if out['changed'] == False:
+
+        if out['failed'] == True:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
@@ -1584,7 +1603,7 @@ class SonicAsic(object):
         """This function returns the list of the critical services
            for the namespace(asic)
 
-           If the dut is multi asic, then the asic_id is appended t0 the 
+           If the dut is multi asic, then the asic_id is appended t0 the
             _DEFAULT_ASIC_SERVICES list
         Returns:
             [list]: list of the services running the namespace/asic
@@ -1630,7 +1649,7 @@ class SonicAsic(object):
 
     def show_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_interface'
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
@@ -1643,7 +1662,7 @@ class SonicAsic(object):
 
     def show_ip_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_ip_interface'
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
@@ -1687,7 +1706,7 @@ class MultiAsicSonicHost(object):
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
            The services on the sonic devices are:
-              - services running on the host 
+              - services running on the host
               - services which are replicated per asic
             Returns:
             [list]: list of the services running the device

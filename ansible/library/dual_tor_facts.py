@@ -1,10 +1,13 @@
+from collections import defaultdict
 class DualTorParser:
 
-    def __init__(self, hostname, testbed_facts, host_vars, vm_config):
+    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs):
         self.hostname = hostname
         self.testbed_facts = testbed_facts
         self.host_vars = host_vars
         self.vm_config = vm_config
+        self.port_alias = port_alias
+        self.vlan_intfs = vlan_intfs
         self.dual_tor_facts = {}
 
     def parse_neighbor_tor(self):
@@ -27,12 +30,31 @@ class DualTorParser:
         upper_tor, lower_tor = sorted(self.testbed_facts['duts'])
         self.dual_tor_facts['positions'] = {'upper': upper_tor, 'lower': lower_tor}
 
+    def parse_loopback_ips(self):
+        '''
+        Parses the IPv4 and IPv6 loopback IPs for the DUTs
+
+        Similar to `parse_tor_position`, the ToR which comes first alphabetically is always assigned the first IP
+        '''
+
+        loopback_ips = defaultdict(dict)
+
+        ipv4_loopbacks = sorted(self.vm_config['DUT']['loopback']['ipv4'])
+        ipv6_loopbacks = sorted(self.vm_config['DUT']['loopback']['ipv6'])
+
+        for i, dut in enumerate(sorted(self.testbed_facts['duts'])):
+            loopback_ips[dut]['ipv4'] = ipv4_loopbacks[i]
+            loopback_ips[dut]['ipv6'] = ipv6_loopbacks[i] 
+
+        self.dual_tor_facts['loopback'] = loopback_ips     
+
     def generate_cable_names(self):
         cables = []
 
-        for vm in sorted(self.vm_config['vm'].keys()):
-            name = '{}-{}-SC'.format(self.hostname, vm)
-            cables.append(name)
+        for server_num, dut_intf in enumerate(self.vlan_intfs):
+            name = '{}-Servers{}-SC'.format(self.hostname, server_num)
+            cable = {"hostname": name, "dut_intf": dut_intf}
+            cables.append(cable)
 
         self.dual_tor_facts['cables'] = cables
 
@@ -44,6 +66,7 @@ class DualTorParser:
             self.parse_neighbor_tor()
             self.parse_tor_position()
             self.generate_cable_names()
+            self.parse_loopback_ips()
 
         return self.dual_tor_facts
 
@@ -54,7 +77,9 @@ def main():
             hostname=dict(required=True, default=None, type='str'),
             testbed_facts=dict(required=True, default=None, type='dict'),
             hostvars=dict(required=True, default=None, type='dict'),
-            vm_config=dict(required=True, default=None, type='dict')
+            vm_config=dict(required=True, default=None, type='dict'),
+            port_alias=dict(required=True, default=None, type='list'),
+            vlan_intfs=dict(required=True, default=None, type='list')
         ),
         supports_check_mode=True
     )
@@ -64,8 +89,10 @@ def main():
     testbed_facts = m_args['testbed_facts']
     host_vars = m_args['hostvars']
     vm_config = m_args['vm_config']
+    port_alias = m_args['port_alias']
+    vlan_intfs = m_args['vlan_intfs']
     try:
-        dual_tor_parser = DualTorParser(hostname, testbed_facts, host_vars, vm_config)
+        dual_tor_parser = DualTorParser(hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs)
         module.exit_json(ansible_facts={'dual_tor_facts': dual_tor_parser.get_dual_tor_facts()})
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())

@@ -181,7 +181,7 @@ def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
 def base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_dut_ports=None):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
-    Supported 'discard_group' values: 'L2', 'L3', 'ACL'
+    Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
     """
     # Clear SONiC counters
     duthost.command("sonic-clear counters")
@@ -214,8 +214,11 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_du
         if not COMBINED_ACL_DROP_COUNTER:
             ensure_no_l3_drops(duthost)
             ensure_no_l2_drops(duthost)
+    elif discard_group == "NO_DROPS":
+        ensure_no_l2_drops(duthost)
+        ensure_no_l3_drops(duthost)
     else:
-        pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2' or 'L3'")
+        pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
 
 def get_intf_mtu(duthost, intf):
@@ -272,7 +275,7 @@ def do_test():
     def do_counters_test(discard_group, pkt, ptfadapter, duthost, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
-        @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL'
+        @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
         @param pkt: PTF composed packet, sent by test case
         @param ptfadapter: fixture
         @param duthost: fixture
@@ -283,8 +286,9 @@ def do_test():
         base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_dut_ports)
 
         # Verify packets were not egresed the DUT
-        exp_pkt = expected_packet_mask(pkt)
-        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
+        if discard_group != "NO_DROPS":
+            exp_pkt = expected_packet_mask(pkt)
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
 
     return do_counters_test
 
@@ -351,14 +355,17 @@ def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, t
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
+def test_no_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
     """
-    @summary: Verify that packets on ingress port are dropped when egress RIF link is down and check that L3 drop counter incremented
+    @summary: Verify that packets on ingress port are not dropped when egress RIF link is down and check that drop counters not incremented
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     ip_dst = rif_port_down
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
+
+    arp_info = duthost.shell("show arp")["stdout"]
+    pytest_assert(ip_dst not in arp_info.split(), "ARP entry is not cleared")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
@@ -369,7 +376,7 @@ def test_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut_ho
         tcp_dport=pkt_fields["tcp_dport"]
         )
 
-    do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("NO_DROPS", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):

@@ -98,7 +98,7 @@ class ShowInterfaceModule(object):
         self.module.exit_json(ansible_facts=self.facts)
 
     def collect_interface_status(self, namespace=None, include_internal_intfs=False):
-        regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int_internal = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\-]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}

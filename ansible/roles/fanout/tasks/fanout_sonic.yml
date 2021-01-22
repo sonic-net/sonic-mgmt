@@ -1,19 +1,19 @@
-- debug: msg="{{ device_info }}"
+- debug: msg="{{ device_info[inventory_hostname] }}"
 
 - name: prepare fanout switch admin login info
   set_fact: ansible_user={{ fanout_sonic_user }} ansible_password={{ fanout_sonic_password }}
 
 - name: find interface name mapping
-  port_alias: hwsku="{{ device_info["HwSku"] }}"
+  port_alias: hwsku="{{ device_info[inventory_hostname]["HwSku"] }}"
 
 - name: build fanout vlan config
-  fail: msg="SONiC fanout switch with HwSku {{ device_info.HwSku }} not supported"
-  when: device_info.HwSku != "Arista-7060CX-32S-C32"
+  fail: msg="SONiC fanout switch with HwSku {{ device_info[inventory_hostname]['HwSku'] }} not supported"
+  when: device_info[inventory_hostname]["HwSku"] != "Arista-7060CX-32S-C32"
 
 - name: build fanout startup config for Arista 7060 SONiC leaf fanout
   template: src=sonic_deploy_arista_7060.j2
             dest=/etc/sonic/vlan.json
-  when: device_info.HwSku == "Arista-7060CX-32S-C32"
+  when: device_info[inventory_hostname]["HwSku"] == "Arista-7060CX-32S-C32"
   become: yes
 
 - name: disable all copp rules

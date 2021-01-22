@@ -75,6 +75,10 @@ EOF
 # Install the new service ACLs
 acl-loader update full /tmp/testacl.json
 
+# log control plane acl after install
+logger -t cacltest "added cacl test rules"
+iptables -nL | logger -t cacltest
+
 # Sleep to allow Ansible playbook ample time to attempt to connect and timeout
 sleep 60
 
@@ -83,3 +87,7 @@ rm -rf /tmp/testacl.json
 
 # IMPORTANT! Delete the ACLs we just added in order to restore connectivity
 acl-loader delete
+
+# log control plane acl after deletion
+logger -t cacltest "deleted cacl test rules"
+iptables -nL | logger -t cacltest
