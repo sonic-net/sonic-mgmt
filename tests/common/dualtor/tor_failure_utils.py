@@ -98,11 +98,9 @@ def reboot_tor(localhost):
     Reboot TOR
     """
     torhost = []
-    torhost_ip = []
     def reboot_tor(duthost, reboot_type=REBOOT_TYPE_COLD):
         torhost.append(duthost)
-        torhost_ip.append(duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address'])
-        logger.info("Shutdown BGP sessions on {}".format(duthost.hostname))
+        logger.info("Issuing reboot of type {} on {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type, wait_for_ssh=False)
 
     yield reboot_tor
@@ -110,7 +108,7 @@ def reboot_tor(localhost):
 
     if torhost:
         duthost = torhost[0]
-        dut_ip = torhost_ip[0]
+        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
         logger.info("Waiting for ssh to startup on {}".format((duthost.hostname)))
         res = localhost.wait_for(host=dut_ip,
                                 port=SONIC_SSH_PORT,
