@@ -22,6 +22,7 @@ from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
+from tests.common.dualtor.dual_tor_utils import force_active_tor
 
 
 from tests.common.connections import ConsoleHost
@@ -205,6 +206,10 @@ def rand_one_dut_hostname(request):
     if len(dut_hostnames) > 1:
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
+
+@pytest.fixture(scope="module", autouse=True)
+def set_selected_tor_active(duthosts, rand_one_dut_hostname):
+    force_active_tor(duthosts[rand_one_dut_hostname], 'all')
 
 @pytest.fixture(scope="module")
 def rand_one_frontend_dut_hostname(request):
