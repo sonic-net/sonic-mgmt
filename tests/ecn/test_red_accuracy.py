@@ -12,7 +12,8 @@ from files.helper import run_ecn_test, is_ecn_marked
 
 @pytest.mark.topology("tgen")
 
-def test_red_accuracy(ixia_api,
+def test_red_accuracy(request,
+                      ixia_api,
                       ixia_testbed,
                       conn_graph_facts,
                       fanout_graph_facts,
@@ -26,6 +27,7 @@ def test_red_accuracy(ixia_api,
     Dump queue length vs. ECN marking probability results into a file.
 
     Args:
+        request (pytest fixture): pytest request object
         ixia_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
@@ -39,6 +41,9 @@ def test_red_accuracy(ixia_api,
     Returns:
         N/A
     """
+    disable_test = request.config.getoption("--disable_ecn_test")
+    if disable_test:
+        pytest.skip("test_red_accuracy is disabled")
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = rand_one_dut_lossless_prio.split('|')

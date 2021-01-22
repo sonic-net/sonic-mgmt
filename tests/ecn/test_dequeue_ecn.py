@@ -11,7 +11,8 @@ from files.helper import run_ecn_test, is_ecn_marked
 
 @pytest.mark.topology("tgen")
 
-def test_dequeue_ecn(ixia_api,
+def test_dequeue_ecn(request,
+                     ixia_api,
                      ixia_testbed,
                      conn_graph_facts,
                      fanout_graph_facts,
@@ -24,6 +25,7 @@ def test_dequeue_ecn(ixia_api,
     Test if the device under test (DUT) performs ECN marking at the egress
 
     Args:
+        request (pytest fixture): pytest request object
         ixia_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
@@ -37,6 +39,9 @@ def test_dequeue_ecn(ixia_api,
     Returns:
         N/A
     """
+    disable_test = request.config.getoption("--disable_ecn_test")
+    if disable_test:
+        pytest.skip("test_dequeue_ecn is disabled")
 
     dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
