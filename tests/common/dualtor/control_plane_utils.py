@@ -29,7 +29,7 @@ def _hgetall(duthost, db, key):
     return {lines[i]: lines[i + 1] for i in range(0, len(lines), 2)}
 
 
-def expect_app_db_values(duthost, intf_name, state):
+def expect_app_db_values(duthost, intf_names, state):
     """
     Query APP_DB on `duthost` and check if mux cable fields match the given state.
 
@@ -46,7 +46,7 @@ def expect_app_db_values(duthost, intf_name, state):
 
     Args:
         duthost: DUT host object (needs to be passed by calling function from duthosts fixture)
-        intf_name: The PORTNAME to check in each table
+        intf_names: A list of the PORTNAME to check in each table
         state: The expected value for each field in each table listed above.
 
     Returns:
@@ -57,12 +57,14 @@ def expect_app_db_values(duthost, intf_name, state):
     db = APP_DB
     mux_states = {}
     match = True
-    for table, field in APP_DB_MUX_STATE_FIELDS.items():
-        key = table + "|" + intf_name
-        _keys(duthost, db, key)
-        mux_states[key] = _hgetall(duthost, db, key)
-        if mux_states[key][field] != state:
-            match = False
+    for intf_name in intf_names:
+        mux_states[intf_name] = {}
+        for table, field in APP_DB_MUX_STATE_FIELDS.items():
+            key = table + "|" + intf_name
+            _keys(duthost, db, key)
+            mux_states[intf_name][key] = _hgetall(duthost, db, key)
+            if mux_states[intf_name][key][field] != state:
+                match = False
 
     if not match:
         raise ValueError("Mux cable states unmatch, expect state: {state}, "
@@ -70,7 +72,7 @@ def expect_app_db_values(duthost, intf_name, state):
     return match
 
 
-def expect_state_db_values(duthost, intf_name, state, health):
+def expect_state_db_values(duthost, intf_names, state, health):
     """
     Query STATE_DB on `tor_host` and check if mux cable fields match the given states.
 
@@ -85,7 +87,7 @@ def expect_state_db_values(duthost, intf_name, state, health):
 
     Args:
         duthost: DUT host object (needs to be passed by calling function from duthosts fixture)
-        intf_name: The PORTNAME to check in each table
+        intf_names: A list of the PORTNAME to check in each table
         state: The expected value for each of the `state` fields in both tables
         health: The expected value for the `health` field in the MUX_CABLE_TABLE table
 
@@ -97,16 +99,18 @@ def expect_state_db_values(duthost, intf_name, state, health):
     db = STATE_DB
     mux_states = {}
     match = True
-    for table, field in STATE_DB_MUX_STATE_FIELDS.items():
-        key = table + "|" + intf_name
-        _keys(duthost, db, key)
-        mux_states[key] = _hgetall(duthost, db, key)
+    for intf_name in intf_names:
+        mux_states[intf_name] = {}
+        for table, field in STATE_DB_MUX_STATE_FIELDS.items():
+            key = table + "|" + intf_name
+            _keys(duthost, db, key)
+            mux_states[intf_name][key] = _hgetall(duthost, db, key)
 
-        if mux_states[key][field] != state:
+            if mux_states[intf_name][key][field] != state:
+                match = False
+
+        if mux_states[intf_name]["MUX_CABLE_TABLE" + "|" + intf_name].get("health") != health:
             match = False
-
-    if mux_states["MUX_CABLE_TABLE" + "|" + intf_name].get("health") != health:
-        match = False
 
     if not match:
         raise ValueError("Mux cable states unmatch, expect state: {state}, "
