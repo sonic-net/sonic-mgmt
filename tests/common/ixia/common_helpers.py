@@ -326,7 +326,7 @@ def disable_ecn(host_ans, prio):
     """
     host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
 
-def config_buffer(host_ans, profile, alpha_log2):
+def config_buffer_alpha(host_ans, profile, alpha_log2):
     """
     Configure buffer threshold (a.k.a., alpha)
 
@@ -340,7 +340,7 @@ def config_buffer(host_ans, profile, alpha_log2):
     """
     host_ans.shell('sudo mmuconfig -p {} -a {}'.format(profile, alpha_log2))
 
-def config_ingress_lossless_buffer(host_ans, alpha_log2):
+def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     """
     Configure ingress buffer thresholds (a.k.a., alpha) of a device to 2^alpha_log2
 
@@ -367,7 +367,7 @@ def config_ingress_lossless_buffer(host_ans, alpha_log2):
             ingress_profiles.append(profile)
 
     for profile in ingress_profiles:
-        config_buffer(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2)
+        config_buffer_alpha(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2)
 
     """ Check if configuration succeeds """
     config_facts = host_ans.config_facts(host=host_ans.hostname,

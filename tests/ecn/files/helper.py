@@ -8,7 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
-    enable_ecn, config_ingress_lossless_buffer
+    enable_ecn, config_ingress_lossless_buffer_alpha
 
 from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
     BasicFilter
@@ -65,7 +65,7 @@ def run_ecn_test(api,
         Return captured IP packets (list of list)
     """
 
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
     """ Disable PFC watchdog """
     duthost.shell('sudo pfcwd stop')
@@ -75,15 +75,16 @@ def run_ecn_test(api,
                                 kmin=kmin,
                                 kmax=kmax,
                                 pmax=pmax)
-    pytest_assert(config_result is True, 'Failt to configure WRED/ECN at the DUT')
+    pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
     """ Enable ECN marking """
     enable_ecn(host_ans=duthost, prio=lossless_prio)
 
     """ Configure PFC threshold to 2 ^ 3 """
-    config_result = config_ingress_lossless_buffer(host_ans=duthost,
-                                                   alpha_log2=3)
-    pytest_assert(config_result is True, 'Failt to configure PFC threshold to 8')
+    config_result = config_ingress_lossless_buffer_alpha(host_ans=duthost,
+                                                         alpha_log2=3)
+
+    pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
 
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -92,10 +93,10 @@ def run_ecn_test(api,
                               fanout_data=fanout_data)
 
     pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
+                  'Failed to get ID for port {}'.format(dut_port))
 
     """ Generate packet capture config """
-    capture_config = __config_capture(testbed_config=testbed_config, port_id=port_id)
+    capture_config = __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
 
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
@@ -245,9 +246,9 @@ def __gen_traffic(testbed_config,
     return result
 
 
-def __config_capture(testbed_config, port_id):
+def __config_capture_ip_pkt(testbed_config, port_id):
     """
-    Generate packet capture configuration
+    Generate the configuration to capture IP packets
 
     Args:
         testbed_config (obj): L2/L3 config of a T0 testbed
@@ -292,7 +293,10 @@ def __run_traffic(api,
     api.set_state(State(FlowTransmitState(state='start')))
     time.sleep(exp_dur_sec)
 
-    while True:
+    attempts = 0
+    max_attempts = 20
+
+    while attempts < max_attempts:
         rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
         """ If all the flows have stopped """
         transmit_states = [row['transmit'] for row in rows]
@@ -302,6 +306,7 @@ def __run_traffic(api,
             break
         else:
             time.sleep(1)
+            attempts += 1
 
     """ Dump captured packets """
     pcap_bytes = api.get_capture_results(CaptureRequest(port_name=capture_port_name))
