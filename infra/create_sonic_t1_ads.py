@@ -42,8 +42,7 @@ def _create_parser():
                       default=False)
     return parser
 
-
-def deploy_mg(data,base_topo_file):
+def git_update(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -71,9 +70,23 @@ def deploy_mg(data,base_topo_file):
         print(resp.decode("ascii"))
     time.sleep(20)
 
+    ssh.close()
+
+def deploy_mg(data,base_topo_file):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    chan = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
     chan.send("docker container start docker-sonic-mgmt \n")
     buff = ''
-    while not buff.endswith(':~/sonic-test$ '):
+    while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
@@ -513,6 +526,9 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
+    print("********** Do a Git Update **********")
+    git_update(data)
+    
     print("Sonic DUT:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
     print("Sonic Mgmt:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))

@@ -134,7 +134,7 @@ configuration_properties:
     dut_asn: 65100
     dut_type: LeafRouter
     nhipv4: 10.10.246.254
-    nhipv6: fc0a::ff
+    nhipv6: FC0A::FF
   spine:
     swrole: spine
     podset_number: 200
