@@ -7,7 +7,7 @@ import os
 from jinja2 import Template
 from common.helpers.assertions import pytest_require
 from common.helpers.buffer import update_cable_len
-from common.helpers.config_reload import config_reload
+from common import config_reload
 
 logger = logging.getLogger(__name__)
 
