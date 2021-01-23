@@ -52,6 +52,7 @@ def lldp_snmp_pre_config():
     global ipaddress
     global lldp_value_remote, lldp_value_gran
     global lldp_total_value
+    st.wait(60)
     data.ipaddress_d1 = basic_obj.get_ifconfig_inet(vars.D1, data.mgmt_int)
     data.ipaddress_d2 = basic_obj.get_ifconfig_inet(vars.D2, data.mgmt_int)
     if not data.ipaddress_d1:

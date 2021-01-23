@@ -1,7 +1,5 @@
 simulation:
   no_image_copy: true
-  sim_rel: /auto/vxr/vxr2_user/vxr2_npsuite_1.61.5
-  sim_flags: [-k ConfigLeabaSdkVer=1.33.1 -k ConfigNpsuiteVer=1.61.5 -k ConfigDsimNplPath=/auto/vxr1/sonic-images/SDK1.33_NPS1.61.5/npl]
   slurm_flags:
     hours: 120
           
@@ -27,8 +25,13 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install:  /ws/venkatg-sjc/sonic/201911/IMAGES/dt_drop3.1/sonic-cisco-8000.bin
+    onie-install:  http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
     linecard_versions: [p7]
+    vxr_sim_config:
+       shelf:
+          ConfigS1SdkVer: 1.35.2
+          ConfigS1NpsuiteVer: 1.68.1
+          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
   
   sonic_mgmt :
     platform: linux

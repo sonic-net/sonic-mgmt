@@ -7,7 +7,7 @@ tcl_custom_pkgdir = os.path.abspath(os.path.dirname(__file__))
 
 def tg_stc_load(version, logger, logs_path=None):
 
-    stc_version_map = {"4.67": "4.67", "4.91": "4.91", "5.03": "5.03", "5.05": "5.05"}
+    stc_version_map = {"4.67": "4.67", "4.91": "4.91", "5.03": "5.03", "5.05": "5.05", "5.17": "5.17"}
 
     # verify STC version provided
     version_string = str(version)
