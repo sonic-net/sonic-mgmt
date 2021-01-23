@@ -112,7 +112,7 @@ def is_hiting_start_limit(duthost, container_name):
 
 
 def clear_failed_flag_and_restart(duthost, container_name):
-    """clears the failed flag of a container and restart it.
+    """Clears the failed flag of a container and restart it.
 
     Args:
         duthost: Host DUT.
@@ -258,7 +258,7 @@ def restart_containers(duthost, stopped_containers_list):
             if is_hiting_start_limit(duthost, container_name):
                 clear_failed_flag_and_restart(duthost, container_name)
             else:
-                pytest_assert(restarted, "Failed to restart container '{}'".format(container_name))
+                pytest.fail("Failed to restart container '{}'".format(container_name))
         logger.info("Container '{}' was restarted".format(container_name))
 
 
