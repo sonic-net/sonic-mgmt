@@ -22,8 +22,8 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 
-TOR_A = 'upper_tor'
-TOR_B = 'lower_tor'
+UPPER_TOR = 'upper_tor'
+LOWER_TOR = 'lower_tor'
 NIC = 'nic'
 
 
@@ -131,8 +131,8 @@ def get_mux_connections(vm_set, port_index):
     mux_status['vm_set'] = vm_set
     mux_status['port_index'] = port_index
     mux_status['ports'][NIC] = parsed[0][1]
-    mux_status['ports'][TOR_A] = parsed[1][1]
-    mux_status['ports'][TOR_B] = parsed[2][1]
+    mux_status['ports'][UPPER_TOR] = parsed[1][1]
+    mux_status['ports'][LOWER_TOR] = parsed[2][1]
     mux_status['bridge'] = parsed[3][1]
     return mux_status
 
@@ -284,7 +284,7 @@ def set_active_side(vm_set, port_index, new_active_side):
     mux_status = get_mux_status(vm_set, port_index)
 
     if new_active_side == 'random':
-        new_active_side = random.choice([TOR_A, TOR_B])
+        new_active_side = random.choice([UPPER_TOR, LOWER_TOR])
 
     if mux_status['active_side'] == new_active_side:
         # Current active side is same as new active side, no need to change.
@@ -294,7 +294,7 @@ def set_active_side(vm_set, port_index, new_active_side):
     flows = get_flows(vm_set, port_index)
     active_port = get_active_port(flows)
     if new_active_side == 'toggle':
-        new_active_side = TOR_A if mux_status['active_side'] == TOR_B else TOR_B
+        new_active_side = UPPER_TOR if mux_status['active_side'] == LOWER_TOR else LOWER_TOR
 
     new_active_port = mux_status['ports'][new_active_side]
     run_cmd('ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'.format(vm_set, port_index, active_port))
@@ -341,7 +341,7 @@ def _validate_posted_data(data):
     Returns:
         tuple: Return the result in a tuple. The first item is either True or False. The second item is extra message.
     """
-    if 'active_side' in data and data['active_side'] in [TOR_A, TOR_B, 'toggle', 'random']:
+    if 'active_side' in data and data['active_side'] in [UPPER_TOR, LOWER_TOR, 'toggle', 'random']:
         return True, ''
     return False, 'Bad posted data, expected: {"active_side": "upper_tor|lower_tor|toggle|random"}'
 
@@ -470,7 +470,7 @@ def _validate_out_ports(data):
     Returns:
         tuple: Return the result in a tuple. The first item is either True or False. The second item is extra message.
     """
-    supported_out_ports = [NIC, TOR_A, TOR_B]
+    supported_out_ports = [NIC, UPPER_TOR, LOWER_TOR]
     try:
         assert 'out_ports' in data, 'Missing "out_ports" field'
         for port in data['out_ports']:
@@ -562,7 +562,7 @@ def update_flow_action(vm_set, port_index, action, data):
     for out_port in data['out_ports']:
         if out_port == NIC:
             mux_status = update_flow_action_to_nic(mux_status, action)
-        elif out_port == TOR_A or out_port == TOR_B:
+        elif out_port == UPPER_TOR or out_port == LOWER_TOR:
             tor_ports.append(out_port)
     if tor_ports:
         mux_status = update_flow_action_to_tor(mux_status, action, tor_ports)

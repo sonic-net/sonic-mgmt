@@ -7,8 +7,8 @@ from tests.common import utilities
 
 logger = logging.getLogger(__name__)
 
-TOR_A = "upper_tor"
-TOR_B = "lower_tor"
+UPPER_TOR = "upper_tor"
+LOWER_TOR = "lower_tor"
 NIC = "nic"
 
 DROP = "drop"
@@ -149,7 +149,7 @@ def toggle_simulator_port_to_upper_tor(mux_server_url, physical_port):
         mux_server_url: a str, the address of mux server
         physical_port: physical port on switch, an integer starting from 1
     """
-    _simulator_port_toggle_to(mux_server_url, physical_port, TOR_A)
+    _simulator_port_toggle_to(mux_server_url, physical_port, UPPER_TOR)
 
 def toggle_simulator_port_to_lower_tor(mux_server_url, physical_port):
     """
@@ -158,7 +158,7 @@ def toggle_simulator_port_to_lower_tor(mux_server_url, physical_port):
         mux_server_url: a str, the address of mux server
         physical_port: physical port on switch, an integer starting from 1
     """
-    _simulator_port_toggle_to(mux_server_url, physical_port, TOR_B)
+    _simulator_port_toggle_to(mux_server_url, physical_port, LOWER_TOR)
 
 def recover_all_directions(mux_server_url, physical_port):
     """
@@ -170,7 +170,7 @@ def recover_all_directions(mux_server_url, physical_port):
         None.
     """
     server_url = _url(mux_server_url, physical_port, OUTPUT)
-    data = {"out_ports": [TOR_A, TOR_B, NIC]}
+    data = {"out_ports": [UPPER_TOR, LOWER_TOR, NIC]}
     pytest_assert(_post(server_url, data), "Failed to set output on all directions")
 
 def check_simulator_read_side(mux_server_url, physical_port):
@@ -189,9 +189,9 @@ def check_simulator_read_side(mux_server_url, physical_port):
     if not res:
         return -1
     active_side = res["active_side"]
-    if active_side == TOR_A:
+    if active_side == UPPER_TOR:
         return 1
-    elif active_side == TOR_B:
+    elif active_side == LOWER_TOR:
         return 2
     else:
         return -1
@@ -202,7 +202,7 @@ def toggle_all_simulator_ports_to_upper_tor(mux_server_url):
     A module level fixture to toggle all ports to upper_tor
     """
     server_url = _url(mux_server_url)
-    data = {"active_side": TOR_A}
+    data = {"active_side": UPPER_TOR}
     pytest_assert(_post(server_url, data), "Failed to toggle all ports to upper_tor")
 
 @pytest.fixture(scope='module')
@@ -211,7 +211,7 @@ def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
     A module level fixture to toggle all ports to lower_tor
     """
     server_url = _url(mux_server_url)
-    data = {"active_side": TOR_B}
+    data = {"active_side": LOWER_TOR}
     pytest_assert(_post(server_url, data), "Failed to toggle all ports to upper_tor")
 
 @pytest.fixture(scope='module')
