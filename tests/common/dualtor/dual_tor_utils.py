@@ -61,7 +61,7 @@ def lower_tor_host(duthosts):
     '''
     Gets the host object for the lower ToR
 
-    Uses the convention that the second ToR listed in the testbed file is teh lower ToR
+    Uses the convention that the second ToR listed in the testbed file is the lower ToR
     '''
     dut = duthosts[1]
     logger.info("Using {} as lower ToR".format(dut.hostname))
