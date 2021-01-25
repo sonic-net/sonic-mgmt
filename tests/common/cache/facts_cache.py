@@ -153,7 +153,8 @@ class FactsCache(with_metaclass(Singleton, object)):
                 shutil.rmtree(self._cache_location)
                 logger.debug('Removed all cache files under "{}"'.format(self._cache_location))
             except OSError as e:
-                logger.error('Remove cache folder "{}" failed with exception: '.format(self._cache_location, repr(e)))
+                logger.error('Remove cache folder "{}" failed with exception: {}'\
+                    .format(self._cache_location, repr(e)))
 
 def cached(name):
     """Decorator for enabling cache for facts.
