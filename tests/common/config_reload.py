@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 config_sources = ['config_db', 'minigraph']
 
 
-def config_reload(duthost, config_source='config_db', wait=120):
+def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True):
     """
     reload SONiC configuration
     :param duthost: DUT host object
@@ -25,6 +25,8 @@ def config_reload(duthost, config_source='config_db', wait=120):
 
     if config_source == 'minigraph':
         duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
+        if start_bgp:
+            duthost.shell('config bgp startup all')
         duthost.shell('config save -y')
 
     if config_source == 'config_db':
