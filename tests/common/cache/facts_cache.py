@@ -117,26 +117,43 @@ class FactsCache(with_metaclass(Singleton, object)):
             logger.error('Dump cache file "{}" failed with exception: {}'.format(facts_file, repr(e)))
             return False
 
-    def cleanup(self, zone=None):
+    def cleanup(self, zone=None, key=None):
         """Cleanup cached files.
 
         Args:
             zone (str): Cached facts are organized by zones. This argument is to specify the zone name.
                 The zone name could be hostname. Default to None. When zone is not specified, all the cached facts
                 will be cleaned up.
+            key (str): Name of cached facts. Default is None.
         """
         if zone:
-            cache_subfolders = os.listdir(self._cache_location)
-            if zone in cache_subfolders:
-                cache_subfolder = os.path.join(self._cache_location, zone)
-                logger.info('Clean up cached facts under "{}"'.format(cache_subfolder))
-                shutil.rmtree(cache_subfolder)
+            if key:
+                if zone in self._cache and key in self._cache[zone]:
+                    del self._cache[zone][key]
+                    logger.debug('Removed "{}.{}" from cache.'.format(zone, key))
+                try:
+                    cache_file = os.path.join(self._cache_location, zone, '{}.pickle'.format(key))
+                    os.remove(cache_file)
+                    logger.debug('Removed cache file "{}.pickle"'.format(cache_file))
+                except OSError as e:
+                    logger.error('Cleanup cache {}.{}.pickle failed with exception: {}'.format(zone, key, repr(e)))
             else:
-                logger.error('Cache subfolder "{}" is not found'.format(zone))
+                if zone in self._cache:
+                    del self._cache[zone]
+                    logger.debug('Removed zone "{}" from cache'.format(zone))
+                try:
+                    cache_subfolder = os.path.join(self._cache_location, zone)
+                    shutil.rmtree(cache_subfolder)
+                    logger.debug('Removed cache subfolder "{}"'.format(cache_subfolder))
+                except OSError as e:
+                    logger.error('Remove cache subfolder "{}" failed with exception: {}'.format(zone, repr(e)))
         else:
-            logger.info('Clean up all cached facts under "{}"'.format(self._cache_location))
-            shutil.rmtree(self._cache_location)
-
+            self._cache = defaultdict(dict)
+            try:
+                shutil.rmtree(self._cache_location)
+                logger.debug('Removed all cache files under "{}"'.format(self._cache_location))
+            except OSError as e:
+                logger.error('Remove cache folder "{}" failed with exception: '.format(self._cache_location, repr(e)))
 
 def cached(name):
     """Decorator for enabling cache for facts.
