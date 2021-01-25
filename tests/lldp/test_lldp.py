@@ -29,7 +29,7 @@ def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
         assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
         assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
-   
+
 
 def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
                        collect_techsupport, loganalyzer):
@@ -37,7 +37,7 @@ def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
     duthost = duthosts[rand_one_dut_hostname]
 
     if loganalyzer:
-        loganalyzer.ignore_regex.extend([
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([
             ".*ERR syncd#syncd: :- check_fdb_event_notification_data.*",
             ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb \
                 notifications, NOT translating and NOT storing in ASIC DB.*",

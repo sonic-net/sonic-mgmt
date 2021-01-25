@@ -11,7 +11,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(loganalyzer):
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -29,7 +29,7 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
             ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
             ".*ERR syncd#syncd: :- translate_vid_to_rid: unable to get RID for VID.*",
         ]
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
     yield
 

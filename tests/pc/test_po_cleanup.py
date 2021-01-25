@@ -9,7 +9,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(loganalyzer):
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -25,12 +25,12 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
         ignoreRegex = [
             ".*",
         ]
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
         expectRegex = [
             ".*teamd#teammgrd: :- cleanTeamProcesses.*",
             ".*teamd#teamsyncd: :- cleanTeamSync.*"
         ]
-        loganalyzer.expect_regex.extend(expectRegex)
+        loganalyzer[rand_one_dut_hostname].expect_regex.extend(expectRegex)
 
 
 def check_kernel_po_interface_cleaned(duthost):
