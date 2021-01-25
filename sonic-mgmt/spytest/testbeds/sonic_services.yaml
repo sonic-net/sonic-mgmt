@@ -26,30 +26,30 @@ sftp:
   password: broadcom
 
 snmptrap:
-  ip: 172.27.148.42
+  ip: 172.27.147.152
   port: 22
-  username: sonic
-  password: sonic
+  username: rraghav
+  password: roZes@123
   path: /var/log/snmptrap.log
 
 tacacs:
-  hosts: [{ip: 10.59.143.179, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 1},
-          {ip: 10.52.132.214, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 2},
-          {ip: 10.52.145.181, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 3},
-          {ip: 10.2.3.2, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 4},
+  hosts: [{ip: 1.74.23.7, username: rraghav, password: roZes@123,
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 1},
+          {ip: 1.74.23.5, username: rraghav, password: roZes123,
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 2},
+          {ip: 172.27.147.152, username: rraghav, password: roZes@123,
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 3},
+          {ip: 172.27.147.156, username: rraghav, password: roZes123,
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 4},
           {ip: 10.2.3.4, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 5},
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 5},
           {ip: 10.2.3.5, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 6},
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 6},
           {ip: 10.2.3.6, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 7},
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 7},
           {ip: 10.2.3.7, username: root, password: lvl7india,
-           timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 8}]
-
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 8}
+           ]
 radius:
   hosts: [{ip: 10.52.132.214, username: test, password: test,
            timeout: 5, passkey: Lvl7india, udp_port: 1812, auth_type: pap, priority: 8},

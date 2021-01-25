@@ -38,8 +38,8 @@ def tacacs_module_hooks(request):
     data.ssh_port = '22'
     data.login_type = "tacacs+"
     data.failthrough_mode = 'enable'
-    data.local_username = 'admin'
-    data.local_password = 'YourPaSsWoRd'
+    data.local_username = 'cisco'
+    data.local_password = 'cisco123'
     data.local_password2 = 'broadcom'
     data.username1 = 'test'
     data.password1 = 'test'
@@ -236,13 +236,16 @@ def test_ft_tacacs_modify_server_parameters():
     st.log("Configuring global tacacs server key with special characters")
     tacacs_obj.set_tacacs_properties(vars.D1, 'passkey', data.passkey)
     st.log("Check client authentication by modifing ip address,timeout,passkey")
-    tacacs_obj.set_tacacs_server(vars.D1, 'add', invalid_ip_addr, invalid_l4_port, invalid_timeout, invalid_pass_key,
-                                 data.auth_type, data.priority_server2)
+    tacacs_obj.set_tacacs_server(vars.D1, 'delete', data.tacacs_ser_ip_1)
+    tacacs_obj.set_tacacs_server(vars.D1, 'delete', data.tacacs_ser_ip_2)
+    tacacs_obj.set_tacacs_server(vars.D1, 'add', data.tacacs_ser_ip_1, invalid_l4_port, data.timeout, data.passkey,
+                                 data.auth_type, data.priority)
+
     st.log("Trying to SSH to the device when TACACS+ server is configured with invalid parameters")
     if ssh_obj.connect_to_device(data.ip_address, data.username, data.password, data.protocol, data.ssh_port):
         st.report_fail("Login_to_DUT_via_SSH_is_failed")
     st.log("Deleting the TACACS+ server which is invalid")
-    tacacs_obj.set_tacacs_server(vars.D1, 'delete', invalid_ip_addr)
+    tacacs_obj.set_tacacs_server(vars.D1, 'delete', data.tacacs_ser_ip_1)
     st.log("Creating valid TACACS+ server")
     tacacs_obj.set_tacacs_server(vars.D1, 'add', data.tacacs_ser_ip_1, data.tcp_port, data.timeout, data.passkey,
                                  data.auth_type, data.priority)
@@ -265,7 +268,7 @@ def test_ft_tacacs_maximum_servers():
     Scenario-5: Verify the Save and Reload Functionality for TACACS IPv6 feature.
     """
     tacacs_params = st.get_service_info(vars.D1, "tacacs")
-    for i in range(2, 8):
+    for i in range(1, 8):
         ip_addr = ensure_service_params(vars.D1, "tacacs", "hosts", i, "ip")
         priority = ensure_service_params(vars.D1, "tacacs", "hosts", i, "priority")
         tacacs_obj.set_tacacs_server(vars.D1, 'add', ip_addr, data.tcp_port,
