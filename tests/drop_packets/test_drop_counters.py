@@ -74,14 +74,14 @@ def acl_setup(duthosts, rand_one_dut_hostname, loganalyzer):
 
     logger.info("Applying {}".format(dut_conf_file_path))
 
-    loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-    with loganalyzer as analyzer:
+    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+    with loganalyzer[rand_one_dut_hostname] as analyzer:
         duthost.command("config acl update full {}".format(dut_conf_file_path))
 
     yield
 
-    loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-    with loganalyzer as analyzer:
+    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+    with loganalyzer[rand_one_dut_hostname] as analyzer:
         logger.info("Applying {}".format(dut_clear_conf_file_path))
         duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
         logger.info("Removing {}".format(dut_tmp_dir))

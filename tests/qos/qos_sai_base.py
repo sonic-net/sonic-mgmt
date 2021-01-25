@@ -500,7 +500,7 @@ class QosSaiBase:
             updateDockerService(duthost, action="start", **service)
 
     @pytest.fixture(autouse=True)
-    def updateLoganalyzerExceptions(self, loganalyzer):
+    def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):
         """
             Update loganalyzer ignore regex list
 
@@ -530,7 +530,7 @@ class QosSaiBase:
                 ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python.* /usr/local/bin/bgpmon' is not running.*",
                 ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
             ]
-            loganalyzer.ignore_regex.extend(ignoreRegex)
+            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
         yield
 
