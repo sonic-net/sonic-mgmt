@@ -113,7 +113,7 @@ all:
           type: kvm
           hwsku: msft_multi_asic_vs
           serial_port: 9005
-          num_asics: 6
+          num_asics: 4
           ansible_password: password
           ansible_user: admin
         vlab-simx-01:
