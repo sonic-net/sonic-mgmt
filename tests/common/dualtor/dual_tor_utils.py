@@ -49,9 +49,9 @@ def upper_tor_host(duthosts):
     '''
     Gets the host object for the upper ToR
 
-    Uses the convention that the first ToR alphabetically by hostname is the upper ToR
+    Uses the convention that the first ToR listed in the testbed file is the upper ToR
     '''
-    dut = sorted(duthosts, key=lambda dut: dut.hostname)[0]
+    dut = duthosts[0]
     logger.info("Using {} as upper ToR".format(dut.hostname))
     return dut
 
@@ -61,9 +61,9 @@ def lower_tor_host(duthosts):
     '''
     Gets the host object for the lower ToR
 
-    Uses the convention that the first ToR alphabetically by hostname is the upper ToR
+    Uses the convention that the second ToR listed in the testbed file is the lower ToR
     '''
-    dut = sorted(duthosts, key=lambda dut: dut.hostname)[-1]
+    dut = duthosts[1]
     logger.info("Using {} as lower ToR".format(dut.hostname))
     return dut
 
