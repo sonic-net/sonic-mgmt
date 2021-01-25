@@ -86,7 +86,7 @@ class FactsCache(with_metaclass(Singleton, object)):
             except (IOError, ValueError) as e:
                 logger.info('Load cache file "{}" failed with exception: {}'\
                     .format(os.path.abspath(facts_file), repr(e)))
-                return {}
+                return None
 
     def write(self, zone, key, value):
         """Store facts to cache.
