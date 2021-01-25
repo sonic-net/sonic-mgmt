@@ -9,8 +9,6 @@ import random
 import pytest
 import yaml
 import jinja2
-from ansible.parsing.dataloader import DataLoader
-from ansible.inventory.manager import InventoryManager
 
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
@@ -20,7 +18,9 @@ from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
+from tests.common.utilities import get_inventory_files
+from tests.common.utilities import get_host_vars
+from tests.common.utilities import get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
@@ -606,14 +606,9 @@ def get_host_data(request, dut):
     '''
     This function parses multple inventory files and returns the dut information present in the inventory
     '''
-    inv_data = None
     inv_files = get_inventory_files(request)
-    for inv_file in inv_files:
-        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
-        if dut in inv_mgr.hosts:
-            return inv_mgr.get_host(dut).get_vars()
+    return get_host_vars(inv_files, dut)
 
-    return inv_data
 
 def generate_params_frontend_hostname(request, duts_in_testbed, tbname):
     frontend_duts = []
@@ -669,7 +664,7 @@ def generate_params_supervisor_hostname(request, duts_in_testbed, tbname):
 
 
 def generate_param_asic_index(request, duts_in_testbed, dut_indices, param_type):
-    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
+    logging.info("generating {} asic indices for  DUT [{}] in ".format(param_type, dut_indices))
     #if the params are not present treat the device as a single asic device
     asic_index_params = [DEFAULT_ASIC_ID]
 
@@ -867,4 +862,3 @@ def duthost_console(localhost, creds, request):
                        console_password=creds['console_password'][vars['console_type']])
     yield host
     host.disconnect()
-
