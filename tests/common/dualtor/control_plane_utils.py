@@ -62,8 +62,8 @@ def expect_app_db_values(duthost, intf_names, state):
         for table, field in APP_DB_MUX_STATE_FIELDS.items():
             key = table + "|" + intf_name
             _keys(duthost, db, key)
-            mux_states[intf_name][key] = _hgetall(duthost, db, key)
-            if mux_states[intf_name][key][field] != state:
+            mux_states[intf_name][table] = _hgetall(duthost, db, key)
+            if mux_states[intf_name][table][field] != state:
                 match = False
 
     if not match:
@@ -104,9 +104,9 @@ def expect_state_db_values(duthost, intf_names, state, health):
         for table, field in STATE_DB_MUX_STATE_FIELDS.items():
             key = table + "|" + intf_name
             _keys(duthost, db, key)
-            mux_states[intf_name][key] = _hgetall(duthost, db, key)
+            mux_states[intf_name][table] = _hgetall(duthost, db, key)
 
-            if mux_states[intf_name][key][field] != state:
+            if mux_states[intf_name][table][field] != state:
                 match = False
 
         if mux_states[intf_name]["MUX_CABLE_TABLE" + "|" + intf_name].get("health") != health:
