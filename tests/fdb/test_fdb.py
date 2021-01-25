@@ -195,7 +195,6 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     2. verify show mac command on DUT for learned mac.
     """
     duthost = duthosts[rand_one_dut_hostname]
-
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     # reinitialize data plane due to above changes on PTF interfaces
@@ -207,8 +206,10 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    available_ports_idx = [ idx for idx, name in ptf_ports_available_in_topo.items()
-    if conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up' ]
+    available_ports_idx = []
+    for idx, name in ptf_ports_available_in_topo.items():
+        if idx in port_index_to_name and conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
+            available_ports_idx.append(idx)
 
     vlan_table = {}
 
@@ -237,8 +238,6 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             dummy_mac_count += 1
         if "dynamic" in l.lower():
             total_mac_count += 1
-
-    print res
 
     assert vlan_member_count > 0
 
