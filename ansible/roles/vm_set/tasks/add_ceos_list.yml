@@ -10,6 +10,7 @@
   docker_image_info:
     name:
       - "{{ ceos_image_orig }}"
+      - "{{ ceos_image }}"
   become: yes
   register: ceos_stat
 
