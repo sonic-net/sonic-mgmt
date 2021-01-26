@@ -6,7 +6,7 @@ import random
 import time
 
 from qos_fixtures import lossless_prio_dscp_map
-from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_active_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys
+from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -49,9 +49,6 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname):
 
     """ Get Vlan subnet """
     vlan_subnet = get_vlan_subnet(duthost)
-
-    """ Prefix length to network mask """
-    vlan_subnet_mask = ipaddress.ip_network(unicode(vlan_subnet, "utf-8")).netmask
 
     """ Generate IP addresses for servers in the Vlan """
     vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
