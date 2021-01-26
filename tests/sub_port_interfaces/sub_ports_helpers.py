@@ -227,6 +227,13 @@ def check_sub_port(duthost, sub_port):
     return sub_port in out
 
 
+def check_sub_ports_creation(duthost, sub_ports):
+    """
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    return set(sub_ports) == set(config_facts['VLAN_SUB_INTERFACE'].keys())
+
+
 def get_mac_dut(duthost, interface):
     """
     Get MAC address of DUT interface
@@ -266,10 +273,8 @@ def get_port_mtu(duthost, interface):
     out = ''
 
     if '.' in interface:
-        pattern = re.compile(r'%s\s+\S+\s+(\d+)' % interface)
-        out = duthost.shell("show subinterface status {}".format(interface))["stdout"]
-    else:
-        pattern = re.compile(r'%s\s+\S+\s+\S+\s+(\d+)' % interface)
-        out = duthost.shell("show interface status {}".format(interface))["stdout"]
+        out = duthost.show_and_parse("show subinterface status {}".format(interface))
+        return out[0]['mtu']
 
-    return pattern.search(out).group(1)
+    out = duthost.show_and_parse("show interface status {}".format(interface))
+    return out[0]['mtu']

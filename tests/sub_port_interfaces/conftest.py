@@ -5,9 +5,12 @@ import jinja2
 import pytest
 
 from tests.common import config_reload
+from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.utilities import wait_until
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
 from sub_ports_helpers import SUB_PORTS_TEMPLATE
+from sub_ports_helpers import check_sub_ports_creation
 
 
 @pytest.fixture
@@ -43,8 +46,8 @@ def define_sub_ports_configuration(request, duthost, ptfhost):
         vlan_ranges_ptf = range(11, 31, 10)
 
     if 'max_numbers' in request.node.name:
-        vlan_ranges_dut = range(1, 257)
-        vlan_ranges_ptf = range(1, 257)
+        vlan_ranges_dut = range(1, 257, 64)
+        vlan_ranges_ptf = range(1, 257, 64)
 
     interface_ranges = range(1, 2)
     ip_subnet = u'172.16.0.0/16'
@@ -96,6 +99,9 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost):
     duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
     duthost.copy(content=config_template.render(sub_ports_vars), dest=sub_ports_config_path)
     duthost.command('sonic-cfggen -j {} --write-to-db'.format(sub_ports_config_path))
+
+    py_assert(wait_until(3, 1, check_sub_ports_creation, duthost, sub_ports_vars['sub_ports']),
+                  "Some sub-ports were not created")
 
     yield sub_ports_vars
     reload_dut_config(duthost)

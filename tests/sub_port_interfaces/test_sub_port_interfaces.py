@@ -3,6 +3,7 @@ Tests sub-port interfaces in SONiC.
 """
 
 import pytest
+import random
 
 from tests.common.helpers.assertions import pytest_assert
 from sub_ports_helpers import generate_and_verify_traffic
@@ -148,9 +149,14 @@ class TestSubPorts(object):
         Note:
             The running of the test case takes about 80 minutes.
         """
+        sub_ports_new = dict()
         sub_ports = apply_config_on_the_dut['sub_ports']
+        sub_ports_new[sub_ports.keys()[0]] = sub_ports[sub_ports.keys()[0]]
+        sub_ports_new[sub_ports.keys()[-1]] = sub_ports[sub_ports.keys()[-1]]
+        rand_sub_ports = sub_ports.keys()[random.randint(1, len(sub_ports))]
+        sub_ports_new[rand_sub_ports] = sub_ports[rand_sub_ports]
 
-        for sub_port, value in sub_ports.items():
+        for sub_port, value in sub_ports_new.items():
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
                                         src_port=value['neighbor_port'],
