@@ -25,10 +25,9 @@ class DualTorParser:
         '''
         Determines the position ('U' for upper and 'L' for lower) of the ToR.
 
-        The upper ToR is always the first ToR alphabetically by hostname
+        The upper ToR is always the first ToR listed in the testbed file
         '''
-        upper_tor, lower_tor = sorted(self.testbed_facts['duts'])
-        self.dual_tor_facts['positions'] = {'upper': upper_tor, 'lower': lower_tor}
+        self.dual_tor_facts['positions'] = {'upper': self.testbed_facts['duts'][0], 'lower': self.testbed_facts['duts'][1]}
 
     def parse_loopback_ips(self):
         '''
