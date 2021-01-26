@@ -327,7 +327,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
     """
     Test case #3
     Send packets with invalid VLAN ID
-    Verify no port can receive these pacekts
+    Verify no port can receive these packets
     """
 
     logger.info("Test case #3 starting ...")
@@ -345,3 +345,111 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
         testutils.send(ptfadapter, src_port, invalid_tagged_pkt)
         logger.info("Check on " + str(dst_ports) + "...")
         testutils.verify_no_packet_any(ptfadapter, masked_invalid_tagged_pkt, dst_ports)
+
+@pytest.mark.bsl
+def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
+    """
+    Test case #4
+    Send packets w/ src and dst specified over tagged ports in vlan
+    Verify that bidirectional communication between two tagged ports work
+    """
+    vlan_ids = vlan_ports_list[0]['permit_vlanid'].keys()
+    tagged_test_vlan = vlan_ids[0]
+    untagged_test_vlan = vlan_ids[1]
+
+    ports_for_test = []
+
+    for vlan_port in vlan_ports_list:
+        if vlan_port['pvid'] != tagged_test_vlan:
+            ports_for_test.append(vlan_port['port_index'][0])
+
+
+    #take two tagged ports for test
+    src_port = ports_for_test[0]
+    dst_port = ports_for_test[-1]
+
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port)
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
+
+    transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=src_mac, dst_mac=dst_mac)
+    return_transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=dst_mac, dst_mac=src_mac)
+
+    logger.info ("Tagged packet to be sent from port {} to port {}".format(src_port, dst_port))
+
+    testutils.send(ptfadapter, src_port, transmit_tagged_pkt)
+
+    result_dst_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=dst_port,
+                                      timeout=1, exp_pkt=transmit_tagged_pkt)
+
+    if isinstance(result_dst_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("One Way Tagged Packet Transmission Works")
+        logger.info ("Tagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
+    else:
+        test.fail("Expected packet was not received")
+
+    logger.info ("Tagged packet to be sent from port {} to port {}".format(dst_port, src_port))
+
+    testutils.send(ptfadapter, dst_port, return_transmit_tagged_pkt)
+
+    result_src_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=src_port,
+                                      timeout=1, exp_pkt=return_transmit_tagged_pkt)
+
+    if isinstance(result_src_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("Two Way Tagged Packet Transmission Works")
+        logger.info ("Tagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
+    else:
+        test.fail("Expected packet was not received")
+
+@pytest.mark.bsl
+def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
+    """
+    Test case #5
+    Send packets w/ src and dst specified over untagged ports in vlan
+    Verify that bidirectional communication between two untagged ports work
+    """
+    vlan_ids = vlan_ports_list[0]['permit_vlanid'].keys()
+    tagged_test_vlan = vlan_ids[0]
+    untagged_test_vlan = vlan_ids[1]
+
+    ports_for_test = []
+
+    for vlan_port in vlan_ports_list:
+        if vlan_port['pvid'] != tagged_test_vlan:
+            ports_for_test.append(vlan_port['port_index'][0])
+
+    #take two tagged ports for test
+    src_port = ports_for_test[0]
+    dst_port = ports_for_test[-1]
+
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port)
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
+    
+    transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac)
+    return_transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac)
+
+    logger.info ("Untagged packet to be sent from port {} to port {}".format(src_port, dst_port))
+
+    testutils.send(ptfadapter, src_port, transmit_untagged_pkt)
+
+    result_dst_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=dst_port,
+                                      timeout=1, exp_pkt=transmit_untagged_pkt)
+
+    if isinstance(result_dst_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("One Way Untagged Packet Transmission Works")
+        logger.info ("Untagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
+    else:
+        test.fail("Expected packet was not received")
+
+    logger.info ("Untagged packet to be sent from port {} to port {}".format(dst_port, src_port))  
+
+    testutils.send(ptfadapter, dst_port, return_transmit_untagged_pkt)
+
+    result_src_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=src_port,
+                                      timeout=1, exp_pkt=return_transmit_untagged_pkt)
+
+
+    if isinstance(result_src_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("Two Way Untagged Packet Transmission Works")
+        logger.info ("Untagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
+    else:
+        test.fail("Expected packet was not received")

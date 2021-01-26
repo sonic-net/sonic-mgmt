@@ -28,7 +28,7 @@ def config_reload_after_tests(duthost):
     config_reload(duthost)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -95,9 +95,9 @@ def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
     _, feature = decode_dut_port_name(enum_dut_feature)
 
     if loganalyzer:
-        loganalyzer.ignore_regex.extend(ignore_regex_dict['common'])
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
         if feature in ignore_regex_dict:
-            loganalyzer.ignore_regex.extend(ignore_regex_dict[feature])
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict[feature])
 
 
 def get_group_program_info(duthost, container_name, group_name):

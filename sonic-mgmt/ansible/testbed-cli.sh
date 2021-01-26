@@ -308,10 +308,11 @@ function refresh_dut
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -vvv -i $vmfile testbed_refresh_dut.yml --vault-password-file="${passwd}" -l "$server" \
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        -e force_stop_sonic_vm="yes" \
         $ansible_options $@
 
   echo Done

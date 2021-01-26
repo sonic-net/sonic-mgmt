@@ -71,7 +71,7 @@ The APIs using json for data exchange.
 ```
 {
   "active_port": "enp59s0f1.3216",
-  "active_side": "tor_a",
+  "active_side": "upper_tor",
   "bridge": "mbr-vms17-8-0",
   "flows": {
     "enp59s0f1.3216": [
@@ -94,8 +94,8 @@ The APIs using json for data exchange.
   "port_index": "0",
   "ports": {
     "nic": "muxy-vms17-8-0",
-    "tor_a": "enp59s0f1.3216",
-    "tor_b": "enp59s0f1.3272"
+    "upper_tor": "enp59s0f1.3216",
+    "lower_tor": "enp59s0f1.3272"
   },
   "vm_set": "vms17-8"
 }
@@ -129,14 +129,14 @@ Response: `mux_status`
 Post json data format:
 ```
 {
-    "active_side": "tor_a|tor_b|toggle|random"
+    "active_side": "upper_tor|lower_tor|toggle|random"
 }
 ```
 
-* "tor_a": set active side to "tor_a".
-* "tor_b": set active side to "tor_b".
+* "upper_tor": set active side to "upper_tor".
+* "lower_tor": set active side to "lower_tor".
 * "toggle": toggle active side.
-* "random": Randomly set active side to one of "tor_a" and "tor_b".
+* "random": Randomly set active side to one of "upper_tor" and "lower_tor".
 
 Response: `mux_status`
 
@@ -148,7 +148,7 @@ Response: `all_mux_status`
 Post json data format:
 ```
 {
-    "active_side": "tor_a|tor_b|toggle|random"
+    "active_side": "upper_tor|lower_tor|toggle|random"
 }
 ```
 Set active side for all bridges of specified vm_set.
@@ -162,11 +162,11 @@ Response: `all_mux_status`
 Post json data format:
 ```
 {
-    "out_ports": ["nic", "tor_a", "tor_b"],
+    "out_ports": ["nic", "upper_tor", "lower_tor"],
 }
 ```
 
-* `out_ports` is a list. It can contain single or multiple items from: `nic`, `tor_a`, `tor_b`.
+* `out_ports` is a list. It can contain single or multiple items from: `nic`, `upper_tor`, `lower_tor`.
 
 This API is to set specified out ports to `output` or `drop`.
 

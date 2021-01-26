@@ -25,6 +25,7 @@ from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.cache import cached
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -239,6 +240,7 @@ class SonicHost(AnsibleHostBase):
 
         self.critical_services = service_list
 
+    @cached(name='basic_facts')
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
@@ -693,7 +695,7 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface startup {}".format(ifname))
 
-    def get_ip_route_info(self, dstip):
+    def get_ip_route_info(self, dstip, ns=""):
         """
         @summary: return route information for a destionation. The destination coulb an ip address or ip prefix.
 
@@ -761,9 +763,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         if isinstance(dstip, ipaddress.IPv4Network) or isinstance(dstip, ipaddress.IPv6Network):
             if dstip.version == 4:
-                rt = self.command("ip route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} route list exact {}".format(ns, dstip))['stdout_lines']
             else:
-                rt = self.command("ip -6 route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} -6 route list exact {}".format(ns , dstip))['stdout_lines']
 
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
@@ -785,7 +787,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                     rtinfo['nexthops'].append((ipaddress.ip_address(unicode(m.group(2))), unicode(m.group(3))))
 
         elif isinstance(dstip, ipaddress.IPv4Address) or isinstance(dstip, ipaddress.IPv6Address):
-            rt = self.command("ip route get {}".format(dstip))['stdout_lines']
+            rt = self.command("ip {} route get {}".format(ns, dstip))['stdout_lines']
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
             if len(rt) == 0:
@@ -851,7 +853,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         bgp_facts = self.bgp_facts()['ansible_facts']
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
-        return ret;
+        return ret
 
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
@@ -1096,6 +1098,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return DEFAULT_NAMESPACE
         return "{}{}".format(NAMESPACE_PREFIX, asic_id)
 
+    @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo):
         mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
@@ -1122,7 +1125,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd)
-        
+
     def get_asic_name(self):
         asic = "unknown"
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]
@@ -1137,6 +1140,22 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "td3"
 
         return asic
+
+    def get_running_config_facts(self):
+        return self.config_facts(host=self.hostname, source='running')['ansible_facts']
+
+    def get_vlan_intfs(self):
+        '''
+        Get any interfaces belonging to a VLAN
+        '''
+        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_intfs = []
+
+        for vlan in vlan_members_facts:
+            for intf in vlan_members_facts[vlan]:
+                vlan_intfs.append(intf)
+
+        return vlan_intfs
 
 
 class K8sMasterHost(AnsibleHostBase):
@@ -1357,7 +1376,7 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        
+
         if out['failed'] == True:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
@@ -1576,15 +1595,17 @@ class SonicAsic(object):
         self.asic_index = asic_index
         if self.sonichost.is_multi_asic:
             self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
+            self.cli_ns_option = "-n {}".format(self.namespace)
         else:
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
+            self.cli_ns_option = ""
 
     def get_critical_services(self):
         """This function returns the list of the critical services
            for the namespace(asic)
 
-           If the dut is multi asic, then the asic_id is appended t0 the 
+           If the dut is multi asic, then the asic_id is appended t0 the
             _DEFAULT_ASIC_SERVICES list
         Returns:
             [list]: list of the services running the namespace/asic
@@ -1630,7 +1651,7 @@ class SonicAsic(object):
 
     def show_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_interface'
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
@@ -1643,7 +1664,7 @@ class SonicAsic(object):
 
     def show_ip_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_ip_interface'
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
@@ -1661,6 +1682,9 @@ class SonicAsic(object):
             return self.sonichost.command(cmd)
         # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
         return self.sonichost.run_redis_cli_cmd(redis_cmd)
+
+    def get_ip_route_info(self, dstip):
+        return self.sonichost.get_ip_route_info(dstip, self.cli_ns_option)
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
@@ -1687,7 +1711,7 @@ class MultiAsicSonicHost(object):
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
            The services on the sonic devices are:
-              - services running on the host 
+              - services running on the host
               - services which are replicated per asic
             Returns:
             [list]: list of the services running the device
@@ -1753,6 +1777,11 @@ class MultiAsicSonicHost(object):
             return self._run_on_asics
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
+    
+    def get_asic(self, asic_id):
+        if asic_id == DEFAULT_ASIC_ID:
+            return self.asics[0]
+        return self.asics[asic_id]
 
 
 class DutHosts(object):

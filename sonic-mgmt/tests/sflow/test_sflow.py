@@ -403,6 +403,7 @@ class TestAgentId():
 
 # ------------------------------------------------------------------------------
 
+@pytest.mark.disable_loganalyzer
 class TestReboot():
 
     def testRebootSflowEnable(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):

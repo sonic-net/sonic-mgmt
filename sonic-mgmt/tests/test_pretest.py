@@ -164,3 +164,9 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
+
+"""
+    Separator for internal pretests.
+    Please add public pretest above this comment and keep internal
+    pretests below this comment.
+"""

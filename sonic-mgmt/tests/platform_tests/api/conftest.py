@@ -20,13 +20,17 @@ def start_platform_api_service(duthost, localhost):
                              timeout=5,
                              module_ignore_errors=True)
     if 'exception' in res:
+        # TODO: Remove this check once we no longer need to support Python 2
+        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+        py3_platform_api_available = not res['failed']
+
         supervisor_conf = [
-            "[program:platform_api_server]",
-            "command=/usr/bin/python /opt/platform_api_server.py --port {}".format(SERVER_PORT),
-            "autostart=True",
-            "autorestart=True",
-            "stdout_logfile=syslog",
-            "stderr_logfile=syslog",
+            '[program:platform_api_server]',
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available else '2', SERVER_PORT),
+            'autostart=True',
+            'autorestart=True',
+            'stdout_logfile=syslog',
+            'stderr_logfile=syslog',
         ]
         dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
         pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')

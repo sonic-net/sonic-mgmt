@@ -22,6 +22,12 @@
   when: device_info[inventory_hostname]["HwSku"] == "Arista-7060CX-32S"
   become: yes
 
+- name: build fanout startup config for 7260cx3
+  template: src=arista_7260cx3_deploy.j2
+            dest=/mnt/flash/startup-config
+  when: device_info[inventory_hostname]["HwSku"] == "Arista-7260CX3"
+  become: yes
+
 - name: reboot
   shell: sleep 2 && shutdown -r now "Reboot"
   async: 1

@@ -34,6 +34,7 @@ all:
         vlab-04:
         vlab-05:
         vlab-06:
+        vlab-07:
     ptf:
       hosts:
         ptf-01:
@@ -48,6 +49,9 @@ all:
         ptf-04:
           ansible_host: 10.250.0.109
           ansible_hostv6: fec0::ffff:afa:9
+        ptf-05:
+          ansible_host: 10.250.0.110
+          ansible_hostv6: fec0::ffff:afa:a
       vars:
           ansible_user: root
           ansible_password: root
@@ -87,8 +91,6 @@ all:
           type: kvm
           hwsku: Force10-S6000
           serial_port: 9002
-          ansible_password: password
-          ansible_user: admin
         vlab-05:
           ansible_host: 10.250.0.110
           ansible_hostv6: fec0::ffff:afa:a
@@ -105,6 +107,15 @@ all:
           serial_port: 9004
           ansible_password: password
           ansible_user: admin
+        vlab-07:
+          ansible_host: 10.250.0.109
+          ansible_hostv6: fec0::ffff:afa:9
+          type: kvm
+          hwsku: msft_multi_asic_vs
+          serial_port: 9005
+          num_asics: 6
+          ansible_password: password
+          ansible_user: admin
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3
@@ -115,7 +126,7 @@ all:
           ansible_hostv6: fec0::ffff:afa:4
           type: simx
           hwsku: MSN3700
-        
+
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
   vars:

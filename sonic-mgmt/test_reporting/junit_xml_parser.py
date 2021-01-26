@@ -72,10 +72,15 @@ REQUIRED_TESTCASE_ATTRIBUTES = [
     "name",
     "time",
 ]
+REQUIRED_TESTCASE_JSON_FIELDS = ["result", "error", "summary"]
 
 
 class JUnitXMLValidationError(Exception):
     """Expected errors that are thrown while validating the contents of the JUnit XML file."""
+
+
+class TestResultJSONValidationError(Exception):
+    """Expected errors that are trhown while validating the contents of the Test Result JSON file."""
 
 
 def validate_junit_xml_stream(stream):
@@ -195,6 +200,15 @@ def validate_junit_xml_archive(directory_name, strict=False):
 
     if not roots:
         raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any valid XML files")
+
+    return roots
+
+
+def validate_junit_xml_path(path, strict=False):
+    if os.path.isfile(path):
+        roots = [validate_junit_xml_file(path)]
+    else:
+        roots = validate_junit_xml_archive(path, strict)
 
     return roots
 
@@ -429,6 +443,104 @@ def _update_test_cases(current, update):
     return new_cases
 
 
+def validate_junit_json_file(path):
+    """Validate that a JSON file is a valid test report.
+
+    Args:
+        path: The path to the JSON file.
+
+    Returns:
+        The validated JSON file.
+
+    Raises:
+        TestResultJSONValidationError: if any of the following are true:
+            - The provided file doesn't exist
+            - The provided file is unparseable
+            - The provided file is missing required fields
+    """
+    if not os.path.exists(path):
+        print(f"{path} not found")
+        sys.exit(1)
+
+    if not os.path.isfile(path):
+        print(f"{path} is not a JSON file")
+        sys.exit(1)
+
+    try:
+        with open(path) as f:
+            test_result_json = json.load(f)
+    except Exception as e:
+        raise TestResultJSONValidationError(f"Could not load JSON file {path}: {e}") from e
+
+    _validate_json_metadata(test_result_json)
+    _validate_json_summary(test_result_json)
+    _validate_json_cases(test_result_json)
+
+    return test_result_json
+
+
+def _validate_json_metadata(test_result_json):
+    if "test_metadata" not in test_result_json:
+        raise TestResultJSONValidationError("test_metadata section not found in provided JSON file")
+
+    seen_properties = []
+    for prop, value in test_result_json["test_metadata"].items():
+        if prop not in REQUIRED_METADATA_PROPERTIES:
+            continue
+
+        if prop in seen_properties:
+            raise TestResultJSONValidationError(
+                f"duplicate metadata element: {prop} seen more than once"
+            )
+
+        if value is None:  # Some fields may be empty
+            raise TestResultJSONValidationError(
+                f'invalid metadata element: no "value" field provided for {prop}'
+            )
+
+        seen_properties.append(prop)
+
+    if set(seen_properties) < set(REQUIRED_METADATA_PROPERTIES):
+        raise TestResultJSONValidationError("missing metadata element(s)")
+
+
+def _validate_json_summary(test_result_json):
+    if "test_summary" not in test_result_json:
+        raise TestResultJSONValidationError("test_summary section not found in provided JSON file")
+
+    summary = test_result_json["test_summary"]
+
+    for field, expected_type in REQUIRED_TESTSUITE_ATTRIBUTES:
+        if field not in summary:
+            raise TestResultJSONValidationError(f"{field} not found in test_summary section")
+
+        try:
+            expected_type(summary[field])
+        except Exception as e:
+            raise TestResultJSONValidationError(
+                f"invalid type for {field} in test_summary section: "
+                f"expected a number, received "
+                f'"{summary[field]}"'
+            ) from e
+
+
+def _validate_json_cases(test_result_json):
+    if "test_cases" not in test_result_json:
+        raise TestResultJSONValidationError("test_cases section not found in provided JSON file")
+
+    def _validate_test_case(test_case):
+        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS:
+            if attribute not in test_case:
+                raise TestResultJSONValidationError(
+                    f'"{attribute}" not found in test case '
+                    f"\"{test_case.get('name', 'Name Not Found')}\""
+                )
+
+    for _, feature in test_result_json["test_cases"].items():
+        for test_case in feature:
+            _validate_test_case(test_case)
+
+
 def _run_script():
     parser = argparse.ArgumentParser(
         description="Validate and convert SONiC JUnit XML files into JSON.",
@@ -457,22 +569,33 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         action="store_true",
         help="Fail validation checks if ANY file in a given directory is not parseable."
     )
+    parser.add_argument(
+        "--json",
+        "-j",
+        action="store_true",
+        help="Load an existing test result JSON file from path_name. Will perform validation only regardless of --validate-only option.",
+    )
 
     args = parser.parse_args()
 
     try:
-        if args.directory:
+        if args.json:
+            validate_junit_json_file(args.file_name)
+        elif args.directory:
             roots = validate_junit_xml_archive(args.file_name, args.strict)
         else:
             roots = [validate_junit_xml_file(args.file_name)]
     except JUnitXMLValidationError as e:
         print(f"XML validation failed: {e}")
         sys.exit(1)
+    except TestResultJSONValidationError as e:
+        print(f"JSON validation failed: {e}")
+        sys.exit(1)
     except Exception as e:
         print(f"Unexpected error occured during validation: {e}")
         sys.exit(2)
 
-    if args.validate_only:
+    if args.validate_only or args.json:
         print(f"{args.file_name} validated succesfully!")
         sys.exit(0)
 

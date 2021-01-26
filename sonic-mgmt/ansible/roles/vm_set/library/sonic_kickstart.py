@@ -118,6 +118,13 @@ def session(new_params):
         ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ]
+    # For multi-asic VS there is no default config generated.
+    # interfaces-config service will not add eth0 IP address as there
+    # no default config. Multiple SWSS service will not start until
+    # topology service is loaded. Hence remove swss check and proceed
+    # with eth0 IP address assignment.
+    if int(new_params['num_asic']) > 1:	
+        seq.pop(0)
 
     curtime = datetime.datetime.now().isoformat()
     debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
@@ -146,6 +153,7 @@ def main():
         mgmt_ip = dict(required=True),
         mgmt_gw = dict(required=True),
         new_password = dict(required=True),
+        num_asic = dict(required=True),
     ))
 
     try:

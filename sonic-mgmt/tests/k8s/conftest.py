@@ -19,7 +19,7 @@ def check_k8s_vms(k8scluster):
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
        Ignore expected failures logs during test execution
 
@@ -35,5 +35,5 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
              ".*for troubleshooting tips.*",
              ".*kubeproxy.*",
          ]
-         loganalyzer.ignore_regex.extend(ignoreRegex)
+         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
     yield

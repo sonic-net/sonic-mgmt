@@ -8,7 +8,7 @@ from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increm
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology(('t0', 'dualtor'))
+    pytest.mark.topology('t0', 'dualtor')
 ]
 
 logger = logging.getLogger(__name__)

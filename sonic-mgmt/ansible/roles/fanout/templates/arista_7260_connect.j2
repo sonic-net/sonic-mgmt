@@ -10,6 +10,7 @@ vlan {{ dev_vlans | list | join(',') }}
 {% set peer_port = root_conn[intf]['peerport'] %}
 {% if peer_dev in lab_devices and 'Fanout' not in lab_devices[peer_dev]['Type'] and not deploy_leaf %}
  interface {{ intf }}
+  switchport
   switchport trunk allowed vlan remove {{ dev_vlans | list | join(',') }}
 {% if peer_dev == server and peer_port == server_port %}
   switchport mode trunk
@@ -19,6 +20,7 @@ vlan {{ dev_vlans | list | join(',') }}
 {% endif %}
 {% if peer_dev in lab_devices and 'Fanout' in lab_devices[peer_dev]['Type']  and deploy_leaf %}
  interface {{ intf }}
+  switchport
   switchport trunk allowed vlan remove {{ dev_vlans | list | join(',') }}
 {% if peer_dev == leaf_name %}
   description {{ peer_dev }}-{{ peer_port }}

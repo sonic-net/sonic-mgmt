@@ -170,16 +170,16 @@ def rif_port_down(duthosts, rand_one_dut_hostname, setup, fanouthosts, loganalyz
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
-    with loganalyzer as _:
+    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
+    with loganalyzer[rand_one_dut_hostname] as _:
         fanout_neighbor.shutdown(fanout_intf)
 
     time.sleep(1)
 
     yield ip_dst
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
-    with loganalyzer as _:
+    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+    with loganalyzer[rand_one_dut_hostname] as _:
         fanout_neighbor.no_shutdown(fanout_intf)
         time.sleep(wait_after_ports_up)
 

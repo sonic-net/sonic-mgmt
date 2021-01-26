@@ -11,7 +11,7 @@ echo
 echo "STEP 1: Checking for j2cli package..."
 if ! command -v j2; then
     echo "j2cli not found, installing j2cli"
-    apt-get install -y j2cli
+    pip install j2cli==0.3.10
 fi
 echo
 
