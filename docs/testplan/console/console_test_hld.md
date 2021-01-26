@@ -68,27 +68,27 @@ Loopback Module is a special serial link which connected its own TXD<->RXD, RTS<
 ### 1 Driver Test
 
 | Case | Objective | Test Setup | Expected Control Plane | Expected Data Plane |
-|-|-|-|-|-|-|
+|-|-|-|-|-|
 | Availability | Verify ttyUSB(0-47) are presented in DUT | - | All 48 ttyUSB* devices are presented in DUT | - |
 
 ### 2 udev Rule Test
 
 | Case | Objective | Test Setup | Expected Control Plane | Expected Data Plane |
-|-|-|-|-|-|-|
+|-|-|-|-|-|
 | Port Mapping | Verify ttyUSB(0-47) are mapped to C0-(1-48) | - | All 48 C0-* devices are presented in DUT | - |
 | Port Shifting Prevent | Verify C0-(33-48) are still remained after unbind some ttyUSB devices | Add temporary udev rule to mask ports 1-8, then unbind/bind the root USB hub(1-1.1) | ttyUSB(0-39) and C0-(9-48) devices are presented in DUT | - |
 
 ### 3 Reverse SSH
 
 | Case | Objective | Test Setup | Expected Control Plane | Expected Data Plane |
-|-|-|-|-|-|-|
+|-|-|-|-|-|
 | Connectivity | Verify serial session is available after connect DUT via reverse SSH | Connect DUT serial port via reverse SSH | The session is up and can exit by sending ctrl-A + ctrl-X. The DUT show that port is busy during session and idle after exited. | - |
 | Force Interrupt | Verify active serial session can be shut by DUT | Connect DUT serial port `A` via reverse SSH then connect to DUT and clear port `A` | The session ended within 5s and the line state is idle | - |
 
 ### 4 Loopback Test
 
 | Case | Objective | Test Setup | Expected Control Plane | Expected Data Plane |
-|-|-|-|-|-|-|
+|-|-|-|-|-|
 | Echo | Verify data can go out through the console switch and come back through the console switch | Send random string to ports 1-16 | - | All sent data echoed back |
 | Ping-Pong | Verify data can go out through the console switch and come back through the console switch | Listening a serial port `A` and send "pong" after "ping" came, then send "ping" to opposite port `B` (Port Range: 17-36) | - | Got "pong" back from `B` |
 | File Transfer | Verify file can be transferred through the console switch | Ensure there is no `config_db.json` under `\var\tmp` directory. Forward `tcp:localhost:22` to port `A`, send file `\etc\sonic\config_db.json` to opposite port `B` and store it in `\var\tmp\config_db.json` | - | The md5 hash between `\etc\sonic\config_db.json` and `\var\tmp\config_db.json` are same |
