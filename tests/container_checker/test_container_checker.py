@@ -82,7 +82,7 @@ def check_container_state(duthost, container_name, should_be_running):
     Args:
         duthost: Host DUT.
         container_name: Name of container.
-        should be running: Boolean value.
+        should_be_running: Boolean value.
 
     Return:
         This function will return True if the container was in the expected state.
