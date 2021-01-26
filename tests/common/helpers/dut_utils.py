@@ -36,7 +36,6 @@ def is_frontend_node(inv_files, hostname):
 
 def is_container_running(duthost, container_name):
     """Decides whether the container is running or not
-
     @param duthost: Host DUT.
     @param container_name: Name of a container.
     Returns:
@@ -48,11 +47,9 @@ def is_container_running(duthost, container_name):
 
 def check_container_state(duthost, container_name, should_be_running):
     """Determines whether a container is in the expected state (running/not running)
-
     @param duthost: Host DUT.
     @param container_name: Name of container.
     @param should_be_running: Boolean value.
-
     Returns:
         This function will return True if the container was in the expected state.
         Otherwise, it will return False.
@@ -63,10 +60,8 @@ def check_container_state(duthost, container_name, should_be_running):
 
 def is_hitting_start_limit(duthost, container_name):
     """Checks whether the container can not be restarted is due to start-limit-hit.
-
     @param duthost: Host DUT.
     @param ontainer_name: name of a container.
-
     Returns:
         If start limitation was hit, then this function will return True. Otherwise
         it returns False.
@@ -81,10 +76,8 @@ def is_hitting_start_limit(duthost, container_name):
 
 def clear_failed_flag_and_restart(duthost, container_name):
     """Clears the failed flag of a container and restart it.
-
     @param duthost: Host DUT.
     @param container_name: name of a container.
-
     Returns:
         None
     """
