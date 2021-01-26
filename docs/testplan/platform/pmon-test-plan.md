@@ -112,8 +112,6 @@ Verify each daemon status in PMON docker
 
 3. Perform the following steps for the list of the expected daemon
 	- Verify the daemon is running and report the daemon running status
-	- Restart the daemon
-	- Verify the daemon is running and report the daemon running status
 
 ## Test case # 2 Data for chassisd daemon
 ### Test objective
@@ -168,7 +166,7 @@ Verify the expected data for pcied daemon
 1. Verify the pcied running status
    - If it's not running, report the error status and go to the next 
 2. Verify the pcie config file "/usr/share/sonic/platform/pcie.yaml" exists
-3. Verify the "PCIE_DEVICES" has "status" field set to "SUCCESS" 
+3. Verify the "PCIE_DEVICES" has "status" field set to "SUCCESS" in state DB
 
 ## Test case # 7 Data for psud daemon
 ### Test objective
@@ -177,7 +175,7 @@ Verify the expected data for psud daemon
 ### Test steps
 1. Verify the pcied running status
    - If it's not running, report the error status and go to the next 
-2. Verify the 'PSU_INFO|PSU {}' is/are available
+2. Verify the 'PSU_INFO|PSU {}' is/are available in state DB
 3. Verify if the data for each 'PSU {}' is expected to compare "/usr/share/sonic/platform/platform.json"
 4. Verify if the status of each PSU is "OK"
 
@@ -188,8 +186,8 @@ Verify the expected data for syseepromd daemon
 ### Test steps
 1. Verify the pcied running status
    - If it's not running, report the error status and go to the next 
-2. Verify the 'EEPROM_INFO|State' in state_db has the 'Initialized' field set to '1'
-3. Verify the 'EEPROM_INFO|*' has valid pairs of key and value
+2. Verify the 'EEPROM_INFO|State' in state DB has the 'Initialized' field set to '1'
+3. Verify the 'EEPROM_INFO|*' has valid pairs of key and value in state DB
    - Verify the data to check with the output of the platform api or cli command
 
 ## Test case # 9 Data for thermalctld daemon
@@ -200,7 +198,7 @@ Verify the expected data for thermalctld daemon
 1. Verify the pcied running status
    - If it's not running, report the error status and go to the next 
 2. Verify the policy file "/usr/share/sonic/platform/thermal_policy.json" exists
-3. Verify the 'FAN_INFO|{}' and 'TEMPERATURE_INFO|{}' available
+3. Verify the 'FAN_INFO|{}' and 'TEMPERATURE_INFO|{}' available in state DB
    - Verify the data to check with the output of the platform api or cli command
 
 ## Test case # 10 Data for xcvrd daemon
@@ -223,9 +221,7 @@ Verify the expected data for xcvrd daemon
    - Mark as "skipped" for all skipped platform daemon list of the DUT platform in the test
 3. Daemon running status
    - Indicate the status of daemon when the test starts
-4. Daemon restart status
-   - Indicate the status of daemon when it restarts
-5. Data for daemon
+4. Data for daemon
    - Display any data available for daemon
-6. Data validation status
+5. Data validation status
    - Indicate the data validation status if available
