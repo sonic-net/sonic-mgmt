@@ -214,8 +214,8 @@ def intf_traffic_stats(entry_tx):
 def check_inter_dut_intf_traffic_counters():
     dut2 = vars.D2
     (dut1) = (data.dut)
-    papi.clear_interface_counters(dut2)
-    papi.clear_interface_counters(dut1)
+    st.show(dut2, "sonic-clear counters")
+    st.show(dut1, "sonic-clear counters")
     st.wait(5)
     output = papi.get_interface_counters_all(dut2)
     p1_tx = intf_traffic_stats(filter_and_select(output, ["tx_bps"], {'iface': vars.D2D1P1}))
@@ -319,8 +319,8 @@ def create_bgp_neighbor_config(dut, local_asn, neighbor_ip, remote_asn, routemap
 
 def check_intf_traffic_counters():
     (dut1) = (data.dut)
-    papi.clear_interface_counters(dut1)
-    st.wait(5)
+    st.show(dut1, "sonic-clear counters")
+    st.wait(15)
     DUT_tx_value = papi.get_interface_counters(dut1, vars.D1T1P4, "tx_bps")
 
     for i in DUT_tx_value:
@@ -332,6 +332,7 @@ def check_intf_traffic_counters():
     st.log("tx_ok xounter value on DUT Egress port : {}".format(p2_txmt))
 
     if (abs(int(float(p2_txmt))) == 0):
+        st.wait(15)
         output = papi.get_interface_counters_all(dut1)
         entry1 = filter_and_select(output, ["tx_bps"], {'iface': vars.D1T1P4})
         for i in entry1:
@@ -352,7 +353,7 @@ def check_intf_traffic_counters():
 
 def check_intf_traffic_bo_counters():
     (dut1) = (data.dut)
-    papi.clear_interface_counters(dut1)
+    st.show(dut1, "sonic-clear counters")
     st.wait(5)
     output = papi.get_interface_counters_all(dut1)
     p1_tx = intf_traffic_stats(filter_and_select(output, ["tx_bps"], {'iface': vars.D1T1P1}))
@@ -429,9 +430,10 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
     if apply_file == False:
         ipfeature.clear_ip_configuration(st.get_dut_names())
         vapi.clear_vlan_configuration(st.get_dut_names())
-        cmd = "config vlan range add 2 129"
-        st.config(dut, cmd)
-        st.config(dut2, cmd)
+        for i in range(2,130):
+            cmd = "config vlan add {}".format(i)
+            st.config(dut, cmd)
+            st.config(dut2, cmd)
         command = "config vlan member add 2 {}".format(member_dut1)
         st.config(dut, command)
         command = "config vlan member add 2 {}".format(member_dut2)
@@ -558,14 +560,15 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
         # Verified at neighbor.
         st.log("BGP neighborship established.")
         st.wait(10)
-        command = "show bgp ipv4 summary"
-        st.config(dut, command)
-        st.config(dut2, command)
+
+        command = "show ip bgp summary"
+        st.show(dut, command, type='vtysh')
+        st.show(dut2, command, type='vtysh')
         command = "show interface status"
         st.config(dut, command)
         command = "show ip route | head -1000"
-        st.config(dut, command)
-        st.config(dut2, command)
+        st.show(dut, command)
+        st.show(dut2, command)
 
         output = st.show(dut, "show arp")
         output = st.show(dut2, "show arp")
@@ -604,8 +607,8 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
         command = "show ndp"
         st.config(dut, command)
         command = "show bgp ipv6 summary"
-        st.config(dut, command)
-        st.config(dut2, command)
+        st.show(dut, command, type='vtysh')
+        st.show(dut2, command, type='vtysh')
         command = "show ipv6 route | head -1000"
         st.config(dut, command)
         st.config(dut2, command)
@@ -621,8 +624,17 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
 
 
     res = tg2.tg_traffic_control(action='run', handle=tr1['stream_id'])
-    ret1 = check_inter_dut_intf_traffic_counters()
-    ret2 = check_end_to_end_intf_traffic_counters()
+    retry = 5
+    while retry > 0:
+        try:
+            ret1 = check_inter_dut_intf_traffic_counters()
+            ret2 = check_end_to_end_intf_traffic_counters()
+            if ret1 and ret2:
+                break
+            retry = retry - 1
+        except Exception as e:
+            st.error(e)
+
     res = tg2.tg_traffic_control(action='stop', handle=tr1['stream_id'])
     tg1.tg_traffic_control(action='reset',port_handle=tg_ph_2)
     if family == "ipv4":
@@ -674,8 +686,9 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
             v_range_t = str(base_vlan) + " " + str(max_vlan)
             vapi.config_vlan_range_members(dut1, v_range_t, data.dut1_ports[index], config='del')
             vapi.config_vlan_range_members(dut2, v_range_t, data.dut2_ports[index], config='del')
-        cmd = "config vlan range del 2 129"
-        st.config(dut, cmd)
+        for i in range(2,130):
+            cmd = "config vlan del {}".format(i)
+            st.config(dut, cmd)
         my_cmd = "no router bgp {}".format(data.as_num)
         st.vtysh_config(dut, my_cmd)
         my_cmd = "no router bgp {}".format(data.new_as_num)
@@ -775,14 +788,21 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
     command_hw = "bcmcmd 'l3 ecmp egress show'"
     rv = st.config(dut, command_hw)
     tr1=tg1.tg_traffic_config(port_handle=tg_ph_1, mac_src='00:11:01:00:00:01', mac_dst='b8:6a:97:fd:b6:06', ip_dst_mode='increment', ip_dst_count=200, ip_dst_step='0.0.0.1',ip_src_addr='10.2.100.10', ip_dst_addr='200.1.0.1',  l3_protocol='ipv4', l2_encap='ethernet_ii_vlan', vlan_id='100', vlan='enable', mode='create', transmit_mode='continuous', length_mode='fixed', rate_pps=512000, enable_stream_only_gen='1')
-
     res=tg2.tg_traffic_control(action='run', handle=tr1['stream_id'])
     count = 0
     #Port Counters
     st.wait(20)
     output = st.show(dut, "show arp")
     #Port Counters
-    ret = check_intf_traffic_counters()
+    retry = 5
+    while retry > 0:
+        try:
+            ret = check_intf_traffic_counters()
+            if ret:
+                break
+        except Exception as e:
+            st.error(e)
+        retry = retry - 1
     if ret == True:
         count = count+1
         st.log("Test Case 1.14 PASSED")
@@ -818,7 +838,15 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
       st.wait(3)
       #output = st.show(dut, "show arp")
       #Port Counters
-      ret = check_intf_traffic_counters()
+      retry = 5
+      while retry > 0:
+          try:
+              ret = check_intf_traffic_counters()
+              if ret:
+                  break
+          except Exception as e:
+              st.error(e)
+          retry = retry - 1
       if ret == True:
           count = count+1
           st.log("Test Case 1.14 PASSED")
@@ -872,6 +900,7 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
 
     ret = False
     st.log("count: "+str(count))
+
     if count >= data.thresh:
         ret = True
         st.log("Test Case PASSED")
@@ -882,6 +911,12 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
     return ret
 
 def ECMP_common_setup():
+
+    st.log("clean up begins")
+    vapi.clear_vlan_configuration(st.get_dut_names())
+    bgpfeature.cleanup_router_bgp([vars.D1, vars.D2])
+    portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
+    ipfeature.clear_ip_configuration(st.get_dut_names())
 
     st.log("configure IP for loopback and interfaces")
     ipfeature.config_ip_addr_interface(vars.D1, data.loopback_d1, data.loopback_d1_addr, data.loopback_mask)
@@ -970,6 +1005,12 @@ def ECMP_common_setup():
         st.report_fail("operation_failed")
 
 def ECMP_common_setup_v6():
+
+    st.log("clean up begins")
+    vapi.clear_vlan_configuration(st.get_dut_names())
+    bgpfeature.cleanup_router_bgp([vars.D1, vars.D2])
+    portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
+    ipfeature.clear_ip_configuration(st.get_dut_names(), family='ipv6')
 
     st.log("configure v6 Ip on loopback and interfaces")
     ipfeature.config_ip_addr_interface(vars.D1, data.loopback_d1, data.loopback_d1_addr, data.loopback_mask)
@@ -1103,6 +1144,7 @@ def ECMP_common_setup_v6():
 
 def ECMP_common_cleanup():
     st.log("clean up begins")
+    vapi.clear_vlan_configuration(st.get_dut_names())
     bgpfeature.cleanup_router_bgp([vars.D1, vars.D2])
     portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
     ipfeature.clear_ip_configuration(st.get_dut_names())
@@ -1111,6 +1153,7 @@ def ECMP_common_cleanup():
 
 def ECMP_common_cleanup_v6():
     st.log("clean up begins")
+    vapi.clear_vlan_configuration(st.get_dut_names())
     bgpfeature.cleanup_router_bgp([vars.D1, vars.D2])
     portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
     ipfeature.clear_ip_configuration(st.get_dut_names(),family='ipv6')
@@ -1162,6 +1205,7 @@ def ecmp_lb_class_hook_ipv6(request):
     yield
     ECMP_common_cleanup_v6()
 
+
 # TestBGPRif class
 @pytest.mark.usefixtures('ecmp_lb_class_hook')
 class TestBGPLB():
@@ -1173,7 +1217,8 @@ class TestBGPLB():
         ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, "1.1.1.1", data.ip_prefixlen)
         st.wait(5)
 
-        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr], state='Established')
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr],
+                                               state='Established')
         if result:
             st.warn("BGP didn't go down")
 
@@ -1191,18 +1236,18 @@ class TestBGPLB():
             st.warn("counters are greater than min counters")
             st.report_fail("operation_failed")
 
-
     def test_lbbgp_delete_nexthop_address(self):
-    
+
         result = 0
         st.log("delete one of the next hop address")
-        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as, config = "no")
+        bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p3_ip_addr, data.dut2_as, config="no")
         st.wait(5)
 
-        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr], state='Established')
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr],
+                                               state='Established')
         if result:
             st.warn("nexthop didn't got deleted")
-        
+
         retry = 5
         while retry > 0:
             try:
@@ -1231,7 +1276,8 @@ class TestBGPLB():
         trigger_link_flap(vars.D1, vars.D1D2P3)
 
         st.log("verify BGP summary")
-        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr], state='Established')
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr],
+                                               state='Established')
         if not result:
             st.warn("after flap nexthop didn't come up")
 
@@ -1254,14 +1300,16 @@ class TestBGPLB():
 
         bgpfeature.config_bgp_neighbor(vars.D1, data.dut1_as, data.d2d1p4_ip_addr, data.dut2_as)
         bgpfeature.config_bgp_neighbor(vars.D2, data.dut2_as, data.d1d2p4_ip_addr, data.dut1_as)
-        
+
         st.wait(30)
         retry = 10
         while retry > 0:
             st.log("verify BGP summary")
             st.wait(10)
-            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr], state='Established')
-            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr], state='Established')
+            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr],
+                                                    state='Established')
+            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr],
+                                                    state='Established')
             if result1 and result2:
                 tg1_stats, tg2_stats, counters = get_traffic_int_counters()
                 min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
@@ -1290,7 +1338,7 @@ class TestBGPLB():
             st.report_pass("operation_successful")
         else:
             st.warn("Traffic is not equally distributed across the paths")
-            st.report_fail("operation_failed")            
+            st.report_fail("operation_failed")
 
     def test_lbbgp_with_portchannel(self):
 
@@ -1326,11 +1374,13 @@ class TestBGPLB():
             st.warn("port channel is in down state")
 
         st.log("verify BGP summary")
-        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr, data.d2d1p2_ip_addr,
-                                                                                data.t1d1p1_ip_addr], state='Established')
+        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh",
+                                                neighbor=[data.d2d1p1_ip_addr, data.d2d1p2_ip_addr,
+                                                          data.t1d1p1_ip_addr], state='Established')
 
-        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p1_ip_addr, data.d1d2p2_ip_addr,
-                                                                                data.t1d2p1_ip_addr], state='Established')
+        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh",
+                                                neighbor=[data.d1d2p1_ip_addr, data.d1d2p2_ip_addr,
+                                                          data.t1d2p1_ip_addr], state='Established')
         if not result1 and not result2:
             st.warn("BGP didn't come up")
 
@@ -1346,7 +1396,7 @@ class TestBGPLB():
         else:
             st.warn("Traffic is not equally flowing through all port channel interface")
             st.report_fail("operation_failed")
-            
+
 
 # TestBGPRif class
 @pytest.mark.usefixtures('ecmp_lb_class_hook_ipv6')
@@ -1359,7 +1409,8 @@ class TestBGPLBIPv6():
         ipfeature.config_ip_addr_interface(vars.D1, vars.D1D2P3, "100::1", data.mask_v6, family="ipv6")
         st.wait(5)
 
-        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6], state='Established', family='ipv6')
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6],
+                                               state='Established', family='ipv6')
         if result:
             st.warn("BGP didn't go down")
 
@@ -1377,7 +1428,6 @@ class TestBGPLBIPv6():
             st.warn("counters are greater than min counters")
             st.report_fail("operation_failed")
 
-
     def test_lbbgp_delete_nexthop_address_v6(self):
         result = 0
         st.log("delete one of the next hop address")
@@ -1388,7 +1438,8 @@ class TestBGPLBIPv6():
                               neighbor=data.d2d1p3_ip_addr_v6)
 
         st.wait(10)
-        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6], state='Established', family='ipv6')
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6],
+                                               state='Established', family='ipv6')
         if result:
             st.warn("nexthop didn't got deleted")
 
@@ -1425,7 +1476,8 @@ class TestBGPLBIPv6():
         trigger_link_flap(vars.D1, vars.D1D2P3)
 
         st.log("verify BGP summary")
-        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6], state='Established', family='ipv6')
+        result = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p3_ip_addr_v6],
+                                               state='Established', family='ipv6')
         if not result:
             st.warn("after flap nexthop didn't come up")
 
@@ -1461,8 +1513,10 @@ class TestBGPLBIPv6():
         while retry > 0:
             st.log("verify BGP summary")
             st.wait(10)
-            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr_v6], state='Established', family="ipv6")
-            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr_v6], state='Established', family="ipv6")
+            result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p4_ip_addr_v6],
+                                                    state='Established', family="ipv6")
+            result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p4_ip_addr_v6],
+                                                    state='Established', family="ipv6")
             if result1 and result2:
                 tg1_stats, tg2_stats, counters = get_traffic_int_counters(family="ipv6")
                 min_counters = int(tg1_stats.tx.total_packets) / 4 * .60
@@ -1533,8 +1587,10 @@ class TestBGPLBIPv6():
         portchannel_obj.add_portchannel_member(vars.D2, data.port_channel, vars.D2D1P2)
         portchannel_obj.add_portchannel_member(vars.D2, data.port_channel, vars.D2D1P3)
 
-        ipfeature.config_ip_addr_interface(vars.D1, data.port_channel, data.d1d2p2_ip_addr_v6, data.mask_v6, family="ipv6")
-        ipfeature.config_ip_addr_interface(vars.D2, data.port_channel, data.d2d1p2_ip_addr_v6, data.mask_v6, family="ipv6")
+        ipfeature.config_ip_addr_interface(vars.D1, data.port_channel, data.d1d2p2_ip_addr_v6, data.mask_v6,
+                                           family="ipv6")
+        ipfeature.config_ip_addr_interface(vars.D2, data.port_channel, data.d2d1p2_ip_addr_v6, data.mask_v6,
+                                           family="ipv6")
 
         bgpfeature.config_bgp(dut=vars.D1, local_as=data.dut1_as, remote_as=data.dut2_as,
                               network=data.loopback_d1_addr_v6 + '/' + str(data.loopback_mask_v6), config="yes",
@@ -1555,11 +1611,13 @@ class TestBGPLBIPv6():
             st.warn("port channel is in down state")
 
         st.log("verify BGP summary")
-        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh", neighbor=[data.d2d1p1_ip_addr_v6, data.d2d1p2_ip_addr_v6,
-                                                            data.t1d1p1_ip_addr_v6], state='Established', family="ipv6")
+        result1 = bgpfeature.verify_bgp_summary(vars.D1, shell="vtysh",
+                                                neighbor=[data.d2d1p1_ip_addr_v6, data.d2d1p2_ip_addr_v6,
+                                                          data.t1d1p1_ip_addr_v6], state='Established', family="ipv6")
 
-        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh", neighbor=[data.d1d2p1_ip_addr_v6, data.d1d2p2_ip_addr_v6,
-                                                            data.t1d2p1_ip_addr_v6], state='Established', family="ipv6")
+        result2 = bgpfeature.verify_bgp_summary(vars.D2, shell="vtysh",
+                                                neighbor=[data.d1d2p1_ip_addr_v6, data.d1d2p2_ip_addr_v6,
+                                                          data.t1d2p1_ip_addr_v6], state='Established', family="ipv6")
         if not result1 and not result2:
             st.warn("BGP didn't come up")
 
@@ -1591,8 +1649,6 @@ def test_ft_l3_Xecmp_scaling_tc():
         st.log("Test Case  FAILED")
         st.report_fail("operation_failed")
     st.report_pass("operation_successful")
-
-
 
 @pytest.mark.l3_scale_ut_nr
 def nest_l3_32ecmp_scaling_tc():
@@ -1635,6 +1691,7 @@ def test_l3_128ecmp_scaling_tc():
         st.log("Test Case 1.15 FAILED")
         st.report_fail("operation_failed")
     st.report_pass("operation_successful")
+
 
 @pytest.mark.l3_scale_ut_ft
 def test_max_v4_route_with_max_paths():
@@ -1704,9 +1761,6 @@ def test_max_v6_route_with_max_paths_variant():
         st.report_fail("operation_failed")
     st.report_pass("operation_successful")
 
-
-
-
 @pytest.mark.l3_scale_ut
 def test_l3_ecmp_4paths_on_bo_tc():
     (dut) = (data.dut)
@@ -1722,11 +1776,13 @@ def test_l3_ecmp_4paths_on_bo_tc():
     apply_file = False
 
     ipfeature.clear_ip_configuration([dut])
+    vapi.clear_vlan_configuration(st.get_dut_names())
     max_range = data.base_val+4
     base_range = data.base_val-1
     if apply_file == False:
-        command = "config vlan range add 100 105"
-        rv = st.config(dut, command)
+        for i in range(100,106):
+            command = "config vlan add {}".format(i)
+            rv = st.config(dut, command)
         command = "config vlan member add 100 {}".format(member4)
         rv = st.config(dut, command)
         command = "config vlan member add 101 {}".format(member1)
@@ -1812,8 +1868,9 @@ def test_l3_ecmp_4paths_on_bo_tc():
         rv = st.config(dut, command)
         command = "config vlan member del 104 {}".format(member4)
         rv = st.config(dut, command)
-        command = "config vlan range del 100 105"
-        rv = st.config(dut, command)
+        for i in range(100,106):
+            command = "config vlan del {}".format(i)
+            rv = st.config(dut, command)
 
     if ret == True:
         st.log("Test Case PASSED")
@@ -1821,6 +1878,7 @@ def test_l3_ecmp_4paths_on_bo_tc():
     else:
         st.log("Test Case FAILED")
         st.report_fail("operation_failed")
+
 
 
 

@@ -578,7 +578,7 @@ def config_vlan_range_members(dut, vlan_range, port, config="add", skip_verify=F
             else:
                 [range_min, range_max] = [int(vid) for vid in vlan_range.split()]
                 for vid in range(range_min, range_max+1):
-                    command = "config vlan member {} {} {}".format(config, vid, each_port)
+                    command = "config vlan member {} -u {} {}".format(config, vid, each_port)
                     entries.append([command, each_port, vid])
 
     if st.is_community_build() and config == "del":
