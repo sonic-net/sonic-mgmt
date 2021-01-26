@@ -6,9 +6,12 @@ import logging
 import pytest
 
 from pkg_resources import parse_version
+from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common import config_reload
+from tests.common.helpers.dut_utils import is_hitting_start_limit
+from tests.common.helpers.dut_utils import check_container_state
+from tests.common.helpers.dut_utils import clear_failed_flag_and_restart
 
 logger = logging.getLogger(__name__)
 
@@ -61,73 +64,6 @@ def get_disabled_container_list(duthost):
             disabled_containers.append(container_name)
 
     return disabled_containers
-
-
-def is_container_running(duthost, container_name):
-    """Decides whether the container is running or not
-
-    Args:
-        duthost: Host DUT.
-        container_name: Name of a container.
-    Return:
-        Boolean value. True represents the container is running
-    """
-    result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
-    return result["stdout_lines"][0].strip() == "true"
-
-
-def check_container_state(duthost, container_name, should_be_running):
-    """Determines whether a container is in the expected state (running/not running)
-
-    Args:
-        duthost: Host DUT.
-        container_name: Name of container.
-        should_be_running: Boolean value.
-
-    Return:
-        This function will return True if the container was in the expected state.
-        Otherwise, it will return False.
-    """
-    is_running = is_container_running(duthost, container_name)
-    return is_running == should_be_running
-
-
-def is_hiting_start_limit(duthost, container_name):
-    """Checks whether the container can not be restarted is due to start-limit-hit.
-
-    Args:
-        duthost: Host DUT.
-        container_name: name of a container.
-
-    Return:
-        If start limitation was hit, then this function will return True. Otherwise
-        it returns False.
-    """
-    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(container_name))
-    for line in service_status["stdout_lines"]:
-        if "start-limit-hit" in line:
-            return True
-
-    return False
-
-
-def clear_failed_flag_and_restart(duthost, container_name):
-    """Clears the failed flag of a container and restart it.
-
-    Args:
-        duthost: Host DUT.
-        container_name: name of a container.
-
-    Return:
-        None
-    """
-    logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
-    duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
-    duthost.shell("sudo systemctl start {}.service".format(container_name))
-    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                           CONTAINER_CHECK_INTERVAL_SECS,
-                           check_container_state, duthost, container_name, True)
-    pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
 def check_all_critical_processes_status(duthost):
@@ -220,15 +156,23 @@ def check_alerting_message(duthost, stopped_containers_list):
     Return:
         None.
     """
-    alerting_message = duthost.shell("sudo cat /var/log/syslog | grep -m 1 '.*monit.*container_checker'",
-                                     module_ignore_errors=True)
+    alerting_messages = duthost.shell("sudo cat /var/log/syslog | grep '.*monit.*container_checker'",
+                                      module_ignore_errors=True)
 
-    pytest_assert(len(alerting_message["stdout_lines"]) > 0,
-                  "Failed to get Monit alerting message from container_checker!")
+    pytest_assert(len(alerting_messages["stdout_lines"]) > 0,
+                  "Failed to get Monit alerting messages from container_checker!")
+
+    expected_alerting_message = ""
+    for message in alerting_messages["stdout_lines"]:
+        if "Expected containers not running" in message:
+            expected_alerting_message = message
+            break
+    pytest_assert(expected_alerting_message,
+                  "Failed to get expected Monit alerting message from container_checker!")
 
     for container_name in stopped_containers_list:
-        if container_name not in alerting_message["stdout_lines"][0]:
-            pytest.fail("Container '{}' was not running and not found in Monit alerting message!"
+        if container_name not in expected_alerting_message:
+            pytest.fail("Container '{}' was not running, but its name was not found in Monit alerting message!"
                         .format(container_name))
 
 
@@ -255,7 +199,7 @@ def restart_containers(duthost, stopped_containers_list):
                                CONTAINER_CHECK_INTERVAL_SECS,
                                check_container_state, duthost, container_name, True)
         if not restarted:
-            if is_hiting_start_limit(duthost, container_name):
+            if is_hitting_start_limit(duthost, container_name):
                 clear_failed_flag_and_restart(duthost, container_name)
             else:
                 pytest.fail("Failed to restart container '{}'".format(container_name))
@@ -289,6 +233,8 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
         skip_containers.append("radv")
 
     stopped_containers_list = stop_containers(duthost, container_autorestart_states, skip_containers)
+    pytest_assert(len(stopped_containers_list) > 0, "None of containers was stopped!")
+
     # Wait for 6 minutes such that Monit has a chance to write alerting message into syslog.
     time.sleep(360)
 
