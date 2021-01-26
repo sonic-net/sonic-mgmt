@@ -31,7 +31,7 @@ def shutdown_tor_bgp():
     yield shutdown_tor_bgp
 
     time.sleep(1)
-    if torhost:
+    for duthost in torhost:
         duthost = torhost[0]
         logger.info("Starting BGP sessions on {}".format(duthost.hostname))
         duthost.shell("config bgp startup all")
@@ -46,15 +46,15 @@ def shutdown_tor_heartbeat():
     def shutdown_tor_heartbeat(duthost):
         # TODO - verify support after LinkProber submodule is ready
         torhost.append(duthost)
-        duthost.shell("sudo systemctl stop mux")
-        duthost.shell("sudo systemctl disable mux")
+        duthost.shell("systemctl stop mux")
+        duthost.shell("systemctl disable mux")
 
     yield shutdown_tor_heartbeat
 
-    if torhost:
+    for duthost in torhost:
         duthost = torhost[0]
-        duthost.shell("sudo systemctl start mux")
-        duthost.shell("sudo systemctl enable mux")
+        duthost.shell("systemctl start mux")
+        duthost.shell("systemctl enable mux")
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ def tor_blackhole_traffic():
 
     yield tor_blackhole_traffic
 
-    if torhost:
+    for duthost in torhost:
         duthost = torhost[0]
         lo_ipv4 = None
         lo_ipv6 = None
@@ -90,7 +90,7 @@ def tor_blackhole_traffic():
                         lo_ipv6 = ip
 
         duthost.shell("ip -4 route add 0.0.0.0/0 nexthop via {}".format(lo_ipv4.ip))
-        #duthost.shell("ip -6 route add ::/0 nexthop via {}".format(lo_ipv6.ip))
+
 
 @pytest.fixture
 def reboot_tor(localhost):
@@ -106,7 +106,7 @@ def reboot_tor(localhost):
     yield reboot_tor
     # TODO Add IO check capability
 
-    if torhost:
+    for duthost in torhost:
         duthost = torhost[0]
         dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
         logger.info("Waiting for ssh to startup on {}".format((duthost.hostname)))
