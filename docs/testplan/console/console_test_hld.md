@@ -5,7 +5,7 @@
   * [Scope](#scope)
   * [Testbed Setup](#testbed-setup)
     + [DUT Wiring](#dut-wiring)
-    + [Console Switch Wiring](#console-switch-wiring)
+    + [Console Switch Wiring (Loopback mode)](#console-switch-wiring--loopback-mode-)
   * [Test Cases](#test-cases)
     + [1 Driver Test](#1-driver-test)
     + [2 udev Rule Test](#2-udev-rule-test)
@@ -14,7 +14,7 @@
 
 ## Background
 
-This project introduces the the concept of Console Switch to provide pluggable console management function in SONiC just like regular Terminal Server. Unlike the typical terminal server, the console switch is a simple box without any management function, it will provide multiple RS232 ports(RJ45) with USB serial converts. Therefore, a SONiC box is required to connect to the console switch with a USB link and all management function will be in the SONiC box.
+This project introduces the concept of Console Switch to provide pluggable console management function in SONiC just like regular Terminal Server. Unlike the typical terminal server, the console switch is a simple box without any management function, it will provide multiple RS232 ports(RJ45) with USB serial converts. Therefore, a SONiC box is required to connect to the console switch with a USB link and all management function will be in the SONiC box.
 
 For more design detail, you can refer to this HLD: [SONiC Console Switch High Level Design](https://github.com/Azure/SONiC/blob/master/doc/console/SONiC-Console-Switch-High-Level-Design.md)
 
@@ -39,11 +39,11 @@ Below is the wiring diagram:
 
 ![Loopback Module](./img/dut_wiring.png)
 
-There are two USB ports in console switch's panel, the master port will be used to connect SONiC box.
+There are two USB ports in console switch's panel, the master port will be used to connect the SONiC box.
 
 For different test purpose, the console switch ports need to apply different wiring pattern. Since the virtual serial bridge [RFC 2217](https://tools.ietf.org/html/rfc2217.html) need both server and client installed on two sides, the Console Switch test plan will only introduce the Loopback mode testbed.
 
-### Console Switch Wiring
+### Console Switch Wiring (Loopback mode)
 
 The Console Switch have 48 RS232(RJ45) ports divided into three block in panel.
 
@@ -59,7 +59,7 @@ The wiring pattern is shown below:
 - Port 31-32 connect to port 33-34
 - Port 37-48 will reserved for future virtual serial bridge testing
 
-Loopback Module is a special serial link which connected its own TXD<->RXD, RTS<->CTS, GND<->GND. Below is sample:
+Loopback Module is a special serial link which connected its own TXD<->RXD, RTS<->CTS, GND<->GND. Below is a sample:
 
 ![Loopback Module](./img/loopback_module.png)
 
