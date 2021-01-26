@@ -7,11 +7,11 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common import config_reload
-from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.dut_utils import is_hitting_start_limit
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.dut_utils import clear_failed_flag_and_restart
+from tests.common.helpers.dut_utils import is_hitting_start_limit
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
