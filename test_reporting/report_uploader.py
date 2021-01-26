@@ -1,10 +1,8 @@
 import argparse
-import os
-import sys
 
 from junit_xml_parser import (
-    validate_junit_xml_file,
-    validate_junit_xml_archive,
+    validate_junit_json_file,
+    validate_junit_xml_path,
     parse_test_result
 )
 from report_data_storage import KustoConnector
@@ -24,23 +22,18 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     parser.add_argument(
         "--external_id", "-e", type=str, help="An external tracking ID to append to the report.",
     )
+    parser.add_argument(
+        "--json", "-j", action="store_true", help="Load an existing test result JSON file from path_name.",
+    )
 
     args = parser.parse_args()
 
-    path = args.path_name
-
-    if not os.path.exists(path):
-        print(f"{path} not found")
-        sys.exit(1)
-
-    # FIXME: This interface is actually really clunky, should just have one method and check file
-    # v. dir internally. Fix in the next PR.
-    if os.path.isfile(path):
-        roots = [validate_junit_xml_file(path)]
+    if args.json:
+        test_result_json = validate_junit_json_file(args.path_name)
     else:
-        roots = validate_junit_xml_archive(path)
+        roots = validate_junit_xml_path(args.path_name)
+        test_result_json = parse_test_result(roots)
 
-    test_result_json = parse_test_result(roots)
     tracking_id = args.external_id if args.external_id else ""
 
     kusto_db = KustoConnector(args.db_name)
