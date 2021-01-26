@@ -170,7 +170,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
     dut_intfs = natsorted(dut_intfs)
 
     full_dut_fanout_port_map = {}
-    for _, fanout_host in tor_fanouthosts.items():
+    for fanout_host in tor_fanouthosts.values():
         for encoded_dut_intf, fanout_intf in fanout_host.host_to_fanout_port_map.items():
             full_dut_fanout_port_map[encoded_dut_intf] = {
                 'fanout_host': fanout_host,
@@ -208,9 +208,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
-        _down_intfs = _shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs)
-        for fanout_host, fanout_intf in _down_intfs:
-            down_intfs.append((fanout_host, fanout_intf))
+        down_intfs.extend(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
@@ -235,9 +233,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
-        _down_intfs = _shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs)
-        for fanout_host, fanout_intf in _down_intfs:
-            down_intfs.append((fanout_host, fanout_intf))
+        down_intfs.extend(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
@@ -269,15 +265,11 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
 
         if upper:
             logger.info('Shutdown fanout ports connected to upper_tor')
-            _down_intfs = _shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs)
-            for fanout_host, fanout_intf in _down_intfs:
-                down_intfs.append((fanout_host, fanout_intf))
+            down_intfs.extend(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
 
         if lower:
             logger.info('Shutdown fanout ports connected to lower_tor')
-            _down_intfs = _shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs)
-            for fanout_host, fanout_intf in _down_intfs:
-                down_intfs.append((fanout_host, fanout_intf))
+            down_intfs.extend(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
@@ -346,9 +338,7 @@ def shutdown_t1_upper_tor_intfs(upper_tor_host, nbrhosts, tbinfo):
 
     def shutdown(vm_names=None):
         logger.info('Shutdown T1 VM ports connected to upper_tor')
-        _down_intfs = _shutdown_t1_tor_intfs(upper_tor_host, nbrhosts, tbinfo, vm_names)
-        for eos_host, vm_intf in _down_intfs:
-            down_intfs.append((eos_host, vm_intf))
+        down_intfs.extend(_shutdown_t1_tor_intfs(upper_tor_host, nbrhosts, tbinfo, vm_names))
 
     yield shutdown
 
@@ -369,18 +359,16 @@ def shutdown_t1_lower_tor_intfs(lower_tor_host, nbrhosts, tbinfo):
     Yields:
         function: A function for shutting down specified T1 VMs interfaces connected to lower_tor_host.
     """
-    down_ports = []
+    down_intfs = []
 
     def shutdown(vm_names=None):
         logger.info('Shutdown T1 VM ports connected to lower_tor')
-        _down_ports = _shutdown_t1_tor_intfs(lower_tor_host, nbrhosts, tbinfo, vm_names)
-        for eos_host, vm_intf in _down_ports:
-            down_ports.append((eos_host, vm_intf))
+        down_intfs.extend(_shutdown_t1_tor_intfs(lower_tor_host, nbrhosts, tbinfo, vm_names))
 
     yield shutdown
 
     logger.info('Recover T1 VM ports connected to lower_tor')
-    for eos_host, vm_intf in down_ports:
+    for eos_host, vm_intf in down_intfs:
         eos_host.no_shutdown(vm_intf)
 
 
@@ -405,15 +393,11 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
 
         if upper:
             logger.info('Shutdown T1 VM ports connected to upper_tor')
-            _down_intfs = _shutdown_t1_tor_intfs(upper_tor_host, nbrhosts, tbinfo, vm_names)
-            for eos_host, vm_intf in _down_intfs:
-                down_intfs.append((eos_host, vm_intf))
+            down_intfs.extend(_shutdown_t1_tor_intfs(upper_tor_host, nbrhosts, tbinfo, vm_names))
 
         if lower:
             logger.info('Shutdown T1 VM ports connected to lower_tor')
-            _down_intfs = _shutdown_t1_tor_intfs(lower_tor_host, nbrhosts, tbinfo, vm_names)
-            for eos_host, vm_intf in _down_intfs:
-                down_intfs.append((eos_host, vm_intf))
+            down_intfs.extend(_shutdown_t1_tor_intfs(lower_tor_host, nbrhosts, tbinfo, vm_names))
 
     yield shutdown
 
