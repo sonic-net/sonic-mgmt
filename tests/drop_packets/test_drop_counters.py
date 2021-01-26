@@ -138,7 +138,7 @@ def ensure_no_l3_drops(duthost):
         try:
             rx_err_value = int(value[RX_ERR])
         except ValueError as err:
-            logger.warning("Unable to verify L3 drops on iface {}\n{}".format(iface, err))
+            logger.info("Unable to verify L3 drops on iface {}, L3 counters may not be supported on this platform\n{}".format(iface, err))
             continue
         if rx_err_value >= PKT_NUMBER:
             unexpected_drops[iface] = rx_err_value
