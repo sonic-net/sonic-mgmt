@@ -76,8 +76,8 @@ def check_interface_status(dut, asic_index, interfaces):
 
     return True
 
-
-def check_interface_information(dut, interfaces):
+# This API to check the interface information actoss all front end ASIC's
+def check_all_interface_information(dut, interfaces):
     for asic_index in dut.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
@@ -89,6 +89,17 @@ def check_interface_information(dut, interfaces):
         if not check_interface_status(dut, asic_index, interfaces_per_asic):
             logging.info("Not all interfaces are up")
             return False
+
+    return True
+
+# This API to check the interface information per asic.
+def check_interface_information(dut, asic_index, interfaces):
+    if not all_transceivers_detected(dut, asic_index, interfaces):
+        logging.info("Not all transceivers are detected on asic %s" % asic_index)
+        return False
+    if not check_interface_status(dut, asic_index, interfaces):
+        logging.info("Not all interfaces are up on asic %s" % asic_index)
+        return False
 
     return True
 

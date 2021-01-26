@@ -19,7 +19,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import wait_until
 from tests.common.reboot import *
 from tests.common.platform.transceiver_utils import check_transceiver_basic
-from tests.common.platform.interface_utils import check_interface_information, get_port_map
+from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 
@@ -81,7 +81,7 @@ def check_interfaces_and_services(dut, interfaces, reboot_type = None):
             return
 
     logging.info("Wait %d seconds for all the transceivers to be detected" % MAX_WAIT_TIME_FOR_INTERFACES)
-    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_interface_information, dut, interfaces), \
+    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces), \
         "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
 
 
