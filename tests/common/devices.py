@@ -441,11 +441,17 @@ class SonicHost(AnsibleHostBase):
         critical_process_list = []
         succeeded = True
 
+
         file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
                 && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
+                if '201811' in self._os_version and len(line_info) == 1:
+                    identifier_value = line_info[0].strip()
+                    critical_process_list.append(identifier_value)
+                    continue
+
                 succeeded = False
                 break
 
@@ -1685,6 +1691,10 @@ class SonicAsic(object):
 
     def get_ip_route_info(self, dstip):
         return self.sonichost.get_ip_route_info(dstip, self.cli_ns_option)
+
+    @property
+    def os_version(self):
+        return self.sonichost.os_version
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
