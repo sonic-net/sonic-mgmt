@@ -291,6 +291,6 @@ def backup_bgp_config(duthost):
     yield
     try:
         apply_default_bgp_config(duthost)
-    except:
+    except Exception:
         config_reload(duthost)
         apply_default_bgp_config(duthost)
