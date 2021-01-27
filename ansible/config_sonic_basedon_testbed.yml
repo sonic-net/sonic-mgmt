@@ -90,7 +90,7 @@
     when: "'dualtor' not in topo"
 
   - name: gather dual ToR information
-    dual_tor_facts: 
+    dual_tor_facts:
       hostname: "{{ inventory_hostname }}"
       testbed_facts: "{{ testbed_facts }}"
       hostvars: "{{ hostvars }}"
@@ -341,8 +341,8 @@
         shell: config save -y
         when: save is defined and save|bool == true
 
-      - name: cleanup cached facts
-        shell: python ../tests/common/cache/facts_cache.py {{ inventory_hostname }}
+      - name: cleanup all cached facts
+        shell: python ../tests/common/cache/facts_cache.py
         delegate_to: localhost
         ignore_errors: true
 

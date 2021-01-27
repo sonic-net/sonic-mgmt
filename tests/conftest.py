@@ -22,12 +22,13 @@ from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
-
+from tests.common.cache import FactsCache
 
 from tests.common.connections import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
+cache = FactsCache()
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -153,7 +154,11 @@ def get_tbinfo(request):
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
 
-    testbedinfo = TestbedInfo(tbfile)
+    testbedinfo = cache.read(tbname, 'tbinfo')
+    if not testbedinfo:
+        testbedinfo = TestbedInfo(tbfile)
+        cache.write(tbname, 'tbinfo', testbedinfo)
+
     return tbname, testbedinfo.testbed_topo.get(tbname, {})
 
 @pytest.fixture(scope="session")
