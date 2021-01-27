@@ -57,7 +57,7 @@ class PsuData(object):
 
 class MellanoxDeviceMocker(DeviceMocker):
     TARGET_SPEED_VALUE = 60
-    SPEED_TOLERANCE = 20
+    SPEED_TOLERANCE = 50
     PSU_NUM = 2
 
     def __init__(self, dut):
