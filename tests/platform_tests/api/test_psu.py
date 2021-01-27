@@ -29,6 +29,7 @@ pytestmark = [
 
 STATUS_LED_COLOR_GREEN = "green"
 STATUS_LED_COLOR_AMBER = "amber"
+STATUS_LED_COLOR_ORANGE = "orange"
 STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
@@ -37,6 +38,7 @@ def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
     request.cls.asic_type = duthost.facts.get("asic_type")
+    request.cls.platform = duthost.facts.get("platform")
 
 
 @pytest.mark.usefixtures("gather_facts")
@@ -208,6 +210,11 @@ class TestPsuApi(PlatformApiTestBase):
         OFF_LED_COLOR_LIST = [
             STATUS_LED_COLOR_OFF
         ]
+
+        # Arista supporting leds color 'orange' and not 'amber'
+        if "arista" in self.platform:
+            FAULT_LED_COLOR_LIST.remove(STATUS_LED_COLOR_AMBER)
+            FAULT_LED_COLOR_LIST.append(STATUS_LED_COLOR_ORANGE)
 
         LED_COLOR_TYPES = []
         LED_COLOR_TYPES.append(FAULT_LED_COLOR_LIST)

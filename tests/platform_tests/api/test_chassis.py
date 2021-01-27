@@ -56,6 +56,7 @@ def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
     request.cls.asic_type = duthost.facts.get("asic_type")
+    request.cls.platform = duthost.facts.get("platform")
 
     # Get host vars from inventory file
     request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
@@ -378,6 +379,11 @@ class TestChassisApi(PlatformApiTestBase):
         OFF_LED_COLOR_LIST = [
             "off"
         ]
+
+        # Arista supporting leds color 'orange' and not 'amber'
+        if "arista" in self.platform:
+            FAULT_LED_COLOR_LIST.remove("amber")
+            FAULT_LED_COLOR_LIST.append("orange")
 
         LED_COLOR_TYPES = []
         LED_COLOR_TYPES.append(FAULT_LED_COLOR_LIST)
