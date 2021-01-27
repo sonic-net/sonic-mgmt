@@ -349,8 +349,11 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                                         network_password,
                                         shell_user=shell_user,
                                         shell_passwd=shell_password)
+                    fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+                if dut_host not in fanout.dut_hostnames:
+                    fanout.dut_hostnames.append(dut_host)
     except:
         pass
     return fanout_hosts
