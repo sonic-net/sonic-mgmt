@@ -1315,6 +1315,12 @@ class WorkArea(object):
             profile_name = self.cfg.config_profile
         largs_list = [profile_name]
         self.net._apply_remote(dut, "config-profile", largs_list)
+        max_time = 240
+        apply_args = [max_time]
+
+        apply_args.append(True)
+        self._context.net._apply_remote(dut, "wait-for-ports", apply_args)
+
 
     def _load_image_dut(self, dut, scope):
         build = self.get_build(dut, scope)
