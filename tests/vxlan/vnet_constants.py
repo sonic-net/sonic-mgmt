@@ -9,6 +9,7 @@ DUT_VNET_CONF_JSON = "/tmp/vnet.conf.json"
 DUT_VNET_ROUTE_JSON = "/tmp/vnet.route.json"
 DUT_VNET_INTF_JSON = "/tmp/vnet.intf.json"
 DUT_VNET_NBR_JSON = "/tmp/vnet.nbr.json"
+DUT_VXLAN_PORT_JSON = "/tmp/vxlan_switch.json"
 TEMPLATE_DIR = "vxlan/templates"
 
 CLEANUP_KEY = "cleanup"
