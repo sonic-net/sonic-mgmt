@@ -32,7 +32,6 @@ def shutdown_tor_bgp():
 
     time.sleep(1)
     for duthost in torhost:
-        duthost = torhost[0]
         logger.info("Starting BGP sessions on {}".format(duthost.hostname))
         duthost.shell("config bgp startup all")
 
@@ -52,7 +51,6 @@ def shutdown_tor_heartbeat():
     yield shutdown_tor_heartbeat
 
     for duthost in torhost:
-        duthost = torhost[0]
         duthost.shell("systemctl start mux")
         duthost.shell("systemctl enable mux")
 
@@ -74,7 +72,6 @@ def tor_blackhole_traffic():
     yield tor_blackhole_traffic
 
     for duthost in torhost:
-        duthost = torhost[0]
         lo_ipv4 = None
         lo_ipv6 = None
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -107,7 +104,6 @@ def reboot_tor(localhost):
     # TODO Add IO check capability
 
     for duthost in torhost:
-        duthost = torhost[0]
         dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
         logger.info("Waiting for ssh to startup on {}".format((duthost.hostname)))
         res = localhost.wait_for(host=dut_ip,
