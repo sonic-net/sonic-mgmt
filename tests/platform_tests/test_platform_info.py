@@ -10,6 +10,7 @@ import time
 
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from thermal_control_test_helper import *
@@ -154,7 +155,7 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
 
 def turn_all_psu_on(psu_ctrl):
     all_psu_status = psu_ctrl.get_psu_status()
-    assert all_psu_status and len(all_psu_status) >= 2, 'Failed to get at least 2 PSU status: {}'.format(all_psu_status)
+    pytest_assert(all_psu_status and len(all_psu_status) >= 2, 'Failed to get at least 2 PSU status: {}'.format(all_psu_status))
     for psu in all_psu_status:
         if not psu["psu_on"]:
             psu_ctrl.turn_on_psu(psu["psu_id"])
@@ -208,7 +209,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, ps
 
     logging.info("Start testing turn off/on PSUs")
     all_psu_status = psu_ctrl.get_psu_status()
-    assert all_psu_status and len(all_psu_status) >= 2, 'Failed to get at least 2 PSU status: {}'.format(all_psu_status)
+    pytest_assert(all_psu_status and len(all_psu_status) >= 2, 'Failed to get at least 2 PSU status: {}'.format(all_psu_status))
     for psu in all_psu_status:
         psu_under_test = None
 
@@ -361,7 +362,7 @@ def test_thermal_control_psu_absence(duthosts, rand_one_dut_hostname, psu_contro
 
         logging.info('Shutdown first PSU and check thermal control result...')
         all_psu_status = psu_ctrl.get_psu_status()
-        assert all_psu_status and len(all_psu_status) >= 2, 'Failed to get at least 2 PSU status: {}'.format(all_psu_status)
+        pytest_assert(all_psu_status and len(all_psu_status) >= 2, 'Failed to get at least 2 PSU status: {}'.format(all_psu_status))
         psu = all_psu_status[0]
         turn_off_psu_and_check_thermal_control(duthost, psu_ctrl, psu, fan_mocker)
         psu_test_results.clear()
