@@ -192,6 +192,9 @@ all:
         pdu-115:
           ansible_host: 10.3.155.115
           protocol: snmp
+        pdu-116:
+          ansible_host: 10.3.155.116
+          protocol: snmp
         pdu-120:
           ansible_host: 10.3.155.120
           protocol: snmp
@@ -704,7 +707,7 @@ sonic_dx010_100:
         "0x2E": "1.1.1"
         "0x2F": "LB"
         "0xFE": "0x41512DDB"
-      pdu_host: pdu-108
+      pdu_host: pdu-110
     str-dx010-acs-4:
       ansible_host: 10.64.246.98
       model: R0872-F0009-01
@@ -727,6 +730,7 @@ sonic_dx010_100:
         "0x2E": "1.1.1"
         "0x2F": "LB"
         "0xFE": "0x75C90801"
+      pdu_host: pdu-116
     str-dx010-acs-5:
       ansible_host: 10.64.246.99
       model: R0872-F0009-01
@@ -749,6 +753,7 @@ sonic_dx010_100:
         "0x2E": "1.1.1"
         "0x2F": "LB"
         "0xFE": "0xC22202E9"
+      pdu_host: pdu-116
   vars:
     hwsku: Celestica-DX010-C32
     iface_speed: 100000
