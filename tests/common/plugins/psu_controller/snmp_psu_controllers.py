@@ -132,17 +132,18 @@ class snmpPsuController(PsuControllerBase):
                 )
             if errorIndication:
                 logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
-            for varBinds in varTable:
-                for oid, val in varBinds:
-                    current_oid = oid.prettyPrint()
-                    current_val = val.prettyPrint()
-                    if self.hostname.lower()  in current_val.lower():
-                        host_matched = True
-                        # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
-                        self.pdu_ports.append(current_oid.replace(pdu_port_base, ''))
-            if host_matched:
-                self.map_host_to_lane(lane_id)
-                break
+            else:
+                for varBinds in varTable:
+                    for oid, val in varBinds:
+                        current_oid = oid.prettyPrint()
+                        current_val = val.prettyPrint()
+                        if self.hostname.lower()  in current_val.lower():
+                            host_matched = True
+                            # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
+                            self.pdu_ports.append(current_oid.replace(pdu_port_base, ''))
+                if host_matched:
+                    self.map_host_to_lane(lane_id)
+                    break
         else:
             logging.error("{} device is not attached to any of PDU port".format(self.hostname.lower()))
 
