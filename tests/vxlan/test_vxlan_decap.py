@@ -1,10 +1,13 @@
 import json
 import logging
 from datetime import datetime
+from time import sleep
 
 import pytest
 from jinja2 import Template
 from netaddr import IPAddress
+from vnet_constants import DUT_VXLAN_PORT_JSON
+from vnet_utils import render_template_to_host
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -97,6 +100,12 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     logger.info("Gather some facts")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    logger.info("Copying vxlan_switch.json")
+    render_template_to_host("vxlan_switch.j2", duthost, DUT_VXLAN_PORT_JSON)
+    duthost.shell("docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON))
+    duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
+    sleep(3)
 
     logger.info("Prepare PTF")
     prepare_ptf(ptfhost, mg_facts, duthost)
