@@ -1,6 +1,6 @@
 #sanity/test_sanity_l3.py::test_l3_fwding
-#routing/BGP/test_bgp.py::test_ft_bgp_peer_traffic_check
+routing/BGP/test_bgp.py::TestBGPRif::test_ft_bgp_peer_traffic_check
 #routing/BGP/test_bgp.py::TestBGPRif::test_ft_bgp_v6_link_local_bgp
 #sanity/test_sanity_l2.py::test_base_line_portchannel_create_delete
 #switching/test_vlan.py::test_ft_vlan_save_config_warm_and_fast_reboot
-system/test_snmp.py::test_ft_snmp_sysName
+#system/test_snmp.py::test_ft_snmp_sysName
