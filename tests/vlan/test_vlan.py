@@ -13,6 +13,7 @@ import pprint
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
