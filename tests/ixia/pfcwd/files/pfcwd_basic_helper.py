@@ -1,5 +1,4 @@
 import time
-import dpkt
 from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert
@@ -12,8 +11,6 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd_default, get_pfcwd_poll_interval, get_pfcwd_detect_time,\
     get_pfcwd_restore_time
 
-from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
-    BasicFilter
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
@@ -21,8 +18,8 @@ from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
 from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.control import State, ConfigState,\
-    FlowTransmitState, PortCaptureState
-from abstract_open_traffic_generator.result import FlowRequest, CaptureRequest
+    FlowTransmitState
+from abstract_open_traffic_generator.result import FlowRequest
 
 PAUSE_FLOW_NAME = "Pause Storm"
 DATA_FLOW1_NAME = "Data Flow 1"
@@ -40,7 +37,23 @@ def run_pfcwd_basic_test(api,
                          prio_list,
                          prio_dscp_map,
                          trigger_pfcwd):
+    """
+    Run a basic PFC watchdog test
 
+    Args:
+        api (obj): IXIA session
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        fanout_data (dict): the dictionary returned by fanout_graph_fact.
+        duthost (Ansible host instance): device under test
+        dut_port (str): DUT port to test
+        prio_list (list): priorities of data flows and pause storm
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
+
+    Returns:
+        N/A
+    """
     start_pfcwd_default(duthost)
 
     """ Get the ID of the port to test """
@@ -133,7 +146,28 @@ def __gen_traffic(testbed_config,
                   data_pkt_size,
                   prio_list,
                   prio_dscp_map):
+    """
+    Generate configurations of flows, including data flows and pause storm.
 
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        port_id (int): ID of DUT port to test.
+        pause_flow_name (str): name of pause storm
+        pause_flow_dur_sec (float): duration of pause storm in second
+        data_flow1_name (str): name of data flow 1
+        data_flow1_delay_sec (float): start delay of data flow 1 in second
+        data_flow1_dur_sec (int): duration of data flow 1 in second
+        data_flow2_name (str): name of data flow 2
+        data_flow2_delay_sec (float): start delay of data flow 2 in second
+        data_flow2_dur_sec (int): duration of data flow 2 in second
+        data_pkt_size (int): size of data packets in byte
+        prio_list (list): priorities of data flows and pause storm
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        flows configurations (list): the list should have configurations of
+        len(prio_list) * 2 data flows, and a pause storm.
+    """
     result = list()
 
     rx_port_id = port_id
@@ -237,6 +271,18 @@ def __gen_traffic(testbed_config,
     return result
 
 def __run_traffic(api, config, all_flow_names, exp_dur_sec):
+    """
+    Run traffic and dump per-flow statistics
+
+    Args:
+        api (obj): IXIA session
+        config (obj): experiment config (testbed config + flow config)
+        all_flow_names (list): list of names of all the flows
+        exp_dur_sec (float): experiment duration in second
+
+    Returns:
+        per-flow statistics (list)
+    """
     api.set_state(State(ConfigState(config=config, state='set')))
     api.set_state(State(FlowTransmitState(state='start')))
     time.sleep(exp_dur_sec)
@@ -269,7 +315,21 @@ def __verify_results(rows,
                      data_flow2_name,
                      data_flow2_min_loss_rate,
                      data_flow2_max_loss_rate):
+    """
+    Verify if we get expected experiment results
 
+    Args:
+        rows (list): per-flow statistics
+        data_flow1_name (str): name of data flow 1
+        data_flow1_min_loss_rate (float): min loss rate of data flow 1
+        data_flow1_max_loss_rate (float): min loss rate of data flow 1
+        data_flow2_name (str): name of data flow 2
+        data_flow2_min_loss_rate (float): min loss rate of data flow 2
+        data_flow2_max_loss_rate (float): min loss rate of data flow 2
+
+    Returns:
+        N/A
+    """
     data_flow1_tx_frames = 0
     data_flow1_rx_frames = 0
     data_flow2_tx_frames = 0
@@ -292,10 +352,12 @@ def __verify_results(rows,
 
     pytest_assert(data_flow1_loss_rate <= data_flow1_max_loss_rate and\
                   data_flow1_loss_rate >= data_flow1_min_loss_rate,
-                  'Loss rate of {} should be in [{}, {}]'.\
-                  format(data_flow1_name, data_flow1_min_loss_rate, data_flow1_max_loss_rate))
+                  'Loss rate of {} ({}) should be in [{}, {}]'.\
+                  format(data_flow1_name, data_flow1_loss_rate,\
+                         data_flow1_min_loss_rate, data_flow1_max_loss_rate))
 
     pytest_assert(data_flow2_loss_rate <= data_flow2_max_loss_rate and\
                   data_flow2_loss_rate >= data_flow2_min_loss_rate,
-                  'Loss rate of {} should be in [{}, {}]'.\
-                  format(data_flow2_name, data_flow2_min_loss_rate, data_flow2_max_loss_rate))
+                  'Loss rate of {} ({}) should be in [{}, {}]'.\
+                  format(data_flow2_name, data_flow2_loss_rate,\
+                         data_flow2_min_loss_rate, data_flow2_max_loss_rate))
