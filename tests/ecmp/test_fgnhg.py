@@ -326,25 +326,7 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
     finally:
         cleanup(duthost)
 
-
-def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
-    duthost, cfg_facts, router_mac, net_ports = common_setup_teardown
-
-    if MINIGRAPH_PARSING == "OFF":
-        # IPv4 test
-        port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts,
-                                                                            router_mac, net_ports, DEFAULT_VLAN_IPv4,
-                                                                            PREFIX_IPv4)
-        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv4)
-
-        # IPv6 test
-        port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts,
-                                                                            router_mac, net_ports, DEFAULT_VLAN_IPv6,
-                                                                            PREFIX_IPv6)
-        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6)
-
-    else:
-        logger.info("Minigraph Parsing Test Case Running...")
+def extract_minigraph_config(tbinfo, duthost, cfg_facts):
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         prefix_ipv4 = ""
         prefix_ipv6 = ""
@@ -390,23 +372,46 @@ def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
             ipv6_to_port[ip] = int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv6_port[ip]]])
 
 
-        default_vlan_ipv4_mg = ipaddress.IPv4Interface(unicode(str(ipv4_to_port.keys()[0]) + "/2"))
-        default_vlan_ipv6_mg = ipaddress.IPv6Interface(unicode(str(ipv6_to_port.keys()[0]) + "/32"))
+        default_vlan_ipv4 = ipaddress.IPv4Interface(unicode(str(ipv4_to_port.keys()[0]) + "/2"))
+        default_vlan_ipv6 = ipaddress.IPv6Interface(unicode(str(ipv6_to_port.keys()[0]) + "/32"))
+        return prefix_ipv4, prefix_ipv6, bank_0_port_ipv4, bank_1_port_ipv4, bank_0_port_ipv6, bank_1_port_ipv6, ipv4_to_port, ipv6_to_port, default_vlan_ipv4, default_vlan_ipv6, port_list
+
+def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
+    duthost, cfg_facts, router_mac, net_ports = common_setup_teardown
+
+    if MINIGRAPH_PARSING == "OFF":
+        # IPv4 test
+        port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts,
+                                                                            router_mac, net_ports, DEFAULT_VLAN_IPv4,
+                                                                            PREFIX_IPv4)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv4)
+
+        # IPv6 test
+        port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts,
+                                                                            router_mac, net_ports, DEFAULT_VLAN_IPv6,
+                                                                            PREFIX_IPv6)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6)
+
+    else:
+        logger.info("Minigraph Parsing Test Case Running...")
+
+        prefix_ipv4_mg, prefix_ipv6_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg, ipv4_to_port_mg, ipv6_to_port_mg, default_vlan_ipv4_mg, default_vlan_ipv6_mg, port_list_mg = extract_minigraph_config(tbinfo, duthost, cfg_facts)
 
         # IPv4 test
         duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(default_vlan_ipv4_mg))
-        generate_fgnhg_config(duthost, ipv4_to_port, bank_0_port_ipv4, bank_1_port_ipv4, prefix_ipv4)
-        setup_neighbors(duthost, ptfhost, ipv4_to_port)
-        create_fg_ptf_config(ptfhost, ipv4_to_port, port_list, bank_0_port_ipv4, bank_1_port_ipv4, router_mac,
-                             net_ports, prefix_ipv4)
-        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port_ipv4, bank_1_port_ipv4,
-                prefix_ipv4)
+        generate_fgnhg_config(duthost, ipv4_to_port_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg, prefix_ipv4_mg)
+        setup_neighbors(duthost, ptfhost, ipv4_to_port_mg)
+        create_fg_ptf_config(ptfhost, ipv4_to_port_mg, port_list_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg, router_mac,
+                             net_ports, prefix_ipv4_mg)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list_mg, ipv4_to_port_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg,
+                prefix_ipv4_mg)
 
         # IPv6 test
         duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(default_vlan_ipv6_mg))
-        generate_fgnhg_config(duthost, ipv6_to_port, bank_0_port_ipv6, bank_1_port_ipv6, prefix_ipv6)
-        setup_neighbors(duthost, ptfhost, ipv6_to_port)
-        create_fg_ptf_config(ptfhost, ipv6_to_port, port_list, bank_0_port_ipv6, bank_1_port_ipv6, router_mac,
-                             net_ports, prefix_ipv6)
-        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port_ipv6, bank_1_port_ipv6,
-                prefix_ipv6)
+        generate_fgnhg_config(duthost, ipv6_to_port_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg, prefix_ipv6_mg)
+        setup_neighbors(duthost, ptfhost, ipv6_to_port_mg)
+        create_fg_ptf_config(ptfhost, ipv6_to_port_mg, port_list_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg, router_mac,
+                             net_ports, prefix_ipv6_mg)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list_mg, ipv6_to_port_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg,
+                prefix_ipv6_mg)
+
