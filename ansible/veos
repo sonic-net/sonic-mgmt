@@ -14,6 +14,7 @@ all:
         vm_host_17:
         vm_host_18:
         vm_host_20:
+        vm_host_21:
         vm_svc_host_1:
     eos:
       children:
@@ -29,6 +30,7 @@ all:
         vms_17:
         vms_18:
         vms_20:
+        vms_21:
         vms_svc_1:
     servers:
       children:
@@ -44,6 +46,7 @@ all:
         server_17:
         server_18:
         server_20:
+        server_21:
         server_svc_1:
       vars:
         topologies:
@@ -122,7 +125,7 @@ vm_host_20:
 vm_host_21:
   hosts:
     STR2-ACS-SERV-21:
-      ansible_host: 10.130.48.224
+      ansible_host: 10.64.246.133
 vm_svc_host_1:
   hosts:
     SVCSTR-SERV-1:
@@ -2265,6 +2268,201 @@ vms_20:
     VM2095:
       ansible_host: 172.16.137.127
 
+vms_21:
+  hosts:
+    VM2100:
+      ansible_host: 172.16.142.32
+    VM2101:
+      ansible_host: 172.16.142.33
+    VM2102:
+      ansible_host: 172.16.142.34
+    VM2103:
+      ansible_host: 172.16.142.35
+    VM2104:
+      ansible_host: 172.16.142.36
+    VM2105:
+      ansible_host: 172.16.142.37
+    VM2106:
+      ansible_host: 172.16.142.38
+    VM2107:
+      ansible_host: 172.16.142.39
+    VM2108:
+      ansible_host: 172.16.142.40
+    VM2109:
+      ansible_host: 172.16.142.41
+    VM2110:
+      ansible_host: 172.16.142.42
+    VM2111:
+      ansible_host: 172.16.142.43
+    VM2112:
+      ansible_host: 172.16.142.44
+    VM2113:
+      ansible_host: 172.16.142.45
+    VM2114:
+      ansible_host: 172.16.142.46
+    VM2115:
+      ansible_host: 172.16.142.47
+    VM2116:
+      ansible_host: 172.16.142.48
+    VM2117:
+      ansible_host: 172.16.142.49
+    VM2118:
+      ansible_host: 172.16.142.50
+    VM2119:
+      ansible_host: 172.16.142.51
+    VM2120:
+      ansible_host: 172.16.142.52
+    VM2121:
+      ansible_host: 172.16.142.53
+    VM2122:
+      ansible_host: 172.16.142.54
+    VM2123:
+      ansible_host: 172.16.142.55
+    VM2124:
+      ansible_host: 172.16.142.56
+    VM2125:
+      ansible_host: 172.16.142.57
+    VM2126:
+      ansible_host: 172.16.142.58
+    VM2127:
+      ansible_host: 172.16.142.59
+    VM2128:
+      ansible_host: 172.16.142.60
+    VM2129:
+      ansible_host: 172.16.142.61
+    VM2130:
+      ansible_host: 172.16.142.62
+    VM2131:
+      ansible_host: 172.16.142.63
+    VM2132:
+      ansible_host: 172.16.142.64
+    VM2133:
+      ansible_host: 172.16.142.65
+    VM2134:
+      ansible_host: 172.16.142.66
+    VM2135:
+      ansible_host: 172.16.142.67
+    VM2136:
+      ansible_host: 172.16.142.68
+    VM2137:
+      ansible_host: 172.16.142.69
+    VM2138:
+      ansible_host: 172.16.142.70
+    VM2139:
+      ansible_host: 172.16.142.71
+    VM2140:
+      ansible_host: 172.16.142.72
+    VM2141:
+      ansible_host: 172.16.142.73
+    VM2142:
+      ansible_host: 172.16.142.74
+    VM2143:
+      ansible_host: 172.16.142.75
+    VM2144:
+      ansible_host: 172.16.142.76
+    VM2145:
+      ansible_host: 172.16.142.77
+    VM2146:
+      ansible_host: 172.16.142.78
+    VM2147:
+      ansible_host: 172.16.142.79
+    VM2148:
+      ansible_host: 172.16.142.80
+    VM2149:
+      ansible_host: 172.16.142.81
+    VM2150:
+      ansible_host: 172.16.142.82
+    VM2151:
+      ansible_host: 172.16.142.83
+    VM2152:
+      ansible_host: 172.16.142.84
+    VM2153:
+      ansible_host: 172.16.142.85
+    VM2154:
+      ansible_host: 172.16.142.86
+    VM2155:
+      ansible_host: 172.16.142.87
+    VM2156:
+      ansible_host: 172.16.142.88
+    VM2157:
+      ansible_host: 172.16.142.89
+    VM2158:
+      ansible_host: 172.16.142.90
+    VM2159:
+      ansible_host: 172.16.142.91
+    VM2160:
+      ansible_host: 172.16.142.92
+    VM2161:
+      ansible_host: 172.16.142.93
+    VM2162:
+      ansible_host: 172.16.142.94
+    VM2163:
+      ansible_host: 172.16.142.95
+    VM2164:
+      ansible_host: 172.16.142.96
+    VM2165:
+      ansible_host: 172.16.142.97
+    VM2166:
+      ansible_host: 172.16.142.98
+    VM2167:
+      ansible_host: 172.16.142.99
+    VM2168:
+      ansible_host: 172.16.142.100
+    VM2169:
+      ansible_host: 172.16.142.101
+    VM2170:
+      ansible_host: 172.16.142.102
+    VM2171:
+      ansible_host: 172.16.142.103
+    VM2172:
+      ansible_host: 172.16.142.104
+    VM2173:
+      ansible_host: 172.16.142.105
+    VM2174:
+      ansible_host: 172.16.142.106
+    VM2175:
+      ansible_host: 172.16.142.107
+    VM2176:
+      ansible_host: 172.16.142.108
+    VM2177:
+      ansible_host: 172.16.142.109
+    VM2178:
+      ansible_host: 172.16.142.110
+    VM2179:
+      ansible_host: 172.16.142.111
+    VM2180:
+      ansible_host: 172.16.142.112
+    VM2181:
+      ansible_host: 172.16.142.113
+    VM2182:
+      ansible_host: 172.16.142.114
+    VM2183:
+      ansible_host: 172.16.142.115
+    VM2184:
+      ansible_host: 172.16.142.116
+    VM2185:
+      ansible_host: 172.16.142.117
+    VM2186:
+      ansible_host: 172.16.142.118
+    VM2187:
+      ansible_host: 172.16.142.119
+    VM2188:
+      ansible_host: 172.16.142.120
+    VM2189:
+      ansible_host: 172.16.142.121
+    VM2190:
+      ansible_host: 172.16.142.122
+    VM2191:
+      ansible_host: 172.16.142.123
+    VM2192:
+      ansible_host: 172.16.142.124
+    VM2193:
+      ansible_host: 172.16.142.125
+    VM2194:
+      ansible_host: 172.16.142.126
+    VM2195:
+      ansible_host: 172.16.142.127
+
 vms_svc_1:
   hosts:
     VM1000:
@@ -2533,6 +2731,12 @@ server_20:
   children:
     vm_host_20:
     vms_20:
+server_21:
+  vars:
+    host_var_file: host_vars/STR2-ACS-SERV-21.yml
+  children:
+    vm_host_21:
+    vms_21:
 server_svc_1:
   vars:
     host_var_file: host_vars/SVCSTR-SERV-1.yml
