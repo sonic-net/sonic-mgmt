@@ -171,7 +171,7 @@ def tbinfo(request):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(ansible_adhoc, tbinfo):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -867,4 +867,3 @@ def duthost_console(localhost, creds, request):
                        console_password=creds['console_password'][vars['console_type']])
     yield host
     host.disconnect()
-
