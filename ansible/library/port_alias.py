@@ -116,7 +116,8 @@ class SonicPortAliasMap():
                         if 'role' in text:
                             role_index = index
             else:
-                if re.match('^Ethernet', line):
+                #added support to parse recycle port
+                if re.match('^Ethernet', line) or re.match('^Inband', line):
                     mapping = line.split()
                     name = mapping[0]
                     if (role_index != -1) and (len(mapping) > role_index):

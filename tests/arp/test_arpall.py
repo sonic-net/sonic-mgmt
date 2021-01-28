@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1', 't2')
 ]
 
 logger = logging.getLogger(__name__)

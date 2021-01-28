@@ -23,14 +23,14 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module")
-def config_facts(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
 @pytest.fixture(scope="module")
-def intfs_for_test(duthosts, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     intf_facts = duthost.interface_facts()['ansible_facts']
 
