@@ -189,13 +189,15 @@ def ixia_api(ixia_api_serv_ip,
                                password=ixia_api_serv_passwd)
 
     yield api_session
-    api_session.assistant.Session.remove()
+
+    if api_session:
+        api_session.assistant.Session.remove()
 
 @pytest.fixture(scope = "function")
 def ixia_testbed(conn_graph_facts,
-                    fanout_graph_facts,
-                    duthosts,
-                    rand_one_dut_hostname):
+                 fanout_graph_facts,
+                 duthosts,
+                 rand_one_dut_hostname):
 
     """
     L2/L3 Tgen API config for the T0 testbed

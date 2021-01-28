@@ -92,7 +92,7 @@ fi
 pushd $SONIC_MGMT_DIR/ansible
 if [ -n "$refresh_dut" ]; then
     # Refresh dut in the virtual switch topology
-    ./testbed-cli.sh -m $inventory -t $testbed_file refresh-dut $tbname password.txt
+    ./testbed-cli.sh -m $inventory -t $testbed_file -k ceos refresh-dut $tbname password.txt
     sleep 120
 fi
 
