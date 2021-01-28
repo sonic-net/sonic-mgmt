@@ -258,8 +258,8 @@ class AsicDbCli(RedisCli):
             hostif_portid = self.hget_key_value(hostif_key, 'SAI_HOSTIF_ATTR_OBJ_ID')
             if hostif_portid == portid:
                 return hostif_key
-        else:
-            raise RedisKeyNotFound("Can't find hostif in asicdb with portid: %s", portid)
+
+        raise RedisKeyNotFound("Can't find hostif in asicdb with portid: %s", portid)
 
     def get_rif_porttype(self, portid):
         """

@@ -473,5 +473,5 @@ def find_system_port(dev_sysports, slot, asic_index, hostif):
             sys_info['asic'] = match.group(2)
             sys_info['key'] = sysport
             return sys_info
-    else:
-        raise KeyError("Could not find system port for {}/{}/{}".format(slot, asic_index, hostif))
+
+    raise KeyError("Could not find system port for {}/{}/{}".format(slot, asic_index, hostif))
