@@ -104,6 +104,7 @@ sonic_multi_asic:
   vars:
     hwsku: msft_multi_asic_vs
     iface_speed: 40000
+    num_asics: 4
   hosts:
     vlab-07:
       ansible_host: 10.250.0.109

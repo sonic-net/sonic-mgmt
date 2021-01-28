@@ -12,7 +12,7 @@ function usage
   echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] config-vm <topo-name> <vm-name> <vault-password-file>"
-  echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] (gen-mg | deploy-mg | test-mg | copy-mg) <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo
   echo "Options:"
@@ -52,6 +52,7 @@ function usage
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
+  echo "To copy and load generated minigraph to DUT in a topology: $0 copy-mg 'topo-name' 'inventory' ~/.password"
   echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
@@ -393,6 +394,24 @@ function test_minigraph
   echo Done
 }
 
+function copy_load_minigraph
+{
+  topology=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying minigraph '$topology'"
+
+  read_file $topology
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$topology" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true -e copy=true $@
+
+  echo Done
+}
+
 function config_vm
 {
   echo "Configure VM $2"
@@ -512,6 +531,8 @@ case "${subcmd}" in
   deploy-mg)   deploy_minigraph $@
                ;;
   test-mg)     test_minigraph $@
+               ;;
+  copy-mg)     copy_load_minigraph $@
                ;;
   create-master) start_k8s_vms $@
                  setup_k8s_vms $@
