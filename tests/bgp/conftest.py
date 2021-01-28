@@ -1,3 +1,4 @@
+import os
 import contextlib
 import ipaddress
 import json
@@ -11,6 +12,13 @@ from tests.common.helpers.generators import generate_ips
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.utilities import wait_until
+from tests.common import config_reload
+from bgp_helpers import define_config
+from bgp_helpers import apply_default_bgp_config
+from bgp_helpers import DUT_TMP_DIR
+from bgp_helpers import TEMPLATE_DIR
+from bgp_helpers import BGP_PLAIN_TEMPLATE
+from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
 
 
 logger = logging.getLogger(__name__)
@@ -230,3 +238,59 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
         yield connections
 
     duthost.shell("sonic-clear arp")
+
+
+@pytest.fixture(scope="module")
+def deploy_plain_bgp_config(duthost):
+    """
+    Deploy bgp plain config on the DUT
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        Pathname of the bgp plain config on the DUT
+    """
+    bgp_plain_template_src_path = os.path.join(TEMPLATE_DIR, BGP_PLAIN_TEMPLATE)
+    bgp_plain_template_path = os.path.join(DUT_TMP_DIR, BGP_PLAIN_TEMPLATE)
+
+    define_config(duthost, bgp_plain_template_src_path, bgp_plain_template_path)
+
+    return bgp_plain_template_path
+
+
+@pytest.fixture(scope="module")
+def deploy_no_export_bgp_config(duthost):
+    """
+    Deploy bgp no export config on the DUT
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        Pathname of the bgp no export config on the DUT
+    """
+    bgp_no_export_template_src_path = os.path.join(TEMPLATE_DIR, BGP_NO_EXPORT_TEMPLATE)
+    bgp_no_export_template_path = os.path.join(DUT_TMP_DIR, BGP_NO_EXPORT_TEMPLATE)
+
+    define_config(duthost, bgp_no_export_template_src_path, bgp_no_export_template_path)
+
+    return bgp_no_export_template_path
+
+
+@pytest.fixture(scope="module")
+def backup_bgp_config(duthost):
+    """
+    Copy default bgp configuration to the DUT and apply default configuration on the bgp
+    docker after test
+
+    Args:
+        duthost: DUT host object
+    """
+    apply_default_bgp_config(duthost, copy=True)
+    yield
+    try:
+        apply_default_bgp_config(duthost)
+    except Exception:
+        config_reload(duthost)
+        apply_default_bgp_config(duthost)
