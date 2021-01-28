@@ -14,7 +14,7 @@ import utilities.common as utils
 
 
 pkts_per_burst = 2000
-rate_pps = 1000
+rate_pps = 10000
 
 @pytest.fixture(scope="module", autouse=True)
 def bgp_module_hooks(request):
