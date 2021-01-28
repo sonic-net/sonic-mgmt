@@ -20,6 +20,3 @@ RECOVER_METHODS = {
     "fast_reboot": {"cmd": "fast_reboot", "reboot": True, "adaptive": False, 'recover_wait': 120},
     "adaptive": {"cmd": None, "reboot": False, "adaptive": True, 'recover_wait': 30},
 }       # All supported recover methods
-
-SUPPORTED_CHECK_ITEMS = ["services", "interfaces", "dbmemory", "processes", "bgp", "monit"]          # Supported checks
-DEFAULT_CHECK_ITEMS = ["services", "interfaces", "dbmemory", "processes", "bgp", "monit"]            # Default checks
