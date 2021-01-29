@@ -13,10 +13,13 @@ from devutil.ssh_utils import SSHClient
 from devutil.task_runner import TaskRunner
 import sys
 sys.path.append("..")
-from tests.common.connections.console_host import ConsoleHost
+from tests.common.connections import ConsoleHost
+from tests.common.plugins.psu_controller.snmp_psu_controllers import get_psu_controller
 
 g_inv_mgr = None
 g_task_runner = None
+g_pdu_dict = {}
+
 
 def run_cmd(cmd):
     '''
@@ -28,6 +31,41 @@ def run_cmd(cmd):
     out = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
     stdout, stderr = out.communicate()
     return out.returncode, stdout, stderr
+
+
+def build_global_vars(concurrency, inventory):
+    global g_task_runner, g_inv_mgr
+    g_task_runner = TaskRunner(max_worker=concurrency)
+    g_inv_mgr = HostManager(inventory)
+
+
+def retrieve_hosts(group, limit):
+    global g_inv_mgr
+    return g_inv_mgr.get_host_list(group, limit)
+
+
+def build_pdu_outlets(pdu):
+    if not pdu or not pdu['ansible_host']:
+        return
+
+    if 'protocol' not in pdu or pdu['protocol'] != 'snmp':
+        return
+
+
+def get_pdu_info(pdu_host):
+    global g_inv_mgr, g_pdu_dict
+
+    if pdu_host in g_pdu_dict:
+        return g_pdu_dict[pdu_host]
+
+    hosts = retrieve_hosts('all', pdu_host)
+    if pdu_host in hosts:
+        pdu = hosts[pdu_host]
+        g_pdu_dict[pdu_host] = pdu
+        build_pdu_outlets(pdu)
+        return pdu
+
+    return None
 
 
 def action_list(parameters):
@@ -64,15 +102,16 @@ def action_ping(parameters):
 
 def action_ssh(parameters):
     hosts = parameters['hosts']
-    for name, vars in hosts.items():
+    for _, vars in hosts.items():
         client = SSHClient()
         client.connect(hostname=vars['ansible_host'], username=vars['creds']['username'], passwords=vars['creds']['password'])
         client.posix_shell()
 
+
 def action_console(parameters):
     hosts = parameters['hosts']
     # Todo: Retrieve console vars from conn_graph_fact
-    for name, vars in hosts.items():
+    for _, vars in hosts.items():
         console_host = ConsoleHost(console_type=vars['console_type'],
                                     console_host=vars['console_host'],
                                     console_port=vars['console_port'],
@@ -81,6 +120,57 @@ def action_console(parameters):
                                     console_username=vars['creds']['console_user'][vars['console_type']],
                                     console_password=vars['creds']['console_password'][vars['console_type']])
         console_host.posix_shell()
+
+
+def action_pdu(parameters, action):
+    hosts = parameters['hosts']
+    for host, vars in hosts.items():
+        pdu_name = vars['pdu_host']
+        pdu_info = get_pdu_info(pdu_name)
+        pdu_host = pdu_info['ansible_host'] if pdu_info and 'ansible_host' in pdu_info else None
+        if not  pdu_host:
+            print('Cannot find pdu host name for dut {}'.format(host))
+            continue
+
+        print('dut {} pdu {} IP {} action {}'.format(host, pdu_name, pdu_host, action))
+        controller = get_psu_controller(pdu_host, host, pdu_info)
+
+        if not controller:
+            print('Failed to get pdu controller for dut {}'.format(host))
+            continue
+
+        status = controller.get_psu_status()
+        if action == 'off':
+            for outlet in status:
+                controller.turn_off_psu(outlet['psu_id'])
+            status = controller.get_psu_status()
+        elif action == 'on':
+            for outlet in status:
+                controller.turn_on_psu(outlet['psu_id'])
+            status = controller.get_psu_status()
+        elif action != 'status':
+            print('Unsupported action {}.'.format(action))
+            continue
+
+        print('DUT {} PSU stauts: {}'.format(host, status))
+
+
+def action_pdu_status(parameters):
+    action_pdu(parameters, 'status')
+
+
+def action_pdu_off(parameters):
+    action_pdu(parameters, 'off')
+
+
+def action_pdu_on(parameters):
+    action_pdu(parameters, 'on')
+
+
+def action_pdu_reboot(parameters):
+    action_pdu(parameters, 'off')
+    action_pdu(parameters, 'on')
+
 
 def action_dispatcher(parameters):
     # Actions that can run simultaneously in different hosts
@@ -123,9 +213,9 @@ def main():
     parser.add_argument('-6', '--ipv6', help='Include IPv6', action='store_true',
                         required=False, default=False)
     parser.add_argument('-a', '--action',
-                        help='Action towards host(s): list, ping, run, ssh, console, default list',
+                        help='Action towards host(s): list, ping, run, ssh, console, pdu_status, pdu_on, pdu_off, pdu_reboot, default list',
                         type=str, required=False, default='list',
-                        choices=['list', 'ping', 'ssh', 'console', 'run'])
+                        choices=['list', 'ping', 'ssh', 'console', 'run', 'pdu_status', 'pdu_on', 'pdu_off', 'pdu_reboot'])
     parser.add_argument('--cmd', help="Command to run on all hosts",
                         type=str, required=False)
     parser.add_argument('-g', '--group', help='Groups: all, sonic, ptf, pdu, default all',
@@ -142,17 +232,20 @@ def main():
     args = parser.parse_args()
     if not validate_args(args):
         return
-    global g_task_runner, g_inv_mgr
-    g_task_runner = TaskRunner(max_worker=args.concurrency)
-    g_inv_mgr = HostManager(args.inventory)
-    hosts = g_inv_mgr.get_host_list(args.group, args.limit)
+    build_global_vars(args.concurrency, args.inventory);
+    hosts = retrieve_hosts(args.group, args.limit)
     actions = { 'list' : action_list,
                 'ping' : action_ping,
                 'ssh' : action_ssh,
                 'console' : action_console,
-                'run' : ssh_run_command
+                'run' : ssh_run_command,
+                'pdu_status' : action_pdu_status,
+                'pdu_off' : action_pdu_off,
+                'pdu_on' : action_pdu_on,
+                'pdu_reboot' : action_pdu_reboot,
               }
     parameters = { 'hosts' : hosts,
+                   'group' : args.group,
                    'limit' : args.limit,
                    'action' : actions[args.action],
                    'user' : args.user,
