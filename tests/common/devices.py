@@ -14,9 +14,10 @@ import re
 import inspect
 import ipaddress
 import copy
+import time
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
-import time
+from collections import defaultdict
 
 from ansible import constants
 from ansible.plugins.loader import connection_loader
@@ -1157,6 +1158,109 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return vlan_intfs
 
+    def get_crm_facts(self):
+        """Run various 'crm show' commands and parse their output to gather CRM facts
+
+        Executed commands:
+            crm show summary
+            crm show thresholds
+            crm show resources all
+
+        Example output:
+            {
+                "acl_group": [
+                    {
+                        "resource name": "acl_group",
+                        "bind point": "PORT",
+                        "available count": "200",
+                        "used count": "24",
+                        "stage": "INGRESS"
+                    },
+                   ...
+                ],
+                "acl_table": [
+                    {
+                        "table id": "",
+                        "resource name": "",
+                        "used count": "",
+                        "available count": ""
+                    },
+                    ...
+                ],
+                "thresholds": {
+                        "ipv4_route": {
+                            "high": 85,
+                            "type": "percentage",
+                            "low": 70
+                        },
+                    ...
+                },
+                "resources": {
+                    "ipv4_route": {
+                        "available": 100000,
+                        "used": 16
+                    },
+                    ...
+                },
+                "polling_interval": 300
+            }
+
+        Returns:
+            dict: Gathered CRM facts.
+        """
+        crm_facts = {}
+
+        # Get polling interval
+        output = self.command('crm show summary')['stdout']
+        parsed = re.findall(r'Polling Interval: +(\d+) +second', output)
+        if parsed:
+            crm_facts['polling_interval'] = int(parsed[0])
+
+        # Get thresholds
+        crm_facts['thresholds'] = {}
+        thresholds = self.show_and_parse('crm show thresholds all')
+        for threshold in thresholds:
+            crm_facts['thresholds'][threshold['resource name']] = {
+                'high': int(threshold['high threshold']),
+                'low': int(threshold['low threshold']),
+                'type': threshold['threshold type']
+            }
+
+        # Get output of all resources
+        output = self.command('crm show resources all')['stdout_lines']
+        in_section = False
+        sections = defaultdict(list)
+        section_id = 0
+        for line in output:
+            if len(line.strip()) != 0:
+                if not in_section:
+                    in_section = True
+                    section_id += 1
+                sections[section_id].append(line)
+            else:
+                in_section=False
+                continue
+        # Output of 'crm show resources all' has 3 sections.
+        #   section 1: resources usage
+        #   section 2: ACL group
+        #   section 3: ACL table
+        if 1 in sections.keys():
+            crm_facts['resources'] = {}
+            resources = self._parse_show(sections[1])
+            for resource in resources:
+                crm_facts['resources'][resource['resource name']] = {
+                    'used': int(resource['used count']),
+                    'available': int(resource['available count'])
+                }
+
+        if 2 in sections.keys():
+            crm_facts['acl_group'] = self._parse_show(sections[2])
+
+        if 3 in sections.keys():
+            crm_facts['acl_table'] = self._parse_show(sections[3])
+
+        return crm_facts
+
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1777,7 +1881,7 @@ class MultiAsicSonicHost(object):
             return self._run_on_asics
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
-    
+
     def get_asic(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
             return self.asics[0]
