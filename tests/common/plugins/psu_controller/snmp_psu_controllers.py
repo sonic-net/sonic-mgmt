@@ -117,22 +117,46 @@ class snmpPsuController(PsuControllerBase):
         The PDU ports connected to DUT must have hostname of DUT configured in port name/description.
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
+        max_lane = 5
+        host_matched = False
         cmdGen = cmdgen.CommandGenerator()
         snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
-        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-            snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            cmdgen.MibVariable(self.pPORT_NAME_BASE_OID,),
-            )
-        if errorIndication:
-            logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
-        for varBinds in varTable:
-            for oid, val in varBinds:
-                current_oid = oid.prettyPrint()
-                current_val = val.prettyPrint()
-                if self.hostname.lower()  in current_val.lower():
-                    # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
-                    self.pdu_ports.append(current_oid.replace(self.PORT_NAME_BASE_OID, ''))
+
+        for lane_id in range(1, max_lane + 1):
+            pdu_port_base = self.PORT_NAME_BASE_OID[0: -1] + str(lane_id)
+
+            errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+                snmp_auth,
+                cmdgen.UdpTransportTarget((self.controller, 161)),
+                cmdgen.MibVariable("." + pdu_port_base,),
+                )
+            if errorIndication:
+                logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
+            else:
+                for varBinds in varTable:
+                    for oid, val in varBinds:
+                        current_oid = oid.prettyPrint()
+                        current_val = val.prettyPrint()
+                        if self.hostname.lower()  in current_val.lower():
+                            host_matched = True
+                            # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
+                            self.pdu_ports.append(current_oid.replace(pdu_port_base, ''))
+                if host_matched:
+                    self.map_host_to_lane(lane_id)
+                    break
+        else:
+            logging.error("{} device is not attached to any of PDU port".format(self.hostname.lower()))
+
+    def map_host_to_lane(self, lane_id):
+        """
+        Dynamically update Oids based on the PDU lane ID
+        """
+        self.pPORT_NAME_BASE_OID     = self.pPORT_NAME_BASE_OID[0: -1] + str(lane_id)
+        self.pPORT_STATUS_BASE_OID   = self.pPORT_STATUS_BASE_OID[0: -1] + str(lane_id)
+        self.pPORT_CONTROL_BASE_OID  = self.pPORT_CONTROL_BASE_OID[0: -1] + str(lane_id)
+        self.PORT_NAME_BASE_OID      = self.PORT_NAME_BASE_OID[0: -1] + str(lane_id)
+        self.PORT_STATUS_BASE_OID    = self.PORT_STATUS_BASE_OID[0: -1] + str(lane_id)
+        self.PORT_CONTROL_BASE_OID   = self.PORT_CONTROL_BASE_OID[0: -1] + str(lane_id)
 
     def __init__(self, hostname, controller, pdu):
         logging.info("Initializing " + self.__class__.__name__)
