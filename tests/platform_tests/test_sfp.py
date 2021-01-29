@@ -84,8 +84,7 @@ def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, enu
 
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        new_intf_dict = {k:v for k, v in portmap.items() if k in dev_conn}
-        dev_conn = new_intf_dict
+        dev_conn = {k:v for k, v in portmap.items() if k in conn_graph_facts["device_conn"][duthost.hostname]}
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, dev_conn))
 
     cmd_sfp_presence = "sudo sfputil show presence"
@@ -149,8 +148,13 @@ def test_check_sfp_status_and_configure_sfp(duthosts, rand_one_dut_hostname, enu
 
     logging.info("Check interface status")
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname, namespace=namespace)["ansible_facts"]
-    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    # TODO Remove this logic when minigraph facts supports namespace in multi_asic
+    up_ports = mg_facts["minigraph_ports"]
+    if enum_frontend_asic_index is not None:
+        # Check if the interfaces of this AISC is present in conn_graph_facts
+        up_ports = {k:v for k, v in portmap.items() if k in mg_facts["minigraph_ports"]}
+    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
@@ -184,8 +188,7 @@ def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, enum_frontend
 
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        new_intf_dict = {k:v for k, v in portmap.items() if k in dev_conn}
-        dev_conn = new_intf_dict
+        dev_conn = {k:v for k, v in portmap.items() if k in conn_graph_facts["device_conn"][duthost.hostname]}
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, dev_conn))
 
     cmd_sfp_presence = "sudo sfputil show presence"
@@ -275,8 +278,13 @@ def test_check_sfp_low_power_mode(duthosts, rand_one_dut_hostname, enum_frontend
 
     logging.info("Check interface status")
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname, namespace=namespace)["ansible_facts"]
-    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    # TODO Remove this logic when minigraph facts supports namespace in multi_asic
+    up_ports = mg_facts["minigraph_ports"]
+    if enum_frontend_asic_index is not None:
+        # Check if the interfaces of this AISC is present in conn_graph_facts
+        up_ports = {k:v for k, v in portmap.items() if k in mg_facts["minigraph_ports"]}
+    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
 
