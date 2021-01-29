@@ -113,8 +113,10 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         returns True. Otherwise it will call the function to do post-check every 30 seconds
         for 3 minutes. It will return False after timeout
     """
+    logger.info("Post-checking status of critical processes and BGP sessions...")
     return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
                       post_test_check, duthost, up_bgp_neighbors)
+    logger.info("Post-checking status of critical processes and BGP sessions was done!")
 
 
 def stop_containers(duthost, container_autorestart_states, skip_containers):
@@ -156,6 +158,7 @@ def check_alerting_message(duthost, stopped_containers_list):
     Return:
         None.
     """
+    logger.info("Checking the alerting message...")
     alerting_messages = duthost.shell("sudo cat /var/log/syslog | grep '.*monit.*container_checker'",
                                       module_ignore_errors=True)
 
@@ -175,6 +178,8 @@ def check_alerting_message(duthost, stopped_containers_list):
             pytest.fail("Container '{}' was not running, but its name was not found in Monit alerting message!"
                         .format(container_name))
 
+    logger.info("Checking the alerting message was done!")
+    
 
 def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     """Tests the feature of container checker.
@@ -206,11 +211,14 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     pytest_assert(len(stopped_containers_list) > 0, "None of containers was stopped!")
 
     # Wait for 6 minutes such that Monit has a chance to write alerting message into syslog.
-    logger.info("Sleep 6 minutes waiting for the alerting message...")
+    logger.info("Sleep 6 minutes to wait for the alerting message...")
     time.sleep(360)
 
     check_alerting_message(duthost, stopped_containers_list)
+
+    logger.info("Executing the config reload...")
     config_reload(duthost)
+    logger.info("Executing the config reload was done!")
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing")
+        pytest.fail("Post-check failed after testing the container checker!")
