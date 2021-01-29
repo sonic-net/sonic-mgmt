@@ -76,7 +76,6 @@ def check_all_critical_processes_status(duthost):
         This function will return True if all critical processes are running.
         Otherwise it will return False.
     """
-
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
@@ -96,7 +95,6 @@ def post_test_check(duthost, up_bgp_neighbors):
         This function will return True if all critical processes are running and
         all BGP sessions are established. Otherwise it will return False.
     """
-
     return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
 
 
