@@ -62,7 +62,7 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git stash apply\n")
+    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout move-master-ahead-011321; git stash apply\n")
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
@@ -491,6 +491,9 @@ def main():
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
 
+    print("********** Do a Git Update **********")
+    git_update(data)
+
     # Create testbed file based on vxr_ports 
     print("****** Create testbed file based on vxr_ports *******")
     create_testbed_file(data,base_topo_file,vEOS_count)
@@ -526,8 +529,6 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
-    print("********** Do a Git Update **********")
-    git_update(data)
     
     print("Sonic DUT:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
