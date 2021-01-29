@@ -44,6 +44,7 @@ class FactsCache(with_metaclass(Singleton, object)):
     def __init__(self, cache_location=CACHE_LOCATION):
         self._cache_location = os.path.abspath(cache_location)
         self._cache = defaultdict(dict)
+        self._write_lock = Lock()
 
     def _check_usage(self):
         """Check cache usage, raise exception if usage exceeds the limitations.
@@ -100,22 +101,23 @@ class FactsCache(with_metaclass(Singleton, object)):
         Returns:
             boolean: Caching facts is successful or not.
         """
-        self._check_usage()
-        facts_file = os.path.join(self._cache_location, '{}/{}.pickle'.format(zone, key))
-        try:
-            cache_subfolder = os.path.join(self._cache_location, zone)
-            if not os.path.exists(cache_subfolder):
-                logger.info('Create cache dir {}'.format(cache_subfolder))
-                os.makedirs(cache_subfolder)
+        with self._write_lock:
+            self._check_usage()
+            facts_file = os.path.join(self._cache_location, '{}/{}.pickle'.format(zone, key))
+            try:
+                cache_subfolder = os.path.join(self._cache_location, zone)
+                if not os.path.exists(cache_subfolder):
+                    logger.info('Create cache dir {}'.format(cache_subfolder))
+                    os.makedirs(cache_subfolder)
 
-            with open(facts_file, 'w') as f:
-                pickle.dump(value, f)
-                self._cache[zone][key] = value
-                logger.info('Cached facts "{}.{}" to {}'.format(zone, key, facts_file))
-                return True
-        except (IOError, ValueError) as e:
-            logger.error('Dump cache file "{}" failed with exception: {}'.format(facts_file, repr(e)))
-            return False
+                with open(facts_file, 'w') as f:
+                    pickle.dump(value, f)
+                    self._cache[zone][key] = value
+                    logger.info('Cached facts "{}.{}" to {}'.format(zone, key, facts_file))
+                    return True
+            except (IOError, ValueError) as e:
+                logger.error('Dump cache file "{}" failed with exception: {}'.format(facts_file, repr(e)))
+                return False
 
     def cleanup(self, zone=None, key=None):
         """Cleanup cached files.

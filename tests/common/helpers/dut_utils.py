@@ -27,6 +27,3 @@ def is_frontend_node(inv_files, hostname):
           node. If we add more types of nodes, then we need to exclude them from this method as well.
     """
     return not is_supervisor_node(inv_files, hostname)
-
-
-
