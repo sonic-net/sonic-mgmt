@@ -116,7 +116,6 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
     logger.info("Post-checking status of critical processes and BGP sessions...")
     return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
                       post_test_check, duthost, up_bgp_neighbors)
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
 
 
 def stop_containers(duthost, container_autorestart_states, skip_containers):
@@ -222,3 +221,4 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the container checker!")
+    logger.info("Post-checking status of critical processes and BGP sessions was done!")
