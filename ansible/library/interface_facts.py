@@ -54,7 +54,7 @@ EXAMPLES = '''
 
 '''
 
-INTF_IP_GET_INFO_CMDs = """#!/usr/bin/python
+INTF_IP_GET_INFO_CMDs = r"""#!/usr/bin/python
 import os
 import glob
 import socket
@@ -74,7 +74,7 @@ def get_default_interfaces(ip_path):
     interface = dict(v4 = {}, v6 = {})
     for key in command.keys():
         '''
-        if key == 'v6' and self.facts['os_family'] == 'RedHat' \\
+        if key == 'v6' and self.facts['os_family'] == 'RedHat' \
             and self.facts['distribution_version'].startswith('4.'):
             continue
         '''
@@ -86,7 +86,7 @@ def get_default_interfaces(ip_path):
             # v6 routing may result in
             #   RTNETLINK answers: Invalid argument
             continue
-        words = out.split('\\n')[0].split()
+        words = out.split('\n')[0].split()
         # A valid output starts with the queried address on the first line
         if len(words) > 0 and words[0] == command[key][-1]:
             for i in range(len(words) - 1):
@@ -184,7 +184,7 @@ def gather_ip_interface_info():
             interfaces[device]['promisc'] = promisc_mode
 
         def parse_ip_output(output, secondary=False):
-            for line in output.split('\\n'):
+            for line in output.split('\n'):
                 if not line:
                     continue
                 words = line.split()
