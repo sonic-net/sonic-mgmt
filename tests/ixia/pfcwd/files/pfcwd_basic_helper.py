@@ -8,8 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
-    start_pfcwd_default, get_pfcwd_poll_interval, get_pfcwd_detect_time,\
-    get_pfcwd_restore_time
+    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
@@ -54,7 +53,6 @@ def run_pfcwd_basic_test(api,
     Returns:
         N/A
     """
-    start_pfcwd_default(duthost)
 
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -73,41 +71,38 @@ def run_pfcwd_basic_test(api,
         """ Large enough to trigger PFC watchdog """
         pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
 
-        data_flow1_delay_sec = restore_time_sec / 2
-        data_flow1_dur_sec = pfc_storm_dur_sec
+        flow1_delay_sec = restore_time_sec / 2
+        flow1_dur_sec = pfc_storm_dur_sec
 
         """ Start data traffic 2 after PFC is restored """
-        data_flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + poll_interval_sec
-        data_flow2_dur_sec = 1
+        flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + poll_interval_sec
+        flow2_dur_sec = 1
 
-        data_flow1_max_loss_rate = 1
-        data_flow1_min_loss_rate = 1- DEVIATION
+        flow1_max_loss_rate = 1
+        flow1_min_loss_rate = 1- DEVIATION
 
     else:
         pfc_storm_dur_sec = detect_time_sec * 0.5
-        data_flow1_delay_sec = pfc_storm_dur_sec * 0.1
-        data_flow1_dur_sec = ceil(pfc_storm_dur_sec)
+        flow1_delay_sec = pfc_storm_dur_sec * 0.1
+        flow1_dur_sec = ceil(pfc_storm_dur_sec)
 
         """ Start data traffic 2 after the completion of data traffic 1 """
-        data_flow2_delay_sec = data_flow1_delay_sec + data_flow1_dur_sec + 0.1
-        data_flow2_dur_sec = 1
+        flow2_delay_sec = flow1_delay_sec + flow1_dur_sec + 0.1
+        flow2_dur_sec = 1
 
-        data_flow1_max_loss_rate = 0
-        data_flow1_min_loss_rate = 0
+        flow1_max_loss_rate = 0
+        flow1_min_loss_rate = 0
 
-    exp_dur_sec = data_flow2_delay_sec + data_flow2_dur_sec + 1
+    exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
 
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
                           port_id=port_id,
                           pause_flow_name=PAUSE_FLOW_NAME,
                           pause_flow_dur_sec=pfc_storm_dur_sec,
-                          data_flow1_name=DATA_FLOW1_NAME,
-                          data_flow1_delay_sec=data_flow1_delay_sec,
-                          data_flow1_dur_sec=data_flow1_dur_sec,
-                          data_flow2_name=DATA_FLOW2_NAME,
-                          data_flow2_delay_sec=data_flow2_delay_sec,
-                          data_flow2_dur_sec=data_flow2_dur_sec,
+                          data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                          data_flow_delay_sec_list=[flow1_delay_sec, flow2_delay_sec],
+                          data_flow_dur_sec_list=[flow1_dur_sec, flow2_dur_sec],
                           data_pkt_size=DATA_PKT_SIZE,
                           prio_list=prio_list,
                           prio_dscp_map=prio_dscp_map)
@@ -124,12 +119,9 @@ def run_pfcwd_basic_test(api,
                                exp_dur_sec=exp_dur_sec)
 
     __verify_results(rows=flow_stats,
-                     data_flow1_name=DATA_FLOW1_NAME,
-                     data_flow1_min_loss_rate=data_flow1_min_loss_rate,
-                     data_flow1_max_loss_rate=data_flow1_max_loss_rate,
-                     data_flow2_name=DATA_FLOW2_NAME,
-                     data_flow2_min_loss_rate=0,
-                     data_flow2_max_loss_rate=0)
+                     data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                     data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
+                     data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
 
 sec_to_nanosec = lambda x : x * 1e9
 
@@ -137,12 +129,9 @@ def __gen_traffic(testbed_config,
                   port_id,
                   pause_flow_name,
                   pause_flow_dur_sec,
-                  data_flow1_name,
-                  data_flow1_delay_sec,
-                  data_flow1_dur_sec,
-                  data_flow2_name,
-                  data_flow2_delay_sec,
-                  data_flow2_dur_sec,
+                  data_flow_name_list,
+                  data_flow_delay_sec_list,
+                  data_flow_dur_sec_list,
                   data_pkt_size,
                   prio_list,
                   prio_dscp_map):
@@ -154,12 +143,9 @@ def __gen_traffic(testbed_config,
         port_id (int): ID of DUT port to test.
         pause_flow_name (str): name of pause storm
         pause_flow_dur_sec (float): duration of pause storm in second
-        data_flow1_name (str): name of data flow 1
-        data_flow1_delay_sec (float): start delay of data flow 1 in second
-        data_flow1_dur_sec (int): duration of data flow 1 in second
-        data_flow2_name (str): name of data flow 2
-        data_flow2_delay_sec (float): start delay of data flow 2 in second
-        data_flow2_dur_sec (int): duration of data flow 2 in second
+        data_flow_name_list (list): list of data flow names
+        data_flow_delay_sec_list (list): list of data flow start delays in second
+        data_flow_dur_sec_list (list): list of data flow durations in second
         data_pkt_size (int): size of data packets in byte
         prio_list (list): priorities of data flows and pause storm
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
@@ -222,51 +208,32 @@ def __gen_traffic(testbed_config,
 
     result.append(pause_flow)
 
-
-    """ Data flow 1 """
     data_flow_rate_percent = int(100 / len(prio_list))
-    for prio in prio_list:
-        ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
-                                ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-        pfc_queue = FieldPattern([prio])
 
-        data_flow1 = Flow(
-            name='{} Prio {}'.format(data_flow1_name, prio),
-            tx_rx=TxRx(data_endpoint),
-            packet=[
-                Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-                Header(choice=Ipv4Header(priority=ip_prio))
-            ],
-            size=Size(data_pkt_size),
-            rate=Rate('line', data_flow_rate_percent),
-            duration=Duration(FixedSeconds(seconds=data_flow1_dur_sec,
-                                           delay=sec_to_nanosec(data_flow1_delay_sec),
-                                           delay_unit='nanoseconds'))
-        )
+    """ For each data flow """
+    for i in range(len(data_flow_name_list)):
 
-        result.append(data_flow1)
+        """ For each priority """
+        for prio in prio_list:
+            ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
+                                    ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
+            pfc_queue = FieldPattern([prio])
 
-    """ Data flow 2 """
-    for prio in prio_list:
-        ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
-                                ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-        pfc_queue = FieldPattern([prio])
+            data_flow = Flow(
+                name='{} Prio {}'.format(data_flow_name_list[i], prio),
+                tx_rx=TxRx(data_endpoint),
+                packet=[
+                    Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
+                    Header(choice=Ipv4Header(priority=ip_prio))
+                ],
+                size=Size(data_pkt_size),
+                rate=Rate('line', data_flow_rate_percent),
+                duration=Duration(FixedSeconds(seconds=data_flow_dur_sec_list[i],
+                                               delay=sec_to_nanosec(data_flow_delay_sec_list[i]),
+                                               delay_unit='nanoseconds'))
+            )
 
-        data_flow2 = Flow(
-            name='{} Prio {}'.format(data_flow2_name, prio),
-            tx_rx=TxRx(data_endpoint),
-            packet=[
-                Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-                Header(choice=Ipv4Header(priority=ip_prio))
-            ],
-            size=Size(data_pkt_size),
-            rate=Rate('line', data_flow_rate_percent),
-            duration=Duration(FixedSeconds(seconds=data_flow2_dur_sec,
-                                           delay=sec_to_nanosec(data_flow2_delay_sec),
-                                           delay_unit='nanoseconds'))
-        )
-
-        result.append(data_flow2)
+            result.append(data_flow)
 
     return result
 
@@ -309,55 +276,40 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     return rows
 
 def __verify_results(rows,
-                     data_flow1_name,
-                     data_flow1_min_loss_rate,
-                     data_flow1_max_loss_rate,
-                     data_flow2_name,
-                     data_flow2_min_loss_rate,
-                     data_flow2_max_loss_rate):
+                     data_flow_name_list,
+                     data_flow_min_loss_rate_list,
+                     data_flow_max_loss_rate_list):
     """
     Verify if we get expected experiment results
 
     Args:
         rows (list): per-flow statistics
-        data_flow1_name (str): name of data flow 1
-        data_flow1_min_loss_rate (float): min loss rate of data flow 1
-        data_flow1_max_loss_rate (float): min loss rate of data flow 1
-        data_flow2_name (str): name of data flow 2
-        data_flow2_min_loss_rate (float): min loss rate of data flow 2
-        data_flow2_max_loss_rate (float): min loss rate of data flow 2
+        data_flow_name_list (list): list of data flow names
+        data_flow_min_loss_rate_list (list): list of data flow min loss rates
+        data_flow_max_loss_rate_list (list): list of data flow max loss rates
 
     Returns:
         N/A
     """
-    data_flow1_tx_frames = 0
-    data_flow1_rx_frames = 0
-    data_flow2_tx_frames = 0
-    data_flow2_rx_frames = 0
+    num_data_flows = len(data_flow_name_list)
+    data_flow_tx_frames_list = num_data_flows * [0]
+    data_flow_rx_frames_list = num_data_flows * [0]
 
     for row in rows:
         flow_name = row['name']
         tx_frames = row['frames_tx']
         rx_frames = row['frames_rx']
 
-        if data_flow1_name in flow_name:
-            data_flow1_tx_frames += tx_frames
-            data_flow1_rx_frames += rx_frames
-        elif data_flow2_name in flow_name:
-            data_flow2_tx_frames += tx_frames
-            data_flow2_rx_frames += rx_frames
+        for i in range(num_data_flows):
+            if data_flow_name_list[i] in flow_name:
+                data_flow_tx_frames_list[i] += tx_frames
+                data_flow_rx_frames_list[i] += rx_frames
 
-    data_flow1_loss_rate = 1 - float(data_flow1_rx_frames) / data_flow1_tx_frames
-    data_flow2_loss_rate = 1 - float(data_flow2_rx_frames) / data_flow2_tx_frames
+    for i in range(num_data_flows):
+        loss_rate = 1 - float(data_flow_rx_frames_list[i]) / data_flow_tx_frames_list[i]
+        min_loss_rate = data_flow_min_loss_rate_list[i]
+        max_loss_rate = data_flow_max_loss_rate_list[i]
 
-    pytest_assert(data_flow1_loss_rate <= data_flow1_max_loss_rate and\
-                  data_flow1_loss_rate >= data_flow1_min_loss_rate,
-                  'Loss rate of {} ({}) should be in [{}, {}]'.\
-                  format(data_flow1_name, data_flow1_loss_rate,\
-                         data_flow1_min_loss_rate, data_flow1_max_loss_rate))
-
-    pytest_assert(data_flow2_loss_rate <= data_flow2_max_loss_rate and\
-                  data_flow2_loss_rate >= data_flow2_min_loss_rate,
-                  'Loss rate of {} ({}) should be in [{}, {}]'.\
-                  format(data_flow2_name, data_flow2_loss_rate,\
-                         data_flow2_min_loss_rate, data_flow2_max_loss_rate))
+        pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
+                      'Loss rate of {} ({}) should be in [{}, {}]'.format(
+                      data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))

@@ -111,7 +111,7 @@ class IxiaFanoutManager () :
         of chassis 0 - the first chassis in the list.
 
         Note:
-            Counting or indexing starts from 0. That is 0 = 1st cassis,
+            Counting or indexing starts from 0. That is 0 = 1st chassis,
             1 = 2nd chassis ...
 
         Args:
@@ -539,7 +539,7 @@ def create_ip_traffic_item (
     elif (traffic_type == 'ipv6'):
         obj = '/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv6/1'
     else :
-        pytest_assert(0)
+        pytest_assert(0, 'Unknown traffic type {}'.format(traffic_type))
 
     src = [{'arg1': obj,
             'arg2': src_start_port,

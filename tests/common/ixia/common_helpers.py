@@ -390,7 +390,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
         attr (str): config attribute name, e.g., 'detection_time'
 
     Returns:
-        config attribute (str)
+        config attribute (str) or None
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
@@ -466,27 +466,3 @@ def get_pfcwd_restore_time(host_ans, intf):
         return int(val)
     else:
         return None
-
-def stop_pfcwd(host_ans):
-    """
-    Stop PFC watchdog
-
-    Args:
-        host_ans: Ansible host instance of the device
-
-    Returns:
-        N/A
-    """
-    host_ans.shell('sudo pfcwd stop')
-
-def start_pfcwd_default(host_ans):
-    """
-    Start PFC watchdog with default setting
-
-    Args:
-        host_ans: Ansible host instance of the device
-
-    Returns:
-        N/A
-    """
-    host_ans.shell('sudo pfcwd start_default')

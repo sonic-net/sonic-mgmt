@@ -5,7 +5,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed
-from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
+from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list,\
+    start_pfcwd_default
 
 from files.pfcwd_basic_helper import run_pfcwd_basic_test
 
@@ -21,7 +22,8 @@ def test_pfcwd_basic_single_lossless_prio(ixia_api,
                                           enum_dut_portname_oper_up,
                                           enum_dut_lossless_prio,
                                           prio_dscp_map,
-                                          trigger_pfcwd):
+                                          trigger_pfcwd,
+                                          start_pfcwd_default):
     """
     Run PFC watchdog basic test on a single lossless priority
 
@@ -36,6 +38,7 @@ def test_pfcwd_basic_single_lossless_prio(ixia_api,
         enum_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
+        start_pfcwd_default (pytest fixture): start PFC watchdog with the default setting
 
     Returns:
         N/A
@@ -69,7 +72,8 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api,
                                          enum_dut_portname_oper_up,
                                          lossless_prio_list,
                                          prio_dscp_map,
-                                         trigger_pfcwd):
+                                         trigger_pfcwd,
+                                         start_pfcwd_default):
     """
     Run PFC watchdog basic test on multiple lossless priorities
 
@@ -84,6 +88,7 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api,
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
+        start_pfcwd_default (pytest fixture): start PFC watchdog with the default setting
 
     Returns:
         N/A
