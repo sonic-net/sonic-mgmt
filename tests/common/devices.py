@@ -1946,71 +1946,45 @@ class MultiAsicSonicHost(object):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
 
-        frontend_asic_list = []
-        for asic in self.frontend_asics:
-            frontend_asic_list.append(asic.asic_index)
-
-        return frontend_asic_list
+        return [asic.asic_index for asic in self.frontend_asics]
 
     def get_frontend_asic_namespace_list(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_NAMESPACE]
 
-        frontend_ns_list = []
-        for asic in self.frontend_asics:
-            frontend_ns_list.append(asic.namespace)
-
-        return frontend_ns_list
+        return [asic.namespace for asic in self.frontend_asics]
 
     def get_backend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
 
-        backend_asic_list = []
-        for asic in self.backend_asics:
-            backend_asic_list.append(asic.asic_index)
-
-        return backend_asic_list
+        return [asic.asic_index for asic in self.backend_asics]
 
     def get_backend_asic_namespace_list(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_NAMESPACE]
 
-        backend_ns_list = []
-        for asic in self.backend_asics:
-            backend_ns_list.append(asic.namespace)
-
-        return backend_ns_list
+        return [asic.namespace for asic in self.backend_asics]
 
     def get_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
 
-        asic_id_list = []
-        for asic in self.asics:
-            asic_id_list.append(asic.asic_index)
-
-        return asic_id_list
+        return [asic.asic_index for asic in self.asics]
 
     def get_asic_namespace_list(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_NAMESPACE]
 
-        asic_ns_list = []
-        for asic in self.asics:
-            asic_ns_list.append(asic.namespace)
-
-        return asic_ns_list
+        return [asic.namespace for asic in self.asics]
 
     def get_asic_id_from_namespace(self, namespace):
         if self.sonichost.facts['num_asic'] == 1:
             return DEFAULT_ASIC_ID
 
-        index = 0
         for asic in self.asics:
             if namespace == asic.namespace:
-                return index
-            index = index + 1
+                return asic.asic_index
 
         # Raise an error if we reach here
         raise ValueError("Invalid namespace '{}' passed as input".format(namespace))

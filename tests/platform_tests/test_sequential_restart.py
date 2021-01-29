@@ -111,4 +111,4 @@ def test_restart_syncd(duthosts, rand_one_dut_hostname, localhost, conn_graph_fa
     @summary: This test case is to restart the syncd service and check platform status
     """
     duthost = duthosts[rand_one_dut_hostname]
-    restart_service_and_check(localhost, duthost, "syncd", conn_graph_facts["device_conn"][duthost.hostname])
+    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "syncd", conn_graph_facts["device_conn"][duthost.hostname])
