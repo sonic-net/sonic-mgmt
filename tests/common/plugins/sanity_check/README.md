@@ -52,13 +52,13 @@ We can use keyword argument `check_items` to fine tune the items to be checked i
 * interfaces: Check the status of network interfaces.
 Please refer to sonic-mgmt/tests/common/plugins/sanity_check/constants::SUPPORTED_CHECK_ITEMS for the latest supported check items.
 
-Value for `check_items` should be a tuple or list of strings. Each item in the tuple or list should be a string. The string can be name of the supported check items with optional prefix `+` or `-`. Unsupported check items will be ignored.
+Value for `check_items` should be a tuple or list of strings. Each item in the tuple or list should be a string. The string can be name of the supported check items with optional prefix `+` or `-` or `_`. Unsupported check items will be ignored.
 
-If a supported check item is prefixed with `-`, then this item will not be checked in sanity. For items with prefix `+` or without prefixes, the item should be included in the list of items to be checked in sanity.
+If a supported check item is prefixed with `-` or `_`, then this item will not be checked in sanity. For items with prefix `+` or without prefixes, the item should be included in the list of items to be checked in sanity.
 
 With this design, we can extend the sanity check items in the future. By default, only a very basic set of sanity check is performed. For some test scripts that do not need some default sanity check items or need some extra sanity check items, we can use this syntax to tailor the check items that fit best for the current test script.
 
-User can change check item list by passing parameter from command line --check_items="add remove string". Exmaple: --check_items="-services,+bgp" means do not check services, but add bgp to the check list. This parameter is not an absolute list, it is addition or subtraction from the existing list.
+User can change check item list by passing parameter from command line --check_items="add remove string". Example: --check_items="_services,+bgp" means do not check services, but add bgp to the check list. This parameter is not an absolute list, it is addition or subtraction from the existing list. On command line "-" has special meaning. So, we need to prefix "_" to skip a check item.
 
 ## Log collecting
 If sanity check is to be performed, the script will also run some commands on the DUT to collect some basic information for debugging. Please refer to sonic-mgmt/tests/common/plugins/sanity_check/constants::PRINT_LOGS for the list of logs that will be collected.
@@ -76,6 +76,15 @@ The sanity check plugin also supports pytest command line option `--allow_recove
 ```
 $ pytest -i inventory --host-pattern switch1-t0 --module-path ../ansible/library/ --testbed switch1-t0 --testbed-file testbed.csv --log-cli-level info test_something.py --allow_recover
 ```
+
+## Check item
+The check items are defined in the `checks.py` module. In the original design, check item is defined as an ordinary function. All the dependent fixtures must be specified in the argument list of `sanity_check`. Then objects of the fixtures are passed to the check functions as arguments. However, this design has a limitation. Not all the sanity check dependent fixtures are supported on all topologies. On some topologies, sanity check may fail with getting those fixtures.
+To resolve that issue, we have changed the design. Now the check items must be defined as fixtures. Then the check fixtures can be dynamically attached to test cases during run time. In the sanity check plugin, we can check the current testbed type or other conditions to decide whether or not to load certain check fixtures.
+
+### Check item implementation details
+Each check fixture must use the factory design pattern to return a check function. Then we can delay execution of the various sanity checks after the sanity check items have been dynamically adjusted.
+
+Check fixture must be named with pattern `check_<item name>`. When a new check fixture is defined, its name must be added to the `__all__` list of the `checks.py` module.
 
 ## Why check networking uptime?
 
