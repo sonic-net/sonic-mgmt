@@ -1262,36 +1262,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return crm_facts
 
-    def get_docker_cmd_for_namespace(self, asic_id, cmd, container_name):
-        if asic_id is DEFAULT_ASIC_ID:
-            return cmd
-        return "sudo docker exec {}{} {}".format(container_name, asic_id, cmd)
-
-    def get_frontend_asic_ids(self):
-        if not self.is_multi_asic:
-            return [DEFAULT_ASIC_ID]
-
-        front_end_asic_list = []
-        for asic in range(self.num_asics()):
-            ns = self.get_namespace_from_asic_id(asic)
-            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(ns)
-            sub_role = self.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
-            if sub_role is not None and sub_role.lower() == 'frontend':
-                front_end_asic_list.append(asic)
-
-        return front_end_asic_list
-
-    def get_frontend_asic_namespace_list(self):
-
-        if not self.is_multi_asic:
-            return [DEFAULT_NAMESPACE]
-
-        num_asics = self.get_frontend_asic_ids()
-        ns_list = []
-        for asic in num_asics:
-            ns_list.append(self.get_namespace_from_asic_id(asic))
-        return ns_list
-
 
 class K8sMasterHost(AnsibleHostBase):
     """
