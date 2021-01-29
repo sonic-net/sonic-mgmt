@@ -176,7 +176,7 @@ def check_alerting_message(duthost, stopped_containers_list):
                         .format(container_name))
 
     logger.info("Checking the alerting message was done!")
-    
+
 
 def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     """Tests the feature of container checker.
