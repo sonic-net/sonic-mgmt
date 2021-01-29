@@ -45,7 +45,7 @@ def check_services(dut):
 
 def _find_down_phy_ports(dut, phy_interfaces):
     down_phy_ports = []
-    intf_facts = dut.show_interface(command='status', include_internal_intfs=True)['ansible_facts']['int_status']
+    intf_facts = dut.show_interface(command='status', include_internal_intfs=('201811' not in dut.os_version))['ansible_facts']['int_status']
     for intf in phy_interfaces:
         try:
             if intf_facts[intf]['oper_state'] == 'down':
