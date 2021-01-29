@@ -170,16 +170,16 @@ def rif_port_down(duthosts, rand_one_dut_hostname, setup, fanouthosts, loganalyz
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
-    with loganalyzer as _:
+    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
+    with loganalyzer[rand_one_dut_hostname] as _:
         fanout_neighbor.shutdown(fanout_intf)
 
     time.sleep(1)
 
     yield ip_dst
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
-    with loganalyzer as _:
+    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+    with loganalyzer[rand_one_dut_hostname] as _:
         fanout_neighbor.no_shutdown(fanout_intf)
         time.sleep(wait_after_ports_up)
 
@@ -227,12 +227,14 @@ def send_packets(pkt, duthost, ptfadapter, ptf_tx_port_id, num_packets=1):
     time.sleep(1)
 
 
-def test_equal_smac_dmac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pkt_fields, ports_info):
+def test_equal_smac_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
@@ -264,12 +266,14 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, duthost, setup, fanouthost, p
     do_test("L2", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
 
-def test_multicast_smac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pkt_fields, ports_info):
+def test_multicast_smac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
     """
     @summary: Create a packet with multicast SMAC.
     """
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     multicast_smac = "01:00:5e:00:01:02"
     src_mac = multicast_smac
@@ -303,10 +307,11 @@ def test_multicast_smac_drop(do_test, ptfadapter, duthost, setup, fanouthost, pk
     do_test("L2", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
 
-def test_not_expected_vlan_tag_drop(do_test, ptfadapter, duthost, setup, pkt_fields, ports_info):
+def test_not_expected_vlan_tag_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, pkt_fields, ports_info):
     """
     @summary: Create a VLAN tagged packet which VLAN ID does not match ingress port VLAN ID.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     start_vlan_id = 2
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
@@ -334,10 +339,11 @@ def test_not_expected_vlan_tag_drop(do_test, ptfadapter, duthost, setup, pkt_fie
     do_test("L2", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"])
 
 
-def test_dst_ip_is_loopback_addr(do_test, ptfadapter, duthost, setup, pkt_fields, tx_dut_ports, ports_info):
+def test_dst_ip_is_loopback_addr(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, pkt_fields, tx_dut_ports, ports_info):
     """
     @summary: Create a packet with loopback destination IP adress.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     ip_dst = "127.0.0.1"
 
@@ -354,10 +360,11 @@ def test_dst_ip_is_loopback_addr(do_test, ptfadapter, duthost, setup, pkt_fields
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_src_ip_is_loopback_addr(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_src_ip_is_loopback_addr(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with loopback source IP adress.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     ip_src = "127.0.0.1"
 
@@ -374,10 +381,11 @@ def test_src_ip_is_loopback_addr(do_test, ptfadapter, duthost, setup, tx_dut_por
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_dst_ip_absent(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_dst_ip_absent(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with absent destination IP address.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], "", pkt_fields["ipv4_src"])
 
@@ -393,10 +401,11 @@ def test_dst_ip_absent(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fi
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
-def test_src_ip_is_multicast_addr(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ip_addr, ports_info):
+def test_src_ip_is_multicast_addr(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ip_addr, ports_info):
     """
     @summary: Create a packet with multicast source IP adress.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     ip_src = None
 
@@ -428,10 +437,11 @@ def test_src_ip_is_multicast_addr(do_test, ptfadapter, duthost, setup, tx_dut_po
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_src_ip_is_class_e(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with source IP address in class E.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     ip_list = ["240.0.0.1", "255.255.255.254"]
 
@@ -452,10 +462,11 @@ def test_src_ip_is_class_e(do_test, ptfadapter, duthost, setup, tx_dut_ports, pk
 
 @pytest.mark.parametrize("addr_type, addr_direction", [("ipv4", "src"), ("ipv6", "src"), ("ipv4", "dst"),
                                                         ("ipv6", "dst")])
-def test_ip_is_zero_addr(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, addr_type, addr_direction, ports_info):
+def test_ip_is_zero_addr(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, addr_type, addr_direction, ports_info):
     """
     @summary: Create a packet with "0.0.0.0" source or destination IP address.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     zero_ipv4 = "0.0.0.0"
     zero_ipv6 = "::0"
@@ -497,10 +508,11 @@ def test_ip_is_zero_addr(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
 
 
-def test_dst_ip_link_local(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_dst_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with link-local address "169.254.0.0/16".
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     link_local_ip = "169.254.10.125"
 
@@ -524,11 +536,12 @@ def test_dst_ip_link_local(do_test, ptfadapter, duthost, setup, tx_dut_ports, pk
 # To enable loop-back filter drops - need to disable that attribute when create RIF.
 # To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
 @pytest.mark.skip(reason="SONiC can't enable loop-back filter feature")
-def test_loopback_filter(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_loopback_filter(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet drops by loopback-filter. Loop-back filter means that route to the host
               with DST IP of received packet exists on received interface
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     ip_dst = None
     vm_name = setup["mg_facts"]["minigraph_neighbors"][ports_info["dut_iface"]]["name"]
@@ -553,10 +566,11 @@ def test_loopback_filter(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_expired_ttl(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_ip_pkt_with_expired_ttl(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create an IP packet with TTL=0.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
                     pkt_fields["ipv4_src"])
@@ -574,10 +588,11 @@ def test_ip_pkt_with_expired_ttl(do_test, ptfadapter, duthost, setup, tx_dut_por
 
 
 @pytest.mark.parametrize("pkt_field, value", [("version", 1), ("chksum", 10), ("ihl", 1)])
-def test_broken_ip_header(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, pkt_field, value, ports_info):
+def test_broken_ip_header(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, pkt_field, value, ports_info):
     """
     @summary: Create a packet with broken IP header.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
@@ -594,10 +609,12 @@ def test_broken_ip_header(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt
     do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_absent_ip_header(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_absent_ip_header(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create packets with absent IP header.
     """
+    duthost = duthosts[rand_one_dut_hostname]
+
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
                     pkt_fields["ipv4_src"])
 
@@ -618,10 +635,11 @@ def test_absent_ip_header(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt
 
 
 @pytest.mark.parametrize("eth_dst", ["01:00:5e:00:01:02", "ff:ff:ff:ff:ff:ff"])
-def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, duthost, setup, tx_dut_ports, pkt_fields, eth_dst, ports_info):
+def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, eth_dst, ports_info):
     """
     @summary: Create packets with multicast/broadcast ethernet dst.
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     if  "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
@@ -642,7 +660,7 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, duthost, setup, tx_du
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"), ("v1", "membership_report"),
 ("v2", "membership_report"), ("v3", "membership_report"), ("v2", "leave_group")])
-def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, fanouthost, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
+def test_non_routable_igmp_pkts(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Create an IGMP non-routable packets.
     """
@@ -675,6 +693,8 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, duthost, setup, fanouthost,
     # not drop IGMP packets before they reach the DUT
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     from scapy.contrib.igmp import IGMP
     Ether = testutils.scapy.Ether

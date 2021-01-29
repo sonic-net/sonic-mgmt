@@ -11,15 +11,15 @@ DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0', 't1', 't2')
 ]
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     patch_lldpctl(localhost, duthost)
     yield
     unpatch_lldpctl(localhost, duthost)
@@ -101,12 +101,12 @@ def port_facts(dut, mg_facts):
 
 
 @pytest.fixture(scope='function')
-def gather_facts(tbinfo, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     facts = {}
 
     topo_type = tbinfo['topo']['type']
-    if topo_type not in ('t0', 't1'):
+    if topo_type not in ('t0', 't1', 't2'):
         pytest.skip("Unsupported topology")
 
     logger.info("Gathering facts on DUT ...")
