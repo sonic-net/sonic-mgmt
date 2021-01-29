@@ -5,7 +5,6 @@ import time
 
 import pytest
 
-from tests.common.plugins.sanity_check.constants import PRINT_LOGS
 from tests.common.utilities import wait, wait_until
 
 logger = logging.getLogger(__name__)
