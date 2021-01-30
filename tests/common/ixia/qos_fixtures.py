@@ -1,12 +1,12 @@
 import pytest
 """
-RDMA test cases may require variety of traffic related fixtures. This file
-is repository of all different kinds of traffic related fixtures. This
+RDMA test cases may require variety of fixtures. This
 file currently holds the following fixture(s):
     1. prio_dscp_map
     2. all_prio_list
     3. lossless_prio_list
     4. lossy_prio_list
+    5. start_pfcwd_default
 """
 
 @pytest.fixture(scope="module")
@@ -102,3 +102,19 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
     """
     result = [x for x in all_prio_list if x not in lossless_prio_list]
     return result
+
+@pytest.fixture(scope="function")
+def start_pfcwd_default(duthosts, rand_one_dut_hostname):
+    """
+    Start PFC watchdog with default setting
+
+    Args:
+       duthosts (pytest fixture) : list of DUTs
+       rand_one_dut_hostname (pytest fixture): DUT hostname
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell('sudo pfcwd start_default')
+    yield
+
+    """ teardown code """
+    duthost.shell('sudo pfcwd stop')
