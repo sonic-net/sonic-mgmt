@@ -18,6 +18,8 @@ function setup_local_image() {
 
     cp $PRIVKEY_FILE $tmpdir/id_rsa
 
+    chmod 600 $tmpdir/id_rsa
+
     cat <<EOF > $tmpdir/Dockerfile.j2
 FROM {{ DOCKER_REGISTRY }}/{{ DOCKER_SONIC_MGMT }}
 
