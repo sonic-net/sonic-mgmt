@@ -1,8 +1,5 @@
 from tests.common.utilities import get_host_visible_vars
 
-def is_supervisor_node_in_vars(dut_vars):
-    if 'type' in dut_vars and dut_vars['type'] == 'supervisor':
-        return True
 
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
@@ -15,10 +12,10 @@ def is_supervisor_node(inv_files, hostname):
           logic if possible to derive it from the DUT.
     """
     dut_vars = get_host_visible_vars(inv_files, hostname)
-    return is_supervisor_node_in_vars(dut_vars)
+    if 'type' in dut_vars and dut_vars['type'] == 'supervisor':
+        return True
+    return False
 
-def is_frontend_node_in_vars(dut_vars):
-    return not is_supervisor_node_in_vars(dut_vars)
 
 def is_frontend_node(inv_files, hostname):
     """Check if the current node is a frontend node in case of multi-DUT.

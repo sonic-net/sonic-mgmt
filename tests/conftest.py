@@ -22,9 +22,7 @@ from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.cache import FactsCache
-from tests.common.helpers.dut_utils import is_supervisor_node_in_vars, is_frontend_node_in_vars
 
 from tests.common.connections import ConsoleHost
 
@@ -206,9 +204,7 @@ def duthost(duthosts, request):
 def rand_one_dut_hostname(request):
     """
     """
-    tbname, testbedinfo = get_tbinfo(request)
-    duts_in_testbed = testbedinfo["duts"]
-    dut_hostnames = generate_params_dut_hostname(duts_in_testbed, tbname)
+    dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
@@ -226,20 +222,6 @@ def rand_one_dut_lossless_prio(request):
     if len(lossless_prio_list) > 1:
         lossless_prio_list = random.sample(lossless_prio_list, 1)
     return lossless_prio_list[0]
-
-@pytest.fixture(scope="module")
-def rand_one_frontend_dut_hostname(request):
-    """
-    """
-    tbname, testbedinfo = get_tbinfo(request)
-    duts_in_testbed = testbedinfo["duts"]
-    duts_vars = {}
-    inv_files = get_inventory_files(metafunc)
-    for dutname in _duthosts_in_testbed:
-      duts_vars_in_inv[dutname] = get_host_visible_vars(inv_files, dutname)
-    frontend_dut_hostnames = generate_params_frontend_hostname(request, duts_in_testbed, tbname, duts_vars)
-    dut_hostnames = random.sample(frontend_dut_hostnames, 1)
-    return dut_hostnames[0]
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
@@ -616,24 +598,30 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 
-def generate_params_frontend_hostname(request, duts_in_testbed, tbname):
+def generate_params_frontend_hostname(request):
     frontend_duts = []
-    for dut in duts_in_testbed:
-        dut_vars = duts_vars[dut]
-        if is_frontend_node_in_vars(dut_vars):
+    tbname, tbinfo = get_tbinfo(request)
+    duts = tbinfo['duts']
+    inv_files = get_inventory_files(request)
+    for dut in duts:
+        if is_frontend_node(inv_files, dut):
             frontend_duts.append(dut)
     assert len(frontend_duts) > 0, \
         "Test selected require at-least one frontend node, " \
-        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts_in_testbed, tbname)
+        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
     return frontend_duts
 
 
-def generate_params_frontend_hostname_rand_per_hwsku(request, duts_in_testbed, tbname, duts_vars):
-    frontend_hosts = generate_params_frontend_hostname(request, duts_in_testbed, tbname, duts_vars)
+def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
+    tbname, tbinfo = get_tbinfo(request)
+    hosts = tbinfo['duts']
+    if frontend_only:
+        hosts = generate_params_frontend_hostname(request)
+    inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
-    for a_host in frontend_hosts:
-        host_vars = duts_vars[a_host]
+    for a_host in hosts:
+        host_vars = get_host_visible_vars(inv_files, a_host)
         if 'hwsku' in host_vars:
             a_host_hwsku = host_vars['hwsku']
         else:
@@ -648,35 +636,40 @@ def generate_params_frontend_hostname_rand_per_hwsku(request, duts_in_testbed, t
         else:
             pytest.fail("Test selected require a node per hwsku, but 'hwsku' for '{}' not defined in the inventory".format(a_host))
 
-    frontend_hosts_per_hwsku = []
+    hosts_per_hwsku = []
     for hosts in host_hwskus.values():
         if len(hosts) == 1:
-            frontend_hosts_per_hwsku.append(hosts[0])
+            hosts_per_hwsku.append(hosts[0])
         else:
-            frontend_hosts_per_hwsku.extend(random.sample(hosts, 1))
+            hosts_per_hwsku.extend(random.sample(hosts, 1))
 
-    return frontend_hosts_per_hwsku
+    return hosts_per_hwsku
 
 
-def generate_params_supervisor_hostname(request, duts_in_testbed, tbname, duts_vars):
-    if len(duts_in_testbed) == 1:
+def generate_params_supervisor_hostname(request):
+    tbname, tbinfo = get_tbinfo(request)
+    duts = tbinfo['duts']
+    if len(duts) == 1:
         # We have a single node - dealing with pizza box, return it
-        return [duts_in_testbed[0]]
-    for dut in duts_in_testbed:
+        return [duts[0]]
+    inv_files = get_inventory_files(request)
+    for dut in duts:
         # Expecting only a single supervisor node
-        dut_vars = duts_vars[dut]
-        if is_supervisor_node_in_vars(dut_vars):
+        if is_supervisor_node(inv_files, dut):
             return [dut]
     pytest.fail("Test selected require a supervisor node, " +
-                "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts_in_testbed, tbname))
-def generate_param_asic_index(request, duts_in_testbed, dut_indices, param_type, duts_vars):
+                "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname))
+
+def generate_param_asic_index(request, dut_indices, param_type):
+    _, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
     logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
     #if the params are not present treat the device as a single asic device
     asic_index_params = [DEFAULT_ASIC_ID]
 
     for dut_id in dut_indices:
-        dut = duts_in_testbed[dut_id]
-        inv_data = duts_vars[dut]
+        dut = tbinfo['duts'][dut_id]
+        inv_data = get_host_visible_vars(inv_files, dut)
         if inv_data is not None:
             if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
                 if int(inv_data[ASIC_PARAM_TYPE_ALL]) == 1:
@@ -690,15 +683,18 @@ def generate_param_asic_index(request, duts_in_testbed, dut_indices, param_type,
     return asic_index_params
 
 
-def generate_params_dut_index(duts_in_testbeds, tbname):
-    num_duts = len(duts_in_testbeds)
+def generate_params_dut_index(request):
+    tbname, tbinfo = get_tbinfo(request)
+    num_duts = len(tbinfo['duts'])
     logging.info("Num of duts in testbed '{}' is {}".format(tbname, num_duts))
     return range(num_duts)
 
 
-def generate_params_dut_hostname(duts_in_testbed, tbname):
-    logging.info("DUTs in testbed '{}' are: {}".format(tbname, str(duts_in_testbed)))
-    return duts_in_testbed
+def generate_params_dut_hostname(request):
+    tbname, tbinfo = get_tbinfo(request)
+    duts = tbinfo["duts"]
+    logging.info("DUTs in testbed '{}' are: {}".format(tbname, str(duts)))
+    return duts
 
 
 def generate_port_lists(request, port_scope):
@@ -804,65 +800,42 @@ def generate_priority_lists(request, prio_scope):
 
     return ret if ret else empty
 
-def pytest_generate_tests(metafunc):
-    # The topology always has atleast 1 dut
-    dut_indices = [0]
-    global _duthosts_in_testbed, _frontend_hosts_per_hwsku_per_module
-    tbname = None
-   if _duthosts_in_testbed is None:
-        tbname, testbedinfo = get_tbinfo(request)
-        _duthosts_in_testbed = testbedinfo["duts"]
-        # Get vars defined for each DUT in the inventory
-        inv_files = get_inventory_files(request)
-        for dutname in _duthosts_in_testbed:
-            _duts_vars_in_inv[dutname] = get_host_visible_vars(inv_files, dutname)
-
-    return tbname
-
-
 _frontend_hosts_per_hwsku_per_module = {}
+_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
-    global _duthosts_in_testbed, _frontend_hosts_per_hwsku_per_module, _duts_vars_in_inv
-
+    global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
     # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
     if "enum_dut_index" in metafunc.fixturenames:
-        tbname = _setup_duts_in_testbed(metafunc)
-        dut_indices = generate_params_dut_index(_duthosts_in_testbed, tbname)
+        dut_indices = generate_params_dut_index(metafunc)
         metafunc.parametrize("enum_dut_index", dut_indices, scope="module")
     elif "enum_dut_hostname" in metafunc.fixturenames:
-        tbname = _setup_duts_in_testbed(metafunc)
-        dut_hostnames = generate_params_dut_hostname(_duthosts_in_testbed, tbname)
+        dut_hostnames = generate_params_dut_hostname(metafunc)
         metafunc.parametrize("enum_dut_hostname", dut_hostnames, scope="module")
     elif "enum_supervisor_dut_hostname" in metafunc.fixturenames:
-        tbname = _setup_duts_in_testbed(metafunc)
-        supervisor_hosts = generate_params_supervisor_hostname(metafunc, _duthosts_in_testbed, tbname, _duts_vars_in_inv)
+        supervisor_hosts = generate_params_supervisor_hostname(metafunc)
         metafunc.parametrize("enum_supervisor_dut_hostname", supervisor_hosts, scope="module")
     elif "enum_frontend_dut_hostname" in metafunc.fixturenames:
-        tbname = _setup_duts_in_testbed(metafunc)
-        frontend_hosts = generate_params_frontend_hostname(metafunc, _duthosts_in_testbed, tbname, _duts_vars_in_inv)
+        frontend_hosts = generate_params_frontend_hostname(metafunc)
         metafunc.parametrize("enum_frontend_dut_hostname", frontend_hosts, scope="module")
+    elif "enum_rand_one_per_hwsku_hostname" in metafunc.fixturenames:
+        if metafunc.module not in _hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc)
+            _hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        hosts = _hosts_per_hwsku_per_module[metafunc.module]
+        metafunc.parametrize("enum_rand_one_per_hwsku_hostname", hosts, scope="module")
     elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
         if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
-            frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname)
-            _frontend_hosts_per_hwsku_per_module[metafunc.module] = frontend_hosts_per_hwsku
-        frontend_hosts = _frontend_hosts_per_hwsku_per_module[metafunc.module]
-        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts, scope="module")
-        frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname, _duts_vars_in_inv)
-        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts_per_hwsku, scope="module")
-
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc, frontend_only=True)
+            _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        hosts = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", hosts, scope="module")
 
     if "enum_asic_index" in metafunc.fixturenames:
-        _setup_duts_in_testbed(metafunc)
-        metafunc.parametrize("enum_asic_index",
-                             generate_param_asic_index(metafunc, _duthosts_in_testbed, dut_indices,
-                                                       ASIC_PARAM_TYPE_ALL, _duts_vars_in_inv))
+        metafunc.parametrize("enum_asic_index", generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
-        _setup_duts_in_testbed(metafunc)
-        metafunc.parametrize("enum_frontend_asic_index",
-                             generate_param_asic_index(metafunc, _duthosts_in_testbed, dut_indices,
-                                                       ASIC_PARAM_TYPE_FRONTEND, _duts_vars_in_inv))
+        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
