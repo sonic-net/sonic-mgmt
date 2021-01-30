@@ -54,6 +54,7 @@ class HashTest(BaseTest):
         self.vlan_ids = self.test_params.get('vlan_ids', [])
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.dst_macs = self.test_params.get('dst_macs', [])    # TODO
+        self.in_port_router_mac = self.test_params.get('in_port_router_mac', None)
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
 
@@ -130,8 +131,10 @@ class HashTest(BaseTest):
         vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else None
 
+        in_port_router_mac = self.in_port_router_mac if self.in_port_router_mac else dst_mac
+
         pkt = simple_tcp_packet(pktlen=100 if vlan_id == 0 else 104,
-                            eth_dst=dst_mac,
+                            eth_dst=in_port_router_mac,
                             eth_src=src_mac,
                             dl_vlan_enable=False if vlan_id == 0 else True,
                             vlan_vid=vlan_id,
@@ -179,8 +182,10 @@ class HashTest(BaseTest):
         vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto(ipv6=True) if hash_key == "ip-proto" else None
 
+        in_port_router_mac = self.in_port_router_mac if self.in_port_router_mac else dst_mac
+
         pkt = simple_tcpv6_packet(pktlen=100 if vlan_id == 0 else 104,
-                                eth_dst=dst_mac,
+                                eth_dst=in_port_router_mac,
                                 eth_src=src_mac,
                                 dl_vlan_enable=False if vlan_id == 0 else True,
                                 vlan_vid=vlan_id,

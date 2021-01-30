@@ -48,8 +48,8 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     for podset in range(0, podset_number):
         for tor in range(0, tor_number):
             for subnet in range(0, tor_subnet_number):
-                if router_type == "spine":
-                    # Skip podset 0 for T2
+                if router_type == "spine" or router_type == "core":
+                    # Skip podset 0 for T2/T3
                     if podset == 0:
                         continue
                 elif router_type == "leaf":
@@ -80,7 +80,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                 tor_asn  = tor_asn_start + tor
 
                 aspath = None
-                if router_type == "spine":
+                if router_type == "spine" or router_type == "core":
                     aspath = "{} {}".format(leaf_asn, tor_asn)
                 elif router_type == "leaf":
                     if podset == 0:
@@ -231,6 +231,8 @@ def fib_t1_lag(ptfhost, tbinfo, localhost):
         router_type = None
         if 'spine' in v['properties']:
             router_type = 'spine'
+        if 'core' in v['properties']:
+            router_type = 'core'
         elif 'tor' in v['properties']:
             router_type = 'tor'
         tornum = v.get('tornum', None)
@@ -253,6 +255,9 @@ def fib_t1_lag(ptfhost, tbinfo, localhost):
                 routes_vips.append((prefix, local_ip, v["vips"]["ipv4"]["asn"]))
             announce_routes(ptfip, port, routes_vips)
 
+def fib_t2_lag(ptfhost, tbinfo, localhost):
+    logger.info("use fib_t2__lag to setup routes for topo {}".format(tbinfo['topo']['name']))
+    fib_t1_lag(ptfhost, tbinfo, localhost)
 
 @pytest.fixture(scope='module')
 def fib(ptfhost, tbinfo, localhost):
@@ -262,5 +267,7 @@ def fib(ptfhost, tbinfo, localhost):
         fib_t0(ptfhost, tbinfo, localhost, topology)
     elif tbinfo['topo']['type'] == "t1":
         fib_t1_lag(ptfhost, tbinfo, localhost)
+    elif tbinfo['topo']['type'] == "t2":
+        fib_t2_lag(ptfhost, tbinfo, localhost)
     else:
         logger.error("unknown topology {}".format(tbinfo['topo']['name']))

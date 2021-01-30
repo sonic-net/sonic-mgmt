@@ -27,14 +27,14 @@ PTF_QLEN = 2000
 
 
 @pytest.fixture(scope="module")
-def config_facts(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def config_facts(duthosts):
+    duthost = duthosts[0]
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
 @pytest.fixture(scope='module')
-def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def build_fib(duthosts, ptfhost, config_facts, tbinfo):
+    duthost = duthosts[0]
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
@@ -60,7 +60,7 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
                 if po.has_key(ifname):
                     oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                 else:
-                    if ports.has_key(ifname):
+                    if ports.has_key(ifname) and mg_facts['minigraph_ptf_indices'].get(ifname):
                         oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
                     else:
                         logger.info("Route point to non front panel port {}:{}".format(k, v))
@@ -119,9 +119,8 @@ def get_router_interface_ports(config_facts, tbinfo):
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
-    duthost = duthosts[rand_one_dut_hostname]
-
+def test_basic_fib(tbinfo, duthosts, ptfhost, ipv4, ipv6, mtu, config_facts, build_fib):
+    duthost = duthosts[0]
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     # do not test load balancing for vs platform as kernel 4.9
@@ -133,7 +132,16 @@ def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6,
 
     logging.info("run ptf test")
     testbed_type = tbinfo['topo']['name']
-    router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+
+    exp_router_mac = None
+    # In case of T2 topology traffic is flowing from T1 to other T3, so exp_router mac is going to be different
+    if tbinfo['topo']['name'] == 't2':
+        t1_duthost = duthosts[1]
+        router_mac = t1_duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+        exp_router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+    else:
+        router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+
     log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, timestamp)
     logging.info("PTF log file: %s" % log_file)
     ptf_runner(ptfhost,
@@ -142,6 +150,7 @@ def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6,
                 platform_dir="ptftests",
                 params={"testbed_type": testbed_type,
                         "router_mac": router_mac,
+                        "exp_router_mac": exp_router_mac,
                         "fib_info": "/root/fib_info.txt",
                         "ipv4": ipv4,
                         "ipv6": ipv6,
@@ -153,8 +162,8 @@ def test_basic_fib(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6,
 
 
 @pytest.fixture(scope="module")
-def setup_hash(tbinfo, duthosts, rand_one_dut_hostname, config_facts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_hash(tbinfo, duthosts, config_facts):
+    duthost = duthosts[0]
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     setup_info = {}
@@ -195,6 +204,13 @@ def setup_hash(tbinfo, duthosts, rand_one_dut_hostname, config_facts):
             duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
         time.sleep(5)
 
+    setup_info['in_port_router_mac'] = None
+    # In case of T2 toplogy traffic is flowing from one linecard to other linecard so in port mac is going to be different
+    if setup_info['testbed_type'] == 't2':
+        t1_duthost = duthosts[1]
+        setup_info['in_ports'] = range(32, 63)
+        setup_info['in_port_router_mac'] = t1_duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+
     yield setup_info
 
     # remove added vlan
@@ -229,6 +245,7 @@ def test_hash(setup_hash, ptfhost, build_fib, ipver):
             platform_dir="ptftests",
             params={"testbed_type": setup_hash['testbed_type'],
                     "router_mac": setup_hash['router_mac'],
+                    "in_port_router_mac": setup_hash['in_port_router_mac'],
                     "fib_info": "/root/fib_info.txt",
                     "src_ip_range": ",".join(src_ip_range),
                     "dst_ip_range": ",".join(dst_ip_range),

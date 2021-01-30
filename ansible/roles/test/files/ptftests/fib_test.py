@@ -103,6 +103,7 @@ class FibTest(BaseTest):
         fib_info = self.test_params.get('fib_info', None)
         self.fib = fib.Fib(self.test_params['fib_info']) if fib_info is not None else None
         self.router_mac = self.test_params.get('router_mac', None)
+        self.exp_router_mac = self.test_params.get('exp_router_mac', None)
         self.pktlen = self.test_params.get('testbed_mtu', 1500)
 
         self.test_ipv4 = self.test_params.get('ipv4', True)
@@ -124,6 +125,8 @@ class FibTest(BaseTest):
             # Provide the list of all UP interfaces with index in sequence order starting from 0
             if self.test_params['testbed_type'] == 't1' or self.test_params['testbed_type'] == 't1-lag' or self.test_params['testbed_type'] == 't0-64-32':
                 self.src_ports = range(0, 32)
+            if self.test_params['testbed_type'] == 't2':
+                self.src_ports = range(32, 63)
             if self.test_params['testbed_type'] == 't1-64-lag' or self.test_params['testbed_type'] == 't1-64-lag-clet':
                 self.src_ports = [0, 1, 4, 5, 16, 17, 20, 21, 34, 36, 37, 38, 39, 42, 44, 45, 46, 47, 50, 52, 53, 54, 55, 58, 60, 61, 62, 63]
             if self.test_params['testbed_type'] == 't0':
@@ -236,9 +239,12 @@ class FibTest(BaseTest):
                             ip_options=self.ip_options,
                             dl_vlan_enable=self.src_vid is not None,
                             vlan_vid=self.src_vid or 0)
+
+        exp_router_mac = self.exp_router_mac if self.exp_router_mac else self.router_mac
+
         exp_pkt = simple_tcp_packet(
                             self.pktlen,
-                            eth_src=self.router_mac,
+                            eth_src=exp_router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
@@ -284,9 +290,12 @@ class FibTest(BaseTest):
                                 ipv6_hlim=self.ttl,
                                 dl_vlan_enable=self.src_vid is not None,
                                 vlan_vid=self.src_vid or 0)
+
+        exp_router_mac = self.exp_router_mac if self.exp_router_mac else self.router_mac
+
         exp_pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
-                                eth_src=self.router_mac,
+                                eth_src=exp_router_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
