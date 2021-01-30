@@ -215,6 +215,7 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
 
     logger.info("Executing the config reload...")
     config_reload(duthost)
+    duthost.shell("sudo systemctl restart mgmt-framework")
     logger.info("Executing the config reload was done!")
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
