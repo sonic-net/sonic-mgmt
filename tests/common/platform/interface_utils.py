@@ -42,7 +42,13 @@ def check_interface_status(dut, asic_index, interfaces):
     asichost = dut.get_asic(asic_index)
     namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
-    mg_ports = dut.minigraph_facts(host=dut.hostname, namespace=namespace)["ansible_facts"]["minigraph_ports"]
+    #TODO Remove this logic when minigraph facts supports namespace in multi_asic
+    mg_ports = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
+    if asic_index is not None:
+        portmap = get_port_map(dut, asic_index)
+        # Check if the interfaces of this AISC is present in mg_ports
+        interface_list = {k:v for k, v in portmap.items() if k in mg_ports}
+        mg_ports = interface_list
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
     check_intf_presence_command = 'show interface transceiver presence {}'
@@ -110,14 +116,13 @@ def get_port_map(dut, asic_index=None):
     """
     logging.info("Retrieving port mapping from DUT")
     # copy the helper to DUT
-    ans_host = dut
     src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files/getportmap.py')
-    dest_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/getportmap.py')
-    ans_host.copy(src=src_path, dest=dest_path)
+    dest_path = os.path.join('/usr/share/sonic/device', dut.facts['platform'], 'plugins/getportmap.py')
+    dut.copy(src=src_path, dest=dest_path)
 
     # execute command on the DUT to get portmap
     get_portmap_cmd = "docker exec pmon python /usr/share/sonic/platform/plugins/getportmap.py -asicid {}".format(asic_index)
-    portmap_json_string = ans_host.command(get_portmap_cmd)["stdout"]
+    portmap_json_string = dut.command(get_portmap_cmd)["stdout"]
 
     # parse the json
     port_mapping = json.loads(portmap_json_string)
