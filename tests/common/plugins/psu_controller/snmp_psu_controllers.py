@@ -72,8 +72,8 @@ class snmpPsuController(PsuControllerBase):
         EMERSON_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.476.1.42.3.8.50.20.1.100.1.1"
         # MIB OID for 'Sentry Switched PDU'
         SENTRY4_PORT_NAME_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.2.1.3"
-        SENTRY4_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.1.1.1"
-        SENTRY4_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.5.1.1.1.1"
+        SENTRY4_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.1"
+        SENTRY4_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.5.1.2"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -151,6 +151,10 @@ class snmpPsuController(PsuControllerBase):
         """
         Dynamically update Oids based on the PDU lane ID
         """
+        if self.psuType == "SENTRY4":
+            # No need to update lane for SENTRY4
+            return
+
         self.pPORT_NAME_BASE_OID     = self.pPORT_NAME_BASE_OID[0: -1] + str(lane_id)
         self.pPORT_STATUS_BASE_OID   = self.pPORT_STATUS_BASE_OID[0: -1] + str(lane_id)
         self.pPORT_CONTROL_BASE_OID  = self.pPORT_CONTROL_BASE_OID[0: -1] + str(lane_id)
