@@ -227,7 +227,10 @@ def get_host_visible_vars(inv_files, hostname, variable=None):
             logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
             return None
 
-        host_visible_vars = vm.get_vars(host=host)
+        try:
+            host_visible_vars = vm.get_vars(host=host)
+        except AttributeError:
+            host_visible_vars = {}
         cache.write(hostname, 'host_visible_vars', {'inv_files': inv_files, 'vars': host_visible_vars})
 
     if variable:
