@@ -405,8 +405,8 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
     config = pfcwd_config[config_scope]
     if attr in config:
         return config[attr]
-    else:
-        return None
+
+    return None
 
 def get_pfcwd_poll_interval(host_ans):
     """
@@ -424,8 +424,8 @@ def get_pfcwd_poll_interval(host_ans):
 
     if val is not None:
         return int(val)
-    else:
-        return None
+
+    return None
 
 def get_pfcwd_detect_time(host_ans, intf):
     """
@@ -444,8 +444,8 @@ def get_pfcwd_detect_time(host_ans, intf):
 
     if val is not None:
         return int(val)
-    else:
-        return None
+
+    return None
 
 def get_pfcwd_restore_time(host_ans, intf):
     """
@@ -464,5 +464,5 @@ def get_pfcwd_restore_time(host_ans, intf):
 
     if val is not None:
         return int(val)
-    else:
-        return None
+
+    return None
