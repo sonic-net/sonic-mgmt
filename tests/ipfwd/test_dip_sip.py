@@ -24,80 +24,59 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     yield
     unpatch_lldpctl(localhost, duthost)
 
-
-def lag_facts(dut, mg_facts):
-    facts = {}
-
+def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, test_facts, key='src'):
     if not mg_facts['minigraph_portchannels']:
         pytest.fail("minigraph_portchannels is not defined")
 
     # minigraph facts
-    src_lag = mg_facts['minigraph_portchannel_interfaces'][2]['attachto']
-    dst_lag = mg_facts['minigraph_portchannel_interfaces'][0]['attachto']
-    logger.info("src_lag is {}, dst_lag is {}".format(src_lag, dst_lag))
+    up_lag = None
+    for a_lag_name, a_lag_data in lag_facts['lags'].items():
+        if a_lag_data['po_intf_stat'] == 'Up' and a_lag_name not in ignore_lags:
+            # We found a portchannel that is up.
+            up_lag = a_lag_name
+            test_facts[key + '_port_ids'] = [mg_facts['minigraph_ptf_indices'][intf] for intf in a_lag_data['po_config']['ports']]
+            test_facts[key + '_router_mac'] = dut.facts['router_mac']
+            for intf in mg_facts['minigraph_portchannel_interfaces']:
+                if intf['attachto'] == up_lag:
+                    addr = ip_address(unicode(intf['addr']))
+                    if addr.version == 4:
+                        test_facts[key + '_router_ipv4'] = intf['addr']
+                        test_facts[key + '_host_ipv4'] = intf['peer_addr']
+                        test_facts[key + '_host_mac'] = switch_arptable['arptable']['v4'][intf['peer_addr']]['macaddress']
+                    elif addr.version == 6:
+                        test_facts[key + '_router_ipv6'] = intf['addr']
+                        test_facts[key + '_host_ipv6'] = intf['peer_addr']
+            logger.info("{} lag is {}".format(key, up_lag))
+            break
 
-    # lldp facts
-    lldp_facts = dut.lldp()['ansible_facts']['lldp']
-    facts['dst_host_mac'] = lldp_facts[mg_facts['minigraph_portchannels'][dst_lag]['members'][0]]['chassis']['mac']
-    facts['src_host_mac'] = lldp_facts[mg_facts['minigraph_portchannels'][src_lag]['members'][0]]['chassis']['mac']
-
-    facts['dst_router_mac'] = dut.facts['router_mac']
-    facts['src_router_mac'] = dut.facts['router_mac']
-
-    for intf in mg_facts['minigraph_portchannel_interfaces']:
-        if intf['attachto'] == dst_lag:
-            addr = ip_address(unicode(intf['addr']))
-            if addr.version == 4:
-                facts['dst_router_ipv4'] = intf['addr']
-                facts['dst_host_ipv4'] = intf['peer_addr']
-            elif addr.version == 6:
-                facts['dst_router_ipv6'] = intf['addr']
-                facts['dst_host_ipv6'] = intf['peer_addr']
-
-    facts['dst_port_ids'] = []
-    for intf in mg_facts['minigraph_portchannels'][dst_lag]['members']:
-        facts['dst_port_ids'].append(mg_facts['minigraph_ptf_indices'][intf])
-
-    facts['src_port_ids'] = []
-    for intf in mg_facts['minigraph_portchannels'][src_lag]['members']:
-        facts['src_port_ids'].append(mg_facts['minigraph_ptf_indices'][intf])
-
-    return facts
+    return up_lag
 
 
-def port_facts(dut, mg_facts):
-    facts = {}
-
+def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, test_facts, key='src'):
     if not mg_facts['minigraph_interfaces']:
         pytest.fail("minigraph_interfaces is not defined.")
 
-    # minigraph facts
-    src_port = mg_facts['minigraph_interfaces'][2]['attachto']
-    dst_port = mg_facts['minigraph_interfaces'][0]['attachto']
-    logger.info("src_port is {}, dst_port is {}".format(src_port, dst_port))
-
-    # lldp facts
-    lldp_facts = dut.lldp()['ansible_facts']['lldp']
-    facts['dst_host_mac'] = lldp_facts[dst_port]['chassis']['mac']
-    facts['src_host_mac'] = lldp_facts[src_port]['chassis']['mac']
-
-    facts['dst_router_mac'] = dut.facts['router_mac']
-    facts['src_router_mac'] = dut.facts['router_mac']
-
-    for intf in mg_facts['minigraph_interfaces']:
-        if intf['attachto'] == dst_port:
-            addr = ip_address(unicode(intf['addr']))
-            if addr.version == 4:
-                facts['dst_router_ipv4'] = intf['addr']
-                facts['dst_host_ipv4'] = intf['peer_addr']
-            elif addr.version == 6:
-                facts['dst_router_ipv6'] = intf['addr']
-                facts['dst_host_ipv6'] = intf['peer_addr']
-
-    facts['dst_port_ids'] = [mg_facts['minigraph_ptf_indices'][dst_port]]
-    facts['src_port_ids'] = [mg_facts['minigraph_ptf_indices'][src_port]]
-
-    return facts
+    up_port = None
+    for a_intf_name, a_intf_data in port_status['int_status'].items():
+        if a_intf_data['oper_state'] == 'up' and a_intf_name not in ignore_intfs:
+            # Got a port that is up and not already used.
+            for intf in mg_facts['minigraph_interfaces']:
+                if intf['attachto'] == a_intf_name:
+                    up_port = a_intf_name
+                    test_facts[key + '_port_ids'] = [mg_facts['minigraph_ptf_indices'][a_intf_name]]
+                    test_facts[key + '_router_mac'] = dut.facts['router_mac']
+                    addr = ip_address(unicode(intf['addr']))
+                    if addr.version == 4:
+                        test_facts[key + '_router_ipv4'] = intf['addr']
+                        test_facts[key + '_host_ipv4'] = intf['peer_addr']
+                        test_facts[key + '_host_mac'] = switch_arptable['arptable']['v4'][intf['peer_addr']]['macaddress']
+                    elif addr.version == 6:
+                        test_facts[key + '_router_ipv6'] = intf['addr']
+                        test_facts[key + '_host_ipv6'] = intf['peer_addr']
+            if up_port:
+                logger.info("{} port is {}".format(key, up_port))
+                break
+    return up_port
 
 
 @pytest.fixture(scope='function')
@@ -112,14 +91,36 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     logger.info("Gathering facts on DUT ...")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    # if minigraph_portchannel_interfaces is not empty - topology with lag
+    # Use the arp table to get the mac address of the host (VM's) instead of lldp_facts as that is was is used
+    # by the DUT to forward traffic - regardless of lag or port.
+    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    used_intfs = set()
+    src = None  # Name of lag or interface that is is up
+    dst = None  # Name of lag or interface that is is up
+
+    # if minigraph_portchannel_interfaces is not empty - topology with lag - check if we have 2 lags that are 'Up'
     if mg_facts['minigraph_portchannel_interfaces']:
-        facts = lag_facts(duthost, mg_facts)
-    else:
-        facts = port_facts(duthost, mg_facts)
+        # Get lag facts from the DUT to check which ag is up
+        new_lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+        src = get_lag_facts(duthost, new_lag_facts, switch_arptable, mg_facts, used_intfs, facts, key='src')
+        used_intfs.add(src)
+        if src:
+            # We found a src lag, let see if we can find a dst lag
+            dst = get_lag_facts(duthost, new_lag_facts, switch_arptable, mg_facts, used_intfs, facts, key='dst')
+            used_intfs.add(dst)
 
-    logger.info("gathered_facts={}".format(json.dumps(facts, indent=2)))
+    if src is None or dst is None:
+        # We didn't find 2 lags, lets check up interfaces
+        port_status = duthost.show_interface(command='status')['ansible_facts']
+        if src is None:
+            src = get_port_facts(duthost, mg_facts, port_status, switch_arptable, used_intfs, facts, key='src')
+            used_intfs.add(src)
+        if dst is None:
+            dst = get_port_facts(duthost, mg_facts, port_status, switch_arptable, used_intfs, facts, key='dst')
 
+    if src is None or dst is None:
+        pytest.fail("Did not find 2 lag or interfaces that are up on host {}".duthost.hostname)
+    logger.info("gathered_new_facts={}".format(json.dumps(facts, indent=2)))
     yield facts
 
 
