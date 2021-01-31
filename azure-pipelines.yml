@@ -8,98 +8,38 @@ pr:
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
-resources:
-  repositories:
-  - repository: sonic-mgmt
-    type: github
-    name: Azure/sonic-mgmt
-    endpoint: build
-
 stages:
 - stage: Test
-  pool: sonictest
+
   variables:
-  - name: dut
-    value: vlab-01
-  - name: tbname
-    value: vms-kvm-t0
   - name: inventory
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.csv
-  - name: ptf_name
-    value: ptf_vms6-1
 
   jobs:
   - job:
-    displayName: "kvmtest"
+    pool: sonictest
+    displayName: "kvmtest-t0"
     timeoutInMinutes: 240
+
     steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        source: specific
-        project: build
-        pipeline: 1
-        artifact: sonic-buildimage.kvm
-        runVersion: 'latestFromBranch'
-        runBranch: 'refs/heads/master'
-      displayName: "Download sonic kvm image"
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-01
+        tbname: vms-kvm-t0
+        ptf_name: ptf_vms6-1
+        tbtype: t0
 
-    - script: |
-        sudo mkdir -p /data/sonic-vm/images
-        sudo cp -v ../target/sonic-vs.img.gz /data/sonic-vm/images/sonic-vs.img.gz
-        sudo gzip -fd /data/sonic-vm/images/sonic-vs.img.gz
-        username=$(id -un)
-        sudo chown -R $username.$username /data/sonic-vm
-        pushd /data/sonic-mgmt
-        git remote update
-        git reset --hard origin/master
-        sed -i s/use_own_value/${username}/ ansible/veos_vtb
-        echo aaa > ansible/password.txt
-        docker exec sonic-mgmt bash -c "pushd /data/sonic-mgmt/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt" && sleep 180
-      displayName: "Setup T0 testbed"
-    - script: |
-        pwd
-        username=$(id -un)
+  - job:
+    pool: sonictest-t1-lag
+    displayName: "kvmtest-t1-lag"
+    timeoutInMinutes: 240
 
-        rm -rf $(Build.ArtifactStagingDirectory)/*
-        docker exec sonic-mgmt bash -c "/data/sonic-mgmt/tests/kvmtest.sh -en $(tbname) $(dut)"
-
-        # save dut state if test fails
-        if [ $? != 0 ]; then
-            virsh_version=$(virsh --version)
-            if [ $virsh_version == "6.0.0" ]; then
-                mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
-                virsh -c qemu:///system list
-                virsh -c qemu:///system save $(dut) $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).memdmp
-                virsh -c qemu:///system dumpxml $(dut) > $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).xml
-                img=$(virsh -c qemu:///system domblklist $(dut) | grep vda | awk '{print $2}')
-                cp $img $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).img
-                virsh -c qemu:///system undefine $(dut)
-            fi
-
-            docker commit $(ptf_name) docker-ptf:$(Build.BuildNumber)
-            docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
-            docker rmi docker-ptf:$(Build.BuildNumber)
-
-            cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
-            sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
-
-            exit 2
-        else
-            cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
-        fi
-      displayName: "Run T0 tests"
-    - publish: $(Build.ArtifactStagingDirectory)/kvmdump
-      artifact: sonic-buildimage.kvmtest.memdump@$(System.JobAttempt)
-      displayName: "Archive sonic kvm memdump"
-      condition: failed()
-    - publish: $(Build.ArtifactStagingDirectory)/logs
-      artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
-      displayName: "Archive sonic kvm logs"
-      condition: succeededOrFailed()
-    - task: PublishTestResults@2
-      inputs:
-        testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
-        testRunTitle: kvmtest
-      condition: succeededOrFailed()
+    steps:
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-03
+        tbname: vms-kvm-t1-lag
+        ptf_name: ptf_vms6-2
+        tbtype: t1-lag
