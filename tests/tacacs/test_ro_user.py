@@ -31,9 +31,7 @@ def test_ro_user_docker_ps(localhost, duthosts, rand_one_dut_hostname, creds, te
             creds['tacacs_ro_user_passwd'], creds['tacacs_ro_user'], dutip))
 
     # Verify that the command is allowed
-    stdout = res['stdout_lines']
-    assert len(stdout) >= 1
-    assert stdout[0].startwith('CONTAINER ID')
+    assert res['rc'] == 0
 
 def test_ro_user_docker_ps_all(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs):
     duthost = duthosts[rand_one_dut_hostname]
@@ -46,9 +44,7 @@ def test_ro_user_docker_ps_all(localhost, duthosts, rand_one_dut_hostname, creds
             creds['tacacs_ro_user_passwd'], creds['tacacs_ro_user'], dutip))
 
     # Verify that the command is allowed
-    stdout = res['stdout_lines']
-    assert len(stdout) >= 1
-    assert stdout[0].startwith('CONTAINER ID')
+    assert res['rc'] == 0
 
 def test_ro_user_ipv6(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs_v6):
     duthost = duthosts[rand_one_dut_hostname]
