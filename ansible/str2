@@ -49,6 +49,8 @@ all:
           ansible_host: 10.64.246.134
         vms21-1:
           ansible_host: 10.64.246.145
+        vms21-2:
+          ansible_host: 10.64.246.146
 
 fanout:
   hosts:
