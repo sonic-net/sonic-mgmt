@@ -182,8 +182,8 @@ def check_alerting_message(duthost, stopped_container_list):
 def check_containers_status(duthost, stopped_container_list):
     """Checks whether the stopped containers were started.
 
-    This function will check whether the stopped containers were restarted. If
-    the container was not restarted by the command 'config reload', then we
+    This function will check whether the pervious stopped containers were actually
+    restarted. If the container was not restarted by the command 'config reload', then we
     start it and check its status.
 
     Args:
