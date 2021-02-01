@@ -125,14 +125,18 @@ def action_console(parameters):
 def action_pdu(parameters, action):
     hosts = parameters['hosts']
     for host, vars in hosts.items():
-        pdu_name = vars['pdu_host']
+        pdu_name = vars['pdu_host'] if 'pdu_host' in vars else None
+        if not pdu_name:
+            print('DUT {} does not have PDU configured in inventory'.format(host))
+            continue
+
         pdu_info = get_pdu_info(pdu_name)
         pdu_host = pdu_info['ansible_host'] if pdu_info and 'ansible_host' in pdu_info else None
         if not  pdu_host:
             print('Cannot find pdu host name for dut {}'.format(host))
             continue
 
-        print('dut {} pdu {} IP {} action {}'.format(host, pdu_name, pdu_host, action))
+        print('DUT {} PDU {} IP {} action {}'.format(host, pdu_name, pdu_host, action))
         controller = get_psu_controller(pdu_host, host, pdu_info)
 
         if not controller:
@@ -152,7 +156,7 @@ def action_pdu(parameters, action):
             print('Unsupported action {}.'.format(action))
             continue
 
-        print('DUT {} PSU stauts: {}'.format(host, status))
+        print('DUT {} PDU stauts: {}'.format(host, status))
 
 
 def action_pdu_status(parameters):
@@ -245,7 +249,6 @@ def main():
                 'pdu_reboot' : action_pdu_reboot,
               }
     parameters = { 'hosts' : hosts,
-                   'group' : args.group,
                    'limit' : args.limit,
                    'action' : actions[args.action],
                    'user' : args.user,

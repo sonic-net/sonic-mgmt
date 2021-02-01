@@ -117,6 +117,10 @@ class snmpPsuController(PsuControllerBase):
         The PDU ports connected to DUT must have hostname of DUT configured in port name/description.
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
+        if not self.psuType:
+            logging.error('PSU type is unknown')
+            return
+
         max_lane = 5
         host_matched = False
         cmdGen = cmdgen.CommandGenerator()
@@ -193,6 +197,10 @@ class snmpPsuController(PsuControllerBase):
         @param psu_id: ID of the PSU on SONiC DUT
         @return: Return true if successfully execute the command for turning on power. Otherwise return False.
         """
+        if not self.psuType:
+            logging.error('PSU type is unknown')
+            return False
+
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
@@ -222,6 +230,10 @@ class snmpPsuController(PsuControllerBase):
         @param psu_id: ID of the PSU on SONiC DUT
         @return: Return true if successfully execute the command for turning off power. Otherwise return False.
         """
+        if not self.psuType:
+            logging.error('PSU type is unknown')
+            return False
+
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
@@ -255,6 +267,10 @@ class snmpPsuController(PsuControllerBase):
                  The psu_id in returned result is integer starts from 0.
         """
         results = []
+        if not self.psuType:
+            logging.error('PSU type is unknown')
+            return results
+
         cmdGen = cmdgen.CommandGenerator()
         snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
