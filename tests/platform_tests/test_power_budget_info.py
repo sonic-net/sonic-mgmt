@@ -5,6 +5,8 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from cli.util import get_skip_mod_list
 
+logger = logging.getLogger('__name__')
+
 pytestmark = [
     pytest.mark.topology('t2')
 ]
@@ -17,7 +19,7 @@ def test_power_redis_db(duthosts, enum_supervisor_dut_hostname, tbinfo):
     checks for each psu the supplied power
     checks consumed power for each present module
     """
-    logging.info("verifying redis dump for power budget")
+    logger.info("verifying redis dump for power budget")
     duthost = duthosts[enum_supervisor_dut_hostname]
     skip_mod_list = get_skip_mod_list(duthost)
     exp_total_supp_power = 0
@@ -37,7 +39,7 @@ def test_power_redis_db(duthosts, enum_supervisor_dut_hostname, tbinfo):
                                   "expected supplied power for psu {} is expected to 0 or less".format(n_psu))
                     exp_total_supp_power += sup_power
                 else:
-                    logging.debug("psu {} in skip list skipping check".format(n_psu))
+                    logger.debug("psu {} in skip list skipping check".format(n_psu))
 
             elif re.match('Consumed Power', out_val):
                 mod_name = (re.split('Consumed Power', out_val))[1]
@@ -47,7 +49,7 @@ def test_power_redis_db(duthosts, enum_supervisor_dut_hostname, tbinfo):
                     pytest_assert(cons_power > 0,
                                   "power consumed values is not expected to be 0 or less for {}".format(mod_name))
 
-        logging.info("verfying total supplied power is expected")
+        logger.info("verfying total supplied power is expected")
         tot_supp_power = float(out_dict[pb_name]['value']['Total Supplied Power'])
         tot_cons_power = float(out_dict[pb_name]['value']['Total Consumed Power'])
         pytest_assert(exp_total_cons_power == tot_cons_power,

@@ -3,6 +3,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from util import get_field_range, get_fields, get_skip_mod_list
 
+logger = logging.getLogger('__name__')
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -34,7 +35,7 @@ def parse_chassis_module(output, expected_headers):
 
 def test_show_chassis_module_status(duthosts, enum_dut_hostname):
     cmd = " ".join([CMD_SHOW_CHASSIS_MODULE, "status"])
-    logging.info("verifying output of cli command {}".format(cmd))
+    logger.info("verifying output of cli command {}".format(cmd))
     duthost = duthosts[enum_dut_hostname]
     exp_headers = ["Name", "Description", "Physical-Slot", "Oper-Status", "Admin-Status"]
     skip_mod_list = get_skip_mod_list(duthost)
@@ -59,7 +60,7 @@ def test_show_chassis_module_midplane_status(duthosts, enum_dut_hostname, skip_m
        @summary: Verify output of `show chassis-module midplane-status`
     """
     cmd = " ".join([CMD_SHOW_CHASSIS_MODULE, "midplane-status"])
-    logging.info("verifying output of cli command {}".format(cmd))
+    logger.info("verifying output of cli command {}".format(cmd))
     expected_headers = ["Name", "IP-Address", "Reachability"]
 
     duthost = duthosts[enum_dut_hostname]
