@@ -195,8 +195,23 @@ all:
         pdu-116:
           ansible_host: 10.3.155.116
           protocol: snmp
+        pdu-117:
+          ansible_host: 10.3.155.117
+          protocol: snmp
+        pdu-118:
+          ansible_host: 10.3.155.118
+          protocol: snmp
+        pdu-119:
+          ansible_host: 10.3.155.119
+          protocol: snmp
         pdu-120:
           ansible_host: 10.3.155.120
+          protocol: snmp
+        pdu-121:
+          ansible_host: 10.3.155.121
+          protocol: snmp
+        pdu-122:
+          ansible_host: 10.3.155.122
           protocol: snmp
 
 sonic:
