@@ -221,6 +221,45 @@
     when: deploy is defined and deploy|bool == true
 
   - block:
+    - name: Init restapi keys
+      set_fact:
+        server_key: ""
+        server_crt: ""
+        root_cert: ""
+        dir_path: ""
+
+    - name: read server key
+      set_fact:
+        server_key: "{{ restapi_certs['server_key'] }}"
+      when: restapi_certs['server_key'] is defined
+
+    - name: read server crt
+      set_fact:
+        server_crt: "{{ restapi_certs['server_crt'] }}"
+      when: restapi_certs['server_crt'] is defined
+
+    - name: read root cert
+      set_fact:
+        root_cert: "{{ restapi_certs['root_cert'] }}"
+      when: restapi_certs['root_cert'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path: "{{ restapi_certs['dir_path'] }}"
+      when: restapi_certs['dir_path'] is defined
+
+    - name: Generate server cert using openssl.
+      command: openssl req \
+          -x509 \
+          -sha256 \
+          -nodes \
+          -newkey rsa:2048 \
+          -keyout "{{ server_key }}"
+          -subj "/CN=sonic.restapi.test"
+          -out "{{ server_crt }}"
+      become: true
+
+  - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
