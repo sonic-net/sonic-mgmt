@@ -145,7 +145,8 @@ def force_active_tor(dut, intf):
         cmds = []
         for i in intf:
             cmds.append("config muxcable mode active {}".format(i))
-    dut.shell_cmds(cmds=cmds)
+    # Since config muxcable command returns 100 for success, we have to ignore errors to workaround
+    dut.shell_cmds(cmds=cmds, module_ignore_errors=True)
     
 def _get_tor_fanouthosts(tor_host, fanouthosts):
     """Helper function to get the fanout host objects that the current tor_host connected to.
@@ -455,3 +456,35 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
     logger.info('Recover T1 VM ports connected to tor')
     for eos_host, vm_intf in down_intfs:
         eos_host.no_shutdown(vm_intf)
+
+
+@pytest.fixture
+def set_upper_tor_active(upper_tor_host):
+    """
+    A function level fixture to toggle mux to upper tor for all interfaces
+    """
+    force_active_tor(upper_tor_host, "all")
+
+
+@pytest.fixture
+def set_lower_tor_active(lower_tor_host):
+    """
+    A function level fixture to toggle mux to lower tor for all interfaces
+    """
+    force_active_tor(lower_tor_host, "all")
+
+
+@pytest.fixture(scope='module')
+def set_upper_tor_active_module(upper_tor_host):
+    """
+    A module level fixture to toggle mux to upper tor for all interfaces
+    """
+    force_active_tor(upper_tor_host, "all")
+
+
+@pytest.fixture(scope='module')
+def set_lower_tor_active_module(lower_tor_host):
+    """
+    A module level fixture to toggle mux to lower tor for all interfaces
+    """
+    force_active_tor(lower_tor_host, "all")
