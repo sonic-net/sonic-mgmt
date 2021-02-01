@@ -622,6 +622,7 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
     host_hwskus = {}
     for a_host in hosts:
         host_vars = get_host_visible_vars(inv_files, a_host)
+        a_host_hwsku = None
         if 'hwsku' in host_vars:
             a_host_hwsku = host_vars['hwsku']
         else:
