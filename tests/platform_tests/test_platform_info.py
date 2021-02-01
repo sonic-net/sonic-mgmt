@@ -132,8 +132,8 @@ def get_psu_num(dut):
     psu_num = 0
     try:
         psu_num = int(psu_num_out["stdout"])
-    except:
-        pytest_assert(False, "Unable to get the number of PSUs using command '%s'" % cmd_num_psu)
+    except Exception as e:
+        pytest_assert(False, "Unable to get the number of PSUs using command '{}' with exception {}".format(cmd_num_psu, repr(e)))
 
     return psu_num
 
