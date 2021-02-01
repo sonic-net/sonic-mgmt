@@ -235,13 +235,13 @@
         template: src=templates/minigraph_template.j2
                   dest=/etc/sonic/minigraph.xml
         become: true
-        when: copy|bool == false
+        when: copy is not defined or copy is defined and copy|bool == false
 
       - name: copy existing minigraph file for SONiC device
         template: src=minigraph/{{ inventory_hostname }}.{{ topo }}.xml
                   dest=/etc/sonic/minigraph.xml
         become: true
-        when: copy|bool == true
+        when: copy is defined and copy|bool == true
 
       - name: Test if configlet script exist
         stat:
