@@ -118,7 +118,7 @@ class snmpPsuController(PsuControllerBase):
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
         if not self.psuType:
-            logging.error('PSU type is unknown')
+            logging.info('PSU type is unknown')
             return
 
         max_lane = 5
@@ -198,7 +198,7 @@ class snmpPsuController(PsuControllerBase):
         @return: Return true if successfully execute the command for turning on power. Otherwise return False.
         """
         if not self.psuType:
-            logging.error('PSU type is unknown')
+            logging.error('Unable to turn on: PSU type is unknown')
             return False
 
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
@@ -231,7 +231,7 @@ class snmpPsuController(PsuControllerBase):
         @return: Return true if successfully execute the command for turning off power. Otherwise return False.
         """
         if not self.psuType:
-            logging.error('PSU type is unknown')
+            logging.error('Unable to turn off: PSU type is unknown')
             return False
 
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
@@ -268,7 +268,7 @@ class snmpPsuController(PsuControllerBase):
         """
         results = []
         if not self.psuType:
-            logging.error('PSU type is unknown')
+            logging.error('Unable to retrieve status: PSU type is unknown')
             return results
 
         cmdGen = cmdgen.CommandGenerator()

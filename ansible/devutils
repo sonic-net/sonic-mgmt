@@ -44,14 +44,6 @@ def retrieve_hosts(group, limit):
     return g_inv_mgr.get_host_list(group, limit)
 
 
-def build_pdu_outlets(pdu):
-    if not pdu or not pdu['ansible_host']:
-        return
-
-    if 'protocol' not in pdu or pdu['protocol'] != 'snmp':
-        return
-
-
 def get_pdu_info(pdu_host):
     global g_inv_mgr, g_pdu_dict
 
@@ -59,13 +51,14 @@ def get_pdu_info(pdu_host):
         return g_pdu_dict[pdu_host]
 
     hosts = retrieve_hosts('all', pdu_host)
-    if pdu_host in hosts:
-        pdu = hosts[pdu_host]
-        g_pdu_dict[pdu_host] = pdu
-        build_pdu_outlets(pdu)
-        return pdu
+    pdus=[]
+    g_pdu_dict[pdu_host] = pdus
+    for ph in pdu_host.split(','):
+        if ph in hosts:
+            pdu = hosts[ph]
+            pdus.append(pdu)
 
-    return None
+    return pdus
 
 
 def action_list(parameters):
@@ -130,33 +123,34 @@ def action_pdu(parameters, action):
             print('DUT {} does not have PDU configured in inventory'.format(host))
             continue
 
-        pdu_info = get_pdu_info(pdu_name)
-        pdu_host = pdu_info['ansible_host'] if pdu_info and 'ansible_host' in pdu_info else None
-        if not  pdu_host:
-            print('Cannot find pdu host name for dut {}'.format(host))
-            continue
+        pdu_list = get_pdu_info(pdu_name)
+        for pdu_info in pdu_list:
+            pdu_host = pdu_info['ansible_host'] if pdu_info and 'ansible_host' in pdu_info else None
+            if not  pdu_host:
+                print('Cannot find pdu host name for dut {}'.format(host))
+                continue
 
-        print('DUT {} PDU {} IP {} action {}'.format(host, pdu_name, pdu_host, action))
-        controller = get_psu_controller(pdu_host, host, pdu_info)
+            print('DUT {} PDU {} IP {} action {}'.format(host, pdu_name, pdu_host, action))
+            controller = get_psu_controller(pdu_host, host, pdu_info)
 
-        if not controller:
-            print('Failed to get pdu controller for dut {}'.format(host))
-            continue
+            if not controller:
+                print('Failed to get pdu controller for dut {}'.format(host))
+                continue
 
-        status = controller.get_psu_status()
-        if action == 'off':
-            for outlet in status:
-                controller.turn_off_psu(outlet['psu_id'])
             status = controller.get_psu_status()
-        elif action == 'on':
-            for outlet in status:
-                controller.turn_on_psu(outlet['psu_id'])
-            status = controller.get_psu_status()
-        elif action != 'status':
-            print('Unsupported action {}.'.format(action))
-            continue
+            if action == 'off':
+                for outlet in status:
+                    controller.turn_off_psu(outlet['psu_id'])
+                status = controller.get_psu_status()
+            elif action == 'on':
+                for outlet in status:
+                    controller.turn_on_psu(outlet['psu_id'])
+                status = controller.get_psu_status()
+            elif action != 'status':
+                print('Unsupported action {}.'.format(action))
+                continue
 
-        print('DUT {} PDU stauts: {}'.format(host, status))
+            print('DUT {} PDU stauts: {}'.format(host, status))
 
 
 def action_pdu_status(parameters):
