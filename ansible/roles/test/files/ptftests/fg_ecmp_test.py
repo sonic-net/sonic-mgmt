@@ -178,6 +178,29 @@ class FgEcmpTest(BaseTest):
                 assert port_idx == port
             return
 
+        elif self.test_case == 'bank_check':
+            with open(PERSIST_MAP) as fp:
+                tuple_to_port_map = json.load(fp)
+            assert tuple_to_port_map
+            self.log("Send the same flows once again and verify that they end up on the same bank...")
+            for src_ip, port in tuple_to_port_map.iteritems():
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
+                (port_idx, _) = self.send_rcv_ip_pkt(
+                    in_port, src_port, dst_port, src_ip, dst_ip, self.exp_ports, ipv4)
+                if port in self.exp_port_set_one:
+                    assert port_idx in self.exp_port_set_one
+                if port in self.exp_port_set_two:
+                    assert port_idx in self.exp_port_set_two
+                hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
+                tuple_to_port_map[src_ip] = port_idx
+            self.test_balancing(hit_count_map)
+
+            json.dump(tuple_to_port_map, open(PERSIST_MAP,"w"))
+            return
+
         elif self.test_case == 'withdraw_nh':
             self.log("Withdraw next-hop " + str(self.withdraw_nh_port) + " and ensure hash redistribution within correct bank")
             with open(PERSIST_MAP) as fp:

@@ -194,7 +194,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     for port in port_list:
         exp_flow_count[port] = flows_per_nh
         
-    flows_to_redist = exp_flow_count[bank_0_port[0]]
+    flows_to_redist = exp_flow_count[shutdown_link]
     for port in bank_0_port:
         if port != shutdown_link:
             exp_flow_count[port] = exp_flow_count[port] + flows_to_redist/(len(bank_0_port) - 1)
@@ -378,6 +378,39 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "config_file": FG_ECMP_CFG,
                 "exp_flow_count": exp_flow_count,
                 "add_nh_port": withdraw_nh_port},
+            qlen=1000,
+            log_file=log_file)
+
+
+    ### Simulate route and link flap conditions by toggling the route
+    ### and ensure that there is no orch crash and data plane impact
+    logger.info("Simulate route and link flap conditions by toggling the route "
+                "and ensure that there is no orch crash and data plane impact")
+    nexthop_to_toggle = ip_to_port.keys()[0]
+
+    cmd = "for i in {1..50}; do "
+    cmd = cmd + vtysh_base_cmd
+    cmd = cmd + "  -c 'no {} {} {}';".format(ipcmd, prefix, nexthop_to_toggle)
+    cmd = cmd + " sleep 0.5;"
+    cmd = cmd + vtysh_base_cmd
+    cmd = cmd + "  -c '{} {} {}';".format(ipcmd, prefix, nexthop_to_toggle)
+    cmd = cmd + " sleep 0.5;"
+    cmd = cmd + " done;"
+
+    configure_dut(duthost, cmd)
+    time.sleep(30)
+
+    result = duthost.shell(argv=["pgrep", "orchagent"])
+    pytest_assert(int(result["stdout"]) > 0, "Orchagent is not running")
+
+    log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.hash_check_post_flap_test.log".format(test_time)
+    ptf_runner(ptfhost,
+            "ptftests",
+            "fg_ecmp_test.FgEcmpTest",
+            platform_dir="ptftests",
+            params={"test_case": 'bank_check',
+                "exp_flow_count": exp_flow_count,
+                "config_file": FG_ECMP_CFG},
             qlen=1000,
             log_file=log_file)
 
