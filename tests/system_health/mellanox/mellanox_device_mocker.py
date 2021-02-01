@@ -95,7 +95,7 @@ class MellanoxDeviceMocker(DeviceMocker):
             actual_speed = MellanoxDeviceMocker.TARGET_SPEED_VALUE
         else:
             actual_speed = MellanoxDeviceMocker.TARGET_SPEED_VALUE * (100 - MellanoxDeviceMocker.SPEED_TOLERANCE) / 100 - 10
-        self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
+        self.fan_data.mock_target_speed(MellanoxDeviceMocker.TARGET_SPEED_VALUE)
         self.fan_data.mock_speed(actual_speed)
         return True, self.fan_data.name
 
