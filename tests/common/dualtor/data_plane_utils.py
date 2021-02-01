@@ -17,7 +17,7 @@ def send_t1_to_server_after_action(ptfhost, ptfadapter, tbinfo):
     Finally, the collected packets are sniffed, and the disruptions are measured.
 
     Should return `send_t1_to_server` for the external user to control the timing of test.
-    As part of teardown, the ARP, FDB tables are cleared and ptf dataplane is flushed.
+    As part of teardown, the ARP table is cleared and ptf dataplane is flushed.
     Args:
         ptfhost (fixture): Fixture for PTF instance to be used during the test
         ptfadapter (fixture): Ficture which provides helper utility to use ptf ptf testutils
@@ -79,14 +79,12 @@ def send_t1_to_server_after_action(ptfhost, ptfadapter, tbinfo):
     for duthost in duthosts:
         logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
         duthost.shell('sonic-clear arp')
-        logger.info('Clearing all fdb entries on DUT  {}'.format(duthost.hostname))
-        duthost.shell('sonic-clear fdb all')
 
 
 @pytest.fixture
 def send_server_to_t1_after_action(ptfhost, ptfadapter, tbinfo):
     """
-    Starts IO test from T1 router to server.
+    Starts IO test from server to T1 router.
     As part of IO test the banckground thread sends and sniffs packets.
     As soon as sender and sniffer threads are in running state, a callback action is performed.
     When action is finished, the sender and sniffer threads are given time to complete.

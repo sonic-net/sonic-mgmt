@@ -7,7 +7,7 @@ import scapy.all as scapyall
 import socket
 import logging
 
-from ptf import config
+from ptf import config # lgtm[py/unused-import]
 
 SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
 

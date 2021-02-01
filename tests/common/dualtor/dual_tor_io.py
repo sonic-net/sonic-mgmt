@@ -4,7 +4,6 @@ import time
 import socket
 import random
 import struct
-import socket
 import ipaddress
 import logging
 from netaddr import IPNetwork
@@ -47,6 +46,8 @@ class DualTorIO:
         self.total_disrupt_time = None
         self.disrupts_count = None
         self.total_disrupt_packets = None
+        # This list will contain all unique Payload ID, to filter out received floods.
+        self.unique_id = list()
 
         mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
         prefix_len = mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['prefixlen'] - 3
@@ -321,6 +322,48 @@ class DualTorIO:
         All disruptions are saved to self.lost_packets dictionary, in format:
         disrupt_start_id = (missing_packets_count, disrupt_time, disrupt_start_timestamp, disrupt_stop_timestamp)
         """
+        def examine_each_packet(dut_mac, packets):
+            lost_packets = dict()
+            prev_payload, prev_time = 0, 0
+            sent_payload = 0
+            disruption_start, disruption_stop = None, None
+            received_counter = 0    # Counts packets from dut.
+            for packet in packets:
+                if packet[scapyall.Ether].dst == dut_mac:
+                    # This is a sent packet - keep track of it as payload_id:timestamp.
+                    sent_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
+                    sent_packets[sent_payload] = packet.time
+                    continue
+                if packet[scapyall.Ether].src == dut_mac:
+                    # This is a received packet.
+                    received_time = packet.time
+                    received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
+                    received_counter += 1
+                if not (received_payload and received_time):
+                    # This is the first valid received packet.
+                    prev_payload = received_payload
+                    prev_time = received_time
+                    continue
+                if received_payload - prev_payload > 1:
+                    # Packets in a row are missing, a disruption.
+                    lost_id = (received_payload -1) - prev_payload # How many packets lost in a row.
+                    disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
+                    # Add disrupt to the dict:
+                    lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
+                    logger.info("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
+                    if not disruption_start:
+                        disruption_start = datetime.datetime.fromtimestamp(prev_time)
+                    disruption_stop = datetime.datetime.fromtimestamp(received_time)
+                prev_payload = received_payload
+                prev_time = received_time
+            if received_counter == 0:
+                logger.error("Sniffer failed to filter any traffic from DUT")
+            else:
+                logger.info("Total number of filtered incoming packets captured {}".format(received_counter))
+            if lost_packets:
+                logger.info("Disruptions happen between %s and %s." % \
+                    (str(disruption_start), str(disruption_stop)))
+            return lost_packets
 
         def check_tcp_payload(packet, packets_to_send):
             """
@@ -332,15 +375,13 @@ class DualTorIO:
                 return True
             except Exception as err:
                 return False
-
+    
         examine_start = datetime.datetime.now()
         logger.info("Packet flow examine started {}".format(str(examine_start)))
 
         if not self.all_packets:
-            logger.error("self.packets not defined.")
+            logger.error("self.all_packets not defined.")
             return None
-        # This list will contain all unique Payload ID, to filter out received floods.
-        self.unique_id = list()
         # Filter out packets and remove floods:
         filtered_packets = [ pkt for pkt in self.all_packets if
             scapyall.TCP in pkt and
@@ -354,71 +395,30 @@ class DualTorIO:
 
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
         packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.TCP].payload).replace('X','')), packet.time ))
-        self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
         if not packets or len(packets) == 0:
             logger.error("Sniffer failed to capture any traffic")
+            return
         else:
             logger.info("Measuring traffic disruptions..")
-        received_counter = 0    # Counts packets from dut.
-        if packets:
             filename = '/tmp/capture_filtered.pcap'
             scapyall.wrpcap(filename, packets)
             logger.info("Filtered pcap dumped to %s" % filename)
-        else:
-            logger.error("Sniffer failed to filter any traffic from DUT")
-            return
 
-        prev_payload, prev_time = 0, 0
-        sent_payload = 0
-        self.disruption_start, self.disruption_stop = None, None
-        for packet in packets:
-            if packet[scapyall.Ether].dst == self.dut_mac:
-                # This is a sent packet - keep track of it as payload_id:timestamp.
-                sent_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
-                sent_packets[sent_payload] = packet.time
-                continue
-            if packet[scapyall.Ether].src == self.dut_mac:
-                # This is a received packet.
-                received_time = packet.time
-                received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
-                received_counter += 1
-            if not (received_payload and received_time):
-                # This is the first valid received packet.
-                prev_payload = received_payload
-                prev_time = received_time
-                continue
-            if received_payload - prev_payload > 1:
-                # Packets in a row are missing, a disruption.
-                lost_id = (received_payload -1) - prev_payload # How many packets lost in a row.
-                disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
-                # Add disrupt to the dict:
-                self.lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
-                logger.info("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
-                if not self.disruption_start:
-                    self.disruption_start = datetime.datetime.fromtimestamp(prev_time)
-                self.disruption_stop = datetime.datetime.fromtimestamp(received_time)
-            prev_payload = received_payload
-            prev_time = received_time
+        self.lost_packets = examine_each_packet(self.dut_mac, packets)
 
-        if received_counter == 0:
-            logger.error("Sniffer failed to filter any traffic from DUT")
         self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
         if self.lost_packets:
             # Find the longest loss with the longest time:
-            max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
+            _, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
                 max(self.lost_packets.items(), key = lambda item:item[1][0:2])
             self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
             self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
-            logger.info("Disruptions happen between %s and %s." % \
-                (str(self.disruption_start), str(self.disruption_stop)))
         else:
             self.max_lost_id = 0
             self.max_disrupt_time = 0
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             logger.info("Gaps in forwarding not found.")
-        logger.info("Total incoming packets captured %d" % received_counter)
-        
         logger.info("Packet flow examine finished after {}".format(str(datetime.datetime.now() - examine_start)))
