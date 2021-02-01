@@ -48,8 +48,8 @@ def ip_versions(request):
     yield request.param
 
 @pytest.fixture(scope='function', autouse=True)
-def reload_dut(duthosts, rand_one_dut_hostname, request):
-    duthost = duthosts[rand_one_dut_hostname]
+def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     if request.node.rep_call.failed:
         #Issue a config_reload to clear statically added route table and ip addr
@@ -57,9 +57,9 @@ def reload_dut(duthosts, rand_one_dut_hostname, request):
         config_reload(duthost)
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthosts, rand_one_dut_hostname):
+def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Set CRM polling interval to 1 second """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLL_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))

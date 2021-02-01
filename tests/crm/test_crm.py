@@ -49,6 +49,28 @@ RESTORE_CMDS = {"test_crm_route": [],
                 "wait": 0}
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution.
+
+    We don't have control over the order events are received by orchagent, so it is
+    possible that we attempt to remove the VLAN before its members are removed. This results
+    in error messages initially, but subsequent retries will succeed once the VLAN member is
+    removed.
+
+    Args:
+        rand_one_dut_hostname: Fixture to randomly pick a DUT from the testbed
+        loganalyzer: Loganalyzer utility fixture
+
+    """
+    ignoreRegex = [
+        ".*ERR swss#orchagent.*removeVlan: Failed to remove non-empty VLAN.*"
+    ]
+
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+
+
 def apply_acl_config(duthost, test_name, collector, entry_num=1):
     """ Create acl rule defined in config file. Return ACL table key. """
     base_dir = os.path.dirname(os.path.realpath(__file__))
