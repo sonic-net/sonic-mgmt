@@ -92,7 +92,7 @@ syslog:
 
 ntp:
   default: [216.239.35.4, 216.239.35.8, 216.239.35.12]
-  host: [1.74.23.200]
+  host: [1.74.23.7]
 
 smtp:
   host: smtphost.broadcom.com
