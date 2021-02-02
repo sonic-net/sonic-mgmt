@@ -64,7 +64,7 @@ The PTF docker container is used to send and receive data plane packets to the D
     ```
     git clone --recursive https://github.com/Azure/sonic-buildimage.git
     cd sonic-buildimage
-    make configure PLATFORM=generic ;#takes about 1 hour or more
+    make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
     ```
 
