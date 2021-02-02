@@ -2,7 +2,7 @@ from __future__ import print_function, division, absolute_import
 
 import logging
 import os
-import pickle
+import cPickle as pickle
 import shutil
 import sys
 
@@ -111,7 +111,7 @@ class FactsCache(with_metaclass(Singleton, object)):
                     os.makedirs(cache_subfolder)
 
                 with open(facts_file, 'w') as f:
-                    pickle.dump(value, f)
+                    pickle.dump(value, f, pickle.HIGHEST_PROTOCOL)
                     self._cache[zone][key] = value
                     logger.info('Cached facts "{}.{}" to {}'.format(zone, key, facts_file))
                     return True

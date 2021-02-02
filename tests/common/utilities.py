@@ -140,23 +140,11 @@ def join_all(threads, timeout):
 
 
 def get_inventory_manager(inv_files):
-    im_cache = cache.read('common', 'inventory_manager')
-    if im_cache and im_cache['inv_files'] == inv_files:
-        return im_cache['im']
-
-    im = InventoryManager(loader=DataLoader(), sources=inv_files)
-    cache.write('common', 'inventory_manager', {'inv_files': inv_files, 'im': im})
-    return im
+    return InventoryManager(loader=DataLoader(), sources=inv_files)
 
 
 def get_variable_manager(inv_files):
-    vm_cache = cache.read('common', 'variable_manager')
-    if vm_cache and vm_cache['inv_files'] == inv_files:
-        return vm_cache['vm']
-
-    vm = VariableManager(loader=DataLoader(), inventory=get_inventory_manager(inv_files))
-    cache.write('common', 'variable_manager', {'inv_files': inv_files, 'vm': vm})
-    return vm
+    return VariableManager(loader=DataLoader(), inventory=get_inventory_manager(inv_files))
 
 
 def get_inventory_files(request):
@@ -188,16 +176,22 @@ def get_host_vars(inv_files, hostname, variable=None):
             return None. If variable name is not specified, return all variables in a dictionary. If the host is not
             found, return None.
     """
-    im = get_inventory_manager(inv_files)
-    host = im.get_host(hostname)
-    if not host:
-        logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
-        return None
+    cached_vars = cache.read(hostname, 'host_vars')
+    if cached_vars and cached_vars['inv_files'] == inv_files:
+        host_vars = cached_vars['vars']
+    else:
+        im = get_inventory_manager(inv_files)
+        host = im.get_host(hostname)
+        if not host:
+            logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
+            return None
+        host_vars = host.vars
+        cache.write(hostname, 'host_vars', {'inv_files': inv_files, 'vars': host_vars})
 
     if variable:
-        return host.vars.get(variable, None)
+        return host_vars.get(variable, None)
     else:
-        return host.vars
+        return host_vars
 
 
 def get_host_visible_vars(inv_files, hostname, variable=None):
@@ -227,10 +221,7 @@ def get_host_visible_vars(inv_files, hostname, variable=None):
             logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
             return None
 
-        try:
-            host_visible_vars = vm.get_vars(host=host)
-        except AttributeError:
-            host_visible_vars = {}
+        host_visible_vars = vm.get_vars(host=host)
         cache.write(hostname, 'host_visible_vars', {'inv_files': inv_files, 'vars': host_visible_vars})
 
     if variable:
