@@ -3,5 +3,5 @@
 restapi_certs:
     server_key: "/etc/sonic/credentials/restapiserver.key"
     server_crt: "/etc/sonic/credentials/restapiserver.crt"
-    root_cert: "/etc/sonic/telemetry/AME_ROOT_CERTIFICATE.pem"
+    subject: "client.restapi.test"
     dir_path: "/etc/sonic/credentials"

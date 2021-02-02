@@ -156,116 +156,88 @@
   - block:
     - name: Init telemetry keys
       set_fact:
-        server_key: ""
-        server_cer: ""
-        dsmsroot_key: ""
-        dsmsroot_cer: ""
-        dir_path: ""
+        server_key_t: ""
+        server_cer_t: ""
+        dsmsroot_key_t: ""
+        dsmsroot_cer_t: ""
+        dir_path_t: ""
 
     - name: read server key
       set_fact:
-        server_key: "{{ telemetry_certs['server_key'] }}"
+        server_key_t: "{{ telemetry_certs['server_key'] }}"
       when: telemetry_certs['server_key'] is defined
 
     - name: read server cer
       set_fact:
-        server_cer: "{{ telemetry_certs['server_cer'] }}"
+        server_cer_t: "{{ telemetry_certs['server_cer'] }}"
       when: telemetry_certs['server_cer'] is defined
 
     - name: read dsmsroot key
       set_fact:
-        dsmsroot_key: "{{ telemetry_certs['dsmsroot_key'] }}"
+        dsmsroot_key_t: "{{ telemetry_certs['dsmsroot_key'] }}"
       when: telemetry_certs['dsmsroot_key'] is defined
 
     - name: read dsmsroot cer
       set_fact:
-        dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
+        dsmsroot_cer_t: "{{ telemetry_certs['dsmsroot_cer'] }}"
       when: telemetry_certs['dsmsroot_cer'] is defined
 
     - name: read directory path
       set_fact:
-        dir_path: "{{ telemetry_certs['dir_path'] }}"
+        dir_path_t: "{{ telemetry_certs['dir_path'] }}"
       when: telemetry_certs['dir_path'] is defined
 
-    - name: Create telemetry directory
-      file:
-        path: "{{ dir_path }}"
-        state: directory
-        mode: '0755'
-      become: true
+    - name: read subject
+      set_fact:
+        subject_t: "{{ telemetry_certs['subject'] }}"
+      when: telemetry_certs['subject'] is defined
 
-    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer
-    - name: Generate server cert using openssl.
-      command: openssl req \
-          -x509 \
-          -sha256 \
-          -nodes \
-          -newkey rsa:2048 \
-          -keyout "{{ server_key }}"
-          -subj "/CN=ndastreamingservertest"
-          -out "{{ server_cer }}"
-      become: true
-
-    # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
-    # {{ dsms_key }}/ dsmsroot.key need to be copied and renamed as streamingtelemetryclient.key
-    - name: Generate dsmsroot cert using openssl.
-      command: openssl req \
-          -x509 \
-          -sha256 \
-          -nodes \
-          -newkey rsa:2048 \
-          -keyout "{{ dsmsroot_key }}"
-          -subj "/CN=ndastreamingclienttest"
-          -out "{{ dsmsroot_cer }}"
-      become: true
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_cer_t }}"
+        server_key: "{{ server_key_t }}"
+        dsmsroot_cer: "{{ dsmsroot_cer_t }}"
+        dsmsroot_key: "{{ dsmsroot_key_t }}"
+        subject: "{{ subject_t }}"
+    
     when: deploy is defined and deploy|bool == true
 
   - block:
     - name: Init restapi keys
       set_fact:
-        server_key: ""
-        server_crt: ""
-        root_cert: ""
-        dir_path: ""
+        server_key_t: ""
+        server_crt_t: ""
+        dir_path_t: ""
+        subject_t: ""
 
     - name: read server key
       set_fact:
-        server_key: "{{ restapi_certs['server_key'] }}"
+        server_key_t: "{{ restapi_certs['server_key'] }}"
       when: restapi_certs['server_key'] is defined
 
     - name: read server crt
       set_fact:
-        server_crt: "{{ restapi_certs['server_crt'] }}"
+        server_crt_t: "{{ restapi_certs['server_crt'] }}"
       when: restapi_certs['server_crt'] is defined
 
-    - name: read root cert
+    - name: read subject
       set_fact:
-        root_cert: "{{ restapi_certs['root_cert'] }}"
-      when: restapi_certs['root_cert'] is defined
+        subject_t: "{{ restapi_certs['subject'] }}"
+      when: restapi_certs['subject'] is defined
 
     - name: read directory path
       set_fact:
-        dir_path: "{{ restapi_certs['dir_path'] }}"
+        dir_path_t: "{{ restapi_certs['dir_path'] }}"
       when: restapi_certs['dir_path'] is defined
 
-    - name: Create restapi directory
-      file:
-        path: "{{ dir_path }}"
-        state: directory
-        mode: '0755'
-      become: true
-
-    - name: Generate server cert using openssl.
-      command: openssl req \
-          -x509 \
-          -sha256 \
-          -nodes \
-          -newkey rsa:2048 \
-          -keyout "{{ server_key }}"
-          -subj "/CN=sonic.restapi.test"
-          -out "{{ server_crt }}"
-      become: true
-
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_crt_t }}"
+        server_key: "{{ server_key_t }}"
+        subject: "{{ subject_t }}"
+    
     when: deploy is defined and deploy|bool == true
 
   - block:
