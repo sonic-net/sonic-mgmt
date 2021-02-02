@@ -293,15 +293,6 @@ def main():
         ),
         supports_check_mode=False)
 
-    """
-    f = Network(module)
-    #facts = linux_network.populate()
-    results = Tree()
-
-    # results['ansible_interfaces_facts'] = facts
-    module.exit_json(ansible_facts=results)
-
-    """
     m_args = module.params
     up_ports = m_args['up_ports']
     namespace = m_args['namespace']
