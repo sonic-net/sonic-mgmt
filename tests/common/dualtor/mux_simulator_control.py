@@ -9,6 +9,11 @@ logger = logging.getLogger(__name__)
 
 UPPER_TOR = "upper_tor"
 LOWER_TOR = "lower_tor"
+TOGGLE = "toggle"
+RANDOM = "random"
+
+TOGGLE_SIDES = [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]
+
 NIC = "nic"
 
 DROP = "drop"
@@ -208,26 +213,37 @@ def get_active_torhost(mux_server_url, upper_tor_host, lower_tor_host):
         elif active_side == 2:
             active_tor_host = lower_tor_host
         return active_tor_host
-    
+
     return get_active_torhost
+
+def _toggle_all_simulator_ports(mux_server_url, side):
+    pytest_assert(side in TOGGLE_SIDES, "Unsupported side '{}'".format(side))
+    data = {"active_side": side}
+    logger.info('Toggle all ports to "{}"'.format(side))
+    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to '{}'".format(side))
+
+@pytest.fixture(scope='module')
+def toggle_all_simulator_ports(mux_server_url):
+    """
+    A module level fixture to toggle all ports to specified side.
+    """
+    def _toggle(side):
+        _toggle_all_simulator_ports(mux_server_url, side)
+    return _toggle
 
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports_to_upper_tor(mux_server_url):
     """
     A module level fixture to toggle all ports to upper_tor
     """
-    server_url = _url(mux_server_url)
-    data = {"active_side": UPPER_TOR}
-    pytest_assert(_post(server_url, data), "Failed to toggle all ports to upper_tor")
+    _toggle_all_simulator_ports(mux_server_url, UPPER_TOR)
 
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
     """
     A module level fixture to toggle all ports to lower_tor
     """
-    server_url = _url(mux_server_url)
-    data = {"active_side": LOWER_TOR}
-    pytest_assert(_post(server_url, data), "Failed to toggle all ports to upper_tor")
+    _toggle_all_simulator_ports(mux_server_url, LOWER_TOR)
 
 @pytest.fixture(scope='module', autouse=True)
 def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
@@ -250,16 +266,11 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url):
     For example, if the current active side for a certain port is upper_tor,
     then it will be toggled to lower_tor.
     """
-    server_url = _url(mux_server_url)
-    data = {"active_side": "toggle"}
-    pytest_assert(_post(server_url, data), "Failed to toggle all ports to another side")
+    _toggle_all_simulator_ports(mux_server_url, TOGGLE)
 
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports_to_random_side(mux_server_url):
     """
     A module level fixture to toggle all ports to a random side.
     """
-    server_url = _url(mux_server_url)
-    data = {"active_side": "random"}
-    pytest_assert(_post(server_url, data), "Failed to toggle all ports to random side")
-
+    _toggle_all_simulator_ports(mux_server_url, RANDOM)
