@@ -1,5 +1,7 @@
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class RedisCli(object):
     """Base class for interface to RedisDb using redis-cli command.
@@ -37,7 +39,7 @@ class RedisCli(object):
         result = self.host.run_redis_cli_cmd(cmd)
 
         if len(result["stdout_lines"]) == 0:
-            logging.error("No command response: %s" % cmd)
+            logger.error("No command response: %s" % cmd)
             return {}
 
         return result
@@ -59,7 +61,7 @@ class RedisCli(object):
         result = self.host.run_redis_cli_cmd(cmd)
 
         if len(result["stdout_lines"]) == 0:
-            logging.error("No command response: %s" % cmd)
+            logger.error("No command response: %s" % cmd)
             raise Exception("Command: %s returned no response." % cmd)
 
         return result
@@ -130,7 +132,7 @@ class RedisCli(object):
             result = self.hget_key_value(key, field)
 
         if str(result).lower() == str(value).lower():
-            logging.info("Value {val} matches output {out}".format(val=value, out=result))
+            logger.info("Value {val} matches output {out}".format(val=value, out=result))
             return True
         else:
             raise AssertionError("redis value error: %s != %s key was: %s" % (result, value, key))
@@ -217,7 +219,7 @@ class AsicDbCli(RedisCli):
         if self.host.namespace is not None:
             cmd = ["sudo", "ip", "netns", "exec"] + cmd
         result = self.host.sonichost.shell(argv=cmd)
-        logging.debug("neigh result: %s", result['stdout'])
+        logger.debug("neigh result: %s", result['stdout'])
         return result['stdout']
 
     def get_hostif_portid_oidlist(self, refresh=False):

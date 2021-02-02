@@ -4,6 +4,8 @@ import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli
 
+logger = logging.getLogger(__name__)
+
 
 def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state):
     """
@@ -18,7 +20,7 @@ def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state):
 
     """
     arptable = host.switch_arptable()['ansible_facts']
-    logging.debug("ARP: %s", arptable)
+    logger.debug("ARP: %s", arptable)
     if ':' in neighbor_ip:
         table = arptable['arptable']['v6']
     else:
@@ -80,8 +82,8 @@ def check_local_neighbor(host, asic, neighbor_ip, neighbor_mac, interface):
         Pytest Failed exception when assertions fail.
 
     """
-    logging.info("Check local neighbor on host %s, asic %s for %s/%s via port: %s", host.hostname, str(asic.asic_index),
-                 neighbor_ip, neighbor_mac, interface)
+    logger.info("Check local neighbor on host %s, asic %s for %s/%s via port: %s", host.hostname, str(asic.asic_index),
+                neighbor_ip, neighbor_mac, interface)
 
     # verify asic db
     asic_dict = check_local_neighbor_asicdb(asic, neighbor_ip, neighbor_mac)
@@ -122,13 +124,21 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
     parsed = json.loads(output["stdout"])
     if present is True:
         pytest_assert(prefix in parsed.keys(), "Prefix: %s not in route list: %s" % (prefix, parsed.keys()))
-        pytest_assert(parsed[prefix][0]['protocol'] == "kernel", "Prefix: %s not kernel route" % prefix)
-        pytest_assert(parsed[prefix][0]['nexthops'][0]['directlyConnected'] is True,
-                      "Prefix: %s not directly connected" % prefix)
-        pytest_assert(parsed[prefix][0]['nexthops'][0]['active'] is True, "Prefix: %s not active" % prefix)
-        pytest_assert(parsed[prefix][0]['nexthops'][0]['interfaceName'] == interface,
-                      "Prefix: %s out interface is not correct" % prefix)
-        logging.info("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
+        for route in parsed[prefix]:
+            if route['distance'] != 0:
+                found = False
+                continue
+            pytest_assert(route['protocol'] == "kernel", "Prefix: %s not kernel route" % prefix)
+            pytest_assert(route['nexthops'][0]['directlyConnected'] is True,
+                          "Prefix: %s not directly connected" % prefix)
+            pytest_assert(route['nexthops'][0]['active'] is True, "Prefix: %s not active" % prefix)
+            pytest_assert(route['nexthops'][0]['interfaceName'] == interface,
+                          "Prefix: %s out interface is not correct" % prefix)
+
+            found = True
+            break
+        pytest_assert(found, "Kernel route is not present in bgp output: %s" % parsed[prefix])
+        logger.info("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
 
 
 def check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present=True):
@@ -152,10 +162,10 @@ def check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present=Tru
         cmd = "ip {} route show exact {}".format(ver, ipaddr)
     else:
         cmd = "ip netns exec asic{} ip {} route show exact {}".format(asicnum, ver, ipaddr)
-    logging.debug("Kernel rt cmd: %s", cmd)
+    logger.debug("Kernel rt cmd: %s", cmd)
     output = host.command(cmd)['stdout']
     if present is True:
-        logging.info("host ip route output: %s", output)
+        logger.info("host ip route output: %s", output)
         pytest_assert(output.startswith(ipaddr), "Address: %s not in netstat output list: %s" % (ipaddr, output))
         pytest_assert("dev %s" % interface in output, "Interface is not %s: %s" % (interface, output))
 
@@ -202,8 +212,8 @@ def check_voq_remote_neighbor(host, asic, neighbor_ip, neighbor_mac, interface, 
     Raises:
         Pytest Failed exception when assertions fail.
     """
-    logging.info("Check remote neighbor on host %s, asic: %s for %s/%s via port: %s", host.hostname,
-                 str(asic.asic_index), neighbor_ip, neighbor_mac, interface)
+    logger.info("Check remote neighbor on host %s, asic: %s for %s/%s via port: %s", host.hostname,
+                str(asic.asic_index), neighbor_ip, neighbor_mac, interface)
 
     # asic db
     asicdb = AsicDbCli(asic)
@@ -252,11 +262,11 @@ def check_rif_on_sup(sup, rif, slot, asic, port):
     rif_oid = voqdb.get_router_interface_id(slot, asic, port)
 
     if rif_oid == rif:
-        logging.info("RIF on sup: %s = %s", rif_oid, rif)
+        logger.info("RIF on sup: %s = %s", rif_oid, rif)
     elif rif_oid[-10:-1] == rif[-10:-1]:
-        logging.warning("RIF on sup is a partial match: %s != %s", rif_oid, rif)
+        logger.warning("RIF on sup is a partial match: %s != %s", rif_oid, rif)
     else:
-        logging.error("RIF on sup does not match: %s != %s" % (rif_oid, rif))
+        logger.error("RIF on sup does not match: %s != %s" % (rif_oid, rif))
 
 
 def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac):
@@ -278,7 +288,7 @@ def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac)
     """
     voqdb = VoqDbCli(sup)
     neigh_key = voqdb.get_neighbor_key_by_ip(neighbor)
-    logging.info("Neigh key: %s, slotnum: %s", neigh_key, slot)
+    logger.info("Neigh key: %s, slotnum: %s", neigh_key, slot)
     pytest_assert("|%s|" % slot in neigh_key,
                   "Slot for %s does not match %s" % (neigh_key, slot))
     pytest_assert("|%s:" % port in neigh_key,
@@ -307,10 +317,7 @@ def get_neighbor_mac(neigh_ip, nbrhosts, nbrhosts_facts):
     """
     nbr_vm = ""
     nbr_intf = ""
-    # for a_vm in nbrhosts:
-    #     vm_cfg_facts = nbrhosts[a_vm]['host'].eos_facts()
-    #     logging.debug("vm facts: {}".format(json.dumps(vm_cfg_facts, indent=4)))
-    #     intfs = vm_cfg_facts['ansible_facts']['ansible_net_interfaces']
+
     for a_vm in nbrhosts_facts:
 
         intfs = nbrhosts_facts[a_vm]['ansible_facts']['ansible_net_interfaces']
@@ -326,8 +333,8 @@ def get_neighbor_mac(neigh_ip, nbrhosts, nbrhosts_facts):
         if nbr_vm != "":
             break
     else:
-        logging.error("Could not find port for neighbor IP: %s", neigh_ip)
-        logging.info("vm facts: {}".format(json.dumps(nbrhosts_facts, indent=4)))
+        logger.error("Could not find port for neighbor IP: %s", neigh_ip)
+        logger.info("vm facts: {}".format(json.dumps(nbrhosts_facts, indent=4)))
         return None
     # convert Ethernet1 to eth1
     shell_intf = "eth" + nbr_intf[-1]
@@ -336,7 +343,7 @@ def get_neighbor_mac(neigh_ip, nbrhosts, nbrhosts_facts):
     # 8: Ethernet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9100 ...
     #     link/ether a6:69:05:fd:da:5f brd ff:ff:ff:ff:ff:ff
     mac = output['stdout_lines'][0][1].split()[1]
-    logging.info("mac: %s", mac)
+    logger.info("mac: %s", mac)
     return mac
 
 
@@ -358,7 +365,7 @@ def get_sonic_mac(host, asicnum, port):
         cmd = "sudo ip netns exec {} ip link show {}".format(ns, port)
     output = host.command(cmd)
     mac = output['stdout_lines'][1].split()[1]
-    logging.info("host: %s, asic: %d, port: %s, mac: %s", host.hostname, asicnum, port, mac)
+    logger.info("host: %s, asic: %d, port: %s, mac: %s", host.hostname, asicnum, port, mac)
     return mac
 
 
