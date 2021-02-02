@@ -1,5 +1,9 @@
-'''
-'''
+"""
+PTF test script to be used by dualtor dataplane utilities.
+This ptf test, uses Scapy to sniff packets based on the filter and timeout provided.
+Captured packets are dumped into a pcap file which later can be extracted from ptf.
+"""
+
 import ptf
 from ptf.base_tests import BaseTest
 import ptf.testutils as testutils
@@ -13,7 +17,6 @@ SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
 
 
 class Sniff(BaseTest):
-
     def __init__(self):
         BaseTest.__init__(self)
         self.sniff_timeout = testutils.test_params_get().get("sniff_timeout")
@@ -21,8 +24,6 @@ class Sniff(BaseTest):
         self.capture_pcap = testutils.test_params_get().get("capture_pcap")
         self.sniffer_log = testutils.test_params_get().get("sniffer_logs")
         self.port_filter_expression = testutils.test_params_get().get("port_filter_expression")
-        logging.info("INIT doing")
-        logging.info("INIT done")
 
 
     def setUp(self):
@@ -37,7 +38,7 @@ class Sniff(BaseTest):
 
     def runTest(self):
         """
-        @summary: Sniff packets
+        @summary: Sniff packets based on given filters and timeout
         """
         logging.info("Scappy sniffer started with wait {} and filter: {}".format(self.sniff_timeout, self.sniff_filter))
         self.packets = scapyall.sniff(timeout=self.sniff_timeout, filter=self.sniff_filter)
@@ -46,6 +47,9 @@ class Sniff(BaseTest):
 
 
     def save_sniffed_packets(self):
+        """
+        @summary: Dump all the captured packets into a pcap file
+        """
         if self.packets:
             scapyall.wrpcap(self.capture_pcap, self.packets)
             logging.info("Pcap file dumped to {}".format(self.capture_pcap))

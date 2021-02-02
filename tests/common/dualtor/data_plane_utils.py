@@ -28,7 +28,6 @@ def send_t1_to_server_after_action(ptfhost, ptfadapter, tbinfo):
     When action is finished, the sender and sniffer threads are given time to complete.
     Finally, the collected packets are sniffed, and the disruptions are measured.
 
-    Should return `send_t1_to_server` for the external user to control the timing of test.
     As part of teardown, the ARP table is cleared and ptf dataplane is flushed.
     Args:
         ptfhost (fixture): Fixture for PTF instance to be used during the test
@@ -96,7 +95,6 @@ def send_server_to_t1_after_action(ptfhost, ptfadapter, tbinfo):
     When action is finished, the sender and sniffer threads are given time to complete.
     Finally, the collected packets are sniffed, and the disruptions are measured.
 
-    Should return `send_t1_to_server` for the external user to control the timing of test.
     As part of teardown, the ARP, FDB tables are cleared and ptf dataplane is flushed.
     Args:
         ptfhost (fixture): Fixture for PTF instance to be used during the test
