@@ -1,0 +1,35 @@
+Value time (\d+\:\d+:\d+)
+Value duration (\d+\:\d+)
+Value Users (\d+)
+Value average1 (\d+\.\d+)
+Value average2 (\d+\.\d+)
+Value average3 (\d+\.\d+)
+Value Tasks (\d+)
+Value RunningTasks (\d+)
+Value SleepingTasks (\d+)
+Value StoppedTasks (\d+)
+Value ZombieTasks (\d+)
+Value CPUProcessExecutionTime (\d+\.\d+)
+Value KernelProcessExecutionTime (\d+\.\d+)
+Value NiceValue (\d+\.\d+)
+Value IdleTime (\d+\.\d+)
+Value IOWaitingPeriod (\d+\.\d+)
+Value HardwareInterruptTime (\d+\.\d+)
+Value SoftwareInterruptTime (\d+\.\d+)
+Value StealTime (\d+\.\d+)
+Value TotalPhysicalMemory (\d+)
+Value FreePhysicalMemory (\d+)
+Value UsedPhysicalMemory (\d+)
+Value BufferedPhysicalMemory (\d+)
+Value TotalSwapMemory (\d+)
+Value FreeSwapMemory (\d+)
+Value UsedSwapMemory (\d+)
+Value AvailSwapMemory (\d+)
+
+Start
+  ^top\s+\-\s+${time}\s+up\s+${duration},\s+${Users}\s+user,\s+load\s+average:\s+${average1},\s+${average2},\s+${average3}
+  ^Tasks:\s+${Tasks}\s+total,\s+\s+\s+${RunningTasks}\s+running, ${SleepingTasks}\s+sleeping,\s+\s+\s+${StoppedTasks}\s+stopped,\s+\s+${ZombieTasks}\s+zombie
+  ^\%Cpu\(s\):\s+\s+${CPUProcessExecutionTime}\s+us,\s+\s+${KernelProcessExecutionTime}\s+sy,\s+\s+${NiceValue}\s+ni,\s+${IdleTime}\s+id,\s+\s+${IOWaitingPeriod}\s+wa,\s+\s+${HardwareInterruptTime}\s+hi,\s+\s+${SoftwareInterruptTime}\s+si,\s+\s+${StealTime}\s+st
+  ^KiB\s+Mem\s+:\s+${TotalPhysicalMemory}\s+total,\s+${FreePhysicalMemory}\s+free,\s+\s+${UsedPhysicalMemory}\s+used,\s+\s+${BufferedPhysicalMemory}\s+buff\/cache
+  ^KiB\s+Swap:\s+\s+\s+\s+\s+\s+\s+\s+${TotalSwapMemory}\s+total,\s+\s+\s+\s+\s+\s+\s+\s+${FreeSwapMemory}\s+free,\s+\s+\s+\s+\s+\s+\s+\s+${UsedSwapMemory}\s+used\.\s+${AvailSwapMemory}\s+avail\s+Mem
+  
