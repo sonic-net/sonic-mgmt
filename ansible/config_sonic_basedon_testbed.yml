@@ -338,7 +338,7 @@
       - name: start topology service for multi-asic platform
         become: true
         shell: systemctl start topology.service
-        when: start_topo_service|bool == true
+        when: start_topo_service is defined and start_topo_service|bool == true
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
