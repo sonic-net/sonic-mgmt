@@ -41,7 +41,7 @@ class DualTorIO:
         self.time_to_listen = 180.0
         self.sniff_time_incr = 60
         self.send_interval = 0.0035 # Inter-packet interval
-        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent in send_in_background method
+        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent by sender thread
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
@@ -49,7 +49,7 @@ class DualTorIO:
         self.disrupts_count = None
         self.total_disrupt_packets = None
         # This list will contain all unique Payload ID, to filter out received floods.
-        self.unique_id = list()
+        self.unique_id = set()
 
         mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
         prefix_len = mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['prefixlen'] - 3
@@ -336,7 +336,7 @@ class DualTorIO:
         """
         if (not int(str(packet[scapyall.TCP].payload).replace('X','')) in self.unique_id) and (packet[scapyall.Ether].src == self.dut_mac):
             # This is a unique (no flooded) received packet.
-            self.unique_id.append(int(str(packet[scapyall.TCP].payload).replace('X','')))
+            self.unique_id.add(int(str(packet[scapyall.TCP].payload).replace('X','')))
             return True
         elif packet[scapyall.Ether].dst == self.dut_mac:
             # This is a sent packet.
