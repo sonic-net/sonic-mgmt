@@ -119,8 +119,10 @@ def config_sflow(duthost, sflow_status='enable'):
 def config_sflow_feature(request, duthost):
     # Enable sFlow feature on DUT if enable_sflow_feature argument was passed
     if request.config.getoption("--enable_sflow_feature"):
-        duthost.shell("sudo config feature state sflow enabled")
-        time.sleep(2)
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status['sflow'] == 'disabled':
+            duthost.shell("sudo config feature state sflow enabled")
+            time.sleep(2)
 # ----------------------------------------------------------------------------------
 
 def config_sflow_interfaces(duthost, intf, **kwargs):
