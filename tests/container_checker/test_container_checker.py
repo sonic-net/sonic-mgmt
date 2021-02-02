@@ -46,6 +46,33 @@ def check_image_version(duthost):
         pytest.skip("Test was not supported for 201911 and older image version!")
 
 
+@pytest.fixture(autouse=True, scope="module")
+def update_monit_service(duthost):
+    """Update Monit configuration and restart it.
+
+    This function will first reduce the monitoring interval of container checker
+    from 5 minutes to 2 minutes, restart Monit service without delaying. After
+    testing, these two changes will be rolled back.
+
+    Args:
+        duthos: name of Host DUT.
+
+    Return:
+        None.
+    """
+    logger.info("Reduing the monitoring interval of container_checker.")
+    duthost.shell("sudo sed -i '$s/5/2/g' /etc/monit/conf.d/sonic-host")
+    duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
+    logger.info("Restarting the Monit without delaying.")
+    duthost.shell("sudo systemctl restart monit")
+    yield
+    logger.info("Rolling back the Monit configuration of container checker.")
+    duthost.shell("sudo sed -i '$s/2/5/g' /etc/monit/conf.d/sonic-host")
+    duthost.shell("sudo sed -i '/with start delay 300/s/^#//' /etc/monit/monitrc")
+    logger.info("Restarting the Monit with delaying.")
+    duthost.shell("sudo systemctl restart monit")
+
+
 def get_disabled_container_list(duthost):
     """Gets the container/service names which are disabled.
 
@@ -242,9 +269,9 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     stopped_container_list = stop_containers(duthost, container_autorestart_states, skip_containers)
     pytest_assert(len(stopped_container_list) > 0, "None of containers was stopped!")
 
-    # Wait for 6 minutes such that Monit has a chance to write alerting message into syslog.
-    logger.info("Sleep 6 minutes to wait for the alerting message...")
-    time.sleep(360)
+    # Wait for 2 minutes such that Monit has a chance to write alerting message into syslog.
+    logger.info("Sleep 2 minutes to wait for the alerting message...")
+    time.sleep(130)
 
     check_alerting_message(duthost, stopped_container_list)
 
