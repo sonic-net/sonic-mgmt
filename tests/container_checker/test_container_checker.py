@@ -61,7 +61,7 @@ def update_monit_service(duthost):
         None.
     """
     logger.info("Reduing the monitoring interval of container_checker.")
-    duthost.shell("sudo sed -i '$s/5/2/g' /etc/monit/conf.d/sonic-host")
+    duthost.shell("sudo sed -i '$s/[2-9]\|[1-9][0-9]\+/2/g' /etc/monit/conf.d/sonic-host")
     duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
     logger.info("Restarting the Monit without delaying.")
     duthost.shell("sudo systemctl restart monit")
