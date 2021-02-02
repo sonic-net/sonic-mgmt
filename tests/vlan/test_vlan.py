@@ -13,6 +13,7 @@ import pprint
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
@@ -385,7 +386,7 @@ def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
         logger.info ("One Way Tagged Packet Transmission Works")
         logger.info ("Tagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
     else:
-        test.fail("Expected packet was not received")
+        pytest.fail("Expected packet was not received")
 
     logger.info ("Tagged packet to be sent from port {} to port {}".format(dst_port, src_port))
 
@@ -398,7 +399,7 @@ def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
         logger.info ("Two Way Tagged Packet Transmission Works")
         logger.info ("Tagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
     else:
-        test.fail("Expected packet was not received")
+        pytest.fail("Expected packet was not received")
 
 @pytest.mark.bsl
 def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
@@ -438,7 +439,7 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
         logger.info ("One Way Untagged Packet Transmission Works")
         logger.info ("Untagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
     else:
-        test.fail("Expected packet was not received")
+        pytest.fail("Expected packet was not received")
 
     logger.info ("Untagged packet to be sent from port {} to port {}".format(dst_port, src_port))  
 
@@ -452,4 +453,4 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
         logger.info ("Two Way Untagged Packet Transmission Works")
         logger.info ("Untagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
     else:
-        test.fail("Expected packet was not received")
+        pytest.fail("Expected packet was not received")

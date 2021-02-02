@@ -608,6 +608,12 @@ class BaseEverflowTest(object):
                       "Test mirror session {} not found".format(mirror_session["session_name"]))
 
         lines = mirror_output["stdout_lines"]
+
+        if "201911" in duthost.os_version:
+            # Because this line is not in the output in 201911, we need to add it so that the
+            # parser is consistent between 201911 and future versions.
+            lines = ["ERSPAN Sessions"] + lines
+
         sessions = self._parse_mirror_session_running_config(lines)
 
         session = [x for x in sessions["ERSPAN Sessions"]["data"] if x["Name"] == mirror_session["session_name"]]

@@ -13,7 +13,10 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
 
+from tests.common.cache import FactsCache
+
 logger = logging.getLogger(__name__)
+cache = FactsCache()
 
 
 def wait(seconds, msg=""):
@@ -173,16 +176,22 @@ def get_host_vars(inv_files, hostname, variable=None):
             return None. If variable name is not specified, return all variables in a dictionary. If the host is not
             found, return None.
     """
-    im = get_inventory_manager(inv_files)
-    host = im.get_host(hostname)
-    if not host:
-        logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
-        return None
+    cached_vars = cache.read(hostname, 'host_vars')
+    if cached_vars and cached_vars['inv_files'] == inv_files:
+        host_vars = cached_vars['vars']
+    else:
+        im = get_inventory_manager(inv_files)
+        host = im.get_host(hostname)
+        if not host:
+            logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
+            return None
+        host_vars = host.vars
+        cache.write(hostname, 'host_vars', {'inv_files': inv_files, 'vars': host_vars})
 
     if variable:
-        return host.vars.get(variable, None)
+        return host_vars.get(variable, None)
     else:
-        return host.vars
+        return host_vars
 
 
 def get_host_visible_vars(inv_files, hostname, variable=None):
@@ -200,16 +209,25 @@ def get_host_visible_vars(inv_files, hostname, variable=None):
             return None. If variable name is not specified, return all variables in a dictionary. If the host is not
             found, return None.
     """
-    vm = get_variable_manager(inv_files)
-    im = vm._inventory
-    host = im.get_host(hostname)
-    if not host:
-        logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
-        return None
-    if variable:
-        return vm.get_vars(host=host).get(variable, None)
+    cached_vars = cache.read(hostname, 'host_visible_vars')
+
+    if cached_vars and cached_vars['inv_files'] == inv_files:
+        host_visible_vars = cached_vars['vars']
     else:
-        return vm.get_vars(host=host)
+        vm = get_variable_manager(inv_files)
+        im = vm._inventory
+        host = im.get_host(hostname)
+        if not host:
+            logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
+            return None
+
+        host_visible_vars = vm.get_vars(host=host)
+        cache.write(hostname, 'host_visible_vars', {'inv_files': inv_files, 'vars': host_visible_vars})
+
+    if variable:
+        return host_visible_vars.get(variable, None)
+    else:
+        return host_visible_vars
 
 
 def get_group_visible_vars(inv_files, group_name, variable=None):
@@ -228,21 +246,29 @@ def get_group_visible_vars(inv_files, group_name, variable=None):
             return None. If variable name is not specified, return all variables in a dictionary. If the group is not
             found or there is no host in the group, return None.
     """
-    vm = get_variable_manager(inv_files)
-    im = vm._inventory
-    group = im.groups.get(group_name, None)
-    if not group:
-        logger.error("Unable to find group {} in {}".format(group_name, str(inv_files)))
-        return None
-    group_hosts = group.get_hosts()
-    if len(group_hosts) == 0:
-        logger.error("No host in group {}".format(group_name))
-        return None
-    first_host = group_hosts[0]
-    if variable:
-        return vm.get_vars(host=first_host).get(variable, None)
+    cached_vars = cache.read(group_name, 'group_visible_vars')
+    if cached_vars and cached_vars['inv_files'] == inv_files:
+        group_visible_vars = cached_vars['vars']
     else:
-        return vm.get_vars(host=first_host)
+        vm = get_variable_manager(inv_files)
+        im = vm._inventory
+        group = im.groups.get(group_name, None)
+        if not group:
+            logger.error("Unable to find group {} in {}".format(group_name, str(inv_files)))
+            return None
+        group_hosts = group.get_hosts()
+        if len(group_hosts) == 0:
+            logger.error("No host in group {}".format(group_name))
+            return None
+        first_host = group_hosts[0]
+
+        group_visible_vars = vm.get_vars(host=first_host)
+        cache.write(group_name, 'group_visible_vars', {'inv_files': inv_files, 'vars': group_visible_vars})
+
+    if variable:
+        return group_visible_vars.get(variable, None)
+    else:
+        return group_visible_vars
 
 
 def get_test_server_vars(inv_files, server, variable=None):
@@ -265,17 +291,28 @@ def get_test_server_vars(inv_files, server, variable=None):
             return None. If variable name is not specified, return all variables in a dictionary. If the server group
             is not found or there is no test server host in the group, return None.
     """
-    vm = get_variable_manager(inv_files)
-    im = vm._inventory
-    group = im.groups.get(server, None)
-    if not group:
-        logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
+    cached_vars = cache.read(server, 'test_server_vars')
+    if cached_vars and cached_vars['inv_files'] == inv_files:
+        test_server_vars = cached_vars['vars']
+    else:
+        test_server_vars = None
+
+        vm = get_variable_manager(inv_files)
+        im = vm._inventory
+        group = im.groups.get(server, None)
+        if not group:
+            logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
+            return None
+        for host in group.get_hosts():
+            if not re.match(r'VM\d+', host.name):   # This must be the test server host
+                test_server_vars = host.vars
+                cache.write(server, 'test_server_vars', {'inv_files': inv_files, 'vars': test_server_vars})
+
+    if test_server_vars:
+        if variable:
+            return test_server_vars.get(variable, None)
+        else:
+            return test_server_vars
+    else:
+        logger.error("Unable to find test server host under group {}".format(server))
         return None
-    for host in group.get_hosts():
-        if not re.match(r'VM\d+', host.name):   # This must be the test server host
-            if variable:
-                return host.vars.get(variable, None)
-            else:
-                return host.vars
-    logger.error("Unable to find test server host under group {}".format(server))
-    return None

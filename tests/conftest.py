@@ -9,8 +9,6 @@ import random
 import pytest
 import yaml
 import jinja2
-from ansible.parsing.dataloader import DataLoader
-from ansible.inventory.manager import InventoryManager
 
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
@@ -20,14 +18,17 @@ from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
+from tests.common.utilities import get_inventory_files
+from tests.common.utilities import get_host_vars
+from tests.common.utilities import get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
-
+from tests.common.cache import FactsCache
 
 from tests.common.connections import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
+cache = FactsCache()
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -153,7 +154,11 @@ def get_tbinfo(request):
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
 
-    testbedinfo = TestbedInfo(tbfile)
+    testbedinfo = cache.read(tbname, 'tbinfo')
+    if not testbedinfo:
+        testbedinfo = TestbedInfo(tbfile)
+        cache.write(tbname, 'tbinfo', testbedinfo)
+
     return tbname, testbedinfo.testbed_topo.get(tbname, {})
 
 @pytest.fixture(scope="session")
@@ -166,7 +171,7 @@ def tbinfo(request):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(ansible_adhoc, tbinfo):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -208,6 +213,20 @@ def rand_one_dut_hostname(request):
 
 
 @pytest.fixture(scope="module")
+def rand_one_dut_portname_oper_up(request):
+    oper_up_ports = generate_port_lists(request, "oper_up_ports")
+    if len(oper_up_ports) > 1:
+        oper_up_ports = random.sample(oper_up_ports, 1)
+    return oper_up_ports[0]
+
+@pytest.fixture(scope="module")
+def rand_one_dut_lossless_prio(request):
+    lossless_prio_list = generate_priority_lists(request, 'lossless')
+    if len(lossless_prio_list) > 1:
+        lossless_prio_list = random.sample(lossless_prio_list, 1)
+    return lossless_prio_list[0]
+
+@pytest.fixture(scope="module")
 def rand_one_frontend_dut_hostname(request):
     """
     """
@@ -216,7 +235,6 @@ def rand_one_frontend_dut_hostname(request):
     frontend_dut_hostnames = generate_params_frontend_hostname(request, duts_in_testbed, tbname)
     dut_hostnames = random.sample(frontend_dut_hostnames, 1)
     return dut_hostnames[0]
-
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
@@ -332,8 +350,11 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                                         network_password,
                                         shell_user=shell_user,
                                         shell_passwd=shell_password)
+                    fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+                if dut_host not in fanout.dut_hostnames:
+                    fanout.dut_hostnames.append(dut_host)
     except:
         pass
     return fanout_hosts
@@ -586,14 +607,9 @@ def get_host_data(request, dut):
     '''
     This function parses multple inventory files and returns the dut information present in the inventory
     '''
-    inv_data = None
     inv_files = get_inventory_files(request)
-    for inv_file in inv_files:
-        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
-        if dut in inv_mgr.hosts:
-            return inv_mgr.get_host(dut).get_vars()
+    return get_host_vars(inv_files, dut)
 
-    return inv_data
 
 def generate_params_frontend_hostname(request, duts_in_testbed, tbname):
     frontend_duts = []
@@ -649,7 +665,7 @@ def generate_params_supervisor_hostname(request, duts_in_testbed, tbname):
 
 
 def generate_param_asic_index(request, duts_in_testbed, dut_indices, param_type):
-    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
+    logging.info("generating {} asic indices for  DUT [{}] in ".format(param_type, dut_indices))
     #if the params are not present treat the device as a single asic device
     asic_index_params = [DEFAULT_ASIC_ID]
 
@@ -780,6 +796,7 @@ def generate_priority_lists(request, prio_scope):
 
     return ret if ret else empty
 
+_frontend_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
@@ -799,8 +816,11 @@ def pytest_generate_tests(metafunc):
         frontend_hosts = generate_params_frontend_hostname(metafunc, duts_in_testbed, tbname)
         metafunc.parametrize("enum_frontend_dut_hostname", frontend_hosts, scope="module")
     elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
-        frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname)
-        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts_per_hwsku, scope="module")
+        if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
+            frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname)
+            _frontend_hosts_per_hwsku_per_module[metafunc.module] = frontend_hosts_per_hwsku
+        frontend_hosts = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts, scope="module")
 
 
     if "enum_asic_index" in metafunc.fixturenames:
@@ -847,4 +867,3 @@ def duthost_console(localhost, creds, request):
                        console_password=creds['console_password'][vars['console_type']])
     yield host
     host.disconnect()
-
