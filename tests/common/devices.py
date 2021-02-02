@@ -1800,6 +1800,21 @@ class SonicAsic(object):
     def os_version(self):
         return self.sonichost.os_version
 
+    def interface_facts(self, *module_args, **complex_args):
+        """Wrapper for the interface_facts ansible module.
+        
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            For a single ASIC platform, the namespace = DEFAULT_NAMESPACE, will retrieve interface facts for the global namespace
+            In case of multi-asic, if namespace = <ns>, will retrieve interface facts for that namespace.
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.interface_facts(*module_args, **complex_args)
+
+
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
     sonic_host: a SonicHost instance. This object is for interacting with the SONiC host through pytest_ansible.
