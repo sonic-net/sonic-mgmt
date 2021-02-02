@@ -187,6 +187,10 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
 
+# clear cache from previous test runs
+rm -rf $SONIC_MGMT_DIR/tests/_cache
+
+# clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs
 mkdir -p  $SONIC_MGMT_DIR/tests/logs
 
