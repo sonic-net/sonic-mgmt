@@ -135,28 +135,38 @@ fanout:
       os: sonic
     str2-7260cx3-acs-fan-06:
       ansible_host: 10.3.146.176
+      pdu_host: pdu-122
     str2-7260cx3-fan-07:
       ansible_host: 10.3.146.244
     str2-7260cx3-acs-fan-07:
       ansible_host: 10.3.146.54
+      pdu_host: pdu-117
     str2-7260cx3-fan-08:
       ansible_host: 10.3.146.245
+      pdu_host: pdu-121
     str2-7260cx3-acs-8:
       ansible_host: 10.3.146.220
     str2-7260cx3-acs-fan-08:
       ansible_host: 10.3.146.55
+      pdu_host: pdu-121
     str2-7260cx3-acs-fan-09:
       ansible_host: 10.3.146.157
+      pdu_host: pdu-117
     str2-7260cx3-acs-fan-10:
       ansible_host: 10.3.147.25
+      pdu_host: pdu-119,pdu-120
     str2-7260cx3-acs-fan-11:
       ansible_host: 10.3.147.23
+      pdu_host: pdu-119,pdu-120
     str2-7260cx3-acs-fan-12:
       ansible_host: 10.3.147.21
+      pdu_host: pdu-119,pdu-120
     str2-7260cx3-acs-fan-13:
       ansible_host: 10.3.147.14
+      pdu_host: pdu-119,pdu-120
     str2-7260cx3-acs-fan-14:
       ansible_host: 10.3.146.142
+      pdu_host: pdu-121,pdu-122
     str2-7260cx3-acs-fan-16:
       ansible_host: 10.3.146.125
     str2-7260cx3-02:
@@ -241,6 +251,7 @@ sonic_nexus_3164:
       pdu_host: pdu-113
     str2-n3164-acs-1:
       ansible_host: 10.3.147.149
+      ansible_hostv6: 2a01:111:e210:3000::12
       pdu_host: pdu-104
 
 sonic_arista:
@@ -258,15 +269,15 @@ sonic_arista:
     str2-7050cx3-acs-03:
       ansible_host: 10.3.146.185
       hwsku: Arista-7050CX3-32S-C32
-      pdu_host: pdu-118
+      pdu_host: pdu-118,pdu-117
     str2-7050cx3-acs-06:
       ansible_host: 10.3.147.26
       hwsku: Arista-7050CX3-32S-C32
-      pdu_host: pdu-119
+      pdu_host: pdu-119,pdu-120
     str2-7050cx3-acs-07:
       ansible_host: 10.3.147.24
       hwsku: Arista-7050CX3-32S-C32
-      pdu_host: pdu-119
+      pdu_host: pdu-119,pdu-120
     str2-7050cx3-acs-08:
       ansible_host: 10.3.147.22
       hwsku: Arista-7050CX3-32S-D48C8
@@ -307,7 +318,7 @@ sonic_arista_Q32:
   hosts:
     str2-7060cx-32s-29:
       ansible_host: 10.3.146.57
-      pdu_host: pdu-118
+      pdu_host: pdu-118,pdu-117
 
 sonic_arista_QX:
   vars:
@@ -325,7 +336,7 @@ sonic_dx010_100:
   hosts:
     str2-dx010-acs-6:
       ansible_host: 10.64.246.100
-      pdu_host: pdu-115
+      pdu_host: pdu-116,pdu-115
 
 sonic_arista64_100:
   vars:
@@ -334,7 +345,7 @@ sonic_arista64_100:
     str2-7260cx3-acs-9:
       ansible_host: 10.3.146.137
       hwsku: Arista-7260CX3-D108C8
-      pdu_host: pdu-121
+      pdu_host: pdu-121,pdu-122
 
 sonic_nokia_7215:
   vars:

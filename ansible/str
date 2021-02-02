@@ -292,7 +292,7 @@ sonic_dell32_40:
       pdu_host: pdu-103
     str-s6000-acs-13:
       ansible_host: 10.3.147.253
-      pdu_host: pdu-103
+      pdu_host: pdu-102
     str-s6000-acs-14:
       ansible_host: 10.3.147.17
       model: 0P19MV
@@ -375,7 +375,7 @@ sonic_dell64_40:
         "0x2E": "3.25.4.1"
         "0x2F": "9ZPQG02"
         "0xFE": "0x58AA160D"
-      pdu_host: pdu-105
+      pdu_host: pdu-104
     str-s6100-acs-5:
       ansible_host: 10.64.246.66
       model: 0F6N2R
@@ -437,10 +437,10 @@ sonic_nexus_9232_100:
   hosts:
     str-n9232-acs-1:
       ansible_host: 10.3.147.189
-      pdu_host: pdu-105
+      pdu_host: pdu-106
     str-n9232-acs-3:
       ansible_host: 10.64.247.241
-      pdu_host: pdu-106
+      pdu_host: pdu-108
   vars:
     hwsku: Nexus-9232-C32
     iface_speed: 100000
@@ -590,7 +590,7 @@ sonic_mlnx_100:
         "0x2A": "128"
         "0x2B": "Mellanox"
         "0xFE": "0xFBA1E964"
-      pdu_host: pdu-106
+      pdu_host: pdu-108,pdu-107
     str-msn2700-22:
       ansible_host: 10.64.247.236
       hwsku: Mellanox-SN2700
@@ -602,6 +602,7 @@ sonic_mlnx_3800:
   hosts:
     str-sn3800-01:
       ansible_host: 10.3.146.62
+      pdu_host: pdu-116
   vars:
     hwsku: ACS-MSN3800
     iface_speed: 100000
@@ -616,11 +617,11 @@ sonic_arista64_100:
     str-7260cx3-acs-2:
       ansible_host: 10.64.247.10
       hwsku: Arista-7260CX3-D108C8
-      pdu_host: pdu-106
+      pdu_host: pdu-107
     str-a7170-acs-1:
       ansible_host: 10.64.246.73
       hwsku: Arista-7170-64C
-      pdu_host: pdu-105
+      pdu_host: pdu-106
     str-7260cx3-acs-7:
       ansible_host: 10.64.246.78
       hwsku: Arista-7260CX3-Q64
@@ -633,15 +634,14 @@ sonic_arista32_100:
     str-a7060cx-acs-10:
       ansible_host: 10.64.247.240
       hwsku: Arista-7060CX-32S-C32
-      pdu_host: pdu-106
+      pdu_host: pdu-108
     str-a7060cx-acs-1:
       ansible_host: 10.64.247.14
       hwsku: Arista-7060CX-32S-D48C8
-      pdu_host: pdu-108
+      pdu_host: pdu-109
     str-a7280cr3-2:
       ansible_host: 10.3.146.28
       hwsku: Arista-7280CR3-C40
-      pdu_host: pdu-108
   vars:
     iface_speed: 100000
 
@@ -657,6 +657,7 @@ sonic_dell32_100:
     str-s5232f-on-1:
       ansible_host: 10.3.146.247
       hwsku: DellEMC-S5232f-C32
+      pdu_host: pdu-115
   vars:
     iface_speed: 100000
 
@@ -683,7 +684,7 @@ sonic_e1031:
         "0x2E": "3.0.6"
         "0x2F": "LB"
         "0xFE": "0x86F7C95F"
-      pdu_host: pdu-106
+      pdu_host: pdu-107
   vars:
     hwsku: Celestica-E1031-T48S4
     iface_speed: 1000
@@ -745,7 +746,7 @@ sonic_dx010_100:
         "0x2E": "1.1.1"
         "0x2F": "LB"
         "0xFE": "0x75C90801"
-      pdu_host: pdu-116
+      pdu_host: pdu-115,pdu-116
     str-dx010-acs-5:
       ansible_host: 10.64.246.99
       model: R0872-F0009-01
@@ -777,7 +778,7 @@ sonic_agc7648:
   hosts:
     str-agc7648-acs-1:
       ansible_host: 10.64.246.40
-      pdu_host: pdu-104
+      pdu_host: pdu-105
   vars:
     hwsku: Delta-AGC7648
     iface_speed: 10000
@@ -786,11 +787,7 @@ sonic_nexus_3164:
   hosts:
     str-n3164-acs-2:
       ansible_host: 10.3.147.150
-      pdu_host: pdu-105
-    str-n3164-acs-1:
-      ansible_host: 10.3.147.149
-      ansible_hostv6: 2a01:111:e210:3000::12
-      pdu_host: pdu-105
+      pdu_host: pdu-106
   vars:
     hwsku: Nexus-3164
     iface_speed: 40000
@@ -803,102 +800,143 @@ fanout:
   hosts:
     str-7260-01:
       ansible_host: 10.3.147.76
+      pdu_host: pdu-97
     str-7260-05:
       ansible_host: 10.3.146.105
+      pdu_host: pdu-98
     str-7260-06:
       ansible_host: 10.3.146.106
+      pdu_host: pdu-96
     str-7260-08:
       ansible_host: 10.3.147.108
     str-7260-11:
       ansible_host: 10.3.147.234
     str-7260-13:
       ansible_host: 10.3.147.196
+      pdu_host: pdu-96
     str-7260-14:
       ansible_host: 10.3.147.198
+      pdu_host: pdu-96
     str-7260-15:
       ansible_host: 10.3.147.236
     str-7260-16:
       ansible_host: 10.3.147.238
+      pdu_host: pdu-98
     str-7260-17:
       ansible_host: 10.3.147.240
+      pdu_host: pdu-98
     str-7260-18:
       ansible_host: 10.3.147.242
     str-7260-23:
       ansible_host: 10.64.247.253
+      pdu_host: pdu-102
     str-7260-24:
       ansible_host: 10.64.247.254
+      pdu_host: pdu-102
     str-7260-02:
       ansible_host: 10.3.147.154
+      pdu_host: pdu-96
     str-7260-03:
       ansible_host: 10.3.147.169
+      pdu_host: pdu-102
     str-7260-04:
       ansible_host: 10.3.147.164
+      pdu_host: pdu-96
     str-7260-09:
       ansible_host: 10.3.147.12
+      pdu_host: pdu-102
     str-7260-07:
       ansible_host: 10.3.147.11
+      pdu_host: pdu-103
     str-7260-10:
       ansible_host: 10.3.147.13
+      pdu_host: pdu-102
     str-7260-20:
       ansible_host: 10.64.247.249
+      pdu_host: pdu-105
     str-7260-21:
       ansible_host: 10.64.247.248
+      pdu_host: pdu-105
     str-7260-22:
       ansible_host: 10.64.247.247
+      pdu_host: pdu-105
     str-7060cx-32s-02:
       ansible_host: 10.64.247.229
+      pdu_host: pdu-107
     str-7060cx-32s-03:
       ansible_host: 10.64.247.230
+      pdu_host: pdu-107
     str-7060cx-32s-04:
       ansible_host: 10.64.247.231
+      pdu_host: pdu-107
     str-7060cx-32s-05:
       ansible_host: 10.64.247.232
+      pdu_host: pdu-107
     str-7060cx-32s-06:
       ansible_host: 10.64.247.233
+      pdu_host: pdu-107
     str-7060cx-32s-07:
       ansible_host: 10.64.247.234
+      pdu_host: pdu-107
     str-7060cx-32s-08:
       ansible_host: 10.64.247.238
       os: sonic
+      pdu_host: pdu-107
     str-7060cx-32s-09:
       ansible_host: 10.64.247.239
+      pdu_host: pdu-107
     str-7060cx-32s-15:
       ansible_host: 10.64.247.11
+      pdu_host: pdu-108
     str-7060cx-32s-16:
       ansible_host: 10.64.247.12
+      pdu_host: pdu-107
     str-7060cx-32s-17:
       ansible_host: 10.64.247.13
+      pdu_host: pdu-107
     str-7060cx-32s-18:
       ansible_host: 10.64.247.22
+      pdu_host: pdu-109
     str-7060cx-32s-21:
       ansible_host: 10.64.246.32
+      pdu_host: pdu-110
     str-7060cx-32s-22:
       ansible_host: 10.64.246.34
+      pdu_host: pdu-106
     str-7260cx3-64-16:
       ansible_host: 10.3.146.147
     str-7260cx3-64-17:
       ansible_host: 10.3.146.148
     str-7260cx3-64-18:
       ansible_host: 10.3.146.149
+      pdu_host: pdu-115
     str-7260cx3-fan-03:
       ansible_host: 10.64.246.47
+      pdu_host: pdu-104
     str-7260cx3-fan-04:
       ansible_host: 10.64.246.74
     str-7260cx3-fan-06:
       ansible_host: 10.3.146.25
+      pdu_host: pdu-107
     str-e1031-acs-2:
       ansible_host: 10.64.247.25
       os: sonic
+      pdu_host: pdu-107
     str-marvell-acs-2:
       ansible_host: 10.3.146.155
       os: sonic
+      pdu_host: pdu-115
     str-7260cx3-acs-fan-05:
       ansible_host: 10.64.246.76
+      pdu_host: pdu-109,pdu-110
     str-7260cx3-64-20:
       ansible_host: 10.3.146.151
+      pdu_host: pdu-115
     str-7260cx3-64-19:
       ansible_host: 10.3.146.150
     str-7260-25:
       ansible_host: 10.3.146.234
+      pdu_host: pdu-104
     str-7260-26:
       ansible_host: 10.3.146.160
+      pdu_host: pdu-105

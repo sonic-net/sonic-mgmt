@@ -50,7 +50,6 @@
       <Device Hostname="str-e1031-acs-2" HwSku="Celestica-E1031-T48S4" Type="FanoutLeafSonic"/>
       <Device Hostname="str-marvell-acs-1" HwSku="et6448m" Type="DevSonic"/>
       <Device Hostname="str-n3164-acs-2" HwSku="Nexus-3164" Type="DevSonic"/>
-      <Device Hostname="str-n3164-acs-1" HwSku="Nexus-3164" Type="DevSonic"/>
       <Device Hostname="str-s5232f-on-1" HwSku="DellEMC-S5232f-C32" Type="DevSonic"/>
       <Device Hostname="str-marvell-acs-2" HwSku="et6448m" Type="FanoutLeafSonic"/>
       <Device Hostname="str-sn3800-01" HwSku="ACS-MSN3800" Type="DevSonic"/>
