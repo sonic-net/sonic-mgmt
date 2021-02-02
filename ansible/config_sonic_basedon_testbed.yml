@@ -161,6 +161,8 @@
         dsmsroot_key_t: ""
         dsmsroot_cer_t: ""
         dir_path_t: ""
+        subject_server: ""
+        subject_client: ""
 
     - name: read server key
       set_fact:
@@ -187,10 +189,15 @@
         dir_path_t: "{{ telemetry_certs['dir_path'] }}"
       when: telemetry_certs['dir_path'] is defined
 
-    - name: read subject
+    - name: read server subject
       set_fact:
-        subject_t: "{{ telemetry_certs['subject'] }}"
-      when: telemetry_certs['subject'] is defined
+        subject_server: "{{ telemetry_certs['subject_server'] }}"
+      when: telemetry_certs['subject_server'] is defined
+    
+    - name: read client subject
+      set_fact:
+        subject_client: "{{ telemetry_certs['subject_client'] }}"
+      when: telemetry_certs['subject_client'] is defined
 
     - include_tasks: deploy_certs.yml
       vars:
@@ -199,7 +206,8 @@
         server_key: "{{ server_key_t }}"
         dsmsroot_cer: "{{ dsmsroot_cer_t }}"
         dsmsroot_key: "{{ dsmsroot_key_t }}"
-        subject: "{{ subject_t }}"
+        cert_subject: "{{ subject_server }}"
+        root_subject: "{{ subject_client }}"
     
     when: deploy is defined and deploy|bool == true
 
@@ -236,8 +244,7 @@
         dir_path: "{{ dir_path_t }}"
         server_crt: "{{ server_crt_t }}"
         server_key: "{{ server_key_t }}"
-        subject: "{{ subject_t }}"
-    
+        cert_subject: "{{ subject_t }}"
     when: deploy is defined and deploy|bool == true
 
   - block:
