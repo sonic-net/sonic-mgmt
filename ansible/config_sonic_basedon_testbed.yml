@@ -266,6 +266,8 @@
           -out "{{ server_crt }}"
       become: true
 
+    when: deploy is defined and deploy|bool == true
+
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
