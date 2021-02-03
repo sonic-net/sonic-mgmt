@@ -92,7 +92,7 @@ def action_ping(parameters):
         print(tabulate(data, headers=header, tablefmt='grid'))
         data = []
 
-    header = ['Host', 'Ping IPv6 result']
+    header = ['Host', 'Hostname', 'Ping IPv6 result']
     if parameters['ipv6']:
         for name, vars in hosts.items():
             if 'ansible_hostv6' in vars.keys():
