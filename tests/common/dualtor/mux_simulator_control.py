@@ -229,6 +229,20 @@ def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
     data = {"active_side": LOWER_TOR}
     pytest_assert(_post(server_url, data), "Failed to toggle all ports to upper_tor")
 
+@pytest.fixture(scope='module', autouse=True)
+def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
+    """
+    A module level fixture to toggle all ports to randomly selected tor
+    """
+    dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
+    if dut_index == 0:
+        data = {"active_side": UPPER_TOR}
+    else:
+        data = {"active_side": LOWER_TOR}
+    
+    server_url = _url(mux_server_url)
+    pytest_assert(_post(server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
+
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
     """
