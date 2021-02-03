@@ -5,6 +5,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import argparse
+import json
 import subprocess
 from tabulate import tabulate
 
@@ -63,11 +64,16 @@ def get_pdu_info(pdu_host):
 
 def action_list(parameters):
     hosts = parameters['hosts']
-    table_header = ['Name', 'Ansbile_host']
+    table_header = ['Name', 'Ansible_host']
     data = []
-    for name, vars in hosts.items():
-        data.append((name, vars['ansible_host']))
-    print(tabulate(data, headers=table_header, tablefmt='grid'))
+    if parameters['json']:
+        for name, vars in hosts.items():
+            data.append(dict(zip(table_header, (name, vars['ansible_host']))))
+        print(json.dumps(data, indent=4))
+    else:
+        for name, vars in hosts.items():
+            data.append((name, vars['ansible_host']))
+        print(tabulate(data, headers=table_header, tablefmt='grid'))
 
 
 def action_ping(parameters):
@@ -77,21 +83,31 @@ def action_ping(parameters):
     for name, vars in hosts.items():
         cmd = 'timeout 1 ping -q -c 1 -w 1 {}'.format(vars['ansible_host'])
         g_task_runner.submit_task(name + '|' + vars['ansible_host'], run_cmd, cmd=cmd)
-    for name, result in g_task_runner.task_results():
-        data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
-    print(tabulate(data, headers=header, tablefmt='grid'))
+    if parameters['json']:
+        for name, result in g_task_runner.task_results():
+            data.append(dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
+    else:
+        for name, result in g_task_runner.task_results():
+            data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
+        print(tabulate(data, headers=header, tablefmt='grid'))
+        data = []
 
     header = ['Host', 'Ping IPv6 result']
-    data = []
     if parameters['ipv6']:
         for name, vars in hosts.items():
             if 'ansible_hostv6' in vars.keys():
                 cmd = 'timeout 1 ping -6 -q -c 1 -w 1 {}'.format(vars['ansible_hostv6'])
                 g_task_runner.submit_task(name + '|' + vars['ansible_hostv6'], run_cmd, cmd=cmd)
-        for name, result in g_task_runner.task_results():
-            data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
-        print(tabulate(data, headers=header, tablefmt='grid'))
+        if parameters['json']:
+            for name, result in g_task_runner.task_results():
+                data.append(dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
+        else:
+            for name, result in g_task_runner.task_results():
+                data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
+            print(tabulate(data, headers=header, tablefmt='grid'))
 
+    if parameters['json']:
+        print(json.dumps(data, indent=4))
 
 def action_ssh(parameters):
     hosts = parameters['hosts']
@@ -115,42 +131,67 @@ def action_console(parameters):
         console_host.posix_shell()
 
 
-def action_pdu(parameters, action):
-    hosts = parameters['hosts']
-    for host, vars in hosts.items():
-        pdu_name = vars['pdu_host'] if 'pdu_host' in vars else None
-        if not pdu_name:
-            print('DUT {} does not have PDU configured in inventory'.format(host))
+def pdu_action_on_dut(host, attrs, action):
+    ret = { 'DUT' : host, 'PDU status' : [], 'Summary' : [], 'Action' : action }
+    pdu_name = attrs['pdu_host'] if 'pdu_host' in attrs else None
+    if not pdu_name:
+        ret['Summary'].append('DUT has no PDU configuration')
+        return ret
+
+    pdu_list = get_pdu_info(pdu_name)
+    if not pdu_list:
+        ret['Summary'].append('PDU not found in inventory')
+        return ret
+
+    for pdu_info in pdu_list:
+        pdu_host = pdu_info['ansible_host'] if pdu_info and 'ansible_host' in pdu_info else None
+        p_name = pdu_info['inventory_hostname'] if pdu_info and 'inventory_hostname' in pdu_info else None
+        if not pdu_host or not p_name:
+            ret['Summary'].append('No PDU IP or name')
             continue
 
-        pdu_list = get_pdu_info(pdu_name)
-        for pdu_info in pdu_list:
-            pdu_host = pdu_info['ansible_host'] if pdu_info and 'ansible_host' in pdu_info else None
-            if not  pdu_host:
-                print('Cannot find pdu host name for dut {}'.format(host))
-                continue
+        rec = { 'PDU' : p_name, 'PDU_IP' : pdu_host, 'status' : [] }
+        ret['PDU status'].append(rec)
 
-            print('DUT {} PDU {} IP {} action {}'.format(host, pdu_name, pdu_host, action))
-            controller = get_psu_controller(pdu_host, host, pdu_info)
+        controller = get_psu_controller(pdu_host, host, pdu_info)
 
-            if not controller:
-                print('Failed to get pdu controller for dut {}'.format(host))
-                continue
+        if not controller:
+            ret['Summary'].append('Failed to communicate with controller {}'.format(p_name))
+            continue
 
-            status = controller.get_psu_status()
-            if action == 'off':
-                for outlet in status:
-                    controller.turn_off_psu(outlet['psu_id'])
-                status = controller.get_psu_status()
-            elif action == 'on':
-                for outlet in status:
-                    controller.turn_on_psu(outlet['psu_id'])
-                status = controller.get_psu_status()
-            elif action != 'status':
-                print('Unsupported action {}.'.format(action))
-                continue
+        rec['status'] = controller.get_psu_status()
+        if action == 'off':
+            for outlet in status:
+                controller.turn_off_psu(outlet['psu_id'])
+            rec['status'] = controller.get_psu_status()
+        elif action == 'on':
+            for outlet in status:
+                controller.turn_on_psu(outlet['psu_id'])
+            rec['status'] = controller.get_psu_status()
+        elif action != 'status':
+            ret['Summary'].append('Unsupported action {}.'.format(action))
+            continue
 
-            print('DUT {} PDU stauts: {}'.format(host, status))
+    return ret
+
+def action_pdu(parameters, action):
+    hosts = parameters['hosts']
+    data = []
+    header = [ 'DUT', 'Action', 'PDU status', 'Summary' ]
+    for host, attrs in hosts.items():
+        g_task_runner.submit_task(host, pdu_action_on_dut, host=host, attrs=attrs, action=action)
+
+    for _, ret in g_task_runner.task_results():
+        status = ret['result']
+        if parameters['json']:
+            data.append(status)
+        else:
+            data.append([ status[x] for x in header ])
+
+    if parameters['json']:
+        print(json.dumps(data, indent=4))
+    else:
+        print(tabulate(data, headers=header, tablefmt='grid'))
 
 
 def action_pdu_status(parameters):
@@ -226,6 +267,8 @@ def main():
                         type=str, required=False, default='admin')
     parser.add_argument('-c', '--concurrency', help='Concurrency: the max concurrency for tasks that can run simultaneously, default 1',
                         type=int, required=False, default=1)
+    parser.add_argument('-j', '--json', help='json output', action='store_true',
+                        required=False, default=False)
 
     args = parser.parse_args()
     if not validate_args(args):
@@ -247,7 +290,8 @@ def main():
                    'action' : actions[args.action],
                    'user' : args.user,
                    'ipv6' : args.ipv6,
-                   'cmd': args.cmd
+                   'cmd': args.cmd,
+                   'json' : args.json,
                  }
     action_dispatcher(parameters)
 
