@@ -67,7 +67,7 @@ def show_data_output(header, data, json_output=False):
     if json_output:
         print(json.dumps(data, indent=4))
     else:
-        print(tabulate(data, headers=header, tablefmt='grid'))
+        print(tabulate(sorted(data, key=lambda x: x[0]), headers=header, tablefmt='grid'))
 
 
 def action_list(parameters):
