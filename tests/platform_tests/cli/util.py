@@ -88,12 +88,12 @@ def get_skip_mod_list(duthost, mod_key=None):
     dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
     if 'skip_modules' in dut_vars:
         if mod_key is None:
-            for k in dut_vars['skip_modules'].keys():
-                for i in dut_vars['skip_modules'][k]:
-                    skip_mod_list.append(i)
+            for mod_type in dut_vars['skip_modules'].keys():
+                for mod_id in dut_vars['skip_modules'][mod_type]:
+                    skip_mod_list.append(mod_id)
         else:
-            for key in mod_key:
-                if key in dut_vars['skip_modules'].keys():
-                    for i in dut_vars['skip_modules'][key]:
-                        skip_mod_list.append(i)
+            for mod_type in mod_key:
+                if mod_type in dut_vars['skip_modules'].keys():
+                    for mod_id in dut_vars['skip_modules'][mod_type]:
+                        skip_mod_list.append(mod_id)
     return skip_mod_list
