@@ -11,7 +11,6 @@ import ipaddr as ipaddress
 
 from jinja2 import Template
 from natsort import natsorted
-from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
