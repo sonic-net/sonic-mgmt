@@ -7,6 +7,7 @@ warnings.filterwarnings("ignore")
 import argparse
 import json
 import subprocess
+import time
 from tabulate import tabulate
 
 from devutil.inv_helpers import HostManager
@@ -62,18 +63,24 @@ def get_pdu_info(pdu_host):
     return pdus
 
 
+def show_data_output(header, data, json_output=False):
+    if json_output:
+        print(json.dumps(data, indent=4))
+    else:
+        print(tabulate(data, headers=header, tablefmt='grid'))
+
+
 def action_list(parameters):
     hosts = parameters['hosts']
-    table_header = ['Name', 'Ansible_host']
+    header = ['Name', 'Ansible_host']
     data = []
     if parameters['json']:
         for name, vars in hosts.items():
-            data.append(dict(zip(table_header, (name, vars['ansible_host']))))
-        print(json.dumps(data, indent=4))
+            data.append(dict(zip(header, (name, vars['ansible_host']))))
     else:
         for name, vars in hosts.items():
             data.append((name, vars['ansible_host']))
-        print(tabulate(data, headers=table_header, tablefmt='grid'))
+    show_data_output(header, data, parameters['json'])
 
 
 def action_ping(parameters):
@@ -102,10 +109,7 @@ def action_ping(parameters):
             for name, result in g_task_runner.task_results():
                 data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
 
-    if parameters['json']:
-        print(json.dumps(data, indent=4))
-    else:
-        print(tabulate(data, headers=header, tablefmt='grid'))
+    show_data_output(header, data, parameters['json'])
 
 
 def action_ssh(parameters):
@@ -160,11 +164,11 @@ def pdu_action_on_dut(host, attrs, action):
 
         rec['status'] = controller.get_psu_status()
         if action == 'off':
-            for outlet in status:
+            for outlet in rec['status']:
                 controller.turn_off_psu(outlet['psu_id'])
             rec['status'] = controller.get_psu_status()
         elif action == 'on':
-            for outlet in status:
+            for outlet in rec['status']:
                 controller.turn_on_psu(outlet['psu_id'])
             rec['status'] = controller.get_psu_status()
         elif action != 'status':
@@ -172,6 +176,7 @@ def pdu_action_on_dut(host, attrs, action):
             continue
 
     return ret
+
 
 def action_pdu(parameters, action):
     hosts = parameters['hosts']
@@ -187,27 +192,32 @@ def action_pdu(parameters, action):
         else:
             data.append([ status[x] for x in header ])
 
-    if parameters['json']:
-        print(json.dumps(data, indent=4))
-    else:
-        print(tabulate(data, headers=header, tablefmt='grid'))
+    return header, data
 
 
 def action_pdu_status(parameters):
-    action_pdu(parameters, 'status')
+    header, data = action_pdu(parameters, 'status')
+    show_data_output(header, data, parameters['json'])
 
 
 def action_pdu_off(parameters):
-    action_pdu(parameters, 'off')
+    header, data = action_pdu(parameters, 'off')
+    show_data_output(header, data, parameters['json'])
 
 
 def action_pdu_on(parameters):
-    action_pdu(parameters, 'on')
+    header, data = action_pdu(parameters, 'on')
+    show_data_output(header, data, parameters['json'])
 
 
 def action_pdu_reboot(parameters):
-    action_pdu(parameters, 'off')
-    action_pdu(parameters, 'on')
+    header, data = action_pdu(parameters, 'off')
+    # sleep 1 second to ensure there is gap between power off and on
+    time.sleep(1)
+    _, data_on = action_pdu(parameters, 'on')
+
+    data = data + data_on
+    show_data_output(header, data, parameters['json'])
 
 
 def action_dispatcher(parameters):
