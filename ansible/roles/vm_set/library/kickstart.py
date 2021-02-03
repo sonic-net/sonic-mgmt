@@ -3,6 +3,12 @@
 import datetime
 from telnetlib import Telnet
 
+def encode(arg):
+    if (sys.version_info.major == 3 and sys.version_info.minor >= 5):
+        return arg.encode("ascii")
+    else:
+        return arg
+
 
 class MyDebug(object):
     def __init__(self, filename, enabled=True):
@@ -55,7 +61,7 @@ class SerialSession(object):
         self.d = debug
         self.d.debug('Starting')
         self.tn = Telnet('127.0.0.1', port)
-        self.tn.write('\r\n')
+        self.tn.write(encode('\r\n'))
 
         return
 
@@ -75,9 +81,9 @@ class SerialSession(object):
     def pair(self, action, wait_for, timeout):
         self.d.debug('output: %s' % action)
         self.d.debug('match: %s' % ",".join(wait_for))
-        self.tn.write("%s\n" % action)
+        self.tn.write(encode("%s\n" % action))
         if wait_for is not None:
-            index, match, text = self.tn.expect(wait_for, timeout)
+            index, match, text = self.tn.expect([encode(i) for i in wait_for], timeout)
             self.d.debug('Result of matching: %d %s %s' % (index, str(match), text))
             if index == -1:
                 raise EMatchNotFound
