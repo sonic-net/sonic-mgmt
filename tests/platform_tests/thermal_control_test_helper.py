@@ -259,7 +259,10 @@ def restart_thermal_control_daemon(dut):
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)
     assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
-    assert len(output["stdout_lines"]) == 2, "There should be 2 thermalctld process"
+    # Usually there should be 2 thermalctld processes, but there is chance that
+    # sonic platform API might use subprocess which creates extra thermalctld process,
+    # so we check here thermalcltd must have at least 2 processes
+    assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
     pid_0 = int(output["stdout_lines"][0].strip())
     pid_1 = int(output["stdout_lines"][1].strip())
     # find and kill the parent process
