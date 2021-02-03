@@ -55,7 +55,7 @@ def update_monit_service(duthost):
     testing, these two changes will be rolled back.
 
     Args:
-        duthos: name of Host DUT.
+        duthost: name of Host DUT.
 
     Return:
         None.
