@@ -151,6 +151,7 @@ test_t1_lag() {
     monit/test_monit_status.py \
     test_interfaces.py \
     bgp/test_bgp_fact.py \
+    bgp/test_bgp_allow_list.py \
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
