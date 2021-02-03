@@ -211,6 +211,7 @@ def rand_one_dut_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
 
+
 @pytest.fixture(scope="module")
 def rand_one_dut_portname_oper_up(request):
     oper_up_ports = generate_port_lists(request, "oper_up_ports")
