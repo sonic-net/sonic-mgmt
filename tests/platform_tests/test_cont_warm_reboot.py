@@ -59,7 +59,6 @@ class ContinuousReboot:
         self.continuous_reboot_delay = request.config.getoption("--continuous_reboot_delay")
         self.reboot_type = request.config.getoption("--reboot_type")
         self.image_location = request.config.getoption("--image_location")
-        self.skip_image_install = request.config.getoption("--skip_image_install")
         self.image_list = request.config.getoption("--image_list")
         self.current_image = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         self.test_report = dict()
