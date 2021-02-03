@@ -65,14 +65,14 @@ def get_pdu_info(pdu_host):
 
 def show_data_output(header, data, json_output=False):
     if json_output:
-        print(json.dumps(data, indent=4))
+        print(json.dumps(sorted(data, key=lambda x: x['Host']), indent=4))
     else:
         print(tabulate(sorted(data, key=lambda x: x[0]), headers=header, tablefmt='grid'))
 
 
 def action_list(parameters):
     hosts = parameters['hosts']
-    header = ['Name', 'Ansible_host']
+    header = ['Host', 'Ansible_host']
     data = []
     if parameters['json']:
         for name, vars in hosts.items():
@@ -181,7 +181,7 @@ def pdu_action_on_dut(host, attrs, action):
 def action_pdu(parameters, action):
     hosts = parameters['hosts']
     data = []
-    header = [ 'DUT', 'Action', 'PDU status', 'Summary' ]
+    header = [ 'Host', 'Action', 'PDU status', 'Summary' ]
     for host, attrs in hosts.items():
         g_task_runner.submit_task(host, pdu_action_on_dut, host=host, attrs=attrs, action=action)
 
