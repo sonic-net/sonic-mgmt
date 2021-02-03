@@ -50,6 +50,10 @@ def reduce_installed_sonic_images(module, disk_used_pcent):
 
 def download_new_sonic_image(module, new_image_url, save_as):
     global results
+
+    # Clean-up previous downloads first
+    exec_command(module, cmd="rm -f {}".format(save_as), msg="clean up previously downloaded image")
+
     exec_command(module,
                 cmd="curl -o {} {}".format(save_as, new_image_url),
                 msg="downloading new image")
