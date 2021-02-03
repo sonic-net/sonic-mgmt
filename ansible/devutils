@@ -135,7 +135,7 @@ def action_console(parameters):
 
 
 def pdu_action_on_dut(host, attrs, action):
-    ret = { 'DUT' : host, 'PDU status' : [], 'Summary' : [], 'Action' : action }
+    ret = { 'Host' : host, 'PDU status' : [], 'Summary' : [], 'Action' : action }
     pdu_name = attrs['pdu_host'] if 'pdu_host' in attrs else None
     if not pdu_name:
         ret['Summary'].append('DUT has no PDU configuration')
