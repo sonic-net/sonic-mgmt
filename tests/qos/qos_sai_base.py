@@ -350,13 +350,14 @@ class QosSaiBase:
         """
         duthost = duthosts[rand_one_dut_hostname]
         swapSyncd = request.config.getoption("--qos_swap_syncd")
-        if swapSyncd:
-            docker.swap_syncd(duthost, creds)
+        try:
+            if swapSyncd:
+                docker.swap_syncd(duthost, creds)
 
-        yield
-
-        if swapSyncd:
-            docker.restore_default_syncd(duthost, creds)
+            yield
+        finally:
+            if swapSyncd:
+                docker.restore_default_syncd(duthost, creds)
 
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(self, request, duthosts, rand_one_dut_hostname, tbinfo):
