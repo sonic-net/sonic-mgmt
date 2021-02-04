@@ -133,20 +133,16 @@ def swap_syncd(duthost, creds):
     # Set sysctl SENDBUF parameter for tests
     duthost.command("sysctl -w net.core.wmem_max=609430500")
 
-    # TODO: Getting the base image version should be a common utility
-    output = duthost.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-    sonic_version = output["stdout_lines"][0].strip()
-
     _perform_swap_syncd_shutdown_check(duthost)
 
     registry = load_docker_registry_info(duthost, creds)
-    download_image(duthost, registry, docker_rpc_image, sonic_version)
+    download_image(duthost, registry, docker_rpc_image, duthost.os_version)
 
     tag_image(
         duthost,
         "{}:latest".format(docker_syncd_name),
         "{}/{}".format(registry.host, docker_rpc_image),
-        sonic_version
+        duthost.os_version
     )
 
     logger.info("Reloading config and restarting swss...")
@@ -171,15 +167,11 @@ def restore_default_syncd(duthost, creds):
     duthost.command("systemctl stop swss", module_ignore_errors=True)
     delete_container(duthost, "syncd")
 
-    # TODO: Getting the base image version should be a common utility
-    output = duthost.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-    sonic_version = output["stdout_lines"][0].strip()
-
     tag_image(
         duthost,
         "{}:latest".format(docker_syncd_name),
         docker_syncd_name,
-        sonic_version
+        duthost.os_version
     )
 
     logger.info("Reloading config and restarting swss...")
@@ -189,7 +181,7 @@ def restore_default_syncd(duthost, creds):
     docker_rpc_image = docker_syncd_name + "-rpc"
     registry = load_docker_registry_info(duthost, creds)
     duthost.command(
-        "docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, sonic_version),
+        "docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, duthost.os_version),
         module_ignore_errors=True
     )
 
