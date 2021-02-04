@@ -1,0 +1,30 @@
+<main>
+  <mat-card>
+    <div>
+      <h1>Targets</h1>
+      <mat-form-field appearance="fill">
+        <mat-label>Edit existing target</mat-label>
+        <mat-select (selectionChange)="setSelectedTarget($event.value)" name="target">
+          <mat-option>New</mat-option>
+          <mat-option *ngFor="let target of targetList | keyvalue" [value]="target.key">{{target.key}}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <button class="delete" mat-button *ngIf="selectedTarget['ca']" (click)="deleteTarget()"><mat-icon>delete</mat-icon></button>
+      <form [formGroup]="targetForm" (ngSubmit)="setTarget(targetForm.value)">
+        <mat-form-field>
+          <mat-label>Target Name</mat-label>
+          <input matInput formControlName="targetName">
+          <mat-error *ngIf="targetName.hasError('required')">Target Name is Required</mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Target Address</mat-label>
+          <input matInput placeholder="localhost:9339" formControlName="address">
+          <mat-error *ngIf="targetAddress.hasError('required')">Target Address is Required</mat-error>
+        </mat-form-field>
+      <app-file-upload (getID)="addCa($event)" path="ca_cert" name="CA Cert" id="cert" [ID]="selectedTarget.ca"></app-file-upload><br>
+      <app-file-upload (getID)="addCaKey($event)" path="ca_key"  name="CA Key" id="key" [ID]="selectedTarget.cakey"></app-file-upload><br>
+      <button type="submit" [disabled]="!targetForm.valid" mat-raised-button color="primary">Save</button>
+      </form>
+    </div>
+  </mat-card>
+</main>
