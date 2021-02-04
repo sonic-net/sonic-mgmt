@@ -1585,7 +1585,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # as all lossy packets are now mapped to single pg 0
                 # so we remove the strict equity check, and use upper bound
                 # check instead
-                assert(1 * cell_size <= pg_shared_wm_res[pg])
                 assert(pg_shared_wm_res[pg] <= margin * cell_size)
 
             # send packet batch of fixed packet numbers to fill pg shared
