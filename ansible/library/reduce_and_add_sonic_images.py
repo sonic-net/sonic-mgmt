@@ -132,7 +132,7 @@ def main():
     try:
         work_around_for_slow_disks(module)
         reduce_installed_sonic_images(module, disk_used_pcent)
-        if new_image_url:
+        if new_image_url or save_as:
             install_new_sonic_image(module, new_image_url, save_as)
     except:
         err = str(sys.exc_info())
