@@ -160,8 +160,11 @@ class ContinuousReboot:
         if result["failed"]:
             raise ContinuousRebootError("Interface check failed, not all interfaces are up")
 
+        # Skip this step for virtual testbed - KVM testbed has transeivers marked as "Not present"
+        # and the DB returns an "empty array" for "keys TRANSCEIVER_INFO*"
         if self.duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             return
+
         logging.info("Check whether transceiver information of all ports are in redis")
         xcvr_info = self.duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
         parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
