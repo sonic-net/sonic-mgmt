@@ -1,7 +1,7 @@
 import math
 
 class QosParamMellanox(object):
-    def __init__(self, qos_params, asic_type, speed_cable_len, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize):
+    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize):
         asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
@@ -37,6 +37,7 @@ class QosParamMellanox(object):
         self.egressLosslessProfile = egressLosslessProfile
         self.egressLossyProfile = egressLossyProfile
         self.sharedHeadroomPoolSize = sharedHeadroomPoolSize
+        self.dutConfig = dutConfig
 
         return
 
@@ -79,9 +80,9 @@ class QosParamMellanox(object):
         pkts_num_trig_egr_drp = egress_lossy_size + 1
 
         if self.sharedHeadroomPoolSize:
+            testPortIds = self.dutConfig['testPortIds']
             ingress_ports_num_shp = 8
             pkts_num_trig_pfc_shp = []
-            ing_port = 1
             ingress_ports_list_shp = []
             occupancy_per_port = ingress_lossless_size
             for i in range(1, ingress_ports_num_shp):
@@ -91,8 +92,7 @@ class QosParamMellanox(object):
                 occupancy_per_port /= 2
                 pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
                 occupancy_per_port /= 2
-                ingress_ports_list_shp.append(ing_port)
-                ing_port += 1
+                ingress_ports_list_shp.append(testPortIds[i])
             self.qos_parameters['pkts_num_trig_pfc_shp'] = pkts_num_trig_pfc_shp
             self.qos_parameters['src_port_ids'] = ingress_ports_list_shp
             self.qos_parameters['pkts_num_hdrm_full'] = xoff - 2

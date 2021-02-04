@@ -150,6 +150,7 @@ qos_params:
             limit: 80
             pkts_num_leak_out: 48
             lossy_weight: 8
+            lossless_weight: 8
     td2:
         40000_5m:
             pkts_num_leak_out: 48
