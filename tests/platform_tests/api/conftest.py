@@ -69,7 +69,9 @@ def stop_platform_api_service(duthost):
         duthost.command('docker exec -i pmon supervisorctl update')
 
         # Delete the iptables rule we added
-        duthost.command(IPTABLES_DELETE_RULE_CMD)
+        # We ignore errors here because after a watchdog test, the DuT will have power-cycled and will
+        # no longer have the rule we added in the start_platform_api_service fixture
+        duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
 
 @pytest.fixture(scope='function')
 def platform_api_conn(duthost, start_platform_api_service):
