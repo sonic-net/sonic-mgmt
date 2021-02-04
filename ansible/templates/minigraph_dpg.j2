@@ -18,6 +18,27 @@
           </a:Prefix>
           <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
+      {%- if 'addl_loopbacks' in dual_tor_facts -%}
+      {%- for loopback_num in dual_tor_facts['addl_loopbacks'][inventory_hostname] -%}
+        {%- set loopback_facts = dual_tor_facts['addl_loopbacks'][inventory_hostname][loopback_num] -%}
+        <a:LoopbackIPInterface>
+          <Name>HostIP{{ loopback_facts['host_ip_base_index'] }}</Name>
+          <AttachTo>Loopback{{ loopback_num }}</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback_facts['ipv4'] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback_facts['ipv4'] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP{{ loopback_facts['host_ip_base_index'] + 1 }}</Name>
+          <AttachTo>Loopback{{ loopback_num }}</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback_facts['ipv6'] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback_facts['ipv6'] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      {%- endfor -%}
+      {%- endif -%}
       </LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
         <a:ManagementIPInterface>
