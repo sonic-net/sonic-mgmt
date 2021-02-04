@@ -154,6 +154,8 @@ test_t1_lag() {
     bgp/test_bgp_multipath_relax.py \
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_bounce.py \
+    bgp/test_bgp_update_timer.py \
+    bgp/test_traffic_shift.py \
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
