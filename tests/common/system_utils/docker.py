@@ -103,7 +103,8 @@ def swap_syncd(dut, creds):
     """
         Replaces the running syncd container with the RPC version of it.
 
-        This will download a new Docker image to the DUT and restart the swss service.
+        This will download a new Docker image to the DUT and restart the swss
+        service.
 
         Args:
             dut (SonicHost): The target device.
@@ -114,16 +115,19 @@ def swap_syncd(dut, creds):
     elif is_mellanox_device(dut):
         vendor_id = "mlnx"
     else:
-        error_message = "\"{}\" is not currently supported".format(dut.facts["asic_type"])
+        error_message = "\"{}\" is not currently supported".format(
+            dut.facts["asic_type"]
+        )
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
-    dut.command("config bgp shutdown all")  # Force image download to go through mgmt network
-    dut.command("systemctl stop swss")
-    delete_container(dut, "syncd")
+    # Force image download to go through mgmt network
+    dut.command("config bgp shutdown all")
+    dut.stop_service("swss")
+    dut.delete_container("syncd")
 
     # Set sysctl RCVBUF parameter for tests
     dut.command("sysctl -w net.core.rmem_max=609430500")
@@ -132,32 +136,25 @@ def swap_syncd(dut, creds):
     dut.command("sysctl -w net.core.wmem_max=609430500")
 
     # TODO: Getting the base image version should be a common utility
-    output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
+    output = dut.command(
+        "sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version"
+    )
     sonic_version = output["stdout_lines"][0].strip()
 
     def ready_for_swap():
-        syncd_status = dut.command("docker ps -f name=syncd")["stdout_lines"]
-        if len(syncd_status) > 1:
+        if any([
+            dut.is_container_present("syncd"),
+            dut.is_container_present("swss"),
+            not dut.is_bgp_state_idle()
+        ]):
             return False
 
-        swss_status = dut.command("docker ps -f name=swss")["stdout_lines"]
-        if len(swss_status) > 1:
-            return False
+        return True
 
-        bgp_summary = dut.command("show ip bgp summary")["stdout_lines"]
-        idle_count = 0
-        expected_idle_count = 0
-        for line in bgp_summary:
-            if "Idle (Admin)" in line:
-                idle_count += 1
-
-            if "Total number of neighbors" in line:
-                tokens = line.split()
-                expected_idle_count = int(tokens[-1])
-
-        return idle_count == expected_idle_count
-
-    pytest_assert(wait_until(30, 3, ready_for_swap), "Docker and/or BGP failed to shut down")
+    pytest_assert(
+        wait_until(30, 3, ready_for_swap),
+        "Docker and/or BGP failed to shut down"
+    )
 
     registry = load_docker_registry_info(dut, creds)
     download_image(dut, registry, docker_rpc_image, sonic_version)
@@ -170,39 +167,42 @@ def swap_syncd(dut, creds):
     _LOGGER.info("Reloading config and restarting swss...")
     config_reload(dut)
 
-
 def restore_default_syncd(dut, creds):
     """
-        Replaces the running syncd with the default syncd that comes with the image.
+        Replaces the running syncd with the default syncd that comes with the
+        image.
 
         This will restart the swss service.
 
         Args:
             dut (SonicHost): The target device.
     """
-
     if is_broadcom_device(dut):
         vendor_id = "brcm"
     elif is_mellanox_device(dut):
         vendor_id = "mlnx"
     else:
-        error_message = "\"{}\" is not currently supported".format(dut.facts["asic_type"])
+        error_message = "\"{}\" is not currently supported".format(
+            dut.facts["asic_type"]
+        )
         _LOGGER.error(error_message)
         raise ValueError(error_message)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
 
-    dut.command("systemctl stop swss")
-    delete_container(dut, "syncd")
+    dut.stop_service("swss")
+    dut.delete_container("syncd")
 
     # TODO: Getting the base image version should be a common utility
-    output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
+    output = dut.command(
+        "sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version"
+    )
     sonic_version = output["stdout_lines"][0].strip()
 
-    tag_image(dut,
-              "{}:latest".format(docker_syncd_name),
-              docker_syncd_name,
-              sonic_version)
+    tag_image(
+        dut, "{}:latest".format(docker_syncd_name), docker_syncd_name,
+        sonic_version
+    )
 
     _LOGGER.info("Reloading config and restarting swss...")
     config_reload(dut)
@@ -210,4 +210,6 @@ def restore_default_syncd(dut, creds):
     # Remove the RPC image from the DUT
     docker_rpc_image = docker_syncd_name + "-rpc"
     registry = load_docker_registry_info(dut, creds)
-    dut.command("docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, sonic_version))
+    dut.command("docker rmi {}/{}:{}".format(
+        registry.host, docker_rpc_image, sonic_version
+    ))
