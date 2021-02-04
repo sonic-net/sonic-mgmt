@@ -9,9 +9,7 @@ import utilities.utils as utils_obj
 import apis.system.interface as intf_obj
 import apis.common.asic as asicapi
 import apis.routing.ip as ip_obj
-import apis.system.basic as basic_obj
-from apis.system.sflow import enable_disable_config, verify_config
-from utilities.common import filter_and_select, sprint_vtable, random_vlan_list
+from utilities.common import filter_and_select, sprint_vtable, random_vlan_list, make_list
 
 @pytest.fixture(scope="module", autouse=True)
 def sanity_l2_module_hooks(request):
@@ -22,7 +20,6 @@ def sanity_l2_module_hooks(request):
 def sanity_l2_func_hooks(request):
     yield
 
-global base_line_final_result
 base_line_final_result = {
     'test_base_line_portchannel_create_delete': 'NA',
     'test_base_line_random_link_flap_portchannel': 'NA',
@@ -48,6 +45,17 @@ data.post_wait_time_stop = 5
 data.post_wait_time_clear = 1
 data.post_wait_time_create = 2
 data.clear_parallel = True
+
+tg_info = dict()
+
+
+def debug_cmds(dut_in=None):
+    st.log("Debug prints.....")
+    dut_list = dut_in or st.get_dut_names()
+    for dut in make_list(dut_list):
+        asicapi.dump_vlan(dut)
+        asicapi.dump_l2(dut)
+        asicapi.dump_trunk(dut)
 
 
 @pytest.mark.base_test_sanity
@@ -89,20 +97,39 @@ def test_base_line_portchannel_create_delete():
     st.log("Sending VLAN traffic and verifying the stats")
     tg1.tg_traffic_control(action='reset', port_handle=data.port_hand_list)
     tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
-    tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps, mac_src=data.source_mac,
+    rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps, mac_src=data.source_mac,
                           mac_src_mode="increment",
                           mac_src_count=data.mac_addr_cnt, transmit_mode="continuous",
                           mac_src_step="00:00:00:00:00:01", mac_dst=data.destination_mac, mac_dst_mode="increment",
                           mac_dst_count=data.mac_addr_cnt, mac_dst_step="00:00:00:00:00:01",
                           l2_encap='ethernet_ii_vlan',
                           vlan_id=data.vlan_id, vlan="enable")
-    tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', rate_pps=data.rate_pps, mac_src=data.destination_mac,
+    tg_info['tg1_stream_id'] = rv['stream_id']
+    rv_1 = tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', rate_pps=data.rate_pps, mac_src=data.destination_mac,
                           mac_src_mode="increment",
                           mac_src_count=data.mac_addr_cnt, transmit_mode="continuous",
                           mac_src_step="00:00:00:00:00:01", mac_dst=data.source_mac, mac_dst_mode="increment",
                           mac_dst_count=data.mac_addr_cnt, mac_dst_step="00:00:00:00:00:01",
                           l2_encap='ethernet_ii_vlan',
                           vlan_id=data.vlan_id, vlan="enable")
+    tg_info['tg2_stream_id'] = rv_1['stream_id']
+    stream_list = [tg_info['tg1_stream_id'], tg_info['tg2_stream_id']]
+    traffic_details = {
+        '1': {
+            'tx_ports': [vars.T1D1P1],
+            'tx_obj': [tg1],
+            'exp_ratio': [1],
+            'rx_ports': [vars.T1D2P1],
+            'rx_obj': [tg1],
+        },
+        '2': {
+            'tx_ports': [vars.T1D2P1],
+            'tx_obj': [tg1],
+            'exp_ratio': [1],
+            'rx_ports': [vars.T1D1P1],
+            'rx_obj': [tg1],
+        }
+    }
     if sub_test_1:
         st.log("#"*90)
         st.log("############# Sub test 1: test_base_line_portchannel_create_delete - START  ################")
@@ -115,11 +142,11 @@ def test_base_line_portchannel_create_delete():
             for dut in topology:
                 all_ports = topology[dut]["ports"] + [topology[dut]["TGports"]]
                 for each_port in all_ports:
-                    if not intf_obj.verify_interface_status(dut, each_port, 'oper', 'up'):
+                    if not intf_obj.poll_for_interface_status(dut, each_port, 'oper', 'up', iteration=5, delay=1):
                         intf_obj.interface_shutdown(dut, each_port)
                         st.wait(data.post_link_shutdown_wait_time)
                         intf_obj.interface_noshutdown(dut, each_port)
-                        if not intf_obj.verify_interface_status(dut, each_port, 'oper', 'up'):
+                        if not intf_obj.poll_for_interface_status(dut, each_port, 'oper', 'up', iteration=5, delay=1):
                             st.error('{} interface is down on dut'.format(each_port))
                             assert False
 
@@ -130,10 +157,11 @@ def test_base_line_portchannel_create_delete():
                 vlan_obj.create_vlan(dut, data.vlan_id)
                 vlan_obj.add_vlan_member(dut, data.vlan_id, [topology[dut]["TGports"], data.portChannelName], True)
 
-                assert vlan_obj.verify_vlan_config(dut, data.vlan_id, tagged=[topology[dut]["TGports"],
-                                                                              data.portChannelName]), \
+                if not vlan_obj.verify_vlan_config(dut, data.vlan_id, tagged=[topology[dut]["TGports"],
+                                                                              data.portChannelName]):
                     st.log("vlan tagged member fail on port {},vlan {}".format([topology[dut]["TGports"],
                                                                                 data.portChannelName], data.vlan_id))
+                    assert False
 
             st.log("Verifying the Port channel status - Initially")
             for dut in topology:
@@ -151,45 +179,25 @@ def test_base_line_portchannel_create_delete():
             st.wait(data.wait_post_port_channel_up)
 
             #Workaround added for intermittent issue seen on vSonic - when load on server is more
-            if basic_obj.is_vsonic_device(vars.D1):
+            if st.is_vsonic(vars.D1):
                 st.log("Priming BCMSIM w/ traffic to enable mac learning")
-                tg1.tg_traffic_control(action='run', port_handle=data.port_hand_list)
+                tg1.tg_traffic_control(action='run', stream_handle=stream_list)
                 st.wait(data.post_wait_time_run)
-                tg1.tg_traffic_control(action='stop', port_handle=data.port_hand_list)
+                tg1.tg_traffic_control(action='stop', stream_handle=stream_list)
                 st.wait(data.post_wait_time_stop)
                 tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
             #workaround end
 
             st.log("Sending VLAN traffic and verifying the stats")
-            tg1.tg_traffic_control(action='run', port_handle=data.port_hand_list)
+            tg1.tg_traffic_control(action='run', stream_handle=stream_list)
             st.wait(data.post_wait_time_run)
-            tg1.tg_traffic_control(action='stop', port_handle=data.port_hand_list)
-            st.wait(data.post_wait_time_stop)
+            tg1.tg_traffic_control(action='stop', stream_handle=stream_list)
 
-            stats_tg1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_tx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-            total_rx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            tx_tg1_95_precentage = (95 * int(total_tx_tg1)) / 100
-            stats_tg2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            total_tx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['tx']['total_pkts'])
-            tx_tg2_95_precentage = (95 * int(total_tx_tg2)) / 100
-            st.log('total_tx_tg1 = {}'.format(total_tx_tg1))
-            st.log('tx_tg1_95_precentage = {}'.format(tx_tg1_95_precentage))
-            st.log('total_rx_tg1 = {}'.format(total_rx_tg1))
-            st.log('total_tx_tg2 = {}'.format(total_tx_tg2))
-            st.log('tx_tg2_95_precentage = {}'.format(tx_tg2_95_precentage))
-            st.log('total_rx_tg2 = {}'.format(total_rx_tg2))
-            assert tx_tg1_95_precentage <= total_rx_tg2, st.log("traffic_verification_failed")
-            assert tx_tg2_95_precentage <= total_rx_tg1, st.log("traffic_verification_failed")
+            if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
+                                               comp_type='packet_count'):
+                debug_cmds()
+                st.report_fail("failed_traffic_verification")
             st.log("Traffic test passed..")
-
-            st.log("Debug prints.....")
-            for dut in topology:
-                asicapi.dump_vlan(dut)
-                asicapi.dump_l2(dut)
-                asicapi.dump_trunk(dut)
-
             st.log("Validating MAC table..")
             dut1_mac_address_list = utils_obj.get_mac_address(data.source_mac, start=0, end=data.mac_addr_cnt)
             dut2_mac_address_list = utils_obj.get_mac_address(data.destination_mac, start=0, end=data.mac_addr_cnt)
@@ -227,27 +235,14 @@ def test_base_line_portchannel_create_delete():
             st.log("Traffic checking post port channel create and delete")
             tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
             st.wait(data.post_wait_time_clear)
-            tg1.tg_traffic_control(action='run', port_handle=data.port_hand_list)
+            tg1.tg_traffic_control(action='run', stream_handle=stream_list)
             st.wait(data.post_wait_time_run)
-            tg1.tg_traffic_control(action='stop', port_handle=data.port_hand_list)
-            st.wait(data.post_wait_time_stop)
+            tg1.tg_traffic_control(action='stop', stream_handle=stream_list)
 
-            stats_tg1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_tx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-            total_rx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            tx_tg1_95_precentage = (95 * int(total_tx_tg1)) / 100
-            stats_tg2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            total_tx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['tx']['total_pkts'])
-            tx_tg2_95_precentage = (95 * int(total_tx_tg2)) / 100
-            st.log('total_tx_tg1 = {}'.format(total_tx_tg1))
-            st.log('tx_tg1_95_precentage = {}'.format(tx_tg1_95_precentage))
-            st.log('total_rx_tg1 = {}'.format(total_rx_tg1))
-            st.log('total_tx_tg2 = {}'.format(total_tx_tg2))
-            st.log('tx_tg2_95_precentage = {}'.format(tx_tg2_95_precentage))
-            st.log('total_rx_tg2 = {}'.format(total_rx_tg2))
-            assert tx_tg1_95_precentage <= total_rx_tg2, st.log("traffic_verification_failed")
-            assert tx_tg2_95_precentage <= total_rx_tg1, st.log("traffic_verification_failed")
+            if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
+                                               comp_type='packet_count'):
+                debug_cmds()
+                st.report_fail("failed_traffic_verification")
 
             st.log("Traffic test passed..")
             st.log("Sub test 1 : PASSED")
@@ -304,27 +299,13 @@ def test_base_line_portchannel_create_delete():
             st.log("Verifying L2 tagged traffic forwarding on Port channel")
             tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
             st.wait(data.post_wait_time_clear)
-            tg1.tg_traffic_control(action='run', port_handle=data.port_hand_list)
+            tg1.tg_traffic_control(action='run', stream_handle=stream_list)
             st.wait(data.post_wait_time_run)
-            tg1.tg_traffic_control(action='stop', port_handle=data.port_hand_list)
-            st.wait(data.post_wait_time_stop)
-
-            stats_tg1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_tx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-            total_rx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            tx_tg1_95_precentage = (95 * int(total_tx_tg1)) / 100
-            stats_tg2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            total_tx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['tx']['total_pkts'])
-            tx_tg2_95_precentage = (95 * int(total_tx_tg2)) / 100
-            st.log('total_tx_tg1 = {}'.format(total_tx_tg1))
-            st.log('tx_tg1_95_precentage = {}'.format(tx_tg1_95_precentage))
-            st.log('total_rx_tg1 = {}'.format(total_rx_tg1))
-            st.log('total_tx_tg2 = {}'.format(total_tx_tg2))
-            st.log('tx_tg2_95_precentage = {}'.format(tx_tg2_95_precentage))
-            st.log('total_rx_tg2 = {}'.format(total_rx_tg2))
-            assert tx_tg1_95_precentage <= total_rx_tg2, st.log("traffic_verification_failed")
-            assert tx_tg2_95_precentage <= total_rx_tg1, st.log("traffic_verification_failed")
+            tg1.tg_traffic_control(action='stop', stream_handle=stream_list)
+            if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
+                                               comp_type='packet_count'):
+                debug_cmds()
+                st.report_fail("failed_traffic_verification")
             st.log("Traffic test passed..")
 
             st.log("Sub test 3 : PASSED")
@@ -350,10 +331,11 @@ def test_base_line_portchannel_create_delete():
             for dut in topology:
                 vlan_obj.create_vlan(dut, data.vlan_id)
                 vlan_obj.add_vlan_member(dut, data.vlan_id, [topology[dut]["TGports"], data.portChannelName], True)
-                assert vlan_obj.verify_vlan_config(dut, data.vlan_id, tagged=[topology[dut]["TGports"],
-                                                                              data.portChannelName]), \
+                if not vlan_obj.verify_vlan_config(dut, data.vlan_id, tagged=[topology[dut]["TGports"],
+                                                                              data.portChannelName]):
                     st.log("vlan tagged member fail on port {} ,vlan {}".format([topology[dut]["TGports"],
                                                                                  data.portChannelName], data.vlan_id))
+                    assert False
 
             st.log("Verifying the Port channel status")
             for dut in topology:
@@ -372,44 +354,26 @@ def test_base_line_portchannel_create_delete():
             st.log("Sending VLAN traffic and verifying the stats")
             tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
             st.wait(data.post_wait_time_clear)
-            tg1.tg_traffic_control(action='run', port_handle=data.port_hand_list)
+            tg1.tg_traffic_control(action='run', stream_handle=stream_list)
             st.wait(data.post_wait_time_run)
-            tg1.tg_traffic_control(action='stop', port_handle=data.port_hand_list)
-            st.wait(data.post_wait_time_stop)
-
-            stats_tg1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_tx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-            total_rx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            tx_tg1_95_precentage = (95 * int(total_tx_tg1)) / 100
-            stats_tg2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            total_tx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['tx']['total_pkts'])
-            tx_tg2_95_precentage = (95 * int(total_tx_tg2)) / 100
-            st.log('total_tx_tg1 = {}'.format(total_tx_tg1))
-            st.log('tx_tg1_95_precentage = {}'.format(tx_tg1_95_precentage))
-            st.log('total_rx_tg1 = {}'.format(total_rx_tg1))
-            st.log('total_tx_tg2 = {}'.format(total_tx_tg2))
-            st.log('tx_tg2_95_precentage = {}'.format(tx_tg2_95_precentage))
-            st.log('total_rx_tg2 = {}'.format(total_rx_tg2))
-            assert tx_tg1_95_precentage <= total_rx_tg2, st.log("traffic_verification_failed")
-            assert tx_tg2_95_precentage <= total_rx_tg1, st.log("traffic_verification_failed")
+            tg1.tg_traffic_control(action='stop', stream_handle=stream_list)
+            if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
+                                               comp_type='packet_count'):
+                debug_cmds()
+                st.report_fail("failed_traffic_verification")
             st.log("Traffic test passed..")
-
-            st.log("Debug prints.....")
-            for dut in topology:
-                asicapi.dump_vlan(dut)
-                asicapi.dump_l2(dut)
-                asicapi.dump_trunk(dut)
 
             st.log("Validating MAC table..")
             dut1_mac_address_list = utils_obj.get_mac_address(data.source_mac, start=0, end=data.mac_addr_cnt)
             dut2_mac_address_list = utils_obj.get_mac_address(data.destination_mac, start=0, end=data.mac_addr_cnt)
             complete_mac_address_list = dut1_mac_address_list + dut2_mac_address_list
 
-            assert mac_obj.verify_mac_address(vars.D1, data.vlan_id, complete_mac_address_list), \
+            if not mac_obj.verify_mac_address(vars.D1, data.vlan_id, complete_mac_address_list):
                 st.log("mac_address_verification_fail")
-            assert mac_obj.verify_mac_address(vars.D2, data.vlan_id, complete_mac_address_list), \
+                assert False
+            if not mac_obj.verify_mac_address(vars.D2, data.vlan_id, complete_mac_address_list):
                 st.log("mac_address_verification_fail")
+                assert False
             st.log("MAC table validation passed..")
 
             st.log("Sub test 4 : PASSED")
@@ -434,10 +398,11 @@ def test_base_line_portchannel_create_delete():
             for dut in topology:
                 vlan_obj.create_vlan(dut, data.vlan_id)
                 vlan_obj.add_vlan_member(dut, data.vlan_id, [topology[dut]["TGports"], data.portChannelName], False)
-                assert vlan_obj.verify_vlan_config(dut, data.vlan_id, untagged=[topology[dut]["TGports"],
-                                                                                data.portChannelName]), \
+                if not vlan_obj.verify_vlan_config(dut, data.vlan_id, untagged=[topology[dut]["TGports"],
+                                                                                data.portChannelName]):
                     st.log("vlan tagged member fail on port {} ,vlan {}".format([topology[dut]["TGports"],
                                                                                  data.portChannelName], data.vlan_id))
+                    assert False
 
             st.log("Verifying the Port channel status")
             for dut in topology:
@@ -451,53 +416,29 @@ def test_base_line_portchannel_create_delete():
                     st.log("port channel {} on DUT {} state fail with {}".format(data.portChannelName, dut, "up"))
             st.wait(data.wait_post_port_channel_up)
 
-            st.log("Debug prints.....")
-            for dut in topology:
-                asicapi.dump_vlan(dut)
-                asicapi.dump_l2(dut)
-                asicapi.dump_trunk(dut)
-
             st.log("Sending VLAN traffic and verifying the stats")
             tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
             st.wait(data.post_wait_time_clear)
-            tg1.tg_traffic_control(action='run', port_handle=data.port_hand_list)
+            tg1.tg_traffic_control(action='run', stream_handle=stream_list)
             st.wait(data.post_wait_time_run)
-            tg1.tg_traffic_control(action='stop', port_handle=data.port_hand_list)
-            st.wait(data.post_wait_time_stop)
-
-            stats_tg1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_tx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-            total_rx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            tx_tg1_95_precentage = (95 * int(total_tx_tg1)) / 100
-            stats_tg2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            total_tx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['tx']['total_pkts'])
-            tx_tg2_95_precentage = (95 * int(total_tx_tg2)) / 100
-            st.log('total_tx_tg1 = {}'.format(total_tx_tg1))
-            st.log('tx_tg1_95_precentage = {}'.format(tx_tg1_95_precentage))
-            st.log('total_rx_tg1 = {}'.format(total_rx_tg1))
-            st.log('total_tx_tg2 = {}'.format(total_tx_tg2))
-            st.log('tx_tg2_95_precentage = {}'.format(tx_tg2_95_precentage))
-            st.log('total_rx_tg2 = {}'.format(total_rx_tg2))
-            assert tx_tg1_95_precentage <= total_rx_tg2, st.log("traffic_verification_failed")
-            assert tx_tg2_95_precentage <= total_rx_tg1, st.log("traffic_verification_failed")
+            tg1.tg_traffic_control(action='stop', stream_handle=stream_list)
+            if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
+                                               comp_type='packet_count'):
+                debug_cmds()
+                st.report_fail("failed_traffic_verification")
             st.log("Traffic test passed..")
-
-            st.log("Debug prints.....")
-            for dut in topology:
-                asicapi.dump_vlan(dut)
-                asicapi.dump_l2(dut)
-                asicapi.dump_trunk(dut)
 
             st.log("Validating MAC table..")
             dut1_mac_address_list = utils_obj.get_mac_address(data.source_mac, start=0, end=data.mac_addr_cnt)
             dut2_mac_address_list = utils_obj.get_mac_address(data.destination_mac, start=0, end=data.mac_addr_cnt)
             complete_mac_address_list = dut1_mac_address_list + dut2_mac_address_list
 
-            assert mac_obj.verify_mac_address(vars.D1, data.vlan_id, complete_mac_address_list), \
+            if not mac_obj.verify_mac_address(vars.D1, data.vlan_id, complete_mac_address_list):
                 st.log("mac_address_verification_fail")
-            assert mac_obj.verify_mac_address(vars.D2, data.vlan_id, complete_mac_address_list), \
+                assert False
+            if not mac_obj.verify_mac_address(vars.D2, data.vlan_id, complete_mac_address_list):
                 st.log("mac_address_verification_fail")
+                assert False
             st.log("MAC table validation passed..")
 
             st.log("Sub test 5 : PASSED")
@@ -616,7 +557,7 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
     data.vlan_1 = random_vlan_list()[0]
     data.tagged_members = [vars.D1T1P1, vars.D1T1P3]
     data.tagged_members_1 = [vars.D1T1P2, vars.D1T1P3]
-    data.ageing_time = 20
+    data.aging_time = 20
     data.age_out_mac_addr = "00:00:00:00:00:09"
     data.vlan_id = str(random_vlan_list()[0])
     data.mac_addr_cnt = 2
@@ -645,59 +586,121 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
             st.log("Create and configure Vlan and adding member as tagged members.")
             vlan_obj.create_vlan(vars.D1, data.vlan)
             vlan_obj.add_vlan_member(vars.D1, data.vlan, data.tg_con_interface, True)
-            assert vlan_obj.verify_vlan_config(vars.D1, data.vlan, tagged=data.tg_con_interface), \
+            if not vlan_obj.verify_vlan_config(vars.D1, data.vlan, tagged=data.tg_con_interface):
                 st.log("vlan tagged member fail on port {} ,vlan {}".format(data.tg_con_interface, data.vlan))
+                assert False
 
             st.log("Start testing the bum traffic ...")
             mac_addr_list = {"Broadcast": data.broacast_mac, "Multicast": data.multicast_mac,
                              "Unknown": data.unknown_mac}
             mac_incr_cnt = 7
-            final_total_tx_tg1 = 0
-            st.log("Clearing TG config ")
-            tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
-            for mac_addr in mac_addr_list:
-                st.log("Start '{}' traffic test with destination MAC = {}".format(mac_addr, mac_addr_list[mac_addr]))
-                new_src_mac = "00:00:00:00:09:4{}".format(mac_incr_cnt)
-
+            tg_info = {}
+            result = True
+            if st.is_soft_tgen():
+                for mac_addr in mac_addr_list:
+                    st.log(
+                        "Start '{}' traffic test with destination MAC = {}".format(mac_addr, mac_addr_list[mac_addr]))
+                    new_src_mac = ("00:00:00:00:09:4{}".format(mac_incr_cnt))
+                    tg1.tg_traffic_control(action='reset')
+                    rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps,
+                                               mac_src=new_src_mac, vlan_id=data.vlan, vlan="enable",
+                                               transmit_mode="continuous", mac_dst=mac_addr_list[mac_addr],
+                                               l2_encap='ethernet_ii_vlan')
+                    tg_info[mac_addr] = rv['stream_id']
+                    mac_incr_cnt += 1
+                    tg1.tg_traffic_control(action='clear_stats')
+                    st.log("Sending traffic and verifying the stats")
+                    tg1.tg_traffic_control(stream_handle=tg_info[mac_addr], action='run')
+                    st.wait(data.post_wait_time_run)
+                    tg1.tg_traffic_control(stream_handle=tg_info[mac_addr], action='stop')
+                    traffic_details = {
+                        '1': {
+                            'tx_ports': [vars.T1D1P1],
+                            'tx_obj': [tg1],
+                            'exp_ratio': [1],
+                            'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                            'rx_obj': [tg1, tg1]
+                        }
+                    }
+                    intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P1)
+                    intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P2)
+                    intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P3)
+                    st.log('MAC address validation.')
+                    if not mac_obj.verify_mac_address_table(vars.D1, new_src_mac, port=vars.D1T1P1):
+                        st.error("MAC '{}' is failed to learn in port = {}".format(new_src_mac, vars.D1T1P1))
+                        assert False
+                    st.log('MAC address validation passed.')
+                    result1 = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
+                                                          comp_type='packet_count')
+                    result = result and result1
+                    if result1:
+                        st.log("Traffic successfully forwarded for the traffic type {}".format(mac_addr))
+                    else:
+                        st.error("Traffic failed to forwarded for the traffic type {}".format(mac_addr))
+            else:
+                new_src_mac = []
                 st.log("Reseting and creating the traffic stream.")
                 tg1.tg_traffic_control(port_handle=tg_ph_1, action='reset')
-                tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps, mac_src=new_src_mac,
-                                      transmit_mode="continuous", mac_dst=mac_addr_list[mac_addr],
-                                      l2_encap='ethernet_ii_vlan',
-                                      vlan_id=data.vlan, vlan="enable")
+                for mac_addr in mac_addr_list:
+                    st.log(
+                        "Start '{}' traffic test with destination MAC = {}".format(mac_addr, mac_addr_list[mac_addr]))
+                    new_src_mac.append("00:00:00:00:09:4{}".format(mac_incr_cnt))
+                    rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps,
+                                               mac_src=new_src_mac[-1], vlan_id=data.vlan, vlan="enable",
+                                               transmit_mode="continuous", mac_dst=mac_addr_list[mac_addr],
+                                               l2_encap='ethernet_ii_vlan', port_handle2=[tg_ph_1, tg_ph_2, tg_ph_3])
+                    tg_info[mac_addr] = rv['stream_id']
+                    mac_incr_cnt += 1
                 st.log("Sending traffic and verifying the stats")
-                tg1.tg_traffic_control(port_handle=tg_ph_1, action='run')
+                tg1.tg_traffic_control(action='clear_stats', stream_handle=tg_info.values())
+                tg1.tg_traffic_control(stream_handle=tg_info.values(), action='run')
                 st.wait(data.post_wait_time_run)
-                tg1.tg_traffic_control(port_handle=tg_ph_1, action='stop')
-                st.wait(data.post_wait_time_stop)
-                stats_tg1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode="aggregate")
-                total_tx_tg1 = int(stats_tg1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-                final_total_tx_tg1 += total_tx_tg1
-                st.log("total_tx_tg1 = {}".format(total_tx_tg1))
-
+                tg1.tg_traffic_control(stream_handle=tg_info.values(), action='stop')
+                traffic_details = {
+                    '1': {
+                        'tx_ports': [vars.T1D1P1],
+                        'tx_obj': [tg1],
+                        'exp_ratio': [2],
+                        'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                        'rx_obj': [tg1, tg1],
+                        'stream_list': [[tg_info['Unknown']]]
+                    },
+                    '2': {
+                        'tx_ports': [vars.T1D1P1],
+                        'tx_obj': [tg1],
+                        'exp_ratio': [2],
+                        'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                        'rx_obj': [tg1, tg1],
+                        'stream_list': [[tg_info['Broadcast']]]
+                    },
+                    '3': {
+                        'tx_ports': [vars.T1D1P1],
+                        'tx_obj': [tg1],
+                        'exp_ratio': [2],
+                        'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                        'rx_obj': [tg1, tg1],
+                        'stream_list': [[tg_info['Multicast']]]
+                    }
+                }
+                intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P1)
+                intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P2)
+                intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P3)
                 st.log('MAC address validation.')
-                if not mac_obj.verify_mac_address_table(vars.D1, new_src_mac, port=vars.D1T1P1):
-                    st.error("MAC '{}' is failed to learn in port = {}".format(new_src_mac, vars.D1T1P1))
-                    assert False
+                for mac in new_src_mac:
+                    if not mac_obj.verify_mac_address_table(vars.D1, mac, port=vars.D1T1P1):
+                        st.error("MAC '{}' is failed to learn in port = {}".format(mac, vars.D1T1P1))
+                        assert False
                 st.log('MAC address validation passed.')
-                mac_incr_cnt += 1
-
-            tx_tg1_95_precentage = (95 * int(final_total_tx_tg1)) / 100
-            stats_tg2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode="aggregate")
-            total_rx_tg2 = int(stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            stats_tg3 = tg3.tg_traffic_stats(port_handle=tg_ph_3, mode="aggregate")
-            total_rx_tg3 = int(stats_tg3[tg_ph_3]['aggregate']['rx']['total_pkts'])
-            st.log("final_total_tx_tg1 = {}".format(final_total_tx_tg1))
-            st.log("tx_tg1_95_precentage = {}".format(tx_tg1_95_precentage))
-            st.log("total_rx_tg2 = {}".format(total_rx_tg2))
-            st.log("total_rx_tg3 = {}".format(total_rx_tg3))
-            intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P1)
-            intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P2)
-            intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P3)
-            if not tx_tg1_95_precentage <= total_rx_tg2:
-                st.error("traffic_verification_failed")
-                assert False
-            if not tx_tg1_95_precentage <= total_rx_tg3:
+                # Sending BUM traffic from one port and verifying on other two ports. Providing rx_ports as a input to port_handle2 param, the rx count would be double the tx count
+                result_all = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='streamblock',
+                                                         comp_type='packet_count', return_all=1)
+                for result1, traffic_type in zip(result_all[1], ['Unknown', 'Broadcast', 'Multicast']):
+                    result = result and result1
+                    if result1:
+                        st.log("Traffic successfully forwarded for the traffic type {}".format(traffic_type))
+                    else:
+                        st.error("Traffic failed to forwarded for the traffic type {}".format(traffic_type))
+            if not result:
                 st.error("traffic_verification_failed")
                 assert False
             st.log("Traffic test passed..")
@@ -728,11 +731,12 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
             # Expected - Verify that MAC address 00:00:00:00:11:11 learned on port 1.
             st.log("Reseting ,creating and start the traffic stream on TG1.")
             tg1.tg_traffic_control(action='reset', port_handle=tg_ph_1)
-            tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=1, mac_src='00:00:00:00:11:11',
-                                  transmit_mode="continuous", mac_dst='00:00:00:00:00:22',
+            rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', mac_src='00:00:00:00:11:11',
+                                  transmit_mode="single_pkt", mac_dst='00:00:00:00:00:22',
                                   l2_encap='ethernet_ii_vlan', vlan_id=data.vlan, vlan="enable")
+            tg_info['tg1_stream_id'] = rv['stream_id']
             st.wait(data.post_wait_time_create)
-            tg1.tg_traffic_control(action='run', port_handle=tg_ph_1)
+            tg1.tg_traffic_control(action='run', stream_handle=tg_info['tg1_stream_id'])
             st.wait(data.post_wait_time_run)
             intf_obj.show_interface_counters_all(vars.D1)
             st.log("Validating MAC table..")
@@ -740,7 +744,7 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
                 st.log("mac_address_verification_fail")
                 assert False
             st.log("MAC address validation passed.")
-            tg1.tg_traffic_control(action='stop', port_handle=tg_ph_1)
+            tg1.tg_traffic_control(action='stop', stream_handle=tg_info['tg1_stream_id'])
             st.wait(data.post_wait_time_stop)
 
             # Step 3
@@ -748,56 +752,50 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
             # Expected - Verify that MAC address 00:00:00:00:11:11 learned on port 1 flushed out and learned on port 2"
             st.log("Reseting ,creating and start the traffic stream on TG2.")
             tg2.tg_traffic_control(action='reset', port_handle=tg_ph_2)
-            tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', rate_pps=1, mac_src='00:00:00:00:11:11',
-                                  transmit_mode="continuous", mac_dst='00:00:00:00:00:22',
+            rv_1 = tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', mac_src='00:00:00:00:11:11',
+                                  transmit_mode="single_pkt", mac_dst='00:00:00:00:00:22',
                                   l2_encap='ethernet_ii_vlan', vlan_id=data.vlan, vlan="enable")
+            tg_info['tg2_stream_id'] = rv_1['stream_id']
             st.wait(data.post_wait_time_create)
-            tg2.tg_traffic_control(action='run', port_handle=tg_ph_2)
+            tg2.tg_traffic_control(action='run', stream_handle=tg_info['tg2_stream_id'])
             st.wait(data.post_wait_time_run)
             st.log("Validating MAC table..")
             intf_obj.show_interface_counters_all(vars.D1)
             st.log("Checking the stats for tx TG")
-            stats1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_tx1 = int(stats1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-            stats2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_tx2 = int(stats2[tg_ph_2]['aggregate']['tx']['total_pkts'])
-            st.log("looping to verify traffic is sent or not")
-            for i in range(1,5,1):
-                if total_tx1 and total_tx2 == 0:
-                    st.wait(data.post_wait_time_run)
+            tgapi.get_traffic_stats(tg1, port_handle=tg_ph_2, mode="aggregate", direction='tx')
 
-                if mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan, port=vars.D1T1P1):
-                    st.error("failed_clear_mac_learned_on first port")
-                    assert False
-                if not mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan, port=vars.D1T1P2):
-                    st.error("failed_to_learn_mac_after_move")
-                    assert False
-                st.log("MAC address validation passed.")
-            tg2.tg_traffic_control(action='stop', port_handle=tg_ph_2)
+            if mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan, port=vars.D1T1P1):
+                st.error("failed_clear_mac_learned_on first port")
+                assert False
+            if not mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan, port=vars.D1T1P2):
+                st.error("failed_to_learn_mac_after_move")
+                assert False
+            st.log("MAC address validation passed.")
+            tg2.tg_traffic_control(action='stop', stream_handle=tg_info['tg2_stream_id'])
             st.wait(data.post_wait_time_stop)
 
             # Sending traffic to check if mac has moved or not.
             st.log("Reseting ,creating and start the traffic stream on TG3.")
             tg3.tg_traffic_control(action='reset', port_handle=tg_ph_3)
-            tg3.tg_traffic_config(port_handle=tg_ph_3, mode='create', rate_pps=100, mac_dst='00:00:00:00:11:11',
+            rv_2 = tg3.tg_traffic_config(port_handle=tg_ph_3, mode='create', rate_pps=100, mac_dst='00:00:00:00:11:11',
                                   transmit_mode="continuous", mac_src='00:00:00:00:00:33',
                                   l2_encap='ethernet_ii_vlan', vlan_id=data.vlan, vlan="enable")
+            tg_info['tg3_stream_id'] = rv_2['stream_id']
             st.wait(data.post_wait_time_create)
             tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
             st.wait(data.post_wait_time_clear)
-            st.wait(data.post_wait_time_create)
-            tg3.tg_traffic_control(action='run', port_handle=tg_ph_3)
+            tg3.tg_traffic_control(action='run', stream_handle=tg_info['tg3_stream_id'])
             st.wait(data.post_wait_time_run)
-            tg3.tg_traffic_control(action='stop', port_handle=tg_ph_3)
+            tg3.tg_traffic_control(action='stop', stream_handle=tg_info['tg3_stream_id'])
             st.wait(data.post_wait_time_stop)
             intf_obj.show_interface_counters_all(vars.D1)
             # stats fetching
-            stats1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_rx1 = int(stats1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            stats2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx2 = int(stats2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            stats3 = tg3.tg_traffic_stats(port_handle=tg_ph_3, mode='aggregate')
-            total_tx3 = int(stats3[tg_ph_3]['aggregate']['tx']['total_pkts'])
+            stats1 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_1, mode="aggregate")
+            total_rx1 = stats1.rx.total_packets
+            stats2 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_2, mode="aggregate")
+            total_rx2 = stats2.rx.total_packets
+            stats3 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_3, mode="aggregate", direction='tx')
+            total_tx3 = stats3.tx.total_packets
             st.log("Sent Packets On Port 3: {} and Received Packets On Port 1: {} and Received Packets "
                    "On Port 2: {}".format(total_tx3, total_rx1, total_rx2))
 
@@ -843,11 +841,12 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
             # Test - Start sending traffic from port 1 with mac address 00:00:00:00:11:11.
             # Expected - Verify that MAC address 00:00:00:00:11:11 learned on port 1.
             tg1.tg_traffic_control(action='reset', port_handle=tg_ph_1)
-            tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=1, mac_src='00:00:00:00:11:11',
-                                  transmit_mode="continuous", mac_dst='00:00:00:00:00:22',
+            rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', mac_src='00:00:00:00:11:11',
+                                  transmit_mode="single_pkt", mac_dst='00:00:00:00:00:22',
                                   l2_encap='ethernet_ii_vlan', vlan_id=data.vlan, vlan="enable")
+            tg_info['tg1_stream_id'] = rv['stream_id']
             st.wait(data.post_wait_time_create)
-            tg1.tg_traffic_control(action='run', port_handle=tg_ph_1)
+            tg1.tg_traffic_control(action='run', stream_handle=tg_info['tg1_stream_id'])
             st.wait(data.post_wait_time_run)
 
             st.log("Validating MAC table..")
@@ -856,63 +855,59 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
                 st.error("mac_failed_to_learn_on_firt_port")
                 assert False
             st.log("MAC address validation passed.")
-            tg1.tg_traffic_control(action='stop', port_handle=tg_ph_1)
+            tg1.tg_traffic_control(action='stop', stream_handle=tg_info['tg1_stream_id'])
 
             # Step 3
             # Test - Now start sending traffic from port 2 with same MAC address 00:00:00:00:11:11.
             # Expected - Verify that MAC address 00:00:00:00:11:11 learned on port 1 flushed out and learned on port 2"
             tg2.tg_traffic_control(action='reset', port_handle=tg_ph_2)
-            tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', rate_pps=1, mac_src='00:00:00:00:11:11',
-                                  transmit_mode="continuous", mac_dst='00:00:00:00:00:22',
+            rv_1 = tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', mac_src='00:00:00:00:11:11',
+                                  transmit_mode="single_pkt", mac_dst='00:00:00:00:00:22',
                                   l2_encap='ethernet_ii_vlan', vlan_id=data.vlan_1, vlan="enable")
+            tg_info['tg2_stream_id'] = rv_1['stream_id']
             st.wait(data.post_wait_time_create)
-            tg2.tg_traffic_control(action='run', port_handle=tg_ph_2)
+            tg2.tg_traffic_control(action='run', stream_handle=tg_info['tg2_stream_id'])
             st.wait(data.post_wait_time_run)
 
             st.log("Validating MAC table..")
             intf_obj.show_interface_counters_all(vars.D1)
             st.log("Checking the stats for tx TG")
-            stats1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_tx1 = int(stats1[tg_ph_1]['aggregate']['tx']['total_pkts'])
-            stats2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_tx2 = int(stats2[tg_ph_2]['aggregate']['tx']['total_pkts'])
-            st.log("looping to verify traffic is sent or not")
-            for i in range(1, 5, 1):
-                if total_tx1 and total_tx2 == 0:
-                    st.wait(data.post_wait_time_run)
-                if not mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan, port=vars.D1T1P1):
-                    st.error("mac_address_not_clear")
-                    assert False
-                st.log("MAC address validation passed.")
+            tgapi.get_traffic_stats(tg1, port_handle=tg_ph_2, mode="aggregate", direction='tx')
 
-                st.log("Validating MAC table..")
-                if not mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan_1, port=vars.D1T1P2):
-                    st.error("mac_failed_to_learn_on_second_port")
-                    assert False
-                st.log("MAC address validation passed.")
-            tg2.tg_traffic_control(action='stop', port_handle=tg_ph_2)
+            if not mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan, port=vars.D1T1P1):
+                st.error("mac_address_not_clear")
+                assert False
+            st.log("MAC address validation passed.")
+
+            st.log("Validating MAC table..")
+            if not mac_obj.verify_mac_address_table(vars.D1, "00:00:00:00:11:11", vlan=data.vlan_1, port=vars.D1T1P2):
+                st.error("mac_failed_to_learn_on_second_port")
+                assert False
+            st.log("MAC address validation passed.")
+            tg2.tg_traffic_control(action='stop', stream_handle=tg_info['tg2_stream_id'])
 
             # Sending traffic to check if mac has moved or not.
             tg3.tg_traffic_control(action='reset', port_handle=tg_ph_3)
-            tg3.tg_traffic_config(port_handle=tg_ph_3, mode='create', rate_pps=10, mac_dst='00:00:00:00:11:11',
+            rv_2 = tg3.tg_traffic_config(port_handle=tg_ph_3, mode='create', rate_pps=10, mac_dst='00:00:00:00:11:11',
                                   transmit_mode="continuous", mac_src='00:00:00:00:00:33',
                                   l2_encap='ethernet_ii_vlan', vlan_id=data.vlan, vlan="enable")
+            tg_info['tg3_stream_id'] = rv_2['stream_id']
             st.wait(data.post_wait_time_create)
             tg1.tg_traffic_control(action='clear_stats', port_handle=data.port_hand_list)
 
             st.wait(data.post_wait_time_clear)
-            tg3.tg_traffic_control(action='run', port_handle=tg_ph_3)
+            tg3.tg_traffic_control(action='run', stream_handle=tg_info['tg3_stream_id'])
             st.wait(data.post_wait_time_run)
-            tg3.tg_traffic_control(action='stop', port_handle=tg_ph_3)
+            tg3.tg_traffic_control(action='stop', stream_handle=tg_info['tg3_stream_id'])
             st.wait(data.post_wait_time_stop)
             intf_obj.show_interface_counters_all(vars.D1)
             # stats fetching
-            stats1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_rx1 = int(stats1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            stats2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx2 = int(stats2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            stats3 = tg3.tg_traffic_stats(port_handle=tg_ph_3, mode='aggregate')
-            total_tx3 = int(stats3[tg_ph_3]['aggregate']['tx']['total_pkts'])
+            stats1 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_1, mode="aggregate")
+            total_rx1 = stats1.rx.total_packets
+            stats2 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_2, mode="aggregate")
+            total_rx2 = stats2.rx.total_packets
+            stats3 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_3, mode="aggregate", direction='tx')
+            total_tx3 = stats3.tx.total_packets
 
             st.log("Sent Packets On Port 3: {} and Received Packets On Port 1: {} and Received Packets On"
                    " Port 2: {}".format(total_tx3, total_rx1, total_rx2))
@@ -934,22 +929,23 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
             st.wait(data.post_wait_time_clear)
 
             tg3.tg_traffic_control(action='reset', port_handle=tg_ph_3)
-            tg3.tg_traffic_config(port_handle=tg_ph_3, mode='create', rate_pps=10, mac_dst='00:00:00:00:11:11',
+            rv_2 = tg3.tg_traffic_config(port_handle=tg_ph_3, mode='create', rate_pps=10, mac_dst='00:00:00:00:11:11',
                                   transmit_mode="continuous", mac_src='00:00:00:00:00:33',
                                   l2_encap='ethernet_ii_vlan', vlan_id=data.vlan_1, vlan="enable")
+            tg_info['tg3_stream_id'] = rv_2['stream_id']
             st.wait(data.post_wait_time_create)
-            tg3.tg_traffic_control(action='run', port_handle=tg_ph_3)
+            tg3.tg_traffic_control(action='run', stream_handle=tg_info['tg3_stream_id'])
             st.wait(data.post_wait_time_run)
-            tg3.tg_traffic_control(action='stop', port_handle=tg_ph_3)
+            tg3.tg_traffic_control(action='stop', stream_handle=tg_info['tg3_stream_id'])
             st.wait(data.post_wait_time_stop)
             intf_obj.show_interface_counters_all(vars.D1)
             # stats fetching
-            stats1 = tg1.tg_traffic_stats(port_handle=tg_ph_1, mode='aggregate')
-            total_rx1 = int(stats1[tg_ph_1]['aggregate']['rx']['total_pkts'])
-            stats2 = tg2.tg_traffic_stats(port_handle=tg_ph_2, mode='aggregate')
-            total_rx2 = int(stats2[tg_ph_2]['aggregate']['rx']['total_pkts'])
-            stats3 = tg3.tg_traffic_stats(port_handle=tg_ph_3, mode='aggregate')
-            total_tx3 = int(stats3[tg_ph_3]['aggregate']['tx']['total_pkts'])
+            stats1 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_1, mode="aggregate")
+            total_rx1 = stats1.rx.total_packets
+            stats2 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_2, mode="aggregate")
+            total_rx2 = stats2.rx.total_packets
+            stats3 = tgapi.get_traffic_stats(tg1, port_handle=tg_ph_3, mode="aggregate", direction='tx')
+            total_tx3 = stats3.tx.total_packets
 
             st.log("Sent Packets On Port 3: {} and Received Packets On Port 1: {} and Received Packets "
                    "On Port 2: {}".format(total_tx3, total_rx1, total_rx2))
@@ -1023,19 +1019,3 @@ def test_base_line_mac_move_across_vlans():
     else:
         st.report_fail("test_case_not_executed")
 
-
-@pytest.mark.base_test_sanity
-@pytest.mark.base_test_sanity_optimize
-def test_base_line_sflow_config_global_enable_disable_klish():
-    """
-    To verify basic KLISH commands in base sanity.
-    """
-    vars = st.get_testbed_vars()
-    cli_type = 'klish'
-    enable_disable_config(vars.D1, action="enable", cli_type=cli_type)
-    if not verify_config(vars.D1, data=[{'state': 'up'}], cli_type=cli_type):
-        st.report_fail("test_case_failed")
-    enable_disable_config(vars.D1, action="disable", cli_type=cli_type)
-    if not verify_config(vars.D1, data=[{'state': 'down'}], cli_type=cli_type):
-        st.report_fail("test_case_failed")
-    st.report_pass("test_case_passed")

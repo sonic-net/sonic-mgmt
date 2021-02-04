@@ -1,12 +1,34 @@
-import json
 import argparse
 import inspect
+import json
+import os
+import sys
+import syslog
+
+# TODO: Clean this up once we no longer need to support Python 2
+if sys.version_info.major == 3:
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+else:
+    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+
 import sonic_platform
 
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-from io import BytesIO
+SYSLOG_IDENTIFIER = os.path.basename(__file__)
 
 platform = sonic_platform.platform.Platform()
+
+
+def obj_serialize(obj):
+    ''' JSON serializer for objects not serializable by default json library code
+        We simply return a dictionary containing the object's class and module
+    '''
+    syslog.syslog(syslog.LOG_WARNING, 'Unserializable object: {}.{}'.format(obj.__module__, obj.__class__.__name__))
+
+    data = {
+        '__class__': obj.__class__.__name__,
+        '__module__': obj.__module__
+    }
+    return data
 
 
 class PlatformAPITestService(BaseHTTPRequestHandler):
@@ -48,7 +70,13 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         obj = platform
         while len(path) != 1:
             _dir = path.pop()
-            args = inspect.getargspec(getattr(obj, 'get_' + _dir)).args
+
+            # TODO: Clean this up once we no longer need to support Python 2
+            if sys.version_info.major == 3:
+                args = inspect.getfullargspec(getattr(obj, 'get_' + _dir)).args
+            else:
+                args = inspect.getargspec(getattr(obj, 'get_' + _dir)).args
+
             if 'index' in args:
                 _idx = int(path.pop())
                 obj = getattr(obj, 'get_' + _dir)(_idx)
@@ -58,17 +86,24 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         api = path.pop()
         args = request['args']
 
-        res = getattr(obj, api)(*args)
+        res = None
 
-        response = BytesIO()
-        response.write(json.dumps({'res': res}))
+        try:
+            res = getattr(obj, api)(*args)
+        except NotImplementedError as e:
+            syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
 
-        self.wfile.write(response.getvalue())
+        self.wfile.write(json.dumps({'res': res}, default=obj_serialize).encode('utf-8'))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--port', type=int, help='port to listent to', required=True)
+    parser.add_argument('-p', '--port', type=int, help='port to listen to', required=True)
     args = parser.parse_args()
+
+    syslog.openlog(SYSLOG_IDENTIFIER)
+
     httpd = HTTPServer(('', args.port), PlatformAPITestService)
     httpd.serve_forever()
+
+    syslog.closelog()

@@ -1,0 +1,51 @@
+Value ms_op_lb_1 (\w+)
+Value ms_op_lb_2 (\w+)
+Value ms_op_lb_3 (\w+)
+Value ms_op_lb_4 (\w+)
+Value ms_op_lb_5 (\w+)
+Value ms_op_lb_6 (\w+)
+Value ms_op_lb_7 (\w+)
+Value ms_op_lb_8 (\w+)
+Value ms_ip_lb_1 (\w+)
+Value ms_ip_lb_2 (\w+)
+Value ms_ip_lb_3 (\w+)
+Value ms_ip_lb_4 (\w+)
+Value ms_ip_lb_5 (\w+)
+Value ms_ip_lb_6 (\w+)
+Value ms_ip_lb_7 (\w+)
+Value ms_ip_lb_8 (\w+)
+Value hs_op_lb_1 (\w+)
+Value hs_op_lb_2 (\w+)
+Value hs_op_lb_3 (\w+)
+Value hs_op_lb_4 (\w+)
+Value hs_op_lb_5 (\w+)
+Value hs_op_lb_6 (\w+)
+Value hs_op_lb_7 (\w+)
+Value hs_op_lb_8 (\w+)
+
+Start
+  ^\s*Media Side output loopback lane 1\s*${ms_op_lb_1}\s*$$
+  ^\s*Media Side output loopback lane 2\s*${ms_op_lb_2}\s*$$
+  ^\s*Media Side output loopback lane 3\s*${ms_op_lb_3}\s*$$
+  ^\s*Media Side output loopback lane 4\s*${ms_op_lb_4}\s*$$
+  ^\s*Media Side output loopback lane 5\s*${ms_op_lb_5}\s*$$
+  ^\s*Media Side output loopback lane 6\s*${ms_op_lb_6}\s*$$
+  ^\s*Media Side output loopback lane 7\s*${ms_op_lb_1}\s*$$
+  ^\s*Media Side output loopback lane 8\s*${ms_op_lb_8}\s*$$
+  ^\s*Media Side input loopback lane 1\s*${ms_ip_lb_1}\s*$$
+  ^\s*Media Side input loopback lane 2\s*${ms_ip_lb_2}\s*$$
+  ^\s*Media Side input loopback lane 3\s*${ms_ip_lb_3}\s*$$
+  ^\s*Media Side input loopback lane 4\s*${ms_ip_lb_4}\s*$$
+  ^\s*Media Side input loopback lane 5\s*${ms_ip_lb_5}\s*$$
+  ^\s*Media Side input loopback lane 6\s*${ms_ip_lb_6}\s*$$
+  ^\s*Media Side input loopback lane 7\s*${ms_ip_lb_7}\s*$$
+  ^\s*Media Side input loopback lane 8\s*${ms_ip_lb_8}\s*$$
+  ^\s*Host Side output loopback lane 1\s*${hs_op_lb_1}\s*$$ 
+  ^\s*Host Side output loopback lane 2\s*${hs_op_lb_2}\s*$$ 
+  ^\s*Host Side output loopback lane 3\s*${hs_op_lb_3}\s*$$ 
+  ^\s*Host Side output loopback lane 4\s*${hs_op_lb_4}\s*$$ 
+  ^\s*Host Side output loopback lane 5\s*${hs_op_lb_5}\s*$$ 
+  ^\s*Host Side output loopback lane 6\s*${hs_op_lb_6}\s*$$ 
+  ^\s*Host Side output loopback lane 7\s*${hs_op_lb_7}\s*$$ 
+  ^\s*Host Side output loopback lane 8\s*${hs_op_lb_8}\s*$$ -> Record
+

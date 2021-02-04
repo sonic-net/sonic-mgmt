@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import os
 import re
 import time
 import socket
@@ -7,16 +8,23 @@ import logging
 import telnetlib
 from netmiko.cisco_base_connection import CiscoBaseConnection
 
+import sys
+if sys.version_info[0] >= 3:
+    unicode = str
+
 show_trace = 0
-if show_trace > 1:
+def init_trace(val):
+    if val <= 0: return None
     logger = logging.getLogger('netmiko_connection')
     logger.setLevel(logging.DEBUG)
+    return logger
+logger = init_trace(show_trace)
 
 def trace(fmt, *args):
     if show_trace <= 0:
         return
     msg = fmt % args
-    if show_trace > 1:
+    if show_trace > 1 and logger:
         logger.info(msg)
     else:
         print(msg)
@@ -25,24 +33,83 @@ def dtrace(*args):
     if show_trace > 2:
         print(args)
 
+def get_delay_factor(current):
+    try: factor = float(os.getenv("SPYTEST_NETMIKO_DELAY_FACTOR", "1"))
+    except Exception: factor = 1.0
+    return current * factor
+
 class SonicBaseConnection(CiscoBaseConnection):
 
     def __init__(self, **kwargs):
+        self.trace_callback = None
+        self.trace_callback_arg1 = None
+        self.trace_callback_arg2 = None
+        self.cached_read_data = []
         self.net_login = kwargs.pop("net_login", None)
         self.net_devname = kwargs.pop("net_devname", None)
+        self.logger = kwargs.pop("logger", None)
+        self.pri_prompt_terminator = '$'
+        self.alt_prompt_terminator = '#'
+        self.prompt_terminator = r"(#|\$)\s*$"
+        self.prompt_unix_password = r"(#|\$|\(current\) UNIX password:)\s*$"
+        self.alt_telnet_prompt = r'\$\s*$'
+        self.in_sonic_login = False
+        self.product = "sonic"
+        if "product" in kwargs:
+            self.product = kwargs["product"]
+            del kwargs["product"]
         if "altpassword" in kwargs:
             self.altpassword = kwargs["altpassword"]
             del kwargs["altpassword"]
-        super(SonicBaseConnection, self).__init__(**kwargs)
+        self.update_prompt_terminator()
+        try:
+            super(SonicBaseConnection, self).__init__(**kwargs)
+        except Exception as exp:
+            self.log_warn("============= Connection Failed ============")
+            self.log_warn(str(exp))
+            for msg in "".join(self.get_cached_read_data()).split("\n"):
+                msg = re.sub(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]', ' ', msg)
+                msg = re.sub(r'[^\x00-\x7F]+', ' ', msg)
+                if not msg: continue
+                msg = msg.strip()
+                if not msg: continue
+                self.log_warn(msg)
+            self.log_warn("============================================")
+            raise exp
+
+    def set_product(self, product="sonic"):
+        self.product = product
+        self.update_prompt_terminator()
+
+    def update_prompt_terminator(self):
+        if self.product == "sonic0":
+            self.pri_prompt_terminator = '$'
+            self.alt_prompt_terminator = '#'
+            self.prompt_terminator = r"(#|\$)\s*$"
+            self.prompt_unix_password = r"(#|\$|\(current\) UNIX password:)\s*$"
+        elif self.product == "sonic":
+            self.pri_prompt_terminator = '$'
+            self.alt_prompt_terminator = '#'
+            self.prompt_terminator = r"(#|>|\$)\s*$"
+            self.prompt_unix_password = r"(#|>|\$|\(current\) UNIX password:)\s*$"
+        else:
+            self.pri_prompt_terminator = '>'
+            self.alt_prompt_terminator = '#'
+            self.prompt_terminator = r"(#|>)\s*$"
+            self.prompt_unix_password = r"(#|>|\(current\) UNIX password:)\s*$"
 
     def set_logger(self, logger):
         self.logger = logger
 
     def log_warn(self, msg):
-        if not getattr(self, "logger", None):
-            print(msg)
+        if self.net_devname:
+            msg2 = "{}: {}".format(self.net_devname, msg)
         else:
-            self.logger.warning(msg)
+            msg2 = msg
+        if self.logger:
+            self.logger.warning(msg2)
+        else:
+            print(msg2)
 
     def session_preparation(self):
         trace("============================== session_preparation ============================")
@@ -57,7 +124,7 @@ class SonicBaseConnection(CiscoBaseConnection):
         Added extended_login to the base function for handling the password change in ssh scenario.
         """
         output = self._test_channel_read()
-        output = self.extended_login(output)
+        self.extended_login(output)
         self.set_base_prompt()
         self.disable_paging()
         self.set_terminal_width()
@@ -75,8 +142,10 @@ class SonicBaseConnection(CiscoBaseConnection):
     def disable_paging(self, command="terminal length 0", delay_factor=1):
         return ""
 
-    def set_base_prompt(self, pri_prompt_terminator='$',
-                        alt_prompt_terminator='#', delay_factor=1):
+    def set_base_prompt(self, pri_prompt_terminator=None,
+                        alt_prompt_terminator=None, delay_factor=1):
+        if pri_prompt_terminator is None: pri_prompt_terminator = self.pri_prompt_terminator
+        if alt_prompt_terminator is None: alt_prompt_terminator = self.alt_prompt_terminator
         trace("============================== set_base_prompt ============================")
         return super(SonicBaseConnection, self).set_base_prompt(
             pri_prompt_terminator=pri_prompt_terminator,
@@ -84,7 +153,7 @@ class SonicBaseConnection(CiscoBaseConnection):
             delay_factor=delay_factor)
 
     def change_password(self, username, new_password, output=None):
-        retype_expect = r"(#|\$)\s*$"
+        retype_expect = self.prompt_terminator
         if output is None:
             retype_expect = r"passwd: password updated successfully\s*"
             output = self.send_command("sudo passwd {}".format(username),
@@ -122,18 +191,22 @@ class SonicBaseConnection(CiscoBaseConnection):
         trace("========= extended_login_2: {} =========".format(output))
         return output
 
-    def telnet_login(self, pri_prompt_terminator=r'#\s*$', alt_prompt_terminator=r'\$\s*$',
+    def telnet_login(self, pri_prompt_terminator=None, alt_prompt_terminator=None,
                      username_pattern=r"(?:[Uu]ser:|sername|ogin|User Name)",
                      pwd_pattern=r"assword",
                      delay_factor=1, max_loops=20):
         trace("============================== telnet_login ============================")
-        setattr(self, "in_sonic_login", 1)
-        pri_prompt_terminator_new = r"(#|\$|\(current\) UNIX password:)\s*$"
-        output = super(SonicBaseConnection, self).telnet_login(
-            pri_prompt_terminator_new, alt_prompt_terminator, username_pattern,
-            pwd_pattern, delay_factor, max_loops)
-        output = self.extended_login(output)
-        setattr(self, "in_sonic_login", None)
+        self.in_sonic_login = True
+        try:
+            output = super(SonicBaseConnection, self).telnet_login(
+                self.prompt_unix_password, self.alt_telnet_prompt,
+                username_pattern, pwd_pattern, delay_factor, max_loops)
+            output = self.extended_login(output)
+        except Exception as exp:
+            trace("========= telnet_failed: {} =========".format(str(exp)))
+            self.in_sonic_login = False
+            raise exp
+        self.in_sonic_login = False
         trace("========= telnet_login: {} =========".format(output))
         return output
 
@@ -142,7 +215,7 @@ class SonicBaseConnection(CiscoBaseConnection):
             return
         try:
             self.cached_read_data.append(output)
-        except:
+        except Exception:
             self.cached_read_data = [output]
 
     def clear_cached_read_data(self):
@@ -151,6 +224,15 @@ class SonicBaseConnection(CiscoBaseConnection):
     def get_cached_read_data(self):
         retval = self.cached_read_data
         self.cached_read_data = []
+        return retval
+
+    def get_cached_read_lines(self):
+        retval, data = [], "".join(self.get_cached_read_data())
+        for msg in self.dmsg_fmt(data).split("\n"):
+            if not msg: continue
+            msg = msg.strip()
+            if not msg: continue
+            retval.append(msg)
         return retval
 
     def sysrq_trace(self):
@@ -170,20 +252,24 @@ class SonicBaseConnection(CiscoBaseConnection):
         trace("============================== read_channel ============================")
         output = super(SonicBaseConnection, self).read_channel()
         self.add_cached_read_data(output)
-        if not getattr(self, "in_sonic_login", None):
+        if not self.in_sonic_login:
             return output
         if re.search("1 - Assume the main session", output, flags=re.I):
             self.log_warn("Terminal server is used by someone else '{}'".format(output))
+            self.log_warn("===== Sending 1 =========================")
             self.write_channel("1")
         elif re.search("1 - Initiate a regular session", output, flags=re.I):
             self.log_warn("Terminal server is used by someone else '{}'".format(output))
+            self.log_warn("===== Sending 4 =========================")
             self.write_channel("4")
         elif re.search("Enter session PID or 'all'", output, flags=re.I):
             self.log_warn("Terminal server is used by someone else '{}'".format(output))
+            self.log_warn("===== Sending all =========================")
             self.write_channel("all")
             self.write_channel("\n")
         elif re.search(r"Assumed the main session\(open_rw_session\)", output, flags=re.I):
             self.log_warn("Terminal server is used by someone else '{}'".format(output))
+            self.log_warn("===== Sending new line =========================")
             self.write_channel("\n")
         elif re.search("WARNING: New user connected to this port", output, flags=re.I):
             self.log_warn("Terminal server is used by someone else '{}'".format(output))
@@ -192,13 +278,17 @@ class SonicBaseConnection(CiscoBaseConnection):
     def verify_prompt(self, prompt2):
         regex_onie_resque = r"\s+Please press Enter to activate this console.\s*$"
         prompt = prompt2.replace("\\", "")
-        if re.compile(r"(.*[#|\$]\s*$)").match(prompt):
+        if re.compile(r"(.*[#|\$]\s*$)").match(prompt) and self.product == "sonic":
+            return True
+        if re.compile(r"(.*[#|>]\s*$)").match(prompt) and self.product != "sonic":
             return True
         if re.compile(r".*\(config.*\)#\s*$").match(prompt):
             return True
         if re.compile(r"\S+\s+login:\s*$").match(prompt):
             return True
         if re.compile(r"^\s*ONIE:/ #\s*$").match(prompt):
+            return True
+        if re.compile(r"^\s*grub rescue>\s*$").match(prompt):
             return True
         if re.compile(regex_onie_resque).match(prompt):
             return True
@@ -210,32 +300,32 @@ class SonicBaseConnection(CiscoBaseConnection):
         trace("============================== find_prompt ============================")
         try:
             self.clear_cached_read_data()
+            delay_factor = get_delay_factor(delay_factor)
             rv = super(SonicBaseConnection, self).find_prompt(delay_factor)
             rv = re.escape(rv)
             self.clear_cached_read_data()
             return rv
         except Exception as exp:
-            raise exp
+            dbg_msg = ["Exception occured while trying to find the prompt"]
+            raise IOError(self.dmsg_str(dbg_msg, str(exp), header="FIND-PROMPT-DBG"))
 
     def strip_ansi_escape_codes(self, string_buffer):
         rv = super(SonicBaseConnection, self).strip_ansi_escape_codes(string_buffer)
         trace("================== strip_ansi_escape_codes ============================")
         try:
-            callback, arg = getattr(self, "trace_callback", [None, None])
-            if callback:
-                callback(arg, rv)
-            else:
-                trace(rv)
-        except:
-            pass
+            self.trace_callback(self.trace_callback_arg1, self.trace_callback_arg2, rv)
+        except Exception:
+            trace(rv)
         trace("=======================================================================")
         return rv
 
-    def trace_callback_set(self, callback, arg):
-        setattr(self, "trace_callback", [callback, arg])
+    def trace_callback_set(self, callback, arg1, arg2):
+        self.trace_callback = callback
+        self.trace_callback_arg1 = arg1
+        self.trace_callback_arg2 = arg2
 
     def is_strip_prompt(self, strip_prompt):
-        if getattr(self, "in_sonic_login", None):
+        if self.in_sonic_login:
             return False
         return strip_prompt
 
@@ -245,6 +335,7 @@ class SonicBaseConnection(CiscoBaseConnection):
                      use_genie=False):
         strip_prompt = self.is_strip_prompt(strip_prompt)
         self.clear_cached_read_data()
+        delay_factor = get_delay_factor(delay_factor)
         retval = super(SonicBaseConnection, self).send_command(command_string,
                    expect_string, delay_factor, max_loops, auto_find_prompt,
                    strip_prompt, strip_command, normalize, use_textfsm)
@@ -273,6 +364,7 @@ class SonicBaseConnection(CiscoBaseConnection):
 
         # Default to making loop time be roughly equivalent to self.timeout (support old max_loops
         # and delay_factor arguments for backwards compatibility).
+        delay_factor = get_delay_factor(delay_factor)
         delay_factor = self.select_delay_factor(delay_factor)
         if delay_factor == 1 and max_loops == 500:
             # Default arguments are being used; use self.timeout instead
@@ -291,7 +383,7 @@ class SonicBaseConnection(CiscoBaseConnection):
         max_loops = max_loops * 4
         # trying to use agressive loop delay
 
-        loop_sleep = loop_delay * delay_factor
+        #loop_sleep = loop_delay * delay_factor
 
         # trying to use constant loop sleep
         loop_sleep = loop_delay
@@ -346,7 +438,7 @@ class SonicBaseConnection(CiscoBaseConnection):
                             self.dmsg_append(dbg_msg, "NON-PROMPT ", "INDEX:", index,
                                              "output:", self.dmsg_fmt(output))
                             break
-                        self.dmsg_append(dbg_msg, "HAS-PROMPT:", line2)
+                        self.dmsg_append(dbg_msg, "HAS-PROMPT?", self.dmsg_fmt(line2))
 
                 if cmd_issued:
                     # Check if we have already found our pattern
@@ -364,29 +456,43 @@ class SonicBaseConnection(CiscoBaseConnection):
             time.sleep(loop_sleep)
             i += 1
         else:  # nobreak
-            msg = "Search pattern: '{}' never detected".format(search_pattern)
-            raise IOError(self.dmsg_str(dbg_msg, msg))
+            msg1 = "Search pattern: '{}' never detected".format(search_pattern)
+            for msg2 in "".join(self.cached_read_data).split("\n"):
+                self.dmsg_append(dbg_msg, "Read Data: ", self.dmsg_fmt(msg2, ""))
+            raise IOError(self.dmsg_str(dbg_msg, msg1))
 
         self.clear_cached_read_data()
 
         output = self.normalize_linefeeds(output)
 
-        #print(self.dmsg_str(dbg_msg))
-
         return output
 
-    def dmsg_fmt(self, data):
-        msg = "'{}'".format(data)
-        msg = msg.replace("\r", "<LF>")
-        msg = msg.replace("\n", "<CR>")
+
+    def _tostring(self, msg):
+        msg = re.sub(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]', ' ', msg)
+        msg = re.sub(r'[^\x00-\x7F]+', ' ', msg)
+        try:
+            return msg.encode('ascii', 'ignore').decode('ascii')
+        except Exception as exp:
+            print(str(exp))
+        return "non-ascii characters"
+
+    def dmsg_fmt(self, data, nl="\n"):
+        msg = self._tostring(data)
+        #msg = msg.replace("\r\n", "<CR><LF>MY_SPYTEST_DELIM")
+        #msg = msg.replace("\n", "<LF>MY_SPYTEST_DELIM")
+        #msg = msg.replace("\r", "<CR>MY_SPYTEST_DELIM")
+        #msg = msg.replace("MY_SPYTEST_DELIM", nl)
+        msg = msg.replace("\n", "<LF>")
+        msg = msg.replace("\r", "<CR>")
         return msg
 
     def dmsg_hex(self, data):
         msg = ":".join("{:02x}".format(ord(c)) for c in data)
         return "'{}'".format(msg)
 
-    def dmsg_str(self, dbg_msg, s = ""):
-        s = s + "\n=======================FASTER-CLI-DBG: ==================="
+    def dmsg_str(self, dbg_msg, s = "", header="FASTER-CLI-DBG"):
+        s = s + "\n======================={}===================".format(header)
         s = s + "\n" + "\n".join(dbg_msg)
         s = s + "\n=========================================================="
         return s
@@ -394,15 +500,14 @@ class SonicBaseConnection(CiscoBaseConnection):
     def dmsg_append(self, dbg_msg, *args):
         try:
             msg = " ".join(map(str,args))
-        except UnicodeEncodeError as exp:
+        except UnicodeEncodeError:
             msg = " ".join(map(unicode,args))
         dtrace(msg)
         dbg_msg.append(msg)
 
     def remove_spaces(self, cmd):
-        chlist = [ch for ch in cmd]
         retlist, inq, prev = [], False, None
-        for ch in chlist:
+        for ch in list(cmd):
             if ch in ["'", "\""]:
                 inq = bool(not inq)
             if prev and not inq:

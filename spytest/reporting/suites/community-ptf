@@ -1,0 +1,30 @@
+
++suite:community-ixia
+
+# test cases requiring large number of hosts
+-file:routing/L3PerfSclEnhancement/test_L3SclEnh_UserVrf.py
+-file:routing/L3PerfSclEnhancement/test_L3SclEnh_DefVrf_IP.py
+
+# test cases requiring link state propagation
+-test:test_ft_arp_entry_link_failure
+
+# test cases that need line rate traffic
+-test:test_ft_tf_queue_thre_con_multicast
+-test:test_ft_tf_queue_thre_con_unicast
+-test:test_ft_tf_pg_thre_con_shared
+
+# test cases that need high rate traffic
+-test:test_ft_sflow_sampling_sFlow_collector_management_port
+-test:test_ft_sflow_sampling_v4_sFlow_collector
+-test:test_ft_sflow_sampling_v6_sFlow_collector
+-test:test_ft_l3_performance_enhancements_v4_route_intstall_withdraw
+-test:test_ft_l3_performance_enhancements_v4_bgp_session_failover_convergence_time
+
+#Runtime Arguments
++args:--env SPYTEST_SHUTDOWN_FREE_PORTS 1
++args:--env SPYTEST_HOOKS_BREAKOUT_UITYPE click
++args:--device-feature-group upstream
++args:--module-init-max-timeout 9000
++args:--tc-max-timeout 5400
++args:--logs-level=debug
+

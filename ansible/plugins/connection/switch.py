@@ -11,6 +11,7 @@ import select
 import fcntl
 import pwd
 import time
+import string
 
 from ansible import constants as C
 from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound
@@ -54,6 +55,9 @@ class Connection(ConnectionBase):
         self._ssh_command += ['-o', 'GSSAPIAuthentication=no',
                               '-o', 'PubkeyAuthentication=no']
         self._ssh_command += ['-o', 'ConnectTimeout=' + str(self.timeout)]
+
+    def _remove_unprintable(self, buff):
+        return filter(lambda x: x in string.printable, buff)
 
     def _spawn_connect(self):
         last_user = None
@@ -231,8 +235,9 @@ class Connection(ConnectionBase):
             self._display.vvv('> %s' % (cmd), host=self.host)
             client.sendline(cmd)
             client.expect(prompts)
-            stdout += client.before
-            self._display.vvv('< %s' % (client.before), host=self.host)
+            before = self._remove_unprintable(client.before)
+            stdout += before
+            self._display.vvv('< %s' % (before), host=self.host)
 
         if self.reboot:
             if not self.enable:
@@ -242,14 +247,14 @@ class Connection(ConnectionBase):
             i = client.expect(['\(y\/n\)\??\s*\[n\]', 'Proceed with reload\? \[confirm\]', 'System configuration has been modified. Save\? \[yes\/no\/cancel\/diff\]:'])
             if i == 2:
                 # EOS behavior
-                stdout += client.before
+                stdout += self._remove_unprintable(client.before)
                 client.sendline('n')
                 i = client.expect('Proceed with reload\? \[confirm\]')
-            stdout += client.before
+            stdout += self._remove_unprintable(client.before)
             client.sendline('y')
             # The system is going down for reboot NOW: EOS
             i = client.expect(['>', '#', 'The system is going down for reboot NOW', pexpect.TIMEOUT, pexpect.EOF])
-            stdout += client.before
+            stdout += self._remove_unprintable(client.before)
             if i < 2:
                 raise AnsibleError("Box failed to reboot. stdout = %s" % stdout)
             self._display.vvv("Box rebooted", host=self.host)

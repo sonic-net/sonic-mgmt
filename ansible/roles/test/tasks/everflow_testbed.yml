@@ -1,4 +1,4 @@
 - name: run test
   include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
-    test_node: test_everflow_testbed.py
+    test_node: everflow/test_everflow_testbed.py

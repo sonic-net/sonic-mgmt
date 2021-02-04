@@ -11,7 +11,7 @@
   set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
 
 - name: Extract VM names from the inventory
-  set_fact: VM_list={{ groups[current_server] | filter_by_prefix('VM') }}
+  set_fact: VM_list={{ groups[current_server] | filter_by_prefix('VM') | sort }}
 
 - name: Get VM host name
   set_fact: VM_host={{ groups[current_server] | difference(VM_list) }}

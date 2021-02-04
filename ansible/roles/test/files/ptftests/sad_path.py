@@ -320,9 +320,9 @@ class SadOper(SadPath):
     def get_bgp_route_cnt(self, is_up=True, v4=True):
         # extract the neigh ip and current number of routes
         if v4:
-            cmd = 'show ip bgp summary | sed \'1,/Neighbor/d;/^$/,$d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
+            cmd = 'show ip bgp summary | sed \'1,/Neighbor/d;/^$/,$d;/^-/d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
         else:
-            cmd = 'show ipv6 bgp summary | sed \'1,/Neighbor/d;/^$/,$d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
+            cmd = 'show ipv6 bgp summary | sed \'1,/Neighbor/d;/^$/,$d;/^-/d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
 
         stdout, stderr, return_code = self.dut_connection.execCommand(cmd)
         if return_code != 0:
@@ -431,7 +431,7 @@ class SadOper(SadPath):
                 if key not in ['v4', 'v6']:
                     continue
                 self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgps[vm][key], states))
-                stdout, stderr, return_code = self.dut_connection.execCommand('show ip bgp neighbor %s' % self.neigh_bgps[vm][key])
+                stdout, stderr, return_code = self.dut_connection.execCommand('show ip bgp neighbors %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:
                         if 'BGP state' in line:

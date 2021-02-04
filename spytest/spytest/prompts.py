@@ -3,6 +3,7 @@ import re
 import logging
 from spytest.dicts import SpyTestDict
 from spytest.ordyaml import OrderedYaml
+import spytest.env as env
 
 prompts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "prompts")
 
@@ -21,6 +22,7 @@ class Prompts(object):
         self.oyaml = None
         model = "sonic" if not model else re.sub("_(ssh|terminal)$", "", model)
         filename = "{}_prompts.yaml".format(model)
+        filename = env.get("SPYTEST_PROMPTS_FILENAME", filename)
         filename = os.path.join(os.path.abspath(prompts_root), filename)
 
         self.oyaml = OrderedYaml(filename,[])
@@ -37,23 +39,36 @@ class Prompts(object):
     def __del__(self):
         pass
 
-    def update_with_hostname(self, hostname):
-        for pattern in self.patterns:
-            if re.search(r"{}", self.patterns[pattern]):
-                #print("Matched Pattern: '{}' : '{}' : '{}'".format(pattern, self.patterns[pattern], self.patterns[pattern].format(hostname)))
-                self.patterns[pattern] = re.sub(r"{}", hostname, self.patterns[pattern])
+    def update_with_hostname(self, hostname, patterns=None):
+        patterns = self.patterns if patterns is None else patterns
+        for pattern in patterns:
+            if isinstance(patterns[pattern], dict):
+                self.update_with_hostname(hostname, patterns[pattern])
+            elif re.search(r"{}", patterns[pattern]):
+                #print("Matched Pattern: '{}' : '{}' : '{}'".format(pattern, patterns[pattern], patterns[pattern].format(hostname)))
+                patterns[pattern] = re.sub(r"{}", hostname, patterns[pattern])
+
+    def get_mode(self, mode, ifname_type='native'):
+        lmode = self.modes[mode]
+        if isinstance(lmode, dict):
+            lmode = lmode.get(ifname_type, lmode[sorted(list(lmode.keys()))[0]])
+        return lmode
 
     def get_mode_for_prompt(self, prompt):
         prompt2 = prompt.replace("\\", "")
         for mode in self.patterns:
-            lpattern = self.patterns[mode]
-            if re.search(lpattern, prompt2):
-                return mode
+            lpattern = list(self.patterns[mode].values() if isinstance(self.patterns[mode], dict) else [self.patterns[mode]])
+            for ptrn in lpattern:
+                if re.search(ptrn, prompt2):
+                    return mode
         return "unknown-prompt"
 
-    def get_prompt_for_mode(self, mode):
+    def get_prompt_for_mode(self, mode, ifname_type='native'):
         if mode in self.patterns:
-            return self.patterns[mode]
+            lpattern = self.patterns[mode]
+            if isinstance(lpattern, dict):
+                return lpattern.get(ifname_type, lpattern[sorted(list(lpattern.keys()))[0]])
+            return lpattern
         return "unknown-mode"
 
     def check_args_for_req_mode(self, mode, **kwargs):
@@ -73,7 +88,8 @@ class Prompts(object):
                 args_str = ", ".join(self.required_args[mode])
             else:
                 for arg in self.required_args[mode]:
-                    if arg not in kwargs.keys():
+                    argName = arg.replace('?', '');
+                    if argName not in kwargs.keys() and not arg.startswith('?'):
                         missing_args_flag = 1
                         args_str = ", ".join(self.required_args[mode])
                         break
@@ -103,6 +119,24 @@ class Prompts(object):
             else:
                 if self.stored_values["aclname"] != kwargs["aclname"]:
                     self.stored_values["aclname"] = kwargs["aclname"]
+                    return True
+
+        if mode == "mgmt-ipv6-acl-config":
+            if "ipv6_aclname" not in self.stored_values:
+                self.stored_values["ipv6_aclname"] = kwargs["aclname"]
+                return False
+            else:
+                if self.stored_values["ipv6_aclname"] != kwargs["aclname"]:
+                    self.stored_values["ipv6_aclname"] = kwargs["aclname"]
+                    return True
+
+        if mode == "mgmt-mac-acl-config":
+            if "mac_aclname" not in self.stored_values:
+                self.stored_values["mac_aclname"] = kwargs["aclname"]
+                return False
+            else:
+                if self.stored_values["mac_aclname"] != kwargs["aclname"]:
+                    self.stored_values["mac_aclname"] = kwargs["aclname"]
                     return True
 
         if mode == "mgmt-evpn-view":
@@ -148,16 +182,25 @@ class Prompts(object):
                     return True
 
         if mode == "mgmt-router-bgp-view":
-            if "bgp_instance" not in self.stored_values:
-                self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
-                self.stored_values["bgp_vrf_name"] = kwargs["bgp_vrf_name"]
-                return False
-            else:
-                if self.stored_values["bgp_instance"] != kwargs["bgp_instance"] or \
-                        self.stored_values["bgp_vrf_name"] != kwargs["bgp_vrf_name"]:
+            if "bgp_vrf_name" in kwargs:
+                if "bgp_instance" not in self.stored_values:
                     self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
                     self.stored_values["bgp_vrf_name"] = kwargs["bgp_vrf_name"]
-                    return True
+                    return False
+                else:
+                    if self.stored_values["bgp_instance"] != kwargs["bgp_instance"] or \
+                            self.stored_values["bgp_vrf_name"] != kwargs["bgp_vrf_name"]:
+                        self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
+                        self.stored_values["bgp_vrf_name"] = kwargs["bgp_vrf_name"]
+                        return True
+            else:
+                if "bgp_instance" not in self.stored_values:
+                    self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
+                    return False
+                else:
+                    if self.stored_values["bgp_instance"] != kwargs["bgp_instance"]:
+                        self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
+                        return True
 
         if mode == "mgmt-router-bgp-af-view":
             if "af_type" not in self.stored_values:
@@ -222,6 +265,14 @@ class Prompts(object):
                     self.stored_values["vxlan_id"] = kwargs["vxlan_id"]
                     return True
 
+        if mode == "mgmt-router-ospf-view":
+            if "ospf_vrf_name" not in self.stored_values:
+                self.stored_values["ospf_vrf_name"] = kwargs["ospf_vrf_name"]
+                return False
+            else:
+                if self.stored_values["ospf_vrf_name"] != kwargs["ospf_vrf_name"]:
+                    return True
+
         if mode == "mgmt-intf-config":
             prompt2 = prompt.replace("\\", "")
             intfNum = "-{})".format(kwargs["interface"])
@@ -230,7 +281,15 @@ class Prompts(object):
             else:
                 return True
 
-        if mode == "mgmt-vlan-config":
+        #if mode == "mgmt-vlan-config":
+        #    prompt2 = prompt.replace("\\", "")
+        #    intfNum = "-Vlan{})".format(kwargs["vlan"])
+        #    if intfNum in prompt2:
+        #        return False
+        #    else:
+        #        return True
+
+        if mode == "mgmt-intf-vlan-config":
             prompt2 = prompt.replace("\\", "")
             intfNum = "-Vlan{})".format(kwargs["vlan"])
             if intfNum in prompt2:
@@ -238,7 +297,15 @@ class Prompts(object):
             else:
                 return True
 
-        if mode == "mgmt-lag-config":
+        #if mode == "mgmt-lag-config":
+        #    prompt2 = prompt.replace("\\", "")
+        #    intfNum = "-po{})".format(kwargs["portchannel"])
+        #    if intfNum in prompt2:
+        #        return False
+        #    else:
+        #        return True
+
+        if mode == "mgmt-intf-po-config":
             prompt2 = prompt.replace("\\", "")
             intfNum = "-po{})".format(kwargs["portchannel"])
             if intfNum in prompt2:
@@ -246,9 +313,17 @@ class Prompts(object):
             else:
                 return True
 
-        if mode == "mgmt-management-config":
+        #if mode == "mgmt-management-config":
+        #    prompt2 = prompt.replace("\\", "")
+        #    intfNum = "-eth{})".format(kwargs["management"])
+        #    if intfNum in prompt2:
+        #        return False
+        #    else:
+        #        return True
+
+        if mode == "mgmt-intf-management-config":
             prompt2 = prompt.replace("\\", "")
-            intfNum = "-eth{})".format(kwargs["management"])
+            intfNum = "-eth{})".format(kwargs["number"])
             if intfNum in prompt2:
                 return False
             else:
@@ -286,9 +361,45 @@ class Prompts(object):
             else:
                 return True
 
+        if mode == "mgmt-wred-view":
+            if "wred_name" not in self.stored_values:
+                self.stored_values["wred_name"] = kwargs["wred_name"]
+                return False
+            else:
+                if self.stored_values["wred_name"] != kwargs["wred_name"]:
+                    self.stored_values["wred_name"] = kwargs["wred_name"]
+                    return True
+
+        if mode == "mgmt-qos-sched-policy-view":
+            if "sched_policy_name" not in self.stored_values:
+                self.stored_values["sched_policy_name"] = kwargs["sched_policy_name"]
+                return False
+            else:
+                if self.stored_values["sched_policy_name"] != kwargs["sched_policy_name"]:
+                    self.stored_values["sched_policy_name"] = kwargs["sched_policy_name"]
+                    return True
+
+        if mode == "mgmt-qos-sched-policy-queue-view":
+            if "sched_policy_name" not in self.stored_values:
+                self.stored_values["queue_id"] = kwargs["queue_id"]
+                return False
+            else:
+                if self.stored_values["queue_id"] != kwargs["queue_id"]:
+                    self.stored_values["queue_id"] = kwargs["queue_id"]
+                    return True
+
+        if mode == "mgmt-qos-intf-view":
+            if "qos_interface" not in self.stored_values:
+                self.stored_values["qos_interface"] = kwargs["qos_interface"]
+                return False
+            else:
+                if self.stored_values["qos_interface"] != kwargs["qos_interface"]:
+                    self.stored_values["qos_interface"] = kwargs["qos_interface"]
+                    return True
+
         return False
 
-    def check_move_for_parent_of_tomode(self, prompt, mode, **kwargs):
+    def check_move_for_parent_of_tomode(self, prompt, mode, ifname_type, **kwargs):
         check_for_parents = False
         if mode == "vtysh-router-config":
             if "router" not in self.stored_values:
@@ -316,6 +427,24 @@ class Prompts(object):
             else:
                 if self.stored_values["aclname"] != kwargs["aclname"]:
                     self.stored_values["aclname"] = kwargs["aclname"]
+
+        if mode == "mgmt-ipv6-acl-config":
+            if "ipv6_aclname" not in self.stored_values:
+                self.stored_values["ipv6_aclname"] = kwargs["aclname"]
+                return False
+            else:
+                if self.stored_values["ipv6_aclname"] != kwargs["aclname"]:
+                    self.stored_values["ipv6_aclname"] = kwargs["aclname"]
+                    return True
+
+        if mode == "mgmt-mac-acl-config":
+            if "mac_aclname" not in self.stored_values:
+                self.stored_values["mac_aclname"] = kwargs["aclname"]
+                return False
+            else:
+                if self.stored_values["mac_aclname"] != kwargs["aclname"]:
+                    self.stored_values["mac_aclname"] = kwargs["aclname"]
+                    return True
 
         if mode == "mgmt-evpn-view":
             if "evpnname" not in self.stored_values:
@@ -360,16 +489,25 @@ class Prompts(object):
                     return True
 
         if mode == "mgmt-router-bgp-view":
-            if "bgp_instance" not in self.stored_values:
-                self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
-                self.stored_values["bgp_vrf_name"] = kwargs["bgp_vrf_name"]
-                return False
-            else:
-                if self.stored_values["bgp_instance"] != kwargs["bgp_instance"] or \
-                        self.stored_values["bgp_vrf_name"] != kwargs["bgp_vrf_name"]:
+            if "bgp_vrf_name" in kwargs:
+                if "bgp_instance" not in self.stored_values:
                     self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
                     self.stored_values["bgp_vrf_name"] = kwargs["bgp_vrf_name"]
-                    return True
+                    return False
+                else:
+                    if self.stored_values["bgp_instance"] != kwargs["bgp_instance"] or \
+                            self.stored_values["bgp_vrf_name"] != kwargs["bgp_vrf_name"]:
+                        self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
+                        self.stored_values["bgp_vrf_name"] = kwargs["bgp_vrf_name"]
+                        return True
+            else:
+                if "bgp_instance" not in self.stored_values:
+                    self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
+                    return False
+                else:
+                    if self.stored_values["bgp_instance"] != kwargs["bgp_instance"]:
+                        self.stored_values["bgp_instance"] = kwargs["bgp_instance"]
+                        return True
 
         if mode == "mgmt-router-bgp-af-view":
             if "af_type" not in self.stored_values:
@@ -434,12 +572,56 @@ class Prompts(object):
                     self.stored_values["vxlan_id"] = kwargs["vxlan_id"]
                     return True
 
+        if mode == "mgmt-router-ospf-view":
+            if "ospf_vrf_name" not in self.stored_values:
+                self.stored_values["ospf_vrf_name"] = kwargs["ospf_vrf_name"]
+                return False
+            else:
+                if self.stored_values["ospf_vrf_name"] != kwargs["ospf_vrf_name"]:
+                    return True
+
+        if mode == "mgmt-wred-view":
+            if "wred_name" not in self.stored_values:
+                self.stored_values["wred_name"] = kwargs["wred_name"]
+                return False
+            else:
+                if self.stored_values["wred_name"] != kwargs["wred_name"]:
+                    self.stored_values["wred_name"] = kwargs["wred_name"]
+                    return True
+
+        if mode == "mgmt-qos-sched-policy-view":
+            if "sched_policy_name" not in self.stored_values:
+                self.stored_values["sched_policy_name"] = kwargs["sched_policy_name"]
+                return False
+            else:
+                if self.stored_values["sched_policy_name"] != kwargs["sched_policy_name"]:
+                    self.stored_values["sched_policy_name"] = kwargs["sched_policy_name"]
+                    return True
+
+        if mode == "mgmt-qos-sched-policy-queue-view":
+            if "sched_policy_name" not in self.stored_values:
+                self.stored_values["queue_id"] = kwargs["queue_id"]
+                return False
+            else:
+                if self.stored_values["queue_id"] != kwargs["queue_id"]:
+                    self.stored_values["queue_id"] = kwargs["queue_id"]
+                    return True
+
+        if mode == "mgmt-qos-intf-view":
+            if "qos_interface" not in self.stored_values:
+                self.stored_values["qos_interface"] = kwargs["qos_interface"]
+                return False
+            else:
+                if self.stored_values["qos_interface"] != kwargs["qos_interface"]:
+                    self.stored_values["qos_interface"] = kwargs["qos_interface"]
+                    return True
+
         if check_for_parents:
             parent_modes_list = []
             curr_mode = self.get_mode_for_prompt(prompt)
             while True:
-                parent_modes_list.append(self.modes[curr_mode][0])
-                curr_mode = self.modes[curr_mode][0]
+                parent_modes_list.append(self.get_mode(curr_mode, ifname_type)[0])
+                curr_mode = self.get_mode(curr_mode, ifname_type)[0]
                 if curr_mode == "":
                     break
             if mode in parent_modes_list:
@@ -447,27 +629,47 @@ class Prompts(object):
 
         return False
 
-    def get_backward_command_and_prompt(self, mode):
+    def get_backward_command_and_prompt(self, mode, ifname_type='native'):
         if mode not in self.modes:
             return ["", ""]
-        cmd = self.modes[mode][2]
-        expected_prompt = self.get_prompt_for_mode(self.modes[mode][0])
+        cmd = self.get_mode(mode, ifname_type)[2]
+        expected_prompt = self.get_prompt_for_mode(self.get_mode(mode, ifname_type)[0], ifname_type)
         return [cmd, expected_prompt]
 
-    def get_forward_command_and_prompt_with_values(self, mode, **kwargs):
+    def get_forward_command_and_prompt_with_values(self, mode, ifname_type='native', **kwargs):
         if mode not in self.modes:
             return ["", ""]
-        cmd = self.modes[mode][1]
-        expected_prompt = self.get_prompt_for_mode(mode)
+        cmd = self.get_mode(mode, ifname_type)[1]
+        expected_prompt = self.get_prompt_for_mode(mode, ifname_type)
         if mode in self.required_args:
             values = []
+
+            # Handle specific node with interface range
+            if mode == "mgmt-intf-range-eth-config" and 'alt_port_names' in kwargs:
+                native_ports = [re.sub(r'.*?(\d+)', r'\1', x) for x in kwargs.get('alt_port_names', {}).keys()]
+                alias_ports = [re.sub(r'.*?(\d+/\d+)', r'\1', x) for x in kwargs.get('alt_port_names', {}).values()]
+                comp = re.split(r'([,-])', kwargs.get('range', '').replace(" ", ""))
+                #print('native_ports = {}\nalias_port = {}\ncomp = {}'.format(native_ports, alias_ports, comp))
+                for i, port in enumerate(comp):
+                    if ifname_type == 'native':
+                        if port in alias_ports:
+                            comp[i] = native_ports[alias_ports.index(port)]
+                    elif ifname_type == 'alias':
+                        if port in native_ports:
+                            comp[i] = alias_ports[native_ports.index(port)]
+                kwargs['range'] = "".join(comp)
+
             for arg in self.required_args[mode]:
-                if arg in kwargs.keys():
-                    if mode == "mgmt-intf-config" and arg == "interface":
-                        intf_value = re.sub("Ethernet", "Ethernet ", kwargs[arg])
+                argName = arg.replace('?', '')
+                if argName in kwargs.keys():
+                    if mode == "mgmt-intf-config" and argName == "interface":
+                        intf_value = re.sub(r"(Ethernet)", r"\1 ", kwargs[argName])
                         values.append(intf_value)
+                    elif mode.startswith("mgmt-router-bgp-") and argName == "bgp_vrf_name":
+                        vrf_part = "vrf {}".format(kwargs[argName])
+                        values.append(vrf_part)
                     else:
-                        values.append(kwargs[arg])
+                        values.append(kwargs[argName])
                 else:
                     values.append("")
             cmd = cmd.format(*values)

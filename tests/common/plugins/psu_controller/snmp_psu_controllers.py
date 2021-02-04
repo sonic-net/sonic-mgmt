@@ -28,7 +28,7 @@ class snmpPsuController(PsuControllerBase):
         SYSDESCR = "1.3.6.1.2.1.1.1.0"
         psu = None
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
@@ -44,10 +44,14 @@ class snmpPsuController(PsuControllerBase):
         if psu is None:
             self.psuType = None
             return
+        if 'Sentry Switched PDU' in psu:
+            self.psuType = "SENTRY4"
         if 'Sentry Switched CDU' in psu:
             self.psuType = "SENTRY"
         if 'APC Web/SNMP Management Card' in psu:
             self.psuType = "APC"
+        if 'Emerson' in psu:
+            self.psuType = 'Emerson'
         return
 
     def psuCntrlOid(self):
@@ -62,6 +66,14 @@ class snmpPsuController(PsuControllerBase):
         SENTRY_PORT_NAME_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.3.1"
         SENTRY_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.5.1"
         SENTRY_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.11.1"
+        # MIB OID for 'Emerson'
+        EMERSON_PORT_NAME_BASE_OID = "1.3.6.1.4.1.476.1.42.3.8.50.20.1.10.1.1"
+        EMERSON_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.476.1.42.3.8.50.20.1.100.1.1"
+        EMERSON_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.476.1.42.3.8.50.20.1.100.1.1"
+        # MIB OID for 'Sentry Switched PDU'
+        SENTRY4_PORT_NAME_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.2.1.3"
+        SENTRY4_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.1"
+        SENTRY4_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.5.1.2"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -80,6 +92,20 @@ class snmpPsuController(PsuControllerBase):
             self.PORT_NAME_BASE_OID      = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = SENTRY_PORT_CONTROL_BASE_OID
+        elif self.psuType == "Emerson":
+            self.pPORT_NAME_BASE_OID     = '.'+EMERSON_PORT_NAME_BASE_OID
+            self.pPORT_STATUS_BASE_OID   = '.'+EMERSON_PORT_STATUS_BASE_OID
+            self.pPORT_CONTROL_BASE_OID  = '.'+EMERSON_PORT_CONTROL_BASE_OID
+            self.PORT_NAME_BASE_OID      = EMERSON_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID    = EMERSON_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID   = EMERSON_PORT_CONTROL_BASE_OID
+        elif self.psuType == "SENTRY4":
+            self.pPORT_NAME_BASE_OID     = '.'+SENTRY4_PORT_NAME_BASE_OID
+            self.pPORT_STATUS_BASE_OID   = '.'+SENTRY4_PORT_STATUS_BASE_OID
+            self.pPORT_CONTROL_BASE_OID  = '.'+SENTRY4_PORT_CONTROL_BASE_OID
+            self.PORT_NAME_BASE_OID      = SENTRY4_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID    = SENTRY4_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID   = SENTRY4_PORT_CONTROL_BASE_OID
         else:
             pass
 
@@ -91,28 +117,58 @@ class snmpPsuController(PsuControllerBase):
         The PDU ports connected to DUT must have hostname of DUT configured in port name/description.
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
+        max_lane = 5
+        host_matched = False
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
-        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
-            snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            cmdgen.MibVariable(self.pPORT_NAME_BASE_OID,),
-            )
-        if errorIndication:
-            logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
-        for varBinds in varTable:
-            for oid, val in varBinds:
-                current_oid = oid.prettyPrint()
-                current_val = val.prettyPrint()
-                if self.hostname.lower()  in current_val.lower():
-                    # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
-                    self.pdu_ports.append(current_oid.replace(self.PORT_NAME_BASE_OID, ''))
+        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
 
-    def __init__(self, hostname, controller):
+        for lane_id in range(1, max_lane + 1):
+            pdu_port_base = self.PORT_NAME_BASE_OID[0: -1] + str(lane_id)
+
+            errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+                snmp_auth,
+                cmdgen.UdpTransportTarget((self.controller, 161)),
+                cmdgen.MibVariable("." + pdu_port_base,),
+                )
+            if errorIndication:
+                logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
+            else:
+                for varBinds in varTable:
+                    for oid, val in varBinds:
+                        current_oid = oid.prettyPrint()
+                        current_val = val.prettyPrint()
+                        if self.hostname.lower()  in current_val.lower():
+                            host_matched = True
+                            # Remove the preceding PORT_NAME_BASE_OID, remaining string is the PDU port ID
+                            self.pdu_ports.append(current_oid.replace(pdu_port_base, ''))
+                if host_matched:
+                    self.map_host_to_lane(lane_id)
+                    break
+        else:
+            logging.error("{} device is not attached to any of PDU port".format(self.hostname.lower()))
+
+    def map_host_to_lane(self, lane_id):
+        """
+        Dynamically update Oids based on the PDU lane ID
+        """
+        if self.psuType == "SENTRY4":
+            # No need to update lane for SENTRY4
+            return
+
+        self.pPORT_NAME_BASE_OID     = self.pPORT_NAME_BASE_OID[0: -1] + str(lane_id)
+        self.pPORT_STATUS_BASE_OID   = self.pPORT_STATUS_BASE_OID[0: -1] + str(lane_id)
+        self.pPORT_CONTROL_BASE_OID  = self.pPORT_CONTROL_BASE_OID[0: -1] + str(lane_id)
+        self.PORT_NAME_BASE_OID      = self.PORT_NAME_BASE_OID[0: -1] + str(lane_id)
+        self.PORT_STATUS_BASE_OID    = self.PORT_STATUS_BASE_OID[0: -1] + str(lane_id)
+        self.PORT_CONTROL_BASE_OID   = self.PORT_CONTROL_BASE_OID[0: -1] + str(lane_id)
+
+    def __init__(self, hostname, controller, pdu):
         logging.info("Initializing " + self.__class__.__name__)
         PsuControllerBase.__init__(self)
         self.hostname = hostname
         self.controller = controller
+        self.snmp_rocommunity = pdu['snmp_rocommunity']
+        self.snmp_rwcommunity = pdu['snmp_rwcommunity']
         self.pdu_ports = []
         self.psuType = None
         self.get_psu_controller_type()
@@ -140,7 +196,7 @@ class snmpPsuController(PsuControllerBase):
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData('private'),
+            cmdgen.CommunityData(self.snmp_rwcommunity),
             cmdgen.UdpTransportTarget((self.controller, 161)),
             (port_oid, rfc1902.Integer(self.CONTROL_ON)),
         )
@@ -169,7 +225,7 @@ class snmpPsuController(PsuControllerBase):
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData('private'),
+            cmdgen.CommunityData(self.snmp_rwcommunity),
             cmdgen.UdpTransportTarget((self.controller, 161)),
             (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
         )
@@ -200,7 +256,7 @@ class snmpPsuController(PsuControllerBase):
         """
         results = []
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData('public')
+        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
@@ -227,9 +283,9 @@ class snmpPsuController(PsuControllerBase):
         pass
 
 
-def get_psu_controller(controller_ip, dut_hostname):
+def get_psu_controller(controller_ip, dut_hostname, pdu):
     """
     @summary: Factory function to create the actual PSU controller object.
     @return: The actual PSU controller object. Returns None if something went wrong.
     """
-    return snmpPsuController(dut_hostname, controller_ip)
+    return snmpPsuController(dut_hostname, controller_ip, pdu)

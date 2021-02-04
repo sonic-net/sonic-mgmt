@@ -143,6 +143,10 @@
     target_pg: '3-4'
     target_buffer_profile_type: 'ingress lossless'
 
+- name: Set lossless buffer profile
+  set_fact:
+    lossless_buffer_profile: "{{ buffer_profile }}"
+
 - name: Set lossless MAX buffer size
   set_fact:
     lossless_buffer_max_size: "{{buffer_headroom.stdout|int}}"

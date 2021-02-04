@@ -1,4 +1,4 @@
 - name: run test
   include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
-    test_node: dip_sip/test_dip_sip.py
+    test_node: ipfwd/test_dip_sip.py

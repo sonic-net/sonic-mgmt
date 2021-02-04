@@ -60,6 +60,8 @@ class BcastTest(BaseTest):
             self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
         if self.test_params['testbed_type'] == 't0-116':
             self.src_ports = range(24, 32)
+        if self.test_params['testbed_type'] == 't0-120':
+            self.src_ports = [48, 49, 54, 55, 60, 61, 66, 67]
 
     #---------------------------------------------------------------------
 
@@ -72,6 +74,8 @@ class BcastTest(BaseTest):
             for line in f.readlines():
                 entry = line.split(' ', 1)
                 prefix = ip_network(unicode(entry[0]))
+                if prefix.version != 4:
+                    continue
                 self._vlan_dict[prefix] = [int(i) for i in entry[1].split()]
 
     #---------------------------------------------------------------------
@@ -116,7 +120,7 @@ class BcastTest(BaseTest):
         logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
 
         pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, dst_port_list)
-        ''' 
+        '''
         Check if broadcast packet is received on all member ports of vlan
         '''
         logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(dst_port_list)))
@@ -159,7 +163,7 @@ class BcastTest(BaseTest):
         logging.info("Sending BOOTP packet from port " + str(src_port) + " to " + ip_dst)
 
         pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, dst_port_list)
-        ''' 
+        '''
         Check if broadcast BOOTP packet is received on all member ports of vlan
         '''
         logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(dst_port_list)))

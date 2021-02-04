@@ -13,8 +13,9 @@ def get_timestamp(ms=True, this=None):
 def get_timenow():
     return datetime.datetime.utcnow()
 
-def get_elapsed(start, fmt=False, add=0):
-    return time_diff(start, get_timenow(), fmt, add)
+def get_elapsed(start, fmt=False, add=0, end=None):
+    end = end or get_timenow()
+    return time_diff(start, end, fmt, add)
 
 def parse(s, fmt="%Y-%m-%d %H:%M:%S"):
     return datetime.datetime.strptime(s, fmt)

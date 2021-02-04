@@ -37,7 +37,7 @@
     ports: "{{minigraph_ports.keys() | join(' ')}}"
 
 - set_fact:
-    neighbors: "{{device_conn}}"
+    neighbors: "{{device_conn[inventory_hostname]}}"
 
 - set_fact:
     ansible_eth0_ipv4_addr: "{{ansible_eth0['ipv4']['address']}}"
@@ -144,6 +144,10 @@
         pfc_wd_restore_time_large: 3000
         pfc_wd_poll_time: 400
 
+    - name: Stop PFC watchdog if enable by default before setting poll interval.
+      shell: "pfcwd stop"
+      become: yes
+        
     - name: Set polling interval {{ pfc_wd_poll_time }}.
       shell: "pfcwd interval {{ pfc_wd_poll_time }}"
       become: yes

@@ -4,4 +4,4 @@
 - name: Run MTU relay test (pytest-ansible)
   include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
-    test_node: test_mtu.py
+    test_node: ipfwd/test_mtu.py

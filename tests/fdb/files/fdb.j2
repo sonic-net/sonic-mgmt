@@ -1,0 +1,4 @@
+{% for vlan in minigraph_vlan_interfaces %}
+{{ vlan['subnet'] }} {% for ifname in minigraph_vlans[vlan['attachto']]['members'] %} {{ minigraph_port_indices[ifname] }} {% endfor %}
+
+{% endfor %}

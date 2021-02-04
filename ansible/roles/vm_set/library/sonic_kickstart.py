@@ -42,7 +42,7 @@ class SerialSession(object):
         self.d = debug
         self.d.debug('Starting')
         self.tn = Telnet('127.0.0.1', port)
-        self.tn.write('\r\n')
+        self.tn.write(b"\r\n")
 
         return
 
@@ -62,9 +62,9 @@ class SerialSession(object):
     def pair(self, action, wait_for, timeout=60):
         self.d.debug('output: %s' % action)
         self.d.debug('match: %s' % ",".join(wait_for))
-        self.tn.write("%s\n" % action)
+        self.tn.write(b"%s\n" % action.encode('ascii'))
         if wait_for is not None:
-            index, match, text = self.tn.expect(wait_for, timeout)
+            index, match, text = self.tn.expect([ x.encode('ascii') for x in wait_for ], timeout)
             self.d.debug('Result of matching: %d %s %s' % (index, str(match), text))
             if index == -1:
                 raise EMatchNotFound
@@ -118,6 +118,13 @@ def session(new_params):
         ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ]
+    # For multi-asic VS there is no default config generated.
+    # interfaces-config service will not add eth0 IP address as there
+    # no default config. Multiple SWSS service will not start until
+    # topology service is loaded. Hence remove swss check and proceed
+    # with eth0 IP address assignment.
+    if int(new_params['num_asic']) > 1:	
+        seq.pop(0)
 
     curtime = datetime.datetime.now().isoformat()
     debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
@@ -146,6 +153,7 @@ def main():
         mgmt_ip = dict(required=True),
         mgmt_gw = dict(required=True),
         new_password = dict(required=True),
+        num_asic = dict(required=True),
     ))
 
     try:
@@ -154,7 +162,7 @@ def main():
         result = {'kickstart_code': -1, 'changed': False, 'msg': 'EOF during the chat'}
     except EMatchNotFound:
         result = {'kickstart_code': -1, 'changed': False, 'msg': "Match for output isn't found"}
-    except Exception, e:
+    except Exception as e:
         module.fail_json(msg=str(e))
 
     module.exit_json(**result)

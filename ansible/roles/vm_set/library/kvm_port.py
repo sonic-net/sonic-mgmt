@@ -29,24 +29,26 @@ def main():
 
     try:
         output = subprocess.check_output(
-                "virsh domiflist %s" % vmname, 
-                env={"LIBVIRT_DEFAULT_URI": "qemu:///system"}, 
-                shell=True)
+                "virsh domiflist %s" % vmname,
+                env={"LIBVIRT_DEFAULT_URI": "qemu:///system"},
+                shell=True).decode('utf-8')
     except subprocess.CalledProcessError:
         module.fail_json(msg="failed to iflist dom %s" % vmname)
 
     mgmt_port = None
-    fp_ports = []
+    fp_ports = {}
+    cur_fp_idx = 0
 
     for l in output.split('\n'):
-        fds = re.split('\s+', l)
+        fds = re.split('\s+', l.lstrip())
         if len(fds) != 5:
             continue
         if fds[1] == "ethernet":
             if mgmt_port == None:
                 mgmt_port = fds[0]
             else:
-                fp_ports.append(fds[0])
+                fp_ports[cur_fp_idx] = fds[0]
+                cur_fp_idx = cur_fp_idx + 1
 
     if mgmt_port == None:
         module.fail_json(msg="failed to find mgmt port")
