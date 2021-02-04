@@ -100,9 +100,9 @@ Measure the convergence time to install the routes in its RIB and then in its FI
 </p>
 
 #### Test steps
-* Configure IPv4 EBGP sessions between Keysight ports and the SONiC switch using IxNetwork web UI.
+* Configure IPv4 EBGP sessions between Keysight ports and the SONiC switch.
 * Configure IPv4 routes via configured IPv4 BGP sessions. Initially disable the routes so that they don't get advertised after starting the protocols.
-* Configure the same IPv4 routes from both the Keysight receiving ports.
+* Configure the same IPv4 routes from both the test receiving ports.
 * Configure another IPv4 session to send the traffic. This is the server port from which traffic will be sent to the VIP addresses.
 * Start all protocols and verify that IPv4 BGP neighborship is established.
 * Create a data traffic between the server port and receiver ports where the same VIP addresses are configured and enable tracking by "Destination Endpoint" and by "Destination session description".
