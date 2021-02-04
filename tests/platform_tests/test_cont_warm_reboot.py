@@ -95,7 +95,7 @@ class ContinuousReboot:
         @param reboot_kwargs: The argument used by reboot_helper
         """
         logging.info("Run %s reboot on DUT" % self.reboot_type)
-        #self.run_reboot_testcase()
+        self.run_reboot_testcase()
         # Wait until uptime reaches allowed value
         self.wait_until_uptime()
         # Perform additional post-reboot health-check
