@@ -59,6 +59,7 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'sudo decode-syseeprom',
             'sudo generate_dump',
             'sudo lldpshow',
+            'sudo pcieutil check',
             # 'sudo psuutil *',
             'sudo sonic-installer list',
             # 'sudo sfputil show *',
