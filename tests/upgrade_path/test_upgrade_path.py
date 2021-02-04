@@ -138,7 +138,7 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
 def get_reboot_type(duthost):
     next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
     current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-    
+ 
     # warm-reboot has to be forced for an upgrade from 201811 to 201811+ to bypass ASIC config changed error
     if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201811' not in next_os_version:
         reboot_type = "warm-reboot -f"
