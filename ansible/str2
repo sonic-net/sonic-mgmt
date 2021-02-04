@@ -279,11 +279,11 @@ sonic_arista:
       ansible_host: 10.3.146.240
       hwsku: Arista-7060CX-32S-C32
       pdu_host: pdu-119
-    str2-7060-spy-1:
+    str2-7060-spy-3:
       ansible_host: 10.3.146.242
       hwsku: Arista-7060CX-32S-C32
       pdu_host: pdu-119
-    str2-7060-spy-2:
+    str2-7060-spy-4:
       ansible_host: 10.3.146.243
       hwsku: Arista-7060CX-32S-C32
       pdu_host: pdu-119
