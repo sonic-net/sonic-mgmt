@@ -2,37 +2,40 @@ import pytest
 from ansible_host import AnsibleHost
 
 @pytest.mark.bsl
-def test_snmp_interfaces(ansible_adhoc, duthost, creds):
-    """compare the bgp facts between observed states and target state"""
+def test_snmp_interface(localhost, creds, duthosts, enum_dut_hostname, enum_asic_index):
+    """compare the snmp facts between observed states and target state"""
 
-    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
-
+    duthost = duthosts[enum_dut_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    npus =  duthost.num_npus()
+    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
 
-    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
+    print snmp_ifnames
+
+    # Verify all physical ports in snmp interface list
+    for _, alias in config_facts['port_name_to_alias_map'].items():
+        assert alias in snmp_ifnames, "Interface not found in SNMP facts."
+
+    # Verify all port channels in snmp interface list
+    for po_name in config_facts.get('PORTCHANNEL', {}):
+        assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
+
+@pytest.mark.bsl
+def test_snmp_mgmt_interface(localhost, creds, duthosts, enum_dut_hostname):
+    """compare the snmp facts between observed states and target state"""
+
+    duthost = duthosts[enum_dut_hostname]
+    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
     print snmp_ifnames
 
     # Verify management port in snmp interface list
     for name in config_facts.get('MGMT_INTERFACE', {}):
-        assert name in snmp_ifnames
-
-    if (npus > 1):
-        for npu_inst in range(npus):
-            npu_config_path = "/etc/sonic/config_db" + str(npu_inst) + ".json"
-            config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent", filename=npu_config_path)['ansible_facts']
-            pdb.set_trace()
-            for _, alias in config_facts['port_name_to_alias_map'].items():
-                assert alias in snmp_ifnames
-            for po_name in config_facts.get('PORTCHANNEL', {}):
-                assert po_name in snmp_ifnames
-    else:
-        config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        for _, alias in config_facts['port_name_to_alias_map'].items():
-            assert alias in snmp_ifnames
-        for po_name in config_facts.get('PORTCHANNEL', {}):
-            assert po_name in snmp_ifnames
+        assert name in snmp_ifnames, "Management Interface not found in SNMP facts."
