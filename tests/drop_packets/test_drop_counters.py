@@ -21,9 +21,11 @@ logger = logging.getLogger(__name__)
 
 PKT_NUMBER = 1000
 
-# CLI commands to obtain drop counters
-GET_L2_COUNTERS = "portstat -j"
-GET_L3_COUNTERS = "intfstat -j"
+# CLI commands to obtain drop counters.
+NAMESPACE_PREFIX = "sudo ip netns exec {} "
+NAMESPACE_SUFFIX = "-n {} "
+GET_L2_COUNTERS = "portstat -j "
+GET_L3_COUNTERS = "intfstat -j "
 ACL_COUNTERS_UPDATE_INTERVAL = 10
 LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
@@ -38,19 +40,33 @@ COMBINED_ACL_DROP_COUNTER = False
 def enable_counters(duthosts, rand_one_dut_hostname):
     """ Fixture which enables RIF and L2 counters """
     duthost = duthosts[rand_one_dut_hostname]
-    cmd_list = ["intfstat -D", "counterpoll port enable", "counterpoll rif enable", "sonic-clear counters",
-                "sonic-clear rifcounters"]
-    cmd_get_cnt_status = "redis-cli -n 4 HGET \"FLEX_COUNTER_TABLE|{}\" \"FLEX_COUNTER_STATUS\""
 
-    previous_cnt_status = {item: duthost.command(cmd_get_cnt_status.format(item.upper()))["stdout"] for item in ["port", "rif"]}
+    previous_cnt_status = {}
+    # Separating comands based on whether they need to be done per namespace or globally.
+    cmd_list = ["intfstat -D", "sonic-clear counters"]
+    cmd_list_per_ns = ["counterpoll port enable", "counterpoll rif enable", "sonic-clear rifcounters"]
 
-    for cmd in cmd_list:
-        duthost.command(cmd)
+    """ Fixture which enables RIF and L2 counters """
+    duthost.shell_cmds(cmds=cmd_list)
+
+    namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
+    for namespace in namespace_list:
+        cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
+        previous_cnt_status[namespace] = {item: duthost.command(cmd_get_cnt_status.format(namespace, item.upper()))["stdout"] for item in ["port", "rif"]}
+
+        ns_cmd_list = []
+        CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+        for cmd in cmd_list_per_ns:
+            ns_cmd_list.append(CMD_PREFIX + cmd)
+        duthost.shell_cmds(cmds=ns_cmd_list)
+
     yield
-    for port, status in previous_cnt_status.items():
-        if status == "disable":
-            logger.info("Restoring counter '{}' state to disable".format(port))
-            duthost.command("counterpoll {} disable".format(port))
+    for namespace in namespace_list:
+        for port, status in previous_cnt_status[namespace].items():
+            if status == "disable":
+                logger.info("Restoring counter '{}' state to disable".format(port))
+                CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+                duthost.command(CMD_PREFIX + "counterpoll {} disable".format(port))
 
 
 @pytest.fixture
@@ -109,17 +125,27 @@ def parse_combined_counters(duthosts, rand_one_dut_hostname):
                     COMBINED_ACL_DROP_COUNTER = True
                     break
 
-
-def get_pkt_drops(duthost, cli_cmd):
+def get_pkt_drops(duthost, cli_cmd, asic_index):
     """
     @summary: Parse output of "portstat" or "intfstat" commands and convert it to the dictionary.
     @param module: The AnsibleModule object
     @param cli_cmd: one of supported CLI commands - "portstat -j" or "intfstat -j"
     @return: Return dictionary of parsed counters
     """
-    stdout = duthost.command(cli_cmd)
-    stdout = stdout["stdout"]
+    # Get namespace from asic_index.
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
 
+    # Frame the correct cli command
+    # the L2 commands need _SUFFIX and L3 commands need _PREFIX
+    if cli_cmd == GET_L3_COUNTERS:
+        CMD_PREFIX = NAMESPACE_PREFIX if duthost.is_multi_asic else ''
+        cli_cmd = CMD_PREFIX + cli_cmd
+    elif cli_cmd == GET_L2_COUNTERS:
+        CMD_SUFFIX = NAMESPACE_SUFFIX if duthost.is_multi_asic else ''
+        cli_cmd = cli_cmd + CMD_SUFFIX
+
+    stdout = duthost.command(cli_cmd.format(namespace))
+    stdout = stdout["stdout"]
     match = re.search("Last cached time was.*\n", stdout)
     if match:
         stdout = re.sub("Last cached time was.*\n", "", stdout)
@@ -130,9 +156,9 @@ def get_pkt_drops(duthost, cli_cmd):
         raise Exception("Failed to parse output of '{}', err={}".format(cli_cmd, str(err)))
 
 
-def ensure_no_l3_drops(duthost):
+def ensure_no_l3_drops(duthost, asic_index):
     """ Verify L3 drop counters were not incremented """
-    intf_l3_counters = get_pkt_drops(duthost, GET_L3_COUNTERS)
+    intf_l3_counters = get_pkt_drops(duthost, GET_L3_COUNTERS, asic_index)
     unexpected_drops = {}
     for iface, value in intf_l3_counters.items():
         try:
@@ -146,9 +172,9 @@ def ensure_no_l3_drops(duthost):
         pytest.fail("L3 'RX_ERR' was incremented for the following interfaces:\n{}".format(unexpected_drops))
 
 
-def ensure_no_l2_drops(duthost):
+def ensure_no_l2_drops(duthost, asic_index):
     """ Verify L2 drop counters were not incremented """
-    intf_l2_counters = get_pkt_drops(duthost, GET_L2_COUNTERS)
+    intf_l2_counters = get_pkt_drops(duthost, GET_L2_COUNTERS, asic_index)
     unexpected_drops = {}
     for iface, value in intf_l2_counters.items():
         try:
@@ -167,9 +193,9 @@ def str_to_int(value):
     return int(value.replace(",", ""))
 
 
-def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
+def verify_drop_counters(duthost, asic_index, dut_iface, get_cnt_cli_cmd, column_key):
     """ Verify drop counter incremented on specific interface """
-    get_drops = lambda: int(get_pkt_drops(duthost, get_cnt_cli_cmd)[dut_iface][column_key].replace(",", ""))
+    get_drops = lambda: int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", ""))
     check_drops_on_dut = lambda: PKT_NUMBER == get_drops()
     if not wait_until(5, 1, check_drops_on_dut):
         fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
@@ -178,28 +204,33 @@ def verify_drop_counters(duthost, dut_iface, get_cnt_cli_cmd, column_key):
         pytest.fail(fail_msg)
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_dut_ports=None):
+def base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports_info, tx_dut_ports=None):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
     """
     # Clear SONiC counters
     duthost.command("sonic-clear counters")
-    duthost.command("sonic-clear rifcounters")
+
+    # Clear RIF counters per namespace.
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+    duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
+
     send_packets(pkt, duthost, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
     if discard_group == "L2":
-        verify_drop_counters(duthost, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
-        ensure_no_l3_drops(duthost)
+        verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
+        ensure_no_l3_drops(duthost, asic_index)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
-            verify_drop_counters(duthost, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
-            ensure_no_l3_drops(duthost)
+            verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
+            ensure_no_l3_drops(duthost, asic_index)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
 
-            verify_drop_counters(duthost, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY)
-            ensure_no_l2_drops(duthost)
+            verify_drop_counters(duthost, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY)
+            ensure_no_l2_drops(duthost, asic_index)
     elif discard_group == "ACL":
         if not tx_dut_ports:
             pytest.fail("No L3 interface specified")
@@ -212,17 +243,21 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_du
             )
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
-            ensure_no_l3_drops(duthost)
-            ensure_no_l2_drops(duthost)
+            ensure_no_l3_drops(duthost, asic_index)
+            ensure_no_l2_drops(duthost, asic_index)
     elif discard_group == "NO_DROPS":
-        ensure_no_l2_drops(duthost)
-        ensure_no_l3_drops(duthost)
+        ensure_no_l2_drops(duthost, asic_index)
+        ensure_no_l3_drops(duthost, asic_index)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
 
-def get_intf_mtu(duthost, intf):
-    return int(duthost.shell("/sbin/ifconfig {} | grep -i mtu | awk '{{print $NF}}'".format(intf))["stdout"])
+def get_intf_mtu(duthost, intf, asic_index):
+    # Get namespace from asic_index.
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+
+    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+    return int(duthost.shell(CMD_PREFIX + "/sbin/ifconfig {} | grep -i mtu | awk '{{print $NF}}'".format(intf))["stdout"])
 
 
 @pytest.fixture
@@ -235,27 +270,30 @@ def mtu_config(duthosts, rand_one_dut_hostname):
         default_mtu = 9100
 
         @classmethod
-        def set_mtu(cls, mtu, iface):
-            cls.mtu = duthost.command("redis-cli -n 4 hget \"PORTCHANNEL|{}\" mtu".format(iface))["stdout"]
+        def set_mtu(cls, mtu, iface, asic_index):
+            namespace = duthost.get_namespace_from_asic_id(asic_index) if duthost.is_multi_asic else ''
+            cls.mtu = duthost.command("sonic-db-cli -n '{}' CONFIG_DB hget \"PORTCHANNEL|{}\" mtu".format(namespace, iface))["stdout"]
             if not cls.mtu:
                 cls.mtu = cls.default_mtu
             if "PortChannel" in iface:
-                duthost.command("redis-cli -n 4 hset \"PORTCHANNEL|{}\" mtu {}".format(iface, mtu))["stdout"]
+                duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
             elif "Ethernet" in iface:
-                duthost.command("redis-cli -n 4 hset \"PORT|{}\" mtu {}".format(iface, mtu))["stdout"]
+                duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
             else:
                 raise Exception("Unsupported interface parameter - {}".format(iface))
             cls.iface = iface
-            check_mtu = lambda: get_intf_mtu(duthost, iface) == mtu
+            check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu
             pytest_assert(wait_until(5, 1, check_mtu), "MTU on interface {} not updated".format(iface))
+            cls.asic_index = asic_index
 
         @classmethod
         def restore_mtu(cls):
             if cls.iface:
+                namespace = duthost.get_namespace_from_asic_id(cls.asic_index) if duthost.is_multi_asic else ''
                 if "PortChannel" in cls.iface:
-                    duthost.command("redis-cli -n 4 hset \"PORTCHANNEL|{}\" mtu {}".format(cls.iface, cls.mtu))["stdout"]
+                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
                 elif "Ethernet" in cls.iface:
-                    duthost.command("redis-cli -n 4 hset \"PORT|{}\" mtu {}".format(cls.iface, cls.mtu))["stdout"]
+                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
                 else:
                     raise Exception("Trying to restore MTU on unsupported interface - {}".format(cls.iface))
 
@@ -283,7 +321,8 @@ def do_test():
         @param sniff_ports: DUT ports to check that packets were not egressed from
         """
         check_if_skip()
-        base_verification(discard_group, pkt, ptfadapter, duthost, ports_info, tx_dut_ports)
+        asic_index = ports_info["asic_index"]
+        base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports_info, tx_dut_ports)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
@@ -347,7 +386,8 @@ def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, t
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    base_verification("ACL", pkt, ptfadapter, duthost, ports_info, tx_dut_ports)
+    asic_index = ports_info["asic_index"]
+    base_verification("ACL", pkt, ptfadapter, duthost, asic_index, ports_info, tx_dut_ports)
 
     # Verify packets were not egresed the DUT
     exp_pkt = expected_packet_mask(pkt)
@@ -417,8 +457,12 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, duthosts, rand_one_dut_ho
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
                     pkt_fields["ipv4_src"])
+
+    # Get the asic_index
+    asic_index = ports_info["asic_index"]
+
     # Set temporal MTU. This will be restored by 'mtu' fixture
-    mtu_config.set_mtu(tmp_port_mtu, tx_dut_ports[ports_info["dut_iface"]])
+    mtu_config.set_mtu(tmp_port_mtu, tx_dut_ports[ports_info["dut_iface"]], asic_index)
 
     pkt = testutils.simple_tcp_packet(
         pktlen=9100,
