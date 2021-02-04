@@ -54,8 +54,12 @@ def test_snmp_loopback(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, localh
     for ip in config_facts[u'LOOPBACK_INTERFACE'][u'Loopback0']:
         loip = ip.split('/')[0]
         loip = ipaddress.ip_address(loip)
-        result = get_snmp_output(loip, duthost, nbr, creds)
-        if result is None: 
+        # TODO: Fix SNMP query over IPv6 and remove the below check.
+        if (isinstance(loip, ipaddress.IPv4Address)) == False:
             continue
-        assert len(result[u'stdout_lines']) > 0, 'No result from snmpget'
-        assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
+        result = get_snmp_output(loip, duthost, nbr, creds)
+        assert result != None, 'No result from snmpget'
+        if result != None:
+            assert len(result[u'stdout_lines']) > 0, 'No result from snmpget'
+            assert "SONiC Software Version" in result[u'stdout_lines'][0][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
+            assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0][0], "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)
