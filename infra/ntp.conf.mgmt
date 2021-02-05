@@ -1,0 +1,5 @@
+driftfile /var/lib/ntp/drift
+
+
+server 2.ntp.esl.cisco.com
+server 1.ntp.esl.cisco.com

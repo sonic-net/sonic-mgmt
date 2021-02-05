@@ -1,6 +1,14 @@
-Value Used (\S+)
-Value Total (\S+)
+Value TotalPhysicalMemory (\d+)
+Value UsedPhysicalMemory (\d+)
+Value FreePhysicalMemory (\d+)
+Value SharedPhysicalMemory (\d+)
+Value BufferedPhysicalMemory (\d+)
+Value AvailablePhysicalMemory (\d+)
+Value TotalSwapMemory (\d+)
+Value UsedSwapMemory (\d+)
+Value FreeSwapMemory (\d+)
+
 
 Start
-  ^Used\s+:${Used}
-  ^Total\s+:${Total}
+  ^Mem:\s*${TotalPhysicalMemory}\s*${UsedPhysicalMemory}\s*${FreePhysicalMemory}\s*${SharedPhysicalMemory}\s*${BufferedPhysicalMemory}\s*${AvailablePhysicalMemory}\s*
+  ^Swap:\s*${TotalSwapMemory}\s*${UsedSwapMemory}\s*${FreeSwapMemory}

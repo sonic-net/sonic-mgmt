@@ -228,3 +228,5 @@ Vrf_Config_verification_failed : VRF config verification failed
 IP_helper_test_case_msg_status : Test case {} {}
 
 accessing_shell_status: Accessing {} shell after enable/disalbe bgp error handling {}
+# MTU
+mtu_test_status : Mtu test passed:{}
