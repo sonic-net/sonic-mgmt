@@ -350,13 +350,14 @@ class QosSaiBase:
         """
         duthost = duthosts[rand_one_dut_hostname]
         swapSyncd = request.config.getoption("--qos_swap_syncd")
-        if swapSyncd:
-            docker.swap_syncd(duthost, creds)
+        try:
+            if swapSyncd:
+                docker.swap_syncd(duthost, creds)
 
-        yield
-
-        if swapSyncd:
-            docker.restore_default_syncd(duthost, creds)
+            yield
+        finally:
+            if swapSyncd:
+                docker.restore_default_syncd(duthost, creds)
 
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(self, request, duthosts, rand_one_dut_hostname, tbinfo):
@@ -561,7 +562,7 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, tbinfo):
+    def dutQosConfig(self, duthosts, rand_one_dut_hostname, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, tbinfo):
         """
             Prepares DUT host QoS configuration
 
@@ -610,6 +611,7 @@ class QosSaiBase:
             import qos_param_generator
             qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'], dutAsic,
                                                        portSpeedCableLength,
+                                                       dutConfig,
                                                        ingressLosslessProfile,
                                                        ingressLossyProfile,
                                                        egressLosslessProfile,

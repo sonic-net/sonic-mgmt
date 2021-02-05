@@ -1100,11 +1100,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
 
-    def get_namespace_from_asic_id(self, asic_id):
-        if asic_id is DEFAULT_ASIC_ID:
-            return DEFAULT_NAMESPACE
-        return "{}{}".format(NAMESPACE_PREFIX, asic_id)
-
     @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo):
         mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
@@ -1726,6 +1721,36 @@ class SonicAsic(object):
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
+    def get_service_name(self, service):
+        service_name = "{}{}".format(service, "@{}".format(self.asic_index) if self.sonichost.is_multi_asic else "")
+        return service_name
+
+    def is_it_frontend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'frontend':
+                return True
+        return False
+
+    def is_it_backend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'backend':
+                return True
+        return False
+
+    def get_docker_cmd(self, cmd, container_name):
+        if self.sonichost.is_multi_asic:
+            return "sudo docker exec {}{} {}".format(container_name, self.asic_index, cmd)
+        return cmd
+
+    def get_asic_namespace(self):
+        if self.sonichost.is_multi_asic:
+            return self.namespace
+        return DEFAULT_NAMESPACE
+
     def bgp_facts(self, *module_args, **complex_args):
         """ Wrapper method for bgp_facts ansible module.
         If number of asics in SonicHost are more than 1, then add 'instance_id' param for this Asic
@@ -1800,6 +1825,21 @@ class SonicAsic(object):
     def os_version(self):
         return self.sonichost.os_version
 
+    def interface_facts(self, *module_args, **complex_args):
+        """Wrapper for the interface_facts ansible module.
+        
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            For a single ASIC platform, the namespace = DEFAULT_NAMESPACE, will retrieve interface facts for the global namespace
+            In case of multi-asic, if namespace = <ns>, will retrieve interface facts for that namespace.
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.interface_facts(*module_args, **complex_args)
+
+
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
     sonic_host: a SonicHost instance. This object is for interacting with the SONiC host through pytest_ansible.
@@ -1820,6 +1860,17 @@ class MultiAsicSonicHost(object):
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+
+        # Get the frontend and backend asics in a multiAsic device.
+        self.frontend_asics = []
+        self.backend_asics = []
+        if self.sonichost.is_multi_asic:
+            for asic in self.asics:
+                if asic.is_it_frontend():
+                    self.frontend_asics.append(asic)
+                elif asic.is_it_backend():
+                    self.backend_asics.append(asic)
+
         self.critical_services_tracking_list()
 
     def critical_services_tracking_list(self):
@@ -1835,6 +1886,9 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
+
+    def get_default_critical_services_list(self):
+        return self._DEFAULT_SERVICES
 
     def _run_on_asics(self, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
@@ -1872,6 +1926,64 @@ class MultiAsicSonicHost(object):
                 return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def get_frontend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.frontend_asics]
+
+    def get_frontend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.frontend_asics]
+
+    def get_backend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.backend_asics]
+
+    def get_backend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.backend_asics]
+
+    def get_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.asics]
+
+    def get_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.asics]
+
+    def get_asic_id_from_namespace(self, namespace):
+        if self.sonichost.facts['num_asic'] == 1:
+            return DEFAULT_ASIC_ID
+
+        for asic in self.asics:
+            if namespace == asic.namespace:
+                return asic.asic_index
+
+        # Raise an error if we reach here
+        raise ValueError("Invalid namespace '{}' passed as input".format(namespace))
+
+    def get_namespace_from_asic_id(self, asic_id):
+        if self.sonichost.facts['num_asic'] == 1:
+            return DEFAULT_NAMESPACE
+
+        for asic in self.asics:
+            if asic_id == asic.asic_index:
+                return asic.namespace
+
+        # Raise an error if we reach here
+        raise ValueError("Invalid asic_id '{}' passed as input".format(asic_id))
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.

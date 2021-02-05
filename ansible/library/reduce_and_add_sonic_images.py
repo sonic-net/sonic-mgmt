@@ -50,13 +50,20 @@ def reduce_installed_sonic_images(module, disk_used_pcent):
 
 def download_new_sonic_image(module, new_image_url, save_as):
     global results
+
+    # Clean-up previous downloads first
     exec_command(module,
-                cmd="curl -o {} {}".format(save_as, new_image_url),
-                msg="downloading new image")
+                 cmd="rm -f {}".format(save_as),
+                 msg="clean up previously downloaded image",
+                 ignore_error=True)
+
+    exec_command(module,
+                 cmd="curl -o {} {}".format(save_as, new_image_url),
+                 msg="downloading new image")
 
     if path.exists(save_as):
-        _, out, _ = exec_command(module,cmd="sonic_installer binary_version %s" % save_as)
-        results['downloaded_image_version'] = out.rstrip('\n')
+        _, out, _ = exec_command(module, cmd="sonic_installer binary_version {}".format(save_as))
+        results["downloaded_image_version"] = out.rstrip('\n')
 
 
 def install_new_sonic_image(module, new_image_url, save_as=None):
@@ -125,7 +132,7 @@ def main():
     try:
         work_around_for_slow_disks(module)
         reduce_installed_sonic_images(module, disk_used_pcent)
-        if new_image_url:
+        if new_image_url or save_as:
             install_new_sonic_image(module, new_image_url, save_as)
     except:
         err = str(sys.exc_info())
