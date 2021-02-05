@@ -1,18 +1,15 @@
 import pytest
-import time
-import logging
 import ipaddress
-try:  # python3 
+try:  # python3
     from shlex import quote
-except ImportError:  #  python2
+except ImportError:  # python2
     from pipes import quote
-
-logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
+
 
 def get_snmp_output(ip, duthost, nbr, creds):
     ipaddr = ipaddress.ip_address(ip)
@@ -21,25 +18,26 @@ def get_snmp_output(ip, duthost, nbr, creds):
     # TODO : Fix snmp query over loopback v6 and remove this check and add IPv6 ACL table/rule.
     if isinstance(ipaddr, ipaddress.IPv6Address):
         iptables_cmd = "ip6tables"
-        return None 
-    
-    ip_tbl_rule_add = "sudo {} -I INPUT 1 -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip) 
+        return None
+
+    ip_tbl_rule_add = "sudo {} -I INPUT 1 -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip)
     duthost.shell(ip_tbl_rule_add)
 
     eos_snmpget = "bash snmpget -v2c -c {} {} 1.3.6.1.2.1.1.1.0".format(quote(creds['snmp_rocommunity']), ip)
     out = nbr['host'].eos_command(commands=[eos_snmpget])
 
-    ip_tbl_rule_del = "sudo {} -D INPUT -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip) 
+    ip_tbl_rule_del = "sudo {} -D INPUT -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip)
     duthost.shell(ip_tbl_rule_del)
-    
-    return out 
+
+    return out
+
 
 @pytest.mark.bsl
 def test_snmp_loopback(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, localhost, creds):
     """
-    Test SNMP query to DUT over loopback IP 
+    Test SNMP query to DUT over loopback IP
       - Send SNMP query over loopback IP from one of the BGP Neighbors
-      - Get SysDescr from snmpfacts 
+      - Get SysDescr from snmpfacts
       - compare result from snmp query over loopback IP and snmpfacts
     """
     duthost = duthosts[rand_one_dut_hostname]
@@ -54,8 +52,11 @@ def test_snmp_loopback(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, localh
     for ip in config_facts[u'LOOPBACK_INTERFACE'][u'Loopback0']:
         loip = ip.split('/')[0]
         loip = ipaddress.ip_address(loip)
-        result = get_snmp_output(loip, duthost, nbr, creds)
-        if result is None: 
+        # TODO: Fix SNMP query over IPv6 and remove the below check.
+        if not isinstance(loip, ipaddress.IPv4Address):
             continue
+        result = get_snmp_output(loip, duthost, nbr, creds)
+        assert result is not None, 'No result from snmpget'
         assert len(result[u'stdout_lines']) > 0, 'No result from snmpget'
-        assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
+        assert "SONiC Software Version" in result[u'stdout_lines'][0][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
+        assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0][0], "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)
