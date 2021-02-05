@@ -618,6 +618,9 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        if dutTestParams["basicParams"]["sonic_asic_type"] == "mellanox":
+            pytest.skip("Skip DWRR weight change test on Mellanox platform")
+
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
 

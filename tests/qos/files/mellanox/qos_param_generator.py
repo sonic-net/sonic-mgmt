@@ -1,7 +1,7 @@
 import math
 
 class QosParamMellanox(object):
-    def __init__(self, qos_params, asic_type, speed_cable_len, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize):
+    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize):
         asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
@@ -37,6 +37,7 @@ class QosParamMellanox(object):
         self.egressLosslessProfile = egressLosslessProfile
         self.egressLossyProfile = egressLossyProfile
         self.sharedHeadroomPoolSize = sharedHeadroomPoolSize
+        self.dutConfig = dutConfig
 
         return
 
@@ -79,11 +80,12 @@ class QosParamMellanox(object):
         pkts_num_trig_egr_drp = egress_lossy_size + 1
 
         if self.sharedHeadroomPoolSize:
+            testPortIds = self.dutConfig['testPortIds']
             ingress_ports_num_shp = 8
             pkts_num_trig_pfc_shp = []
-            ing_port = 1
             ingress_ports_list_shp = []
             occupancy_per_port = ingress_lossless_size
+            self.qos_parameters['dst_port_id'] = testPortIds[0]
             for i in range(1, ingress_ports_num_shp):
                 # for the first PG
                 pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
@@ -91,8 +93,7 @@ class QosParamMellanox(object):
                 occupancy_per_port /= 2
                 pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
                 occupancy_per_port /= 2
-                ingress_ports_list_shp.append(ing_port)
-                ing_port += 1
+                ingress_ports_list_shp.append(testPortIds[i])
             self.qos_parameters['pkts_num_trig_pfc_shp'] = pkts_num_trig_pfc_shp
             self.qos_parameters['src_port_ids'] = ingress_ports_list_shp
             self.qos_parameters['pkts_num_hdrm_full'] = xoff - 2
@@ -129,6 +130,7 @@ class QosParamMellanox(object):
             hdrm_pool_size['pkts_num_trig_pfc_shp'] = self.qos_parameters['pkts_num_trig_pfc_shp']
             hdrm_pool_size['pkts_num_hdrm_full'] = self.qos_parameters['pkts_num_hdrm_full']
             hdrm_pool_size['pkts_num_hdrm_partial'] = self.qos_parameters['pkts_num_hdrm_partial']
+            hdrm_pool_size['dst_port_id'] = self.qos_parameters['dst_port_id']
             hdrm_pool_size['src_port_ids'] = self.qos_parameters['src_port_ids']
             hdrm_pool_size['pgs_num'] = 2 * len(self.qos_parameters['src_port_ids'])
             hdrm_pool_size['cell_size'] = self.cell_size

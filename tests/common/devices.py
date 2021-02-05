@@ -400,7 +400,8 @@ class SonicHost(AnsibleHostBase):
             True or False
         """
         status = self.command(
-            "docker ps -f name={}".format(service)
+            "docker ps -f name={}".format(service),
+            module_ignore_errors=True
         )["stdout_lines"]
         if len(status) > 1:
             return True
@@ -1303,6 +1304,23 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return idle_count == expected_idle_count
 
+    def is_service_running(self, service_name, docker_name):
+        service_status = self.command(
+            "docker exec {} supervisorctl status {}".format(
+                docker_name, service_name
+            ),
+            module_ignore_errors=True
+        )["stdout"]
+
+        logging.info(
+            "{} status:\n%s".format(docker_name),
+            self.command(
+                "docker ps -f name={}".format(docker_name), module_ignore_errors=True
+            )["stdout"]
+        )
+
+        return "RUNNING" in service_status
+
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1729,7 +1747,7 @@ class SonicAsic(object):
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
 
-    DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
+    _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
     _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
 
@@ -1755,12 +1773,12 @@ class SonicAsic(object):
            for the namespace(asic)
 
            If the dut is multi asic, then the asic_id is appended t0 the
-            DEFAULT_ASIC_SERVICES list
+            _DEFAULT_ASIC_SERVICES list
         Returns:
             [list]: list of the services running the namespace/asic
         """
         a_service = []
-        for service in self.DEFAULT_ASIC_SERVICES:
+        for service in self._DEFAULT_ASIC_SERVICES:
            a_service.append("{}{}".format(
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
@@ -1916,6 +1934,13 @@ class SonicAsic(object):
                 service, self.asic_index
             )
         return self.sonichost.is_container_present(docker_name)
+
+    def is_service_running(self, service_name, docker_name):
+        if self.sonichost.is_multi_asic:
+            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
+                docker_name, self.asic_index
+            )
+        return self.sonichost.is_service_running(service_name, docker_name)
 
 
 class MultiAsicSonicHost(object):
@@ -2090,21 +2115,21 @@ class MultiAsicSonicHost(object):
         return self.asics[asic_id]
 
     def stop_service(self, service):
-        if service not in self.asics[0].DEFAULT_ASIC_SERVICES:
+        if service in self._DEFAULT_SERVICES:
             return self.sonichost.stop_service(service, service)
 
         for asic in self.asics:
             asic.stop_service(service)
 
     def delete_container(self, service):
-        if service not in self.asics[0].DEFAULT_ASIC_SERVICES:
+        if service in self._DEFAULT_SERVICES:
             return self.sonichost.delete_container(service)
 
         for asic in self.asics:
             asic.delete_container(service)
 
     def is_container_present(self, service):
-        if service not in self.asics[0].DEFAULT_ASIC_SERVICES:
+        if service in self._DEFAULT_SERVICES:
             return self.sonichost.is_container_present(service)
 
         for asic in self.asics:
@@ -2115,6 +2140,18 @@ class MultiAsicSonicHost(object):
 
     def is_bgp_state_idle(self):
         return self.sonichost.is_bgp_state_idle()
+
+    def is_service_running(self, service_name, docker_name=None):
+        docker_name = service_name if docker_name is None else docker_name
+
+        if docker_name in self._DEFAULT_SERVICES:
+            return self.sonichost.is_service_running(service_name, docker_name)
+
+        for asic in self.asics:
+            if not asic.is_service_running(service_name, docker_name):
+                return False
+
+        return True
 
 
 class DutHosts(object):
