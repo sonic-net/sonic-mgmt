@@ -331,14 +331,14 @@ class HashTest(BaseTest):
                 total_entry_hit_cnt += port_hit_cnt.get(member, 0)
             (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
             logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                        % ("ECMP", str(ecmp_entry), total_hit_cnt/len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
+                        % ("ECMP", str(ecmp_entry), total_hit_cnt//len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
             result &= r
             if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
                 continue
             for member in ecmp_entry:
                 (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                            % ("LAG", str(member), total_entry_hit_cnt/len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                            % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
                 result &= r
 
         assert result

@@ -1,11 +1,9 @@
-import copy
 import time
 import json
 import logging
 import tempfile
 import random
 
-from collections import defaultdict
 from datetime import datetime
 
 import pytest
