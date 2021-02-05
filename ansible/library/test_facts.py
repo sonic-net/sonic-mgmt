@@ -29,10 +29,10 @@ options:
 
 EXAMPLES = '''
     Testbed CSV file example:
-        # conf-name,group-name,topo,ptf_image_name,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
-        ptf1-m,ptf1,ptf32,docker-ptf-sai-mlnx,10.255.0.188/24,server_1,,str-msn2700-01,Tests ptf
-        vms-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
-        vms-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.255.0.178/24,server_1,VM0100,str-msn2700-01,Tests vms
+        # conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
+        ptf1-m,ptf1,ptf32,docker-ptf,ptf-1,10.255.0.188/24,,server_1,,str-msn2700-01,Tests ptf
+        vms-t1,vms1-1,t1,docker-ptf,ptf-2,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests vms
+        vms-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-3,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests vms
         ...
 
     Testcases YAML File example:
@@ -67,7 +67,7 @@ RETURN = '''
             "vms1-1": {
                 "dut": "str-s6000-1",
                 "owner": "Tests vms",
-                "ptf_image_name": "docker-ptf-sai-mlnx",
+                "ptf_image_name": "docker-ptf",
                 "ptf_ip": "10.255.0.178",
                 "ptf_netmask": "255.255.255.0",
                 "server": "server_1",
