@@ -163,10 +163,7 @@ class QosParamMellanox(object):
         wm_pg_headroom['pkts_num_trig_pfc'] = pkts_num_trig_pfc
         wm_pg_headroom['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_pg_headroom['cell_size'] = self.cell_size
-        if self.asic_type == 'spc3':
-            wm_pg_headroom['pkts_num_margin'] = 3
-        else:
-            wm_pg_headroom['pkts_num_margin'] = 2
+        wm_pg_headroom['pkts_num_margin'] = 3
 
         wm_pg_shared_lossless = self.qos_params_mlnx['wm_pg_shared_lossless']
         wm_pg_shared_lossless['pkts_num_trig_pfc'] = pkts_num_dismiss_pfc
