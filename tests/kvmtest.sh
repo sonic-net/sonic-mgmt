@@ -151,6 +151,7 @@ test_t1_lag() {
     monit/test_monit_status.py \
     test_interfaces.py \
     bgp/test_bgp_fact.py \
+    bgp/test_bgp_allow_list.py \
     bgp/test_bgp_multipath_relax.py \
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_bounce.py \
