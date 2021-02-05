@@ -60,7 +60,7 @@ def update_monit_service(duthost):
     Return:
         None.
     """
-    temp_config_line = "    if status != 0 for 2 times within 2 cycles then alert repeat 1 cycles"
+    temp_config_line = "    if status != 0 for 2 times within 2 cycles then alert repeat every 1 cycles"
     logger.info("Reduing the monitoring interval of container_checker.")
     duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/sonic-host")
     duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/sonic-host".format(temp_config_line))
