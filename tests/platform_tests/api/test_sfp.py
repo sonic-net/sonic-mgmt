@@ -115,14 +115,14 @@ class TestSfpApi(PlatformApiTestBase):
         self.candidate_sfp = []
         if self.skip_absent_sfp:
             # Skip absent SFP if option "--skip-absent-sfp" set to True 
-            for i in range(self.num_sfps):
+            for i in range(1, self.num_sfps + 1):
                 try:
                     if sfp.get_presence(platform_api_conn, i):
                         self.candidate_sfp.append(i)
                 except Exception:
                     pytest.fail("get_presence API is not supported, failed to compose present SFP list")
         else:
-            self.candidate_sfp = range(self.num_sfps)
+            self.candidate_sfp = range(1, self.num_sfps + 1)
     #
     # Helper functions
     #
@@ -133,7 +133,7 @@ class TestSfpApi(PlatformApiTestBase):
         if self.chassis_facts:
             expected_sfps = self.chassis_facts.get("sfps")
             if expected_sfps:
-                expected_value = expected_sfps[sfp_idx].get(key)
+                expected_value = expected_sfps[sfp_idx - 1].get(key)
 
         if self.expect(expected_value is not None,
                        "Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx)):
