@@ -13,6 +13,7 @@ from tests.common.dualtor import dual_tor_utils
 
 @pytest.fixture(scope="function")
 def tunnel_traffic_monitor(ptfadapter, tbinfo):
+    """Return TunnelTrafficMonitor to verify inter-ToR tunnel traffic."""
 
     class TunnelTrafficMonitor(object):
         """Monit tunnel traffic from standby ToR to active ToR."""
@@ -31,11 +32,11 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                     return addr.split("/")[0]
 
         @staticmethod
-        def _build_tunnel_packet(out_src_ip, out_dst_ip):
+        def _build_tunnel_packet(outer_src_ip, outer_dst_ip):
             """Build the expected tunnel packet."""
             exp_pkt = testutils.simple_ip_packet(
-                ip_src=out_src_ip,
-                ip_dst=out_dst_ip,
+                ip_src=outer_src_ip,
+                ip_dst=outer_dst_ip,
                 pktlen=20
             )
             exp_pkt = mask.Mask(exp_pkt)
@@ -88,7 +89,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             if outer_ecn != inner_ecn:
                 raise ValueError("Outer packet ECN not same as inner packet ECN")
 
-        def __init__(self, active_tor, standby_tor):
+        def __init__(self, active_tor, standby_tor, existing=True):
             """
             Init the tunnel traffic monitor.
 
@@ -108,6 +109,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
             self.standby_tor_lo_addr = self._find_ipv4_lo_addr(standby_tor_cfg_facts)
             self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr)
+            self.existing = existing
 
         def __enter__(self):
             self.ptfadapter.dataplane.flush()
@@ -115,17 +117,25 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
         def __exit__(self, *exc_info):
             if exc_info[0]:
                 return
-
-            port_index, rec_pkt = testutils.verify_packet_any_port(
-                ptfadapter,
-                self.exp_pkt,
-                ports=self.listen_ports
-            )
-            rec_pkt = Ether(rec_pkt)
-            rec_port = self.listen_ports[port_index]
-            logging.debug("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
-            logging.debug("Encapsulated packet:\n%s", self._dump_show_str(rec_pkt))
-            self._check_ttl(rec_pkt)
-            self._check_tos(rec_pkt)
+            try:
+                port_index, rec_pkt = testutils.verify_packet_any_port(
+                    ptfadapter,
+                    self.exp_pkt,
+                    ports=self.listen_ports
+                )
+            except AssertionError as detail:
+                logging.debug("Error occurred in polling for tunnel traffic", exc_info=True)
+                if "Did not receive expected packet on any of ports" in str(detail):
+                    if self.existing:
+                        raise detail
+                else:
+                    raise detail
+            else:
+                rec_pkt = Ether(rec_pkt)
+                rec_port = self.listen_ports[port_index]
+                logging.debug("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
+                logging.debug("Encapsulated packet:\n%s", self._dump_show_str(rec_pkt))
+                self._check_ttl(rec_pkt)
+                self._check_tos(rec_pkt)
 
     return TunnelTrafficMonitor
