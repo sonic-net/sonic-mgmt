@@ -94,11 +94,25 @@ sonic_s6100:
 
 sonic_a7260:
   vars:
+    hwsku: Arista-7260CX3-D108C8
     iface_speed: 100000
   hosts:
     lab-a7260-01:
       ansible_host: 10.251.0.191
-      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial:
+      base_mac:
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250504B0"
+        "0x23": ""
+        "0x24": ""
+        "0x25": ""
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2d": "Arista Networks"
+        "0x2e": ""
 
 sonic_multi_asic:
   vars:
