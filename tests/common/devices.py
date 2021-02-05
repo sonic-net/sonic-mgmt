@@ -402,10 +402,11 @@ class SonicHost(AnsibleHostBase):
         status = self.command(
             "docker ps -f name={}".format(service),
             module_ignore_errors=True
-        )["stdout_lines"]
-        if len(status) > 1:
-            return True
-        return False
+        )
+
+        logging.info("{} status: {} ".format(service, status["stdout"]))
+
+        return len(status["stdout_lines"]) > 1
 
     def critical_services_status(self):
         result = {}
@@ -1312,13 +1313,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             module_ignore_errors=True
         )["stdout"]
 
-        logging.info(
-            "{} status:\n%s".format(docker_name),
-            self.command(
-                "docker ps -f name={}".format(docker_name), module_ignore_errors=True
-            )["stdout"]
-        )
-
         return "RUNNING" in service_status
 
 
@@ -1913,27 +1907,21 @@ class SonicAsic(object):
             docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
                 service, self.asic_index
             )
-
         return self.sonichost.stop_service(service_name, docker_name)
 
     def delete_container(self, service):
-        if not self.sonichost.is_multi_asic:
-            docker_name = service
-        else:
-            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
+        if self.sonichost.is_multi_asic:
+            service = self._MULTI_ASIC_DOCKER_NAME.format(
                 service, self.asic_index
             )
-
-        return self.sonichost.delete_container(docker_name)
+        return self.sonichost.delete_container(service)
 
     def is_container_present(self, service):
-        if not self.sonichost.is_multi_asic:
-            docker_name = service
-        else:
-            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
+        if self.sonichost.is_multi_asic:
+            service = self._MULTI_ASIC_DOCKER_NAME.format(
                 service, self.asic_index
             )
-        return self.sonichost.is_container_present(docker_name)
+        return self.sonichost.is_container_present(service)
 
     def is_service_running(self, service_name, docker_name):
         if self.sonichost.is_multi_asic:
@@ -1953,8 +1941,6 @@ class MultiAsicSonicHost(object):
     """
 
     _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
-    MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
-    MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
 
     def __init__(self, ansible_adhoc, hostname):
         """ Initializing a MultiAsicSonicHost.

@@ -204,7 +204,10 @@ def _perform_swap_syncd_shutdown_check(duthost):
 
 
 def _perform_syncd_liveness_check(duthost):
-    liveness_check = wait_until(30, 1, duthost.is_service_running("syncd"))
+    def check_liveness():
+        return duthost.is_service_running("syncd")
+
+    liveness_check = wait_until(30, 1, check_liveness)
     pytest_assert(liveness_check, "syncd crashed after swap_syncd")
 
 
