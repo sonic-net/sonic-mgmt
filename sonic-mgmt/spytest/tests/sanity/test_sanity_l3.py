@@ -7,7 +7,7 @@ import apis.switching.vlan as vapi
 import apis.system.port as papi
 import apis.system.interface as intapi
 import apis.switching.portchannel as portchannel_obj
-
+import apis.system.basic as basic_obj
 
 tg_info = dict()
 
@@ -140,6 +140,7 @@ def test_l3_fwding():
     data.my_dut_list = st.get_dut_names()
 
     dut1 = vars.D1
+    dut2 = vars.D2
     ipfeature.get_interface_ip_address(dut1, family="ipv4")
     ipfeature.get_interface_ip_address(dut1, family="ipv6")
     ipfeature.show_ip_route(dut1)

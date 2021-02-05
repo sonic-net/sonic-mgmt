@@ -242,10 +242,11 @@ def snmptrapd_checking():
     ps_cmd = "ps -ealf | grep snmptrapd | grep -v grep"
     st.log("Checking for snmptrap process existence with command '{}'".format(ps_cmd))
     output = execute_command(ssh_conn_obj,ps_cmd)
-    ps_lines = "\n".join(output.split("\n")[:-1])
+    if output:
+        ps_lines = "\n".join(output.split("\n")[:-1])
 
-    if "snmptrapd" in ps_lines:
-        retval = True
+        if "snmptrapd" in ps_lines:
+            retval = True
 
     return retval
 
