@@ -594,10 +594,12 @@ def test_server_down():
     No data plane operations/checks
     """
 
-def test_tunnel():
+def test_tunnel(): 
     """
-    Send encapped server traffic from ToR A to ToR B, and ToR B to ToR A
+    This test will no longer be planned. Explicitly checking encap/decap of tunnel packets is reserved for the orchagent tests. Test cases listed in this document will still verify correct tunnel packets.
+    
+    ~~Send encapped server traffic from ToR A to ToR B, and ToR B to ToR A~~
 
-    Verify that the T1 switch sees the expected IP-in-IP packet, and that each ToR receives the packet
+    ~~Verify that the T1 switch sees the expected IP-in-IP packet, and that each ToR receives the packet~~
     """
 ```
