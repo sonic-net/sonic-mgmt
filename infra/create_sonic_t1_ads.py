@@ -54,6 +54,14 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
+    chan.send("sudo ip -6 address add fc0b::2/64 dev eth0 \n")
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
     chan.send("cd sonic-test \n")
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
@@ -392,6 +400,7 @@ def add_ptf_backplane_addr(data):
     cmd_list = list()
     cmd_list.append('ip address add 10.10.246.254/24 dev eth32')
     cmd_list.append('ip -6 address add fc0a::ff/64 dev eth32')
+    cmd_list.append('ip -6 address add fc0b::1/64 dev mgmt')
     cmd_list.append('for i in {0..32}; do /sbin/ifconfig eth$i mtu 9216 up; done')
     run_exec_cmds(data['ptf']['HostAgent'], data['ptf']['xr_redir22'], 'root', 'root', cmd_list)
 
