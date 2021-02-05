@@ -30,7 +30,6 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 
 from tests.common.connections.console_host import ConsoleHost
 
@@ -109,49 +108,6 @@ def pytest_addoption(parser):
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf (should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
 
-@pytest.fixture(scope='session', autouse=True)
-def config_dual_tor_for_sai_4_2(tbinfo, duthosts, backup_and_restore_config_db_session):
-
-    if 'dualtor' not in tbinfo['topo']['name']:
-
-        yield 
-
-    else:
-        logger.warning("Running manual steps for dual ToRs on SAI 4.2")
-
-        swss_template_dir = '/usr/share/sonic/templates/'
-        ip_in_ip_orig_file = swss_template_dir + 'ipinip.json.j2'
-        ip_in_ip_bak_file = ip_in_ip_orig_file + '.bak'
-        docker_exec_cmd = 'docker exec swss {}'
-        for dut in duthosts:
-            tunnel_facts = dut.get_running_config_facts()['TUNNEL']
-            tunnel_name = list(tunnel_facts.keys())[0]
-            dst_ip = tunnel_facts[tunnel_name]['dst_ip']
-            cmd = 'redis-cli -n 4 HSET "TUNNEL|{}" "src_ip" "{}"'
-
-            logger.info('Setting src_ip and saving config DB to file')
-            dut.shell(cmd.format(tunnel_name, dst_ip))
-            dut.shell('config save -y')
-
-            logger.info('Backing up and blanking out ipinip.json.j2')
-            backup_cmd = 'mv {} {}'.format(ip_in_ip_orig_file, ip_in_ip_bak_file)
-            dut.shell(docker_exec_cmd.format(backup_cmd))
-            echo_cmd = 'touch {}'.format(ip_in_ip_orig_file)
-            dut.shell(docker_exec_cmd.format(echo_cmd))
-
-        yield
-
-        for dut in duthosts:
-            tunnel_facts = dut.get_running_config_facts()['TUNNEL']
-            tunnel_name = list(tunnel_facts.keys())[0]
-
-            logger.info('Removing src_ip from config DB')
-            cmd = 'redis-cli -n 4 HDEL "TUNNEL|{}" "src_ip"'
-            dut.shell(cmd.format(tunnel_name))
-
-            logger.info('Restoring ipinip.json.j2')
-            restore_cmd = 'mv {} {}'.format(ip_in_ip_bak_file, ip_in_ip_orig_file)
-            dut.shell(docker_exec_cmd.format(restore_cmd))
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
