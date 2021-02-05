@@ -345,7 +345,12 @@ class DecapPacketTest(BaseTest):
         else:
             raise Exception('ERROR: Invalid inner packet type passed: ', inner_pkt_type)
 
-        for ip_range in ip_ranges:
+        if len(ip_ranges) > 150:
+            covered_ip_ranges = ip_ranges[:100] + random.sample(ip_ranges[100:], 50)  # Limit test execution time
+        else:
+            covered_ip_ranges = ip_ranges[:]
+
+        for ip_range in covered_ip_ranges:
 
             # Skip the IP range on VLAN interface, t0 topology
             if inner_pkt_type == 'ipv4' and self.vlan_ip and \
