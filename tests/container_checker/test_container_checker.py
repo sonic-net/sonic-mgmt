@@ -51,7 +51,7 @@ def update_monit_service(duthost):
     """Update Monit configuration and restart it.
 
     This function will first reduce the monitoring interval of container checker
-    from 5 minutes to 2 minutes, restart Monit service without delaying. After
+    from 5 minutes to 2 minutes, then restart Monit service without delaying. After
     testing, these two changes will be rolled back.
 
     Args:
