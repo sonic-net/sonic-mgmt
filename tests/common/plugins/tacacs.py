@@ -1,11 +1,8 @@
 import pytest
 import crypt
 
-def configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
-    """setup tacacs client and server"""
-
-    # disable tacacs server
-    ptfhost.service(name="tacacs_plus", state="stopped")
+def setup_tacacs_client(duthost, creds, tacacs_server_ip):
+    """setup tacacs client"""
 
     # configure tacacs client
     duthost.shell("sudo config tacacs passkey %s" % creds['tacacs_passkey'])
@@ -20,12 +17,24 @@ def configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip):
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
 
+def stop_tacacs_server(ptfhost):
+    """disable tacacs server"""
+
+    ptfhost.service(name="tacacs_plus", state="stopped")
+
+
+def setup_tacacs_server(ptfhost, creds):
+    """setup tacacs server"""
+
     # configure tacacs server
     extra_vars = {'tacacs_passkey': creds['tacacs_passkey'],
                   'tacacs_rw_user': creds['tacacs_rw_user'],
                   'tacacs_rw_user_passwd': crypt.crypt(creds['tacacs_rw_user_passwd'], 'abc'),
                   'tacacs_ro_user': creds['tacacs_ro_user'],
-                  'tacacs_ro_user_passwd': crypt.crypt(creds['tacacs_ro_user_passwd'], 'abc')}
+                  'tacacs_ro_user_passwd': crypt.crypt(creds['tacacs_ro_user_passwd'], 'abc'),
+                  'tacacs_jit_user': creds['tacacs_jit_user'],
+                  'tacacs_jit_user_passwd': crypt.crypt(creds['tacacs_jit_user_passwd'], 'abc'),
+                  'tacacs_jit_user_membership': creds['tacacs_jit_user_membership']}
 
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
@@ -48,7 +57,9 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
 def test_tacacs(ptfhost, duthosts, rand_one_dut_hostname, creds):
     duthost = duthosts[rand_one_dut_hostname]
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+    stop_tacacs_server(ptfhost)
+    setup_tacacs_client(duthost, creds, tacacs_server_ip)
+    setup_tacacs_server(ptfhost, creds)
 
     yield
 
@@ -62,7 +73,9 @@ def test_tacacs_v6(ptfhost, duthosts, rand_one_dut_hostname, creds):
     if 'ansible_hostv6' not in ptfhost_vars:
         pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")
     tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-    configure_tacacs(ptfhost, duthost, creds, tacacs_server_ip)
+    stop_tacacs_server(ptfhost)
+    setup_tacacs_client(duthost, creds, tacacs_server_ip)
+    setup_tacacs_server(ptfhost, creds)
 
     yield
 
