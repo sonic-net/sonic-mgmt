@@ -63,10 +63,13 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'sudo generate_dump',
             'sudo lldpshow',
             # 'sudo psuutil *',
-            'sudo sonic-installer list',
             # 'sudo sfputil show *',
             'sudo ip netns identify 1',
     ]
+    if "201911" in duthosts[rand_one_dut_hostname].os_version:
+        commands_direct.append('sudo sonic_installer list')
+    else:
+        commands_direct.append('sudo sonic-installer list')
 
     # Run as readonly use the commands allowed indirectly based on sudoers file
     commands_indirect = [
