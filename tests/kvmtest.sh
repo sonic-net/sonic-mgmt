@@ -100,6 +100,7 @@ test_t0() {
     bgp/test_bgp_fact.py \
     bgp/test_bgp_gr_helper.py \
     bgp/test_bgp_speaker.py \
+    cacl/test_ebtables_application.py \
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
     dhcp_relay/test_dhcp_relay.py \
