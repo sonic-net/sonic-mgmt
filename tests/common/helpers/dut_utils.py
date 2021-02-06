@@ -11,8 +11,8 @@ def is_supervisor_node(inv_files, hostname):
           the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
           logic if possible to derive it from the DUT.
     """
-    node_type = get_host_visible_vars(inv_files, hostname, variable='type')
-    if node_type and node_type == 'supervisor':
+    dut_vars = get_host_visible_vars(inv_files, hostname)
+    if 'type' in dut_vars and dut_vars['type'] == 'supervisor':
         return True
     return False
 
