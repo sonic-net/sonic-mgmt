@@ -404,7 +404,13 @@ class SonicHost(AnsibleHostBase):
             module_ignore_errors=True
         )
 
-        logging.info("{} status: {} ".format(service, status["stdout"]))
+        if len(status["stdout_lines"]) > 1:
+            logging.info("container {} status: {}".format(
+                service, status["stdout"])
+            )
+        else:
+            logging.info("container {} does not exist".format(service))
+
 
         return len(status["stdout_lines"]) > 1
 
@@ -1312,6 +1318,10 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             ),
             module_ignore_errors=True
         )["stdout"]
+
+        logging.info("service {}:{} status: {} ".format(
+            docker_name, service_name, service_status)
+        )
 
         return "RUNNING" in service_status
 
