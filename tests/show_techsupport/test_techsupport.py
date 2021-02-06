@@ -73,13 +73,13 @@ def setup_acl_rules(duthost, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl_setup(duthosts, rand_one_dut_hostname):
+def acl_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     setup fixture gathers all test required information from DUT facts and testbed
     :param duthost: DUT host object
     :return: dictionary with all test required information
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info('Creating temporary folder for test {}'.format(ACL_RUN_DIR))
     duthost.command("mkdir -p {}".format(ACL_RUN_DIR))
     tmp_path = duthost.tempfile(path=ACL_RUN_DIR, state='directory', prefix='acl', suffix="")['path']
@@ -107,14 +107,14 @@ def teardown_acl(dut, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl(duthosts, rand_one_dut_hostname, acl_setup):
+def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
     """
     setup/teardown ACL rules based on test class requirements
     :param duthost: DUT host object
     :param acl_setup: setup information
     :return:
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
     loganalyzer.load_common_config()
 
@@ -138,8 +138,8 @@ def acl(duthosts, rand_one_dut_hostname, acl_setup):
 # MIRRORING PART #
 
 @pytest.fixture(scope='function')
-def neighbor_ip(duthosts, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def neighbor_ip(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # ptf-32 topo is not supported in mirroring
     if tbinfo['topo']['name'] == 'ptf32':
         pytest.skip('Unsupported Topology')
@@ -159,11 +159,11 @@ def neighbor_ip(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture(scope='function')
-def mirror_setup(duthosts, rand_one_dut_hostname):
+def mirror_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     setup fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     duthost.command('mkdir -p {}'.format(MIRROR_RUN_DIR))
     tmp_path = duthost.tempfile(path=MIRROR_RUN_DIR, state='directory', prefix='mirror', suffix="")['path']
 
@@ -174,26 +174,26 @@ def mirror_setup(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='function')
-def gre_version(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_type = duthost.facts['asic_type']
     if asic_type in ["mellanox"]:
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
-    if asic_type in ["barefoot"]:
+    elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
     else:
         SESSION_INFO['gre'] = 0x6558
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, rand_one_dut_hostname, neighbor_ip, mirror_setup, gre_version):
+def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
     :param mirror_setup: mirror_setup fixture
     :param mirror_config: mirror_config fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
@@ -262,13 +262,13 @@ def execute_command(duthost, since):
     return stdout['rc'] == SUCCESS_CODE
 
 
-def test_techsupport(request, config, duthosts, rand_one_dut_hostname):
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
     :param duthost: DUT host
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
     since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"

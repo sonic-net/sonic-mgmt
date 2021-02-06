@@ -67,6 +67,7 @@ class Hooks(object):
                 ntp.ensure_ntp_config(dut)
         if st.getenv("SPYTEST_GENERATE_CERTIFICATE", "0") != "0":
             basic.ensure_certificate(dut)
+        base_config.post_reboot(dut, is_upgrade=is_upgrade)
 
     def init_base_config(self, dut):
         base_config.init(dut)
@@ -177,4 +178,8 @@ class Hooks(object):
 
     def dut_reboot(self, dut, method='normal',cli_type=''):
         return reboot.dut_reboot(dut, method, cli_type)
+
+    def get_onie_grub_config(self, dut, mode):
+        from apis.system.boot_up import get_onie_grub_config
+        return get_onie_grub_config(dut, mode)
 

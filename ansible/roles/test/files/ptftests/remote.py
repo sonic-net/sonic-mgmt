@@ -16,10 +16,10 @@ def get_ifaces():
 
         iface = line.split(':')[0].strip()
 
-        # Skip not FP interfaces
-        if 'eth' not in iface:
+        # Skip not FP interfaces and vlan interface, like eth1.20
+        if 'eth' not in iface or '.' in iface:
             continue
-
+        
         ifaces.append(iface)
 
     # Sort before return

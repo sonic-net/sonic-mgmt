@@ -134,10 +134,10 @@ def make_list2(*args):
             retval.append(arg)
     return retval
 
-def is_iterable(obj):
-    try: _ = iter(obj)
-    except TypeError: return False
-    return True
+def iterable(obj):
+    if obj is None or isinstance(obj, bool):
+        return []
+    return obj
 
 def filter_and_select(output, select=None, match=None):
     """
@@ -175,10 +175,9 @@ def filter_and_select(output, select=None, match=None):
 
     # collect the matched/all entries
     retval = []
-    if is_iterable(output):
-        for ent in output:
-            if not match or match_entry(ent, match):
-                retval.append(ent)
+    for ent in iterable(output):
+        if not match or match_entry(ent, match):
+            retval.append(ent)
 
     # return all columns if select is not specified
     if not select:
@@ -248,8 +247,11 @@ def random_vlan_list(count=1, exclude=[]):
 def get_proc_name():
     return sys._getframe(1).f_code.co_name
 
-def get_line_number():
+def get_line_number(lvl=0):
     cf = inspect.currentframe()
+    for _ in range(lvl):
+        if cf.f_back:
+            cf = cf.f_back
     return cf.f_back.f_lineno
 
 def trace(fmt, *args):
@@ -379,17 +381,11 @@ def time_parse(timestr):
     return secs
 
 def time_format(value, msec=False):
-    if msec:
-        milli, value = value % 1000, value // 1000
-    seconds = value % (24 * 3600)
-    hour = seconds // 3600
-    seconds %= 3600
-    minutes = seconds // 60
-    seconds %= 60
-    if msec:
-        retval = "%d:%02d:%02d.%03d" % (hour, minutes, seconds, milli)
-    else:
-        retval = "%d:%02d:%02d" % (hour, minutes, seconds)
+    if msec: milli, value = value % 1000, value // 1000
+    minutes, seconds = divmod(value, 60)
+    hour, minutes = divmod(minutes, 60)
+    retval = "%d:%02d:%02d" % (hour, minutes, seconds)
+    if msec: retval = "%s.%03d" % (retval, milli)
     return retval
 
 def time_diff(start, end, fmt=False, add=0):
@@ -585,6 +581,7 @@ def write_html_table3(cols, rows, filepath=None, links=None, colors=None, align=
       <script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
       <script src="https://cdn.datatables.net/buttons/1.6.2/js/dataTables.buttons.min.js"></script>
       <script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.colVis.min.js"></script>
+      <script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.html5.min.js"></script>
       <style>
         table.dataTable thead th {text-align:center; padding:0px 15px 0px 5px; font-weight:normal;}
         table.dataTable tbody td {text-align:center; padding:0px 5px 0px 5px}
@@ -598,7 +595,20 @@ def write_html_table3(cols, rows, filepath=None, links=None, colors=None, align=
           if (!foot.length) foot = $('<tfoot>').appendTo("table");
           foot.append(last)
           {%- endif %}
-          dataTable = $('table').DataTable({dom: 'Bfrtip', buttons: ['colvis'],
+          function selectedColumn(idx, data, node) {
+            searchInput = $('table').parents('.dataTables_wrapper').find('select');
+            let columnIndex = ourSelect.prop('selectedIndex');
+            return ((columnIndex <= 0) || (idx == columnIndex - 1));
+          }
+          function get_uniq(data, obj) {
+            return data.split('\\n').filter((item, i, allItems) => {return i === allItems.indexOf(item);}).join('\\n');
+          }
+          buttons = [{ extend: 'colvis', className: 'btn btn-primary' },
+                     { extend: 'copy', className: 'btn btn-primary', title: '',
+                       text: 'Copy Column', header: false, customize: get_uniq,
+                       exportOptions: { columns: selectedColumn }
+                     }];
+          dataTable = $('table').DataTable({dom: 'Bfrtip', buttons: buttons,
             iDisplayLength: 100, paging: false, "order": []
           });
           col_css = {{col_css}}
@@ -612,7 +622,8 @@ def write_html_table3(cols, rows, filepath=None, links=None, colors=None, align=
           // support for search by
           searchInput = $('table').parents('.dataTables_wrapper').find('input[type=search]')
           ourInput = $(document.createElement('input')).attr({type: 'search'});
-          ourSpan = $(document.createElement('span')).text('Search By')
+          scopeSpan = $(document.createElement('span')).text('Column Scope:').attr({style: "padding-right:5"})
+          searchSpan = $(document.createElement('span')).text('Search:').attr({style: "padding-left:5"})
           ourLabel = $(document.createElement('label'))
           ourSelect = $(document.createElement('select'))
           var select = '<option/>';
@@ -620,7 +631,7 @@ def write_html_table3(cols, rows, filepath=None, links=None, colors=None, align=
             select += '<option>' + this.innerHTML + '</option>';
           })
           ourSelect.html(select);
-          ourLabel.append(ourSpan).append(ourSelect).append(ourInput).insertBefore(searchInput.parent());
+          ourLabel.append(scopeSpan).append(ourSelect).append(searchSpan).append(ourInput).insertBefore(searchInput.parent());
           searchInput.parent().css("display", "none")
           let query = undefined;
           function hanleInputEvent() {
@@ -752,10 +763,9 @@ def split_lines_trim(text):
 
 def dicts_list_values(dict_list, name):
     retval = []
-    if is_iterable(dict_list):
-        for d in dict_list:
-            if name in d:
-                retval.append(d[name])
+    for d in iterable(dict_list):
+        if name in d:
+            retval.append(d[name])
     return  retval
 
 def invert_dict(d):
@@ -938,6 +948,13 @@ def set_repeat(path, name, topo):
 
 def unused(*args):
     pass
+
+def get_env_int(name, default):
+    try:
+        return int(os.getenv(name, default))
+    except Exception:
+        pass
+    return default
 
 if __name__ == "__main__":
     # indent the json file

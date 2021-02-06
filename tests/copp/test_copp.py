@@ -131,7 +131,7 @@ def copp_testbed(
         _teardown_testbed(duthost, creds, ptfhost, test_params)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(loganalyzer):
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -148,10 +148,11 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
         ".*ERR monit.*'lldp_syncd' process is not running.*",
         ".*ERR monit.*'lldp\|lldp_syncd' status failed.*'python2 -m lldp_syncd' is not running.*",
         ".*snmp#snmp-subagent.*",
+        ".*kernel reports TIME_ERROR: 0x4041: Clock Unsynchronized.*"
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     """

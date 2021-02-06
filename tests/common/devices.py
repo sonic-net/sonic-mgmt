@@ -14,9 +14,10 @@ import re
 import inspect
 import ipaddress
 import copy
+import time
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
-import time
+from collections import defaultdict
 
 from ansible import constants
 from ansible.plugins.loader import connection_loader
@@ -24,6 +25,8 @@ from ansible.plugins.loader import connection_loader
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
+from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.cache import cached
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -127,7 +130,6 @@ class SonicHost(AnsibleHostBase):
     and also provides the ability to run Ansible modules on the SONiC device.
     """
 
-    _DEFAULT_CRITICAL_SERVICES = ["swss", "syncd", "database", "teamd", "bgp", "pmon", "lldp", "snmp"]
 
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None):
@@ -158,9 +160,9 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
-        self.reset_critical_services_tracking_list()
 
     @property
     def facts(self):
@@ -228,21 +230,18 @@ class SonicHost(AnsibleHostBase):
             This list is used for tracking purposes ONLY. Updating the list does
             not actually modify any services running on the device.
         """
-
-        if self.facts["num_asic"] > 1:
-            self._critical_services = self._generate_critical_services_for_multi_asic(var)
-        else:
-            self._critical_services = var
+        self._critical_services = var
 
         logging.debug(self._critical_services)
 
-    def reset_critical_services_tracking_list(self):
+    def reset_critical_services_tracking_list(self, service_list):
         """
-        Resets the list of critical services to the default.
+        Resets the list of critical services.
         """
 
-        self.critical_services = self._DEFAULT_CRITICAL_SERVICES
+        self.critical_services = service_list
 
+    @cached(name='basic_facts')
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
@@ -281,21 +280,6 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
 
-    def _generate_critical_services_for_multi_asic(self, services):
-        """
-        Generates a fully-qualified list of critical services for multi-asic platforms, based on a
-        base list of services.
-
-        Example:
-        ["swss", "syncd"] -> ["swss0", "swss1", "swss2", "syncd0", "syncd1", "syncd2"]
-        """
-
-        m_service = []
-        for service in services:
-            for asic in range(self.facts["num_asic"]):
-                asic_service = service + str(asic)
-                m_service.insert(asic, asic_service)
-        return m_service
 
     def _get_platform_info(self):
         """
@@ -374,11 +358,9 @@ class SonicHost(AnsibleHostBase):
             the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
             logic if possible to derive it from the DUT.
         """
-        if 'type' in self.host.options["inventory_manager"].get_host(self.hostname).get_vars():
-            node_type = self.host.options["inventory_manager"].get_host(self.hostname).get_vars()["type"]
-            if node_type is not None and node_type == 'supervisor':
-                return True
-        return False
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        return is_supervisor_node(inv_files, self.hostname)
 
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
@@ -460,11 +442,17 @@ class SonicHost(AnsibleHostBase):
         critical_process_list = []
         succeeded = True
 
+
         file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
                 && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
+                if '201811' in self._os_version and len(line_info) == 1:
+                    identifier_value = line_info[0].strip()
+                    critical_process_list.append(identifier_value)
+                    continue
+
                 succeeded = False
                 break
 
@@ -714,7 +702,7 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface startup {}".format(ifname))
 
-    def get_ip_route_info(self, dstip):
+    def get_ip_route_info(self, dstip, ns=""):
         """
         @summary: return route information for a destionation. The destination coulb an ip address or ip prefix.
 
@@ -782,9 +770,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         if isinstance(dstip, ipaddress.IPv4Network) or isinstance(dstip, ipaddress.IPv6Network):
             if dstip.version == 4:
-                rt = self.command("ip route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} route list exact {}".format(ns, dstip))['stdout_lines']
             else:
-                rt = self.command("ip -6 route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} -6 route list exact {}".format(ns , dstip))['stdout_lines']
 
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
@@ -806,7 +794,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                     rtinfo['nexthops'].append((ipaddress.ip_address(unicode(m.group(2))), unicode(m.group(3))))
 
         elif isinstance(dstip, ipaddress.IPv4Address) or isinstance(dstip, ipaddress.IPv6Address):
-            rt = self.command("ip route get {}".format(dstip))['stdout_lines']
+            rt = self.command("ip {} route get {}".format(ns, dstip))['stdout_lines']
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
             if len(rt) == 0:
@@ -872,7 +860,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         bgp_facts = self.bgp_facts()['ansible_facts']
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
-        return ret;
+        return ret
 
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
@@ -1121,7 +1109,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         if namespace == DEFAULT_NAMESPACE:
             return None
         return namespace.split(NAMESPACE_PREFIX)[1]
-
+    
+    @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo):
         mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
@@ -1145,6 +1134,10 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
         return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
 
+    def run_redis_cli_cmd(self, redis_cmd):
+        cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
+        return self.command(cmd)
+
     def get_asic_name(self):
         asic = "unknown"
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]
@@ -1165,6 +1158,125 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return cmd
         ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(self.get_asic_id_from_namespace(namespace)))
         return ns_cmd
+    
+    def get_running_config_facts(self):
+        return self.config_facts(host=self.hostname, source='running')['ansible_facts']
+
+    def get_vlan_intfs(self):
+        '''
+        Get any interfaces belonging to a VLAN
+        '''
+        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_intfs = []
+
+        for vlan in vlan_members_facts:
+            for intf in vlan_members_facts[vlan]:
+                vlan_intfs.append(intf)
+
+        return vlan_intfs
+
+    def get_crm_facts(self):
+        """Run various 'crm show' commands and parse their output to gather CRM facts
+
+        Executed commands:
+            crm show summary
+            crm show thresholds
+            crm show resources all
+
+        Example output:
+            {
+                "acl_group": [
+                    {
+                        "resource name": "acl_group",
+                        "bind point": "PORT",
+                        "available count": "200",
+                        "used count": "24",
+                        "stage": "INGRESS"
+                    },
+                   ...
+                ],
+                "acl_table": [
+                    {
+                        "table id": "",
+                        "resource name": "",
+                        "used count": "",
+                        "available count": ""
+                    },
+                    ...
+                ],
+                "thresholds": {
+                        "ipv4_route": {
+                            "high": 85,
+                            "type": "percentage",
+                            "low": 70
+                        },
+                    ...
+                },
+                "resources": {
+                    "ipv4_route": {
+                        "available": 100000,
+                        "used": 16
+                    },
+                    ...
+                },
+                "polling_interval": 300
+            }
+
+        Returns:
+            dict: Gathered CRM facts.
+        """
+        crm_facts = {}
+
+        # Get polling interval
+        output = self.command('crm show summary')['stdout']
+        parsed = re.findall(r'Polling Interval: +(\d+) +second', output)
+        if parsed:
+            crm_facts['polling_interval'] = int(parsed[0])
+
+        # Get thresholds
+        crm_facts['thresholds'] = {}
+        thresholds = self.show_and_parse('crm show thresholds all')
+        for threshold in thresholds:
+            crm_facts['thresholds'][threshold['resource name']] = {
+                'high': int(threshold['high threshold']),
+                'low': int(threshold['low threshold']),
+                'type': threshold['threshold type']
+            }
+
+        # Get output of all resources
+        output = self.command('crm show resources all')['stdout_lines']
+        in_section = False
+        sections = defaultdict(list)
+        section_id = 0
+        for line in output:
+            if len(line.strip()) != 0:
+                if not in_section:
+                    in_section = True
+                    section_id += 1
+                sections[section_id].append(line)
+            else:
+                in_section=False
+                continue
+        # Output of 'crm show resources all' has 3 sections.
+        #   section 1: resources usage
+        #   section 2: ACL group
+        #   section 3: ACL table
+        if 1 in sections.keys():
+            crm_facts['resources'] = {}
+            resources = self._parse_show(sections[1])
+            for resource in resources:
+                crm_facts['resources'][resource['resource name']] = {
+                    'used': int(resource['used count']),
+                    'available': int(resource['available count'])
+                }
+
+        if 2 in sections.keys():
+            crm_facts['acl_group'] = self._parse_show(sections[2])
+
+        if 3 in sections.keys():
+            crm_facts['acl_table'] = self._parse_show(sections[3])
+
+        return crm_facts
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1384,7 +1496,8 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        if out['changed'] == False:
+
+        if out['failed'] == True:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
@@ -1589,6 +1702,8 @@ class SonicAsic(object):
     The purpose is to hide the complexity of handling ASIC/namespace specific details.
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
+
+    _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
     def __init__(self, sonichost, asic_index):
         """ Initializing a ASIC on a SONiC host.
 
@@ -1598,7 +1713,58 @@ class SonicAsic(object):
         """
         self.sonichost = sonichost
         self.asic_index = asic_index
+        if self.sonichost.is_multi_asic:
+            self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
+            self.cli_ns_option = "-n {}".format(self.namespace)
+        else:
+            # set the namespace to DEFAULT_NAMESPACE(None) for single asic
+            self.namespace = DEFAULT_NAMESPACE
+            self.cli_ns_option = ""
 
+    def get_critical_services(self):
+        """This function returns the list of the critical services
+           for the namespace(asic)
+
+           If the dut is multi asic, then the asic_id is appended t0 the
+            _DEFAULT_ASIC_SERVICES list
+        Returns:
+            [list]: list of the services running the namespace/asic
+        """
+        a_service = []
+        for service in self._DEFAULT_ASIC_SERVICES:
+           a_service.append("{}{}".format(
+               service, self.asic_index if self.sonichost.is_multi_asic else ""))
+        return a_service
+
+    def get_service_name(self, service):
+        service_name = "{}{}".format(service, "@{}".format(self.asic_index) if self.sonichost.is_multi_asic else "")
+        return service_name
+
+    def is_it_frontend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'frontend':
+                return True
+        return False
+
+    def is_it_backend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'backend':
+                return True
+        return False
+
+    def get_docker_cmd(self, cmd, container_name):
+        if self.sonichost.is_multi_asic:
+            return "sudo docker exec {}{} {}".format(container_name, self.asic_index, cmd)
+        return cmd
+
+    def get_asic_namespace(self):
+        if self.sonichost.is_multi_asic:
+            return self.namespace
+        return DEFAULT_NAMESPACE
 
     def bgp_facts(self, *module_args, **complex_args):
         """ Wrapper method for bgp_facts ansible module.
@@ -1629,9 +1795,64 @@ class SonicAsic(object):
         """
         if 'host' not in complex_args:
             complex_args['host'] = self.sonichost.hostname
-        if self.sonichost.facts['num_asic'] != 1:
-            complex_args['namespace'] = 'asic{}'.format(self.asic_index)
+        if self.sonichost.is_multi_asic:
+            complex_args['namespace'] = self.namespace
         return self.sonichost.config_facts(*module_args, **complex_args)
+
+    def show_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_interface'
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show interface status command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_interface(*module_args, **complex_args)
+
+    def show_ip_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ip_interface'
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show interface status command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ip_interface(*module_args, **complex_args)
+
+    def run_redis_cli_cmd(self, redis_cmd):
+        if self.namespace != DEFAULT_NAMESPACE:
+            redis_cli = "/usr/bin/redis-cli"
+            cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli,redis_cmd)
+            return self.sonichost.command(cmd)
+        # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
+        return self.sonichost.run_redis_cli_cmd(redis_cmd)
+
+    def get_ip_route_info(self, dstip):
+        return self.sonichost.get_ip_route_info(dstip, self.cli_ns_option)
+
+    @property
+    def os_version(self):
+        return self.sonichost.os_version
+
+    def interface_facts(self, *module_args, **complex_args):
+        """Wrapper for the interface_facts ansible module.
+        
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            For a single ASIC platform, the namespace = DEFAULT_NAMESPACE, will retrieve interface facts for the global namespace
+            In case of multi-asic, if namespace = <ns>, will retrieve interface facts for that namespace.
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.interface_facts(*module_args, **complex_args)
 
 
 class MultiAsicSonicHost(object):
@@ -1643,6 +1864,8 @@ class MultiAsicSonicHost(object):
     So, even a single asic pizza box is represented as a MultiAsicSonicHost with 1 SonicAsic.
     """
 
+    _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
+
     def __init__(self, ansible_adhoc, hostname):
         """ Initializing a MultiAsicSonicHost.
 
@@ -1652,6 +1875,35 @@ class MultiAsicSonicHost(object):
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+
+        # Get the frontend and backend asics in a multiAsic device.
+        self.frontend_asics = []
+        self.backend_asics = []
+        if self.sonichost.is_multi_asic:
+            for asic in self.asics:
+                if asic.is_it_frontend():
+                    self.frontend_asics.append(asic)
+                elif asic.is_it_backend():
+                    self.backend_asics.append(asic)
+
+        self.critical_services_tracking_list()
+
+    def critical_services_tracking_list(self):
+        """Get the list of services running on the DUT
+           The services on the sonic devices are:
+              - services running on the host
+              - services which are replicated per asic
+            Returns:
+            [list]: list of the services running the device
+        """
+        service_list = []
+        service_list+= self._DEFAULT_SERVICES
+        for asic in self.asics:
+            service_list += asic.get_critical_services()
+        self.sonichost.reset_critical_services_tracking_list(service_list)
+
+    def get_default_critical_services_list(self):
+        return self._DEFAULT_SERVICES
 
     def _run_on_asics(self, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
@@ -1690,6 +1942,64 @@ class MultiAsicSonicHost(object):
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
 
+    def get_frontend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.frontend_asics]
+
+    def get_frontend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.frontend_asics]
+
+    def get_backend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.backend_asics]
+
+    def get_backend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.backend_asics]
+
+    def get_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.asics]
+
+    def get_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.asics]
+
+    def get_asic_id_from_namespace(self, namespace):
+        if self.sonichost.facts['num_asic'] == 1:
+            return DEFAULT_ASIC_ID
+
+        for asic in self.asics:
+            if namespace == asic.namespace:
+                return asic.asic_index
+
+        # Raise an error if we reach here
+        raise ValueError("Invalid namespace '{}' passed as input".format(namespace))
+
+    def get_namespace_from_asic_id(self, asic_id):
+        if self.sonichost.facts['num_asic'] == 1:
+            return DEFAULT_NAMESPACE
+
+        for asic in self.asics:
+            if asic_id == asic.asic_index:
+                return asic.namespace
+
+        # Raise an error if we reach here
+        raise ValueError("Invalid asic_id '{}' passed as input".format(asic_id))
+
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
 
@@ -1708,6 +2018,11 @@ class MultiAsicSonicHost(object):
             return self._run_on_asics
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
+
+    def get_asic(self, asic_id):
+        if asic_id == DEFAULT_ASIC_ID:
+            return self.asics[0]
+        return self.asics[asic_id]
 
 
 class DutHosts(object):

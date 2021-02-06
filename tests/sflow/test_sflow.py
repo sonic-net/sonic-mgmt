@@ -1,3 +1,10 @@
+"""
+    Tests the sFlow feature in SONiC.
+
+    Parameters:
+        --enable_sflow_feature: Enable sFlow feature on DUT. Default is disabled
+"""
+
 import pytest
 import logging
 import time
@@ -13,13 +20,13 @@ from tests.common.utilities import wait_until
 from netaddr import *
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module',autouse=True)
-def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature):
     duthost = duthosts[rand_one_dut_hostname]
     global var
     var = {}
@@ -89,7 +96,6 @@ def config_dut_ports(duthost, ports, vlan):
    # Even though port is deleted from vlan , the port shows its master as Bridge upon assigning ip address.
    # Hence config reload is done as workaround. ##FIXME
     for i in range(len(ports)):
-        duthost.command('config vlan member add %s %s' %(vlan,ports[i]))
         duthost.command('config vlan member del %s %s' %(vlan,ports[i]))
         duthost.command('config interface ip add %s %s/24' %(ports[i],var['dut_intf_ips'][i]))
     duthost.command('config save -y')
@@ -106,7 +112,16 @@ def get_ifindex(duthost, port):
 def config_sflow(duthost, sflow_status='enable'):
     duthost.shell('config sflow %s'%sflow_status)
     time.sleep(2)
+# ----------------------------------------------------------------------------------
 
+@pytest.fixture(scope='module')
+def config_sflow_feature(request, duthost):
+    # Enable sFlow feature on DUT if enable_sflow_feature argument was passed
+    if request.config.getoption("--enable_sflow_feature"):
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status['sflow'] == 'disabled':
+            duthost.shell("sudo config feature state sflow enabled")
+            time.sleep(2)
 # ----------------------------------------------------------------------------------
 
 def config_sflow_interfaces(duthost, intf, **kwargs):
@@ -403,6 +418,7 @@ class TestAgentId():
 
 # ------------------------------------------------------------------------------
 
+@pytest.mark.disable_loganalyzer
 class TestReboot():
 
     def testRebootSflowEnable(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):

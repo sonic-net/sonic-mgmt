@@ -2,7 +2,7 @@
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 import json
 from spytest import st
-from utilities.common import random_vlan_list, filter_and_select, exec_foreach, make_list
+from utilities.common import random_vlan_list, filter_and_select, exec_foreach, make_list, iterable
 from utilities.utils import get_interface_number_from_name, get_portchannel_name_for_rest
 from utilities.parallel import ensure_no_exception
 from apis.system.rest import config_rest, delete_rest, get_rest, rest_status
@@ -434,7 +434,7 @@ def get_vlan_member(dut, vlan_list=[], cli_type = ''):
             temp += filter_and_select(out, None, {"vid": each})
         out = temp
 
-    for each in out:
+    for each in iterable(out):
         if each['member']:
             if each['vid'] not in vlan_val:
                 vlan_val[each['vid']] = [each['member']]
@@ -463,7 +463,7 @@ def get_member_vlan(dut, interface_list=[], cli_type = ''):
             temp += filter_and_select(out, None, {"member": each})
         out = temp
 
-    for each in out:
+    for each in iterable(out):
         if each['member']:
             if each['member'] not in member_val:
                 member_val[each['member']] = [each['vid']]
@@ -915,7 +915,7 @@ def show_vlan_from_rest_response(rest_response):
                 vlan_participation_data = dict()
                 if "Vlan" in intf_data.get("name"):
                     vlan_data["vid"] = intf_data.get("name")
-                    vlan_data["status"] = intf_data.get("state")["admin-status"]
+                    vlan_data["status"] = intf_data.get("state")["admin-status"] if "admin-status" in intf_data.get("state") else ""
                 if intf_data.get("openconfig-if-ethernet:ethernet"):
                     if intf_data["openconfig-if-ethernet:ethernet"].get("openconfig-vlan:switched-vlan"):
                         vlan_participation_data[intf_data["name"]] = dict()

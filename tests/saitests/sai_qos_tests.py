@@ -10,6 +10,7 @@ import ptf.dataplane as dataplane
 import sai_base_test
 import operator
 import sys
+import math
 from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
@@ -25,6 +26,7 @@ from switch import (switch_init,
                     sai_thrift_read_port_watermarks,
                     sai_thrift_read_pg_counters,
                     sai_thrift_read_buffer_pool_watermark,
+                    sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_port_tx_disable,
                     sai_thrift_port_tx_enable)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
@@ -857,10 +859,36 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.pgs_num = self.test_params['pgs_num']
         self.asic_type = self.test_params['sonic_asic_type']
         self.pkts_num_leak_out = self.test_params['pkts_num_leak_out']
-        self.pkts_num_trig_pfc = self.test_params['pkts_num_trig_pfc']
+        self.pkts_num_trig_pfc = self.test_params.get('pkts_num_trig_pfc')
+        if not self.pkts_num_trig_pfc:
+            self.pkts_num_trig_pfc_shp = self.test_params.get('pkts_num_trig_pfc_shp')
         self.pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         self.pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
-        print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial))
+        packet_size = self.test_params.get('packet_size')
+        if packet_size:
+            self.pkt_size = packet_size
+            cell_size = self.test_params.get('cell_size')
+            self.pkt_size_factor = int(math.ceil(float(packet_size)/cell_size))
+        else:
+            self.pkt_size = 64
+            self.pkt_size_factor = 1
+
+        if self.pkts_num_trig_pfc:
+            print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d, pkt_size %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))
+        elif self.pkts_num_trig_pfc_shp:
+            print >> sys.stderr, ("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))            
+
+        # used only for headroom pool watermark
+        if all(key in self.test_params for key in ['hdrm_pool_wm_multiplier', 'buf_pool_roid', 'cell_size', 'max_headroom']):
+           self.cell_size = int(self.test_params['cell_size'])
+           self.wm_multiplier = self.test_params['hdrm_pool_wm_multiplier']
+           print >> sys.stderr, "Wm multiplier: %d buf_pool_roid: %s" % (self.wm_multiplier, self.test_params['buf_pool_roid'])
+           self.buf_pool_roid = int(self.test_params['buf_pool_roid'], 0)
+           print >> sys.stderr, "buf_pool_roid: 0x%lx" % (self.buf_pool_roid)
+           self.max_headroom = int(self.test_params['max_headroom'])
+        else:
+           self.wm_multiplier = None
+
         sys.stderr.flush()
 
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
@@ -894,7 +922,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
-        margin = 0
+        margin = self.test_params.get('margin')
+        if not margin:
+            margin = 0
         sidx_dscp_pg_tuples = [(sidx, dscp, self.pgs[pgidx]) for sidx, sid in enumerate(self.src_port_ids) for pgidx, dscp in enumerate(self.dscps)]
         assert(len(sidx_dscp_pg_tuples) >= self.pgs_num)
         print >> sys.stderr, sidx_dscp_pg_tuples
@@ -911,7 +941,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         try:
             # send packets to leak out
             sidx = 0
-            pkt = simple_tcp_packet(pktlen=64,
+            pkt = simple_tcp_packet(pktlen=self.pkt_size,
                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                         eth_src=self.src_port_macs[sidx],
                         ip_src=self.src_port_ips[sidx],
@@ -926,7 +956,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -934,7 +964,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_dst=self.dst_port_ip,
                                         ip_tos=tos,
                                         ip_ttl=ttl)
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_trig_pfc)
+                if self.pkts_num_trig_pfc:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                else:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc / self.pkt_size_factor)
 
             print >> sys.stderr, "Service pool almost filled"
             sys.stderr.flush()
@@ -946,7 +980,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -976,13 +1010,22 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, "PFC triggered"
             sys.stderr.flush()
 
+            upper_bound = 2
+            if self.wm_multiplier:
+                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+                print >> sys.stderr, "Actual headroom pool watermark value to start: %d" % hdrm_pool_wm
+                assert (hdrm_pool_wm <= (upper_bound * self.cell_size * self.wm_multiplier))
+
+            expected_wm = 0
+            wm_pkt_num = 0
+            upper_bound_wm = 0
             # send packets to all pgs to fill the headroom pool
             for i in range(0, self.pgs_num):
                 # Prepare TCP packet data
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -991,7 +1034,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
 
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial)
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full / self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial / self.pkt_size_factor)
                 # allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
 
@@ -999,6 +1042,18 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 # assert no ingress drop
                 assert(recv_counters[INGRESS_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_DROP])
                 assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_PORT_BUFFER_DROP])
+
+                if self.wm_multiplier:
+                    wm_pkt_num += (self.pkts_num_hdrm_full if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial)
+                    hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+                    expected_wm = wm_pkt_num * self.cell_size * self.wm_multiplier
+                    upper_bound_wm = expected_wm + (upper_bound * self.cell_size * self.wm_multiplier)
+                    if upper_bound_wm > self.max_headroom:
+                        upper_bound_wm = self.max_headroom
+
+                    print >> sys.stderr, "pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" %(wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm)
+                    assert(expected_wm <= hdrm_pool_wm)
+                    assert(hdrm_pool_wm <= upper_bound_wm)
 
             print >> sys.stderr, "all but the last pg hdrms filled"
             sys.stderr.flush()
@@ -1020,6 +1075,16 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             print >> sys.stderr, "pg hdrm filled"
+            if self.wm_multiplier:
+               # assert hdrm pool wm still remains the same
+               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+               assert(expected_wm <= hdrm_pool_wm)
+               assert(hdrm_pool_wm <= upper_bound_wm)
+               # at this point headroom pool should be full. send few more packets to continue causing drops
+               print >> sys.stderr, "overflow headroom pool"
+               send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
+               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+               assert(hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
         finally:
@@ -1520,7 +1585,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # as all lossy packets are now mapped to single pg 0
                 # so we remove the strict equity check, and use upper bound
                 # check instead
-                assert(1 * cell_size <= pg_shared_wm_res[pg])
                 assert(pg_shared_wm_res[pg] <= margin * cell_size)
 
             # send packet batch of fixed packet numbers to fill pg shared

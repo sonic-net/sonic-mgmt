@@ -440,15 +440,17 @@ class Net(object):
                 time.sleep(wait_time)
 
             if i % 2 == 0:
-                msg = "Trying CTRL+C: attempt {}..".format(i)
-                self.dut_log(device, msg, lvl=logging.WARNING)
-                try: hndl.send_command_timing("\x03")
-                except Exception: self.dut_log(device, "Failed to send CTRL+C", lvl=logging.ERROR)
+                if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                    msg = "Trying CTRL+C: attempt {}..".format(i)
+                    self.dut_log(device, msg, lvl=logging.WARNING)
+                    try: hndl.send_command_timing("\x03")
+                    except Exception: self.dut_log(device, "Failed to send CTRL+C", lvl=logging.ERROR)
             elif i % 2 == 1:
-                msg = "Trying CTRL+Q: attempt {}..".format(i)
-                self.dut_log(device, msg, lvl=logging.WARNING)
-                try: hndl.send_command_timing("\x11")
-                except Exception: self.dut_log(device, "Failed to send CTRL+Q", lvl=logging.ERROR)
+                if env.get("SPYTEST_RECOVERY_CTRL_Q", "1") == "1":
+                    msg = "Trying CTRL+Q: attempt {}..".format(i)
+                    self.dut_log(device, msg, lvl=logging.WARNING)
+                    try: hndl.send_command_timing("\x11")
+                    except Exception: self.dut_log(device, "Failed to send CTRL+Q", lvl=logging.ERROR)
 
         # dump sysrq traces
         if hndl and env.get("SPYTEST_SYSRQ_ENABLE", "0") != "0":
@@ -705,7 +707,8 @@ class Net(object):
             hndl = self._get_handle(devname)
             if hndl:
                 try:
-                    hndl.send_command_timing("\x03")
+                    if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                        hndl.send_command_timing("\x03")
                 except Exception:
                     pass
                 hndl.disconnect()
@@ -1523,14 +1526,15 @@ class Net(object):
                         tmp_trace_dump = self._trace_received(devname, "", hndl, None, None, line2)
                         trace_dump.append(tmp_trace_dump)
                     try:
-                        msg = "Trying CTRL+C: attempt {}..".format(attempt)
-                        self.dut_log(devname, msg, lvl=logging.WARNING)
-                        hndl.send_command_timing("\x03")
-                        hndl.clear_buffer()
-                        ctrl_c_used = True
-                        # TODO: Need to check for both testcase and module on result setting.
-                        #if self.tc_start_time:
-                        #    self.wa.report_scripterror("command_failed_recovered_using_ctrlc", cmd)
+                        if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                            msg = "Trying CTRL+C: attempt {}..".format(attempt)
+                            self.dut_log(devname, msg, lvl=logging.WARNING)
+                            hndl.send_command_timing("\x03")
+                            hndl.clear_buffer()
+                            ctrl_c_used = True
+                            # TODO: Need to check for both testcase and module on result setting.
+                            #if self.tc_start_time:
+                            #    self.wa.report_scripterror("command_failed_recovered_using_ctrlc", cmd)
                     except Exception as ex2:
                         if self.wa.is_shutting_down():
                             self.dut_log(devname, "run shutting down", lvl=logging.WARNING)
@@ -1725,9 +1729,11 @@ class Net(object):
                 pass
         else:
             try:
-                hndl.send_command_timing("\x03")
+                if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                    hndl.send_command_timing("\x03")
                 hndl.send_command_timing("end")
-                hndl.send_command_timing("\x03")
+                if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                    hndl.send_command_timing("\x03")
                 hndl.send_command_timing("exit")
                 new_prompt = self._find_prompt(access)
             except Exception:
@@ -2696,6 +2702,29 @@ class Net(object):
             self.wait(1)
         return 0
 
+    def update_onie_grub_config(self, devname, mode):
+
+        # Grub commands for image download.
+        cmds, errs = self.wa.hooks.get_onie_grub_config(devname, mode)
+        upgrade_image_cmd = ";".join(cmds)
+
+        # Issue the grub commands.
+        skip_error_check = False if self.wa.session_init_completed else True
+        self.trace_callback_set(devname, True)
+        cli_prompt = self._get_cli_prompt(devname)
+        access = self._get_dev_access(devname)
+        output = self._send_command(access, upgrade_image_cmd, cli_prompt,
+                                    skip_error_check, 18)
+        self.trace_callback_set(devname, False)
+
+        for err_pattern in errs:
+            if err_pattern in output:
+                msg = "ONIE GRUB config failed matching error '{}' in mode {}".format(err_pattern, mode)
+                self.dut_log(devname, msg, logging.ERROR)
+                return msg
+
+        return output
+
     def upgrade_onie_image1(self, devname, url, max_ready_wait=0):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
@@ -2705,19 +2734,7 @@ class Net(object):
                 self.dut_log(devname, "Image already upgraded during the time of DUT connect using ONIE process.")
                 return True
 
-        upgrade_image_cmd = ";".join("""
-        sudo apt-get -f install -y grub-common
-        sudo mkdir -p /mnt/onie-boot/
-        sudo mount /dev/sda2 /mnt/onie-boot/
-        sudo /mnt/onie-boot/onie/tools/bin/onie-boot-mode -o rescue
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set diag_mode=none
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set onie_mode=rescue
-        sudo grub-editenv /host/grub/grubenv set next_entry=ONIE
-        sudo grub-reboot --boot-directory=/host/ ONIE
-        sudo umount /mnt/onie-boot/
-        """.strip().splitlines())
-
-        self.dut_log(devname, "Upgrading image from onie '{}'.".format(url))
+        self.dut_log(devname, "Upgrading image from onie1 '{}'.".format(url))
 
         if access["filemode"]:
             return None
@@ -2725,22 +2742,8 @@ class Net(object):
         # ensure we are in sonic mode
         self._enter_linux_exit_vtysh(devname)
 
-        # Issue upgrade command.
-        skip_error_check = False if self.wa.session_init_completed else True
-        self.trace_callback_set(devname, True)
-        cli_prompt = self._get_cli_prompt(devname)
-        output = self._send_command(access, upgrade_image_cmd, cli_prompt, skip_error_check, 18)
-        self.trace_callback_set(devname, False)
-
-        grub_err_patterns = ["/dev/sda2 does not exist",
-                             "/mnt/onie-boot/onie/tools/bin/onie-boot-mode: command not found",
-                             "No such file or directory",
-                             "/mnt/onie-boot/: not mounted"]
-        for err_pattern in grub_err_patterns:
-            if err_pattern in output:
-                msg = "GRUB ONIE setting failed. Observed error pattern '{}' while setting grub-editenv.".format(err_pattern)
-                self.dut_log(devname, msg, logging.ERROR)
-                raise ValueError(msg)
+        # update ONIE configuration
+        self.update_onie_grub_config(devname, "rescue")
 
         # we need to download the helper files again
         self.skip_trans_helper[devname] = dict()
@@ -2852,36 +2855,8 @@ class Net(object):
                 msg = msg.format(dut_image_location)
                 self.dut_log(devname, msg, logging.WARNING)
 
-        # Grub commands for image download.
-        upgrade_image_cmd = ";".join("""
-        sudo apt-get -f install -y grub-common
-        sudo mkdir -p /mnt/onie-boot/
-        sudo mount /dev/sda2 /mnt/onie-boot/
-        sudo /mnt/onie-boot/onie/tools/bin/onie-boot-mode -o install
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set diag_mode=none
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set onie_mode=install
-        sudo grub-editenv /host/grub/grubenv set next_entry=ONIE
-        sudo grub-reboot --boot-directory=/host/ ONIE
-        sudo umount /mnt/onie-boot/
-        """.strip().splitlines())
-
-        # Issue the grub commands.
-        skip_error_check = False if self.wa.session_init_completed else True
-        self.trace_callback_set(devname, True)
-        cli_prompt = self._get_cli_prompt(devname)
-        output = self._send_command(access, upgrade_image_cmd, cli_prompt,
-                                    skip_error_check, 18)
-        self.trace_callback_set(devname, False)
-
-        grub_err_patterns = ["/dev/sda2 does not exist",
-                             "/mnt/onie-boot/onie/tools/bin/onie-boot-mode: command not found",
-                             "No such file or directory",
-                             "/mnt/onie-boot/: not mounted"]
-        for err_pattern in grub_err_patterns:
-            if err_pattern in output:
-                msg = "GRUB ONIE setting failed. Observed error pattern '{}' while setting grub-editenv.".format(err_pattern)
-                self.dut_log(devname, msg, logging.ERROR)
-                return msg
+        # update ONIE configuration
+        self.update_onie_grub_config(devname, "install")
 
         # we need to download the helper files again
         self.skip_trans_helper[devname] = dict()
@@ -3053,6 +3028,7 @@ class Net(object):
         self.wa.instrument(devname, "pre-reboot")
         self.trace_callback_set(devname, True)
         reboot_delay_factor = 10
+        cmd_timetaken = None
         if not self._is_console_connection(devname):
             reboot_static_wait = 120
             if onie:
@@ -3074,7 +3050,7 @@ class Net(object):
                         break
                     time_left = time_left - 2
                 if time_left == 0:
-                    msg = "Dut IP '{}' is not reachable even after pinging for '{}' secs after reboot on SSH"
+                    msg = "DUT IP '{}' is not reachable even after pinging for '{}' secs after reboot on SSH"
                     msg = msg.format(dut_mgmt_ip, reboot_polling_time)
                     self.dut_log(devname, msg, logging.ERROR)
                     return False
@@ -3098,7 +3074,15 @@ class Net(object):
         else:
             if internal:
                 expect = "|".join([user_mode, regex_login, regex_login_anywhere])
+                cmd_starttime = get_timenow()
                 output = self._send_command(access, reboot_cmd, expect, True, reboot_delay_factor)
+                cmd_timetaken = get_elapsed(cmd_starttime, False)
+                if cmd_timetaken < 100:
+                    msg = "Not expecting the command to finish in '{}' secs."
+                    msg = msg.format(cmd_timetaken)
+                    msg = msg + " So waiting for a static period of 10 mins."
+                    self.dut_log(devname, msg, lvl=logging.WARNING)
+                    self.wait(600)
             else:
                 output = self.wa.hooks.dut_reboot(devname, method=method)
         self.trace_callback_set(devname, False)
@@ -3435,10 +3419,10 @@ class Net(object):
         return args_str + " --load-config-method {}".format(load_config_method)
 
     def _add_core_dump_flags(self, args_str, value_list):
-        core_flag = value_list.pop(0)
-        dump_flag = value_list.pop(0)
-        clear_flag = value_list.pop(0)
-        misc_flag = value_list.pop(0)
+        core_flag = value_list[0]
+        dump_flag = value_list[1]
+        clear_flag = value_list[2]
+        misc_flag = value_list[3]
         core_flag = "YES" if core_flag else "NO"
         dump_flag = "YES" if dump_flag else "NO"
         clear_flag = "YES" if clear_flag else "NO"
@@ -3511,7 +3495,8 @@ class Net(object):
         largs = [core, dump, self.cfg.clear_tech_support, misc]
         self._apply_remote(devname, "init-clean", largs)
 
-    def _apply_remote(self, devname, option_type, value_list=[]):
+    def _apply_remote(self, devname, option_type, value_list=None):
+        value_list = value_list or []
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
 
@@ -3547,8 +3532,8 @@ class Net(object):
             execute_in_console = True
             # transfer the cfg files
             dst_file_list = []
-            method = value_list.pop(0)
-            for name in value_list:
+            method = value_list[0]
+            for name in value_list[1:]:
                 for src_file in utils.make_list(name):
                     dst_file = self._upload_file2(devname, access, src_file)
                     if dst_file: dst_file_list.append(dst_file)
@@ -3557,13 +3542,13 @@ class Net(object):
             self.dut_log(devname, "Applying config files remotely '{}'".format(args_str))
             skip_error_check = True
         elif option_type == "run-test":
-            timeout = value_list.pop(0)
-            args_str = " ".join(value_list)
+            timeout = value_list[0]
+            args_str = " ".join(value_list[1:])
             delay_factor = int(math.ceil((timeout * 1.0) / 100))
         elif option_type == "init-ta-config":
             execute_in_console = True
-            profile_name = value_list.pop(-1).lower()
-            args_str = self._add_core_dump_flags(args_str, value_list)
+            profile_name = value_list[-1].lower()
+            args_str = self._add_core_dump_flags(args_str, value_list[:-1])
             args_str = args_str + " --config-profile {}".format(profile_name)
             if env.get("SPYTEST_NTP_CONFIG_INIT", "0") != "0":
                 args_str = args_str + " --env SPYTEST_NTP_CONFIG_INIT 1"
@@ -3623,8 +3608,8 @@ class Net(object):
             args_str = self._add_core_dump_flags(args_str, value_list)
         elif option_type == "update-reserved-ports":
             live_tracing = False
-            port_list = value_list.pop(0)
-            args_str = ' '.join(port_list)
+            port_list = value_list[0]
+            args_str = ' '.join(port_list[1:])
         elif option_type == "port-defaults":
             execute_in_console = True
             args_str = ""
@@ -3645,7 +3630,7 @@ class Net(object):
         elif option_type == "wait-for-ports":
             args_str = value_list[0]
         elif option_type == "config-profile":
-            args_str = value_list.pop(0).lower()
+            args_str = value_list[0].lower()
             #execute_in_console = bool(args_str != "na")
             execute_in_console = True
         elif option_type == "dump-click-cmds":
@@ -3919,6 +3904,8 @@ class Net(object):
         return True
 
     def generate_tech_support(self, devname, name):
+        if self.wa.has_get_tech_support("none"):
+            return
         for _ in range(2):
             try:
                 self._apply_remote(devname, "get-tech-support", [name])
@@ -5085,7 +5072,7 @@ class Net(object):
                     msg = "Identified the same/user prompt '{0}' or '{1}' with in '{2}' secs."
                     msg = msg.format(expected_prompt, user_mode, cmd_timetaken)
                     msg = msg + " So waiting for a static period of 5 mins."
-                    self.dut_log(devname, msg)
+                    self.dut_log(devname, msg, lvl=logging.WARNING)
                     self.wait(300)
                     prompt = self._find_prompt(access)
             if prompt != expected_prompt:
@@ -5358,8 +5345,9 @@ class Net(object):
                                                  skip_error_check=True, conf=is_step_conf, confirm=confirm_command)
 
                         if not isinstance(output, list) and re.search("Syntax error:", output):
-                            hndl = self._get_handle(devname)
-                            hndl.send_command_timing("\x03")
+                            if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                                hndl = self._get_handle(devname)
+                                hndl.send_command_timing("\x03")
 
                         hndl_after_cmd = self._get_handle(devname)
 
@@ -5487,8 +5475,9 @@ class Net(object):
                                                  skip_error_check=True, conf=is_step_conf, confirm=confirm_command)
 
                         if not isinstance(output, list) and re.search("Syntax error:", output):
-                            hndl = self._get_handle(devname)
-                            hndl.send_command_timing("\x03")
+                            if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                                hndl = self._get_handle(devname)
+                                hndl.send_command_timing("\x03")
 
                         hndl_after_cmd = self._get_handle(devname)
 
@@ -5621,8 +5610,9 @@ class Net(object):
                                                      skip_error_check=True, conf=is_step_conf, confirm=confirm_command)
 
                         if not isinstance(output, list) and re.search("Syntax error:", output):
-                            hndl = self._get_handle(devname)
-                            hndl.send_command_timing("\x03")
+                            if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                                hndl = self._get_handle(devname)
+                                hndl.send_command_timing("\x03")
 
                         output = nl.join(output.split(nl)[:-1])
 

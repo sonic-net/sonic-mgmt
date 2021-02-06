@@ -25,7 +25,7 @@ class FanoutHandler(BaseFanoutHandler):
         fanout_facts = self.ansible_localhost.conn_graph_facts(host=self.fanout_host, filename=LAB_CONNECTION_GRAPH)["ansible_facts"]
 
         self.fanout_trunk_port = None
-        for iface, iface_info in fanout_facts["device_port_vlans"].items():
+        for iface, iface_info in fanout_facts["device_port_vlans"][self.fanout_host].items():
             if iface_info["mode"] == "Trunk":
                 self.fanout_trunk_port = iface[iface.find("/") + 1:]
                 break

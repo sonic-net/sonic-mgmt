@@ -1,6 +1,6 @@
 #   OSPFv2 APIs
 #   Author: Naveena Suvarna (naveen.suvarna@broadcom.com)
-
+from __future__ import division
 from spytest import st
 from spytest.utils import filter_and_select
 from utilities.utils import get_interface_number_from_name
@@ -2797,7 +2797,7 @@ def rest_command_output_parsing(dut, vrf, type):
                     temp['vrfname'] = vrf
                     temp['name'] = state_info['id']
                     temp['ipv4'] = state_info['openconfig-ospfv2-ext:address'] + '/' + str(state_info['openconfig-ospfv2-ext:address-len'])
-                    temp['hellotmr'] = str(int(temp['hellotmr'])/1000)
+                    temp['hellotmr'] = str(int(int(temp['hellotmr'])/1000))
                     temp['hellodue'] = str(float(temp['hellodue'])/1000)
                     temp['nwtype'] = temp['nwtype'].upper()
                     temp['txdelay'] = str(temp['txdelay'])

@@ -846,7 +846,7 @@ def verify_bgp_l2vpn_evpn_summary(dut,**kwargs):
                             try:
                                 index_num = kwargs["neighbor"].index(evpn_neigh)
                                 exp_status=kwargs["updown"][index_num]
-                                if neigh['state']['prefixes']['received'] > 0:
+                                if neigh['state']['prefixes']['received'] >= 0:
                                     status="up"
                                 else:
                                     status="down"
@@ -1674,8 +1674,6 @@ def verify_vxlan_tunnel_status(dut, src_vtep, rem_vtep_list, exp_status_list, cl
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['vxlan_tunnel_info']
         response = get_rest(dut, rest_url=url)
-        st.log('KLISH output for debugging REST')
-        st.show(dut, 'show vxlan tunnel', type='klish')
         if response['output']:
             cli_out = parse_rest_output_vxlan_tunnel(response)
         else:
@@ -3170,13 +3168,14 @@ def verify_linktrack_summary(dut,**kwargs):
 
     return ret_val
 
-def parse_rest_output_linktrack_group(dut,response,timeout,description=''):
+def parse_rest_output_linktrack_group(dut,response,timeout,description='',lst_bringup_time='0'):
     lst_interfaces = response['output']['openconfig-lst-ext:interface']
     result = []
     for interface in lst_interfaces:
         lst_dict = {}
         lst_dict['description'] = description
         lst_dict['timeout'] = timeout
+        lst_dict['startup_remain_time'] = lst_bringup_time
         if 'upstream-groups' in interface.keys():
             lst_dict['name'] = interface.get('upstream-groups',{}).get('upstream-group',[])[0].get('group-name',"")
             lst_dict['direction'] = "Upstream"
@@ -3244,14 +3243,16 @@ def verify_linktrack_group_name(dut,**kwargs):
         url = rest_urls['get_link_track_timeout'].format(lst_name)
         lst_timeout = str(get_rest(dut, rest_url=url)['output']['openconfig-lst-ext:timeout'])
 
+        url = rest_urls['get_link_track_bringup_remain_time'].format(lst_name)
+        lst_bringup_time = str(get_rest(dut, rest_url=url)['output']['openconfig-lst-ext:bringup-remaining-time'])
+
         url = rest_urls['get_link_track_interfaces']
         response = get_rest(dut, rest_url=url)
         st.log('KLISH output for debugging REST')
         st.show(dut, 'show link state tracking {}'.format(kwargs['name']), type='klish')
-        if 'startup_remain_time' in kwargs:
-            del kwargs['startup_remain_time'] 
+
         if response['output']:
-            output = parse_rest_output_linktrack_group(dut,response,lst_timeout,lst_description)
+            output = parse_rest_output_linktrack_group(dut,response,lst_timeout,lst_description,lst_bringup_time)
         else:
             st.error("OCYANG-FAIL: verify link track group - Get Response is empty")
             return False
@@ -3346,6 +3347,7 @@ def get_port_counters(dut, port, counter,**kwargs):
         if cli_type == "click":
             if '/' in prt:
                 prt = st.get_other_names(dut,[prt])[0]
+            st.show(dut, "show interface counters -i {}".format(prt),type=cli_type)
             output = st.show(dut, "show interface counters -i {}".format(prt),type=cli_type)
             entries = filter_and_select(output, (cntr,), {'iface': prt})
             list1.append(entries[0])
@@ -3431,15 +3433,16 @@ def neigh_suppress_config(dut, vlan, config='yes', skip_error=False, cli_type=''
         rest_urls = st.get_datastore(dut, "rest_urls")
         vlan_data = str(vlan) if type(vlan) is not str else vlan
         vlan_str = 'Vlan' + vlan_data if 'Vlan' not in vlan_data else vlan_data
-        url = rest_urls['vxlan_arp_nd_suppress'].format(vlan_str)
         payload = {"openconfig-vxlan:config":{
                     "arp-and-nd-suppress":"ENABLE"}
                     }
         if config == 'yes':
+            url = rest_urls['vxlan_arp_nd_suppress'].format(vlan_str)
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                 st.banner('FAIL-OCYANG: ARP and ND suppress config on vlan Failed')
                 return False
         else:
+            url = rest_urls['vxlan_arp_nd_suppress_delete'].format(vlan_str)
             if not delete_rest(dut, rest_url=url):
                 st.banner('FAIL-OCYANG: ARP and ND suppress UnConfig on vlan Failed')
                 return False

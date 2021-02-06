@@ -145,7 +145,7 @@ def get_status(dut, port=None, cli_type=''):
         else:
             url = rest_urls['all_interfaces_details']
             output = get_rest(dut, rest_url = url, timeout=60)
-            processed_output = process_intf_status_rest_output(output, single_port=False)
+            processed_output = process_intf_status_rest_output(output)
             if processed_output:
                 result.extend(processed_output)
         return result
@@ -243,6 +243,8 @@ def verify_oper_state(dut, port, state, cli_type=''):
 def get_interface_counters_all(dut, port=None, cli_type=''):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if cli_type == 'click':
+        # To avoid traffic rate inaccuracy, run and ignore first show command in click & use second one
+        st.show(dut, "show interfaces counters -a", type=cli_type)
         if port:
             command = "show interfaces counters -a -i {}".format(port)
             if not st.is_feature_supported("show-interfaces-counters-interface-command", dut):

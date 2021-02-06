@@ -152,6 +152,7 @@ snmp_trap_informs_status: snmp trap informs status of {} are {}
 snmp_community_invalid_error_code: Observed invalid error code {} when snmp community - {} is configured via rest.
 snmp_community_config_gnmi_unsuccessful: Failed to {} snmp community - {} via gnmi.
 snmp_agent_address_config_verify_unsuccessful: Failed to configure snmp agent addresses - {} with non-default port - {}
+snmp_counter_not_incremented: SNMP counter value not incremented though simulated
 
 ##PMON
 pmon_service_not_up : PMON service is not up

@@ -18,6 +18,8 @@ function setup_local_image() {
 
     cp $PRIVKEY_FILE $tmpdir/id_rsa
 
+    chmod 600 $tmpdir/id_rsa
+
     cat <<EOF > $tmpdir/Dockerfile.j2
 FROM {{ DOCKER_REGISTRY }}/{{ DOCKER_SONIC_MGMT }}
 
@@ -57,7 +59,7 @@ EOF
 
 DOCKER_SONIC_MGMT="docker-sonic-mgmt"
 DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
-LOCAL_IMAGE_NAME=docker-sonic-mgmt-$USER
+LOCAL_IMAGE_NAME=docker-sonic-mgmt-`echo "$USER" | tr '[:upper:]' '[:lower:]'`
 
 function show_help_and_exit() {
     echo "Usage $0 [options]"

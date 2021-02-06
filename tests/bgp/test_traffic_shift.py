@@ -108,7 +108,7 @@ def parse_rib(host, ip_ver):
     for ip, nexthops in route_data['routes'].iteritems():
         aspath = set()
         for nexthop in nexthops:
-            aspath.add(nexthop['aspath'])
+            aspath.add(nexthop['path'])
         routes[ip] = aspath
     return routes
 

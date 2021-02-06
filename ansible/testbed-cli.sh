@@ -21,6 +21,7 @@ function usage
   echo "    -k <vmtype>     : vm type (veos|ceos) (default: 'veos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
+  echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
   echo
   echo "Positional Arguments:"
   echo "    <server-name>         : Hostname of server on which to start VMs"
@@ -212,7 +213,15 @@ function add_topo
 
   echo "$dut" "$duts"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" $@
+  if [ -n "$sonic_vm_dir" ]; then
+      ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+        -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        $ansible_options $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
 
@@ -232,7 +241,15 @@ function remove_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" $@
+  if [ -n "$sonic_vm_dir" ]; then
+      ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+        -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        $ansible_options $@
 
   echo Done
 }
@@ -287,7 +304,16 @@ function refresh_dut
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -vvv -i $vmfile testbed_refresh_dut.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" $@
+  if [ -n "$sonic_vm_dir" ]; then
+      ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+        -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        -e force_stop_sonic_vm="yes" \
+        $ansible_options $@
 
   echo Done
 }
@@ -421,8 +447,9 @@ tbfile=testbed.csv
 vm_type=veos
 vm_num=0
 msetnumber=1
+sonic_vm_dir=""
 
-while getopts "t:m:k:n:s:" OPTION; do
+while getopts "t:m:k:n:s:d:" OPTION; do
     case $OPTION in
     t)
         tbfile=$OPTARG
@@ -438,6 +465,9 @@ while getopts "t:m:k:n:s:" OPTION; do
         ;;
     s)
         msetnumber=$OPTARG
+        ;;
+    d)
+        sonic_vm_dir=$OPTARG
         ;;
     *)
         usage

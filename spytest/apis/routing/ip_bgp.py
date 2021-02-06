@@ -1,5 +1,6 @@
 from spytest.utils import filter_and_select
 from spytest import st
+from apis.routing.bgp import show_bgp_ipv4_summary_vtysh, show_bgp_ipv6_summary_vtysh, show_bgp_ipv4_neighbor_vtysh, show_bgp_ipv6_neighbor_vtysh
 
 
 def verify_bgp_neighbor(dut,**kwargs):
@@ -26,7 +27,6 @@ def verify_bgp_neighbor(dut,**kwargs):
     """
     cli_type = kwargs.pop('cli_type',st.get_ui_type(dut, **kwargs))
     cli_type = 'vtysh' if cli_type in ['vtysh', 'click'] else cli_type
-    if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
 
     result = False
 
@@ -61,6 +61,18 @@ def verify_bgp_neighbor(dut,**kwargs):
                 cmd = "show bgp {} unicast vrf {} neighbors {}".format(family,vrf,kwargs['neighborip'][0])
             else:
                 cmd = "show bgp {} unicast vrf {} neighbors".format(family,vrf)
+        elif cli_type in ["rest-patch", "rest-put"]:
+            if family == "ipv4":
+                if len(kwargs['neighborip']) == 1:
+                    output = show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=kwargs['neighborip'][0], vrf=vrf, cli_type=cli_type)
+                else:
+                    output = show_bgp_ipv4_neighbor_vtysh(dut, vrf=vrf, cli_type=cli_type)
+            else:
+                if len(kwargs['neighborip']) == 1:
+                    output = show_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip=kwargs['neighborip'][0], vrf=vrf, cli_type=cli_type)
+                else:
+                    output = show_bgp_ipv6_neighbor_vtysh(dut, vrf=vrf, cli_type=cli_type)
+
     else:
         if cli_type == 'vtysh':
             if len(kwargs['neighborip']) == 1:
@@ -72,7 +84,19 @@ def verify_bgp_neighbor(dut,**kwargs):
                 cmd = "show bgp {} unicast neighbors {}".format(family,kwargs['neighborip'][0])
             else:
                 cmd = "show bgp {} unicast neighbors".format(family)
-    output = st.show(dut, cmd, type=cli_type)
+        elif cli_type in ["rest-patch", "rest-put"]:
+            if family == "ipv4":
+                if len(kwargs['neighborip']) == 1:
+                    output = show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=kwargs['neighborip'][0], vrf="default", cli_type=cli_type)
+                else:
+                    output = show_bgp_ipv4_neighbor_vtysh(dut, vrf=vrf, cli_type=cli_type)
+            else:
+                if len(kwargs['neighborip']) == 1:
+                    output = show_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip=kwargs['neighborip'][0], vrf="default", cli_type=cli_type)
+                else:
+                    output = show_bgp_ipv6_neighbor_vtysh(dut, vrf=vrf, cli_type=cli_type)
+    if cli_type not in ["rest-patch", "rest-put"]:
+        output = st.show(dut, cmd, type=cli_type)
 
     #Get the index of peer from list of parsed output
     for i in range(len(kwargs['neighborip'])):
@@ -117,7 +141,7 @@ def check_bgp_session(dut,nbr_list=[],state_list=[],vrf_name='default',**kwargs)
     """
     ret_val = True
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
-    if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
+    # if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
     output=[]
     if cli_type == 'click':
         if vrf_name == 'default':
@@ -130,6 +154,12 @@ def check_bgp_session(dut,nbr_list=[],state_list=[],vrf_name='default',**kwargs)
             output = st.show(dut,'show bgp {} unicast summary'.format(family), type='klish')
         else:
             output = st.show(dut, 'show bgp {} unicast vrf {} summary'.format(family,vrf_name), type='klish')
+    elif cli_type in ["rest-put", "rest-patch"]:
+        family = kwargs.pop('family', 'ipv4')
+        if family == "ipv4":
+            output = show_bgp_ipv4_summary_vtysh(dut, vrf_name, cli_type=cli_type)
+        else:
+            output = show_bgp_ipv6_summary_vtysh(dut, vrf_name, cli_type=cli_type)
 
     if len(output)!=0:
         for nbr,state in zip(nbr_list,state_list):
@@ -140,13 +170,13 @@ def check_bgp_session(dut,nbr_list=[],state_list=[],vrf_name='default',**kwargs)
                 ret_val = False
             for entries in entry:
                 if state=='Established':
-                    if entries['state'].isdigit():
+                    if entries['state'].isdigit() or entries['state'] == "ESTABLISHED":
                         st.log("BGP Neighbor {} in Established state".format(nbr))
                     else:
                         st.error("BGP Neighbor {} state check Failed. Expected:{} Actual :{} ".format(nbr,state,entries['state']))
                         ret_val=False
                 else:
-                    if state == entries['state']:
+                    if str(state).upper() == str(entries['state']).upper():
                         st.log("BGP Neighbor {} check passed. Expected : {} Actual {}".format(nbr,state,entries['state']))
                     else:
                         st.error("BGP Neighbor {} state check Failed. Expected:{} Actual :{} ".format(nbr, state, entries['state']))

@@ -158,11 +158,11 @@ def _install_nano(dut, creds):
         cmd = '''docker exec -e http_proxy={} -e https_proxy={} syncd bash -c " \
                 rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
-                && apt-get install -y python-pip build-essential libssl-dev python-dev wget cmake \
+                && apt-get install -y python-pip build-essential libssl-dev python-dev python-setuptools wget cmake \
                 && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
-                && tar xvfz 1.0.0.tar.gz && cd nanomsg-1.0.0 \
-                && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -fr nanomsg-1.0.0 \
-                && rm -f 1.0.0.tar.gz && pip install cffi==1.7.0 && pip install --upgrade cffi==1.7.0 && pip install nnpy \
+                && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
+                && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
+                && rm -f 1.0.0.tar.gz && pip2 install cffi==1.7.0 && pip2 install --upgrade cffi==1.7.0 && pip2 install nnpy \
                 && mkdir -p /opt && cd /opt && wget https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
                 && mkdir ptf && cd ptf && wget https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
                 " '''.format(http_proxy, https_proxy)

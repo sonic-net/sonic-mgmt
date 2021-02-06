@@ -70,6 +70,7 @@ results_map = OrderedDict([
     ("PASS", "Pass"),
     ("FAIL", "Fail"),
     ("DUTFAIL", "Dut Fail"),
+    ("TGENFAIL", "TGen Fail"),
     ("SCRIPTERROR", "Script Error"),
     ("UNSUPPORTED", "Not Supported"),
     ("CONFIGFAIL", "Config Fail"),
@@ -78,7 +79,6 @@ results_map = OrderedDict([
     ("SKIPPED", "Skipped"),
     ("TIMEOUT", "Timeout"),
     ("TOPOFAIL", "Topo Fail"),
-    ("TGENFAIL", "TGen Fail")
 ])
 
 report_cols = ["Execution Started", "Execution Completed", "Execution Time", \
@@ -196,7 +196,6 @@ class Context(object):
         self.version_msg = "VERSION: {}".format(get_git_ver())
         self.hostname = "HOSTNAME: {}".format(socket.gethostname())
         self.cmdline_args = env.get("SPYTEST_CMDLINE_ARGS", "")
-        self.suite_args = env.get("SPYTEST_SUITE_ARGS", "")
         self.cmdline_args = "ARGS: {}".format(self.cmdline_args)
         [self.user_root, self.logs_path, self.slave_id] = _get_logs_path()
         if not self.user_root:
@@ -214,14 +213,7 @@ class Context(object):
         self.execution_start_time = get_timenow()
         self.log.info("")
         self.log.info("Execution Start Time: {}".format(self.execution_start_time))
-        self.log.info(self.version_msg)
-        self.log.info(self.hostname)
-        self.log.info(self.root_path)
-        self.log.info("Python: {}.{}.{}".format(sys.version_info.major,
-                      sys.version_info.minor, sys.version_info.micro))
-        self.log.info(self.cmdline_args)
-        if self.suite_args:
-            self.log.info("SUITE ARGS: {}".format(self.suite_args))
+        self.log_verion_info()
         self.log.info("LOGS PATH: {}".format(self.logs_path))
         if os.path.exists(os.path.join(self.logs_path, "node_used")):
             self.cfg.load_image = "none"
@@ -315,6 +307,19 @@ class Context(object):
         Result.write_report_csv(sysinfo_csv, [], ReportType.SYSINFO, is_batch=False)
         utils.delete_file(paths.get_stats_txt(self.logs_path))
         utils.delete_file(os.path.join(self.logs_path, "node_dead"))
+
+    def log_verion_info(self):
+        self.log.info(self.version_msg)
+        self.log.info(self.hostname)
+        self.log.info(self.root_path)
+        self.log.info("Python: {}.{}.{}".format(sys.version_info.major,
+                      sys.version_info.minor, sys.version_info.micro))
+        self.log.info(self.cmdline_args)
+        suite_args = env.get("SPYTEST_SUITE_ARGS", "")
+        if suite_args:
+            self.log.info("SUITE ARGS: {}".format(suite_args))
+        if self.topo_str:
+            self.log.info(self.topo_str)
 
     def generate_defaults_report(self):
         rows = []
@@ -811,6 +816,10 @@ class WorkArea(object):
         self.net.wait(val)
 
     def tg_wait(self, val, msg=None):
+        if self.is_soft_tgen():
+            multiplier = env.get("SPYTEST_SOFT_TGEN_WAIT_MULTIPLIER", "2")
+            multiplier = utils.integer_parse(multiplier, 2)
+            val = val * multiplier
         if msg:
             self.log("TG Sleep for {} sec(s)...{}".format(val, msg))
         else:
@@ -830,6 +839,12 @@ class WorkArea(object):
 
     def report_tc_unsupported(self, tcid, msgid, *args):
         self._context.report_tc(tcid, "Unsupported", msgid, *args)
+
+    def report_msg(self, msgid, *args):
+        msg, _ = self._context.result.msg(msgid, *args)
+        line = utils.get_line_number(2)
+        self._context.log.info("RMSG: {} @line {}".format(msg, line))
+        return msg
 
     def report_pass(self, msgid, *args):
         """
@@ -2053,8 +2068,8 @@ class WorkArea(object):
         self._foreach_dev(self._apis_instrument_dut, "post-module-prolog")
 
     def _post_module_epilog(self, name, success_status):
-        if not self.abort_module_msg:
-            self._create_module_logs("post-module-epilog", name)
+        #if self.abort_module_msg: return
+        self._create_module_logs("post-module-epilog", name)
 
     def _pre_module_init(self, name):
         if not self.abort_module_msg:
@@ -2241,10 +2256,7 @@ class WorkArea(object):
         self._context.log.module_log_init(module_name)
         if module_name:
             #self.log("Execution Start Time: {}".format(self._context.execution_start_time))
-            self.log(self._context.version_msg)
-            self.log(self._context.root_path)
-            self.log(self._context.cmdline_args)
-            self.log(self._context.topo_str)
+            self._context.log_verion_info()
             if self.modules_completed:
                 self.log("Previous Module: {}".format(self.modules_completed[-1]))
 
@@ -3848,6 +3860,8 @@ def _parse_suite_files(suites, fin, fex, tin, tex):
             fex.append(line[6:].strip())
         elif line.startswith("-test:"):
             tex.append(line[6:].strip())
+        elif line.startswith("+test:"):
+            tin.append(line[6:].strip())
         elif line.startswith("+args:"):
             args.extend(line[6:].strip().split())
     if csuites:
@@ -3860,6 +3874,9 @@ def parse_suite_files(suites):
         opts.extend(["--ignore", f])
     for t in tin:
         if t not in tex:
+            if fin:
+                # This is applicable only when files are not specified
+                continue
             opts.extend(["--tclist-csv", t])
     for t in tex:
         opts.extend(["--tclist-csv-exclude", t])
@@ -4067,6 +4084,23 @@ def modify_tests(config, items):
     exclude_test_names = _build_tclist_file(config, "--tclist-file-exclude") or []
     exclude_test_names.extend(_build_tclist_csv(config, "--tclist-csv-exclude") or [])
     _add_repeat_tests(exclude_test_names, items)
+
+    ############################################################################
+    # exclude the test function is not present in TEST PATHS
+    ############################################################################
+    testpaths = []
+    for testpath in env.get("SPYTEST_TEST_PATHS", "").split(","):
+        testpaths.append(os.path.abspath(testpath) + "/")
+    if testpaths:
+        for item in items:
+            exclude, fspath = False, str(item.fspath)
+            for testpath in testpaths:
+                if fspath.startswith(testpath):
+                    exclude = True
+                    break
+            if not exclude:
+                exclude_test_names.append(item.name)
+    ############################################################################
 
     if test_names or exclude_test_names:
         selected, deselected = _build_selected_tests(items, test_names, exclude_test_names)
@@ -4775,6 +4809,8 @@ def generate_module_report(results_csv, tcresults_csv, offset=0):
     def init_module(name, fallback, ro_global):
         module = OrderedDict()
         module["Pass Rate"] = 0
+        module["TC Count"] = tc_all.get(name, 0)
+        module["TC Pass"] = tc_pass.get(name, 0)
         module["Sys Logs"] = 0
         module["CDT"] = 0
         module["FCLI"] = 0
@@ -4793,8 +4829,6 @@ def generate_module_report(results_csv, tcresults_csv, offset=0):
             if res: module[res] = 0
         if offset:
             module["Node"] = ""
-        module["TC Count"] = tc_all.get(name, 0)
-        module["TC Pass"] = tc_pass.get(name, 0)
         return module
 
     for row in rows:
