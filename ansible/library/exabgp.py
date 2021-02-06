@@ -42,6 +42,7 @@ import jinja2
 from ansible.module_utils.basic import *
 
 DEFAULT_DUMP_SCRIPT = "/usr/share/exabgp/dump.py"
+DEFAULT_BGP_LISTEN_PORT = 179
 
 dump_py = '''\
 #!/usr/bin/env python
@@ -110,10 +111,10 @@ group exabgp {
         local-as {{ local_asn }};
         auto-flush {{ auto_flush }};
         group-updates {{ group_updates }};
-        {% if passive %}
+        {%- if passive %}
         passive;
-        listen 179;
-        {% endif %}
+        listen DEFAULT_BGP_LISTEN_PORT;
+        {%- endif %}
     }
 }
 '''
