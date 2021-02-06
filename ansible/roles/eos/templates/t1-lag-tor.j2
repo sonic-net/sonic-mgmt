@@ -59,6 +59,7 @@ interface {{ name }}
  description LOOPBACK
 {% else %}
  no switchport
+ no shutdown
 {% endif %}
 {% if iface['ipv4'] is defined %}
  ip address {{ iface['ipv4'] }}
@@ -75,6 +76,7 @@ interface {{ name }}
 interface {{ bp_ifname }}
  description backplane
  no switchport
+ no shutdown
 {% if host['bp_interface']['ipv4'] is defined %}
  ip address {{ host['bp_interface']['ipv4'] }}
 {% endif %}
