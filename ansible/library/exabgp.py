@@ -113,7 +113,7 @@ group exabgp {
         group-updates {{ group_updates }};
         {%- if passive %}
         passive;
-        listen DEFAULT_BGP_LISTEN_PORT;
+        listen {{ listen_port }};
         {%- endif %}
     }
 }
@@ -188,7 +188,8 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
                     port=port, \
                     auto_flush=auto_flush, \
                     group_updates=group_updates, \
-                    dump_script=dump_script, passive=passive)
+                    dump_script=dump_script, passive=passive,
+                    listen_port=DEFAULT_BGP_LISTEN_PORT)
     with open("/etc/exabgp/%s.conf" % name, 'w') as out_file:
         out_file.write(data)
 
