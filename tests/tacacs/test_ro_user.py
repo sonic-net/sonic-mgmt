@@ -1,10 +1,13 @@
 import pytest
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
+
+logger = logging.getLogger(__name__)
 
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
     res = localhost.shell("sshpass -p {} ssh "\
@@ -73,7 +76,9 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
     for command in commands_direct + commands_indirect:
         res = ssh_remote_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], command)
         # Verify that the command is allowed
-        assert res['rc'] == 0
+        logger.info("check command \"{}\" rc={}".format(command, res['rc']))
+        pytest_assert(res['rc'] == 0 or (res['rc'] != 0 and "Make sure your account has RW permission to current device" not in res['stderr']),
+                "command '{}' not authorized".format(command))
 
 def test_ro_user_banned_command(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs):
     duthost = duthosts[rand_one_dut_hostname]
@@ -87,4 +92,6 @@ def test_ro_user_banned_command(localhost, duthosts, rand_one_dut_hostname, cred
     for command in commands:
         res = ssh_remote_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], command)
         # Verify that the command is allowed
-        assert res['rc'] != 0
+        logger.info("check command \"{}\" rc={}".format(command, res['rc']))
+        pytest_assert(res['rc'] != 0 and "Make sure your account has RW permission to current device" in res['stderr'],
+                "command '{}' authorized".format(command))
