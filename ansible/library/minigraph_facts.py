@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import calendar
 import os
 import sys
@@ -13,6 +12,7 @@ from ansible.module_utils.port_utils import get_port_alias_to_name_map
 
 from lxml import etree as ET
 from lxml.etree import QName
+from fractions import gcd
 
 DOCUMENTATION = '''
 ---
@@ -45,6 +45,7 @@ ANSIBLE_USER_MINIGRAPH_PATH = os.path.expanduser('~/.ansible/minigraph')
 ANSIBLE_LOCAL_MINIGRAPH_PATH = '{}.xml'
 ANSIBLE_USER_MINIGRAPH_MAX_AGE = 86400  # 24-hours (in seconds)
 
+
 class minigraph_encoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj,
@@ -53,7 +54,7 @@ class minigraph_encoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def parse_png(png, hname):
+def parse_png(png, hname, dpg_ecmp_content=None):
     neighbors = {}
     devices = {}
     neighbors_namespace = defaultdict(str)
@@ -61,6 +62,13 @@ def parse_png(png, hname):
     console_port = ''
     mgmt_dev = ''
     mgmt_port = ''
+    png_ecmp_content = {}
+    port_device_map = {}
+    FG_NHG_MEMBER = {}
+    FG_NHG_PREFIX = {}
+    FG_NHG = {}
+    NEIGH = {}
+
     try:
         from sonic_py_common import multi_asic
         namespace_list = multi_asic.get_namespace_list()
@@ -73,6 +81,10 @@ def parse_png(png, hname):
                 linktype = link.find(str(QName(ns, "ElementType"))).text
                 if linktype != "DeviceInterfaceLink" and linktype != "UnderlayInterfaceLink":
                     continue
+                if linktype == "DeviceInterfaceLink":
+                    endport = link.find(str(QName(ns, "EndPort"))).text
+                    startdevice = link.find(str(QName(ns, "StartDevice"))).text
+                    port_device_map[endport] = startdevice
 
                 enddevice = link.find(str(QName(ns, "EndDevice"))).text
                 endport = link.find(str(QName(ns, "EndPort"))).text
@@ -85,14 +97,14 @@ def parse_png(png, hname):
                     if startdevice.lower() in namespace_list:
                         neighbors_namespace[endport] = startdevice.lower()
                     else:
-                        neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace':''}
+                        neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace': ''}
                 elif startdevice == hname:
                     if port_alias_to_name_map.has_key(startport):
                         startport = port_alias_to_name_map[startport]
                     if enddevice.lower() in namespace_list:
                         neighbors_namespace[startport] = enddevice.lower()
                     else:
-                        neighbors[startport] = {'name': enddevice, 'port': endport, 'namespace':''}
+                        neighbors[startport] = {'name': enddevice, 'port': endport, 'namespace': ''}
 
         if child.tag == str(QName(ns, "Devices")):
             for device in child.findall(str(QName(ns, "Device"))):
@@ -137,9 +149,21 @@ def parse_png(png, hname):
                                 mgmt_dev = node.text
 
     for k, v in neighbors.iteritems():
-         v['namespace'] = neighbors_namespace[k]
+        v['namespace'] = neighbors_namespace[k]
 
-    return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
+    if (len(dpg_ecmp_content)):
+        for version, content in dpg_ecmp_content.items():  # version is ipv4 or ipv6
+            fine_grained_content = formulate_fine_grained_ecmp(version, content, port_device_map,
+                                                               port_alias_to_name_map)  # port_alias_map
+            FG_NHG_MEMBER.update(fine_grained_content['FG_NHG_MEMBER'])
+            FG_NHG_PREFIX.update(fine_grained_content['FG_NHG_PREFIX'])
+            FG_NHG.update(fine_grained_content['FG_NHG'])
+            NEIGH.update(fine_grained_content['NEIGH'])
+
+        png_ecmp_content = {"FG_NHG_PREFIX": FG_NHG_PREFIX, "FG_NHG_MEMBER": FG_NHG_MEMBER, "FG_NHG": FG_NHG,
+                            "NEIGH": NEIGH}
+
+    return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port, png_ecmp_content)
 
 
 def parse_dpg(dpg, hname):
@@ -148,6 +172,7 @@ def parse_dpg(dpg, hname):
         if hostname.text != hname:
             continue
 
+        ip_intfs_map = {}
         ipintfs = child.find(str(QName(ns, "IPInterfaces")))
         intfs = []
         for ipintf in ipintfs.findall(str(QName(ns, "IPInterface"))):
@@ -163,7 +188,7 @@ def parse_dpg(dpg, hname):
             addr_bits = ipn.max_prefixlen
             subnet = ipaddress.IPNetwork(str(ipn.network) + '/' + str(prefix_len))
             ipmask = ipn.netmask
-
+            ip_intfs_map[ipprefix] = intfalias
             intf = {'addr': ipaddr, 'subnet': subnet}
             if isinstance(ipn, ipaddress.IPv4Network):
                 intf['mask'] = ipmask
@@ -233,9 +258,51 @@ def parse_dpg(dpg, hname):
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list}
             fallback_node = pcintf.find(str(QName(ns, "Fallback")))
-            if  fallback_node is not None:
+            if fallback_node is not None:
                 pcs[pcintfname]['fallback'] = fallback_node.text
             ports.pop(pcintfname)
+        nhip_port_map = {}
+        port_nhipv4_map = {}
+        port_nhipv6_map = {}
+        nhgaddr = ["", ""]
+        nhg_int = ""
+        nhportlist = []
+        dpg_ecmp_content = {}
+        ipnhs = child.find(str(QName(ns, "IPNextHops")))
+        if ipnhs is not None:
+            for ipnh in ipnhs.findall(str(QName(ns, "IPNextHop"))):
+                if ipnh.find(str(QName(ns, "Type"))).text == 'FineGrainedECMPGroupMember':
+                    ipnhfmbr = ipnh.find(str(QName(ns, "AttachTo"))).text
+                    ipnhaddr = ipnh.find(str(QName(ns, "Address"))).text
+                    nhportlist.append(ipnhfmbr)
+                    nhip_port_map[ipnhaddr] = ipnhfmbr
+                    if "." in ipnhaddr:
+                        port_nhipv4_map[ipnhfmbr] = ipnhaddr
+                    elif ":" in ipnhaddr:
+                        port_nhipv6_map[ipnhfmbr] = ipnhaddr
+
+            if port_nhipv4_map is not None and port_nhipv6_map is not None:
+                subnet_check_ip = port_nhipv4_map.values()[0]
+                for subnet_range in ip_intfs_map:
+                    if ("." in subnet_range):
+                        a = ipaddress.IPAddress(unicode(subnet_check_ip))
+                        n = ipaddress.IPNetwork(unicode(subnet_range))
+                        if (n.Contains(a)):
+                            nhg_int = ip_intfs_map[subnet_range]
+                dwnstrms = child.find(str(QName(ns, "DownstreamSummarySet")))
+                for dwnstrm in dwnstrms.findall(str(QName(ns, "DownstreamSummary"))):
+                    dwnstrmentry = str(ET.tostring(dwnstrm))
+                    if ("FineGrainedECMPGroupDestination" in dwnstrmentry):
+                        subnet_ip = dwnstrm.find(str(QName(ns1, "Subnet"))).text
+                        truncsubnet_ip = subnet_ip.split("/")[0]
+                        if "." in (truncsubnet_ip):
+                            nhgaddr[0] = subnet_ip
+                        elif ":" in (truncsubnet_ip):
+                            nhgaddr[1] = subnet_ip
+                ipv4_content = {"port_nhip_map": port_nhipv4_map, "nhgaddr": nhgaddr[0], "nhg_int": nhg_int}
+                ipv6_content = {"port_nhip_map": port_nhipv6_map, "nhgaddr": nhgaddr[1], "nhg_int": nhg_int}
+                dpg_ecmp_content['ipv4'] = ipv4_content
+                dpg_ecmp_content['ipv6'] = ipv6_content
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         vlan_intfs = []
@@ -276,8 +343,9 @@ def parse_dpg(dpg, hname):
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
-        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers
+        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dpg_ecmp_content
     return None, None, None, None, None, None
+
 
 def parse_cpg(cpg, hname):
     bgp_sessions = []
@@ -418,6 +486,7 @@ def reconcile_mini_graph_locations(filename, hostname):
     root = ET.parse(mini_graph_path).getroot()
     return mini_graph_path, root
 
+
 def port_alias_to_name_map_50G(all_ports, s100G_ports):
     # 50G ports
     s50G_ports = list(set(all_ports) - set(s100G_ports))
@@ -431,9 +500,11 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
 
     return port_alias_to_name_map
 
+
 def parse_xml(filename, hostname):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
-
+    dpg_ecmp_content = {}
+    png_ecmp_content = {}
     u_neighbors = None
     u_devices = None
     hwsku = None
@@ -470,11 +541,13 @@ def parse_xml(filename, hostname):
 
     for child in root:
         if child.tag == str(QName(ns, "DpgDec")):
-            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
+            (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dpg_ecmp_content) = parse_dpg(child, hostname)
         elif child.tag == str(QName(ns, "CpgDec")):
             (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
         elif child.tag == str(QName(ns, "PngDec")):
-            (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port) = parse_png(child, hostname)
+            (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port, png_ecmp_content) = parse_png(child,
+                                                                                                               hostname,
+                                                                                                               dpg_ecmp_content)
         elif child.tag == str(QName(ns, "UngDec")):
             (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
         elif child.tag == str(QName(ns, "MetadataDeclaration")):
@@ -551,10 +624,21 @@ def parse_xml(filename, hostname):
     results['ntp_servers'] = ntp_servers
     results['forced_mgmt_routes'] = mgmt_routes
     results['deployment_id'] = deployment_id
+    if len(png_ecmp_content):
+        if len(png_ecmp_content):
+            results['FG_NHG_MEMBER'] = png_ecmp_content['FG_NHG_MEMBER']
+        results['FG_NHG_PREFIX'] = png_ecmp_content['FG_NHG_PREFIX']
+        results['FG_NHG'] = png_ecmp_content['FG_NHG']
+        results['NEIGH'] = png_ecmp_content['NEIGH']
+    if len(dpg_ecmp_content):
+        results['PORT_NHIPV4'] = dpg_ecmp_content['ipv4']['port_nhip_map']
+        results['PORT_NHIPV6'] = dpg_ecmp_content['ipv6']['port_nhip_map']
     return results
+
 
 ports = {}
 port_alias_to_name_map = {}
+
 
 def main():
     module = AnsibleModule(
@@ -594,12 +678,76 @@ def main():
         module.fail_json(msg=e.message)
 
 
+def calculate_lcm_for_ecmp(nhdevices_bank_map, nhip_bank_map):
+    banks_enumerated = {}
+    lcm_array = []
+    for value in nhdevices_bank_map.values():
+        for key in nhip_bank_map.keys():
+            if nhip_bank_map[key] == value:
+                if value not in banks_enumerated:
+                    banks_enumerated[value] = 1
+                else:
+                    banks_enumerated[value] = banks_enumerated[value] + 1
+    for bank_enumeration in banks_enumerated.values():
+        lcm_list = range(1, bank_enumeration + 1)
+        lcm_comp = lcm_list[0]
+        for i in lcm_list[1:]:
+            lcm_comp = lcm_comp * i / gcd(lcm_comp, i)
+        lcm_array.append(lcm_comp)
+
+    LCM = sum(lcm_array)
+    return LCM
+
+
+def formulate_fine_grained_ecmp(version, dpg_ecmp_content, port_device_map, port_alias_to_name_map):
+    family = ""
+    tag = ""
+    neigh_key = []
+    if version == "ipv4":
+        family = "IPV4"
+        tag = "fgnhg_v4"
+    elif version == "ipv6":
+        family = "IPV6"
+        tag = "fgnhg_v6"
+
+    port_nhip_map = dpg_ecmp_content['port_nhip_map']
+    nhgaddr = dpg_ecmp_content['nhgaddr']
+    nhg_int = dpg_ecmp_content['nhg_int']
+
+    nhip_device_map = {port_nhip_map[x]: port_device_map[x] for x in port_device_map
+                       if x in port_nhip_map}
+    nhip_devices = sorted(list(set(nhip_device_map.values())))
+    nhdevices_ip_bank_map = {device: bank for bank, device in enumerate(nhip_devices)}
+    nhip_bank_map = {ip: nhdevices_ip_bank_map[device] for ip, device in nhip_device_map.items()}
+    LCM = calculate_lcm_for_ecmp(nhdevices_ip_bank_map, nhip_bank_map)
+
+    FG_NHG_MEMBER = {ip: {"FG_NHG": tag, "bank": bank} for ip, bank in nhip_bank_map.items()}
+    nhip_port_map = dict(zip(port_nhip_map.values(), port_nhip_map.keys()))
+
+    for nhip, memberinfo in FG_NHG_MEMBER.items():
+        if nhip in nhip_port_map:
+            memberinfo["link"] = port_alias_to_name_map[nhip_port_map[nhip]]
+            FG_NHG_MEMBER[nhip] = memberinfo
+
+    FG_NHG_PREFIX = {nhgaddr: {"FG_NHG": tag}}
+    FG_NHG = {tag: {"bucket_size": LCM}}
+    for ip in nhip_bank_map:
+        neigh_key.append(str(nhg_int + "|" + ip))
+    NEIGH = {neigh_key: {"family": family} for neigh_key in neigh_key}
+
+    fine_grained_content = {"FG_NHG_MEMBER": FG_NHG_MEMBER, "FG_NHG": FG_NHG, "FG_NHG_PREFIX": FG_NHG_PREFIX,
+                            "NEIGH": NEIGH}
+    return fine_grained_content
+
+
 def print_parse_xml(hostname):
     filename = hostname + '.xml'
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 
+
 from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
+

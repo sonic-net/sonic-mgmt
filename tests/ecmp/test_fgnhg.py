@@ -8,9 +8,9 @@ import json
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
 
 # Constants
 NUM_NHs = 8
@@ -27,7 +27,10 @@ NUM_FLOWS = 1000
 SUPPORTED_TOPO = ['t0']
 SUPPORTED_PLATFORMS = ['mellanox']
 
+MINIGRAPH_PARSING = "OFF"
+
 logger = logging.getLogger(__name__)
+
 
 def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
     config_port_indices = cfg_facts['port_index_map']
@@ -67,7 +70,7 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
 
     return port_list, ip_to_port, bank_0_port, bank_1_port
 
-
+ 
 def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix):
     if isinstance(ipaddress.ip_network(prefix), ipaddress.IPv4Network):
         fgnhg_name = 'fgnhg_v4'
@@ -99,10 +102,10 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix)
     logger.info("fgnhg entries programmed to DUT " + str(fgnhg_data))
     duthost.copy(content=json.dumps(fgnhg_data, indent=2), dest="/tmp/fgnhg.json")
     duthost.shell("sonic-cfggen -j /tmp/fgnhg.json --write-to-db")
-
+ 
 
 def setup_neighbors(duthost, ptfhost, ip_to_port):
-    vlan_name = "Vlan"+ str(DEFAULT_VLAN_ID)
+    vlan_name = "Vlan" + str(DEFAULT_VLAN_ID)
     neigh_entries = {}
     neigh_entries['NEIGH'] = {}
 
@@ -134,7 +137,7 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
             "dst_ip": prefix.split('/')[0],
             "net_ports": net_ports,
             "inner_hashing": USE_INNER_HASHING,
-            "num_flows": NUM_FLOWS 
+            "num_flows": NUM_FLOWS
     }
 
     logger.info("fg_ecmp config sent to PTF: " + str(fg_ecmp))
@@ -151,7 +154,6 @@ def setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_p
 
 
 def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix):
-
     if isinstance(ipaddress.ip_network(prefix), ipaddress.IPv4Network):
         ipcmd = "ip route"
     else:
@@ -175,11 +177,10 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             "fg_ecmp_test.FgEcmpTest",
             platform_dir="ptftests",
             params={"test_case": 'create_flows',
-                "exp_flow_count": exp_flow_count,
-                "config_file": FG_ECMP_CFG},
+                    "exp_flow_count": exp_flow_count,
+                    "config_file": FG_ECMP_CFG},
             qlen=1000,
             log_file=log_file)
-
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.initial_hash_check.log".format(test_time)
 
@@ -191,7 +192,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "exp_flow_count": exp_flow_count,
                 "config_file": FG_ECMP_CFG},
             qlen=1000,
-            log_file=log_file) 
+            log_file=log_file)
 
     exp_flow_count = {}
     flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
@@ -205,7 +206,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     for nexthop, port in ip_to_port.items():
         if port == withdraw_nh_port:
             duthost.shell("vtysh -c 'configure terminal' -c 'no {} {} {}'".format(ipcmd, prefix, nexthop))
-
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.withdraw_nh.log".format(test_time)
 
@@ -222,7 +222,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             qlen=1000,
             log_file=log_file)
 
-
     exp_flow_count = {}
     for port in port_list:
         exp_flow_count[port] = flows_per_nh
@@ -230,7 +229,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     for nexthop, port in ip_to_port.items():
         if port == withdraw_nh_port:
             duthost.shell("vtysh -c 'configure terminal' -c '{} {} {}'".format(ipcmd, prefix, nexthop))
-
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.add_nh.{}.log".format(test_time)
 
@@ -247,12 +245,10 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             qlen=1000,
             log_file=log_file)
 
-
     withdraw_nh_bank = bank_0_port
     for nexthop, port in ip_to_port.items():
         if port in withdraw_nh_bank:
             duthost.shell("vtysh -c 'configure terminal' -c 'no {} {} {}'".format(ipcmd, prefix, nexthop))
-
 
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}.withdraw_bank.log".format(test_time)
 
@@ -318,25 +314,104 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
 
     try:
         mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
+        #host_facts = duthost.setup()['ansible_facts']
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         router_mac = duthost.facts['router_mac']
         net_ports = []
         for name, val in mg_facts['minigraph_portchannels'].items():
             members = [mg_facts['minigraph_ptf_indices'][member] for member in val['members']]
             net_ports.extend(members)
-        yield duthost, cfg_facts, router_mac, net_ports 
+        yield duthost, cfg_facts, router_mac, net_ports
 
     finally:
         cleanup(duthost)
 
+def extract_minigraph_config(tbinfo, duthost, cfg_facts):
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        prefix_ipv4 = ""
+        prefix_ipv6 = ""
+        bank_0_port_ipv4 = []
+        bank_1_port_ipv4 = []
+        bank_0_port_ipv6 = []
+        bank_1_port_ipv6 = []
+        ipv4_to_port = {}
+        ipv6_to_port = {}
 
-def test_fg_ecmp(common_setup_teardown, ptfadapter, ptfhost):
+        try:
+            nhg_prefixes = mg_facts['FG_NHG_PREFIX']
+        except Exception as e:
+            logger.info("Minigraph does not contain the required ECMP entries. Terminating test...")
+            pytest.skip("")
+
+        for nhg_prefix in nhg_prefixes.keys():
+            if "." in nhg_prefix:
+                prefix_ipv4 = nhg_prefix
+            else:
+                prefix_ipv6 = nhg_prefix
+
+        #We make the assumption below that IPV4 and IPV6 NHIPs are associated with the same set of ports
+        port_list =[int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][port]]) for port in mg_facts['PORT_NHIPV4'].keys()]
+
+        nhipv4_port = dict((v, k) for k, v in mg_facts['PORT_NHIPV4'].items())
+        nhipv6_port = dict((v, k) for k, v in mg_facts['PORT_NHIPV6'].items())
+
+
+        for ip, bank_mapping in mg_facts['FG_NHG_MEMBER'].iteritems():
+            if ip in nhipv4_port and bank_mapping['bank'] == 0:
+                bank_0_port_ipv4.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv4_port[ip]]]))
+            if ip in nhipv4_port and bank_mapping['bank'] == 1:
+                bank_1_port_ipv4.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv4_port[ip]]]))
+            if ip in nhipv6_port and bank_mapping['bank'] == 0:
+                bank_0_port_ipv6.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv6_port[ip]]]))
+            if ip in nhipv6_port and bank_mapping['bank'] == 1:
+                bank_1_port_ipv6.append(int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv6_port[ip]]]))
+
+        for ip, port in nhipv4_port.iteritems():
+            ipv4_to_port[ip] = int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv4_port[ip]]])
+        for ip, port in nhipv6_port.iteritems():
+            ipv6_to_port[ip] = int(cfg_facts['port_index_map'][mg_facts['minigraph_port_alias_to_name_map'][nhipv6_port[ip]]])
+
+
+        default_vlan_ipv4 = ipaddress.IPv4Interface(unicode(str(ipv4_to_port.keys()[0]) + "/2"))
+        default_vlan_ipv6 = ipaddress.IPv6Interface(unicode(str(ipv6_to_port.keys()[0]) + "/32"))
+        return prefix_ipv4, prefix_ipv6, bank_0_port_ipv4, bank_1_port_ipv4, bank_0_port_ipv6, bank_1_port_ipv6, ipv4_to_port, ipv6_to_port, default_vlan_ipv4, default_vlan_ipv6, port_list
+
+def test_fg_ecmp(tbinfo, common_setup_teardown, ptfadapter, ptfhost):
     duthost, cfg_facts, router_mac, net_ports = common_setup_teardown
 
-    # IPv4 test
-    port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4, PREFIX_IPv4)
-    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv4) 
+    if MINIGRAPH_PARSING == "OFF":
+        # IPv4 test
+        port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts,
+                                                                            router_mac, net_ports, DEFAULT_VLAN_IPv4,
+                                                                            PREFIX_IPv4)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv4)
 
-    # IPv6 test
-    port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6, PREFIX_IPv6)
-    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6) 
+        # IPv6 test
+        port_list, ip_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts,
+                                                                            router_mac, net_ports, DEFAULT_VLAN_IPv6,
+                                                                            PREFIX_IPv6)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, PREFIX_IPv6)
+
+    else:
+        logger.info("Minigraph Parsing Test Case Running...")
+
+        prefix_ipv4_mg, prefix_ipv6_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg, ipv4_to_port_mg, ipv6_to_port_mg, default_vlan_ipv4_mg, default_vlan_ipv6_mg, port_list_mg = extract_minigraph_config(tbinfo, duthost, cfg_facts)
+
+        # IPv4 test
+        duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(default_vlan_ipv4_mg))
+        generate_fgnhg_config(duthost, ipv4_to_port_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg, prefix_ipv4_mg)
+        setup_neighbors(duthost, ptfhost, ipv4_to_port_mg)
+        create_fg_ptf_config(ptfhost, ipv4_to_port_mg, port_list_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg, router_mac,
+                             net_ports, prefix_ipv4_mg)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list_mg, ipv4_to_port_mg, bank_0_port_ipv4_mg, bank_1_port_ipv4_mg,
+                prefix_ipv4_mg)
+
+        # IPv6 test
+        duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(default_vlan_ipv6_mg))
+        generate_fgnhg_config(duthost, ipv6_to_port_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg, prefix_ipv6_mg)
+        setup_neighbors(duthost, ptfhost, ipv6_to_port_mg)
+        create_fg_ptf_config(ptfhost, ipv6_to_port_mg, port_list_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg, router_mac,
+                             net_ports, prefix_ipv6_mg)
+        fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list_mg, ipv6_to_port_mg, bank_0_port_ipv6_mg, bank_1_port_ipv6_mg,
+                prefix_ipv6_mg)
+
