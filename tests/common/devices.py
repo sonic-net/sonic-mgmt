@@ -1106,15 +1106,14 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
-        # multiple DUTs sharing a same PTF host. Therefore, the indeces from
-        # the minigraph facts are not always match up with PTF port indeces.
+        # multiple DUTs sharing a same PTF host. Therefore, the indices from
+        # the minigraph facts are not always match up with PTF port indices.
         try:
             dut_index = tbinfo['duts'].index(self.hostname)
-            map = tbinfo['topo']['ptf_map'][dut_index]
+            map = tbinfo['topo']['ptf_map'][str(dut_index)]
             if map:
-                for port, index in mg_facts['minigraph_ptf_indices'].items():
-                    if index in map:
-                        mg_facts['minigraph_ptf_indices'][port] = map[index]
+                for port, index in mg_facts['minigraph_port_indices'].items():
+                    mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
         except (ValueError, KeyError):
             pass
 
@@ -2113,6 +2112,13 @@ class DutHosts(object):
             on that MultiAsicSonicHost
         """
         return getattr(self.nodes, attr)
+
+    def config_facts(self, *module_args, **complex_args):
+        result = {}
+        for node in self.nodes:
+            complex_args['host'] = node.hostname
+            result[node.hostname] = node.config_facts(*module_args, **complex_args)['ansible_facts']
+        return result
 
 
 class FanoutHost(object):

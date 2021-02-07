@@ -10,9 +10,12 @@ import os
 import re
 import string
 import yaml
+import logging
 
 from collections import defaultdict
 from collections import OrderedDict
+
+logger = logging.getLogger(__name__)
 
 
 class TestbedInfo(object):
@@ -196,13 +199,31 @@ class TestbedInfo(object):
         port format : dut_index.port_index@ptf_index
 
         """
-        m = re.match("(\d+)\.(\d+)@(\d+)", port)
-        (dut_index, port_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        m = re.match("(\d+)(?:\.(\d+))?(?:@(\d+))?", str(port).strip())
+        m1, m2, m3 = m.groups()
+        if m3:
+            # Format: <dut_index>.<port_index>@<ptf_index>
+            # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
+            dut_index = m1
+            port_index = m2
+            ptf_index = m3
+        else:
+            if m2:
+                # Format: <dut_index>.<port_index>
+                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+                dut_index = m1
+                port_index = m2
+                ptf_index = m2
+            else:
+                # Format: <port_index>
+                # Example: ['0', '1', '2']
+                dut_index = '0'
+                port_index = m1
+                ptf_index = m1
+        return dut_index, port_index, ptf_index
 
-        return (dut_index, port_index, ptf_index)
-
-    def calculate_ptf_index_map(self, line):
-        map = defaultdict()
+    def calculate_ptf_index_map(self, tb):
+        map = defaultdict(dict)
 
         # For multi-DUT testbed, because multiple DUTs are sharing a same
         # PTF docker, the ptf docker interface index will not be exactly
@@ -211,39 +232,51 @@ class TestbedInfo(object):
         # in the 2 levels dictionary as:
         # { dut_index : { dut_port_index : ptf_index * } * }
 
-        topo_facts = line['topo']['properties']
+        topo_facts = tb['topo']['properties']
         if 'topology' not in topo_facts:
             return map
 
         topology = topo_facts['topology']
         if 'host_interfaces' in topology:
             for _ports in topology['host_interfaces']:
+                # Example: ['0', '1', '2']
                 # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
-                # if there is no '@' then they are shared, no need to update.
-                ports = str(_ports)
-                for port in ports.split(','):
-                    if '@' in port and '.' in port:
-                        dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
-                        if port_index != ptf_index:
-                            # Need to add this in map
-                            dut_dict = map[dut_index] if dut_index in map else {}
-                            dut_dict[port_index] = ptf_index
-                            map[dut_index] = dut_dict
+                # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
+                for port in str(_ports).split(','):
+                    dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(port)
+                    map[dut_index][dut_port_index] = int(ptf_port_index)
 
         if 'VMs' in topology:
-            for _, vm in topology['VMs'].items():
+            for vm in topology['VMs'].values():
                 if 'vlans' in vm:
-                    for _port in vm['vlans']:
-                        # Example: ['0.31@34', '1.31@35']
-                        port = str(_port)
-                        if '@' in port and '.' in port:
-                            dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
-                            if port_index != ptf_index:
-                                # Need to add this in map
-                                dut_dict = map[dut_index] if dut_index in map else {}
-                                dut_dict[port_index] = ptf_index
-                                map[dut_index] = dut_dict
+                    for port in vm['vlans']:
+                        # Example: '0.31@34'
+                        dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(port)
+                        map[dut_index][dut_port_index] = int(ptf_port_index)
+        return map
 
+    def calculate_ptf_index_map_disabled(self, tb):
+        map = defaultdict(dict)
+        topo_facts = tb['topo']['properties']
+        if 'topology' not in topo_facts:
+            return map
+
+        topology = topo_facts['topology']
+        if 'disabled_host_interfaces' in topology:
+            for _ports in topology['disabled_host_interfaces']:
+                # Example: ['0', '1', '2']
+                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+                # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
+                for port in str(_ports).split(','):
+                    dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(port)
+                    map[dut_index][dut_port_index] = int(ptf_port_index)
+        return map
+
+    def calculate_ptf_dut_intf_map(self, tb):
+        map = defaultdict(dict)
+        for dut_index, dut_ptf_map in tb['topo']['ptf_map'].items():
+            for dut_port_index, ptf_port_index in dut_ptf_map.items():
+                map[str(ptf_port_index)][dut_index] = int(dut_port_index)
         return map
 
     def parse_topo(self):
@@ -257,6 +290,8 @@ class TestbedInfo(object):
             with open(topo_file, 'r') as fh:
                 tb['topo']['properties'] = yaml.safe_load(fh)
             tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
+            tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
+            tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,9 @@ from tests.common.helpers.dut_ports import encode_dut_port_name
 
 logger = logging.getLogger(__name__)
 
+UPPER_TOR = 'upper_tor'
+LOWER_TOR = 'lower_tor'
+
 
 @pytest.fixture(scope='session')
 def tor_mux_intf(duthosts):
@@ -77,6 +80,20 @@ def lower_tor_host(duthosts):
     return dut
 
 
+def map_hostname_to_tor_side(tbinfo, hostname):
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return None
+
+    if hostname not in tbinfo['duts_map']:
+        return None
+    if tbinfo['duts_map'][hostname] == 0:
+        return UPPER_TOR
+    elif tbinfo['duts_map'][hostname] == 1:
+        return LOWER_TOR
+    else:
+        return None
+
+
 def get_t1_ptf_ports(dut, tbinfo):
     '''
     Gets the PTF ports connected to a given DUT for the first T1
@@ -120,9 +137,9 @@ def update_mux_configs_and_config_reload(dut, state):
     TMP_FILE = "/tmp/mux_config.json"
     with open(TMP_FILE, "w") as f:
         json.dump(mux_cable_config_json, f)
-    
+
     dut.copy(src=TMP_FILE, dest=TMP_FILE)
-    
+
     # Load updated mux_cable config with sonic-cfggen
     cmds = [
         "sonic-cfggen -j {} -w".format(TMP_FILE),
@@ -146,7 +163,7 @@ def force_active_tor(dut, intf):
         for i in intf:
             cmds.append("config muxcable mode active {}".format(i))
     dut.shell_cmds(cmds=cmds)
-    
+
 def _get_tor_fanouthosts(tor_host, fanouthosts):
     """Helper function to get the fanout host objects that the current tor_host connected to.
 
