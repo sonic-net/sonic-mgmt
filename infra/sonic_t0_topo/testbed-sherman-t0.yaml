@@ -1,7 +1,7 @@
 device_groups:
   fanout:
     host:
-    - str-7260-10
+    - nexus-5
   lab:
     children:
     - sonic
@@ -34,7 +34,7 @@ devices:
     device_type: DevSonic
     hwsku: 36x100Gb
     os: sonic
-  str-7260-10:
+  nexus-5:
     alias: null
     ansible:
       ansible_host: 10.251.0.13/23
@@ -80,6 +80,7 @@ testbed:
     group-name: sonic_cisco
     ptf_image_name: docker-ptf-sherman
     ptf_ip: 192.168.122.66/24
+    ptf_ipv6: fc0b::1/64
     ptf: docker-ptf 
     server: server_1
     topo: t0
@@ -87,6 +88,7 @@ testbed:
     ansible:
       ansible_ssh_user: root
       ansible_host: 192.168.122.66/24
+      ansible_hostv6: fc0b::1/64
       ansible_ssh_pass: root
     credentials:
       password: root

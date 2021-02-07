@@ -1,0 +1,13 @@
+Value Current (\S+)
+Value Next (\S+)
+Value List Available (\S+)
+
+Start
+  ^Current:\s+${Current}
+  ^Next:\s+${Next}
+  ^Available:\s+${Available} -> Record
+  ^Available: -> ARec
+
+ARec
+  ^\s*${Available}
+  ^.+:-> Continue.Record

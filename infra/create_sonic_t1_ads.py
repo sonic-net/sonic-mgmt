@@ -54,6 +54,14 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
+    chan.send("sudo ip -6 address add fc0b::2/64 dev eth0 \n")
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
     chan.send("cd sonic-test \n")
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
@@ -62,7 +70,7 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git stash apply\n")
+    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout move-master-ahead-011321; git stash apply\n")
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
@@ -392,6 +400,7 @@ def add_ptf_backplane_addr(data):
     cmd_list = list()
     cmd_list.append('ip address add 10.10.246.254/24 dev eth32')
     cmd_list.append('ip -6 address add fc0a::ff/64 dev eth32')
+    cmd_list.append('ip -6 address add fc0b::1/64 dev mgmt')
     cmd_list.append('for i in {0..32}; do /sbin/ifconfig eth$i mtu 9216 up; done')
     run_exec_cmds(data['ptf']['HostAgent'], data['ptf']['xr_redir22'], 'root', 'root', cmd_list)
 
@@ -491,6 +500,9 @@ def main():
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
 
+    print("********** Do a Git Update **********")
+    git_update(data)
+
     # Create testbed file based on vxr_ports 
     print("****** Create testbed file based on vxr_ports *******")
     create_testbed_file(data,base_topo_file,vEOS_count)
@@ -526,8 +538,6 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
-    print("********** Do a Git Update **********")
-    git_update(data)
     
     print("Sonic DUT:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 

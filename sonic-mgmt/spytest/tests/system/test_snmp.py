@@ -372,7 +372,7 @@ def test_ft_snmp_sysContact():
     Verify that the sysContact MIB object functions properly.
     Reference Test Bed : D1 --- Mgmt Network
     """
-    contact_output = ""
+    contact_output = "Azure Cloud Switch vteam <linuxnetdev@microsoft.com>"
     get_snmp_output = snmp_obj.get_snmp_operation(ipaddress=ipaddress, oid=data.oid_sysContact,
                                                   community_name=data.ro_community)
     get_snmp_output = get_snmp_output[0]

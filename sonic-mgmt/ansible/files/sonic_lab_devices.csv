@@ -1,5 +1,4 @@
 Hostname,ManagementIp,HwSku,Type
-str-msn2700-01,10.251.0.188/23,Mellanox-2700,DevSonic
-str-7260-10,10.251.0.13/23,Arista-7260QX-64,FanoutLeaf
-str-7260-11,10.251.0.234/23,Arista-7260QX-64,FanoutRoot
-str-acs-serv-01,10.251.0.245/23,TestServ,Server
+sonic-ucs-m3-2,1.74.23.19,,blank
+nexus-5,1.74.23.8,C9336C-FX2,fanout
+sherman-01,1.74.23.17/16,36x100Gb,DevSonic
