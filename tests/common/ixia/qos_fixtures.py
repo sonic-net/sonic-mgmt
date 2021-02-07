@@ -1,4 +1,6 @@
 import pytest
+from tests.common.ixia.common_helpers import enable_packet_aging, disable_packet_aging
+
 """
 RDMA test cases may require variety of fixtures. This
 file currently holds the following fixture(s):
@@ -102,19 +104,3 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
     """
     result = [x for x in all_prio_list if x not in lossless_prio_list]
     return result
-
-@pytest.fixture(scope="function")
-def start_pfcwd_default(duthosts, rand_one_dut_hostname):
-    """
-    Start PFC watchdog with default setting
-
-    Args:
-       duthosts (pytest fixture) : list of DUTs
-       rand_one_dut_hostname (pytest fixture): DUT hostname
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    duthost.shell('sudo pfcwd start_default')
-    yield
-
-    """ teardown code """
-    duthost.shell('sudo pfcwd stop')

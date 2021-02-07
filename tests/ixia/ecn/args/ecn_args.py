@@ -13,6 +13,6 @@ def add_ecn_args(parser):
         "--disable_ecn_test",
         action="store",
         type=bool,
-        default=True,
+        default=False,
         help="Control execution of ECN tests",
     )
