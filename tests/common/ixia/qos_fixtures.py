@@ -1,5 +1,4 @@
 import pytest
-from tests.common.ixia.common_helpers import enable_packet_aging, disable_packet_aging
 
 """
 RDMA test cases may require variety of fixtures. This
@@ -8,7 +7,6 @@ file currently holds the following fixture(s):
     2. all_prio_list
     3. lossless_prio_list
     4. lossy_prio_list
-    5. start_pfcwd_default
 """
 
 @pytest.fixture(scope="module")
