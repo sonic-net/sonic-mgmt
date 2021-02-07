@@ -242,24 +242,22 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, ps
 
 
 @pytest.mark.disable_loganalyzer
-def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory):
+def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory, disable_thermal_policy):
     """
     @summary: Check output of 'show platform fan'.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Load an invalid thermal control configuration file here to avoid thermal policy affect the test result
-    with ThermalPolicyFileContext(duthost, THERMAL_POLICY_INVALID_FORMAT_FILE):
-        # Mock data and check
-        mocker = mocker_factory(duthost, 'FanStatusMocker')
-        pytest_require(mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+    # Mock data and check
+    mocker = mocker_factory(duthost, 'FanStatusMocker')
+    pytest_require(mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
-        logging.info('Mock FAN status data...')
-        mocker.mock_data()
-        logging.info('Wait and check actual data with mocked FAN status data...')
-        result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+    logging.info('Mock FAN status data...')
+    mocker.mock_data()
+    logging.info('Wait and check actual data with mocked FAN status data...')
+    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
-        pytest_assert(result, 'FAN mock data mismatch')
+    pytest_assert(result, 'FAN mock data mismatch')
 
 
 @pytest.mark.disable_loganalyzer
