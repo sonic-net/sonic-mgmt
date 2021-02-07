@@ -69,8 +69,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             """Check ttl field in the packet."""
             outer_ttl, inner_ttl = packet[IP].ttl, packet[IP].payload[IP].ttl
             logging.debug("Outer packet TTL: %s, inner packet TTL: %s", outer_ttl, inner_ttl)
-            if outer_ttl != inner_ttl:
-                raise ValueError("Outer packet TTL not same as inner packet TTL.")
+            if outer_ttl != 255:
+                raise ValueError("Outer packet's TTL expected TTL 255, actual %s" % outer_ttl)
 
         @staticmethod
         def _check_tos(packet):
@@ -109,6 +109,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
             self.standby_tor_lo_addr = self._find_ipv4_lo_addr(standby_tor_cfg_facts)
             self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr)
+            self.rec_pkt = None
             self.existing = existing
 
         def __enter__(self):
@@ -131,11 +132,11 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 else:
                     raise detail
             else:
-                rec_pkt = Ether(rec_pkt)
+                self.rec_pkt = Ether(rec_pkt)
                 rec_port = self.listen_ports[port_index]
                 logging.debug("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
-                logging.debug("Encapsulated packet:\n%s", self._dump_show_str(rec_pkt))
-                self._check_ttl(rec_pkt)
-                self._check_tos(rec_pkt)
+                logging.debug("Encapsulated packet:\n%s", self._dump_show_str(self.rec_pkt))
+                self._check_ttl(self.rec_pkt)
+                self._check_tos(self.rec_pkt)
 
     return TunnelTrafficMonitor
