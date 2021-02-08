@@ -2,6 +2,7 @@
     <DeviceInfo>
       <AutoNegotiation>true</AutoNegotiation>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if type is not defined or type != 'supervisor' %}
 {% set num_of_intf = port_alias | length %}
 {% for index in range(num_of_intf) %}
         <a:EthernetInterface>
@@ -23,6 +24,7 @@
 {% endif %}
         </a:EthernetInterface>
 {% endfor %}
+{% endif %}
       </EthernetInterfaces>
       <FlowControl>true</FlowControl>
       <Height>0</Height>

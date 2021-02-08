@@ -113,10 +113,13 @@
 {% endif %}
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
+{% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
 {% if 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
+{% elif 'T3' in dev %}
+{% set dev_type = 'CoreRouter' %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
 {% else %}
@@ -129,6 +132,7 @@
          </ManagementAddress>
          <HwSku>Arista-VM</HwSku>
       </Device>
+{% endif %}
 {% endfor %}
 {% endif %}
     </Devices>
