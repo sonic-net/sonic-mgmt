@@ -95,7 +95,7 @@ For above test case, below are the test results when multiple remote link fails.
 Measure the convergence time to install the routes in its RIB and then in its FIB to forward the packets after the routes are advertised.
 
 <p float="left">
-  <img src="Img/Switch_as_ToR.png" width="500" hspace="50"/>
+  <img src="Img/RIB-IN-Convergence_Topology.png" width="500" hspace="50"/>
   <img src="Img/RIB-IN_convergence_graph.png" width="380" /> 
 </p>
 
