@@ -345,7 +345,20 @@ class DecapPacketTest(BaseTest):
         else:
             raise Exception('ERROR: Invalid inner packet type passed: ', inner_pkt_type)
 
-        for ip_range in ip_ranges:
+        ip_ranges_length = len(ip_ranges)
+        if ip_ranges_length > 150:
+            # This is to limit the test execution time. Because the IP ranges in the head and tail of the list are
+            # kind of special. We need to always cover them. The IP ranges in the middle are not fundamentally
+            # different. We can just sample some IP ranges in the middle. Using this method, test coverage is not
+            # compromized. Test execution time can be reduced from over 5000 seconds to around 300 seconds.
+            last_ten_index = ip_ranges_length - 10
+            covered_ip_ranges = ip_ranges[:100] + \
+                                random.sample(ip_ranges[100:last_ten_index], 40) + \
+                                ip_ranges[last_ten_index:]
+        else:
+            covered_ip_ranges = ip_ranges[:]
+
+        for ip_range in covered_ip_ranges:
 
             # Skip the IP range on VLAN interface, t0 topology
             if inner_pkt_type == 'ipv4' and self.vlan_ip and \
