@@ -1,6 +1,6 @@
-# BGP convergence test plan using single DUT
+# BGP convergence test plan for benchmark performance
 
-- [BGP convergence test plan using single DUT](#bgp-convergence-test-plan-using-single-dut)
+- [BGP convergence test plan for benchmark performance](#bgp-convergence-test-plan-for-benchmark-performance)
   - [Overview](#Overview)
     - [Scope](#Scope)
     - [Testbed](#Testbed)
@@ -121,4 +121,4 @@ In order to measure RIB-IN capacity of the switch, we can follow the same test m
 
 ![RIB-IN Capacity Test](Img/RIB-IN_Capacity_Test.png)
 ### Call for action
-* Solicitate experience in multi-DUT system test scenarios.
+* Solicit experience in multi-DUT system test scenarios.
