@@ -836,8 +836,13 @@ def pytest_generate_tests(metafunc):
     if "enum_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_asic_index", generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
-
+        metafunc.parametrize(
+            "enum_frontend_asic_index",
+            generate_param_asic_index(
+                metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND
+            ),
+            scope="class"
+        )
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
