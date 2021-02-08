@@ -3,7 +3,7 @@
 - [BGP convergence test plan for benchmark performance](#bgp-convergence-test-plan-for-benchmark-performance)
   - [Overview](#Overview)
     - [Scope](#Scope)
-    - [Keysight Testbed](#Testbed)
+    - [Testbed](#Keysight-Testbed)
   - [Topology](#Topology)
     - [SONiC switch as ToR](#SONiC-switch-as-ToR)
     - [SONiC switch as Leaf](#SONiC-switch-as-Leaf)
