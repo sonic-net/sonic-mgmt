@@ -1,5 +1,4 @@
 import pytest
-import ptf.testutils as testutils
 from ipaddress import ip_address
 import logging
 import json
