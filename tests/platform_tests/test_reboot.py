@@ -82,7 +82,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
             return
 
     logging.info("Wait %d seconds for all the transceivers to be detected" % MAX_WAIT_TIME_FOR_INTERFACES)
-    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_interface_information, dut, interfaces, xcvr_skip_list), \
+    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces, xcvr_skip_list), \
         "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
 
 
