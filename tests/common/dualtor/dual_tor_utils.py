@@ -1,11 +1,13 @@
 import logging
 import pytest
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 import json
+import ptf.testutils as testutils
 
+from ipaddress import ip_interface
+from jinja2 import Template
 from natsort import natsorted
-
+from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
@@ -472,3 +474,30 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
     logger.info('Recover T1 VM ports connected to tor')
     for eos_host, vm_intf in down_intfs:
         eos_host.no_shutdown(vm_intf)
+
+
+@pytest.fixture(scope='module', autouse=True)
+def start_linkmgrd_heartbeat(ptfadapter, duthost, tbinfo):
+    '''
+    Send a GARP with the PTF MAC to the DUT for each port configured with a mux cable
+
+    Linkmgrd will not start sending heartbeats until the PTF MAC is present in the DUT neighbor table
+    '''
+    garp_pkts = {}
+
+    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+    mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
+
+    for vlan_intf, config in mux_cable_table.items():
+        ptf_port_index = ptf_indices[vlan_intf]
+        server_ip = ip_interface(config['server_ipv4'])
+        ptf_mac = ptfadapter.dataplane.ports[(0, ptf_port_index)].mac()
+
+        garp_pkt = testutils.simple_arp_packet(eth_src=ptf_mac,
+                                               hw_snd=ptf_mac,
+                                               ip_snd=str(server_ip.ip),
+                                               arp_op=2)
+        garp_pkts[ptf_port_index] = garp_pkt
+
+    for port, pkt in garp_pkts.items():
+        testutils.send_packet(ptfadapter, port, pkt)
