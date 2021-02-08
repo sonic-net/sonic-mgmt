@@ -100,6 +100,7 @@ test_t0() {
     bgp/test_bgp_fact.py \
     bgp/test_bgp_gr_helper.py \
     bgp/test_bgp_speaker.py \
+    cacl/test_ebtables_application.py \
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
     dhcp_relay/test_dhcp_relay.py \
@@ -119,6 +120,7 @@ test_t0() {
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
     test_procdockerstatsd.py \
@@ -151,6 +153,7 @@ test_t1_lag() {
     monit/test_monit_status.py \
     test_interfaces.py \
     bgp/test_bgp_fact.py \
+    bgp/test_bgp_allow_list.py \
     bgp/test_bgp_multipath_relax.py \
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_bounce.py \

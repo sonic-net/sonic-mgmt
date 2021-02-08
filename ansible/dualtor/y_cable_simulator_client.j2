@@ -16,8 +16,8 @@ BASE_URL = "http://{{ mux_simulator_server }}:{{ mux_simulator_port }}/"
 SYSLOG_IDENTIFIER = "y_cable_sim"
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
-TOR_A = "tor_a"
-TOR_B = "tor_b"
+UPPER_TOR = "upper_tor"
+LOWER_TOR = "lower_tor"
 
 def _url(physical_port):
     """
@@ -89,7 +89,7 @@ def _toggle_to(physical_port, target):
 
     Args:
         physical_port: physical port on switch, an integer starting from 1
-        target: TOR_A / TOR_B
+        target: UPPER_TOR / LOWER_TOR
     Returns:
         True if succeed. False otherwise
     """
@@ -103,26 +103,26 @@ def _get_side(physical_port):
     Args:
         physical_port: physical port on switch, an integer starting from 1
     Returns:
-        1 if TOR_A is active
-        2 if TOR_B is active
+        1 if UPPER_TOR is active
+        2 if LOWER_TOR is active
         -1 for exception or inconstient status
     """
     res = _get(physical_port)
     if not res:
         return -1
     active_side = res["active_side"]
-    if active_side == TOR_A:
+    if active_side == UPPER_TOR:
         return 1
-    elif active_side == TOR_B:
+    elif active_side == LOWER_TOR:
         return 2
     else:
         return -1
 
 def toggle_mux_to_torA(physical_port):
-    return _toggle_to(physical_port, TOR_A)
+    return _toggle_to(physical_port, UPPER_TOR)
 
 def toggle_mux_to_torB(physical_port):
-    return _toggle_to(physical_port, TOR_B)
+    return _toggle_to(physical_port, LOWER_TOR)
 
 def check_read_side(physical_port):
     return DUTS_MAP[DUT_NAME] + 1
@@ -142,14 +142,14 @@ def check_if_link_is_active_for_NIC(physical_port):
 
 def check_if_link_is_active_for_torA(physical_port):
     """
-    Checks if TOR_A side of the Y cable's link is active.
+    Checks if UPPER_TOR side of the Y cable's link is active.
     Always return True for now because all links in simulator are active.
     """
     return True
 
 def check_if_link_is_active_for_torB(physical_port):
     """
-    Checks if TOR_B side of the Y cable's link is active.
+    Checks if LOWER_TOR side of the Y cable's link is active.
     Always return True for now because all links in simulator are active.
     """
     return True

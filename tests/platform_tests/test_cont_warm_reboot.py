@@ -11,7 +11,6 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import get_reboot_cause
 from tests.common.platform.transceiver_utils import parse_transceiver_info
-from tests.common.plugins.sanity_check import checks
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -156,9 +155,11 @@ class ContinuousReboot:
         @param interfaces: DUT's interfaces defined by minigraph
         """
         logging.info("Check if all the interfaces are operational")
-        result = checks.check_interfaces(self.duthost)
-        if result["failed"]:
-            raise ContinuousRebootError("Interface check failed, not all interfaces are up")
+        check_interfaces = self.request.getfixturevalue("check_interfaces")
+        results = check_interfaces()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            raise ContinuousRebootError("Interface check failed, not all interfaces are up. Failed: {}".format(failed))
 
         # Skip this step for virtual testbed - KVM testbed has transeivers marked as "Not present"
         # and the DB returns an "empty array" for "keys TRANSCEIVER_INFO*"

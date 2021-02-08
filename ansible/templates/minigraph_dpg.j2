@@ -2,6 +2,7 @@
     <DeviceDataPlaneInfo>
       <IPSecTunnels/>
       <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if type is not defined or type != 'supervisor' %}
         <a:LoopbackIPInterface>
           <Name>HostIP</Name>
           <AttachTo>Loopback0</AttachTo>
@@ -39,6 +40,7 @@
         </a:LoopbackIPInterface>
       {%- endfor -%}
       {%- endif -%}
+{% endif %}
       </LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
         <a:ManagementIPInterface>
@@ -106,9 +108,10 @@
       </VlanInterfaces>
       <IPInterfaces>
 {% for index in range(vms_number) %}
+{% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
         <IPInterface>
           <Name i:nil="true"/>
-{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
           <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
@@ -117,13 +120,14 @@
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-{% if 'port-channel' in (vm_topo_config['vm'][vms[index]]['ip_intf']|lower) %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
           <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int] }}</Prefix>
         </IPInterface>
+{% endif %}
 {% endfor %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
 {% for vlan, vlan_param in vlan_configs.items() %}
@@ -146,6 +150,7 @@
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
+{% if type is not defined or type != 'supervisor' %}
         <AclInterface>
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>
@@ -169,20 +174,27 @@
 {% if enable_data_plane_acl|default('true')|bool %}
         <AclInterface>
           <AttachTo>
+{%- set acl_intfs = [] -%}
 {%- for index in range(vms_number) %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-PortChannel{{ ((index+1) |string).zfill(4) }}{% if not loop.last %};{% endif %}
+{% set a_intf = 'PortChannel' + ((index+1) |string).zfill(4) %}
+{{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endfor %}
 {% for index in range(vms_number) %}
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
-{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}{% if not loop.last %};{% endif %}
+{% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
+{% set a_intf = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+{{- acl_intfs.append(a_intf) -}}
+{% endif %}
 {% endif %}
 {% endfor -%}
+{{- acl_intfs|join(';') -}}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif %}
 {% endif %}
       </AclInterfaces>
       <DownstreamSummaries/>
