@@ -39,7 +39,7 @@ The tests will run on following testbeds:
 
 ### SONiC switch as Leaf
 
-![SONiC DUT as ToR ](Img/Switch_acting_as_Leaf.png)
+![SONiC DUT as ToR ](Img/Switch_acting_as_leaf.png)
 
 ## Setup configuration
 IPv4 EBGP neighborship will be configured between SONiC DUT and directly connected test ports. Test ports inturn will simulate the ToR's and Leafs by advertising IPv4/IPv6, dual-stack routes.
@@ -61,7 +61,7 @@ Following test methodologies will be used for measuring convergence.
 Measure the convergence time when remote link failure event happens with in the network.
 
 <p float="left">
-  <img src="Img/Single_link_failure.png" width="500"  hspace="50"/>
+  <img src="Img/Single_Link_Failure.png" width="500"  hspace="50"/>
   <img src="Img/Failover_convergence.png" width="380" /> 
 </p>
 
