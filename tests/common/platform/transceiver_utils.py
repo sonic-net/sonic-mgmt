@@ -120,8 +120,10 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
             cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf
             docker_cmd = asichost.get_docker_cmd(cmd, "database")
             port_xcvr_dom_sensor = dut.command(docker_cmd)
-            assert port_xcvr_dom_sensor["stdout"].find(field) >= 0, \
-                "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_dom_sensor["stdout"], intf)
+            for field in expected_fields:
+                assert port_xcvr_dom_sensor["stdout"].find(field) >= 0, \
+                    "Expected field %s is not found in %s while checking %s" % (
+                    field, port_xcvr_dom_sensor["stdout"], intf)
 
 
 def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list):
