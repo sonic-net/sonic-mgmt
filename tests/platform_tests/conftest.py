@@ -25,9 +25,9 @@ def xcvr_skip_list(duthosts, rand_one_dut_hostname):
     intf_skip_list = []
     try:
         out = duthost.command("cat {}".format(f_path))
-        int_skip_info = json.loads(out["stdout"])
-        for int_n in int_skip_info['interfaces']:
-            if int_skip_info['interfaces'][int_n]['port_type'] == "RJ45":
+        hwsku_info = json.loads(out["stdout"])
+        for int_n in hwsku_info['interfaces']:
+            if hwsku_info['interfaces'][int_n]['port_type'] == "RJ45":
                 intf_skip_list.append(int_n)
 
     except Exception:
