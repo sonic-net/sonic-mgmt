@@ -73,7 +73,7 @@ Measure the convergence time when remote link failure event happens with in the 
 * Configure another IPv4 session to send the traffic. This is the server port from which traffic will be sent to the VIP addresses.
 * Start all protocols and verify that IPv4 BGP neighborship is established.
 * Create a data traffic between the server port and receiver ports where the same VIP addresses are configured and enable tracking by "Destination Endpoint" and by "Destination session description".
-* Set the desired threshold value for receiving traffic. By default it will be set to 95% of expected receiving rate.
+* Set the desired threshold value for receiving traffic. By default we will be set to 90% of expected receiving rate.
 * Apply and start the data traffic.
 * Verify that traffic is equally distributed between the receiving ports without any loss.
 * Simulate remote link failure by withdrawing the routes from one receiving port. 
@@ -106,7 +106,7 @@ Measure the convergence time to install the routes in its RIB and then in its FI
 * Configure another IPv4 session to send the traffic. This is the server port from which traffic will be sent to the VIP addresses.
 * Start all protocols and verify that IPv4 BGP neighborship is established.
 * Create a data traffic between the server port and receiver ports where the same VIP addresses are configured and enable tracking by "Destination Endpoint" and by "Destination session description".
-* Set the desired threshold value for receiving traffic. By default it will be set to 95% of expected receiving rate.
+* Set the desired threshold value for receiving traffic. By default we will be set to 90% of expected receiving rate.
 * Apply and start the data traffic.
 * Verify that no traffic is being forwarded. 
 * Enable/advertise the routes which are already configured. 
