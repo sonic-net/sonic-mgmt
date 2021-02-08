@@ -313,6 +313,7 @@ def apply_mux_cable_table_to_dut(duthosts, rand_one_dut_hostname, mock_server_ba
 
         dut.shell('redis-cli -n 4 HSET "{}" "server_ipv4" "{}"'.format(key, server_ipv4))
         dut.shell('redis-cli -n 4 HSET "{}" "server_ipv6" "{}"'.format(key, server_ipv6))
+        dut.shell('redis-cli -n 4 HSET "{}" "state" "auto"'.format(key))
 
     yield
     logger.info("Removing mux cable table")
