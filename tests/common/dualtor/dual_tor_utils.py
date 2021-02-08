@@ -4,7 +4,6 @@ import json
 import ptf.testutils as testutils
 
 from ipaddress import ip_interface
-from jinja2 import Template
 from natsort import natsorted
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
