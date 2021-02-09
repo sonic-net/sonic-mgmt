@@ -18,6 +18,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.utilities import wait_until
 from tests.conftest import duthost
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     vlan_ports = []
 
     if topo == "t0":
-        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname] 
+        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
 
     setup_information = {
@@ -407,6 +408,9 @@ class BaseAclTest(object):
                 self.setup_rules(duthost, acl_table, ip_version)
 
             self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
+
+            assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
@@ -473,6 +477,21 @@ class BaseAclTest(object):
     def direction(self, request):
         """Parametrize test based on direction of traffic."""
         return request.param
+
+    def check_rule_counters(self, duthost):
+        logger.info('Wait all rule counters are ready')
+
+        return wait_until(300, 2, self.check_rule_counters_internal, duthost)
+
+    def check_rule_counters_internal(self, duthost):
+        res = duthost.command('aclshow -a')
+
+        num_of_lines = len(res['stdout'].split('\n'))
+
+        if num_of_lines <= 2 or 'N/A' in res['stdout']:
+            return False
+
+        return True
 
     def get_src_port(self, setup, direction):
         """Get a source port for the current test."""
