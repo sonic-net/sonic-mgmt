@@ -117,8 +117,8 @@ def check_alerting_messages(duthost, containers_in_namespaces):
 
     Args:
         duthost: Hostname of DUT.
-        containers_in_namespaces: A dict mapping keys which are container names to a
-        value which is a list containing ids of namespace.
+        containers_in_namespaces: A dictionary where keys are container names and
+        values are lists which contains ids of namespaces this container should reside in.
 
     Returns:
         None.
@@ -198,7 +198,7 @@ def parse_config_entry(config_info):
         has_global_scope: A string ("True|False") shows if a device has multi-ASIC,
         whether the container should be running in the host.
         has_per_asic_scope: A string ("True|False") shows if a device has multi-ASIC,
-        whether the container should  be running in each ASIC.
+        whether the container should be running in each ASIC.
     """
     is_enabled = ""
     has_global_scope = ""
@@ -227,14 +227,16 @@ def parse_feature_table(duthost, num_asics, skip_containers):
         skip_containers: A list shows which containers will be skipped.
 
     Returns:
-        A dictionary in which key is container name and value is a list which contains
-        ids of namespaces this container should reside in.
+        A dictionary where keys are container names and values are a list which contains
+        ids of namespaces this container should reside in such as {lldp: ["host", "0", "1"]}
     """
     container_list = []
     containers_in_namespaces = defaultdict(list)
 
     container_list_command = "redis-cli -n 4 keys \"FEATURE|*\""
     command_output = duthost.shell(container_list_command)
+    exit_code = command_output["rc"]
+    pytest_assert(exit_code == 0, "Failed to get keys (container names) in `FEATURE` table")
     for line in command_output["stdout_lines"]:
         container_list.append(line.split("|")[1].strip())
 
@@ -242,8 +244,8 @@ def parse_feature_table(duthost, num_asics, skip_containers):
         if container_name in skip_containers:
             continue
 
-        config_entry_command = "redis-cli -n 4 hgetall \"FEATURE|{}\"".format(container_name)
-        command_output = duthost.shell(config_entry_command)
+        command_config_entry = "redis-cli -n 4 hgetall \"FEATURE|{}\"".format(container_name)
+        command_output = duthost.shell(command_config_entry)
         exit_code = command_output["rc"]
         pytest_assert(exit_code == 0, "Failed to get configuration of container '{}' in `FEATURE` table"
                       .format(container_name))
@@ -277,8 +279,8 @@ def disable_containers_autorestart(duthost, containers_in_namespaces):
     """
     for container_name in containers_in_namespaces.keys():
         logger.info("Disabling the autorestart of container '{}'.".format(container_name))
-        disable_autorestart_command = "sudo config feature autorestart {} disabled".format(container_name)
-        command_output = duthost.shell(disable_autorestart_command)
+        command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
+        command_output = duthost.shell(command_disable_autorestart)
         exit_code = command_output["rc"]
         pytest_assert(exit_code == 0, "Failed to disable the autorestart of container '{}'".format(container_name))
         logger.info("The autorestart of container '{}' was disabled.".format(container_name))
@@ -403,8 +405,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
 
     Args:
         duthost: Hostname of DUT.
-        containers_in_namespaces: A dict mapping a key which is container name to a value
-        which is a list containing the ids of namespaces.
+        containers_in_namespaces: A dictionary where keys are container names and
+        values are lists which contains ids of namespaces this container should reside in.
 
     Returns:
         None.
@@ -465,8 +467,8 @@ def restart_critical_processes(duthost, containers_in_namespaces):
 
     Args:
         duthost: Hostname of DUT.
-        containers_in_namespaces: A dict mapping a key which is a container name to a value
-        which is a list containing ids of namespaces.
+        containers_in_namespaces: A dictionary where keys are container names and
+        values are lists which contains ids of namespaces this container should reside in.
 
     Returns:
         None.
@@ -500,8 +502,8 @@ def restore_containers_autorestart(duthost, containers_autorestart_states):
 
     Args:
         duthost: Hostname of DUT.
-        containers_in_namespaces: A dict mapping a key which is a container name to a value
-        which is the recorded status of autorestart.
+        containers_in_namespaces: A dictionary where keys are container names and
+        values are lists which contains ids of namespaces this container should reside in.
 
     Returns:
         None.
