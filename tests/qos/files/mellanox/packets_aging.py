@@ -88,14 +88,16 @@ for i in range(0, port_cnt):
             rc = sx_api_port_hll_set(handle, log_port, hll_time, hll_stall)
             if (rc != SX_STATUS_SUCCESS):
                 print >> sys.stderr, "An error returned by sx_api_port_hll_set."
-                sys.exit()
+                # do not exit. workaround to disable/enable aging on all ports when topo contains LAG members
+                #sys.exit(1)
         else:
             hll_max_time_p = new_uint32_t_p()
             hll_stall_cnt_p = new_uint32_t_p()
             rc = sx_api_port_hll_get(handle,log_port, hll_max_time_p, hll_stall_cnt_p)
             if (rc != SX_STATUS_SUCCESS):
                 print >> sys.stderr, "An error returned by sx_api_port_hll_set."
-                sys.exit()
+                # do not exit. workaround to disable/enable aging on all ports when topo contains LAG members
+                #sys.exit(1)
             else:
                 hll_max_time = uint32_t_p_value(hll_max_time_p)
                 hll_stall_cnt = uint32_t_p_value(hll_stall_cnt_p)

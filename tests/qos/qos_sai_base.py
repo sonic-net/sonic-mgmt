@@ -605,7 +605,10 @@ class QosSaiBase:
                 ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
                 ".*WARNING syncd#SDK:.*check_attribs_metadata: Not implemented attribute.*",
                 ".*WARNING syncd#SDK:.*sai_set_attribute: Failed attribs check, key:Switch ID.*",
-                ".*WARNING syncd#SDK:.*check_rate: Set max rate to 0.*"
+                ".*WARNING syncd#SDK:.*check_rate: Set max rate to 0.*",
+                ".*ERR syncd#SDK:.*Cannot modify HLL for port.*which is member of a LAG.*",
+                ".*ERR syncd#SDK:.*Validation check for HLL Set failed.*",
+                ".*ERR syncd#SDK:.*Failed in cos_port_hll_set.*"
             ]
             loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
