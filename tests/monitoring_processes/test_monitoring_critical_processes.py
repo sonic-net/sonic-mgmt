@@ -416,8 +416,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
 
         namespaces = containers_in_namespaces[container_name]
-        container_name_in_namespace = container_name
         for namespace_id in namespaces:
+            container_name_in_namespace = container_name
             if namespace_id != "host":
                 container_name_in_namespace += namesapce_id
 
