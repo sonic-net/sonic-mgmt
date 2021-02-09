@@ -658,8 +658,8 @@ def generate_params_supervisor_hostname(request):
         # Expecting only a single supervisor node
         if is_supervisor_node(inv_files, dut):
             return [dut]
-    pytest.fail("Test selected require a supervisor node, " +
-                "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname))
+    # If there are no supervisor cards in a multi-dut tesbed, we are dealing with all pizza box in the testbed, pick the first DUT
+    return [duts[0]]
 
 def generate_param_asic_index(request, dut_indices, param_type):
     _, tbinfo = get_tbinfo(request)
