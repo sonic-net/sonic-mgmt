@@ -178,14 +178,14 @@ class SonicPortAliasMap():
         aliasmap = {}
         portspeed = {}
 
-        # if platform.json and hwsku.json are exist, than get portmap from hwsku
+        # if platform.json and hwsku.json exist, than get portmap from hwsku
         platform_file = self.get_platform_path()
         hwsku_file = self.get_hwsku_path()
         if platform_file and hwsku_file:
             self.get_portmap_from_platform_hwsku(platform_file, hwsku_file, aliases, portmap, aliasmap, portspeed)
             return (aliases, portmap, aliasmap, portspeed)
 
-        # platform.json or hwsku.json is not exist so get portmap from port_config.ini
+        # platform.json or hwsku.json does not exist so get portmap from port_config.ini
         filename = self.get_portconfig_path(asic_id)
         if filename is None:
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
