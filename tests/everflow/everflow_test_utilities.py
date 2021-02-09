@@ -302,7 +302,7 @@ class BaseEverflowTest(object):
         self.apply_policer_config(duthost, policer, config_method)
 
         # Create a mirror session with the TEST_POLICER attached
-        session_info = self._mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
+        session_info = self._mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"], session_dst_ip="3.3.3.3")
         self.apply_mirror_config(duthost, session_info, config_method, policer=policer)
 
         yield session_info
@@ -310,6 +310,27 @@ class BaseEverflowTest(object):
         # Clean up mirror session and policer
         self.remove_mirror_config(duthost, session_info["session_name"], config_method)
         self.remove_policer_config(duthost, policer, config_method)
+
+    @pytest.fixture
+    def mirror_dscp_table(self, duthosts, rand_one_dut_hostname, config_method, policer_mirror_session):
+        duthost = duthosts[rand_one_dut_hostname]
+
+        try:
+            table_name = "EVERFLOW_DSCP"
+            table_type = "MIRROR_DSCP"
+            self.apply_acl_table_config(duthost, table_name, table_type, config_method)
+
+            # Add rule to match on DSCP
+            self.apply_acl_rule_config(duthost,
+                                       table_name,
+                                       policer_mirror_session["session_name"],
+                                       config_method,
+                                       rules=EVERFLOW_DSCP_RULES)
+            yield
+        finally:
+            # Clean up ACL rules and routes
+            self.remove_acl_rule_config(duthost, table_name, config_method)
+            self.remove_acl_table_config(duthost, table_name, config_method)
 
     def apply_mirror_config(self, duthost, session_info, config_method, policer=None):
         if config_method == CONFIG_MODE_CLI:
@@ -569,9 +590,8 @@ class BaseEverflowTest(object):
         inner_frame = encapsulated_packet[-payload_size:]
         return packet.Ether(inner_frame)
 
-    def _mirror_session_info(self, session_name, asic_type):
+    def _mirror_session_info(self, session_name, asic_type, session_dst_ip="2.2.2.2"):
         session_src_ip = "1.1.1.1"
-        session_dst_ip = "2.2.2.2"
         session_dscp = "8"
         session_ttl = "1"
 

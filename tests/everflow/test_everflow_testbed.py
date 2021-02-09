@@ -75,7 +75,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         on that. As of now cleanup is being done here.
         """
         yield request.param
-        
+
         duthost = duthosts[rand_one_dut_hostname]
 
         for index in range(0, min(3, len(setup_info[request.param]["dest_port"]))):
@@ -370,58 +370,177 @@ class EverflowIPv4Tests(BaseEverflowTest):
             rx_port_ptf_id,
             tx_port_ptf_ids
         )
-    
+
     def test_everflow_dscp_with_policer(
-            self,
-            duthost,
-            setup_info,
-            policer_mirror_session,
-            dest_port_type,
-            partial_ptf_runner,
-            config_method,
-            tbinfo
+        self,
+        duthosts,
+        rand_one_dut_hostname,
+        setup_info,
+        policer_mirror_session,
+        dest_port_type,
+        partial_ptf_runner,
+        tbinfo,
+        mirror_dscp_table
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table."""
+        duthost = duthosts[rand_one_dut_hostname]
+
         # Add explicit route for the mirror session
         tx_port = setup_info[dest_port_type]["dest_port"][0]
         peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip)
 
         try:
-            # Add MIRROR_DSCP table for test
-            table_name = "EVERFLOW_DSCP"
-            table_type = "MIRROR_DSCP"
-            self.apply_acl_table_config(duthost, table_name, table_type, config_method)
-
-            # Add rule to match on DSCP
-            self.apply_acl_rule_config(duthost,
-                                       table_name,
-                                       policer_mirror_session["session_name"],
-                                       config_method,
-                                       rules=EVERFLOW_DSCP_RULES)
+            everflow_utils.add_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip)
 
             # Run test with expected CIR/CBS in packets/sec and tolerance %
             rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
             tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
 
-            partial_ptf_runner(setup_info,
-                               policer_mirror_session,
-                               self.acl_stage(),
-                               self.mirror_type(),
-                               expect_receive=True,
-                               test_name="everflow_policer_test.EverflowPolicerTest",
-                               src_port=rx_port_ptf_id,
-                               dst_mirror_ports=tx_port_ptf_id,
-                               dst_ports=tx_port_ptf_id,
-                               meter_type="packets",
-                               cir="100",
-                               cbs="100",
-                               tolerance="10")
+            partial_ptf_runner(
+                setup_info,
+                policer_mirror_session,
+                self.acl_stage(),
+                self.mirror_type(),
+                expect_receive=True,
+                test_name="everflow_policer_test.EverflowPolicerTest",
+                src_port=rx_port_ptf_id,
+                dst_mirror_ports=tx_port_ptf_id,
+                dst_ports=tx_port_ptf_id,
+                meter_type="packets",
+                cir="100",
+                cbs="100",
+                tolerance="10"
+            )
         finally:
-            # Clean up ACL rules and routes
-            self.remove_acl_rule_config(duthost, table_name, config_method)
-            self.remove_acl_table_config(duthost, table_name, config_method)
             everflow_utils.remove_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip)
+
+    def test_two_sessions_different_ports(
+        self,
+        duthosts,
+        rand_one_dut_hostname,
+        setup_info,
+        setup_mirror_session,
+        policer_mirror_session,
+        mirror_dscp_table,
+        dest_port_type,
+        ptfadapter,
+        partial_ptf_runner,
+        tbinfo
+    ):
+        """
+        Verify that we can setup two mirror sessions and send traffic to two different monitor ports.
+
+        We should be able to send traffic that hits rules in each table, and the traffic should
+        be mirrored to the correct mirror session.
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+
+        # Add a route to the standard mirror session destination IP
+        std_tx_port = setup_info[dest_port_type]["dest_port"][0]
+        std_peer_ip, _ = everflow_utils.get_neighbor_info(duthost, std_tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], std_peer_ip)
+
+        # Add a route to the policer-enforced mirror session destination IP
+        policer_tx_port = setup_info[dest_port_type]["dest_port"][1]
+        policer_peer_ip, _ = everflow_utils.get_neighbor_info(duthost, policer_tx_port, tbinfo)
+        everflow_utils.add_route(duthost, policer_mirror_session["session_prefixes"][0], policer_peer_ip)
+
+        # Verify that mirrored traffic is sent to the standard mirror session
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
+
+        # Verify that the DSCP traffic is sent to the policer-enforced mirror session
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][1]
+
+        partial_ptf_runner(
+            setup_info,
+            policer_mirror_session,
+            self.acl_stage(),
+            self.mirror_type(),
+            expect_receive=True,
+            test_name="everflow_policer_test.EverflowPolicerTest",
+            src_port=rx_port_ptf_id,
+            dst_mirror_ports=tx_port_ptf_id,
+            dst_ports=tx_port_ptf_id,
+            meter_type="packets",
+            cir="100",
+            cbs="100",
+            tolerance="10"
+        )
+
+        everflow_utils.remove_route(duthost, policer_mirror_session["session_prefixes"][0], policer_peer_ip)
+
+    def test_two_sessions_same_port(
+        self,
+        duthosts,
+        rand_one_dut_hostname,
+        setup_info,
+        setup_mirror_session,
+        policer_mirror_session,
+        mirror_dscp_table,
+        dest_port_type,
+        ptfadapter,
+        partial_ptf_runner,
+        tbinfo
+    ):
+        """
+        Verify that we can setup two mirror sessions and send traffic to the same monitor port.
+
+        We should be able to send traffic that hits rules in each table, and the traffic should
+        be mirrored to the correct mirror session.
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+
+        # Add a route to the standard mirror session destination IP
+        std_tx_port = setup_info[dest_port_type]["dest_port"][0]
+        std_peer_ip, _ = everflow_utils.get_neighbor_info(duthost, std_tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], std_peer_ip)
+
+        # Add a route to the policer-enforced mirror session destination IP
+        policer_tx_port = setup_info[dest_port_type]["dest_port"][0]
+        policer_peer_ip, _ = everflow_utils.get_neighbor_info(duthost, policer_tx_port, tbinfo)
+        everflow_utils.add_route(duthost, policer_mirror_session["session_prefixes"][0], policer_peer_ip)
+
+        # Verify that mirrored traffic is sent to the standard mirror session
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            duthost,
+            rx_port_ptf_id,
+            [tx_port_ptf_id]
+        )
+
+        # Verify that the DSCP traffic is sent to the policer-enforced mirror session
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+
+        partial_ptf_runner(
+            setup_info,
+            policer_mirror_session,
+            self.acl_stage(),
+            self.mirror_type(),
+            expect_receive=True,
+            test_name="everflow_policer_test.EverflowPolicerTest",
+            src_port=rx_port_ptf_id,
+            dst_mirror_ports=tx_port_ptf_id,
+            dst_ports=tx_port_ptf_id,
+            meter_type="packets",
+            cir="100",
+            cbs="100",
+            tolerance="10"
+        )
+
+        everflow_utils.remove_route(duthost, policer_mirror_session["session_prefixes"][0], policer_peer_ip)
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port, tx_ports, expect_recv=True):
         # FIXME: In the ptf_runner version of these tests, LAGs were passed down to the tests as comma-separated strings of
