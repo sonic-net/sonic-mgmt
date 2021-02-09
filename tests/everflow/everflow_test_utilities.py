@@ -46,8 +46,16 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    tor_ports = []
-    spine_ports = []
+    # { namespace : [tor ports] }
+    tor_ports_namespace_map = defaultdict(list)
+    # { namespace : [spine ports] }
+    spine_ports_namespace_map = defaultdict(list)
+
+    # { set of namespace tor ports belongs }
+    tor_ports_namespace = set()
+    # { set of namespace spine ports belongs }
+    spine_ports_namespace = set()
+
 
     # Gather test facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -57,9 +65,28 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     # TODO: The ACL tests do something really similar, I imagine we could refactor this bit.
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
         if "T0" in neigh["name"]:
-            tor_ports.append(dut_port)
+            # Add Tor ports to namespace
+            tor_ports_namespace_map[neigh['namespace']].append(dut_port)
+            tor_ports_namespace.add(neigh['namespace'])
         elif "T2" in neigh["name"]:
-            spine_ports.append(dut_port)
+            # Add Spine ports to namespace
+            spine_ports_namespace_map[neigh['namespace']].append(dut_port)
+            spine_ports_namespace.add(neigh['namespace'])
+
+    # Set of TOR ports only Namespace 
+    tor_only_namespace = tor_ports_namespace.difference(spine_ports_namespace)
+    # Set of Spine ports only Namespace 
+    spine_only_namespace = spine_ports_namespace.difference(tor_ports_namespace)
+ 
+    # Randomly choose from TOR_only Namespace if present else just use first one 
+    tor_namespace = random.choice(tuple(tor_only_namespace)) if tor_only_namespace else tuple(tor_ports_namespace)[0]
+    # Randomly choose from Spine_only Namespace if present else just use first one 
+    spine_namespace = random.choice(tuple(spine_only_namespace)) if spine_only_namespace else tuple(spine_ports_namespace)[0]
+
+    # Get the corresponding namespace ports
+    tor_ports = tor_ports_namespace_map[tor_namespace]
+    spine_ports = spine_ports_namespace_map[spine_namespace]
+         
 
     switch_capabilities = switch_capability_facts["switch_capabilities"]["switch"]
 
@@ -137,51 +164,46 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
             "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][spine_ports[0]]),
             "dest_port": tor_dest_ports,
             "dest_port_ptf_id": tor_dest_ports_ptf_id,
-            "dest_port_lag_name": tor_dest_lag_name
+            "dest_port_lag_name": tor_dest_lag_name,
+            "namespace": tor_namespace
         },
         "spine": {
             "src_port": tor_ports[0],
             "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][tor_ports[0]]),
             "dest_port": spine_dest_ports,
             "dest_port_ptf_id": spine_dest_ports_ptf_id,
-            "dest_port_lag_name": spine_dest_lag_name
+            "dest_port_lag_name": spine_dest_lag_name,
+            "namespace": spine_namespace
         },
         "port_index_map": {
             k: v
             for k, v in mg_facts["minigraph_ptf_indices"].items()
             if k in mg_facts["minigraph_ports"]
+        },
+        # { ptf_port_id : namespace }
+        "port_index_namespace_map" : {
+           v: mg_facts["minigraph_neighbors"][k]['namespace']
+           for k, v in mg_facts["minigraph_ptf_indices"].items()
+           if k in mg_facts["minigraph_ports"]
         }
     }
 
-    # NOTE: This is important to add since for the Policer test case regular packets
-    # and mirror packets can go to same interface, which causes tail drop of
-    # police packets and impacts test case cir/cbs calculation.
-    #
-    # We are making sure regular traffic has a dedicated route and does not use
-    # the default route.
-
-    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3], tbinfo)
-
-    # Disable recursive route resolution as we have test case where we check
-    # if better unresolved route is there then it should not be picked by Mirror state DB
-    # This change is triggeed by Sonic PR#https://github.com/Azure/sonic-buildimage/pull/5600
-    duthost.shell("vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"")
-
-    add_route(duthost, "30.0.0.1/24", peer_ip)
-
+    # Disable BGP so that we don't keep on bouncing back mirror packets
+    # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
+    duthost.command("sudo config bgp shutdown all")
+    time.sleep(60)
     duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
-
+    
     yield setup_information
-
+    
+    # Enable BGP again 
+    duthost.command("sudo config bgp startup all")
+    time.sleep(60)
     duthost.command("rm -rf {}".format(DUT_RUN_DIR))
-
-    remove_route(duthost, "30.0.0.1/24", peer_ip)
-
-    duthost.shell("vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"")
-
+ 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def add_route(duthost, prefix, nexthop):
+def add_route(duthost, prefix, nexthop, namespace):
     """
     Add a route to the DUT.
 
@@ -189,13 +211,15 @@ def add_route(duthost, prefix, nexthop):
         duthost: DUT fixture
         prefix: IP prefix for the route
         nexthop: next hop for the route
+        namespace: namsespace/asic to add the route
 
     """
-    duthost.shell("vtysh -c \"configure terminal\" -c \"ip route {} {}\"".format(prefix, nexthop))
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"ip route {} {}\"".format(prefix, nexthop), namespace))
+
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def remove_route(duthost, prefix, nexthop):
+def remove_route(duthost, prefix, nexthop, namespace):
     """
     Remove a route from the DUT.
 
@@ -203,9 +227,10 @@ def remove_route(duthost, prefix, nexthop):
         duthost: DUT fixture
         prefix: IP prefix to remove
         nexthop: next hop to remove
+        namespace: namsespace/asic to remove the route
 
     """
-    duthost.shell("vtysh -c \"configure terminal\" -c \"no ip route {} {}\"".format(prefix, nexthop))
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"no ip route {} {}\"".format(prefix, nexthop), namespace))
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -220,7 +245,7 @@ def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
 
     """
     if not resolved:
-        return "20.20.20.100", None
+        return "20.20.20.100"
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -229,7 +254,7 @@ def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
             peer_ip = bgp_peer["addr"]
             break
 
-    return peer_ip, duthost.shell("ip neigh show {} | awk -F\" \" \"{{print $5}}\"".format(peer_ip))["stdout"]
+    return peer_ip
 
 
 # TODO: This can probably be moved to a shared location in a later PR.
@@ -475,7 +500,8 @@ class BaseEverflowTest(object):
                                       mirror_packet,
                                       src_port=None,
                                       dest_ports=None,
-                                      expect_recv=True):
+                                      expect_recv=True,
+                                      valid_across_namespace=True):
         expected_mirror_packet = self._get_expected_mirror_packet(mirror_session,
                                                                   setup,
                                                                   duthost,
@@ -487,42 +513,63 @@ class BaseEverflowTest(object):
         if not dest_ports:
             dest_ports = [self._get_monitor_port(setup, mirror_session, duthost)]
 
-        ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, src_port, mirror_packet)
+        # In Below logic idea is to send traffic in such a way so that mirror traffic
+        # will need to go across namespaces and within namespace. If source and mirror destination
+        # namespace are different then traffic mirror will go across namespace via (backend asic)
+        # else via same namespace(asic)
 
-        if expect_recv:
-            _, received_packet = testutils.verify_packet_any_port(
-                ptfadapter,
-                expected_mirror_packet,
-                ports=dest_ports
-            )
-            logging.info("Received packet: %s", packet.Ether(received_packet).summary())
+        src_port_namespace = self._get_port_namespace(setup, int(src_port))
+        dest_ports_namespace = self._get_port_namespace(setup,int (dest_ports[0]))
 
-            inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet))
-            logging.info("Received inner packet: %s", inner_packet.summary())
+        src_port_set =  set()
+        
+        # Some of test scenario are not valid across namespaces so test will explicltly pass 
+        # valid_across_namespace as False (default is True)
+        if valid_across_namespace == True or src_port_namespace == dest_ports_namespace:
+            src_port_set.add(src_port)
+        
+        # To verify same namespace mirroring we will add destination port also to the Source Port Set
+        if src_port_namespace != dest_ports_namespace:
+            src_port_set.add(dest_ports[0])
 
-            inner_packet = Mask(inner_packet)
+        # Loop through Source Port Set and send traffic on each source port of the set
+        for src_port in src_port_set:
+            ptfadapter.dataplane.flush()
+            testutils.send(ptfadapter, src_port, mirror_packet)
 
-            # For egress mirroring, we expect the DUT to have modified the packet
-            # before forwarding it. Specifically:
-            #
-            # - In L2 the SMAC and DMAC will change.
-            # - In L3 the TTL and checksum will change.
-            #
-            # We know what the TTL and SMAC should be after going through the pipeline,
-            # but DMAC and checksum are trickier. For now, update the TTL and SMAC, and
-            # mask off the DMAC and IP Checksum to verify the packet contents.
-            if self.mirror_type() == "egress":
-                mirror_packet[packet.IP].ttl -= 1
-                mirror_packet[packet.Ether].src = setup["router_mac"]
+            if expect_recv:
+                _, received_packet = testutils.verify_packet_any_port(
+                    ptfadapter,
+                    expected_mirror_packet,
+                    ports=dest_ports
+                )
+                logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
-                inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
-                inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet))
+                logging.info("Received inner packet: %s", inner_packet.summary())
 
-            logging.info("Expected inner packet: %s", mirror_packet.summary())
-            pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
-        else:
-            testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
+                inner_packet = Mask(inner_packet)
+
+                # For egress mirroring, we expect the DUT to have modified the packet
+                # before forwarding it. Specifically:
+                #
+                # - In L2 the SMAC and DMAC will change.
+                # - In L3 the TTL and checksum will change.
+                #
+                # We know what the TTL and SMAC should be after going through the pipeline,
+                # but DMAC and checksum are trickier. For now, update the TTL and SMAC, and
+                # mask off the DMAC and IP Checksum to verify the packet contents.
+                if self.mirror_type() == "egress":
+                    mirror_packet[packet.IP].ttl -= 1
+                    mirror_packet[packet.Ether].src = setup["router_mac"]
+
+                    inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+                    inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+
+                logging.info("Expected inner packet: %s", mirror_packet.summary())
+                pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
+            else:
+                testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
     def _get_expected_mirror_packet(self, mirror_session, setup, duthost, mirror_packet):
         payload = mirror_packet.copy()
@@ -552,6 +599,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
+        expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
         # though the session does have a DSCP specified.
@@ -573,7 +621,7 @@ class BaseEverflowTest(object):
         session_src_ip = "1.1.1.1"
         session_dst_ip = "2.2.2.2"
         session_dscp = "8"
-        session_ttl = "1"
+        session_ttl = "4"
 
         if "mellanox" == asic_type:
             session_gre = 0x8949
@@ -596,6 +644,9 @@ class BaseEverflowTest(object):
             "session_gre": session_gre,
             "session_prefixes": session_prefixes
         }
+    
+    def _get_port_namespace(self,setup, port):
+        return setup["port_index_namespace_map"][port]
 
     def _get_random_src_port(self, setup):
         return setup["port_index_map"][random.choice(setup["port_index_map"].keys())]
