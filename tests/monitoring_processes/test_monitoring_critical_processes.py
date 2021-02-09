@@ -30,9 +30,9 @@ def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT was 201911 or old version.
 
     Args:
-        duthost: Host DUT.
+        duthost: Hostname of DUT.
 
-    Return:
+    Returns:
         None.
     """
     if parse_version(duthost.kernel_version) <= parse_version("4.9.0"):
@@ -43,7 +43,7 @@ def check_all_critical_processes_status(duthost):
     """Post-checks the status of critical processes.
 
     Args:
-        duthost: Host DUT.
+        duthost: Hostname of DUT.
 
     Returns:
         This function will return True if all critical processes are running.
@@ -61,8 +61,9 @@ def post_test_check(duthost, up_bgp_neighbors):
     """Post-checks the status of critical processes and state of BGP sessions.
 
     Args:
-        duthost: Host DUT.
-        skip_containers: A list contains the container names which should be skipped.
+        duthost: Hostname of DUT.
+        up_bgp_neighbors: An IP list contains the established BGP sessions with
+        this DUT.
 
     Returns:
         This function will return True if all critical processes are running and
@@ -72,17 +73,18 @@ def post_test_check(duthost, up_bgp_neighbors):
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-    """Calls the functions to post-check the status of critical processes and
+    """Calls the sub-functions to post-check the status of critical processes and
        state of BGP sessions.
 
     Args:
-        duthost: Host DUT.
-        skip_containers: A list contains the container names which should be skipped.
+        duthost: Hostname of DUT.
+        up_bgp_neighbors: An IP list contains the established BGP sessions with
+        this DUT.
 
     Returns:
         If all critical processes are running and all BGP sessions are established, it
         returns True. Otherwise it will call the function to do post-check every 30 seconds
-        for 3 minutes. It will return False after timeout
+        for 3 minutes. It will return False after timeout.
     """
     logger.info("Post-checking status of critical processes and BGP sessions...")
     return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
@@ -90,7 +92,7 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
 
 
 def find_alerting_message(critical_process, namespace_name, alerting_messages):
-    """Decide whether the expected alerting message appeared in syslog.
+    """Decides whether the expected alerting message appeared in syslog.
 
     Args:
         expected_alerting_message: A string which contains the expected alerting message.
@@ -100,7 +102,6 @@ def find_alerting_message(critical_process, namespace_name, alerting_messages):
         True if the expected alerting message was found in selected alerting messages from syslog,
         otherwise return False.
     """
-
     expected_alerting_message = "Process '{}' is not running in namespace '{}'".format(critical_process, namespace_name)
     logger.info("Checking the message: {}".format(expected_alerting_message))
     for message in alerting_messages:
@@ -115,8 +116,8 @@ def check_alerting_messages(duthost, containers_in_namespaces):
        appeared in syslog or not.
 
     Args:
-        duthost: Host DUT.
-        stopped_container_list: A dict mapping keys which are container names to a
+        duthost: Hostname of DUT.
+        containers_in_namespaces: A dict mapping keys which are container names to a
         value which is a list containing ids of namespace.
 
     Returns:
@@ -166,13 +167,13 @@ def check_alerting_messages(duthost, containers_in_namespaces):
 
 
 def get_num_asics(duthost):
-    """Get number of ASICs on a device.
+    """Get number of ASICs on the DUT.
 
     Args:
         duthost: Hostname of DUT.
 
     Returns:
-        None.
+        An integer which shows number of ASICs on the DUT.
     """
     command_num_asics = "python -c 'exec(\"from sonic_py_common import multi_asic\\nprint(multi_asic.get_num_asics())\")'"
     command_output = duthost.shell(command_num_asics)
@@ -193,11 +194,11 @@ def parse_config_entry(config_info):
 
     Returns:
         is_enabled: A string ("enabled|disabled") shows whether this container
-        is enabled or not in Config_DB.
+        is enabled or not.
         has_global_scope: A string ("True|False") shows if a device has multi-ASIC,
-        whether the container will be running in the host.
+        whether the container should be running in the host.
         has_per_asic_scope: A string ("True|False") shows if a device has multi-ASIC,
-        whether the container will be running in each ASIC.
+        whether the container should  be running in each ASIC.
     """
     is_enabled = ""
     has_global_scope = ""
@@ -215,14 +216,14 @@ def parse_config_entry(config_info):
 
 
 def parse_feature_table(duthost, num_asics, skip_containers):
-    """Parse the `FEATURE` table in Config_DB.
+    """Parses the `FEATURE` table in Config_DB.
 
     This function will parse the `FEATURE` table in Config_DB to get which containers
     were enabled and which namespaces these enabled containers reside in.
 
     Args:
         duthost: Hostname of DUT.
-        num_asics: An integer shows number of ASICs on a device.
+        num_asics: An integer shows number of ASICs on the DUT.
         skip_containers: A list shows which containers will be skipped.
 
     Returns:
@@ -258,18 +259,18 @@ def parse_feature_table(duthost, num_asics, skip_containers):
                         containers_in_namespaces[container_name].append(str(asic_id))
             else:
                 containers_in_namespaces[container_name].append("host")
-            logger.info("The configuration of container '{}' in Config_DB was retrieved.".format(container_name))
+            logger.info("The configuration of container '{}' in `FEATURE` table was retrieved.".format(container_name))
 
     return containers_in_namespaces
 
 
-def disable_container_autorestart(duthost, containers_in_namespaces):
-    """Disable the autorestart of containers.
+def disable_containers_autorestart(duthost, containers_in_namespaces):
+    """Disables the autorestart of enabled containers.
 
     Args:
         duthost: Hostname of DUT.
-        containers_in_namespaces: A dictionary where key are container name and
-        values are list which contains ids of namespaces this container should reside in.
+        containers_in_namespaces: A dictionary where keys are container names and
+        values are lists which contains ids of namespaces this container should reside in.
 
     Returns:
         None.
@@ -284,7 +285,7 @@ def disable_container_autorestart(duthost, containers_in_namespaces):
 
 
 def get_group_program_info(duthost, container_name, group_name):
-    """Get program names, running status and their pids by analyzing the command
+    """Gets program names, running status and their pids by analyzing the command
        output of "docker exec <container_name> supervisorctl status". Program name
        at here represents a program which is part of group <group_name>
 
@@ -323,7 +324,7 @@ def get_group_program_info(duthost, container_name, group_name):
 
 
 def get_program_info(duthost, container_name, program_name):
-    """Get program running status and its pid by analyzing the command
+    """Gets program running status and its pid by analyzing the command
        output of "docker exec <container_name> supervisorctl status"
 
     Args:
@@ -375,7 +376,8 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
 
 def check_and_kill_process(duthost, container_name, program_name, program_status, program_pid):
-    """Checks the running status of a process and kills it if it was running.
+    """Checks the running status of a process. If it is running, kill it. Otherwise, 
+       throw error messages.
 
     Args:
         duthost: Hostname of DUT.
@@ -435,7 +437,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
 
 
 def check_and_restart_process(duthost, container_name, critical_process):
-    """Checks the running status of a critical process and restarts it if it is not running.
+    """Checks the running status of a critical process and restarts it if it was not running.
 
     Args:
         duthost: Hostname of DUT.
@@ -474,8 +476,8 @@ def restart_critical_processes(duthost, containers_in_namespaces):
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
 
         namespaces = containers_in_namespaces[container_name]
-        container_name_in_namespace = container_name
         for namespace_id in namespaces:
+            container_name_in_namespace = container_name
             if namespace_id != "host":
                 container_name_in_namespace += namesapce_id
 
@@ -488,13 +490,13 @@ def restart_critical_processes(duthost, containers_in_namespaces):
                 check_and_restart_process(duthost, container_name_in_namespace, critical_process)
 
             for critical_group in critical_group_list:
-                group_program_info = get_group_program_info(duthost, container_name, critical_group)
+                group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
                     check_and_restart_process(duthost, container_name_in_namespace, program_name)
 
 
 def restore_containers_autorestart(duthost, containers_autorestart_states):
-    """Restore the autorestart of all enabled containers.
+    """Restore the autorestart of all containers.
 
     Args:
         duthost: Hostname of DUT.
@@ -505,11 +507,11 @@ def restore_containers_autorestart(duthost, containers_autorestart_states):
         None.
     """
     for container_name, state in containers_in_namespaces.items():
-        logger.info("Enabling autorestart of container '{}'...".format(container_name))
+        logger.info("Enabling the autorestart of container '{}'...".format(container_name))
         command_output = duthost.shell("sudo config feature autorestart {} {}".format(container_name, state))
         exit_code = command_output["rc"]
-        pytest_assert(exit_code == 0, "Failed to enable autorestart of container '{}'".format(container_name))
-        logger.info("Autorestart of container '{}' is enabled.".format(container_name))
+        pytest_assert(exit_code == 0, "Failed to enable the autorestart of container '{}'".format(container_name))
+        logger.info("The autorestart of container '{}' is enabled.".format(container_name))
 
 
 def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
@@ -544,11 +546,11 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
 
     containers_in_namespaces = parse_feature_table(duthost, num_asics, skip_containers)
 
-    disable_container_autorestart(duthost, containers_in_namespaces)
+    disable_containers_autorestart(duthost, containers_in_namespaces)
 
     stop_critical_processes(duthost, containers_in_namespaces)
 
-    # Wait for 70 seconds such that Monit has a chance to write alerting message into syslog.
+    # Wait for 70 seconds such that Supervisord has a chance to write alerting message into syslog.
     logger.info("Sleep 70 seconds to wait for the alerting message...")
     time.sleep(70)
 
