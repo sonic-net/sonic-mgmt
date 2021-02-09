@@ -307,6 +307,12 @@ def hash_keys(duthost):
     if duthost.facts['asic_type'] in ["barefoot"]:
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
+    # removing ingress-port and ip-proto from hash_keys not supported by Marvell SAI
+    if duthost.facts['platform'] in ['armhf-nokia_ixs7215_52x-r0']:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
 
     return hash_keys
 

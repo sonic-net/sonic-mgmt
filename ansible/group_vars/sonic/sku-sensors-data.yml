@@ -3095,6 +3095,40 @@ sensors_checks:
       - adt7473-i2c-0-2e/+3.3V/in2_input
       temp: []
     psu_skips: {}
+  
+  armhf-nokia_ixs7215_52x-r0:
+    alarms:
+      fan:
+      - adt7473-i2c-0-2e/rear fan 1/fan1_alarm
+      - adt7473-i2c-0-2e/rear fan 2/fan2_alarm
+      power:
+      - adt7473-i2c-0-2e/+3.3V/in2_alarm
+      temp:
+      - adt7473-i2c-0-2e/temp1/temp1_alarm
+      - adt7473-i2c-0-2e/temp1/temp1_fault
+      - adt7473-i2c-0-2e/Board Temp/temp2_alarm
+      - adt7473-i2c-0-2e/temp3/temp3_alarm
+      - adt7473-i2c-0-2e/temp3/temp3_fault
+    compares:
+      fan: []
+      power:
+      - - adt7473-i2c-0-2e/+3.3V/in2_input
+        - adt7473-i2c-0-2e/+3.3V/in2_max
+      temp:
+      - - adt7473-i2c-0-2e/temp1/temp1_input
+        - adt7473-i2c-0-2e/temp1/temp1_crit
+      - - adt7473-i2c-0-2e/Board Temp/temp2_input
+        - adt7473-i2c-0-2e/Board Temp/temp2_crit
+      - - adt7473-i2c-0-2e/temp3/temp3_input
+        - adt7473-i2c-0-2e/temp3/temp3_crit
+    non_zero:
+      fan:
+      - adt7473-i2c-0-2e/rear fan 1/fan1_input
+      - adt7473-i2c-0-2e/rear fan 2/fan2_input
+      power:
+      - adt7473-i2c-0-2e/+3.3V/in2_input
+      temp: []
+    psu_skips: {}
 
   x86_64-juniper_qfx5210-r0:
     alarms:

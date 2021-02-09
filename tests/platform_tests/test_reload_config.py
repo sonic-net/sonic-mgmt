@@ -20,7 +20,7 @@ pytestmark = [
 ]
 
 
-def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts):
+def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to reload the configuration and check platform status
     """
@@ -35,7 +35,7 @@ def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts)
     wait_critical_processes(duthost)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, check_all_interface_information, duthost, interfaces), \
+    assert wait_until(300, 20, check_all_interface_information, duthost, interfaces, xcvr_skip_list), \
         "Not all transceivers are detected in 300 seconds"
 
     logging.info("Check transceiver status")
@@ -43,7 +43,7 @@ def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts)
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(duthost, asic_index)
         interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
-        check_transceiver_basic(duthost, asic_index, interfaces_per_asic)
+        check_transceiver_basic(duthost, asic_index, interfaces_per_asic, xcvr_skip_list)
 
     if asic_type in ["mellanox"]:
 
