@@ -30,8 +30,7 @@ def test_ebtables_application(duthosts, rand_one_dut_hostname):
 
     stdout = duthost.shell("sudo ebtables -L FORWARD")["stdout"]
     ebtables_rules = stdout.strip().split("\n")
-
-    actual_ebtables_rules = [rule.strip() for rule in ebtables_rules if rule.startswith('-')]
+    actual_ebtables_rules = [rule.strip().replace("0806","ARP") for rule in ebtables_rules if rule.startswith('-')]
 
     # Ensure all expected ebtables rules are present on the DuT
     missing_ebtables_rules = set(expected_ebtables_rules) - set(actual_ebtables_rules)

@@ -100,6 +100,7 @@ test_t0() {
     bgp/test_bgp_fact.py \
     bgp/test_bgp_gr_helper.py \
     bgp/test_bgp_speaker.py \
+    cacl/test_ebtables_application.py \
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
     dhcp_relay/test_dhcp_relay.py \
@@ -119,6 +120,7 @@ test_t0() {
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
     test_procdockerstatsd.py \
