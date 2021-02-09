@@ -9,7 +9,7 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
@@ -24,7 +24,7 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
@@ -39,7 +39,7 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
@@ -54,7 +54,7 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
