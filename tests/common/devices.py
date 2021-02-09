@@ -2084,6 +2084,13 @@ class MultiAsicSonicHost(object):
         # Raise an error if we reach here
         raise ValueError("Invalid asic_id '{}' passed as input".format(asic_id))
 
+    def get_vtysh_cmd_for_namespace(self, cmd, namespace):
+        asic_id = self.get_asic_id_from_namespace(namespace)
+        if asic_id == DEFAULT_ASIC_ID:
+            return cmd
+        ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
+        return ns_cmd
+
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
 
