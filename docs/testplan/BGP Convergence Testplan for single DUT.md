@@ -96,7 +96,7 @@ Measure the convergence time to install the routes in its RIB and then in its FI
 
 <p float="left">
   <img src="Img/RIB-IN-Convergence_Topology.png" width="500" hspace="50"/>
-  <img src="Img/RIB-IN_convergence_graph.png" width="380" /> 
+  <img src="Img/RIB-IN_Convergence_graph.png" width="380" /> 
 </p>
 
 #### Test steps
