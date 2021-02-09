@@ -2,6 +2,7 @@ import re
 import os
 import time
 import logging
+import json
 from collections import namedtuple
 
 import ptf.mask as mask
@@ -666,7 +667,7 @@ def get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type
 
 
 def perform_handshake(ptfhost, setup_info, protocol_type, direction,
-                      ip_dst, dest_l4_port, ip_src, source_l4_port, public_ip, second_port=False):
+                      ip_dst, dest_l4_port, ip_src, source_l4_port, public_ip, second_port=False, n_perf=0):
     """
     Performs TCP handshake to initiate NAT translation
 
@@ -681,25 +682,30 @@ def perform_handshake(ptfhost, setup_info, protocol_type, direction,
             source_l4_port: source L4 port
             public_ip: Public IP
             second_port: boolean if second port id needs to be returned
+            n_perf: int specifing number of connection for performance test
     """
     src_vrf = setup_info["inner_vrf"][0]
     dst_vrf = setup_info["outer_vrf"][0]
     if second_port:
         src_vrf = setup_info["inner_vrf"][1]
         dst_vrf = setup_info["outer_vrf"][1]
+
     if direction == "host-tor":
-        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} None &".format(protocol_type.lower(),
+        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} None {} &".format(protocol_type.lower(),
                                                                                     ip_dst, dest_l4_port,
                                                                                     ip_src, source_l4_port,
-                                                                                    dst_vrf, src_vrf)
+                                                                                    dst_vrf, src_vrf, n_perf)
     else:
-        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} {} &".format(protocol_type.lower(),
+        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} {} {} &".format(protocol_type.lower(),
                                                                                   ip_src, source_l4_port,
                                                                                   ip_dst, dest_l4_port,
                                                                                   dst_vrf, src_vrf,
-                                                                                  public_ip)
+                                                                                  public_ip, n_perf)
     ptfhost.copy(src="./scripts/nat_ptf_echo.py", dest="/tmp")
+    s_time = time.time()
     ptfhost.command(echo_cmd)
+    ex_time = time.time() - s_time
+    return ex_time
 
 
 def generate_and_verify_traffic(duthost, ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type, second_port=False,
@@ -1095,3 +1101,211 @@ def conf_dut_routes(duthost, setup_info, subnet, interface_type, teardown=False)
             logger.debug("Route '%s via %s' was not deleted/existed", subnet, gw)
     else:
         duthost.command("ip route add {} via {}".format(subnet, gw))
+
+
+def get_redis_val(duthost, db, key):
+        """
+        Returns dictionary of value for redis key.
+        :param duthost: DUT host object
+        :param db: database to be selected
+        :param key: key to be selected
+        """
+        try:
+            output = exec_command(duthost, ["redis-dump -d {} --pretty -k *{}*".format(db, key)])
+            if output["rc"]:
+                raise Exception('Return code is {} not 0'.format(output_cli["rc"]))
+            redis_dict = json.loads(output['stdout'])
+            return redis_dict
+        except Exception as e:
+            return e.__str__()
+
+
+def get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, db_type, private_ip=None, public_ip=None, private_port=None,
+                 public_port=None, start_port=POOL_RANGE_START_PORT, end_port=POOL_RANGE_END_PORT, access_list=ACL_TABLE_GLOBAL_NAME, nat_pool=DYNAMIC_POOL_NAME,
+                 post_flag=False):
+        """
+        Returns dictionary of database rules.
+        :param duthost: DUT host object
+        :param ptfadapter: ptf adapter fixture
+        :param setup_test_env: fixture used to gather setup_info fixture and interface_type (Loopback, Portchannel etc)
+        :param protocol_type: type of protocol TCP/UDP
+        :param db_type: databyte type used to select which redis dump should be checked
+        :param private_ip: IP variable used to confirm proper configuration
+        :param public_ip: IP variable used to confirm proper configuration
+        :param private_port: port variable used to confirm proper configuration
+        :param public_port: port variable used to confirm proper configuration
+        :param start_port: port variable used to confirm proper configuration
+        :param end_port: port variable used to confirm proper configuration
+        :param access_list: ACL variable used to confirm proper configuration
+        :param nat_pool: pool variable used to confirm proper configuration
+        :param post_flag: boolean flag used to determine which redis dump template should be used (pre or post configuration)
+        """
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        nat_type = 'static_napt'
+        direction = 'host-tor'
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        secondary_protocol = {"TCP": "UDP", "UDP": "TCP"}[protocol_type]
+        sai_nat_src_id = {"TCP": 1, "UDP": 2}[protocol_type]
+        sai_nat_dst_id = {"TCP": 2, "UDP": 1}[protocol_type]
+        global_port = {"TCP": TCP_GLOBAL_PORT, "UDP": UDP_GLOBAL_PORT}[protocol_type]
+        local_port = {"TCP": TCP_LOCAL_PORT, "UDP": UDP_LOCAL_PORT}[protocol_type]
+        db_rules = {}
+        # APP_DB timeout
+        if db_type == 'APP_DB timeout':
+            offset = {True: 200, False: 0}[post_flag]
+            db_rules = {"nat_timeout" : "{}".format(GLOBAL_NAT_TIMEOUT + offset),
+                        "admin_mode" : "enabled",
+                        "nat_udp_timeout" : "{}".format(GLOBAL_UDP_NAPT_TIMEOUT + offset),
+                        "nat_tcp_timeout" : "{}".format(GLOBAL_TCP_NAPT_TIMEOUT + offset * 25)
+                       }
+        # Pool CONFIG_DB
+        elif db_type == 'Pool CONFIG_DB':
+            db_rules = {"nat_ip": "{}".format(public_ip),
+                        "nat_port": "{}-{}".format(start_port, end_port)
+                       }
+        # Pool APP_DB
+        elif db_type == 'Pool APP_DB':
+            db_rules = {"port_range": "{}-{}".format(start_port, end_port)}
+        # Binding CONFIG_DB
+        elif db_type == 'Binding CONFIG_DB':
+            db_rules = {"access_list": access_list,
+                        "nat_pool": nat_pool,
+                        "nat_type": "snat",
+                        "twice_nat_id": "NULL"
+                       }
+        # NAPT APP_DB
+        elif db_type == 'NAPT APP_DB':
+            db_rules = {
+                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.public_ip, global_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "dnat",
+                        "translated_ip": "{}".format(network_data.private_ip),
+                        "translated_l4_port": "{}".format(local_port)
+                    }
+                },
+                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.private_ip, local_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "snat",
+                        "translated_ip": "{}".format(network_data.public_ip),
+                        "translated_l4_port": "{}".format(global_port)
+                    }
+                }
+            }
+        # NAPT CONFIG_DB
+        elif db_type == 'NAPT CONFIG_DB':
+            db_rules = {
+                "STATIC_NAPT|{}|{}|{}".format(network_data.public_ip, protocol_type, global_port): {
+                    "type": "hash",
+                    "value": {
+                        "local_ip": "{}".format(network_data.private_ip),
+                        "local_port": "{}".format(local_port),
+                        "nat_type": "dnat"
+                    }
+                }
+            }
+        # NAPT APP_DB POST
+        elif db_type == 'NAPT APP_DB POST':
+            db_rules = {
+                "NAPT_TABLE:{}:{}:{}".format(protocol_type, public_ip, public_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "dnat",
+                        "translated_ip": "{}".format(private_ip),
+                        "translated_l4_port": "{}".format(private_port)
+                    }
+                },
+                "NAPT_TABLE:{}:{}:{}".format(protocol_type, private_ip, private_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "snat",
+                        "translated_ip": "{}".format(public_ip),
+                        "translated_l4_port": "{}".format(public_port)
+                    }
+                },
+                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.public_ip, global_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "dnat",
+                        "translated_ip": "{}".format(network_data.private_ip),
+                        "translated_l4_port": "{}".format(local_port)
+                    }
+                },
+                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.private_ip, local_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "snat",
+                        "translated_ip": "{}".format(network_data.public_ip),
+                        "translated_l4_port": "{}".format(global_port)
+                    }
+                },
+                "NAPT_TABLE:{}:{}:{}".format(secondary_protocol, public_ip, public_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "dnat",
+                        "translated_ip": "{}".format(private_ip),
+                        "translated_l4_port": "{}".format(private_port)
+                    }
+                },
+                "NAPT_TABLE:{}:{}:{}".format(secondary_protocol, private_ip, private_port): {
+                    "type": "hash",
+                    "value": {
+                        "entry_type": "static",
+                        "nat_type": "snat",
+                        "translated_ip": "{}".format(public_ip),
+                        "translated_l4_port": "{}".format(public_port)
+                    }
+                }
+            }
+        # NAPT CONFIG_DB POST
+        elif db_type == 'NAPT CONFIG_DB POST':
+            db_rules = {
+                "STATIC_NAPT|{}|{}|{}".format(public_ip, protocol_type, public_port): {
+                    "type": "hash",
+                    "value": {
+                        "local_ip": "{}".format(private_ip),
+                        "local_port": "{}".format(private_port),
+                        "nat_type": "dnat"
+                    }
+                },
+                "STATIC_NAPT|{}|{}|{}".format(public_ip, secondary_protocol, public_port): {
+                    "type": "hash",
+                    "value": {
+                        "local_ip": "{}".format(private_ip),
+                        "local_port": "{}".format(private_port),
+                        "nat_type": "dnat"
+                    }
+                },
+                "STATIC_NAPT|{}|{}|{}".format(network_data.public_ip, protocol_type, global_port): {
+                    "type": "hash",
+                    "value": {
+                        "local_ip": "{}".format(network_data.private_ip),
+                        "local_port": "{}".format(local_port),
+                        "nat_type": "dnat"
+                    }
+                }
+            }
+        # ASIC_DB SRC status
+        elif db_type == 'ASIC_DB SRC':
+            db_rules = {
+                "SAI_NAT_ENTRY_ATTR_SRC_IP": "{}".format(network_data.public_ip),
+                "SAI_NAT_ENTRY_ATTR_L4_SRC_PORT": "{}".format(global_port)
+            }
+        # ASIC_DB DST status
+        elif db_type == 'ASIC_DB DST':
+            db_rules = {
+                "SAI_NAT_ENTRY_ATTR_DST_IP": "{}".format(network_data.private_ip),
+                "SAI_NAT_ENTRY_ATTR_L4_DST_PORT": "{}".format(local_port)
+            }
+        else:
+            raise Exception('Improper db_type selected')
+        return db_rules
