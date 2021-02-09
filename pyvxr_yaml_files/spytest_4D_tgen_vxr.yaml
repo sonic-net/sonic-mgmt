@@ -14,10 +14,9 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   SD2:
     platform: spitfire_f
@@ -29,10 +28,9 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   SD3:
     platform: spitfire_f
@@ -44,10 +42,9 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   SD4:
     platform: spitfire_f
@@ -59,10 +56,9 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   spt:
     platform: spirent_cafy1
