@@ -23,6 +23,26 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True, scope='module')
+def config_reload_after_tests(duthost):
+    yield
+    config_reload(duthost)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def check_image_version(duthost):
+    """Skips this test if the SONiC image installed on DUT was 201911 or old version.
+
+    Args:
+        duthost: Host DUT.
+
+    Return:
+        None.
+    """
+    if parse_version(duthost.kernel_version) <= parse_version("4.9.0"):
+        pytest.skip("Test was not supported for 201911 and older image version!")
+
+
 def check_all_critical_processes_status(duthost):
     """Post-checks the status of critical processes.
 
@@ -477,7 +497,7 @@ def restart_critical_processes(duthost, containers_in_namespaces):
                     check_and_restart_process(duthost, container_name_in_namespace, program_name)
 
 
-def restore_containers_autorestart(duthost, containers_in_namespaces):
+def restore_containers_autorestart(duthost, containers_autorestart_states):
     """Restore the autorestart of all enabled containers.
 
     Args:
@@ -488,9 +508,9 @@ def restore_containers_autorestart(duthost, containers_in_namespaces):
     Returns:
         None.
     """
-    for container_name in containers_in_namespaces.keys():
+    for container_name, state in containers_in_namespaces.items():
         logger.info("Enabling autorestart of container '{}'...".format(container_name))
-        command_output = duthost.shell("sudo config feature autorestart {} enabled".format(container_name))
+        command_output = duthost.shell("sudo config feature autorestart {} {}".format(container_name, state))
         exit_code = command_output["rc"]
         pytest_assert(exit_code == 0, "Failed to enable autorestart of container '{}'".format(container_name))
         logger.info("Autorestart of container '{}' is enabled.".format(container_name))
@@ -513,7 +533,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    container_autorestart_states = duthost.get_container_autorestart_states()
+    containers_autorestart_states = duthost.get_container_autorestart_states()
 
     bgp_neighbors = duthost.get_bgp_neighbors()
     up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
@@ -538,9 +558,13 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
 
     check_alerting_messages(duthost, containers_in_namespaces)
 
+    logger.info("Executing the config reload...")
+    config_reload(duthost)
+    logger.info("Executing the config reload was done!")
+
     restart_critical_processes(duthost, containers_in_namespaces)
 
-    restore_containers_autorestart(duthost, containers_in_namespaces)
+    restore_containers_autorestart(duthost, containers_autorestart_states)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the container checker!")
