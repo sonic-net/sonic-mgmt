@@ -51,3 +51,8 @@ x86_64-mlnx_msn2700-r0:
     greater_timeout: 100
     too_big_timeout: 66000
 
+x86_64-dell_s6100_c2538-r0:
+  default:
+    greater_timeout: 180
+    too_big_timeout: 200
+
