@@ -73,7 +73,7 @@ stages:
 
 
 
-    - ${{ each firm in parameters.iterations }}:
+    - ${{ each iteration in parameters.iterations }}:
       - script: |
           pwd
           username=$(id -un)
@@ -108,22 +108,41 @@ stages:
           declare -i iteration
           iteration=1
 
-          while true; do
-              sleep 5
-              echo "================ iteration ${iteration} started==================="
-              #docker exec sonic-mgmt bash -c "$CMD"
 
-              if [ "${PIPESTATUS[0]}" -ne "0" ]; then
-                  # fail and stop all the remaining batches if pytest fails
-                  echo "Batch iteration ${iteration}+ failed"
-                  #docker exec sonic-mgmt bash -c "$LOG_CMD"
-                  exit 2
-              fi
+          echo "================ iteration ${iteration} started==================="
+          echo $iteration
+          #docker exec sonic-mgmt bash -c "$CMD"
+
+          if [ "${PIPESTATUS[0]}" -ne "0" ]; then
+              # fail and stop all the remaining batches if pytest fails
+              echo "Batch iteration ${iteration}+ failed"
               #docker exec sonic-mgmt bash -c "$LOG_CMD"
-              sleep 60
-              echo "================ iteration ${iteration} completed==================="
-              iteration=iteration+1
-          done
+              exit 2
+          fi
+          #docker exec sonic-mgmt bash -c "$LOG_CMD"
+          sleep 60
+          echo "================ iteration ${iteration} completed==================="
+
+
+
+
+
+          # while true; do
+          #     sleep 5
+          #     echo "================ iteration ${iteration} started==================="
+          #     #docker exec sonic-mgmt bash -c "$CMD"
+
+          #     if [ "${PIPESTATUS[0]}" -ne "0" ]; then
+          #         # fail and stop all the remaining batches if pytest fails
+          #         echo "Batch iteration ${iteration}+ failed"
+          #         #docker exec sonic-mgmt bash -c "$LOG_CMD"
+          #         exit 2
+          #     fi
+          #     #docker exec sonic-mgmt bash -c "$LOG_CMD"
+          #     sleep 60
+          #     echo "================ iteration ${iteration} completed==================="
+          #     iteration=iteration+1
+          # done
 
           # save dut state if test fails
 
