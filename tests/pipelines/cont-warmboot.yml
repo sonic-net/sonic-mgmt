@@ -73,7 +73,7 @@ stages:
 
 
 
-    - ${{ each firm in parameters.firms }}:
+    - ${{ each firm in parameters.iterations }}:
       - script: |
           pwd
           username=$(id -un)
