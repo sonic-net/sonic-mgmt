@@ -62,7 +62,7 @@ class ICMPSniffer(object):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ICMP responder")
     parser.add_argument("--intf", "-i", dest="ifaces", required=True, action="append", help="interface to listen for ICMP request")
-    parser.add_argument("--dst_mac", "-m", dest="dst_mac", required=False, action="store", help="The source MAC to use for ICMP replies")
+    parser.add_argument("--dst_mac", "-m", dest="dst_mac", required=False, action="store", help="The destination MAC to use for ICMP echo replies")
     args = parser.parse_args()
     ifaces = args.ifaces
     dst_mac = args.dst_mac
