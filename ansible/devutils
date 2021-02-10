@@ -16,7 +16,7 @@ from devutil.task_runner import TaskRunner
 import sys
 sys.path.append("..")
 from tests.common.connections import ConsoleHost
-from tests.common.plugins.psu_controller.snmp_psu_controllers import get_psu_controller
+from tests.common.plugins.pdu_controller.snmp_pdu_controllers import get_pdu_controller
 
 g_inv_mgr = None
 g_task_runner = None
@@ -156,21 +156,21 @@ def pdu_action_on_dut(host, attrs, action):
         rec = { 'PDU' : p_name, 'PDU_IP' : pdu_host, 'status' : [] }
         ret['PDU status'].append(rec)
 
-        controller = get_psu_controller(pdu_host, host, pdu_info)
+        controller = get_pdu_controller(pdu_host, host, pdu_info)
 
         if not controller:
             ret['Summary'].append('Failed to communicate with controller {}'.format(p_name))
             continue
 
-        rec['status'] = controller.get_psu_status()
+        rec['status'] = controller.get_outlet_status()
         if action == 'off':
             for outlet in rec['status']:
-                controller.turn_off_psu(outlet['psu_id'])
-            rec['status'] = controller.get_psu_status()
+                controller.turn_off_outlet(outlet['outlet_id'])
+            rec['status'] = controller.get_outlet_status()
         elif action == 'on':
             for outlet in rec['status']:
-                controller.turn_on_psu(outlet['psu_id'])
-            rec['status'] = controller.get_psu_status()
+                controller.turn_on_outlet(outlet['outlet_id'])
+            rec['status'] = controller.get_outlet_status()
         elif action != 'status':
             ret['Summary'].append('Unsupported action {}.'.format(action))
             continue

@@ -154,37 +154,37 @@ def _power_off_reboot_helper(kwargs):
     @summary: used to parametrized test cases on power_off_delay
     @param kwargs: the delay time between turning off and on the PSU
     """
-    psu_ctrl = kwargs["psu_ctrl"]
-    all_psu = kwargs["all_psu"]
+    pdu_ctrl = kwargs["pdu_ctrl"]
+    all_outlets = kwargs["all_outlets"]
     power_on_seq = kwargs["power_on_seq"]
     delay_time = kwargs["delay_time"]
 
-    for psu in all_psu:
-        logging.debug("turning off {}".format(psu))
-        psu_ctrl.turn_off_psu(psu["psu_id"])
+    for outlet in all_outlets:
+        logging.debug("turning off {}".format(outlet))
+        pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
     time.sleep(delay_time)
     logging.info("Power on {}".format(power_on_seq))
-    for psu in power_on_seq:
-        logging.debug("turning on {}".format(psu))
-        psu_ctrl.turn_on_psu(psu["psu_id"])
+    for outlet in power_on_seq:
+        logging.debug("turning on {}".format(outlet))
+        pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
 
 
-def test_power_off_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list, psu_controller, power_off_delay):
+def test_power_off_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list, pdu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param duthost: Fixture for DUT AnsibleHost object
     @param localhost: Fixture for interacting with localhost through ansible
     @param conn_graph_facts: Fixture parse and return lab connection graph
     @param xcvr_skip_list: list of DUT's interfaces for which transeiver checks are skipped
-    @param psu_controller: The python object of psu controller
+    @param pdu_controller: The python object of psu controller
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[rand_one_dut_hostname]
-    psu_ctrl = psu_controller
-    if psu_ctrl is None:
+    pdu_ctrl = pdu_controller
+    if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
-    all_psu = psu_ctrl.get_psu_status()
+    all_outlets = pdu_ctrl.get_outlet_status()
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -192,17 +192,17 @@ def test_power_off_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
-    if all_psu:
-        power_on_seq_list = [[item] for item in all_psu]
-        power_on_seq_list.append(all_psu)
+    if all_outlets:
+        power_on_seq_list = [[item] for item in all_outlets]
+        power_on_seq_list.append(all_outlets)
 
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
     poweroff_reboot_kwargs = {"dut": duthost}
 
     for power_on_seq in power_on_seq_list:
-        poweroff_reboot_kwargs["psu_ctrl"] = psu_ctrl
-        poweroff_reboot_kwargs["all_psu"] = all_psu
+        poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+        poweroff_reboot_kwargs["all_outlets"] = all_outlets
         poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
         poweroff_reboot_kwargs["delay_time"] = power_off_delay
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_POWEROFF,
