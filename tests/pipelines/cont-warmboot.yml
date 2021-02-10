@@ -37,9 +37,9 @@ stages:
     value: ptf_vms6-1
 
   jobs:
-  - job:
+  - job: kvm-warmboot-test
     displayName: "kvmtest"
-    timeoutInMinutes: 240
+    #timeoutInMinutes: 240
     steps:
     - task: DownloadPipelineArtifact@2
 
@@ -63,7 +63,7 @@ stages:
         git reset --hard origin/master
         sed -i s/use_own_value/${username}/ ansible/veos_vtb
         echo aaa > ansible/password.txt
-        docker exec sonic-mgmt bash -c "pushd /data/sonic-mgmt/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg $(tbname) lab password.txt" && sleep 180
+        # docker exec sonic-mgmt bash -c "pushd /data/sonic-mgmt/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg $(tbname) lab password.txt" && sleep 180
       displayName: "Setup T0 testbed"
 
     - script: |
@@ -101,9 +101,18 @@ stages:
         iteration=1
 
         while true; do
+            sleep 5
+            SIGNAL_COLLECTOR="TEST_RUNNING"
+            echo "##vso[task.setvariable variable=SIGNAL_READY;isOutput=true;]$SIGNAL_COLLECTOR"
 
             echo "================ iteration ${iteration} ==================="
-            docker exec sonic-mgmt bash -c "$CMD"
+            # docker exec sonic-mgmt bash -c "$CMD"
+            sleep 5
+
+            SIGNAL_COLLECTOR="RESULTS_READY"
+            echo "##vso[task.setvariable variable=SIGNAL_READY;isOutput=true;]$SIGNAL_COLLECTOR"
+            continue
+
             if [ "${PIPESTATUS[0]}" -ne "0" ]; then
                 # fail and stop all the remaining batches if pytest fails
                 echo "Batch iteration ${iteration}+ failed"
@@ -142,6 +151,7 @@ stages:
             cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
         fi
       displayName: "Run continuous warmboot tests"
+      continueOnError: true
 
     - publish: $(Build.ArtifactStagingDirectory)/kvmdump
       artifact: sonic-buildimage.kvmtest.memdump@$(System.JobAttempt)
@@ -152,9 +162,27 @@ stages:
       artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
       displayName: "Archive sonic kvm logs"
       condition: succeededOrFailed()
+      continueOnError: true
 
     - task: PublishTestResults@2
       inputs:
         testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
         testRunTitle: kvmtest
       condition: succeededOrFailed()
+
+  - job: job_deploy_code
+    displayName: Collect and report new results
+    dependsOn: ['kvm-warmboot-test']
+    variables: 
+      SIGNAL_READY: $[ dependencies.kvm-warmboot-test.outputs['SIGNAL_READY'] ]
+    steps: 
+    - script: |
+        "Results ready: $(SIGNAL_READY)"
+        while true; do
+            if [ $(SIGNAL_READY) == "TEST_RUNNING" ]; then
+              echo "TEST_RUNNING"
+            fi
+            if [ $(SIGNAL_READY) == "RESULTS_READY" ]; then
+              echo "RESULTS_READY"
+            fi
+        done
