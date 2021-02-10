@@ -475,7 +475,7 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
         eos_host.no_shutdown(vm_intf)
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='function', autouse=True)
 def start_linkmgrd_heartbeat(ptfadapter, duthost, tbinfo):
     '''
     Send a GARP from from PTF->ToR from each PTF port connected to a mux cable
