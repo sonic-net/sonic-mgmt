@@ -105,7 +105,7 @@ stages:
           echo "================ iteration ${iteration} started==================="
           echo $iteration
           #docker exec sonic-mgmt bash -c "$CMD"
-          exit2
+          exit 2
 
           if [ "${PIPESTATUS[0]}" -ne "0" ]; then
               # fail and stop all the remaining batches if pytest fails
