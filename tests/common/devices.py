@@ -1131,18 +1131,14 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
         # multiple DUTs sharing a same PTF host. Therefore, the indices from
         # the minigraph facts are not always match up with PTF port indices.
-        try:
-            dut_index = tbinfo['duts'].index(self.hostname)
-            port_map = tbinfo['topo']['ptf_map'][str(dut_index)]
+        dut_index = tbinfo['duts'].index(self.hostname)
+        port_map = tbinfo['topo']['ptf_map'].get(str(dut_index), None)
 
-            if port_map:
-                for port, index in mg_facts['minigraph_port_indices'].items():
-                    try:
-                        mg_facts['minigraph_ptf_indices'][port] = port_map[str(index)]
-                    except (KeyError):
-                        pass
-        except (ValueError, KeyError):
-            pass
+        if port_map:
+            for port, index in mg_facts['minigraph_port_indices'].items():
+                # There may be more interfaces on DUT than port_map, so the check is necessary
+                if str(index) in port_map:
+                    mg_facts['minigraph_ptf_indices'][port] = port_map[str(index)]
 
         return mg_facts
 
