@@ -128,7 +128,7 @@ def check_alerting_messages(duthost, containers_in_namespaces):
                                    module_ignore_errors=True)
 
     pytest_assert(len(command_output["stdout_lines"]) > 0,
-                  "Failed to get Monit alerting messages from container_checker!")
+                  "Failed to get alerting messages from Supervisord!")
 
     alerting_messages = command_output["stdout_lines"]
 
