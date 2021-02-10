@@ -530,6 +530,9 @@ class QosSaiBase:
 
                 ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python.* /usr/local/bin/bgpmon' is not running.*",
                 ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
+                ".*WARNING syncd#SDK:.*check_attribs_metadata: Not implemented attribute.*",
+                ".*WARNING syncd#SDK:.*sai_set_attribute: Failed attribs check, key:Switch ID.*",
+                ".*WARNING syncd#SDK:.*check_rate: Set max rate to 0.*"
             ]
             loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 

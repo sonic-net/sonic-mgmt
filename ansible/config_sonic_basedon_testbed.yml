@@ -134,7 +134,7 @@
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:
-      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'][dut_index|int] }) }}"
+      interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
@@ -144,8 +144,10 @@
 
   - name: find all interface names
     set_fact:
-      intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
-    with_dict: "{{ interface_to_vms }}"
+      intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
