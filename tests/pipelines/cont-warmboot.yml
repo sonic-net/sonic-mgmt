@@ -24,7 +24,7 @@ resources:
 parameters:
 - name: iterations 
   type: object
-  default: [1,2,3,4,5,6,7,8,9,10] 
+  default: [1,2,3,4] 
 
 stages:
 - stage: Test
@@ -71,9 +71,7 @@ stages:
         # docker exec sonic-mgmt bash -c "pushd /data/sonic-mgmt/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg $(tbname) lab password.txt" && sleep 180
       displayName: "Setup T0 testbed"
 
-
-
-    - ${{ each iteration in parameters.iterations }}:
+    - ${{ each iter in parameters.iterations }}:
       - script: |
           pwd
           username=$(id -un)
@@ -103,9 +101,11 @@ stages:
 
           LOG_CMD="mv /data/sonic-mgmt/tests/continous_reboot_* /data/sonic-mgmt/tests/logs/ || true"
           echo "Continuous warm reboot test command: $CMD"
+          iteration=${{ iter }}
           echo "================ iteration ${iteration} started==================="
           echo $iteration
           #docker exec sonic-mgmt bash -c "$CMD"
+          exit2
 
           if [ "${PIPESTATUS[0]}" -ne "0" ]; then
               # fail and stop all the remaining batches if pytest fails
@@ -140,7 +140,7 @@ stages:
         displayName: "Run continuous warmboot tests"
         continueOnError: true
 
-      - publish: $(Build.ArtifactStagingDirectory)/logs/continous_reboot_*
+      - publish: $(Build.ArtifactStagingDirectory)/logs
         artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
         displayName: "Archive sonic kvm logs"
         condition: succeededOrFailed()
