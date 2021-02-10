@@ -37,7 +37,7 @@ stages:
     value: ptf_vms6-1
 
   jobs:
-  - job: kvm-warmboot-test
+  - job: kvmWarmbootTest
     displayName: "kvmtest"
     #timeoutInMinutes: 240
     steps:
@@ -172,9 +172,9 @@ stages:
 
   - job: job_deploy_code
     displayName: Collect and report new results
-    dependsOn: ['kvm-warmboot-test']
+    dependsOn: ['kvmWarmbootTest']
     variables: 
-      SIGNAL_READY: $[ dependencies.kvm-warmboot-test.outputs['SIGNAL_READY'] ]
+      SIGNAL_READY: $[ dependencies.kvmWarmbootTest.outputs['SIGNAL_READY'] ]
     steps: 
     - script: |
         "Results ready: $(SIGNAL_READY)"
