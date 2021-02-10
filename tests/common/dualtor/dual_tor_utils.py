@@ -478,9 +478,9 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
 @pytest.fixture(scope='module', autouse=True)
 def start_linkmgrd_heartbeat(ptfadapter, duthost, tbinfo):
     '''
-    Send a GARP with the PTF MAC to the DUT for each port configured with a mux cable
+    Send a GARP from from PTF->ToR from each PTF port connected to a mux cable
 
-    Linkmgrd will not start sending heartbeats until the PTF MAC is present in the DUT neighbor table
+    This is needed since linkmgrd will not start sending heartbeats until the PTF MAC is learned in the DUT neighbor table
     '''
     garp_pkts = {}
 
@@ -495,6 +495,7 @@ def start_linkmgrd_heartbeat(ptfadapter, duthost, tbinfo):
         garp_pkt = testutils.simple_arp_packet(eth_src=ptf_mac,
                                                hw_snd=ptf_mac,
                                                ip_snd=str(server_ip.ip),
+                                               ip_tgt=str(server_ip.ip), # Re-use server IP as target IP, since it is within the subnet of the VLAN IP
                                                arp_op=2)
         garp_pkts[ptf_port_index] = garp_pkt
 
