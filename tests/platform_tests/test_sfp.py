@@ -66,7 +66,7 @@ def supports_sfputil_on_dut(duthost):
     sfputil_file_path = os.path.join("/usr/share/sonic/device", duthost.facts['platform'], "plugins/spfutil.py")
     try:
         duthost.shell("cat {}".format(sfputil_file_path))["stdout_lines"]
-    except:
+    except Exception:
         supports_sfputil = False
 
 def test_check_sfp_status_and_configure_sfp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo):

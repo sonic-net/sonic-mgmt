@@ -81,7 +81,7 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
 
     actual_fields_values = set(summary_dict.values())
     diff_fields_values = expected_fields_values.difference(actual_fields_values)
-    pytest_assert((len(diff_fields_values) == 0 or (len(diff_fields_values) == 1 and diff_fields_values.pop() == None)),
+    pytest_assert((len(diff_fields_values) == 0 or (len(diff_fields_values) == 1 and diff_fields_values.pop() is None)),
                   "Unexpected value of fields, actual=%s, expected=%s on host '%s'" % (
                         str(actual_fields_values), str(expected_fields_values), duthost.hostname))
 
