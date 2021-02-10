@@ -61,18 +61,18 @@ def update_monit_service(duthost):
         None.
     """
     temp_config_line = "    if status != 0 for 2 times within 2 cycles then alert repeat every 1 cycles"
-    logger.info("Reduing the monitoring interval of container_checker.")
+    logger.info("Reduce the monitoring interval of container_checker.")
     duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/sonic-host")
     duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/sonic-host".format(temp_config_line))
     duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
-    logger.info("Restarting the Monit without delaying.")
+    logger.info("Restart the Monit without delaying.")
     duthost.shell("sudo systemctl restart monit")
     yield
-    logger.info("Rolling back the Monit configuration of container checker.")
+    logger.info("Roll back the Monit configuration of container checker.")
     duthost.shell("sudo sed -i '$d' /etc/monit/conf.d/sonic-host")
     duthost.shell("sudo sed -i '$s/^#/ /' /etc/monit/conf.d/sonic-host")
     duthost.shell("sudo sed -i '/with start delay 300/s/^#/ /' /etc/monit/monitrc")
-    logger.info("Restarting the Monit with delaying.")
+    logger.info("Restart the Monit with delaying.")
     duthost.shell("sudo systemctl restart monit")
 
 
@@ -148,7 +148,7 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
 
 
 def stop_containers(duthost, container_autorestart_states, skip_containers):
-    """Stops the running containers and returns their names .
+    """Stops the running containers and returns their names as a list.
 
     Args:
         duthost: Host DUT.
@@ -157,7 +157,7 @@ def stop_containers(duthost, container_autorestart_states, skip_containers):
         skip_containers: A list contains the container names which should be skipped.
 
     Return:
-        A list which contains the container names which are stopped to run.
+        A list contains the container names which are stopped.
     """
     stopped_container_list = []
 
@@ -177,11 +177,11 @@ def stop_containers(duthost, container_autorestart_states, skip_containers):
 
 
 def check_alerting_message(duthost, stopped_container_list):
-    """Checks whether the names of stopped containers appear in Monit alerting message.
+    """Checks whether names of the stopped containers appear in Monit alerting message.
 
     Args:
         duthost: Host DUT.
-        stopped_container_list: A list of stopped container names.
+        stopped_container_list: A list contains container names.
 
     Return:
         None.
@@ -212,9 +212,9 @@ def check_alerting_message(duthost, stopped_container_list):
 def check_containers_status(duthost, stopped_container_list):
     """Checks whether the stopped containers were started.
 
-    This function will check whether the pervious stopped containers were actually
-    restarted. If the container was not restarted by the command 'config reload', then we
-    start it and check its status.
+    This function will check whether the stopped containers were restarted or not.
+    If the container was not restarted by the function 'config_reload(...)', then this function
+    will start it and then check its status.
 
     Args:
         duthost: Hostname of DUT.
