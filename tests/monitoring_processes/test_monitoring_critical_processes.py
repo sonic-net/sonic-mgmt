@@ -356,7 +356,7 @@ def get_program_info(duthost, container_name, program_name):
 
 
 def kill_process_by_pid(duthost, container_name, program_name, program_pid):
-    """Kills a process in the specified container by its pid
+    """Kills a process in the specified container by its pid.
 
     Args:
         duthost: Hostname of DUT.
@@ -378,8 +378,8 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
 
 def check_and_kill_process(duthost, container_name, program_name, program_status, program_pid):
-    """Checks the running status of a process. If it is running, kill it. Otherwise, 
-       throw error messages.
+    """Checks the running status of a critical process. If it is running, kill it. Otherwise,
+       fail this test.
 
     Args:
         duthost: Hostname of DUT.
