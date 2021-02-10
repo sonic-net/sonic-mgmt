@@ -121,76 +121,37 @@ stages:
     - script: |
 
         pwd
-
         username=$(id -un)
-
-
-
         rm -rf $(Build.ArtifactStagingDirectory)/*
 
-
-
-
-
         IMAGE_LOCATION="https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image-202012/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz"
-
         IMAGE_LIST="current"
-
         CONTINUOUS_REBOOT_COUNT=1
-
         CONTINUOUS_REBOOT_DELAY=300
 
-
-
         # EXTRA_ARGS="\'--image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST --reboot_type=warm --continuous_reboot_count=1 --continuous_reboot_delay=300\'"
-
-
-
         # CMD="cd /data/sonic-mgmt/tests/ ; /data/sonic-mgmt/tests/run_tests.sh \
-
         # -n $(tbname) -d $(dut) -c /data/sonic-mgmt/tests/platform_tests/test_cont_warm_reboot.py \
-
         # -f /data/sonic-mgmt/ansible/vtestbed.csv -i /data/sonic-mgmt/ansible/veos_vtb -l info \
-
         # -e $EXTRA_ARGS"
 
-
-
         CMD="cd /data/sonic-mgmt/tests/ ; \
-
         export ANSIBLE_CONFIG=/data/sonic-mgmt/ansible ANSIBLE_LIBRARY=/data/sonic-mgmt/ansible/library/; \
-
         pytest platform_tests/test_cont_warm_reboot.py \
-
-          --continuous_reboot_count=$CONTINUOUS_REBOOT_COUNT \
-
-          --continuous_reboot_delay=$CONTINUOUS_REBOOT_DELAY \
-
-          --testbed=$(tbname) --host-pattern=$(tbname) --inventory=/data/sonic-mgmt/ansible/veos_vtb \
-
-          --testbed_file=/data/sonic-mgmt/ansible/testbed.csv --module-path=/data/sonic-mgmt/ansible/library \
-
-          --show-capture=no --log-cli-level=INFO  \
-
-          --image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST \
-
-          --reboot_type=warm --skip_sanity"
-
-
+        --continuous_reboot_count=$CONTINUOUS_REBOOT_COUNT \
+        --continuous_reboot_delay=$CONTINUOUS_REBOOT_DELAY \
+        --testbed=$(tbname) --host-pattern=$(tbname) --inventory=/data/sonic-mgmt/ansible/veos_vtb \
+        --testbed_file=/data/sonic-mgmt/ansible/testbed.csv --module-path=/data/sonic-mgmt/ansible/library \
+        --show-capture=no --log-cli-level=INFO  \
+        --image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST \
+        --reboot_type=warm --skip_sanity"
 
         LOG_CMD="mv /data/sonic-mgmt/tests/continous_reboot_* /data/sonic-mgmt/tests/logs/ || true"
 
-
-
         echo "Continuous warm reboot test command: $CMD"
 
-
-
         declare -i iteration
-
         iteration=1
-
-
 
         while true; do
 
@@ -198,41 +159,22 @@ stages:
 
             docker exec sonic-mgmt bash -c "$CMD"
 
-
-
             if [ "${PIPESTATUS[0]}" -ne "0" ]; then
 
                 # fail and stop all the remaining batches if pytest fails
-
                 echo "Batch iteration ${iteration}+ failed"
-
                 docker exec sonic-mgmt bash -c "$LOG_CMD"
-
                 break
-
                 #exit 2
-
             fi
 
             docker exec sonic-mgmt bash -c "$LOG_CMD"
-
             sleep 60
-
             echo "----------------------------------------------------"
-
             iteration=iteration+100
-
             break
 
         done
-
-
-
-        #docker exec sonic-mgmt bash -c "/data/sonic-mgmt/tests/kvmtest.sh -en $(tbname) $(dut)"
-
-        #docker exec sonic-mgmt bash -c "$CMD"
-
-
 
         # save dut state if test fails
 
