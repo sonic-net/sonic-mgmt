@@ -1,56 +1,54 @@
 """
-Base class for controlling PSUs of DUT
+Base class for controlling PDU(s) connected to DUT power supplies
 
-This file defines the base class for controlling PSUs of DUT. The base class defined the basic interface of
-PSU controllers.
+This file defines the base class for controlling PDU outlets. The base class defined the basic interface of
+PDU controllers.
 
-The PSU controller for actually controlling PSUs must be a subclass of the PsuControllerBase class and must
+The PDU controller for PDUs must be a subclass of the PduControllerBase class and must
 implement the methods defined in the base class.
 """
-import os
-import sys
 import subprocess
 
 
-class PsuControllerBase():
+class PduControllerBase():
     """
-    @summary: Base class for PSU controller
+    @summary: Base class for PDU controller
 
-    This base class defines the basic interface to be provided by PSU controller.
+    This base class defines the basic interface to be provided by PDU controller.
 
-    The PSU controller for actually controlling PSUs must be a subclass of the PsuControllerBase class and must
+    The PDU controller for PDUs must be a subclass of the PduControllerBase class and must
     implement the methods defined in the base class.
     """
     def __init__(self):
         pass
 
-    def turn_on_psu(self, psu_id):
+    def turn_on_outlet(self, outlet):
         """
-        @summary: Turn on power for specified PSU.
+        @summary: Turn on power for specified PDU.
 
-        @param psu_id: PSU ID, it could be integer of string digit. For example: 0 or '1'
+        @param outlet: PDU ID, it could be integer of string digit. For example: 0 or '1'
         @return: Returns True if operation is successful. Otherwise, returns False
         """
         raise NotImplementedError
 
-    def turn_off_psu(self, psu_id):
+    def turn_off_outlet(self, outlet):
         """
-        @summary: Turn off power for specified PSU.
+        @summary: Turn off power for specified PDU.
 
-        @param psu_id: PSU ID, it could be integer of string digit. For example: 0 or '1'
+        @param outlet: PDU ID, it could be integer of string digit. For example: 0 or '1'
         @return: Returns True if operation is successful. Otherwise, returns False
         """
         raise NotImplementedError
 
-    def get_psu_status(self, psu_id=None):
+    def get_outlet_status(self, outlet=None):
         """
-        @summary: Get current power status of PSUs
+        @summary: Get current power status of PDU outlets
 
-        @param psu_id: Optional PSU ID, it could be integer or string digit. If no psu_id is specified, power status of
-                       all PSUs should be returned
+        @param outlet: Optional outlet ID, it could be integer or string digit. If no outlet is specified, power status of
+                       all PDU outlets should be returned
         @return: Returns a list of dictionaries. For example:
-                     [{"psu_id": 0, "psu_on": True}, {"psu_id": 1, "psu_on": True}]
-                 If getting PSU status failed, an empty list should be returned.
+                     [{"outlet_id": 0, "outlet_on": True}, {"outlet_id": 1, "outlet_on": True}]
+                 If getting outlet(s) status failed, an empty list should be returned.
         """
         raise NotImplementedError
 

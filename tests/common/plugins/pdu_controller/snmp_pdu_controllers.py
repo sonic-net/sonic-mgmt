@@ -1,32 +1,32 @@
 """
-This module contains classes for PSU controllers that supports the SNMP management protocol.
+This module contains classes for PDU controllers that supports the SNMP management protocol.
 
-The classes must implement the PsuControllerBase interface defined in controller_base.py.
+The classes must implement the PduControllerBase interface defined in controller_base.py.
 """
 import logging
 
-from controller_base import PsuControllerBase
+from controller_base import PduControllerBase
 
 from pysnmp.proto import rfc1902
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 
-class snmpPsuController(PsuControllerBase):
+class snmpPduController(PduControllerBase):
     """
-    PSU Controller class for SNMP conrolled PSUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
+    PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
 
-    This class implements the interface defined in PsuControllerBase class for SNMP conrtolled PDU type 
+    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type 
     'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
     """
 
-    def get_psu_controller_type(self):
+    def get_pdu_controller_type(self):
         """
-        @summary: Use SNMP to get the type of PSU controller host
-        @param psu_controller_host: IP address of PSU controller host
-        @return: Returns type string of the specified PSU controller host
+        @summary: Use SNMP to get the type of PDU controller host
+        @param pdu_controller_host: IP address of PDU controller host
+        @return: Returns type string of the specified PDU controller host
         """
         pSYSDESCR = ".1.3.6.1.2.1.1.1.0"
         SYSDESCR = "1.3.6.1.2.1.1.1.0"
-        psu = None
+        pdu = None
         cmdGen = cmdgen.CommandGenerator()
         snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
@@ -35,30 +35,30 @@ class snmpPsuController(PsuControllerBase):
             cmdgen.MibVariable(pSYSDESCR,),
             )
         if errorIndication:
-            logging.info("Failed to get psu controller type, exception: " + str(errorIndication))
+            logging.info("Failed to get pdu controller type, exception: " + str(errorIndication))
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if current_oid == SYSDESCR:
-                psu = current_val
-        if psu is None:
-            self.psuType = None
+                pdu = current_val
+        if pdu is None:
+            self.pduType = None
             return
-        if 'Sentry Switched PDU' in psu:
-            self.psuType = "SENTRY4"
-        if 'Sentry Switched CDU' in psu:
-            self.psuType = "SENTRY"
-        if 'APC Web/SNMP Management Card' in psu:
-            self.psuType = "APC"
-        if 'Emerson' in psu:
-            self.psuType = 'Emerson'
+        if 'Sentry Switched PDU' in pdu:
+            self.pduType = "SENTRY4"
+        if 'Sentry Switched CDU' in pdu:
+            self.pduType = "SENTRY"
+        if 'APC Web/SNMP Management Card' in pdu:
+            self.pduType = "APC"
+        if 'Emerson' in pdu:
+            self.pduType = 'Emerson'
         return
 
-    def psuCntrlOid(self):
+    def pduCntrlOid(self):
         """
-        Define Oids based on the PSU Type
+        Define Oids based on the PDU Type
         """
-        # MIB OIDs for 'APC Web/SNMP Management PSU'
+        # MIB OIDs for 'APC Web/SNMP Management PDU'
         APC_PORT_NAME_BASE_OID = "1.3.6.1.4.1.318.1.1.4.4.2.1.4"
         APC_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.5.1.1.4"
         APC_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.4"
@@ -78,28 +78,28 @@ class snmpPsuController(PsuControllerBase):
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
         self.CONTROL_OFF = "2"
-        if self.psuType == "APC":
+        if self.pduType == "APC":
             self.pPORT_NAME_BASE_OID     = '.'+APC_PORT_NAME_BASE_OID
             self.pPORT_STATUS_BASE_OID   = '.'+APC_PORT_STATUS_BASE_OID
             self.pPORT_CONTROL_BASE_OID  = '.'+APC_PORT_CONTROL_BASE_OID
             self.PORT_NAME_BASE_OID      = APC_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = APC_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = APC_PORT_CONTROL_BASE_OID
-        elif self.psuType == "SENTRY":
+        elif self.pduType == "SENTRY":
             self.pPORT_NAME_BASE_OID     = '.'+SENTRY_PORT_NAME_BASE_OID
             self.pPORT_STATUS_BASE_OID   = '.'+SENTRY_PORT_STATUS_BASE_OID
             self.pPORT_CONTROL_BASE_OID  = '.'+SENTRY_PORT_CONTROL_BASE_OID
             self.PORT_NAME_BASE_OID      = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = SENTRY_PORT_CONTROL_BASE_OID
-        elif self.psuType == "Emerson":
+        elif self.pduType == "Emerson":
             self.pPORT_NAME_BASE_OID     = '.'+EMERSON_PORT_NAME_BASE_OID
             self.pPORT_STATUS_BASE_OID   = '.'+EMERSON_PORT_STATUS_BASE_OID
             self.pPORT_CONTROL_BASE_OID  = '.'+EMERSON_PORT_CONTROL_BASE_OID
             self.PORT_NAME_BASE_OID      = EMERSON_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = EMERSON_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = EMERSON_PORT_CONTROL_BASE_OID
-        elif self.psuType == "SENTRY4":
+        elif self.pduType == "SENTRY4":
             self.pPORT_NAME_BASE_OID     = '.'+SENTRY4_PORT_NAME_BASE_OID
             self.pPORT_STATUS_BASE_OID   = '.'+SENTRY4_PORT_STATUS_BASE_OID
             self.pPORT_CONTROL_BASE_OID  = '.'+SENTRY4_PORT_CONTROL_BASE_OID
@@ -117,8 +117,8 @@ class snmpPsuController(PsuControllerBase):
         The PDU ports connected to DUT must have hostname of DUT configured in port name/description.
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
-        if not self.psuType:
-            logging.info('PSU type is unknown')
+        if not self.pduType:
+            logging.info('PDU type is unknown')
             return
 
         max_lane = 5
@@ -155,7 +155,7 @@ class snmpPsuController(PsuControllerBase):
         """
         Dynamically update Oids based on the PDU lane ID
         """
-        if self.psuType == "SENTRY4":
+        if self.pduType == "SENTRY4":
             # No need to update lane for SENTRY4
             return
 
@@ -168,40 +168,40 @@ class snmpPsuController(PsuControllerBase):
 
     def __init__(self, hostname, controller, pdu):
         logging.info("Initializing " + self.__class__.__name__)
-        PsuControllerBase.__init__(self)
+        PduControllerBase.__init__(self)
         self.hostname = hostname
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
         self.snmp_rwcommunity = pdu['snmp_rwcommunity']
         self.pdu_ports = []
-        self.psuType = None
-        self.get_psu_controller_type()
-        self.psuCntrlOid()
+        self.pduType = None
+        self.get_pdu_controller_type()
+        self.pduCntrlOid()
         self._get_pdu_ports()
         logging.info("Initialized " + self.__class__.__name__)
 
-    def turn_on_psu(self, psu_id):
+    def turn_on_outlet(self, outlet):
         """
-        @summary: Use SNMP to turn on power to PSU of DUT specified by psu_id
+        @summary: Use SNMP to turn on power to PDU of DUT specified by outlet
 
         DUT hostname must be configured in PDU port name/description. But it is hard to specify which PDU port is
-        connected to the first PSU of DUT and which port is connected to the second PSU.
+        connected to the first PDU of DUT and which port is connected to the second PDU.
 
         Because of this, currently we just find out which PDU ports are connected to PSUs of which DUT. We cannot
         find out the exact mapping between PDU ports and PSUs of DUT.
 
-        To overcome this limitation, the trick is to convert the specified psu_id to integer, then calculate the mode
+        To overcome this limitation, the trick is to convert the specified outlet to integer, then calculate the mode
         upon the number of PSUs on DUT. The calculated mode is used as an index to get PDU ports ID stored in
-        self.pdu_ports. But still, we cannot gurante that psu_id 0 is first PSU of DUT, and so on.
+        self.pdu_ports. But still, we cannot gurante that outlet 0 is first PDU of DUT, and so on.
 
-        @param psu_id: ID of the PSU on SONiC DUT
+        @param outlet: ID of the PDU on SONiC DUT
         @return: Return true if successfully execute the command for turning on power. Otherwise return False.
         """
-        if not self.psuType:
-            logging.error('Unable to turn on: PSU type is unknown')
+        if not self.pduType:
+            logging.error('Unable to turn on: PDU type is unknown')
             return False
 
-        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
+        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(outlet)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
             cmdgen.CommunityData(self.snmp_rwcommunity),
@@ -209,32 +209,32 @@ class snmpPsuController(PsuControllerBase):
             (port_oid, rfc1902.Integer(self.CONTROL_ON)),
         )
         if errorIndication or errorStatus != 0:
-            logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
+            logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
 
-    def turn_off_psu(self, psu_id):
+    def turn_off_outlet(self, outlet):
         """
-        @summary: Use SNMP to turn off power to PSU of DUT specified by psu_id
+        @summary: Use SNMP to turn off power to PDU outlet of DUT specified by outlet
 
         DUT hostname must be configured in PDU port name/description. But it is hard to specify which PDU port is
         connected to the first PSU of DUT and which port is connected to the second PSU.
 
-        Because of this, currently we just find out which PDU ports are connected to PSUs of which DUT. We cannot
-        find out the exact mapping between PDU ports and PSUs of DUT.
+        Because of this, currently we just find out which PDU outlets are connected to PSUs of which DUT. We cannot
+        find out the exact mapping between PDU outlets and PSUs of DUT.
 
-        To overcome this limitation, the trick is to convert the specified psu_id to integer, then calculate the mode
+        To overcome this limitation, the trick is to convert the specified outlet to integer, then calculate the mode
         upon the number of PSUs on DUT. The calculated mode is used as an index to get PDU ports ID stored in
-        self.pdu_ports. But still, we cannot gurante that psu_id 0 is first PSU of DUT, and so on.
+        self.pdu_ports. But still, we cannot guarantee that outlet 0 is first PSU of DUT, and so on.
 
-        @param psu_id: ID of the PSU on SONiC DUT
+        @param outlet: ID of the outlet on PDU
         @return: Return true if successfully execute the command for turning off power. Otherwise return False.
         """
-        if not self.psuType:
-            logging.error('Unable to turn off: PSU type is unknown')
+        if not self.pduType:
+            logging.error('Unable to turn off: PDU type is unknown')
             return False
 
-        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(psu_id)]
+        port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(outlet)]
         errorIndication, errorStatus, _, _ = \
         cmdgen.CommandGenerator().setCmd(
             cmdgen.CommunityData(self.snmp_rwcommunity),
@@ -242,11 +242,11 @@ class snmpPsuController(PsuControllerBase):
             (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
         )
         if errorIndication or errorStatus != 0:
-            logging.debug("Failed to turn on PSU %s, exception: %s" % (str(psu_id), str(errorStatus)))
+            logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
 
-    def get_psu_status(self, psu_id=None):
+    def get_outlet_status(self, outlet=None):
         """
         @summary: Use SNMP to get status of PDU ports supplying power to PSUs of DUT
 
@@ -254,21 +254,21 @@ class snmpPsuController(PsuControllerBase):
         connected to the first PSU of DUT and which port is connected to the second PSU.
 
         Because of this, currently we just find out which PDU ports are connected to PSUs of which DUT. We cannot
-        find out the exact mapping between PDU ports and PSUs of DUT.
+        find out the exact mapping between PDU outlets and PSUs of DUT.
 
-        To overcome this limitation, the trick is to convert the specified psu_id to integer, then calculate the mode
-        upon the number of PSUs on DUT. The calculated mode is used as an index to get PDU ports ID stored in
-        self.pdu_ports. But still, we cannot gurante that psu_id 0 is first PSU of DUT, and so on.
+        To overcome this limitation, the trick is to convert the specified outlet to integer, then calculate the mode
+        upon the number of PSUs on DUT. The calculated mode is used as an index to get PDU outlet ID stored in
+        self.pdu_ports. But still, we cannot guarantee that outlet 0 is first PSU of DUT, and so on.
 
-        @param psu_id: Optional. If specified, only return status of PDU port connected to specified PSU of DUT. If
-                       omitted, return status of all PDU ports connected to PSUs of DUT.
-        @return: Return status of PDU ports connected to PSUs of DUT in a list of dictionary. Example result:
-                     [{"psu_id": 0, "psu_on": True}, {"psu_id": 1, "psu_on": True}]
-                 The psu_id in returned result is integer starts from 0.
+        @param outlet: Optional. If specified, only return status of PDU outlet connected to specified PSU of DUT. If
+                       omitted, return status of all PDU outlets connected to PSUs of DUT.
+        @return: Return status of PDU outlets connected to PSUs of DUT in a list of dictionary. Example result:
+                     [{"outlet_id": 0, "outlet_on": True}, {"outlet_id": 1, "outlet_on": True}]
+                 The outlet in returned result is integer starts from 0.
         """
         results = []
-        if not self.psuType:
-            logging.error('Unable to retrieve status: PSU type is unknown')
+        if not self.pduType:
+            logging.error('Unable to retrieve status: PDU type is unknown')
             return results
 
         cmdGen = cmdgen.CommandGenerator()
@@ -287,21 +287,21 @@ class snmpPsuController(PsuControllerBase):
                 for idx, port in enumerate(self.pdu_ports):
                     port_oid = self.PORT_STATUS_BASE_OID + port
                     if current_oid == port_oid:
-                        status = {"psu_id": idx, "psu_on": True if current_val == self.STATUS_ON else False}
+                        status = {"outlet_id": idx, "outlet_on": True if current_val == self.STATUS_ON else False}
                         results.append(status)
-        if psu_id is not None:
-            idx = int(psu_id) % len(self.pdu_ports)
+        if outlet is not None:
+            idx = int(outlet) % len(self.pdu_ports)
             results = results[idx:idx+1]
-        logging.info("Got PSU status: %s" % str(results))
+        logging.info("Got outlet status: %s" % str(results))
         return results
 
     def close(self):
         pass
 
 
-def get_psu_controller(controller_ip, dut_hostname, pdu):
+def get_pdu_controller(controller_ip, dut_hostname, pdu):
     """
-    @summary: Factory function to create the actual PSU controller object.
-    @return: The actual PSU controller object. Returns None if something went wrong.
+    @summary: Factory function to create the actual PDU controller object.
+    @return: The actual PDU controller object. Returns None if something went wrong.
     """
-    return snmpPsuController(dut_hostname, controller_ip, pdu)
+    return snmpPduController(dut_hostname, controller_ip, pdu)

@@ -1,12 +1,12 @@
-# psu_controller fixture user guide
+# pdu_controller fixture user guide
 
 PSU controller is usually a PDU device which can supply power to PSUs of SONiC switch. The PDU devices usually provide management interface like SNMP, web GUI, telnet, SSH, etc.
 
-This plugin defined a fixture named psu_controller. It returns a python object implements the interface of PsuControllerBase defined in controller_base.py.
+This plugin defined a fixture named pdu_controller. It returns a python object implements the interface of PsuControllerBase defined in controller_base.py.
 
 ## Add PDU information in inventory file
 
-To get a psu_controller object using the psu_controller fixture, PDU host information must be known.
+To get a pdu_controller object using the pdu_controller fixture, PDU host information must be known.
 
 PDU information of each DUT device need to be added to the inventory file. The minimum required information information of PDU host is:
 * IP address of the PDU host
