@@ -13,6 +13,7 @@ in .csv format etc.
 
 import ipaddr
 from netaddr import IPNetwork
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
 def increment_ip_address (ip, incr=1) :
     """
@@ -466,3 +467,59 @@ def get_pfcwd_restore_time(host_ans, intf):
         return int(val)
 
     return None
+
+def start_pfcwd(duthost):
+    """
+    Start PFC watchdog with default setting
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    duthost.shell('sudo pfcwd start_default')
+
+def stop_pfcwd(duthost):
+    """
+    Stop PFC watchdog
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    duthost.shell('sudo pfcwd stop')
+
+def disable_packet_aging(duthost):
+    """
+    Disable packet aging feature (only on MLNX switches)
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    if isMellanoxDevice(duthost):
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command("docker exec syncd python /packets_aging.py disable")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
+def enable_packet_aging(duthost):
+    """
+    Enable packet aging feature (only on MLNX switches)
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    if isMellanoxDevice(duthost):
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command("docker exec syncd python /packets_aging.py enable")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")

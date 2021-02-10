@@ -18,7 +18,7 @@ def test_global_pause(ixia_api,
                       fanout_graph_facts,
                       duthosts,
                       rand_one_dut_hostname,
-                      enum_dut_portname_oper_up,
+                      rand_one_dut_portname_oper_up,
                       lossless_prio_list,
                       lossy_prio_list,
                       prio_dscp_map):
@@ -32,16 +32,16 @@ def test_global_pause(ixia_api,
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
-        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
+        rand_one_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
-        None
+        N/A
     """
 
-    dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
 

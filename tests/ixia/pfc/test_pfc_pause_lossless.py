@@ -16,18 +16,18 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.topology("tgen")
 
-def test_pfc_pause_single_lossy_prio(ixia_api,
-                                     ixia_testbed,
-                                     conn_graph_facts,
-                                     fanout_graph_facts,
-                                     duthosts,
-                                     rand_one_dut_hostname,
-                                     enum_dut_portname_oper_up,
-                                     enum_dut_lossy_prio,
-                                     all_prio_list,
-                                     prio_dscp_map):
+def test_pfc_pause_single_lossless_prio(ixia_api,
+                                        ixia_testbed,
+                                        conn_graph_facts,
+                                        fanout_graph_facts,
+                                        duthosts,
+                                        rand_one_dut_hostname,
+                                        rand_one_dut_portname_oper_up,
+                                        enum_dut_lossless_prio,
+                                        all_prio_list,
+                                        prio_dscp_map):
     """
-    Test if PFC will impact a single lossy priority
+    Test if PFC can pause a single lossless priority
 
     Args:
         ixia_api (pytest fixture): IXIA session
@@ -36,27 +36,27 @@ def test_pfc_pause_single_lossy_prio(ixia_api,
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
-        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
-        enum_dut_lossy_prio (str): name of lossy priority to test, e.g., 's6100-1|2'
+        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
+        enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
-        None
+        N/A
     """
 
-    dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
-    dut_hostname2, lossy_prio = enum_dut_lossy_prio.split('|')
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
+    dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    lossy_prio = int(lossy_prio)
+    lossless_prio = int(lossless_prio)
 
-    pause_prio_list = [lossy_prio]
-    test_prio_list = [lossy_prio]
+    pause_prio_list = [lossless_prio]
+    test_prio_list = [lossless_prio]
     bg_prio_list = [p for p in all_prio_list]
-    bg_prio_list.remove(lossy_prio)
+    bg_prio_list.remove(lossless_prio)
 
     run_pfc_test(api=ixia_api,
                  testbed_config=ixia_testbed,
@@ -69,20 +69,20 @@ def test_pfc_pause_single_lossy_prio(ixia_api,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=True)
 
-def test_pfc_pause_multi_lossy_prio(ixia_api,
-                                    ixia_testbed,
-                                    conn_graph_facts,
-                                    fanout_graph_facts,
-                                    duthosts,
-                                    rand_one_dut_hostname,
-                                    enum_dut_portname_oper_up,
-                                    lossless_prio_list,
-                                    lossy_prio_list,
-                                    prio_dscp_map):
+def test_pfc_pause_multi_lossless_prio(ixia_api,
+                                       ixia_testbed,
+                                       conn_graph_facts,
+                                       fanout_graph_facts,
+                                       duthosts,
+                                       rand_one_dut_hostname,
+                                       rand_one_dut_portname_oper_up,
+                                       lossless_prio_list,
+                                       lossy_prio_list,
+                                       prio_dscp_map):
     """
-    Test if PFC will impact multiple lossy priorities
+    Test if PFC can pause multiple lossless priorities
 
     Args:
         ixia_api (pytest fixture): IXIA session
@@ -91,23 +91,23 @@ def test_pfc_pause_multi_lossy_prio(ixia_api,
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
-        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
+        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
-        None
+        N/A
     """
 
-    dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    pause_prio_list = lossy_prio_list
-    test_prio_list = lossy_prio_list
-    bg_prio_list = lossless_prio_list
+    pause_prio_list = lossless_prio_list
+    test_prio_list = lossless_prio_list
+    bg_prio_list = lossy_prio_list
 
     run_pfc_test(api=ixia_api,
                  testbed_config=ixia_testbed,
@@ -120,23 +120,23 @@ def test_pfc_pause_multi_lossy_prio(ixia_api,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=True)
 
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
-def test_pfc_pause_single_lossy_prio_reboot(ixia_api,
-                                            ixia_testbed,
-                                            conn_graph_facts,
-                                            fanout_graph_facts,
-                                            localhost,
-                                            duthosts,
-                                            rand_one_dut_hostname,
-                                            rand_one_oper_up_intf,
-                                            rand_lossy_prio,
-                                            all_prio_list,
-                                            prio_dscp_map,
-                                            reboot_type):
+def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
+                                               ixia_testbed,
+                                               conn_graph_facts,
+                                               fanout_graph_facts,
+                                               localhost,
+                                               duthosts,
+                                               rand_one_dut_hostname,
+                                               rand_one_dut_portname_oper_up,
+                                               rand_lossless_prio,
+                                               all_prio_list,
+                                               prio_dscp_map,
+                                               reboot_type):
     """
-    Test if PFC will impact a single lossy priority after various kinds of reboots
+    Test if PFC can pause a single lossless priority even after various types of reboot
 
     Args:
         ixia_api (pytest fixture): IXIA session
@@ -146,28 +146,28 @@ def test_pfc_pause_single_lossy_prio_reboot(ixia_api,
         localhost (pytest fixture): localhost handle
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
-        rand_one_oper_up_intf (str): port to test, e.g., 's6100-1|Ethernet0'
-        rand_lossy_prio (str): lossy priority to test, e.g., 's6100-1|2'
+        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
+        rand_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         reboot_type (str): reboot type to be issued on the DUT
 
     Returns:
-        None
+        N/A
     """
 
-    dut_hostname, dut_port = rand_one_oper_up_intf.split('|')
-    dut_hostname2, lossy_prio = rand_lossy_prio.split('|')
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
+    dut_hostname2, lossless_prio = rand_lossless_prio.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    lossy_prio = int(lossy_prio)
+    lossless_prio = int(lossless_prio)
 
-    pause_prio_list = [lossy_prio]
-    test_prio_list = [lossy_prio]
+    pause_prio_list = [lossless_prio]
+    test_prio_list = [lossless_prio]
     bg_prio_list = [p for p in all_prio_list]
-    bg_prio_list.remove(lossy_prio)
+    bg_prio_list.remove(lossless_prio)
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
@@ -186,23 +186,23 @@ def test_pfc_pause_single_lossy_prio_reboot(ixia_api,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=True)
 
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
-def test_pfc_pause_multi_lossy_prio_reboot(ixia_api,
-                                           ixia_testbed,
-                                           conn_graph_facts,
-                                           fanout_graph_facts,
-                                           localhost,
-                                           duthosts,
-                                           rand_one_dut_hostname,
-                                           rand_one_oper_up_intf,
-                                           lossless_prio_list,
-                                           lossy_prio_list,
-                                           prio_dscp_map,
-                                           reboot_type):
+def test_pfc_pause_multi_lossless_prio_reboot(ixia_api,
+                                              ixia_testbed,
+                                              conn_graph_facts,
+                                              fanout_graph_facts,
+                                              localhost,
+                                              duthosts,
+                                              rand_one_dut_hostname,
+                                              rand_one_dut_portname_oper_up,
+                                              lossless_prio_list,
+                                              lossy_prio_list,
+                                              prio_dscp_map,
+                                              reboot_type):
     """
-    Test if PFC will impact multiple lossy priorities after various kinds of reboots
+    Test if PFC can pause multiple lossless priorities even after various types of reboot
 
     Args:
         ixia_api (pytest fixture): IXIA session
@@ -212,24 +212,24 @@ def test_pfc_pause_multi_lossy_prio_reboot(ixia_api,
         localhost (pytest fixture): localhost handle
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
-        rand_one_oper_up_intf (str): port to test, e.g., 's6100-1|Ethernet0'
+        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         reboot_type (str): reboot type to be issued on the DUT
 
     Returns:
-        None
+        N/A
     """
 
-    dut_hostname, dut_port = rand_one_oper_up_intf.split('|')
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    pause_prio_list = lossy_prio_list
-    test_prio_list = lossy_prio_list
-    bg_prio_list = lossless_prio_list
+    pause_prio_list = lossless_prio_list
+    test_prio_list = lossless_prio_list
+    bg_prio_list = lossy_prio_list
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
@@ -248,4 +248,4 @@ def test_pfc_pause_multi_lossy_prio_reboot(ixia_api,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=True)

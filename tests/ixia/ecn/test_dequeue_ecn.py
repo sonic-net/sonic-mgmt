@@ -18,8 +18,8 @@ def test_dequeue_ecn(request,
                      fanout_graph_facts,
                      duthosts,
                      rand_one_dut_hostname,
-                     enum_dut_portname_oper_up,
-                     enum_dut_lossless_prio,
+                     rand_one_dut_portname_oper_up,
+                     rand_one_dut_lossless_prio,
                      prio_dscp_map):
     """
     Test if the device under test (DUT) performs ECN marking at the egress
@@ -32,8 +32,8 @@ def test_dequeue_ecn(request,
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
-        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
-        enum_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
+        rand_one_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
+        rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
@@ -43,8 +43,8 @@ def test_dequeue_ecn(request,
     if disable_test:
         pytest.skip("test_dequeue_ecn is disabled")
 
-    dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
-    dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
+    dut_hostname2, lossless_prio = rand_one_dut_lossless_prio.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
