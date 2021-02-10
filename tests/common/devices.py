@@ -1133,10 +1133,14 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         # the minigraph facts are not always match up with PTF port indices.
         try:
             dut_index = tbinfo['duts'].index(self.hostname)
-            map = tbinfo['topo']['ptf_map'][str(dut_index)]
-            if map:
+            port_map = tbinfo['topo']['ptf_map'][str(dut_index)]
+
+            if port_map:
                 for port, index in mg_facts['minigraph_port_indices'].items():
-                    mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
+                    try:
+                        mg_facts['minigraph_ptf_indices'][port] = port_map[str(index)]
+                    except (KeyError):
+                        pass
         except (ValueError, KeyError):
             pass
 
@@ -1891,7 +1895,7 @@ class SonicAsic(object):
 
     def interface_facts(self, *module_args, **complex_args):
         """Wrapper for the interface_facts ansible module.
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
