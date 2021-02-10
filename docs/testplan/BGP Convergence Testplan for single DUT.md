@@ -119,6 +119,6 @@ Measure the convergence time to install the routes in its RIB and then in its FI
 
 In order to measure RIB-IN capacity of the switch, we can follow the same test methodology as RIB-IN convergence test. Below are the results for RIB-IN capacity test.
 
-![RIB-IN Capacity Test](Img/RIB-IN_capacity_test.png)
+![RIB-IN Capacity Test](Img/RIB-IN_Capacity_Test.png)
 ### Call for action
 * Solicit experience in multi-DUT system test scenarios.
