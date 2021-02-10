@@ -3,9 +3,9 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 import json
-
+from datetime import datetime
 from natsort import natsorted
-
+from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
@@ -114,6 +114,28 @@ def get_t1_ptf_ports(dut, tbinfo):
 
     logger.info("Using portchannel ports {} on PTF for DUT {}".format(ptf_portchannel_intfs, dut.hostname))
     return ptf_portchannel_intfs
+
+
+def get_t1_active_ptf_ports(dut, tbinfo):
+    """
+    @summary: Get ptf port indices for active PortChannels on DUT
+    @param dut: The DUT we are testing against
+    @param tbinfo: The fixture tbinfo
+    @return: A dict { "PortChannel0001": [0, 1], ...}
+    """
+    config_facts = dut.get_running_config_facts()
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+
+    up_portchannels = dut.get_up_ip_ports()
+    ptf_portchannel_intfs = {}
+    for k, v in config_facts['PORTCHANNEL'].items():
+        if k in up_portchannels:
+            ptf_portchannel_intfs[k]  = []
+            for member in v['members']:
+                ptf_portchannel_intfs[k].append(mg_facts['minigraph_ptf_indices'][member])
+
+    return ptf_portchannel_intfs
+
 
 def update_mux_configs_and_config_reload(dut, state):
     """
@@ -472,3 +494,57 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
     logger.info('Recover T1 VM ports connected to tor')
     for eos_host, vm_intf in down_intfs:
         eos_host.no_shutdown(vm_intf)
+
+
+def mux_cable_server_ip(dut):
+    """Function for retrieving all ip of servers connected to mux_cable
+
+    Args:
+        dut: The host object
+
+    Returns:
+        A dict: {"Ethernet12" : {"server_ipv4":"192.168.0.4/32", "server_ipv6":"fc02:1000::4/128"}, ....}
+    """
+    mux_cable_config = dut.shell("sonic-cfggen -d  --var-json 'MUX_CABLE'")['stdout']
+    return json.loads(mux_cable_config)
+
+
+def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, targer_server_ip, ptf_portchannel_indices):
+    """
+    Function for testing traffic distribution among all avtive T1.
+    A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
+    active ToR. The running script will capture all traffic and verify if these packets are distributed evenly.
+    Args:
+        ptfhost: The ptf host connectet to current testbed
+        active_tor_mac: MAC address of active ToR
+        standby_tor_mac: MAC address of the standby ToR
+        active_tor_ip: IP Address of Loopback0 of active ToR (For verifying packet)
+        standby_tor_ip: IP Address of Loopback0 of standby ToR (For verifying packet)
+        target_server_ip: The IP address of server for testing. The mux cable connected to this server must be standby
+        ptf_portchannel_indices: A dict, the mapping from portchannel to ptf port indices
+    Returns:
+        None.
+    """
+    HASH_KEYS = ["src-port", "dst-port", "src-ip"]
+    params = {
+        "server_ip": targer_server_ip,
+        "active_tor_mac": active_tor_mac,
+        "standby_tor_mac": standby_tor_mac,
+        "active_tor_ip": active_tor_ip,
+        "standby_tor_ip": standby_tor_ip,
+        "ptf_portchannel_indices": ptf_portchannel_indices,
+        "hash_key_list": HASH_KEYS
+    }
+    logging.info("run ptf test for verifying IPinIP tunnel balance")
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    log_file = "/tmp/ip_in_ip_tunnel_test.{}.log".format(timestamp)
+    logging.info("PTF log file: %s" % log_file)
+    ptf_runner(ptfhost,
+                "ptftests",
+                "ip_in_ip_tunnel_test.IpinIPTunnelTest",
+                platform_dir="ptftests",
+                params=params,
+                log_file=log_file,
+                qlen=2000,
+                socket_recv_size=16384)
+

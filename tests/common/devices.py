@@ -1323,6 +1323,19 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return "RUNNING" in service_status
 
+    def get_up_ip_ports(self):
+        """
+        Get a list for all up ip interfaces
+        """
+        up_ip_ports = []
+        ip_intf_facts = self.show_ip_interface()['ansible_facts']['ip_interfaces']
+        for intf in ip_intf_facts:
+            try:
+                if ip_intf_facts[intf]['oper_state'] == 'up':
+                    up_ip_ports.append(intf)
+            except KeyError:
+                pass
+        return up_ip_ports
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1891,7 +1904,7 @@ class SonicAsic(object):
 
     def interface_facts(self, *module_args, **complex_args):
         """Wrapper for the interface_facts ansible module.
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
