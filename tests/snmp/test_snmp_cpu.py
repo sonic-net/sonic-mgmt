@@ -5,12 +5,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't2'),
     pytest.mark.device_type('vs')
 ]
 
 @pytest.mark.bsl
-def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds):
+def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
     """
     Test SNMP CPU Utilization
 
@@ -21,7 +21,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost
 
     TODO: abstract the snmp OID by SKU
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']

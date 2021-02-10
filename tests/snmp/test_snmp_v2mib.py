@@ -10,11 +10,11 @@ pytestmark = [
 ]
 
 
-def test_snmp_v2mib(duthosts, rand_one_dut_hostname, localhost, creds):
+def test_snmp_v2mib(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
     """
     Verify SNMPv2-MIB objects are functioning properly
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = localhost.snmp_facts(host=host_ip, version="v2c",
                                       community=creds["snmp_rocommunity"])['ansible_facts']

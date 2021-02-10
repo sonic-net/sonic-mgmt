@@ -1,4 +1,5 @@
 import pytest
+import re
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2'),
@@ -7,15 +8,17 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def lldp_setup(duthosts, enum_rand_one_per_hwsku_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("LLDP not supported on supervisor node")
     patch_lldpctl(localhost, duthost)
     yield
     unpatch_lldpctl(localhost, duthost)
 
 
 @pytest.mark.bsl
-def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds, tbinfo):
+def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, tbinfo):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -29,8 +32,9 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhos
     For remote values check for availability for at least 80% of minigraph neighbors
     (similar to lldp test)
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("LLDP not supported on supervisor node")
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
@@ -89,7 +93,8 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhos
        lldp_facts_ns = duthost.lldpctl_facts(asic_instance_id=asic_id)['ansible_facts']['lldpctl']
        if lldp_facts_ns is not None:
            lldp_facts.update(lldp_facts_ns)
-    nei = [k for k, v in lldp_facts.items() if k != 'eth0' and v['chassis'].has_key('mgmt-ip') ]
+    pattern = re.compile(r'^eth0|^Ethernet-IB')
+    nei = [k for k, v in lldp_facts['lldp'].items() if not re.match(pattern, k) and v['chassis'].has_key('mgmt-ip') ]
     print "neighbors {} send chassis management IP information".format(nei)
 
     # Check if lldpRemManAddrTable is present
@@ -98,7 +103,7 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhos
         if v.has_key("lldpRemManAddrIfSubtype") and \
            v.has_key("lldpRemManAddrIfId") and \
            v.has_key("lldpRemManAddrOID") and \
-           v['name'] != 'eth0':
+           v['name'] != 'eth0' and 'Etherent-IB' not in v['name']:
             active_intf.append(k)
     print "lldpRemManAddrTable: ", active_intf
 

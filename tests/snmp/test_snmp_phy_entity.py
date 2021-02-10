@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.platform_tests.thermal_control_test_helper import mocker_factory
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't2'),
     pytest.mark.device_type('physical')
 ]
 
@@ -94,23 +94,24 @@ PHYSICAL_ENTITY_KEY_TEMPLATE = 'PHYSICAL_ENTITY_INFO|{}'
 XCVR_KEY_TEMPLATE = 'TRANSCEIVER_INFO|{}'
 XCVR_DOM_KEY_TEMPLATE = 'TRANSCEIVER_DOM_SENSOR|{}'
 
-
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts):
     """Skip the test for unsupported images."""
-    pytest_require("201911" not in duthost.os_version, "Test not supported for 201911 images. Skipping the test")
+    for duthost in duthosts:
+        pytest_require("201911" not in duthost.os_version, "Test not supported for 201911 images. Skipping the test")
     yield
 
 
 @pytest.fixture(scope="module")
-def snmp_physical_entity_info(duthost, localhost, creds):
+def snmp_physical_entity_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
     """
-    Module level fixture for getting physical entity information from snmp fact
+    Module level fixture for getting physical entity information from snmp fact for frontend dut
     :param duthost: DUT host object
     :param localhost: localhost object
     :param creds: Credential for snmp
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     return get_entity_mib(duthost, localhost, creds)
 
 
@@ -130,13 +131,14 @@ def get_entity_mib(duthost, localhost, creds):
     return entity_mib
 
 
-def test_fan_drawer_info(duthost, snmp_physical_entity_info):
+def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info):
     """
     Verify fan drawer information in physical entity mib with redis database
     :param duthost: DUT host object
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, FAN_DRAWER_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not support fan drawer
     if not keys:
@@ -167,15 +169,18 @@ def test_fan_drawer_info(duthost, snmp_physical_entity_info):
                                                                       'is_replaceable'] == 'True' else NOT_REPLACEABLE
 
 
-def test_fan_info(duthost, snmp_physical_entity_info):
+def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info):
     """
     Verify fan information in physical entity mib with redis database
     :param duthost: DUT host object
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
-    assert keys, 'Fan information does not exist in DB'
+    # Ignore the test if the platform does not have fans (e.g Line card)
+    if not keys:
+        pytest.skip('Fan information does not exist in DB, skipping this test')
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
@@ -227,15 +232,20 @@ def test_fan_info(duthost, snmp_physical_entity_info):
             assert tachometers_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
-def test_psu_info(duthost, snmp_physical_entity_info):
+def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info):
     """
     Verify PSU information in physical entity mib with redis database
     :param duthost: DUT host object
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not duthost.is_supervisor_node():
+        pytest.skip("Not supported on non supervisor node")
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
-    assert keys, 'PSU information does not exist in DB'
+    # Ignore the test if the platform does not have psus (e.g Line card)
+    if not keys:
+        pytest.skip('PSU information does not exist in DB, skipping this test')
     for key in keys:
         psu_info = redis_hgetall(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
@@ -298,13 +308,14 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_info):
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
-def test_thermal_info(duthost, snmp_physical_entity_info):
+def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info):
     """
     Verify thermal information in physical entity mib with redis database
     :param duthost: DUT host object
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
     assert keys, 'Thermal information does not exist in DB'
     for key in keys:
@@ -334,16 +345,18 @@ def test_thermal_info(duthost, snmp_physical_entity_info):
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
-def test_transceiver_info(duthost, snmp_physical_entity_info):
+def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info):
     """
     Verify transceiver information in physical entity mib with redis database
     :param duthost: DUT host object
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
-    assert keys, 'Transceiver information does not exist in DB'
-
+    # Ignore the test if the platform does not have interfaces (e.g Supervisor)
+    if not keys:
+        pytest.skip('Fan information does not exist in DB, skipping this test')
     name_to_snmp_facts = {}
     for oid, values in snmp_physical_entity_info.items():
         values['oid'] = oid
@@ -428,7 +441,7 @@ def _get_transceiver_sensor_data(duthost, name):
 
 
 @pytest.mark.disable_loganalyzer
-def test_turn_off_pdu_and_check_psu_info(duthost, localhost, creds, pdu_controller):
+def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info, localhost, creds, pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
     :param duthost: DUT host object
@@ -437,11 +450,12 @@ def test_turn_off_pdu_and_check_psu_info(duthost, localhost, creds, pdu_controll
     :param pdu_controller: PDU controller
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not pdu_controller:
-        pytest.skip('pdu_controller is None, skipping this test')
-    outlet_status = pdu_controller.get_outlet_status()
+        pytest.skip('psu_controller is None, skipping this test')
+    outlet_status = pdu_controller.get_psu_status()
     if len(outlet_status) < 2:
-        pytest.skip('At least 2 outlets required for rest of the testing in this case')
+        pytest.skip('At least 2 PSUs required for rest of the testing in this case')
 
     # turn on all PSU
     for outlet in outlet_status:
@@ -491,7 +505,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds):
 
 
 @pytest.mark.disable_loganalyzer
-def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_factory):
+def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, mocker_factory):
     """
 
     :param duthost: DUT host object
@@ -500,6 +514,7 @@ def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_
     :param mocker_factory: Factory to create fan mocker
     :return:
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logging.info('Create mocker, it may take a few seconds...')
     single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
     if not single_fan_mocker:
@@ -513,7 +528,9 @@ def test_remove_insert_fan_and_check_fan_info(duthost, localhost, creds, mocker_
     time.sleep(FAN_MOCK_WAIT_TIME)
 
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
-    assert keys, 'Fan information does not exist in DB'
+    # Ignore the test if the platform does not have fans (e.g Line card)
+    if not keys:
+        pytest.skip('Fan information does not exist in DB, skipping this test')
     mib_info = get_entity_mib(duthost, localhost, creds)
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)

@@ -120,9 +120,9 @@ def verify_snmp_speed(facts, snmp_facts, results):
     return results
 
 @pytest.mark.bsl
-def test_snmp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds):
-    """compare the bgp facts between observed states and target state"""
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def test_snmp_interfaces(localhost, creds, duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
+    """compare the snmp facts between observed states and target state"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
@@ -141,10 +141,10 @@ def test_snmp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, lo
         assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
 
 @pytest.mark.bsl
-def test_snmp_mgmt_interface(localhost, creds, duthosts, enum_dut_hostname):
+def test_snmp_mgmt_interface(localhost, creds, duthosts, enum_rand_one_per_hwsku_hostname):
     """compare the snmp facts between observed states and target state"""
 
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
