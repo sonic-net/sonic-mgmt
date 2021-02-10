@@ -85,13 +85,13 @@ stages:
         CMD="cd /data/sonic-mgmt/tests/ ; \
         export ANSIBLE_CONFIG=/data/sonic-mgmt/ansible ANSIBLE_LIBRARY=/data/sonic-mgmt/ansible/library/; \
         pytest platform_tests/test_cont_warm_reboot.py \
-        --continuous_reboot_count=$CONTINUOUS_REBOOT_COUNT \
-        --continuous_reboot_delay=$CONTINUOUS_REBOOT_DELAY \
-        --testbed=$(tbname) --host-pattern=$(tbname) --inventory=/data/sonic-mgmt/ansible/veos_vtb \
-        --testbed_file=/data/sonic-mgmt/ansible/vtestbed.csv --module-path=/data/sonic-mgmt/ansible/library \
-        --show-capture=no --log-cli-level=INFO  \
-        --image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST \
-        --reboot_type=warm --skip_sanity"
+              --continuous_reboot_count=$CONTINUOUS_REBOOT_COUNT \
+              --continuous_reboot_delay=$CONTINUOUS_REBOOT_DELAY \
+              --testbed=$(tbname) --host-pattern=$(tbname) --inventory=/data/sonic-mgmt/ansible/veos_vtb \
+              --testbed_file=/data/sonic-mgmt/ansible/vtestbed.csv --module-path=/data/sonic-mgmt/ansible/library \
+              --show-capture=no --log-cli-level=INFO  \
+              --image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST \
+              --reboot_type=warm --skip_sanity"
 
         LOG_CMD="mv /data/sonic-mgmt/tests/continous_reboot_* /data/sonic-mgmt/tests/logs/ || true"
 
@@ -108,14 +108,12 @@ stages:
                 # fail and stop all the remaining batches if pytest fails
                 echo "Batch iteration ${iteration}+ failed"
                 docker exec sonic-mgmt bash -c "$LOG_CMD"
-                break
-                #exit 2
+                exit 2
             fi
             docker exec sonic-mgmt bash -c "$LOG_CMD"
             sleep 60
             echo "----------------------------------------------------"
             iteration=iteration+100
-            break
         done
 
         # save dut state if test fails
@@ -143,19 +141,20 @@ stages:
         else
             cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
         fi
-
       displayName: "Run continuous warmboot tests"
+
     - publish: $(Build.ArtifactStagingDirectory)/kvmdump
       artifact: sonic-buildimage.kvmtest.memdump@$(System.JobAttempt)
       displayName: "Archive sonic kvm memdump"
       condition: failed()
-    - publish: $(Build.ArtifactStagingDirectory)/logs
+
+    - publish: $(Build.ArtifactStagingDirectory)/logs/continous_reboot_*
       artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
       displayName: "Archive sonic kvm logs"
       condition: succeededOrFailed()
 
     - task: PublishTestResults@2
       inputs:
-        testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.*'
+        testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
         testRunTitle: kvmtest
       condition: succeededOrFailed()
