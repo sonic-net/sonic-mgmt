@@ -192,4 +192,4 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     yield
 
     logging.debug("Stop running icmp_responder")
-    # ptfhost.shell("supervisorctl stop icmp_responder")
+    ptfhost.shell("supervisorctl stop icmp_responder")
