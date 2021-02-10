@@ -102,9 +102,9 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     Gather expected data from a inventory file instead if 'syseeprom_info' is defined in the inventory
     # Sample inventory with syseeprom:
     
-    str- msn2700-01:
+    str-msn2700-01:
         ansible_host: 10.251.0.188
-        model: MSN2700 - CS2FO
+        model: MSN2700-CS2FO
         serial: MT1234X56789
         base_mac: 24:8a:07:12:34:56
         syseeprom_info:
@@ -120,6 +120,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "0x2B": "Mellanox"
             "0xFE": "0xFBA1E964"
     """
+    
     if 'syseeprom_info' in dut_vars:
         expected_syseeprom_info_dict = dut_vars['syseeprom_info']
 
