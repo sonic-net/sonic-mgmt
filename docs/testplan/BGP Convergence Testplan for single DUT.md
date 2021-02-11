@@ -21,7 +21,7 @@
     - [Call for action](#Call-for-action)
 
 ## Overview
-The purpose of these tests is to test the overall convergence of a data center network by simulating multiple newtork devices such as ToR/Leafs and using SONiC switch DUT as one of the ToR/Leaf, closely resembling production environment.
+The purpose of these tests is to test the overall convergence of a data center network by simulating multiple network devices such as ToR/Leafs and using SONiC switch DUT as one of the ToR/Leaf, closely resembling production environment.
 
 ### Scope
 These tests are targeted on fully functioning SONiC system. The purpose of these tests are to measure convergence when some unexpected failures such as remote link failure, local link failure, node failure or link faults etc occur and some expected failures such as maintenance or upgrade of devices occur in the SONiC system.
