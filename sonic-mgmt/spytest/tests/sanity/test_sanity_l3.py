@@ -8,6 +8,7 @@ import apis.system.port as papi
 import apis.system.interface as intapi
 import apis.switching.portchannel as portchannel_obj
 import apis.system.basic as basic_obj
+import apis.routing.bgp as bgpapi
 
 tg_info = dict()
 
@@ -16,7 +17,7 @@ data.my_dut_list = None
 data.local = None
 data.remote = None
 data.mask = "24"
-data.counters_threshold = 15
+data.counters_threshold = 10
 data.tgen_stats_threshold = 20
 data.tgen_rate_pps = '1000'
 data.tgen_l3_len = '500'
@@ -279,6 +280,237 @@ def test_l2_to_l3_port():
     ping_result = ipfeature.ping(dut1, data.d2t1_ip_addr)
 
     if ping_result and result_flag:
+        st.report_pass("operation_successful")
+    else:
+        st.report_fail("operation_failed")
+
+@pytest.mark.base_test_sanity
+def test_static_route_mgmt_loopback():
+    data.my_dut_list = st.get_dut_names()
+    dut1 = data.my_dut_list[0]
+    dut2 = data.my_dut_list[1]
+
+    #verify IPv4 and Ipv6 static route
+    ipv4_result = ipfeature.ping(dut1, data.d2t1_ip_addr, timeout=7)
+    if ipv4_result:
+        st.log("Ipv4 static route ping from D1 to D2 TGN succeeded")
+    else:
+        st.warn("Ipv4 static route ping from D1 to D2 TGN failed.")
+    ipv6_result = ipfeature.ping(dut1, data.d2t1_ip_addr_v6, family='ipv6', timeout=7)
+    if ipv6_result:
+        st.log("Ipv6 static route ping from D1 to D2 TGN succeeded")
+    else:
+        st.warn("Ipv6 static route ping from D1 to D2 TGN failed.")
+
+    #configure static route via MGMT
+
+    #step1 delete the present static route
+    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr, data.static_ip_list[1])
+    ipfeature.delete_static_route(dut2, data.d1d2_ip_addr, data.static_ip_list[0])
+    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[1], family='ipv6')
+    ipfeature.delete_static_route(dut2, data.d1d2_ip_addr_v6, data.static_ipv6_list[0], family='ipv6')
+
+    #step2 add static route via mgmt int
+    mgmt_dut2 = st.get_mgmt_ip(dut2)
+    ipfeature.create_static_route(dut1, mgmt_dut2, data.static_ip_list[1])
+    st.log("checking show ip routes")
+    st.show(dut1, "show ip route")
+
+    # step3 verify ping to route
+    mgmt_result = ipfeature.ping(dut1, data.d2t1_ip_addr, timeout=7)
+    if mgmt_result:
+        st.log("MGMT static route ping from D1 to D2 TGN succeeded")
+    else:
+        st.warn("MGMT static route ping from D1 to D2 TGN failed.")
+
+    #step4 remove static route via mgmt int
+    ipfeature.delete_static_route(dut1, mgmt_dut2, data.static_ip_list[1])
+
+    #configure static route to loop back
+
+    #step1 configure the loop back on d1 and d2
+    st.log("configuring loopbacks on both D1 and D2")
+    ipfeature.config_ip_addr_interface(dut1, data.loopback_d1, data.loopback_d1_addr, data.mask)
+    ipfeature.config_ip_addr_interface(dut2, data.loopback_d2, data.loopback_d2_addr, data.mask)
+    ipfeature.config_ip_addr_interface(dut1, data.loopback_d1, data.loopback_d1_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(dut2, data.loopback_d2, data.loopback_d2_addr_v6, data.mask_v6, family='ipv6')
+
+    # step2 add static route to loopback
+    ipfeature.create_static_route(dut1, data.d2d1_ip_addr, data.static_ip_list[3])
+    ipfeature.create_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[3], family='ipv6')
+    st.log("checking show ip routes")
+    st.show(dut1, "show ip route")
+
+    #step3 verify ping to route
+    lop_result = ipfeature.ping(dut1, data.loopback_d2_addr, timeout=7)
+    if lop_result:
+        st.log("Ipv4 loop back static route ping to D2 loopback from D1 succeeded")
+    else:
+        st.warn("Ipv4 loop back static route ping to D2 loopback from D1  failed.")
+    lopv6_result = ipfeature.ping(dut1, data.loopback_d2_addr_v6, family='ipv6', timeout=7)
+    if lopv6_result:
+        st.log("Ipv6 loop back static route ping to D2 loopback from D1 succeeded")
+    else:
+        st.warn("Ipv6 loop back static route ping to D2 loopback from D1 failed.")
+
+    # step4 remove static route to loopback
+    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr, data.static_ip_list[3])
+    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[3], family='ipv6')
+
+    # step5 publish result of test case
+    if ipv4_result and ipv6_result and mgmt_result and lop_result and lopv6_result:
+        st.report_pass("operation_successful")
+    else:
+        st.report_fail("operation_failed")
+    #we need loop back in next tc so it will be cleared in next bgp tc
+
+@pytest.mark.base_test_sanity
+def test_static_route_with_BGP():
+    data.my_dut_list = st.get_dut_names()
+    dut1 = data.my_dut_list[0]
+    dut2 = data.my_dut_list[1]
+
+    #configure static route with BGP
+
+    #step1 configure bgp
+    bgpapi.config_bgp(dut=dut1, router_id= data.loopback_d1_addr, local_as = data.dut1_as, neighbor = data.d2d1_ip_addr,
+                      update_src = data.d1d2_ip_addr, network = data.loopback_d1_addr, remote_as = data.dut2_as, config
+                      = "yes", config_type_list = ["neighbor", "activate", "update_src", "network"])
+
+    bgpapi.config_bgp(dut=dut2, router_id=data.loopback_d2_addr, local_as=data.dut2_as, neighbor=data.d1d2_ip_addr,
+                      update_src= data.d2d1_ip_addr, network= data.loopback_d2_addr, remote_as=data.dut1_as, config=
+                      "yes", config_type_list=["neighbor", "activate", "update_src", "network"])
+    #ipv6
+    bgpapi.config_bgp(dut=dut1, router_id=data.loopback_d1_addr_v6, local_as=data.dut1_as, neighbor=data.d2d1_ip_addr_v6,
+                      update_src=data.d1d2_ip_addr_v6, network=data.loopback_d1_addr_v6+'/'+data.mask_v6, remote_as=data.dut2_as, config
+                      ="yes", addr_family="ipv6", config_type_list=["neighbor", "activate", "update_src", "network"])
+
+    bgpapi.config_bgp(dut=dut2, router_id=data.loopback_d2_addr_v6, local_as=data.dut2_as, neighbor=data.d1d2_ip_addr_v6,
+                      update_src=data.d2d1_ip_addr_v6, network=data.loopback_d2_addr_v6+'/'+data.mask_v6, remote_as=data.dut1_as, config=
+                      "yes", addr_family="ipv6", config_type_list=["neighbor", "activate", "update_src", "network"])
+
+    st.log("checking checking ip bgp neighbor")
+    st.show(dut1, "show ip bgp neighbor")
+    result = bgpapi.verify_bgp_summary(dut1, family='ipv4', shell="vtysh", neighbor=data.d2d1_ip_addr, state='Established')
+    if not result:
+        st.warn("Ipv4 BGP didn't come up")
+    resultv6 = bgpapi.verify_bgp_summary(dut1, family='ipv6', shell="vtysh", neighbor=data.d2d1_ip_addr_v6,
+                                       state='Established')
+    if not resultv6:
+        st.warn("Ipv6 BGP didn't come up")
+
+    #step2 add static route with bgp
+    ipfeature.create_static_route(dut1, data.loopback_d2_addr, data.static_ip_list[1])
+    ipfeature.create_static_route(dut1, data.loopback_d2_addr_v6, data.static_ipv6_list[1], family='ipv6')
+    st.log("checking show ip routes")
+    st.show(dut1, "show ip route")
+
+    #step3 verify ping to route
+    bgp_result = ipfeature.ping(dut1, data.d2t1_ip_addr, timeout=7)
+    if bgp_result:
+        st.log("BGP static route ping to D2 TGN from D1 succeeded")
+    else:
+        st.warn("BGP static route ping to D2 TGN from D1 failed.")
+    bgpv6_result = ipfeature.ping(dut1, data.d2t1_ip_addr_v6, family='ipv6', timeout=7)
+    if bgpv6_result:
+        st.log("BGPv6 static route ping to D2 TGN from D1 succeeded")
+    else:
+        st.warn("BGPv6 static route ping to D2 TGN from D1 failed.")
+
+    #step4 remove static route with bgp
+    ipfeature.delete_static_route(dut1, data.loopback_d2_addr, data.static_ip_list[1])
+    ipfeature.delete_static_route(dut1, data.loopback_d2_addr_v6, data.static_ipv6_list[1], family='ipv6')
+
+    #step5 remove BGP and loopback configs
+    bgpapi.config_bgp(dut=dut1, router_id=data.loopback_d1_addr, local_as=data.dut1_as, neighbor=data.d2d1_ip_addr,
+                      update_src= data.d1d2_ip_addr, network=data.loopback_d1_addr, remote_as=data.dut2_as, config="no",
+                      config_type_list=["neighbor", "activate", "update_src", "network"])
+
+    bgpapi.config_bgp(dut=dut2, router_id=data.loopback_d2_addr, local_as=data.dut2_as, neighbor=data.d1d2_ip_addr,
+                      update_src= data.d2d1_ip_addr, network=data.loopback_d2_addr, remote_as=data.dut1_as, config="no",
+                      config_type_list=["neighbor", "activate", "update_src", "network"])
+    #ipv6
+    bgpapi.config_bgp(dut=dut1, router_id=data.loopback_d1_addr_v6, local_as=data.dut1_as, neighbor=data.d2d1_ip_addr_v6,
+                      update_src=data.d1d2_ip_addr_v6, network= data.loopback_d1_addr_v6+'/'+data.mask_v6, remote_as=
+                      data.dut2_as, config="no", addr_family="ipv6", config_type_list=["neighbor", "activate", "update_src", "network"])
+
+    bgpapi.config_bgp(dut=dut2, router_id=data.loopback_d2_addr_v6, local_as=data.dut2_as, neighbor=data.d1d2_ip_addr_v6,
+                      update_src=data.d2d1_ip_addr_v6, network=data.loopback_d2_addr_v6+'/'+data.mask_v6, remote_as=
+                      data.dut1_as, config="no", addr_family="ipv6", config_type_list=["neighbor", "activate", "update_src", "network"])
+
+    ipfeature.delete_ip_interface(dut1, data.loopback_d1, data.loopback_d1_addr, data.mask)
+    ipfeature.delete_ip_interface(dut2, data.loopback_d2, data.loopback_d2_addr, data.mask)
+    ipfeature.delete_ip_interface(dut1, data.loopback_d1, data.loopback_d1_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.delete_ip_interface(dut2, data.loopback_d2, data.loopback_d2_addr_v6, data.mask_v6, family='ipv6')
+
+    #step6 publish results
+    if result and resultv6 and bgp_result and bgpv6_result:
+        st.report_pass("operation_successful")
+    else:
+        st.report_fail("operation_failed")
+
+@pytest.mark.base_test_sanity
+def test_static_route_with_portchannel():
+    data.my_dut_list = st.get_dut_names()
+    dut1 = data.my_dut_list[0]
+    dut2 = data.my_dut_list[1]
+
+    #configure static route with port channel
+
+    #step1 remove ip from b2b interfce which will be used for portchannel
+    ipfeature.delete_ip_interface(dut1, vars.D1D2P1, data.d1d2_ip_addr, data.mask)
+    ipfeature.delete_ip_interface(dut1, vars.D1D2P1, data.d1d2_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.delete_ip_interface(dut2, vars.D2D1P1, data.d2d1_ip_addr, data.mask)
+    ipfeature.delete_ip_interface(dut2, vars.D2D1P1, data.d2d1_ip_addr_v6, data.mask_v6, family='ipv6')
+
+    #step2 create port channel
+    portchannel_obj.create_portchannel(dut1, data.port_channel)
+    portchannel_obj.create_portchannel(dut2, data.port_channel)
+
+    #step3 add member to port channel
+    portchannel_obj.add_portchannel_member(dut1, data.port_channel, vars.D1D2P1)
+    portchannel_obj.add_portchannel_member(dut2, data.port_channel, vars.D2D1P1)
+
+    #step4 add ip to port channel
+    ipfeature.config_ip_addr_interface(dut1, data.port_channel, data.d1d2_ip_addr, data.mask)
+    ipfeature.config_ip_addr_interface(dut2, data.port_channel, data.d2d1_ip_addr, data.mask)
+    ipfeature.config_ip_addr_interface(dut1, data.port_channel, data.d1d2_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(dut2, data.port_channel, data.d2d1_ip_addr_v6, data.mask_v6, family='ipv6')
+
+    if not portchannel_obj.verify_portchannel_state(dut1, data.port_channel, state="up"):
+        st.warn("port channel is in down state")
+
+    #step5 add static route via port channel
+    ipfeature.create_static_route(dut1, data.d2d1_ip_addr, data.static_ip_list[1])
+    ipfeature.create_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[1])
+    st.log("checking show ip routes")
+    st.show(dut1, "show ip route")
+
+    # step6 verify ping to route
+    poc_result = ipfeature.ping(dut1, data.d2t1_ip_addr, timeout=7)
+    if poc_result:
+        st.log("port channel static route ping to D2 TGN from D1 succeeded")
+    else:
+        st.warn("port channel static route ping to D2 TGN from D1 failed.")
+    pocv6_result = ipfeature.ping(dut1, data.d2t1_ip_addr_v6, family='ipv6', timeout=7)
+    if pocv6_result:
+        st.log("port channel v6 static route ping to D2 TGN from D1 succeeded")
+    else:
+        st.warn("port channel v6 static route ping to D2 TGN from D1 failed.")
+
+    #step7 revert back the configs done for port channel
+    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr, data.static_ip_list[1])
+    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[1])
+    portchannel_obj.delete_portchannel(dut1, data.port_channel)
+    portchannel_obj.delete_portchannel(dut2, data.port_channel)
+
+    ipfeature.config_ip_addr_interface(dut1, vars.D1D2P1, data.d1d2_ip_addr, data.mask)
+    ipfeature.config_ip_addr_interface(dut1, vars.D1D2P1, data.d1d2_ip_addr_v6, data.mask_v6, family='ipv6')
+    ipfeature.config_ip_addr_interface(dut2, vars.D2D1P1, data.d2d1_ip_addr, data.mask)
+    ipfeature.config_ip_addr_interface(dut2, vars.D2D1P1, data.d2d1_ip_addr_v6, data.mask_v6, family='ipv6')
+
+    #step8 publish result of test case
+    if poc_result and pocv6_result:
         st.report_pass("operation_successful")
     else:
         st.report_fail("operation_failed")
