@@ -1,12 +1,8 @@
 import pytest
 import logging
-import json
-import time
 import ipaddr as ipaddress
 from bgp_helpers import parse_rib, verify_all_routes_announce_to_bgpmon 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_tcp_connection
-from jinja2 import Template
 import re
 
 pytestmark = [
