@@ -137,7 +137,7 @@ stages:
               exit 2
           fi
         displayName: "Run continuous warmboot tests"
-        continueOnError: true
+        continueOnError: ErrorAndStop
 
       - publish: $(Build.ArtifactStagingDirectory)/logs/continous_reboot_*
         artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
@@ -149,6 +149,7 @@ stages:
       artifact: sonic-buildimage.kvmtest.memdump@$(System.JobAttempt)
       displayName: "Archive sonic kvm memdump"
       condition: failed()
+      dependsOn: ['kvmWarmbootTest']
 
     - task: PublishTestResults@2
       inputs:
