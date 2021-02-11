@@ -149,7 +149,6 @@ stages:
       artifact: sonic-buildimage.kvmtest.memdump@$(System.JobAttempt)
       displayName: "Archive sonic kvm memdump"
       condition: failed()
-      dependsOn: ['kvmWarmbootTest']
 
     - task: PublishTestResults@2
       inputs:
