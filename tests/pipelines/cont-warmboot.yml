@@ -87,12 +87,6 @@ stages:
               CONTINUOUS_REBOOT_COUNT=1
               CONTINUOUS_REBOOT_DELAY=300
 
-              # EXTRA_ARGS="\'--image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST --reboot_type=warm --continuous_reboot_count=1 --continuous_reboot_delay=300\'"
-              # CMD="cd /data/sonic-mgmt/tests/ ; /data/sonic-mgmt/tests/run_tests.sh \
-              # -n $(tbname) -d $(dut) -c /data/sonic-mgmt/tests/platform_tests/test_cont_warm_reboot.py \
-              # -f /data/sonic-mgmt/ansible/vtestbed.csv -i /data/sonic-mgmt/ansible/veos_vtb -l info \
-              # -e $EXTRA_ARGS"
-
               CMD="cd /data/sonic-mgmt/tests/ ; \
               export ANSIBLE_CONFIG=/data/sonic-mgmt/ansible ANSIBLE_LIBRARY=/data/sonic-mgmt/ansible/library/; \
               pytest platform_tests/test_cont_warm_reboot.py \
@@ -114,41 +108,37 @@ stages:
               if [ "${PIPESTATUS[0]}" -ne "0" ]; then
                   # fail and stop all the remaining batches if pytest fails
                   echo "Batch iteration ${iteration}+ failed"
-                  #docker exec sonic-mgmt bash -c "$LOG_CMD"
+                  docker exec sonic-mgmt bash -c "$LOG_CMD"
                   echo "##vso[task.setvariable variable=continue]false"
-                  # exit 2
+
+                  # save dut state if test fails
+                  virsh_version=$(virsh --version)
+                  if [ $virsh_version == "6.0.0" ]; then
+                      mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
+                      virsh -c qemu:///system list
+                      virsh -c qemu:///system save $(dut) $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).memdmp
+                      virsh -c qemu:///system dumpxml $(dut) > $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).xml
+                      img=$(virsh -c qemu:///system domblklist $(dut) | grep vda | awk '{print $2}')
+                      cp $img $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).img
+                      virsh -c qemu:///system undefine $(dut)
+                  fi
+                  docker commit $(ptf_name) docker-ptf:$(Build.BuildNumber)
+                  docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
+                  docker rmi docker-ptf:$(Build.BuildNumber)
               fi
-              #docker exec sonic-mgmt bash -c "$LOG_CMD"
+              docker exec sonic-mgmt bash -c "$LOG_CMD"
+              cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
+              sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
               # sleep 60
               sleep 2
               echo "================ iteration ${iteration} completed==================="
-
-              # save dut state if test fails
-              cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
-              sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
-              if [ $? != 0 ]; then
-                  # virsh_version=$(virsh --version)
-                  # if [ $virsh_version == "6.0.0" ]; then
-                  #     mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
-                  #     virsh -c qemu:///system list
-                  #     virsh -c qemu:///system save $(dut) $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).memdmp
-                  #     virsh -c qemu:///system dumpxml $(dut) > $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).xml
-                  #     img=$(virsh -c qemu:///system domblklist $(dut) | grep vda | awk '{print $2}')
-                  #     cp $img $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).img
-                  #     virsh -c qemu:///system undefine $(dut)
-                  # fi
-                  # docker commit $(ptf_name) docker-ptf:$(Build.BuildNumber)
-                  # docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
-                  # docker rmi docker-ptf:$(Build.BuildNumber)
-                  exit 2
-              fi
           else
-              echo "Skipping the remaining tests"
+              echo "Test execution failure caused skipping of remaining tests"
           fi
         displayName: "Run continuous warmboot tests"
         continueOnError: true
 
-      - publish: $(Build.ArtifactStagingDirectory)/logs
+      - publish: $(Build.ArtifactStagingDirectory)/logs/continous_reboot_*
         artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
         displayName: "Archive sonic kvm logs"
         condition: succeededOrFailed()
