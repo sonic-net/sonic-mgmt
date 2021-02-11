@@ -98,12 +98,12 @@ stages:
                     --image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST \
                     --reboot_type=warm --skip_sanity"
 
-              LOG_CMD="mkdir -p /data/sonic-mgmt/tests/logs ; mv /data/sonic-mgmt/tests/continous_reboot_* /data/sonic-mgmt/tests/logs/ || true"
+              LOG_CMD="mkdir -p /data/sonic-mgmt/tests/logs/continuous_warm_reboot/ ; mv /data/sonic-mgmt/tests/continous_reboot_* /data/sonic-mgmt/tests/logs/continuous_warm_reboot/ || true"
               echo "Continuous warm reboot test command: $CMD"
               iteration=${{ iter }}
               echo "================ iteration ${iteration} started==================="
               echo $iteration
-              docker exec sonic-mgmt bash -c "rm -rf /data/sonic-mgmt/tests/continous_reboot_* || true"
+              docker exec sonic-mgmt bash -c "rm -rf /data/sonic-mgmt/tests/logs/continuous_warm_reboot || true"
               docker exec sonic-mgmt bash -c "$CMD"
 
               if [ "${PIPESTATUS[0]}" -ne "0" ]; then
@@ -137,7 +137,7 @@ stages:
         displayName: "Run continuous warmboot tests"
         continueOnError: false
 
-      - publish: $(Build.ArtifactStagingDirectory)/logs
+      - publish: $(Build.ArtifactStagingDirectory)/logs/continuous_warm_reboot
         artifact: sonic-buildimage.kvmtest.log@${{ iter }}
         displayName: "Archive sonic kvm logs"
         continueOnError: true
