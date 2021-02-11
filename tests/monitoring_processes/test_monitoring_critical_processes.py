@@ -508,7 +508,7 @@ def restore_containers_autorestart(duthost, containers_autorestart_states):
     Returns:
         None.
     """
-    for container_name, state in containers_in_namespaces.items():
+    for container_name, state in containers_autorestart_states.items():
         logger.info("Enabling the autorestart of container '{}'...".format(container_name))
         command_output = duthost.shell("sudo config feature autorestart {} {}".format(container_name, state))
         exit_code = command_output["rc"]
