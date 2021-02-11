@@ -32,7 +32,22 @@ def run_pfcwd_runtime_traffic_test(api,
                                    dut_port,
                                    prio_list,
                                    prio_dscp_map):
+    """
+    Test PFC watchdog's impact on runtime traffic
 
+    Args:
+        api (obj): IXIA session
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        fanout_data (dict): the dictionary returned by fanout_graph_fact.
+        duthost (Ansible host instance): device under test
+        dut_port (str): DUT port to test
+        prio_list (list): priorities of data flows
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        N/A
+    """
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
     stop_pfcwd(duthost)
@@ -83,7 +98,22 @@ def __gen_traffic(testbed_config,
                   data_pkt_size,
                   prio_list,
                   prio_dscp_map):
+    """
+    Generate configurations of flows
 
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        port_id (int): ID of DUT port to test.
+        data_flow_name (str): data flow name
+        data_flow_dur_sec (int): duration of data flows in second
+        data_pkt_size (int): size of data packets in byte
+        prio_list (list): priorities of data flows
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        flows configurations (list): the list should have configurations of
+        len(prio_list) data flows
+    """
     rx_port_id = port_id
     tx_port_id = (port_id + 1) % len(testbed_config.devices)
 
@@ -118,6 +148,21 @@ def __gen_traffic(testbed_config,
     return result
 
 def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, exp_dur_sec):
+    """
+    Start traffic at time 0 and enable PFC watchdog at pfcwd_start_delay_sec
+
+    Args:
+        api (obj): IXIA session
+        config (obj): experiment config (testbed config + flow config)
+        duthost (Ansible host instance): device under test
+        all_flow_names (list): list of names of all the flows
+        pfcwd_start_delay_sec (int): PFC watchdog start delay in second
+        exp_dur_sec (int): experiment duration in second
+
+    Returns:
+        per-flow statistics (list)
+    """
+
     api.set_state(State(ConfigState(config=config, state='set')))
     api.set_state(State(FlowTransmitState(state='start')))
 
@@ -147,6 +192,19 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
     return rows
 
 def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, tolerance):
+    """
+    Verify if we get expected experiment results
+
+    Args:
+        rows (list): per-flow statistics
+        speed_gbps (int): link speed in Gbps
+        data_flow_dur_sec (int): duration of data flows in second
+        data_pkt_size (int): size of data packets in byte
+        tolerance (float): maximum allowable deviation
+
+    Returns:
+        N/A
+    """
     data_flow_rate_percent = int(100 / len(rows))
 
     for row in rows:

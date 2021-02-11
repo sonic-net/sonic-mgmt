@@ -18,7 +18,23 @@ def test_pfcwd_runtime_traffic(ixia_api,
                                rand_one_dut_portname_oper_up,
                                all_prio_list,
                                prio_dscp_map):
+    """
+    Test PFC watchdog's impact on runtime traffic
 
+    Args:
+        ixia_api (pytest fixture): IXIA session
+        ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+        duthosts (pytest fixture): list of DUTs
+        rand_one_dut_hostname (str): hostname of DUT
+        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
+        all_prio_list (pytest fixture): list of all the priorities
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+
+    Returns:
+        N/A
+    """
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
