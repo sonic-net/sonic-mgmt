@@ -177,7 +177,11 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     vlan_intfs = duthost.get_vlan_intfs()
+    vlan_table = duthost.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = vlan_table[vlan_name]['mac']
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
+    icmp_responder_args += " " + "-m {}".format(vlan_mac)
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
         dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
