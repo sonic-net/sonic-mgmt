@@ -138,7 +138,7 @@ stages:
         continueOnError: false
 
       - publish: $(Build.ArtifactStagingDirectory)/logs/
-        artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
+        artifact: sonic-buildimage.kvmtest.log@${{ iter }}
         displayName: "Archive sonic kvm logs"
         continueOnError: true
 
