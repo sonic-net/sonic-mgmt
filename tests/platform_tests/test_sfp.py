@@ -87,6 +87,8 @@ def test_check_sfp_status_and_configure_sfp(duthosts, enum_rand_one_per_hwsku_fr
         dev_conn = {k:v for k, v in portmap.items() if k in conn_graph_facts["device_conn"][duthost.hostname]}
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, dev_conn))
 
+    cmd_sfpshow_presence = "sudo sfpshow presence"
+    cmd_sfpshow_eeprom = "sudo sfpshow eeprom"
     cmd_sfp_presence = "sudo sfputil show presence"
     cmd_sfp_eeprom = "sudo sfputil show eeprom"
     cmd_sfp_reset = "sudo sfputil reset"
@@ -122,6 +124,20 @@ def test_check_sfp_status_and_configure_sfp(duthosts, enum_rand_one_per_hwsku_fr
     parsed_eeprom = parse_eeprom(xcvr_eeprom["stdout_lines"])
     for intf in dev_conn:
         assert intf in parsed_eeprom, "Interface is not in output of '%s'" % cmd_xcvr_eeprom
+        assert parsed_eeprom[intf] == "SFP EEPROM detected"
+
+    logging.info("Check output of '%s'" % cmd_sfpshow_presence)
+    sfp_presence = duthost.command(cmd_sfpshow_presence)
+    parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
+    for intf in dev_conn:
+        assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfpshow_presence
+        assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+
+    logging.info("Check output of '%s'" % cmd_sfpshow_eeprom)
+    sfp_eeprom = duthost.command(cmd_sfpshow_eeprom)
+    parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
+    for intf in dev_conn:
+        assert intf in parsed_eeprom, "Interface is not in output of 'sfpshow eeprom'"
         assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
     logging.info("Test '%s <interface name>'" % cmd_sfp_reset)
