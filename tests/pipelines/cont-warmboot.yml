@@ -82,7 +82,7 @@ stages:
               IMAGE_LOCATION="https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image-202012/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz"
               IMAGE_LIST="current"
               CONTINUOUS_REBOOT_COUNT=1
-              CONTINUOUS_REBOOT_DELAY=300
+              CONTINUOUS_REBOOT_DELAY=600
 
               CMD="cd /data/sonic-mgmt/tests/ ; \
               export ANSIBLE_CONFIG=/data/sonic-mgmt/ansible ANSIBLE_LIBRARY=/data/sonic-mgmt/ansible/library/; \
