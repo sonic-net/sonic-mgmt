@@ -24,7 +24,7 @@ resources:
 parameters:
 - name: iterations 
   type: object
-  default: [1,2,3,4] 
+  default: [1,2] 
 
 stages:
 - stage: Test
@@ -71,7 +71,7 @@ stages:
         git reset --hard origin/master
         sed -i s/use_own_value/${username}/ ansible/veos_vtb
         echo aaa > ansible/password.txt
-        # docker exec sonic-mgmt bash -c "pushd /data/sonic-mgmt/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg $(tbname) lab password.txt" && sleep 180
+        docker exec sonic-mgmt bash -c "pushd /data/sonic-mgmt/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg $(tbname) lab password.txt" && sleep 180
       displayName: "Setup T0 testbed"
 
     - ${{ each iter in parameters.iterations }}:
@@ -111,26 +111,24 @@ stages:
                   docker exec sonic-mgmt bash -c "$LOG_CMD"
                   echo "##vso[task.setvariable variable=continue]false"
 
-                  # # save dut state if test fails
-                  # virsh_version=$(virsh --version)
-                  # if [ $virsh_version == "6.0.0" ]; then
-                  #     mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
-                  #     virsh -c qemu:///system list
-                  #     virsh -c qemu:///system save $(dut) $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).memdmp
-                  #     virsh -c qemu:///system dumpxml $(dut) > $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).xml
-                  #     img=$(virsh -c qemu:///system domblklist $(dut) | grep vda | awk '{print $2}')
-                  #     cp $img $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).img
-                  #     virsh -c qemu:///system undefine $(dut)
-                  # fi
-                  # docker commit $(ptf_name) docker-ptf:$(Build.BuildNumber)
-                  # docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
-                  # docker rmi docker-ptf:$(Build.BuildNumber)
+                  # save dut state if test fails
+                  virsh_version=$(virsh --version)
+                  if [ $virsh_version == "6.0.0" ]; then
+                      mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
+                      virsh -c qemu:///system list
+                      virsh -c qemu:///system save $(dut) $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).memdmp
+                      virsh -c qemu:///system dumpxml $(dut) > $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).xml
+                      img=$(virsh -c qemu:///system domblklist $(dut) | grep vda | awk '{print $2}')
+                      cp $img $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).img
+                      virsh -c qemu:///system undefine $(dut)
+                  fi
+                  docker commit $(ptf_name) docker-ptf:$(Build.BuildNumber)
+                  docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
+                  docker rmi docker-ptf:$(Build.BuildNumber)
               fi
               docker exec sonic-mgmt bash -c "$LOG_CMD"
               cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
               sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
-              # sleep 60
-              sleep 2
               echo "================ iteration ${iteration} completed==================="
           else
               echo "Test execution failure caused skipping of remaining tests"
