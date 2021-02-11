@@ -77,7 +77,7 @@ stages:
     - ${{ each iter in parameters.iterations }}:
       - script: |
           echo " Continue running test: $(continue)" # outputs secondValue
-          if [ $(continue) == true]; then
+          if $(continue); then
               pwd
               username=$(id -un)
               rm -rf $(Build.ArtifactStagingDirectory)/*
