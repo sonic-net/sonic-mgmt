@@ -138,7 +138,12 @@ class TestBGPRrTraffic():
         if int(rib_entries) < 100:
             st.error('iBGP Routes are not advertised to route-reflector-client')
             tc_fail_flag = 1
-
+            
+        src_handle = 'handle'
+        dst_handle = 'handles'
+        if tg_ob.tg_type == 'ixia':
+            src_handle = 'ipv6_handle'
+            dst_handle = 'handle'
         st.log("Initiating the Ipv4 traffic for those Routes from another Leaf Router")
         tr1 = tg_ob.tg_traffic_config(port_handle=topo['T1{}P1_ipv4_tg_ph'.format(TG_D2)],
                                       emulation_src_handle=topo['T1{}P1_ipv4_tg_ih'.format(TG_D2)][src_handle],
@@ -206,6 +211,11 @@ class TestBGPRrTraffic():
             st.error('iBGP Routes are not advertised to route-reflector-client')
             tc_fail_flag = 1
 
+        src_handle = 'handle'
+        dst_handle = 'handles'
+        if tg_ob.tg_type == 'ixia':
+            src_handle = 'ipv6_handle'
+            dst_handle = 'handle'
         st.log("Initiating the Ipv6 traffic for those Routes from another Leaf Router")
         tr1 = tg_ob.tg_traffic_config(port_handle=topo['T1{}P1_ipv6_tg_ph'.format(TG_D2)],
                                       emulation_src_handle=topo['T1{}P1_ipv6_tg_ih'.format(TG_D2)][src_handle],

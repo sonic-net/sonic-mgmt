@@ -1428,6 +1428,8 @@ def get_number_of_lines_in_file(connection_obj, file_path, device="server"):
                 return int(match.group(0))
     return line_number
 
+def is_vsonic_device(dut):
+    return st.is_vsonic(dut)
 
 def get_config_profiles(dut):
     """
