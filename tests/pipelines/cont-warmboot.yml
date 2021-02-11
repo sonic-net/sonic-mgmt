@@ -6,10 +6,7 @@
 
 # https://aka.ms/yaml
 
-
-
 pr:
-
 - master
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
@@ -47,7 +44,7 @@ stages:
   jobs:
   - job: kvmWarmbootTest
     displayName: "kvmtest"
-    #timeoutInMinutes: 240
+    timeoutInMinutes: 720
     steps:
     - task: DownloadPipelineArtifact@2
 
