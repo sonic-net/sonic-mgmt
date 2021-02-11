@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import pytest
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
@@ -21,7 +22,7 @@ Test functions wishing to apply the full mock config must use the following fixt
     - apply_active_state_to_orchagent OR apply_standby_state_to_orchagent
 '''
 
-def _copy_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'):
+def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'):
     '''
     Applies a given configuration string to the SWSS container
 
@@ -31,7 +32,7 @@ def _copy_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file')
         swss_filename: The filename to use for copying the config file around (default='swss_config_file')
     '''
 
-    dut_filename = '/tmp{}'.format(swss_filename)
+    dut_filename = os.path.join('/tmp',swss_filename)
 
     dut.shell('echo "{}" > {}'.format(swss_config_str, dut_filename))
     dut.shell('docker cp {} swss:{}'.format(dut_filename, swss_filename))
@@ -78,7 +79,7 @@ def _apply_dual_tor_state_to_orchagent(dut, state):
     swss_config_str = json.dumps(intf_configs, indent=4)
     logger.debug('SWSS config string is {}'.format(swss_config_str))
     swss_filename = '/mux{}.json'.format(state)
-    _copy_config_to_swss(dut, swss_config_str, swss_filename)
+    _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
     yield
     logger.info("Removing {} state from orchagent".format(state))
@@ -88,7 +89,7 @@ def _apply_dual_tor_state_to_orchagent(dut, state):
 
     swss_config_str = json.dumps(intf_configs, indent=4)
     swss_filename = '/mux{}.json'.format(state)
-    _copy_config_to_swss(dut, swss_config_str, swss_filename)
+    _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
 
 @pytest.fixture(scope='module')
@@ -190,18 +191,12 @@ def apply_dual_tor_neigh_entries(duthosts, rand_one_dut_hostname, ptfadapter, tb
     vlan = list(vlan_interface.keys())[0]
 
     for ip, mac in server_ip_to_mac_map.items():
-
-        try:
-            dut.shell('ip -4 neigh add {} lladdr {} dev {}'.format(ip, mac, vlan))
-        except RunAnsibleModuleFail as e:
-            stderr = e.results['stderr']
-            if 'file exists' in stderr.lower():
-                logger.warning("Neighbor entry for {} already present, removing and re-adding".format(ip))
-                # If an entry for this IP already exists, delete and re-add to make sure all info is correct
-                dut.shell('ip -4 neigh del {} dev {}'.format(ip, vlan))
-                dut.shell('ip -4 neigh add {} lladdr {} dev {}'.format(ip, mac, vlan))
+        # Use `ip neigh replace` in case entries already exist for the target IP
+        # If there are no pre-existing entries, equivalent to `ip neigh add`
+        dut.shell('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
 
     yield
+
     logger.info("Removing dual ToR neighbor entries")
 
     for ip in server_ip_to_mac_map.keys():
@@ -229,17 +224,12 @@ def apply_dual_tor_peer_switch_route(duthosts, rand_one_dut_hostname, mock_peer_
     for neighbor in ipv4_neighbors:
         nexthop_str += 'nexthop via {} '.format(neighbor)
 
-    try:
-        dut.shell('ip route add {} {}'.format(mock_peer_switch_loopback_ip, nexthop_str))
-    except RunAnsibleModuleFail as e:
-        stderr = e.results['stderr']
-        if 'file exists' in stderr.lower():
-            logger.warning("Route for {} already present, removing and re-adding".format(mock_peer_switch_loopback_ip))
-            # If this route already exists, delete and re-add to make sure all info is correct
-            dut.shell('ip route del {}'.format(mock_peer_switch_loopback_ip))
-            dut.shell('ip route add {} {}'.format(mock_peer_switch_loopback_ip, nexthop_str))
+    # Use `ip route replace` in case a rule already exists for this IP
+    # If there are no pre-existing routes, equivalent to `ip route add`
+    dut.shell('ip route replace {} {}'.format(mock_peer_switch_loopback_ip, nexthop_str))
 
     yield
+
     logger.info("Removing dual ToR peer switch loopback route")
 
     dut.shell('ip route del {}'.format(mock_peer_switch_loopback_ip))
