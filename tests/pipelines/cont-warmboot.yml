@@ -24,7 +24,7 @@ resources:
 parameters:
 - name: iterations 
   type: object
-  default: [1] 
+  default: [1,2] 
 
 stages:
 - stage: Test
@@ -103,6 +103,7 @@ stages:
               iteration=${{ iter }}
               echo "================ iteration ${iteration} started==================="
               echo $iteration
+              docker exec sonic-mgmt bash -c "rm -rf /data/sonic-mgmt/tests/continous_reboot_* || true"
               docker exec sonic-mgmt bash -c "$CMD"
 
               if [ "${PIPESTATUS[0]}" -ne "0" ]; then
