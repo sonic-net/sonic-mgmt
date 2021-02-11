@@ -120,7 +120,7 @@ def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_
 
         # Delete untagged vlans from interfaces to avoid error message
         # when adding untagged vlan to interface that already have one
-        if 'master' in duthost.os_version or '202012' in duthost.os_version:
+        if '201911' not in duthost.os_version:
             logger.info("Delete untagged vlans from interfaces")
             for vlan_port in vlan_ports_list:
                 vlan_members = cfg_facts.get('VLAN_MEMBER', {})
