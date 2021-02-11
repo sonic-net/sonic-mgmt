@@ -137,7 +137,7 @@ stages:
               exit 2
           fi
         displayName: "Run continuous warmboot tests"
-        continueOnError: ErrorAndStop
+        continueOnError: false
 
       - publish: $(Build.ArtifactStagingDirectory)/logs/continous_reboot_*
         artifact: sonic-buildimage.kvmtest.log@$(System.JobAttempt)
