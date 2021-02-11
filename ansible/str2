@@ -51,6 +51,8 @@ all:
           ansible_host: 10.64.246.145
         vms21-2:
           ansible_host: 10.64.246.146
+        vms21-3:
+          ansible_host: 10.64.246.147
     pdu:
       hosts:
         pdu-96:
@@ -155,6 +157,8 @@ fanout:
       ansible_host: 10.3.147.14
     str2-7260cx3-acs-fan-14:
       ansible_host: 10.3.146.142
+    str2-7260cx3-acs-fan-16:
+      ansible_host: 10.3.146.125
     str2-7260cx3-02:
       ansible_host: 10.3.146.79
     str2-7260cx3-64-19:
@@ -269,6 +273,14 @@ sonic_arista:
       pdu_host: pdu-119
     str2-7050cx3-acs-09:
       ansible_host: 10.3.147.20
+      hwsku: Arista-7050CX3-32S-D48C8
+      pdu_host: pdu-119
+    str2-7050cx3-acs-10:
+      ansible_host: 10.3.146.122
+      hwsku: Arista-7050CX3-32S-D48C8
+      pdu_host: pdu-119
+    str2-7050cx3-acs-11:
+      ansible_host: 10.3.146.127
       hwsku: Arista-7050CX3-32S-D48C8
       pdu_host: pdu-119
     str2-7060-spy-1:
