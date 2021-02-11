@@ -14,6 +14,13 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+
+def test_cleanup_cache():
+    folder = '_cache'
+    if os.path.exists(folder):
+        os.system('rm -rf {}'.format(folder))
+
+
 def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
     duthost = duthosts[enum_dut_hostname]
     deep_clean = request.config.getoption("--deep_clean")
