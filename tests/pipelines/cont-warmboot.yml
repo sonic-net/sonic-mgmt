@@ -24,7 +24,7 @@ resources:
 parameters:
 - name: iterations 
   type: object
-  default: [1,2] 
+  default: [1] 
 
 stages:
 - stage: Test
@@ -137,7 +137,7 @@ stages:
         displayName: "Run continuous warmboot tests"
         continueOnError: false
 
-      - publish: $(Build.ArtifactStagingDirectory)/logs/
+      - publish: $(Build.ArtifactStagingDirectory)/logs/continous_*
         artifact: sonic-buildimage.kvmtest.log@${{ iter }}
         displayName: "Archive sonic kvm logs"
         continueOnError: true
