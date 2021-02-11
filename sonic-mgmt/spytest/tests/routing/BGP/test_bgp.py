@@ -150,7 +150,7 @@ class TestBGPCommon:
                                       emulation_dst_handle=bgp_route['handle'], circuit_endpoint_type='ipv4',
                                       mode='create',
                                       transmit_mode='single_burst', pkts_per_burst='2000', length_mode='fixed',
-                                      rate_pps=1000)
+                                      rate_pps=10000)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
         tg_ob.tg_traffic_control(action='stop', port_handle=topo['T1{}P1_ipv4_tg_ph'.format(TG_D2)])
