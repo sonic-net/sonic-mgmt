@@ -18,6 +18,8 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+CONTAINER_CHECK_INTERVAL_SECS = 1
+CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
