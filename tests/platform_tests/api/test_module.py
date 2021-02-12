@@ -430,26 +430,3 @@ class TestModuleApi(PlatformApiTestBase):
                 mod_status = module.get_oper_status(platform_api_conn, mod_idx)
                 self.expect(mod_status == "Online", "module {} boot up successful".format(mod_idx))
             self.assert_expectations()
-
-    def set_admin_state(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-        if duthost.is_supervisor_node():
-            for mod_idx in range(self.num_modules):
-                mod_type =  module.get_type(platform_api_conn, mod_idx)
-                if mod_type in ['SUPERVISOR']:
-                    logger.info("Not applicable to module id {} of type {}". format(mod_idx, mod_type))
-                else:
-                    mod_name = module.get_name(platform_api_conn, mod_idx)
-                    if mod_name in self.skip_mod_list:
-                        pytest.skip("skipping reboot for module {} ".format(mod_name))
-                        # change state to down for module expect True if admin state change successful
-                        change_admin_state = module.set_admin_state(platform_api_conn, mod_idx, False)
-                        self.expect(change_admin_state == True,
-                                    "failed change admin state to down for module id {}".format(mod_idx))
-
-                        # change back state to what it was when test began
-                        change_admin_state = module.set_admin_state(platform_api_conn, mod_idx, True)
-                        self.expect(change_admin_state == True,
-                                    "failed to restore admin state for module id {}".format(mod_idx))
-                self.assert_expectations()

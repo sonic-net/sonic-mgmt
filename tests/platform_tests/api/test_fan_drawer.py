@@ -58,7 +58,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
         expected_value = None
 
         if duthost.facts.get("chassis"):
-            expected_fan_drawers =duthost.facts.get("chassis").get("fan_drawers")
+            expected_fan_drawers = duthost.facts.get("chassis").get("fan_drawers")
             if expected_fan_drawers:
                 expected_value = expected_fan_drawers[fan_drawer_idx].get(key)
                 if key == "num_fans" and not expected_value:

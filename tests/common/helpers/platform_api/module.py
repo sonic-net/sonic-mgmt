@@ -161,5 +161,3 @@ def reboot(conn, mod_idx, reboot_type):
     return module_api(conn, mod_idx, 'reboot', [reboot_type])
 
 
-def set_admin_state(conn, mod_idx, new_state):
-    return module_api(conn, mod_idx, [new_state])
