@@ -12,6 +12,7 @@ from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.dut_utils import clear_failed_flag_and_restart
 from tests.common.helpers.dut_utils import is_hitting_start_limit
 from tests.common.helpers.dut_utils import is_container_running
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -176,37 +177,23 @@ def stop_containers(duthost, container_autorestart_states, skip_containers):
     return stopped_container_list
 
 
-def check_alerting_message(duthost, stopped_container_list):
-    """Checks whether names of the stopped containers appear in Monit alerting message.
+def get_expected_alerting_messages(stopped_container_list):
+    """Generates the expected alerting messages from the stopped containers.
 
     Args:
-        duthost: Host DUT.
         stopped_container_list: A list contains container names.
 
     Return:
-        None.
+        A list contains the expected alerting messages.
     """
-    logger.info("Checking the alerting message...")
-    alerting_messages = duthost.shell("sudo cat /var/log/syslog | grep '.*monit.*container_checker'",
-                                      module_ignore_errors=True)
-
-    pytest_assert(len(alerting_messages["stdout_lines"]) > 0,
-                  "Failed to get Monit alerting messages from container_checker!")
-
-    expected_alerting_message = ""
-    for message in alerting_messages["stdout_lines"]:
-        if "Expected containers not running" in message:
-            expected_alerting_message = message
-            break
-    pytest_assert(expected_alerting_message,
-                  "Failed to get expected Monit alerting message from container_checker!")
+    logger.info("Generating the expected alerting messages...")
+    expected_alerting_messages = []
 
     for container_name in stopped_container_list:
-        if container_name not in expected_alerting_message:
-            pytest.fail("Container '{}' was not running, but its name was not found in Monit alerting message!"
-                        .format(container_name))
+        expected_alerting_messages.append(".*Expected containers not running.*{}.*".format(container_name))
 
-    logger.info("Checking the alerting message was done!")
+    logger.info("Generating the expected alerting messages was done!")
+    return expected_alerting_messages
 
 
 def check_containers_status(duthost, stopped_container_list):
@@ -258,6 +245,9 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
         None.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker")
+    loganalyzer.load_common_config()
+
     container_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -272,11 +262,17 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     stopped_container_list = stop_containers(duthost, container_autorestart_states, skip_containers)
     pytest_assert(len(stopped_container_list) > 0, "None of containers was stopped!")
 
+    expected_alerting_messages = get_expected_alerting_messages(stopped_container_list)
+    loganalyzer.expect_regex.extend(expected_alerting_messages)
+    marker = loganalyzer.init()
+
     # Wait for 2 minutes such that Monit has a chance to write alerting message into syslog.
     logger.info("Sleep 2 minutes to wait for the alerting message...")
     time.sleep(130)
 
-    check_alerting_message(duthost, stopped_container_list)
+    logger.info("Checking the alerting messages from syslog...")
+    loganalyzer.analyze(marker)
+    logger.info("Checking the alerting messages from syslog was done!")
 
     logger.info("Executing the config reload...")
     config_reload(duthost)
