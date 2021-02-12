@@ -252,7 +252,6 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -439,7 +438,7 @@ class TestModuleApi(PlatformApiTestBase):
             for mod_idx in range(self.num_modules):
                 mod_type =  module.get_type(platform_api_conn, mod_idx)
                 if mod_type in ['SUPERVISOR']:
-                    logger.info("Not applicable to module id {} of type {}". format(mod_idx,))
+                    logger.info("Not applicable to module id {} of type {}". format(mod_idx, mod_type))
                 else:
                     mod_name = module.get_name(platform_api_conn, mod_idx)
                     if mod_name in self.skip_mod_list:
