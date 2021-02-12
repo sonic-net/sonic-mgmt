@@ -90,6 +90,8 @@ def get_all_modules(conn):
 def get_module(conn, index):
     return chassis_api(conn, 'get_module', [index])
 
+def get_module_index(conn, mod_name):
+    return chassis_api(conn, 'get_module_index', [mod_name])
 
 def get_num_fans(conn):
     return chassis_api(conn, 'get_num_fans')
@@ -169,3 +171,14 @@ def get_watchdog(conn):
 
 def get_eeprom(conn):
     return chassis_api(conn, 'get_eeprom')
+
+
+def get_supervisor_slot(conn):
+    return chassis_api(conn, 'get_supervisor_slot')
+
+
+def get_my_slot(conn):
+    return chassis_api(conn, 'get_my_slot')
+
+def is_modular_chassis(conn):
+    return chassis_api(conn, 'is_modular_chassis')
