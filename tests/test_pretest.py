@@ -167,6 +167,13 @@ def test_update_saithrift_ptf(request, ptfhost):
     logging.info("Python saithrift package installed successfully")
 
 def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
+    '''
+    Inject the Y cable simulator client to both ToRs in a dualtor testbed
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    logger.info("Injecting Y cable simulator client to {}".format(enum_dut_hostname))
     dut = duthosts[enum_dut_hostname]
     mux_simulator_port = 8080
     y_cable_sim_client_template_path = 'templates/y_cable_simulator_client.j2'
