@@ -191,8 +191,8 @@ def restore_default_syncd(duthost, creds):
 def _perform_swap_syncd_shutdown_check(duthost):
     def ready_for_swap():
         if any([
-            duthost.is_container_present("syncd"),
-            duthost.is_container_present("swss"),
+            duthost.is_container_running("syncd"),
+            duthost.is_container_running("swss"),
             not duthost.is_bgp_state_idle()
         ]):
             return False
