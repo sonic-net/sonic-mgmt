@@ -400,7 +400,7 @@ class SonicHost(AnsibleHostBase):
             True or False
         """
         status = self.command(
-            "docker ps -f name={}".format(service),
+            "docker ps -a -f name={}".format(service),
             module_ignore_errors=True
         )
 
