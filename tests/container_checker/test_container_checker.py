@@ -246,7 +246,6 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker")
-    loganalyzer.load_common_config()
 
     container_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
