@@ -9,6 +9,7 @@ import pytest
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ pytestmark = [
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
@@ -93,29 +95,8 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
                       post_test_check, duthost, up_bgp_neighbors)
 
 
-def find_alerting_message(critical_process, namespace_name, alerting_messages):
-    """Decides whether the expected alerting message appeared in syslog.
-
-    Args:
-        expected_alerting_message: A string which contains the expected alerting message.
-        alerting_messages: A list which contains the selected alerting messages from syslog.
-
-    Returns:
-        True if the expected alerting message was found in selected alerting messages from syslog,
-        otherwise return False.
-    """
-    expected_alerting_message = "Process '{}' is not running in namespace '{}'".format(critical_process, namespace_name)
-    logger.info("Checking the message: {}".format(expected_alerting_message))
-    for message in alerting_messages:
-        if expected_alerting_message in message:
-            return True
-
-    return False
-
-
-def check_alerting_messages(duthost, containers_in_namespaces):
-    """Checks whether the names of stopped critical processes and corresponding namespace
-       appeared in syslog or not.
+def get_expected_alerting_messages(duthost, containers_in_namespaces):
+    """Generates the expected alerting messages from the stopped critical processes in each namespace.
 
     Args:
         duthost: Hostname of DUT.
@@ -125,14 +106,8 @@ def check_alerting_messages(duthost, containers_in_namespaces):
     Returns:
         None.
     """
-    logger.info("Checking the alerting messages from syslog...")
-    command_output = duthost.shell("sudo cat /var/log/syslog | grep '.*ERR.*supervisor-proc-exit-listener'",
-                                   module_ignore_errors=True)
-
-    pytest_assert(len(command_output["stdout_lines"]) > 0,
-                  "Failed to get alerting messages from Supervisord!")
-
-    alerting_messages = command_output["stdout_lines"]
+    expected_alerting_messages = []
+    logger.info("Generating the alerting messages... ")
 
     for container_name in containers_in_namespaces.keys():
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
@@ -149,23 +124,15 @@ def check_alerting_messages(duthost, containers_in_namespaces):
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if container_name == "syncd" and critical_process == "dsserve":
                     continue
-
-                if not find_alerting_message(critical_process, namespace_name, alerting_messages):
-                    pytest.fail("Failed to find the alerting message from process '{}' under namespace '{}'"
-                                .format(critical_process, namespace_name))
-
-                logger.info("Altering message was found in syslog!")
+                expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*".format(critical_process, namespace_name))
 
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name, critical_group)
                 for program_name in group_program_info:
-                    if not find_alerting_message(program_name, namespace_name, alerting_messages):
-                        pytest.fail("Failed to find the alerting message from process '{}' under namespace '{}'"
-                                    .format(program_name, namespace_name))
+                    expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*".format(program_name, namespace_name))
 
-                    logger.info("Altering message was found in syslog!")
-
-    logger.info("Checking the alerting message was done!")
+    logger.info("Generating the alerting message was done!")
+    return expected_alerting_messages
 
 
 def get_num_asics(duthost):
@@ -534,9 +501,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
         None.
     """
     duthost = duthosts[rand_one_dut_hostname]
-
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     containers_autorestart_states = duthost.get_container_autorestart_states()
-
     bgp_neighbors = duthost.get_bgp_neighbors()
     up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
 
@@ -547,10 +513,12 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
         skip_containers.append("radv")
 
     num_asics = get_num_asics(duthost)
-
     containers_in_namespaces = parse_feature_table(duthost, num_asics, skip_containers)
-
     disable_containers_autorestart(duthost, containers_in_namespaces)
+
+    expected_alerting_messages = get_expected_alerting_messages(duthost, containers_in_namespaces)
+    loganalyzer.expect_regex.extend(expected_alerting_messages)
+    marker = loganalyzer.init()
 
     stop_critical_processes(duthost, containers_in_namespaces)
 
@@ -558,7 +526,9 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info("Sleep 70 seconds to wait for the alerting message...")
     time.sleep(70)
 
-    check_alerting_messages(duthost, containers_in_namespaces)
+    logger.info("Checking the alerting messages from syslog...")
+    loganalyzer.analyze(marker)
+    logger.info("Checking the alerting messages from syslog was done!")
 
     logger.info("Executing the config reload...")
     config_reload(duthost)
