@@ -98,6 +98,9 @@ EXAMPLES='''
 '''
 
 
+debug_fname = None
+
+
 class Parse_Lab_Graph():
     """
     Parse the generated lab physical connection graph and insert Ansible fact of the graph
@@ -208,15 +211,17 @@ class Parse_Lab_Graph():
                         deviceinfo[hostname]['Protocol'] = protocol
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
                         self.consolelinks[hostname] = {}
-            allconsolelinks = console_root.find('ConsoleLinksInfo').findall('ConsoleLinkInfo')
-            if allconsolelinks is not None:
-                for consolelink in allconsolelinks:
-                    start_dev = consolelink.attrib['StartDevice']
-                    end_dev = consolelink.attrib['EndDevice']
-                    if start_dev:
-                        self.consolelinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': 'ConsolePort'}
-                    if end_dev:
-                        self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
+            console_link_root = console_root.find('ConsoleLinksInfo')
+            if console_link_root:
+                allconsolelinks = console_link_root.findall('ConsoleLinkInfo')
+                if allconsolelinks is not None:
+                    for consolelink in allconsolelinks:
+                        start_dev = consolelink.attrib['StartDevice']
+                        end_dev = consolelink.attrib['EndDevice']
+                        if start_dev:
+                            self.consolelinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': 'ConsolePort'}
+                        if end_dev:
+                            self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
 
         pdu_root = devicepcgroot = self.root.find(self.pcgtag)
         if pdu_root:
@@ -236,15 +241,23 @@ class Parse_Lab_Graph():
                         deviceinfo[hostname]['Protocol'] = protocol
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
                         self.pdulinks[hostname] = {}
-            allpdulinks = pdu_root.find('PowerControlLinksInfo').findall('PowerControlLinkInfo')
-            if allpdulinks is not None:
-                for pdulink in allpdulinks:
-                    start_dev = pdulink.attrib['StartDevice']
-                    end_dev = pdulink.attrib['EndDevice']
-                    if start_dev:
-                        self.pdulinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': pdulink.attrib['EndPort']}
-                    if end_dev:
-                        self.pdulinks[end_dev][pdulink.attrib['EndPort']] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
+            pdu_link_root = pdu_root.find('PowerControlLinksInfo')
+            if pdu_link_root:
+                allpdulinks = pdu_link_root.findall('PowerControlLinkInfo')
+                if allpdulinks is not None:
+                    for pdulink in allpdulinks:
+                        start_dev = pdulink.attrib['StartDevice']
+                        end_dev = pdulink.attrib['EndDevice']
+                        print_debug_msg(debug_fname, "pdulink {}".format(pdulink.attrib))
+                        print_debug_msg(debug_fname, "self.pdulinks {}".format(self.pdulinks))
+                        if start_dev:
+                            if start_dev not in self.pdulinks:
+                                self.pdulinks.update({start_dev : {}})
+                            self.pdulinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': pdulink.attrib['EndPort']}
+                        if end_dev:
+                            if end_dev not in self.pdulinks:
+                                self.pdulinks.update({end_dev : {}})
+                            self.pdulinks[end_dev][pdulink.attrib['EndPort']] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
         self.devices = deviceinfo
         self.vlanport = devicel2info
 
@@ -339,10 +352,12 @@ class Parse_Lab_Graph():
         return  the given hostname pdu info of mgmtip, protocol, hwsku and type
         """
         if hostname in self.devices:
-            try:
-                ret = self.devices[self.pdulinks[hostname]['PSU1']['peerdevice']]
-            except KeyError:
-                ret = {}
+            ret = {}
+            for key in ['PSU1', 'PSU2']:
+                try:
+                    ret.update({key : self.devices[self.pdulinks[hostname][key]['peerdevice']]})
+                except KeyError:
+                    pass
             return ret
         else:
             return self.devices
@@ -370,6 +385,7 @@ def find_graph(hostnames):
     Parameters:
         hostnames: list of duts in the target testbed.
     """
+    global debug_fname
     filename = os.path.join(LAB_GRAPHFILE_PATH, LAB_CONNECTION_GRAPH_FILE)
     with open(filename) as fd:
         file_list = yaml.safe_load(fd)
@@ -406,9 +422,6 @@ def get_port_name_list(hwsku):
     # sorted in natural sort order, match the phyical port index order
     port_name_list_sorted = natsorted(port_name_list)
     return port_name_list_sorted
-
-
-debug_fname = None
 
 
 def main():
