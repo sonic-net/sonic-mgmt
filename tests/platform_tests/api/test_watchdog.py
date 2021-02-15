@@ -86,7 +86,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         '''
         watchdog_timeout = conf['valid_timeout']
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
-
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if self.expect(actual_timeout is not None, "Watchdog.arm is not supported"):
             if self.expect(isinstance(actual_timeout, int), "actual_timeout appears incorrect"):
                 if self.expect(actual_timeout != -1, "Failed to arm the watchdog"):
