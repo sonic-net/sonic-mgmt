@@ -1217,7 +1217,7 @@
     <Devices>
       <Device i:type="LeafRouter">
         <Hostname>vlab-07</Hostname>
-        <HwSku>msft_multi_asic_vs</HwSku>
+        <HwSku>msft_four_asic_vs</HwSku>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>10.250.0.109</a:IPPrefix>
         </ManagementAddress>
@@ -1287,7 +1287,7 @@
         </ManagementAddressV6>
         <SerialNumber i:nil="true"/>
         <Hostname>ASIC0</Hostname>
-        <HwSku>msft_multi_asic_vs</HwSku>
+        <HwSku>msft_four_asic_vs</HwSku>
       </Device>
       <Device i:type="Asic">
         <ElementType>Asic</ElementType>
@@ -1312,7 +1312,7 @@
         </ManagementAddressV6>
         <SerialNumber i:nil="true"/>
         <Hostname>ASIC1</Hostname>
-        <HwSku>msft_multi_asic_vs</HwSku>
+        <HwSku>msft_four_asic_vs</HwSku>
       </Device>
       <Device i:type="Asic">
         <ElementType>Asic</ElementType>
@@ -1337,7 +1337,7 @@
         </ManagementAddressV6>
         <SerialNumber i:nil="true"/>
         <Hostname>ASIC2</Hostname>
-        <HwSku>msft_multi_asic_vs</HwSku>
+        <HwSku>msft_four_asic_vs</HwSku>
       </Device>
       <Device i:type="Asic">
         <ElementType>Asic</ElementType>
@@ -1362,7 +1362,7 @@
         </ManagementAddressV6>
         <SerialNumber i:nil="true"/>
         <Hostname>ASIC3</Hostname>
-        <HwSku>msft_multi_asic_vs</HwSku>
+        <HwSku>msft_four_asic_vs</HwSku>
       </Device>
     </Devices>
   </PngDec>
@@ -1477,7 +1477,7 @@
       </EthernetInterfaces>
       <FlowControl>true</FlowControl>
       <Height>0</Height>
-      <HwSku>msft_multi_asic_vs</HwSku>
+      <HwSku>msft_four_asic_vs</HwSku>
       <ManagementInterfaces/>
     </DeviceInfo>
   </DeviceInfos>
@@ -1577,5 +1577,5 @@
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
   <Hostname>vlab-07</Hostname>
-  <HwSku>msft_multi_asic_vs</HwSku>
+  <HwSku>msft_four_asic_vs</HwSku>
 </DeviceMiniGraph>

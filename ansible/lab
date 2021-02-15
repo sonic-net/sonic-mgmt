@@ -108,3 +108,6 @@ sonic_multi_asic:
     vlab-07:
       ansible_host: 10.250.0.109
       ansible_hostv6: fec0::ffff:afa:7
+    vlab-08:
+      ansible_host: 10.250.0.112
+      ansible_hostv6: fec0::ffff:afa:c

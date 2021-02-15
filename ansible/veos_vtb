@@ -36,6 +36,7 @@ all:
         vlab-05:
         vlab-06:
         vlab-07:
+        vlab-08:
     ptf:
       hosts:
         ptf-01:
@@ -114,9 +115,17 @@ all:
           type: kvm
           hwsku: msft_multi_asic_vs
           serial_port: 9005
-          num_asics: 4
+          num_asics: 6
           ansible_password: password
           ansible_user: admin
+        vlab-08:
+          ansible_host: 10.250.0.112
+          ansible_hostv6: fec0::ffff:afa:c
+          type: kvm
+          hwsku: msft_multi_asic_vs
+          serial_port: 9005
+          num_asics: 4
+          ansible_password: password
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3
