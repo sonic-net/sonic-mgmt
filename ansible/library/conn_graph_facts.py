@@ -190,56 +190,61 @@ class Parse_Lab_Graph():
                     self.links[start_dev][link.attrib['StartPort']] = {'peerdevice':link.attrib['EndDevice'], 'peerport': link.attrib['EndPort'], 'speed': link.attrib['BandWidth']}
                 if end_dev:
                     self.links[end_dev][link.attrib['EndPort']] = {'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'], 'speed': link.attrib['BandWidth']}
-        devicecsgroot = self.root.find(self.csgtag).find('DevicesConsoleInfo')
-        devicescsg = devicecsgroot.findall('DeviceConsoleInfo')
-        if devicescsg is not None:
-            for dev in devicescsg:
-                hostname = dev.attrib['Hostname']
-                if hostname is not None:
-                    deviceinfo[hostname] = {}
-                    hwsku = dev.attrib['HwSku']
-                    devtype = dev.attrib['Type']
-                    protocol = dev.attrib['Protocol']
-                    mgmt_ip = dev.attrib['ManagementIp']
-                    deviceinfo[hostname]['HwSku'] = hwsku
-                    deviceinfo[hostname]['Type'] = devtype
-                    deviceinfo[hostname]['Protocol'] = protocol
-                    deviceinfo[hostname]['ManagementIp'] = mgmt_ip
-                    self.consolelinks[hostname] = {}
-        allconsolelinks = self.root.find(self.csgtag).find('ConsoleLinksInfo').findall('ConsoleLinkInfo')
-        if allconsolelinks is not None:
-            for consolelink in allconsolelinks:
-                start_dev = consolelink.attrib['StartDevice']
-                end_dev = consolelink.attrib['EndDevice']
-                if start_dev:
-                    self.consolelinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': 'ConsolePort'}
-                if end_dev:
-                    self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
-        devicepcgroot = self.root.find(self.pcgtag).find('DevicesPowerControlInfo')
-        devicespcsg = devicepcgroot.findall('DevicePowerControlInfo')
-        if devicespcsg is not None:
-            for dev in devicespcsg:
-                hostname = dev.attrib['Hostname']
-                if hostname is not None:
-                    deviceinfo[hostname] = {}
-                    hwsku = dev.attrib['HwSku']
-                    devtype = dev.attrib['Type']
-                    protocol = dev.attrib['Protocol']
-                    mgmt_ip = dev.attrib['ManagementIp']
-                    deviceinfo[hostname]['HwSku'] = hwsku
-                    deviceinfo[hostname]['Type'] = devtype
-                    deviceinfo[hostname]['Protocol'] = protocol
-                    deviceinfo[hostname]['ManagementIp'] = mgmt_ip
-                    self.pdulinks[hostname] = {}
-        allpdulinks = self.root.find(self.pcgtag).find('PowerControlLinksInfo').findall('PowerControlLinkInfo')
-        if allpdulinks is not None:
-            for pdulink in allpdulinks:
-                start_dev = pdulink.attrib['StartDevice']
-                end_dev = pdulink.attrib['EndDevice']
-                if start_dev:
-                    self.pdulinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': pdulink.attrib['EndPort']}
-                if end_dev:
-                    self.pdulinks[end_dev][pdulink.attrib['EndPort']] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
+        console_root = self.root.find(self.csgtag)
+        if console_root:
+            devicecsgroot = console_root.find('DevicesConsoleInfo')
+            devicescsg = devicecsgroot.findall('DeviceConsoleInfo')
+            if devicescsg is not None:
+                for dev in devicescsg:
+                    hostname = dev.attrib['Hostname']
+                    if hostname is not None:
+                        deviceinfo[hostname] = {}
+                        hwsku = dev.attrib['HwSku']
+                        devtype = dev.attrib['Type']
+                        protocol = dev.attrib['Protocol']
+                        mgmt_ip = dev.attrib['ManagementIp']
+                        deviceinfo[hostname]['HwSku'] = hwsku
+                        deviceinfo[hostname]['Type'] = devtype
+                        deviceinfo[hostname]['Protocol'] = protocol
+                        deviceinfo[hostname]['ManagementIp'] = mgmt_ip
+                        self.consolelinks[hostname] = {}
+            allconsolelinks = console_root.find('ConsoleLinksInfo').findall('ConsoleLinkInfo')
+            if allconsolelinks is not None:
+                for consolelink in allconsolelinks:
+                    start_dev = consolelink.attrib['StartDevice']
+                    end_dev = consolelink.attrib['EndDevice']
+                    if start_dev:
+                        self.consolelinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': 'ConsolePort'}
+                    if end_dev:
+                        self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
+
+        pdu_root = devicepcgroot = self.root.find(self.pcgtag)
+        if pdu_root:
+            devicepcgroot = pdu_root.find('DevicesPowerControlInfo')
+            devicespcsg = devicepcgroot.findall('DevicePowerControlInfo')
+            if devicespcsg is not None:
+                for dev in devicespcsg:
+                    hostname = dev.attrib['Hostname']
+                    if hostname is not None:
+                        deviceinfo[hostname] = {}
+                        hwsku = dev.attrib['HwSku']
+                        devtype = dev.attrib['Type']
+                        protocol = dev.attrib['Protocol']
+                        mgmt_ip = dev.attrib['ManagementIp']
+                        deviceinfo[hostname]['HwSku'] = hwsku
+                        deviceinfo[hostname]['Type'] = devtype
+                        deviceinfo[hostname]['Protocol'] = protocol
+                        deviceinfo[hostname]['ManagementIp'] = mgmt_ip
+                        self.pdulinks[hostname] = {}
+            allpdulinks = pdu_root.find('PowerControlLinksInfo').findall('PowerControlLinkInfo')
+            if allpdulinks is not None:
+                for pdulink in allpdulinks:
+                    start_dev = pdulink.attrib['StartDevice']
+                    end_dev = pdulink.attrib['EndDevice']
+                    if start_dev:
+                        self.pdulinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': pdulink.attrib['EndPort']}
+                    if end_dev:
+                        self.pdulinks[end_dev][pdulink.attrib['EndPort']] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
         self.devices = deviceinfo
         self.vlanport = devicel2info
 
@@ -312,11 +317,15 @@ class Parse_Lab_Graph():
         return  the given hostname console info of mgmtip, protocol, hwsku and type
         """
         if hostname in self.devices:
-            return  self.devices[self.consolelinks[hostname]['ConsolePort'][peerdevice]]
+            try:
+                ret = self.devices[self.consolelinks[hostname]['ConsolePort'][peerdevice]]
+            except KeyError:
+                ret = {}
+            return ret
         else:
             return self.devices
 
-    def get_host_console_links(self, hostname):
+    def get_host_console_link(self, hostname):
         """
         return  the given hostname console link info of console server and port
         """
@@ -330,7 +339,11 @@ class Parse_Lab_Graph():
         return  the given hostname pdu info of mgmtip, protocol, hwsku and type
         """
         if hostname in self.devices:
-            return  self.devices[self.pdulinks[hostname]['PSU1']['peerdevice']]
+            try:
+                ret = self.devices[self.pdulinks[hostname]['PSU1']['peerdevice']]
+            except KeyError:
+                ret = {}
+            return ret
         else:
             return self.devices
 
@@ -459,10 +472,10 @@ def main():
         device_vlan_range = {}
         device_vlan_list = {}
         device_vlan_map_list = {}
-        device_console_info = []
-        device_console_link = []
-        device_pdu_info = []
-        device_pdu_links = []
+        device_console_info = {}
+        device_console_link = {}
+        device_pdu_info = {}
+        device_pdu_links = {}
         for hostname in hostnames:
             dev = lab_graph.get_host_device_info(hostname)
             if dev is None:
@@ -497,10 +510,10 @@ def main():
                         if not found_port_for_vlan:
                             module.fail_json(msg="Did not find corresponding link for vlan %d in %s for host %s" % (a_host_vlan, port_vlans, hostname))
             device_port_vlans[hostname] = port_vlans
-            device_console_info.append(lab_graph.get_host_console_info(hostname))
-            device_console_link.append(lab_graph.get_host_console_link(hostname))
-            device_pdu_info.append(lab_graph.get_host_pdu_info(hostname))
-            device_pdu_links.append(lab_graph.get_host_pdu_links(hostname))
+            device_console_info[hostname] = lab_graph.get_host_console_info(hostname)
+            device_console_link[hostname] = lab_graph.get_host_console_link(hostname)
+            device_pdu_info[hostname] = lab_graph.get_host_pdu_info(hostname)
+            device_pdu_links[hostname] = lab_graph.get_host_pdu_links(hostname)
         results = {k: v for k, v in locals().items()
                    if (k.startswith("device_") and v)}
 

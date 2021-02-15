@@ -80,6 +80,8 @@ class LabGraph(object):
         csv_file.close()
  
     def read_consolelinks(self):
+        if not os.path.exists(self.conscsv):
+            return
         csv_file = open(self.conscsv)
         csv_cons = csv.DictReader(csv_file)
         conslinks_root = etree.SubElement(self.csgroot, 'ConsoleLinksInfo')
@@ -92,6 +94,8 @@ class LabGraph(object):
         csv_file.close()
 
     def read_pdulinks(self):
+        if not os.path.exists(self.pducsv):
+            return
         csv_file = open(self.pducsv)
         csv_pdus = csv.DictReader(csv_file)
         pduslinks_root = etree.SubElement(self.pcgroot, 'PowerControlLinksInfo')
@@ -148,17 +152,30 @@ class LabGraph(object):
         result = etree.tostring(root, pretty_print=True)
         onexml.write(result)
 
+def get_file_names(args):
+    if not args.inventory:
+        device, links, console, pdu = args.device, args.links, args.console, args.pdu
+    else:
+        device = 'sonic_{}_devices.csv'.format(args.inventory)
+        links = 'sonic_{}_links.csv'.format(args.inventory)
+        console = 'sonic_{}_console_links.csv'.format(args.inventory)
+        pdu = 'sonic_{}_pdu_links.csv'.format(args.inventory)
+
+    return device, links, console, pdu
+
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--device", help="device file", default=DEFAULT_DEVICECSV)
-    parser.add_argument("-l", "--links", help="link file", default=DEFAULT_LINKCSV)
-    parser.add_argument("-c", "--console", help="console connection file", default=DEFAULT_CONSOLECSV)
-    parser.add_argument("-p", "--pdu", help="pdu connection file", default=DEFAULT_PDUCSV)
+    parser.add_argument("-d", "--device", help="device file [deprecate warning: use -i instead]", default=DEFAULT_DEVICECSV)
+    parser.add_argument("-l", "--links", help="link file [deprecate warning: use -i instead]", default=DEFAULT_LINKCSV)
+    parser.add_argument("-c", "--console", help="console connection file [deprecate warning: use -i instead]", default=DEFAULT_CONSOLECSV)
+    parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
+    parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
     args = parser.parse_args()
 
-    mygraph = LabGraph(args.device, args.links, args.console, args.pdu, args.output)
+    device, links, console, pdu = get_file_names(args)
+    mygraph = LabGraph(device, links, console, pdu, args.output)
 
     mygraph.read_devices()
     mygraph.read_links()
