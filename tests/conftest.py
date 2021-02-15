@@ -881,3 +881,9 @@ def duthost_console(localhost, creds, request):
     yield host
     host.disconnect()
 
+@pytest.fixture(scope='session')
+def cleanup_cache_for_session(request):
+    tbname, tbinfo = get_tbinfo(request)
+    cache.cleanup(zone=tbname)
+    for a_dut in tbinfo['duts']:
+        cache.cleanup(zone=a_dut)
