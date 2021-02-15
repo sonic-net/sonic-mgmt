@@ -873,6 +873,12 @@ class TestStaticNat(object):
         output = get_redis_val(duthost, 0, "GLOBAL")
         pytest_assert(db_rules == output['NAT_GLOBAL_TABLE:Values']['value'],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_GLOBAL_TABLE:Values']['value'], db_rules))
+        # Restore default values and confirm that APP_DB is updated properly
+        nat_global_config(duthost, timeout_in=GLOBAL_NAT_TIMEOUT, tcp_timeout_in=GLOBAL_TCP_NAPT_TIMEOUT, udp_timeout_in=GLOBAL_UDP_NAPT_TIMEOUT)
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'APP_DB timeout')
+        output = get_redis_val(duthost, 0, "GLOBAL")
+        pytest_assert(db_rules == output['NAT_GLOBAL_TABLE:Values']['value'],
+                      "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_GLOBAL_TABLE:Values']['value'], db_rules))
         # Verify config change in CONFIG_DB for NAT_POOL and NAT_BINDINGS are in sync with APP_DB
         # Configure default rules for Dynamic NAT
         nat_type = 'dynamic'
