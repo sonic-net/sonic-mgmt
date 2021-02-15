@@ -223,7 +223,7 @@ class Parse_Lab_Graph():
                         if end_dev:
                             self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
 
-        pdu_root = devicepcgroot = self.root.find(self.pcgtag)
+        pdu_root = self.root.find(self.pcgtag)
         if pdu_root:
             devicepcgroot = pdu_root.find('DevicesPowerControlInfo')
             devicespcsg = devicepcgroot.findall('DevicePowerControlInfo')
