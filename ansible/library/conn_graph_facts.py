@@ -219,9 +219,13 @@ class Parse_Lab_Graph():
                         start_dev = consolelink.attrib['StartDevice']
                         end_dev = consolelink.attrib['EndDevice']
                         if start_dev:
-                            self.consolelinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': 'ConsolePort'}
+                            if start_dev not in self.consolelinks:
+                                self.consolelinks.update({start_dev : {}})
+                            self.consolelinks[start_dev][consolelink.attrib['StartPort']] = {'peerdevice':consolelink.attrib['EndDevice'], 'peerport': 'ConsolePort'}
                         if end_dev:
-                            self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
+                            if end_dev not in self.consolelinks:
+                                self.consolelinks.update({end_dev : {}})
+                            self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': consolelink.attrib['StartDevice'], 'peerport': consolelink.attrib['StartPort']}
 
         pdu_root = self.root.find(self.pcgtag)
         if pdu_root:
