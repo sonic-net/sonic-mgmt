@@ -3018,6 +3018,7 @@ def config_bgp_multi_neigh_use_peergroup(dut, **kwargs):
 
     if cli_type == 'vtysh':
         command = "no bgp default ipv4-unicast \n"
+	command += "no bgp ebgp-requires-policy \n"
         command += "neighbor {} peer-group \n".format(kwargs['peer_grp_name'])
         command += "neighbor {} remote-as {} \n".format(kwargs['peer_grp_name'], kwargs['remote_asn'])
         if 'keep_alive' in kwargs and 'hold' in kwargs:
