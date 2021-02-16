@@ -271,7 +271,11 @@ class ArpTest(BaseTest):
 
         self.assertTrue(time.time() < self.stop_at, "warm-reboot took to long")
 
-        test_port_thr.join()
+        test_port_thr.join(timeout=self.how_long)
+        if test_port_thr.isAlive():
+            self.log("Timed out waiting for warm reboot")
+            self.req_dut('quit')
+            self.assertTrue(False, "Timed out waiting for warm reboot")
 
         uptime_after = self.req_dut('uptime')
         if uptime_after.startswith('error'):
