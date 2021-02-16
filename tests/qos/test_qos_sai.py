@@ -54,7 +54,10 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-Q64'
     ]
 
-    def testParameter(self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile):
+    def testParameter(
+        self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile,
+        ingressLossyProfile, egressLosslessProfile
+    ):
         logger.info("asictype {}".format(duthost.facts["asic_type"]))
         logger.info("config {}".format(dutConfig))
         logger.info("qosConfig {}".format(dutQosConfig))
@@ -101,7 +104,10 @@ class TestQosSai(QosSaiBase):
         })
         if "pkts_num_margin" in qosConfig[xoffProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"], testCase="sai_qos_tests.PFCtest",
+            testParams=testParams
+        )
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testQosSaiPfcXonLimit(self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
@@ -149,7 +155,10 @@ class TestQosSai(QosSaiBase):
             testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
         if "pkts_num_margin" in qosConfig[xonProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.PFCXonTest", testParams=testParams
+        )
 
     def testQosSaiHeadroomPoolSize(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile):
         """
@@ -210,7 +219,10 @@ class TestQosSai(QosSaiBase):
         if margin:
             testParams["margin"] = margin
 
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams
+        )
 
     def testQosSaiHeadroomPoolWatermark(self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize, resetWatermark):
         """
@@ -263,7 +275,10 @@ class TestQosSai(QosSaiBase):
             "buf_pool_roid": ingressLosslessProfile["bufferPoolRoid"],
             "max_headroom": sharedHeadroomPoolSize
         })
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams
+        )
 
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(self, request, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, egressLossyProfile, resetWatermark):
@@ -321,7 +336,10 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig[bufPool]["cell_size"],
             "buf_pool_roid": buf_pool_roid
         })
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.BufferPoolWatermarkTest", testParams=testParams
+        )
 
     def testQosSaiLossyQueue(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLossyProfile):
         """
@@ -366,7 +384,10 @@ class TestQosSai(QosSaiBase):
             testParams["cell_size"] = qosConfig["lossy_queue_1"]["cell_size"]
         if "pkts_num_margin" in qosConfig["lossy_queue_1"].keys():
             testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.LossyQueueTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.LossyQueueTest", testParams=testParams
+        )
 
     def testQosSaiDscpQueueMapping(self, ptfhost, dutTestParams, dutConfig):
         """
@@ -392,7 +413,10 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
         })
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.DscpMappingPB", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.DscpMappingPB", testParams=testParams
+        )
 
     def testQosSaiDwrr(self, ptfhost, dutTestParams, dutConfig, dutQosConfig):
         """
@@ -432,7 +456,10 @@ class TestQosSai(QosSaiBase):
             "limit": qosConfig["wrr"]["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
         })
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"], testCase="sai_qos_tests.WRRtest",
+            testParams=testParams
+        )
 
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(self, pgProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
@@ -483,7 +510,10 @@ class TestQosSai(QosSaiBase):
         })
         if "packet_size" in qosConfig[pgProfile].keys():
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.PGSharedWatermarkTest", testParams=testParams
+        )
 
     def testQosSaiPgHeadroomWatermark(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, resetWatermark):
         """
@@ -523,7 +553,10 @@ class TestQosSai(QosSaiBase):
         })
         if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
             testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.PGHeadroomWatermarkTest", testParams=testParams
+        )
 
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig, resetWatermark):
@@ -568,7 +601,10 @@ class TestQosSai(QosSaiBase):
         })
         if "packet_size" in qosConfig[queueProfile].keys():
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.QSharedWatermarkTest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.QSharedWatermarkTest", testParams=testParams
+        )
 
     def testQosSaiDscpToPgMapping(self, request, ptfhost, dutTestParams, dutConfig):
         """
@@ -598,7 +634,10 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
         })
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.DscpToPgMapping", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"],
+            testCase="sai_qos_tests.DscpToPgMapping", testParams=testParams
+        )
 
     def testQosSaiDwrrWeightChange(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, updateSchedProfile):
         """
@@ -642,4 +681,7 @@ class TestQosSai(QosSaiBase):
             "limit": qosConfig["wrr_chg"]["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
         })
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams)
+        self.runPtfTest(
+            ptfhost, dutConfig["dutAsic"], testCase="sai_qos_tests.WRRtest",
+            testParams=testParams
+        )
