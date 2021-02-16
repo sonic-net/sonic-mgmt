@@ -6,6 +6,7 @@ import time
 from pkg_resources import parse_version
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
+from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy
 from device_mocker import device_mocker_factory
 
 pytestmark = [
@@ -97,7 +98,8 @@ def test_service_checker(duthosts, rand_one_dut_hostname):
         assert summary == expect_summary, 'Expect summary {}, got {}'.format(expect_summary, summary)
 
 
-def test_device_checker(duthosts, rand_one_dut_hostname, device_mocker_factory):
+@pytest.mark.disable_loganalyzer
+def test_device_checker(duthosts, rand_one_dut_hostname, device_mocker_factory, disable_thermal_policy):
     duthost = duthosts[rand_one_dut_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
