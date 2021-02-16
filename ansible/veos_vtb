@@ -122,7 +122,7 @@ all:
           ansible_host: 10.250.0.112
           ansible_hostv6: fec0::ffff:afa:c
           type: kvm
-          hwsku: msft_multi_asic_vs
+          hwsku: msft_four_asic_vs
           serial_port: 9005
           num_asics: 4
           ansible_password: password
