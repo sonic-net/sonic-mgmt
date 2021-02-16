@@ -335,7 +335,7 @@ class Parse_Lab_Graph():
         """
         if hostname in self.devices:
             try:
-                ret = self.devices[self.consolelinks[hostname]['ConsolePort'][peerdevice]]
+                ret = self.devices[self.consolelinks[hostname]['ConsolePort']['peerdevice']]
             except KeyError:
                 ret = {}
             return ret

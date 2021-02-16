@@ -42,70 +42,66 @@ class LabGraph(object):
 
 
     def read_devices(self):
-        csv_dev = open(self.devcsv)
-        csv_devices = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_dev))
-        devices_root = etree.SubElement(self.pngroot, 'Devices')
-        pdus_root = etree.SubElement(self.pcgroot, 'DevicesPowerControlInfo')
-        cons_root = etree.SubElement(self.csgroot, 'DevicesConsoleInfo')
-        for row in csv_devices:
-            attrs = {}
-            self.devices.append(row)
-            devtype=row['Type'].lower()
-            if 'pdu' in devtype:
-                for  key in row:
-                    attrs[key]=row[key].decode('utf-8')
-                etree.SubElement(pdus_root, 'DevicePowerControlInfo', attrs)
-            elif 'consoleserver' in devtype:
-                for  key in row:
-                    attrs[key]=row[key].decode('utf-8')
-                etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
-            else:
-                for  key in row:
-                    if key.lower() != 'managementip' and key.lower() !='protocol':
+        with open(self.devcsv) as csv_dev:
+            csv_devices = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_dev))
+            devices_root = etree.SubElement(self.pngroot, 'Devices')
+            pdus_root = etree.SubElement(self.pcgroot, 'DevicesPowerControlInfo')
+            cons_root = etree.SubElement(self.csgroot, 'DevicesConsoleInfo')
+            for row in csv_devices:
+                attrs = {}
+                self.devices.append(row)
+                devtype=row['Type'].lower()
+                if 'pdu' in devtype:
+                    for  key in row:
                         attrs[key]=row[key].decode('utf-8')
-                etree.SubElement(devices_root, 'Device', attrs)
-        csv_dev.close()
+                    etree.SubElement(pdus_root, 'DevicePowerControlInfo', attrs)
+                elif 'consoleserver' in devtype:
+                    for  key in row:
+                        attrs[key]=row[key].decode('utf-8')
+                    etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+                else:
+                    for  key in row:
+                        if key.lower() != 'managementip' and key.lower() !='protocol':
+                            attrs[key]=row[key].decode('utf-8')
+                    etree.SubElement(devices_root, 'Device', attrs)
  
     def read_links(self):
-        csv_file = open(self.linkcsv)
-        csv_links = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_file))
-        links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
-        for link in csv_links:
-            attrs = {}
-            for key in link:
-                if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
-                    attrs[key]=link[key].decode('utf-8')
-            etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
-            self.links.append(link)
-        csv_file.close()
+        with open(self.linkcsv) as csv_file:
+            csv_links = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_file))
+            links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
+            for link in csv_links:
+                attrs = {}
+                for key in link:
+                    if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
+                        attrs[key]=link[key].decode('utf-8')
+                etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
+                self.links.append(link)
  
     def read_consolelinks(self):
         if not os.path.exists(self.conscsv):
             return
-        csv_file = open(self.conscsv)
-        csv_cons = csv.DictReader(csv_file)
-        conslinks_root = etree.SubElement(self.csgroot, 'ConsoleLinksInfo')
-        for cons in csv_cons:
-            attrs = {}
-            for key in cons:
-                attrs[key]=cons[key].decode('utf-8')
-            etree.SubElement(conslinks_root, 'ConsoleLinkInfo', attrs)
-            self.consoles.append(cons)
-        csv_file.close()
+        with open(self.conscsv) as csv_file:
+            csv_cons = csv.DictReader(csv_file)
+            conslinks_root = etree.SubElement(self.csgroot, 'ConsoleLinksInfo')
+            for cons in csv_cons:
+                attrs = {}
+                for key in cons:
+                    attrs[key]=cons[key].decode('utf-8')
+                etree.SubElement(conslinks_root, 'ConsoleLinkInfo', attrs)
+                self.consoles.append(cons)
 
     def read_pdulinks(self):
         if not os.path.exists(self.pducsv):
             return
-        csv_file = open(self.pducsv)
-        csv_pdus = csv.DictReader(csv_file)
-        pduslinks_root = etree.SubElement(self.pcgroot, 'PowerControlLinksInfo')
-        for pdu_link in csv_pdus:
-            attrs = {}
-            for key in pdu_link:
-                attrs[key]=pdu_link[key].decode('utf-8')
-            etree.SubElement(pduslinks_root, 'PowerControlLinkInfo', attrs)
-            self.pdus.append(pdu_link)
-        csv_file.close()
+        with open(self.pducsv) as csv_file:
+            csv_pdus = csv.DictReader(csv_file)
+            pduslinks_root = etree.SubElement(self.pcgroot, 'PowerControlLinksInfo')
+            for pdu_link in csv_pdus:
+                attrs = {}
+                for key in pdu_link:
+                    attrs[key]=pdu_link[key].decode('utf-8')
+                etree.SubElement(pduslinks_root, 'PowerControlLinkInfo', attrs)
+                self.pdus.append(pdu_link)
 
     def generate_dpg(self):
         for dev in self.devices:
