@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -38,7 +38,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 @pytest.fixture(params=[4, 6])
 def ip_versions(request):
@@ -189,8 +189,8 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthosts, rand_one_dut_hostname, request, ip_versions):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
 
