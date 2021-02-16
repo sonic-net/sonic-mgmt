@@ -104,7 +104,7 @@ sonic_multi_asic:
   vars:
     hwsku: msft_multi_asic_vs
     iface_speed: 40000
-    num_asics: 4 
+    num_asics: 6
     start_topo_service: True
   hosts:
     vlab-07:

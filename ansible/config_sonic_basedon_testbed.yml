@@ -158,6 +158,12 @@
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
 
+  - name: copy existing minigraph file for SONiC device
+    copy: src=minigraph/{{ inventory_hostname }}.{{ topo }}.xml
+          dest=/etc/sonic/minigraph.xml
+    become: true
+    when: copy is defined and copy|bool == true
+
   - block:
     - name: Init telemetry keys
       set_fact:
@@ -230,18 +236,13 @@
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
         ignore_errors: true
+        when: copy is not defined or copy is defined and copy|bool == false
 
       - name: create new minigraph file for SONiC device
         template: src=templates/minigraph_template.j2
                   dest=/etc/sonic/minigraph.xml
         become: true
         when: copy is not defined or copy is defined and copy|bool == false
-
-      - name: copy existing minigraph file for SONiC device
-        template: src=minigraph/{{ inventory_hostname }}.{{ topo }}.xml
-                  dest=/etc/sonic/minigraph.xml
-        become: true
-        when: copy is defined and copy|bool == true
 
       - name: Test if configlet script exist
         stat:

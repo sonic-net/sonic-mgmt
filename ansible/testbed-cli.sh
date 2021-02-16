@@ -394,7 +394,7 @@ function test_minigraph
   echo Done
 }
 
-function copy_load_minigraph
+function copy_minigraph
 {
   topology=$1
   inventory=$2
@@ -407,7 +407,7 @@ function copy_load_minigraph
 
   read_file $topology
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$topology" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true -e copy=true $@
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$topology" -e testbed_file=$tbfile -e vm_file=$vmfile -e copy=true $@
 
   echo Done
 }
@@ -532,7 +532,7 @@ case "${subcmd}" in
                ;;
   test-mg)     test_minigraph $@
                ;;
-  copy-mg)     copy_load_minigraph $@
+  copy-mg)     copy_minigraph $@
                ;;
   create-master) start_k8s_vms $@
                  setup_k8s_vms $@
