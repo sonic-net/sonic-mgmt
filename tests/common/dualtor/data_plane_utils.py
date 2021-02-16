@@ -13,10 +13,23 @@ def arp_setup(ptfhost):
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
     ptfhost.template(src="templates/arp_responder.conf.j2",
                      dest="/etc/supervisor/conf.d/arp_responder.conf")
-    logging.info("Refreshing supervisor and starting ARP responder")
+    logging.info("Refreshing supervisorctl")
     ptfhost.shell("supervisorctl reread && supervisorctl update")
-    ptfhost.shell("supervisorctl restart arp_responder")
-    logging.info("arp_responder enabled")
+
+
+def validate_IO_results(tor_IO, allowed_disruption, delay):
+    received_counter = tor_IO.get_total_received_packets()
+    total_disruptions = tor_IO.get_total_disruptions()
+    longest_disruption = tor_IO.get_longest_disruption()
+
+    if received_counter:
+        pytest_assert(total_disruptions <= 1, "Traffic was disrupted {} times. Allowed number of disruption: {}"\
+            .format(total_disruptions, allowed_disruption))
+
+        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s. Maximum allowed disruption: {}s".\
+            format(longest_disruption, delay))
+    else:
+        pytest_assert(received_counter > 0, "Test failed to capture any meaningful received packet")
 
 
 @pytest.fixture
@@ -67,15 +80,7 @@ def send_t1_to_server_after_action(ptfhost, ptfadapter, tbinfo):
         # Wait for the IO to complete before doing checks
         logger.info("Waiting for sender and sniffer threads to finish..")
         send_and_sniff.join()
-        allowed_disruption = 1
-        total_disruptions = tor_IO.get_total_disruptions()
-        longest_disruption = tor_IO.get_longest_disruption()
-
-        pytest_assert(total_disruptions <= 1, "Traffic was disrupted {} times. Allowed number of disruption: {}"\
-            .format(total_disruptions, allowed_disruption))
-
-        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s. Maximum allowed disruption: {}s".\
-            format(longest_disruption, delay))
+        validate_IO_results(tor_IO, allowed_disruption=1, delay=delay)
 
     yield t1_to_server_io_test
 
@@ -134,20 +139,12 @@ def send_server_to_t1_after_action(ptfhost, ptfadapter, tbinfo):
 
         # Wait for the IO to complete before doing checks
         send_and_sniff.join()
-        allowed_disruption = 1
-        total_disruptions = tor_IO.get_total_disruptions()
-        longest_disruption = tor_IO.get_longest_disruption()
-
-        pytest_assert(total_disruptions <= 1, "Traffic was disrupted {} times. Allowed number of disruption: {}"\
-            .format(total_disruptions, allowed_disruption))
-
-        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s. Maximum allowed disruption: {}s".\
-            format(longest_disruption, delay))
+        validate_IO_results(tor_IO, allowed_disruption=1, delay=delay)
 
     yield server_to_t1_io_test
 
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts:
-        logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
-        duthost.shell('sonic-clear arp')
+       logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
+       duthost.shell('sonic-clear arp')
