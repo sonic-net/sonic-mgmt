@@ -1135,7 +1135,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             map = tbinfo['topo']['ptf_map'][str(dut_index)]
             if map:
                 for port, index in mg_facts['minigraph_port_indices'].items():
-                    mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
+                    if str(index) in map:
+                        mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
         except (ValueError, KeyError):
             pass
 
