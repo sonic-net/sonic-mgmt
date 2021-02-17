@@ -142,7 +142,7 @@ class TestThermalApi(PlatformApiTestBase):
 
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
                 if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
+                    self.expect(temperature >= 0 and temperature <= 100,
                                 "Thermal {} temperature {} reading is not within range".format(i, temperature))
         self.assert_expectations()
 
@@ -153,7 +153,7 @@ class TestThermalApi(PlatformApiTestBase):
 
             if self.expect(low_threshold is not None, "Unable to retrieve Thermal {} low threshold".format(i)):
                 if self.expect(isinstance(low_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(low_threshold > 0 and low_threshold <= 100,
+                    self.expect(low_threshold >= 0 and low_threshold <= 100,
                                 "Thermal {} low threshold {} reading is not within range".format(i, low_threshold))
         self.assert_expectations()
 
@@ -175,7 +175,7 @@ class TestThermalApi(PlatformApiTestBase):
 
             if self.expect(low_critical_threshold is not None, "Unable to retrieve Thermal {} low critical threshold".format(i)):
                 if self.expect(isinstance(low_critical_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(low_critical_threshold > 0 and low_critical_threshold <= 110,
+                    self.expect(low_critical_threshold >= 0 and low_critical_threshold <= 110,
                                 "Thermal {} low critical threshold {} reading is not within range".format(i, low_critical_threshold))
         self.assert_expectations()
 
