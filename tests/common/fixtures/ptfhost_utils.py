@@ -228,3 +228,7 @@ def run_garp_service(duthost, ptfhost, tbinfo):
     logger.info("Starting GARP Service on PTF host")
     ptfhost.shell('supervisorctl update')
     ptfhost.shell('supervisorctl start garp_service')
+
+    yield
+
+    ptfhost.shell('supervisorctl stop garp_service')
