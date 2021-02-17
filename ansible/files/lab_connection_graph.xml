@@ -90,4 +90,30 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet30" vlanids="1681-1712"/>
     </DevicesL2Info>
   </DataPlaneGraph>
+  <ConsoleGraphDeclaration>
+    <DevicesConsoleInfo>
+      <DeviceConsoleInfo Hostname="console-1" HwSku="Cisco" ManagementIp="192.168.10.1" Protocol="ssh" Type="ConsoleServer"/>
+    </DevicesConsoleInfo>
+    <ConsoleLinksInfo>
+      <ConsoleLinkInfo EndDevice="str-msn2700-01" StartDevice="console-1" StartPort="10"/>
+      <ConsoleLinkInfo EndDevice="str-7260-10" StartDevice="console-1" StartPort="11"/>
+      <ConsoleLinkInfo EndDevice="str-7260-11" StartDevice="console-1" StartPort="12"/>
+    </ConsoleLinksInfo>
+  </ConsoleGraphDeclaration>
+  <PowerControlGraphDeclaration>
+    <DevicesPowerControlInfo>
+      <DevicePowerControlInfo Hostname="pdu-1" HwSku="Apc" ManagementIp="192.168.9.2" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-2" HwSku="Sentry" ManagementIp="192.168.9.3" Protocol="snmp" Type="Pdu"/>
+    </DevicesPowerControlInfo>
+    <PowerControlLinksInfo>
+      <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU1" StartDevice="pdu-1" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU2" StartDevice="pdu-1" StartPort="3"/>
+      <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU1" StartDevice="pdu-1" StartPort="2"/>
+      <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU2" StartDevice="pdu-1" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str-7260-11" EndPort="PSU1" StartDevice="pdu-2" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str-7260-11" EndPort="PSU2" StartDevice="pdu-2" StartPort="3"/>
+      <PowerControlLinkInfo EndDevice="str-acs-serv-01" EndPort="PSU1" StartDevice="pdu-2" StartPort="2"/>
+      <PowerControlLinkInfo EndDevice="str-acs-serv-01" EndPort="PSU2" StartDevice="pdu-2" StartPort="4"/>
+    </PowerControlLinksInfo>
+  </PowerControlGraphDeclaration>
 </LabConnectionGraph>
