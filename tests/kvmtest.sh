@@ -97,6 +97,7 @@ test_t0() {
     monit/test_monit_status.py \
     platform_tests/test_advanced_reboot.py \
     test_interfaces.py \
+    arp/test_arp_dualtor.py \
     bgp/test_bgp_fact.py \
     bgp/test_bgp_gr_helper.py \
     bgp/test_bgp_speaker.py \
