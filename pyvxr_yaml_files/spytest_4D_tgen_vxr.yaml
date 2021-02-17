@@ -9,60 +9,56 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   SD2:
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   SD3:
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   SD4:
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_4/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_5.1/sonic-cisco-8000.bin
     linecard_versions: [p7]
     linux_username: "cisco"
     linux_password: "cisco123"
     vxr_sim_config:
-       shelf:
-          ConfigS1SdkVer: 1.35.2
-          ConfigS1NpsuiteVer: 1.68.1
-          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.35.2_NPS1.68.1.2/npl
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+            ConfigS1NpsuiteVer: 1.70.1
 
   spt:
     platform: spirent_cafy1

@@ -13,6 +13,9 @@ import apis.switching.mac as macapi
 import apis.system.port as papi
 import apis.routing.bgp as bgpfeature
 import apis.routing.arp as arp_obj
+import BGP.bgplib as bgplib
+import apis.system.interface as interface
+import apis.switching.portchannel as portchannel_obj
 
 def clear_arp_entries(dut):
     """
@@ -226,7 +229,7 @@ def check_inter_dut_intf_traffic_counters():
 
     st.log("Inter Dut port stats  tx_ok xounter value on DUT Egress ports : {} {} {} {}".format(p1_tx, p2_tx, p3_tx, p4_tx))
     if (p1_tx == 0) | (p2_tx == 0) | (p3_tx == 0) | (p4_tx == 0):
-        st.error("Error:Inter Dut port stats  tx_ok xounter value on DUT Egress ports : {} {} {} {}".format(p1_tx, p2_tx, p3_tx, p4_tx))
+        st.log("Error:Inter Dut port stats  tx_ok xounter value on DUT Egress ports : {} {} {} {}".format(p1_tx, p2_tx, p3_tx, p4_tx))
     else:
         st.log("Inter Dut port stats  tx_ok xounter value on DUT Egress ports - Non Zero")
         return True
@@ -638,8 +641,16 @@ def l3_max_route_max_path_scaling_tc(max_paths, max_routes, use_config_file, fam
         # rate_pps=512000, enable_stream_only_gen='1')
 
     tg2.tg_traffic_control(action='run', handle=tr1['stream_id'])
-    ret1 = check_inter_dut_intf_traffic_counters()
-    ret2 = check_end_to_end_intf_traffic_counters()
+    retry = 5
+    while retry > 0:
+        try:
+            ret1 = check_inter_dut_intf_traffic_counters()
+            ret2 = check_end_to_end_intf_traffic_counters()
+            if ret1 and ret2:
+                break
+        except Exception as e:
+            st.error(e)
+        retry = retry - 1
     tg2.tg_traffic_control(action='stop', handle=tr1['stream_id'])
 
     st.banner("ARP entries in both DUT's after traffic is stopped")
@@ -802,7 +813,15 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
     st.wait(20)
     st.show(dut, "show arp")
     #Port Counters
-    ret = check_intf_traffic_counters()
+    retry = 5
+    while retry > 0:
+        try:
+            ret = check_intf_traffic_counters()
+            if ret:
+                break
+        except Exception as e:
+            st.error(e)
+        retry = retry - 1
     if ret is True:
         count = count+1
         st.log("Test Case 1.14 PASSED")
@@ -838,7 +857,15 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
       st.wait(3)
       #output = st.show(dut, "show arp")
       #Port Counters
-      ret = check_intf_traffic_counters()
+      retry = 5
+      while retry > 0:
+          try:
+              ret = check_intf_traffic_counters()
+              if ret:
+                  break
+          except Exception as e:
+              st.error(e)
+          retry = retry - 1
       if ret is True:
           count = count+1
           st.log("Test Case 1.14 PASSED")

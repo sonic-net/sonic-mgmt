@@ -24,7 +24,7 @@ minigraph_file = "/etc/sonic/minigraph.xml"
 config_file = "/etc/sonic/config_db.json"
 tmp_config_file = "/tmp/config_db.json"
 
-copp_config_file = "/etc/swss/config.d/00-copp.config.json"
+copp_config_file = "/etc/sonic/copp_cfg.json"
 tmp_copp_file = "/tmp/copp.json"
 frr_config_file = "/etc/sonic/frr/frr.conf"
 tmp_frr_file = "/tmp/frr.conf"

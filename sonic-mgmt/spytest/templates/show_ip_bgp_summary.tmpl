@@ -8,6 +8,7 @@ Value INQ (\d+)
 Value OUTQ (\d+)
 Value UPDOWN (\S+|\d+\-\d+\-\d+\s+\d+\:\d+\:\d+|\d+\:\d+\:\d+)
 Value STATE (\S+)
+Value PFX_SENT (\S+)
 Value Filldown ROUTERID (\S+)
 Value Filldown LOCALASNNUMBER (\d+)
 Value Filldown RIBENTRIES (\d+)
@@ -31,8 +32,7 @@ VTYSH
   ^Peers ${PEERS}, using ${PEERSMEMORYINKBYTES} KiB of memory\s*$$
   ^(\s*)*$$ -> Continue
   ^\s+Neighbor\s+V\s+AS\s+MsgRcvd\s+MsgSent\s+TblVer\s+InQ\s+OutQ\s+Up\/Down\s+State\/PfxRcd\s+ -> Continue
-  ^\s*${NEIGHBOR}\s+${VERSION}\s+${ASN}\s+${MSGRCVD}\s+${MSGSENT}\s+${TBLVER}\s+${INQ}\s+${OUTQ}\s+${UPDOWN}\s+${STATE}\s*$$ -> Record
-  ^(\s*)*$$ -> Continue
+  ^\s*${NEIGHBOR}\s+${VERSION}\s+${ASN}\s+${MSGRCVD}\s+${MSGSENT}\s+${TBLVER}\s+${INQ}\s+${OUTQ}\s+${UPDOWN}\s+${STATE}\s+${PFX_SENT}\s*$$ -> Record
   ^Total number of neighbors ${TOTAL_NBR}
   ^${DYNNBR} dynamic neighbor\(s\), limit ${DYNLIMIT}$$ -> Continue
   ^\s*Total number of neighbors established ${ESTD_NBR}\s*$$ -> Record

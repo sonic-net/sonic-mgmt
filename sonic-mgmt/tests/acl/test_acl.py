@@ -54,22 +54,6 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
-# get the list of TOR/SPINE ports
-for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
-    port_id = mg_facts['minigraph_port_indices'][dut_port]
-    if 'T0' in neigh['name'] and len(tor_ports)<8:
-        tor_ports.append(dut_port)
-        tor_ports_ids.append(port_id)
-    elif 'T2' in neigh['name'] and len(spine_ports)<8:
-        spine_ports.append(dut_port)
-        spine_ports_ids.append(port_id)
-
-# get the list of port channels
-port_channels = mg_facts['minigraph_portchannels']
-# get the list of port to be combined to ACL tables
-if testbed['topo']['name'] in ('t1', 't1-lag'):
-        acl_table_ports += tor_ports
-
 
 @pytest.fixture(scope="module")
 def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
@@ -93,17 +77,26 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     upstream_ports = []
     downstream_port_ids = []
     upstream_port_ids = []
+    shut_list = []
 
     topo = tbinfo["topo"]["type"]
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]):
-            downstream_ports.append(interface)
-            downstream_port_ids.append(port_id)
+            if len(downstream_ports) <8:
+                downstream_ports.append(interface)
+                downstream_port_ids.append(port_id)
+            else:
+                duthost.shutdown(interface)
+                shut_list.append(interface)
         elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
-            upstream_ports.append(interface)
-            upstream_port_ids.append(port_id)
-
+            if len(upstream_ports) <8:
+                upstream_ports.append(interface)
+                upstream_port_ids.append(port_id)
+            else:
+                duthost.shutdown(interface)
+                shut_list.append(interface)
+                
     # Get the list of LAGs
     port_channels = mg_facts["minigraph_portchannels"]
 
@@ -140,7 +133,9 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
 
     yield setup_information
-
+    for dut_port in shut_list:
+        duthost.no_shutdown(dut_port)
+        
     logger.info("Removing temporary directory \"{}\"".format(DUT_TMP_DIR))
     duthost.command("rm -rf {}".format(DUT_TMP_DIR))
 
