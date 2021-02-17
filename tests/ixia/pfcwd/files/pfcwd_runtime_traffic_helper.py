@@ -1,5 +1,4 @@
 import time
-from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
@@ -8,7 +7,7 @@ from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import start_pfcwd, stop_pfcwd
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
+    Size, Rate, Duration, FixedSeconds
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
