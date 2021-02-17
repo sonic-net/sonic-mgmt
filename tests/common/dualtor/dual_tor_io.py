@@ -50,6 +50,8 @@ class DualTorIO:
         self.total_disrupt_packets = None
         self.max_lost_id = None
         self.max_disrupt_time = None
+        self.received_counter = 0
+        self.total_lost_packets = None
         # This list will contain all unique Payload ID, to filter out received floods.
         self.unique_id = set()
 
@@ -164,6 +166,7 @@ class DualTorIO:
         logger.info("IP address: dst: {} src: random".format(ip_dst))
         logger.info("TCP port: dst: {}".format(tcp_dport))
         logger.info("DUT mac: {}".format(self.dut_mac))
+        logger.info("VLAN mac: {}".format(self.vlan_mac))
         logger.info("-"*50)
 
         self.packets_list = []
@@ -180,6 +183,9 @@ class DualTorIO:
             packet.load = payload
             self.packets_list.append((self.from_tor_src_port, str(packet)))
 
+        self.sent_pkt_dst_mac = self.dut_mac
+        self.received_pkt_src_mac = self.vlan_mac
+
 
     def generate_from_server_to_t1(self):
         """
@@ -193,7 +199,7 @@ class DualTorIO:
         self.from_server_dst_addr  = self.random_host_ip()
         tcp_dport = TCP_DST_PORT
         tcp_tx_packet = testutils.simple_tcp_packet(
-                      eth_dst=self.dut_mac,
+                      eth_dst=self.vlan_mac,
                       ip_src=self.from_server_src_addr,
                       ip_dst=self.from_server_dst_addr,
                       tcp_dport=tcp_dport
@@ -205,6 +211,10 @@ class DualTorIO:
             packet = scapyall.Ether(str(tcp_tx_packet))
             packet.load = payload
             self.packets_list.append((self.from_server_src_port, str(packet)))
+
+        self.sent_pkt_dst_mac = self.vlan_mac
+        self.received_pkt_src_mac = self.dut_mac
+
 
     def random_host_ip(self):
         """
@@ -340,15 +350,19 @@ class DualTorIO:
         return self.received_counter
 
 
+    def get_total_dropped_packets(self):
+        return self.total_lost_packets
+
+
     def no_flood(self, packet):
         """
         @summary: This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.TCP].payload).replace('X','')) in self.unique_id) and (packet[scapyall.Ether].src == self.vlan_mac):
+        if (not int(str(packet[scapyall.TCP].payload).replace('X','')) in self.unique_id) and (packet[scapyall.Ether].src == self.received_pkt_src_mac):
             # This is a unique (no flooded) received packet.
             self.unique_id.add(int(str(packet[scapyall.TCP].payload).replace('X','')))
             return True
-        elif packet[scapyall.Ether].dst == self.dut_mac:
+        elif packet[scapyall.Ether].dst == self.sent_pkt_dst_mac:
             # This is a sent packet.
             return True
         else:
@@ -363,7 +377,7 @@ class DualTorIO:
             All disruptions are saved to self.lost_packets dictionary, in format:
             disrupt_start_id = (missing_packets_count, disrupt_time, disrupt_start_timestamp, disrupt_stop_timestamp)
         """
-        def examine_each_packet(dut_mac, packets):
+        def examine_each_packet(packets):
             lost_packets = dict()
             sent_packets = dict()
             prev_payload, prev_time = 0, 0
@@ -371,12 +385,12 @@ class DualTorIO:
             disruption_start, disruption_stop = None, None
             received_counter = 0    # Counts packets from dut.
             for packet in packets:
-                if packet[scapyall.Ether].dst == dut_mac:
+                if packet[scapyall.Ether].dst == self.sent_pkt_dst_mac:
                     # This is a sent packet - keep track of it as payload_id:timestamp.
                     sent_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
                     sent_packets[sent_payload] = packet.time
                     continue
-                if packet[scapyall.Ether].src == self.vlan_mac:
+                if packet[scapyall.Ether].src == self.received_pkt_src_mac:
                     # This is a received packet.
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
@@ -406,6 +420,7 @@ class DualTorIO:
                 logger.info("Disruptions happen between {} and {}.".format(str(disruption_start), str(disruption_stop)))
             elif len(sent_packets) != received_counter:
                 logger.info("Number of packets lost: {}".format(len(sent_packets) - received_counter))
+                self.total_lost_packets = len(sent_packets) - received_counter
 
             return received_counter, lost_packets
 
@@ -451,7 +466,7 @@ class DualTorIO:
             scapyall.wrpcap(filename, packets)
             logger.info("Filtered pcap dumped to {}".format(filename))
 
-        self.received_counter, self.lost_packets = examine_each_packet(self.dut_mac, packets)
+        self.received_counter, self.lost_packets = examine_each_packet(packets)
 
         self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
         if self.lost_packets:

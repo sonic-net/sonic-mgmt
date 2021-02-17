@@ -21,6 +21,7 @@ def validate_IO_results(tor_IO, allowed_disruption, delay):
     received_counter = tor_IO.get_total_received_packets()
     total_disruptions = tor_IO.get_total_disruptions()
     longest_disruption = tor_IO.get_longest_disruption()
+    total_lost_packets = tor_IO.get_total_dropped_packets()
 
     if received_counter:
         pytest_assert(total_disruptions <= 1, "Traffic was disrupted {} times. Allowed number of disruption: {}"\
@@ -30,6 +31,9 @@ def validate_IO_results(tor_IO, allowed_disruption, delay):
             format(longest_disruption, delay))
     else:
         pytest_assert(received_counter > 0, "Test failed to capture any meaningful received packet")
+
+    if total_lost_packets:
+        logging.warn("Packets were lost during the test. Total lost count: {}".format(total_lost_packets))
 
 
 @pytest.fixture
