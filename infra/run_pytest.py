@@ -28,63 +28,16 @@ import time
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
-    parser.add_argument('-i', '--input_file', type=str, help='Input port file',
+    parser.add_argument('-i', '--tc_file', type=str, help='Input port file',
                       required=False,default=None)
-    parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
-                      required=True,default=None)
-    parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1')
-    parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
-                      required=False,default="YourPaSsWoRd")
-    parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
-                      required=False,default="admin")
-    parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
-                      default=False)
+    
     return parser
 
-def git_update(data):
+def start_pytest(data,base_topo_file):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send("cd sonic-test \n")
-    buff = ''
-    while not buff.endswith(':~/sonic-test$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout master; git stash apply\n")
-    buff = ''
-    while not buff.endswith(':~/sonic-test$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(20)
-
-    ssh.close()
-
-def deploy_mg(data,base_topo_file):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send("docker container start docker-sonic-mgmt \n")
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -110,7 +63,7 @@ def deploy_mg(data,base_topo_file):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
-    chan.send('./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml\n')
+    chan.send('./testbed-cli.sh -t testbed.csv gen-mg docker-ptf lab group_vars/lab/secrets.yml\n')
     chan.settimeout(180)
     buff = ''
     err_buff = ''
@@ -511,16 +464,16 @@ def main():
     deploy_mg(data,base_topo_file)
 
     # Start docker container, deploy DUT minigraph
-    #print("********** Download DUT minigraph ***********")
-    #download_mg(data,topo_type)
+    print("********** Download DUT minigraph ***********")
+    download_mg(data,topo_type)
 
     # Replace DUT Mgmt Address
-    #print("********** Replace DUT Mgmt Address ***********")
-    #replace_dut_mgmt_address(data)
+    print("********** Replace DUT Mgmt Address ***********")
+    replace_dut_mgmt_address(data)
 
     # Reload DUT config
-    #print("********** Reload DUT config ***********")
-    #reload_dut_with_newCFG(data)
+    print("********** Reload DUT config ***********")
+    reload_dut_with_newCFG(data)
 
     # Add vEOS config
     print("********** Add vEOS config ***********")
@@ -530,13 +483,12 @@ def main():
     add_ptf_backplane_addr(data)
 
     
-    print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
+    print("Sonic DUT:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
-    print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
+    print("Sonic Mgmt:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
-    print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['ptf']['HostAgent'], data['ptf']['serial0'], data['ptf']['xr_mgmt_ip'], data['ptf']['xr_redir22']))
+    print("PTF:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['ptf']['HostAgent'], data['ptf']['serial0'], data['ptf']['xr_mgmt_ip'], data['ptf']['xr_redir22']))
 
-    print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
         print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
 
