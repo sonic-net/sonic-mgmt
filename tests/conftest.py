@@ -881,6 +881,9 @@ def duthost_console(localhost, creds, request):
     yield host
     host.disconnect()
 
+# Purpose of fixture cleanup_cache_for_session is to allow developers to invoke this
+# fixture to cleanup testbed cache before test. This fixture is designed to be used
+# during development phase to work out testbed information changes.
 @pytest.fixture(scope='session')
 def cleanup_cache_for_session(request):
     tbname, tbinfo = get_tbinfo(request)
