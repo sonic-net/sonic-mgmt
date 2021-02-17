@@ -127,6 +127,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
     if tbinfo['topo']['type'] == 'ptf' and 'bgp' in check_items:
         check_items.remove('bgp')
 
+    if 'dualtor' in tbinfo['topo']['name']:
+        check_items.add('mux_simulator')
+
     logger.info("Sanity check settings: skip_sanity=%s, check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \
         (skip_sanity, check_items, allow_recover, recover_method, post_check))
 
