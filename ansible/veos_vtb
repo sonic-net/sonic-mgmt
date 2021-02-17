@@ -126,6 +126,7 @@ all:
           serial_port: 9005
           num_asics: 4
           ansible_password: password
+          ansible_user: admin
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3
@@ -149,7 +150,7 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: use_own_value
+      ansible_user: use_own_value 
 
 vms_1:
   hosts:
