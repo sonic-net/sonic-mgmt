@@ -881,11 +881,17 @@ def duthost_console(localhost, creds, request):
     yield host
     host.disconnect()
 
-# Purpose of fixture cleanup_cache_for_session is to allow developers to invoke this
-# fixture to cleanup testbed cache before test. This fixture is designed to be used
-# during development phase to work out testbed information changes.
 @pytest.fixture(scope='session')
 def cleanup_cache_for_session(request):
+    """
+    This fixture allows developers to cleanup the cached data for all DUTs in the testbed before test.
+    Use cases:
+      - Running tests where some 'facts' about the DUT that get cached are changed.
+      - Running tests/regression without running test_pretest which has a test to clean up cache (PR#2978)
+      - Test case development phase to work out testbed information changes.
+
+    This fixture is not automatically applied, if you want to use it, you have to add a call to it in your tests.
+    """
     tbname, tbinfo = get_tbinfo(request)
     cache.cleanup(zone=tbname)
     for a_dut in tbinfo['duts']:
