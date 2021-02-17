@@ -1349,7 +1349,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         Returns:
             None
         """
-
         try:
             pid_list = self.shell(
                 'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:9092"'
@@ -1992,14 +1991,13 @@ class SonicAsic(object):
         Returns:
             True or False
         """
-
         try:
             socket.inet_aton(ipv4)
         except socket.error:
             raise Exception("Invalid IPv4 address {}".format(ipv4))
 
         try:
-            result = self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
+            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
                 self._ns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
@@ -2014,7 +2012,6 @@ class SonicAsic(object):
         Returns:
             Dict of Interfaces and their IPv4 address
         """
-
         ip_ifs = self.show_ip_interface()["ansible_facts"]
         ip_ifaces = {}
         for k,v in ip_ifs["ip_interfaces"].items():
@@ -2043,8 +2040,8 @@ class SonicAsic(object):
         Returns:
             None
         """
-        ipcmd = "iptables" if ip_version is "ipv4" else "ip6tables"
-        run_opt = "-I INPUT 1" if state is "present" else "-D INPUT"
+        ipcmd = "iptables" if ip_version == "ipv4" else "ip6tables"
+        run_opt = "-I INPUT 1" if state == "present" else "-D INPUT"
         check_opt = "-C INPUT"
         cmd = (
             "{} /sbin/{} -t filter {{}} -p tcp -j DROP --destination-port bgp"
@@ -2056,10 +2053,10 @@ class SonicAsic(object):
         output = "Rule {} needs no action".format(run_cmd)
         try:
             self.sonichost.command(check_cmd)
-            if state is "absent":
+            if state == "absent":
                 output = self.sonichost.command(run_cmd)
         except RunAnsibleModuleFail as e:
-            if state is "present":
+            if state == "present":
                 output = self.sonichost.command(run_cmd)
 
         logging.debug(output)
@@ -2100,7 +2097,7 @@ class SonicAsic(object):
         except socket.error:
             raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
 
-        res = self.sonichost.shell(
+        self.sonichost.shell(
             ("ssh -o StrictHostKeyChecking=no -fN"
              " -L *:9092:{}:9092 localhost"
             ).format(ns_docker_if_ipv4)
