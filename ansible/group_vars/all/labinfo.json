@@ -11,6 +11,7 @@
         "Arista-7260CX3-64": "Arista",
         "Arista-VM": "Arista",
         "Nexus-3064-NX": "Nexus",
+        "Nexus-3164": "Nexus",
         "Force10-S6100": "Force10",
         "Force10-S6000": "Force10"
     },
