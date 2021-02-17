@@ -151,7 +151,7 @@ def apply_global_nat_config(duthost):
     after test run cleanup DUT's NAT configration
     :param duthost: DUT host object
     """
-    status = duthost.get_feature_status()
+    status, _ = duthost.get_feature_status()
     if 'nat' not in status:
         pytest.skip('nat feature is not enabled with image version {}'.format(duthost.os_version))
 
