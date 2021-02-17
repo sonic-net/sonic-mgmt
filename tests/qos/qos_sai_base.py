@@ -350,13 +350,14 @@ class QosSaiBase:
         """
         duthost = duthosts[rand_one_dut_hostname]
         swapSyncd = request.config.getoption("--qos_swap_syncd")
-        if swapSyncd:
-            docker.swap_syncd(duthost, creds)
+        try:
+            if swapSyncd:
+                docker.swap_syncd(duthost, creds)
 
-        yield
-
-        if swapSyncd:
-            docker.restore_default_syncd(duthost, creds)
+            yield
+        finally:
+            if swapSyncd:
+                docker.restore_default_syncd(duthost, creds)
 
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(self, request, duthosts, rand_one_dut_hostname, tbinfo):
@@ -500,7 +501,7 @@ class QosSaiBase:
             updateDockerService(duthost, action="start", **service)
 
     @pytest.fixture(autouse=True)
-    def updateLoganalyzerExceptions(self, loganalyzer):
+    def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):
         """
             Update loganalyzer ignore regex list
 
@@ -529,8 +530,11 @@ class QosSaiBase:
 
                 ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python.* /usr/local/bin/bgpmon' is not running.*",
                 ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
+                ".*WARNING syncd#SDK:.*check_attribs_metadata: Not implemented attribute.*",
+                ".*WARNING syncd#SDK:.*sai_set_attribute: Failed attribs check, key:Switch ID.*",
+                ".*WARNING syncd#SDK:.*check_rate: Set max rate to 0.*"
             ]
-            loganalyzer.ignore_regex.extend(ignoreRegex)
+            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
         yield
 
@@ -561,7 +565,7 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthosts, rand_one_dut_hostname, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, tbinfo):
+    def dutQosConfig(self, duthosts, rand_one_dut_hostname, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, tbinfo):
         """
             Prepares DUT host QoS configuration
 
@@ -610,6 +614,7 @@ class QosSaiBase:
             import qos_param_generator
             qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'], dutAsic,
                                                        portSpeedCableLength,
+                                                       dutConfig,
                                                        ingressLosslessProfile,
                                                        ingressLossyProfile,
                                                        egressLosslessProfile,

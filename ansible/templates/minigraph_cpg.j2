@@ -29,17 +29,20 @@
 {% endfor %}
     </PeeringSessions>
     <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if type is not defined or type != 'supervisor' %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
         <a:Hostname>{{ inventory_hostname }}</a:Hostname>
         <a:Peers>
 {% for index in range(vms_number)  %}
+{% if vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] %}
           <BGPPeer>
             <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
           </BGPPeer>
+{% endif %}
 {% endfor %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
           <BGPPeer i:type="a:BGPPeerPassive">
@@ -65,12 +68,15 @@
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
 {% for index in range( vms_number) %}
+{% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length > 0 %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['vm'][vms[index]]['bgp_asn'] }}</a:ASN>
         <a:Hostname>{{ vms[index] }}</a:Hostname>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
+{% endif %}
 {% endfor %}
+{% endif %}
     </Routers>
   </CpgDec>
 

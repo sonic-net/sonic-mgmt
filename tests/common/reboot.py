@@ -75,7 +75,8 @@ def get_warmboot_finalizer_state(duthost):
         finalizer_state = err.results
     return finalizer_state
 
-def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, reboot_helper=None, reboot_kwargs=None):
+def reboot(duthost, localhost, reboot_type='cold', delay=10, \
+    timeout=0, wait=0, wait_for_ssh=True, reboot_helper=None, reboot_kwargs=None):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -133,6 +134,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, timeout=0, wait=0, 
         if reboot_res.ready():
             logger.error('reboot result: {}'.format(reboot_res.get()))
         raise Exception('DUT did not shutdown')
+
+    if not wait_for_ssh:
+        return
 
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in

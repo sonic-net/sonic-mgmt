@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -38,7 +38,7 @@ def ignore_expected_loganalyzer_exceptions(loganalyzer):
     ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 @pytest.fixture(params=[4, 6])
 def ip_versions(request):
@@ -48,8 +48,8 @@ def ip_versions(request):
     yield request.param
 
 @pytest.fixture(scope='function', autouse=True)
-def reload_dut(duthosts, rand_one_dut_hostname, request):
-    duthost = duthosts[rand_one_dut_hostname]
+def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     if request.node.rep_call.failed:
         #Issue a config_reload to clear statically added route table and ip addr
@@ -57,9 +57,9 @@ def reload_dut(duthosts, rand_one_dut_hostname, request):
         config_reload(duthost)
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthosts, rand_one_dut_hostname):
+def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Set CRM polling interval to 1 second """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLL_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
@@ -189,8 +189,8 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthosts, rand_one_dut_hostname, request, ip_versions):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
 

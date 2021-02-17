@@ -1,7 +1,7 @@
 import pytest
+
 """
-RDMA test cases may require variety of traffic related fixtures. This file
-is repository of all different kinds of traffic related fixtures. This
+RDMA test cases may require variety of fixtures. This
 file currently holds the following fixture(s):
     1. prio_dscp_map
     2. all_prio_list

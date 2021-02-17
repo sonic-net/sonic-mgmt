@@ -90,7 +90,7 @@
     when: "'dualtor' not in topo"
 
   - name: gather dual ToR information
-    dual_tor_facts: 
+    dual_tor_facts:
       hostname: "{{ inventory_hostname }}"
       testbed_facts: "{{ testbed_facts }}"
       hostvars: "{{ hostvars }}"
@@ -98,10 +98,6 @@
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
     delegate_to: localhost
-    when: "'dualtor' in topo"
-
-  - name: generate y_cable simulator driver
-    include_tasks: dualtor/config_y_cable_simulator.yml
     when: "'dualtor' in topo"
 
   - name: set default vm file path
@@ -134,7 +130,7 @@
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:
-      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'][dut_index|int] }) }}"
+      interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
@@ -144,8 +140,10 @@
 
   - name: find all interface names
     set_fact:
-      intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
-    with_dict: "{{ interface_to_vms }}"
+      intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -156,68 +154,95 @@
   - block:
     - name: Init telemetry keys
       set_fact:
-        server_key: ""
-        server_cer: ""
-        dsmsroot_key: ""
-        dsmsroot_cer: ""
-        dir_path: ""
+        server_key_t: ""
+        server_cer_t: ""
+        dsmsroot_key_t: ""
+        dsmsroot_cer_t: ""
+        dir_path_t: ""
+        subject_server: ""
+        subject_client: ""
 
     - name: read server key
       set_fact:
-        server_key: "{{ telemetry_certs['server_key'] }}"
+        server_key_t: "{{ telemetry_certs['server_key'] }}"
       when: telemetry_certs['server_key'] is defined
 
     - name: read server cer
       set_fact:
-        server_cer: "{{ telemetry_certs['server_cer'] }}"
+        server_cer_t: "{{ telemetry_certs['server_cer'] }}"
       when: telemetry_certs['server_cer'] is defined
 
     - name: read dsmsroot key
       set_fact:
-        dsmsroot_key: "{{ telemetry_certs['dsmsroot_key'] }}"
+        dsmsroot_key_t: "{{ telemetry_certs['dsmsroot_key'] }}"
       when: telemetry_certs['dsmsroot_key'] is defined
 
     - name: read dsmsroot cer
       set_fact:
-        dsmsroot_cer: "{{ telemetry_certs['dsmsroot_cer'] }}"
+        dsmsroot_cer_t: "{{ telemetry_certs['dsmsroot_cer'] }}"
       when: telemetry_certs['dsmsroot_cer'] is defined
 
     - name: read directory path
       set_fact:
-        dir_path: "{{ telemetry_certs['dir_path'] }}"
+        dir_path_t: "{{ telemetry_certs['dir_path'] }}"
       when: telemetry_certs['dir_path'] is defined
 
-    - name: Create telemetry directory
-      file:
-        path: "{{ dir_path }}"
-        state: directory
-        mode: '0755'
-      become: true
+    - name: read server subject
+      set_fact:
+        subject_server: "{{ telemetry_certs['subject_server'] }}"
+      when: telemetry_certs['subject_server'] is defined
+    
+    - name: read client subject
+      set_fact:
+        subject_client: "{{ telemetry_certs['subject_client'] }}"
+      when: telemetry_certs['subject_client'] is defined
 
-    # {{ server_cer }}/ streamingtelemetryserver.cer need to be copied on PTFDocker and renamed as dsmsroot.cer
-    - name: Generate server cert using openssl.
-      command: openssl req \
-          -x509 \
-          -sha256 \
-          -nodes \
-          -newkey rsa:2048 \
-          -keyout "{{ server_key }}"
-          -subj "/CN=ndastreamingservertest"
-          -out "{{ server_cer }}"
-      become: true
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_cer_t }}"
+        server_key: "{{ server_key_t }}"
+        dsmsroot_cer: "{{ dsmsroot_cer_t }}"
+        dsmsroot_key: "{{ dsmsroot_key_t }}"
+        cert_subject: "{{ subject_server }}"
+        root_subject: "{{ subject_client }}"
+    
+    when: deploy is defined and deploy|bool == true
 
-    # {{ dsmsroot_cer }}/ dsmsroot.cer need to be copied on PTFDocker and renamed as streamingtelemetryclient.cer
-    # {{ dsms_key }}/ dsmsroot.key need to be copied and renamed as streamingtelemetryclient.key
-    - name: Generate dsmsroot cert using openssl.
-      command: openssl req \
-          -x509 \
-          -sha256 \
-          -nodes \
-          -newkey rsa:2048 \
-          -keyout "{{ dsmsroot_key }}"
-          -subj "/CN=ndastreamingclienttest"
-          -out "{{ dsmsroot_cer }}"
-      become: true
+  - block:
+    - name: Init restapi keys
+      set_fact:
+        server_key_t: ""
+        server_crt_t: ""
+        dir_path_t: ""
+        subject_t: ""
+
+    - name: read server key
+      set_fact:
+        server_key_t: "{{ restapi_certs['server_key'] }}"
+      when: restapi_certs['server_key'] is defined
+
+    - name: read server crt
+      set_fact:
+        server_crt_t: "{{ restapi_certs['server_crt'] }}"
+      when: restapi_certs['server_crt'] is defined
+
+    - name: read subject
+      set_fact:
+        subject_t: "{{ restapi_certs['subject'] }}"
+      when: restapi_certs['subject'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path_t: "{{ restapi_certs['dir_path'] }}"
+      when: restapi_certs['dir_path'] is defined
+
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_crt_t }}"
+        server_key: "{{ server_key_t }}"
+        cert_subject: "{{ subject_t }}"
     when: deploy is defined and deploy|bool == true
 
   - block:
@@ -341,8 +366,8 @@
         shell: config save -y
         when: save is defined and save|bool == true
 
-      - name: cleanup cached facts
-        shell: python ../tests/common/cache/facts_cache.py {{ inventory_hostname }}
+      - name: cleanup all cached facts
+        shell: python ../tests/common/cache/facts_cache.py
         delegate_to: localhost
         ignore_errors: true
 

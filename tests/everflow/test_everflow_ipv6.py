@@ -38,13 +38,15 @@ class EverflowIPv6Tests(BaseEverflowTest):
         """
 
         duthost = duthosts[rand_one_dut_hostname]
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"",setup_info["tor"]["namespace"]))
         tx_port = setup_info["tor"]["dest_port"][0]
-        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
+        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info["tor"]["namespace"])
         self.tx_port_ids = self._get_tx_port_id_list([setup_info["tor"]["dest_port_ptf_id"][0]])
         time.sleep(5)
         yield
-        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info["tor"]["namespace"])
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"",setup_info["tor"]["namespace"]))
 
     def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
         """Verify that we can match on Source IPv6 addresses."""

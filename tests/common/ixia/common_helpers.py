@@ -13,6 +13,7 @@ in .csv format etc.
 
 import ipaddr
 from netaddr import IPNetwork
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
 def increment_ip_address (ip, incr=1) :
     """
@@ -379,3 +380,146 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
             return False
 
     return True
+
+def get_pfcwd_config_attr(host_ans, config_scope, attr):
+    """
+    Get PFC watchdog configuration attribute
+
+    Args:
+        host_ans: Ansible host instance of the device
+        config_scope (str): 'GLOBAL' or interface name
+        attr (str): config attribute name, e.g., 'detection_time'
+
+    Returns:
+        config attribute (str) or None
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    if 'PFC_WD' not in config_facts.keys():
+        return None
+
+    pfcwd_config = config_facts['PFC_WD']
+    if config_scope not in pfcwd_config:
+        return None
+
+    config = pfcwd_config[config_scope]
+    if attr in config:
+        return config[attr]
+
+    return None
+
+def get_pfcwd_poll_interval(host_ans):
+    """
+    Get PFC watchdog polling interval
+
+    Args:
+        host_ans: Ansible host instance of the device
+
+    Returns:
+        Polling interval in ms (int) or None
+    """
+    val = get_pfcwd_config_attr(host_ans=host_ans,
+                                config_scope='GLOBAL',
+                                attr='POLL_INTERVAL')
+
+    if val is not None:
+        return int(val)
+
+    return None
+
+def get_pfcwd_detect_time(host_ans, intf):
+    """
+    Get PFC watchdog detection time of a given interface
+
+    Args:
+        host_ans: Ansible host instance of the device
+        intf (str): interface name
+
+    Returns:
+        Detection time in ms (int) or None
+    """
+    val = get_pfcwd_config_attr(host_ans=host_ans,
+                                config_scope=intf,
+                                attr='detection_time')
+
+    if val is not None:
+        return int(val)
+
+    return None
+
+def get_pfcwd_restore_time(host_ans, intf):
+    """
+    Get PFC watchdog restoration time of a given interface
+
+    Args:
+        host_ans: Ansible host instance of the device
+        intf (str): interface name
+
+    Returns:
+        Restoration time in ms (int) or None
+    """
+    val = get_pfcwd_config_attr(host_ans=host_ans,
+                                config_scope=intf,
+                                attr='restoration_time')
+
+    if val is not None:
+        return int(val)
+
+    return None
+
+def start_pfcwd(duthost):
+    """
+    Start PFC watchdog with default setting
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    duthost.shell('sudo pfcwd start_default')
+
+def stop_pfcwd(duthost):
+    """
+    Stop PFC watchdog
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    duthost.shell('sudo pfcwd stop')
+
+def disable_packet_aging(duthost):
+    """
+    Disable packet aging feature (only on MLNX switches)
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    if isMellanoxDevice(duthost):
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command("docker exec syncd python /packets_aging.py disable")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
+def enable_packet_aging(duthost):
+    """
+    Enable packet aging feature (only on MLNX switches)
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    if isMellanoxDevice(duthost):
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command("docker exec syncd python /packets_aging.py enable")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")

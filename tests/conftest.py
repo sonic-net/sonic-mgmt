@@ -9,8 +9,6 @@ import random
 import pytest
 import yaml
 import jinja2
-from ansible.parsing.dataloader import DataLoader
-from ansible.inventory.manager import InventoryManager
 
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
@@ -20,22 +18,24 @@ from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
+from tests.common.utilities import get_inventory_files
+from tests.common.utilities import get_host_vars
+from tests.common.utilities import get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
-
+from tests.common.cache import FactsCache
 
 from tests.common.connections import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
+cache = FactsCache()
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
-                  'tests.common.plugins.fib',
                   'tests.common.plugins.tacacs',
                   'tests.common.plugins.loganalyzer',
-                  'tests.common.plugins.psu_controller',
+                  'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
@@ -153,7 +153,11 @@ def get_tbinfo(request):
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
 
-    testbedinfo = TestbedInfo(tbfile)
+    testbedinfo = cache.read(tbname, 'tbinfo')
+    if not testbedinfo:
+        testbedinfo = TestbedInfo(tbfile)
+        cache.write(tbname, 'tbinfo', testbedinfo)
+
     return tbname, testbedinfo.testbed_topo.get(tbname, {})
 
 @pytest.fixture(scope="session")
@@ -166,7 +170,7 @@ def tbinfo(request):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(ansible_adhoc, tbinfo):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -199,12 +203,11 @@ def duthost(duthosts, request):
 def rand_one_dut_hostname(request):
     """
     """
-    tbname, testbedinfo = get_tbinfo(request)
-    duts_in_testbed = testbedinfo["duts"]
-    dut_hostnames = generate_params_dut_hostname(duts_in_testbed, tbname)
+    dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
+
 
 @pytest.fixture(scope="module")
 def rand_one_dut_portname_oper_up(request):
@@ -219,16 +222,6 @@ def rand_one_dut_lossless_prio(request):
     if len(lossless_prio_list) > 1:
         lossless_prio_list = random.sample(lossless_prio_list, 1)
     return lossless_prio_list[0]
-
-@pytest.fixture(scope="module")
-def rand_one_frontend_dut_hostname(request):
-    """
-    """
-    tbname, testbedinfo = get_tbinfo(request)
-    duts_in_testbed = testbedinfo["duts"]
-    frontend_dut_hostnames = generate_params_frontend_hostname(request, duts_in_testbed, tbname)
-    dut_hostnames = random.sample(frontend_dut_hostnames, 1)
-    return dut_hostnames[0]
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
@@ -344,8 +337,11 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                                         network_password,
                                         shell_user=shell_user,
                                         shell_passwd=shell_password)
+                    fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+                if dut_host not in fanout.dut_hostnames:
+                    fanout.dut_hostnames.append(dut_host)
     except:
         pass
     return fanout_hosts
@@ -598,37 +594,41 @@ def get_host_data(request, dut):
     '''
     This function parses multple inventory files and returns the dut information present in the inventory
     '''
-    inv_data = None
     inv_files = get_inventory_files(request)
-    for inv_file in inv_files:
-        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
-        if dut in inv_mgr.hosts:
-            return inv_mgr.get_host(dut).get_vars()
+    return get_host_vars(inv_files, dut)
 
-    return inv_data
 
-def generate_params_frontend_hostname(request, duts_in_testbed, tbname):
+def generate_params_frontend_hostname(request):
     frontend_duts = []
+    tbname, tbinfo = get_tbinfo(request)
+    duts = tbinfo['duts']
     inv_files = get_inventory_files(request)
-    for dut in duts_in_testbed:
+    for dut in duts:
         if is_frontend_node(inv_files, dut):
             frontend_duts.append(dut)
     assert len(frontend_duts) > 0, \
         "Test selected require at-least one frontend node, " \
-        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts_in_testbed, tbname)
+        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
     return frontend_duts
 
 
-def generate_params_frontend_hostname_rand_per_hwsku(request, duts_in_testbed, tbname):
-    frontend_hosts = generate_params_frontend_hostname(request, duts_in_testbed, tbname)
+def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
+    tbname, tbinfo = get_tbinfo(request)
+    hosts = tbinfo['duts']
+    if frontend_only:
+        hosts = generate_params_frontend_hostname(request)
     inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
-    for a_host in frontend_hosts:
-        a_host_hwsku = get_host_visible_vars(inv_files, a_host, variable='hwsku')
-        if not a_host_hwsku:
+    for a_host in hosts:
+        host_vars = get_host_visible_vars(inv_files, a_host)
+        a_host_hwsku = None
+        if 'hwsku' in host_vars:
+            a_host_hwsku = host_vars['hwsku']
+        else:
             # Lets try 'sonic_hwsku' as well
-            a_host_hwsku = get_host_visible_vars(inv_files, a_host, variable='sonic_hwsku')
+            if 'sonic_hwsku' in host_vars:
+                a_host_hwsku = host_vars['sonic_hwsku']
         if a_host_hwsku:
             if a_host_hwsku not in host_hwskus:
                 host_hwskus[a_host_hwsku] = [a_host]
@@ -637,40 +637,46 @@ def generate_params_frontend_hostname_rand_per_hwsku(request, duts_in_testbed, t
         else:
             pytest.fail("Test selected require a node per hwsku, but 'hwsku' for '{}' not defined in the inventory".format(a_host))
 
-    frontend_hosts_per_hwsku = []
+    hosts_per_hwsku = []
     for hosts in host_hwskus.values():
         if len(hosts) == 1:
-            frontend_hosts_per_hwsku.append(hosts[0])
+            hosts_per_hwsku.append(hosts[0])
         else:
-            frontend_hosts_per_hwsku.extend(random.sample(hosts, 1))
+            hosts_per_hwsku.extend(random.sample(hosts, 1))
 
-    return frontend_hosts_per_hwsku
+    return hosts_per_hwsku
 
 
-def generate_params_supervisor_hostname(request, duts_in_testbed, tbname):
-    if len(duts_in_testbed) == 1:
+def generate_params_supervisor_hostname(request):
+    tbname, tbinfo = get_tbinfo(request)
+    duts = tbinfo['duts']
+    if len(duts) == 1:
         # We have a single node - dealing with pizza box, return it
-        return [duts_in_testbed[0]]
+        return [duts[0]]
     inv_files = get_inventory_files(request)
-    for dut in duts_in_testbed:
+    for dut in duts:
         # Expecting only a single supervisor node
         if is_supervisor_node(inv_files, dut):
             return [dut]
     pytest.fail("Test selected require a supervisor node, " +
-                "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts_in_testbed, tbname))
+                "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname))
 
-
-def generate_param_asic_index(request, duts_in_testbed, dut_indices, param_type):
+def generate_param_asic_index(request, dut_indices, param_type):
+    _, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
     logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
     #if the params are not present treat the device as a single asic device
     asic_index_params = [DEFAULT_ASIC_ID]
 
     for dut_id in dut_indices:
-        dut = duts_in_testbed[dut_id]
-        inv_data = get_host_data(request, dut)
+        dut = tbinfo['duts'][dut_id]
+        inv_data = get_host_visible_vars(inv_files, dut)
         if inv_data is not None:
             if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
-                asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+                if int(inv_data[ASIC_PARAM_TYPE_ALL]) == 1:
+                    asic_index_params = [DEFAULT_ASIC_ID]
+                else:
+                    asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
             logging.info("dut_index {} dut name {}  asics params = {}".format(
@@ -678,15 +684,18 @@ def generate_param_asic_index(request, duts_in_testbed, dut_indices, param_type)
     return asic_index_params
 
 
-def generate_params_dut_index(duts_in_testbeds, tbname):
-    num_duts = len(duts_in_testbeds)
+def generate_params_dut_index(request):
+    tbname, tbinfo = get_tbinfo(request)
+    num_duts = len(tbinfo['duts'])
     logging.info("Num of duts in testbed '{}' is {}".format(tbname, num_duts))
     return range(num_duts)
 
 
-def generate_params_dut_hostname(duts_in_testbed, tbname):
-    logging.info("DUTs in testbed '{}' are: {}".format(tbname, str(duts_in_testbed)))
-    return duts_in_testbed
+def generate_params_dut_hostname(request):
+    tbname, tbinfo = get_tbinfo(request)
+    duts = tbinfo["duts"]
+    logging.info("DUTs in testbed '{}' are: {}".format(tbname, str(duts)))
+    return duts
 
 
 def generate_port_lists(request, port_scope):
@@ -792,36 +801,48 @@ def generate_priority_lists(request, prio_scope):
 
     return ret if ret else empty
 
+_frontend_hosts_per_hwsku_per_module = {}
+_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_indices = [0]
-    tbname, testbedinfo = get_tbinfo(metafunc)
-    duts_in_testbed = testbedinfo["duts"]
+    global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
     # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
     if "enum_dut_index" in metafunc.fixturenames:
-        dut_indices = generate_params_dut_index(duts_in_testbed, tbname)
+        dut_indices = generate_params_dut_index(metafunc)
         metafunc.parametrize("enum_dut_index", dut_indices, scope="module")
     elif "enum_dut_hostname" in metafunc.fixturenames:
-        dut_hostnames = generate_params_dut_hostname(duts_in_testbed, tbname)
+        dut_hostnames = generate_params_dut_hostname(metafunc)
         metafunc.parametrize("enum_dut_hostname", dut_hostnames, scope="module")
     elif "enum_supervisor_dut_hostname" in metafunc.fixturenames:
-        supervisor_hosts = generate_params_supervisor_hostname(metafunc, duts_in_testbed, tbname)
+        supervisor_hosts = generate_params_supervisor_hostname(metafunc)
         metafunc.parametrize("enum_supervisor_dut_hostname", supervisor_hosts, scope="module")
     elif "enum_frontend_dut_hostname" in metafunc.fixturenames:
-        frontend_hosts = generate_params_frontend_hostname(metafunc, duts_in_testbed, tbname)
+        frontend_hosts = generate_params_frontend_hostname(metafunc)
         metafunc.parametrize("enum_frontend_dut_hostname", frontend_hosts, scope="module")
+    elif "enum_rand_one_per_hwsku_hostname" in metafunc.fixturenames:
+        if metafunc.module not in _hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc)
+            _hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        hosts = _hosts_per_hwsku_per_module[metafunc.module]
+        metafunc.parametrize("enum_rand_one_per_hwsku_hostname", hosts, scope="module")
     elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
-        frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname)
-        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts_per_hwsku, scope="module")
-
+        if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc, frontend_only=True)
+            _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        hosts = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", hosts, scope="module")
 
     if "enum_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_asic_index",
-                             generate_param_asic_index(metafunc, duts_in_testbed, dut_indices, ASIC_PARAM_TYPE_ALL))
+        metafunc.parametrize("enum_asic_index", generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_frontend_asic_index",
-                             generate_param_asic_index(metafunc, duts_in_testbed, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
-
+        metafunc.parametrize(
+            "enum_frontend_asic_index",
+            generate_param_asic_index(
+                metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND
+            ),
+            scope="class"
+        )
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
@@ -859,4 +880,3 @@ def duthost_console(localhost, creds, request):
                        console_password=creds['console_password'][vars['console_type']])
     yield host
     host.disconnect()
-
