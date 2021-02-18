@@ -73,10 +73,10 @@ topology:
     loopback2:
       ipv4:
         - 10.1.0.36/32
-        - 10.1.0.37/32
+        - 10.1.0.36/32
       ipv6:
         - FC00:1::36/128
-        - FC00:1::37/128
+        - FC00:1::36/128
     vlan_configs:
       default_vlan_config: one_vlan_a
       one_vlan_a:

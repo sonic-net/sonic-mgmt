@@ -141,11 +141,11 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
     logger.info("Configured bgpmon and verifying packet on {}".format(peer_ports))
     duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
     # Verify syn packet on ptf
-    (rcvd_port, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
+    (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
     #To establish the connection we set the PTF port that receive syn packet following properties
     # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) , 
     # add the neighbor entry and the default route for dut loopback 
-    ptf_interface = "eth" + str(rcvd_port)
+    ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
     res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
     original_mac = res['stdout']
     ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, Ether(rcvd_pkt).dst))

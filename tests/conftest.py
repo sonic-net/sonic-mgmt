@@ -33,10 +33,9 @@ cache = FactsCache()
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
-                  'tests.common.plugins.fib',
                   'tests.common.plugins.tacacs',
                   'tests.common.plugins.loganalyzer',
-                  'tests.common.plugins.psu_controller',
+                  'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
@@ -837,8 +836,13 @@ def pytest_generate_tests(metafunc):
     if "enum_asic_index" in metafunc.fixturenames:
         metafunc.parametrize("enum_asic_index", generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
     if "enum_frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
-
+        metafunc.parametrize(
+            "enum_frontend_asic_index",
+            generate_param_asic_index(
+                metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND
+            ),
+            scope="class"
+        )
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
@@ -876,3 +880,19 @@ def duthost_console(localhost, creds, request):
                        console_password=creds['console_password'][vars['console_type']])
     yield host
     host.disconnect()
+
+@pytest.fixture(scope='session')
+def cleanup_cache_for_session(request):
+    """
+    This fixture allows developers to cleanup the cached data for all DUTs in the testbed before test.
+    Use cases:
+      - Running tests where some 'facts' about the DUT that get cached are changed.
+      - Running tests/regression without running test_pretest which has a test to clean up cache (PR#2978)
+      - Test case development phase to work out testbed information changes.
+
+    This fixture is not automatically applied, if you want to use it, you have to add a call to it in your tests.
+    """
+    tbname, tbinfo = get_tbinfo(request)
+    cache.cleanup(zone=tbname)
+    for a_dut in tbinfo['duts']:
+        cache.cleanup(zone=a_dut)
