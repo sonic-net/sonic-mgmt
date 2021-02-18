@@ -9,6 +9,7 @@ import pytest
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
