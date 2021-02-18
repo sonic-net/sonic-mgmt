@@ -94,15 +94,6 @@ class IpinIPTunnelTest(BaseTest):
         """
         inner_pkt = inner_pkt.copy()
         inner_pkt.ttl = inner_pkt.ttl - 1
-        """
-        pkt = simple_ipv4ip_packet(
-                            pktlen=128,
-                            eth_dst=self.active_tor_mac,
-                            eth_src=self.standby_tor_mac,
-                            ip_src=self.standby_tor_ip,
-                            ip_dst=self.active_tor_ip,
-                            inner_frame=inner_pkt)
-                            """
         pkt = scapy.Ether(dst=self.active_tor_mac, src=self.standby_tor_mac) / \
             scapy.IP(src=self.standby_tor_ip, dst=self.active_tor_ip) / inner_pkt['IP']
         exp_pkt = Mask(pkt)
@@ -167,6 +158,5 @@ class IpinIPTunnelTest(BaseTest):
                                                     timeout=TIMEOUT)
                 pkt_distribution[self.indice_to_portchannel[dst_ports[idx]]] = pkt_distribution.get(self.indice_to_portchannel[dst_ports[idx]], 0) + 1
             self.check_balance(pkt_distribution, hash_key)
-
 
 
