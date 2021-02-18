@@ -167,7 +167,7 @@ class Arista(object):
         log_present = False
         log_data = {}
         for attempt in range(attempts):
-            self.log('Collecting logs for attemt {}'.format(attempt))
+            self.log('Collecting logs for attempt {}'.format(attempt))
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
             self.log('Log output "{}"'.format(log_output))
             log_lines = log_output.split("\r\n")[1:-1]
