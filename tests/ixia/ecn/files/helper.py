@@ -8,7 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
-    enable_ecn, config_ingress_lossless_buffer_alpha
+    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging
 
 from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
     BasicFilter
@@ -67,8 +67,8 @@ def run_ecn_test(api,
 
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
-    """ Disable PFC watchdog """
-    duthost.shell('sudo pfcwd stop')
+    stop_pfcwd(duthost)
+    disable_packet_aging(duthost)
 
     """ Configure WRED/ECN thresholds """
     config_result = config_wred(host_ans=duthost,
