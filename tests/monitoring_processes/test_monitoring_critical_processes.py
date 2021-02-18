@@ -75,8 +75,8 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    if parse_version(duthost.kernel_version) <= parse_version("4.9.0"):
-        pytest.skip("Test was not supported for 201911 and older image version!")
+    pytest_require(parse_version(duthost.kernel_version) > parse_version("4.9.0"),
+                   "Test was not supported for 201911 and older image versions!")
 
 
 def check_all_critical_processes_status(duthost):
