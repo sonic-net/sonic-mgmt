@@ -22,6 +22,7 @@ def validate_IO_results(tor_IO, allowed_disruption, delay):
     total_disruptions = tor_IO.get_total_disruptions()
     longest_disruption = tor_IO.get_longest_disruption()
     total_lost_packets = tor_IO.get_total_dropped_packets()
+    duplicated_packets = tor_IO.get_duplicated_packets()
 
     if received_counter:
         pytest_assert(total_disruptions <= 1, "Traffic was disrupted {} times. Allowed number of disruption: {}"\
@@ -34,6 +35,8 @@ def validate_IO_results(tor_IO, allowed_disruption, delay):
 
     if total_lost_packets:
         logging.warn("Packets were lost during the test. Total lost count: {}".format(total_lost_packets))
+
+    pytest_assert(duplicated_packets == 0, "Duplicated packets received. Count: {}.".format(duplicated_packets))
 
 
 @pytest.fixture
@@ -57,7 +60,7 @@ def send_t1_to_server_after_action(ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
     
     duthosts = []
-    def t1_to_server_io_test(duthost, server_port=None, tor_port=None, delay=1, timeout=5, action=None):
+    def t1_to_server_io_test(activehost, standbyhost=None, server_port=None, tor_port=None, delay=1, timeout=5, action=None):
         """
         Helper method for `send_t1_to_server_after_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -70,9 +73,9 @@ def send_t1_to_server_after_action(ptfhost, ptfadapter, tbinfo):
             timeout: Time to wait for packet to be transmitted
             action: Some function (with args) which performs the desired action, or `None` if no action/delay is desired
         """
-        duthosts.append(duthost)
+        duthosts.append(activehost)
         io_ready = threading.Event()
-        tor_IO = DualTorIO(duthost, ptfhost, ptfadapter, tbinfo, server_port, tor_port, delay, timeout, io_ready)
+        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo, server_port, tor_port, delay, timeout, io_ready)
         send_and_sniff = threading.Thread(target=tor_IO.start_io_test, kwargs={'traffic_generator': tor_IO.generate_from_t1_to_server})
         send_and_sniff.start()
         if action:
@@ -116,7 +119,7 @@ def send_server_to_t1_after_action(ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
 
     duthosts = []
-    def server_to_t1_io_test(duthost, server_port=None, tor_port=None, delay=1, timeout=5, action=None):
+    def server_to_t1_io_test(activehost, standbyhost=None, server_port=None, tor_port=None, delay=1, timeout=5, action=None):
         """
         Helper method for `send_server_to_t1_after_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -129,9 +132,9 @@ def send_server_to_t1_after_action(ptfhost, ptfadapter, tbinfo):
             timeout: Time to wait for packet to be transmitted
             action: Some function (with args) which performs the desired action, or `None` if no action/delay is desired
         """
-        duthosts.append(duthost)
+        duthosts.append(activehost)
         io_ready = threading.Event()
-        tor_IO = DualTorIO(duthost, ptfhost, ptfadapter, tbinfo, server_port, tor_port, delay, timeout, io_ready)
+        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo, server_port, tor_port, delay, timeout, io_ready)
         send_and_sniff = threading.Thread(target=tor_IO.start_io_test, kwargs={'traffic_generator': tor_IO.generate_from_server_to_t1})
         send_and_sniff.start()
 

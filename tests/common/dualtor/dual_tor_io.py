@@ -28,15 +28,18 @@ logger = logging.getLogger(__name__)
 
 
 class DualTorIO:
-    def __init__(self, duthost, ptfhost, ptfadapter, tbinfo, server_port, tor_port, delay, timeout, io_ready):
+    def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo, server_port, tor_port, delay, timeout, io_ready):
         self.tor_port = tor_port
         self.server_port = server_port
-        self.duthost = duthost
+        self.duthost = activehost
         self.ptfadapter = ptfadapter
         self.ptfhost = ptfhost
         self.tbinfo = tbinfo
         self.io_ready_event = io_ready
         self.dut_mac = self.duthost.facts["router_mac"]
+        self.active_mac = self.dut_mac
+        if standbyhost:
+            self.standby_mac = standbyhost.facts["router_mac"]
 
         self.time_to_listen = 180.0
         self.sniff_time_incr = 60
@@ -51,6 +54,8 @@ class DualTorIO:
         self.max_lost_id = None
         self.max_disrupt_time = None
         self.received_counter = 0
+        self.lost_packets = dict()
+        self.duplicated_packets = dict()
         self.total_lost_packets = None
         # This list will contain all unique Payload ID, to filter out received floods.
         self.unique_id = set()
@@ -184,13 +189,14 @@ class DualTorIO:
             self.packets_list.append((self.from_tor_src_port, str(packet)))
 
         self.sent_pkt_dst_mac = self.dut_mac
-        self.received_pkt_src_mac = self.vlan_mac
+        self.received_pkt_src_mac = [self.vlan_mac]
 
 
     def generate_from_server_to_t1(self):
         """
         @summary: Generate (not send) the packets to be sent from server to T1
         """
+        eth_src = self.ptfadapter.dataplane.get_mac(0, 0)
         if self.server_port:
             self.from_server_src_port = self.server_port
         else:
@@ -200,10 +206,19 @@ class DualTorIO:
         tcp_dport = TCP_DST_PORT
         tcp_tx_packet = testutils.simple_tcp_packet(
                       eth_dst=self.vlan_mac,
+                      eth_src=eth_src,
                       ip_src=self.from_server_src_addr,
                       ip_dst=self.from_server_dst_addr,
                       tcp_dport=tcp_dport
                  )
+
+        logger.info("-"*20 + "Server to T1 packet" + "-"*20)
+        logger.info("Ethernet address: dst: {} src: {}".format(self.vlan_mac, eth_src))
+        logger.info("IP address: dst: {} src: {}".format(self.from_server_dst_addr, self.from_server_src_addr))
+        logger.info("TCP port: dst: {} src: 1234".format(tcp_dport))
+        logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac, self.standby_mac))
+        logger.info("VLAN MAC: {}".format(self.vlan_mac))
+        logger.info("-"*50)
 
         self.packets_list = []
         for i in range(self.packets_to_send):
@@ -213,7 +228,7 @@ class DualTorIO:
             self.packets_list.append((self.from_server_src_port, str(packet)))
 
         self.sent_pkt_dst_mac = self.vlan_mac
-        self.received_pkt_src_mac = self.dut_mac
+        self.received_pkt_src_mac = [self.active_mac, self.standby_mac]
 
 
     def random_host_ip(self):
@@ -354,11 +369,15 @@ class DualTorIO:
         return self.total_lost_packets
 
 
+    def get_duplicated_packets(self):
+        return len(self.duplicated_packets)
+
+
     def no_flood(self, packet):
         """
         @summary: This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.TCP].payload).replace('X','')) in self.unique_id) and (packet[scapyall.Ether].src == self.received_pkt_src_mac):
+        if (not int(str(packet[scapyall.TCP].payload).replace('X','')) in self.unique_id) and (packet[scapyall.Ether].src in self.received_pkt_src_mac):
             # This is a unique (no flooded) received packet.
             self.unique_id.add(int(str(packet[scapyall.TCP].payload).replace('X','')))
             return True
@@ -380,7 +399,8 @@ class DualTorIO:
         def examine_each_packet(packets):
             lost_packets = dict()
             sent_packets = dict()
-            prev_payload, prev_time = 0, 0
+            duplicated_packets = dict()
+            prev_payload, prev_time = None, None
             sent_payload = 0
             disruption_start, disruption_stop = None, None
             received_counter = 0    # Counts packets from dut.
@@ -390,10 +410,13 @@ class DualTorIO:
                     sent_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
                     sent_packets[sent_payload] = packet.time
                     continue
-                if packet[scapyall.Ether].src == self.received_pkt_src_mac:
+                if packet[scapyall.Ether].src in self.received_pkt_src_mac:
                     # This is a received packet.
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
+                    if received_payload == prev_payload:
+                        duplicated_packets[received_payload] = packet.time
+                        continue
                     received_counter += 1
                 if not (received_payload and received_time):
                     # This is the first valid received packet.
@@ -412,26 +435,20 @@ class DualTorIO:
                     disruption_stop = datetime.datetime.fromtimestamp(received_time)
                 prev_payload = received_payload
                 prev_time = received_time
-            if received_counter == 0:
-                logger.error("Sniffer failed to filter any traffic from DUT")
-            else:
-                logger.info("Total number of filtered incoming packets captured {}".format(received_counter))
-            if lost_packets:
-                logger.info("Disruptions happen between {} and {}.".format(str(disruption_start), str(disruption_stop)))
-            elif len(sent_packets) != received_counter:
-                logger.info("Number of packets lost: {}".format(len(sent_packets) - received_counter))
-                self.total_lost_packets = len(sent_packets) - received_counter
 
-            return received_counter, lost_packets
+            self.total_lost_packets = len(sent_packets) - received_counter
+            self.received_counter = received_counter
+            self.lost_packets = lost_packets
+            self.duplicated_packets = duplicated_packets
 
-        def check_tcp_payload(packet, packets_to_send):
+        def check_tcp_payload(packet):
             """
             @summary: Helper method
 
             Returns: Bool: True if a packet is not corrupted and has a valid TCP sequential TCP Payload
             """
             try:
-                int(str(packet[scapyall.TCP].payload).replace('X','')) in range(packets_to_send)
+                int(str(packet[scapyall.TCP].payload).replace('X','')) in range(self.packets_to_send)
                 return True
             except Exception as err:
                 return False
@@ -448,7 +465,7 @@ class DualTorIO:
             not scapyall.ICMP in pkt and
             pkt[scapyall.TCP].sport == 1234 and
             pkt[scapyall.TCP].dport == TCP_DST_PORT and
-            check_tcp_payload(pkt, self.packets_to_send) and
+            check_tcp_payload(pkt) and
             self.no_flood(pkt)
             ]
         logger.info("Number of filtered packets captured: {}".format(len(filtered_packets)))
@@ -466,7 +483,7 @@ class DualTorIO:
             scapyall.wrpcap(filename, packets)
             logger.info("Filtered pcap dumped to {}".format(filename))
 
-        self.received_counter, self.lost_packets = examine_each_packet(packets)
+        examine_each_packet(packets)
 
         self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
         if self.lost_packets:
@@ -475,10 +492,19 @@ class DualTorIO:
                 max(self.lost_packets.items(), key = lambda item:item[1][0:2])
             self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
             self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
-        elif self.received_counter > 0:
+        elif self.total_lost_packets == 0:
             self.max_lost_id = 0
             self.max_disrupt_time = 0
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             logger.info("Gaps in forwarding not found.")
+
+        if self.received_counter == 0:
+            logger.error("Sniffer failed to filter any traffic from DUT")
+        if self.lost_packets:
+            logger.info("Disruptions happen between {} and {}.".format(str(self.disruption_start), str(self.disruption_stop)))
+
         logger.info("Packet flow examine finished after {}".format(str(datetime.datetime.now() - examine_start)))
+        logger.info("Total number of filtered incoming packets captured {}".format(self.received_counter))
+        logger.info("Number of duplicated packets received: {}".format(len(self.duplicated_packets)))
+        logger.info("Number of packets lost: {}".format(self.total_lost_packets))
