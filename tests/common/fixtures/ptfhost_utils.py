@@ -201,7 +201,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope='session', autouse=True)
-def run_garp_service(duthost, ptfhost, tbinfo):
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses):
 
     garp_config = {}
 
