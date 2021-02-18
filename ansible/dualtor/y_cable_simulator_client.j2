@@ -41,97 +41,111 @@ def _physical_port_to_host_port(physical_port):
     @arg physical_port: The physical port index got from sfputil
     @returns: The host interface index (0-based)
     """
-    global g_physical_to_host_port_mappingg
+    global g_physical_to_host_port_mapping
     global g_physical_to_logical_port_mapping
 
     if not g_physical_to_host_port_mapping or not g_physical_to_logical_port_mapping:
         _load_port_info()
-    return g_physical_to_host_port_mapping[physical_port]
+    # Return physical_port - 1 in case loading port config file failure
+    return g_physical_to_host_port_mapping.get(physical_port, physical_port - 1)
 
 def _load_port_info():
     """
     Parse platform.json or port_config.ini to get the mapping between physical_port and host interface index
     and physical_port and logical port name. The mapping is saved in two global variables.
     """
+    porttabfile = device_info.get_path_to_port_config_file()
+    parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
+
+    if parse_fmt_platform_json:
+        _load_port_config_json()
+    else:
+        _load_port_config_ini(porttabfile)
+
+def _load_port_config_json():
+    """
+    A helper function for loading port config from 'platform.json'
+    """
     global g_physical_to_host_port_mapping
     global g_physical_to_logical_port_mapping
 
-    parse_fmt_port_config_ini = False
-    parse_fmt_platform_json = False
-
-    porttabfile = device_info.get_path_to_port_config_file()
-    parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
-    parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
-
     (platform, hwsku) = device_info.get_platform_and_hwsku()
-    if parse_fmt_platform_json:
-        ports, _, _ = get_port_config(hwsku, platform)
-        if not ports:
-            helper_logger.log_warning('Failed to get port config')
-            return
-        else:
-            logical_list = []
-            for intf in ports.keys():
-                logical_list.append(intf)
-
-            logical = natsorted(logical_list, key=lambda y: y.lower())
-            host_intf_index = 0
-            for intf_name in logical:
-                fp_port_index = -1
-                if 'index' in ports[intf_name].keys():
-                    fp_port_index = int(ports[intf_name]['index'])
-                g_physical_to_host_port_mapping[fp_port_index] = host_intf_index;
-                if g_physical_to_logical_port_mapping.get(fp_port_index) is None:
-                    g_physical_to_logical_port_mapping[fp_port_index] = [intf_name]
-                else:
-                    g_physical_to_logical_port_mapping[fp_port_index].append(intf_name)
-
+    ports, _, _ = get_port_config(hwsku, platform)
+    if not ports:
+        helper_logger.log_warning('Failed to get port config')
+        return
     else:
+        logical_list = []
+        for intf in ports.keys():
+            logical_list.append(intf)
+
+        logical = natsorted(logical_list, key=lambda y: y.lower())
         host_intf_index = 0
-        with open(porttabfile, "r") as f:
-            # Read the porttab file and generate dicts
-            # with mapping for future reference.
-            title = []
-            for line in f:
-                line.strip()
-                if re.search("^#", line) is not None:
-                    # The current format is: # name lanes alias index speed
-                    # Where the ordering of the columns can vary
-                    title = line.split()[1:]
+        for intf_name in logical:
+            fp_port_index = -1
+            if 'index' in ports[intf_name].keys():
+                fp_port_index = int(ports[intf_name]['index'])
+            if fp_port_index not in g_physical_to_host_port_mapping:
+                g_physical_to_host_port_mapping[fp_port_index] = host_intf_index;
+            if g_physical_to_logical_port_mapping.get(fp_port_index) is None:
+                g_physical_to_logical_port_mapping[fp_port_index] = [intf_name]
+            else:
+                g_physical_to_logical_port_mapping[fp_port_index].append(intf_name)
+
+def _load_port_config_ini(porttabfile):
+    """
+    A helper function for loading port config from 'port_config.ini'
+    """
+    global g_physical_to_host_port_mapping
+    global g_physical_to_logical_port_mapping
+
+    parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
+    host_intf_index = 0
+    with open(porttabfile, "r") as f:
+        # Read the porttab file and generate dicts
+        # with mapping for future reference.
+        title = []
+        for line in f:
+            line.strip()
+            if re.search("^#", line) is not None:
+                # The current format is: # name lanes alias index speed
+                # Where the ordering of the columns can vary
+                title = line.split()[1:]
+                continue
+            # Parsing logic for 'port_config.ini' file
+            if (parse_fmt_port_config_ini):
+                # bcm_port is not explicitly listed in port_config.ini format
+                # Currently we assume ports are listed in numerical order according to bcm_port
+                # so we use the port's position in the file (zero-based) as bcm_port
+                portname = line.split()[0]
+
+                # Ignore if this is an internal backplane interface
+                if portname.startswith(backplane_prefix()):
                     continue
-                # Parsing logic for 'port_config.ini' file
-                if (parse_fmt_port_config_ini):
-                    # bcm_port is not explicitly listed in port_config.ini format
-                    # Currently we assume ports are listed in numerical order according to bcm_port
-                    # so we use the port's position in the file (zero-based) as bcm_port
-                    portname = line.split()[0]
 
-                    # Ignore if this is an internal backplane interface
-                    if portname.startswith(backplane_prefix()):
-                        continue
-
-                    if "index" in title:
-                        fp_port_index = int(line.split()[title.index("index")])
-                    # Leave the old code for backward compatibility
-                    elif "asic_port_name" not in title and len(line.split()) >= 4:
-                        fp_port_index = int(line.split()[3])
-                    else:
-                        fp_port_index = portname.split("Ethernet").pop()
-                        fp_port_index = int(fp_port_index.split("s").pop(0))/4
+                if "index" in title:
+                    fp_port_index = int(line.split()[title.index("index")])
+                # Leave the old code for backward compatibility
+                elif "asic_port_name" not in title and len(line.split()) >= 4:
+                    fp_port_index = int(line.split()[3])
                 else:
-                    # Parsing logic for older 'portmap.ini' file
-                    (portname, bcm_port) = line.split("=")[1].split(",")[:2]
-
                     fp_port_index = portname.split("Ethernet").pop()
                     fp_port_index = int(fp_port_index.split("s").pop(0))/4
+            else:
+                # Parsing logic for older 'portmap.ini' file
+                (portname, bcm_port) = line.split("=")[1].split(",")[:2]
+
+                fp_port_index = portname.split("Ethernet").pop()
+                fp_port_index = int(fp_port_index.split("s").pop(0))/4
+            if fp_port_index not in g_physical_to_host_port_mapping:
                 g_physical_to_host_port_mapping[fp_port_index] = host_intf_index
 
-                if g_physical_to_logical_port_mapping.get(fp_port_index) is None:
-                    g_physical_to_logical_port_mapping[fp_port_index] = [portname]
-                else:
-                    g_physical_to_logical_port_mapping[fp_port_index].append(portname)
-                # Next line, next host index
-                host_intf_index += 1
+            if g_physical_to_logical_port_mapping.get(fp_port_index) is None:
+                g_physical_to_logical_port_mapping[fp_port_index] = [portname]
+            else:
+                g_physical_to_logical_port_mapping[fp_port_index].append(portname)
+            # Next line, next host index
+            host_intf_index += 1
 
 def _url(physical_port):
     """
