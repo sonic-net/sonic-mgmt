@@ -1,5 +1,8 @@
+import logging
+
 from tests.common.utilities import get_host_visible_vars
 
+logger = logging.getLogger(__name__)
 
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
