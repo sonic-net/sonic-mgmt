@@ -263,7 +263,7 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     pytest_assert(len(stopped_container_list) > 0, "None of containers was stopped!")
 
     expected_alerting_messages = get_expected_alerting_messages(stopped_container_list)
-    loganalyzer.expect_regex.append(expected_alerting_messages)
+    loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
 
     # Wait for 2 minutes such that Monit has a chance to write alerting message into syslog.
