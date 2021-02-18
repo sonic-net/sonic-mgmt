@@ -9,6 +9,8 @@ import pytest
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import get_program_info
+from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 
@@ -27,6 +29,40 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 def config_reload_after_tests(duthost):
     yield
     config_reload(duthost)
+
+
+@pytest.fixture(autouse=True, scope='module')
+def disable_and_enable_autorestart(duthost):
+    """Changes the autorestart of containers from `enabled` to `disabled` before testing.
+       and Rolls them back after testing.
+
+    Args:
+        duthost: Hostname of DUT.
+
+    Returns:
+        None.
+    """
+    containers_autorestart_states = duthost.get_container_autorestart_states()
+    disabled_autorestart_containers = []
+
+    for container_name, state in containers_autorestart_states.items():
+        if state != "disabled":
+            logger.info("Disabling the autorestart of container '{}'.".format(container_name))
+            command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
+            command_output = duthost.shell(command_disable_autorestart)
+            exit_code = command_output["rc"]
+            pytest_assert(exit_code == 0, "Failed to disable the autorestart of container '{}'".format(container_name))
+            logger.info("The autorestart of container '{}' was disabled.".format(container_name))
+            disabled_autorestart_containers.append(container_name)
+
+    yield
+
+    for container_name in disabled_autorestart_containers:
+        logger.info("Enabling the autorestart of container '{}'...".format(container_name))
+        command_output = duthost.shell("sudo config feature autorestart {} enabled".format(container_name))
+        exit_code = command_output["rc"]
+        pytest_assert(exit_code == 0, "Failed to enable the autorestart of container '{}'".format(container_name))
+        logger.info("The autorestart of container '{}' is enabled.".format(container_name))
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -135,25 +171,6 @@ def get_expected_alerting_messages(duthost, containers_in_namespaces):
     return expected_alerting_messages
 
 
-def get_num_asics(duthost):
-    """Get number of ASICs on the DUT.
-
-    Args:
-        duthost: Hostname of DUT.
-
-    Returns:
-        An integer which shows number of ASICs on the DUT.
-    """
-    command_num_asics = "python -c 'exec(\"from sonic_py_common import multi_asic\\nprint(multi_asic.get_num_asics())\")'"
-    command_output = duthost.shell(command_num_asics)
-    exit_code = command_output["rc"]
-    pytest_assert(exit_code == 0, "Failed to get the number of ASICs")
-
-    num_asics = command_output["stdout_lines"][0]
-
-    return int(num_asics)
-
-
 def parse_config_entry(config_info):
     """Parse a single entry of `FEATURE` table.
 
@@ -202,18 +219,17 @@ def parse_feature_table(duthost, num_asics, skip_containers):
     container_list = []
     containers_in_namespaces = defaultdict(list)
 
-    container_list_command = "redis-cli -n 4 keys \"FEATURE|*\""
+    container_list_command = "sonic-db-cli CONFIG_DB keys \"FEATURE|*\""
     command_output = duthost.shell(container_list_command)
     exit_code = command_output["rc"]
     pytest_assert(exit_code == 0, "Failed to get keys (container names) in `FEATURE` table")
     for line in command_output["stdout_lines"]:
-        container_list.append(line.split("|")[1].strip())
+        container_name = line.split("|")[1].strip()
+        if container_name not in skip_containers:
+            container_list.append(container_name)
 
     for container_name in container_list:
-        if container_name in skip_containers:
-            continue
-
-        command_config_entry = "redis-cli -n 4 hgetall \"FEATURE|{}\"".format(container_name)
+        command_config_entry = "sonic-db-cli CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
         command_output = duthost.shell(command_config_entry)
         exit_code = command_output["rc"]
         pytest_assert(exit_code == 0, "Failed to get configuration of container '{}' in `FEATURE` table"
@@ -233,95 +249,6 @@ def parse_feature_table(duthost, num_asics, skip_containers):
             logger.info("The configuration of container '{}' in `FEATURE` table was retrieved.".format(container_name))
 
     return containers_in_namespaces
-
-
-def disable_containers_autorestart(duthost, containers_in_namespaces):
-    """Disables the autorestart of enabled containers.
-
-    Args:
-        duthost: Hostname of DUT.
-        containers_in_namespaces: A dictionary where keys are container names and
-        values are lists which contains ids of namespaces this container should reside in.
-
-    Returns:
-        None.
-    """
-    for container_name in containers_in_namespaces.keys():
-        logger.info("Disabling the autorestart of container '{}'.".format(container_name))
-        command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
-        command_output = duthost.shell(command_disable_autorestart)
-        exit_code = command_output["rc"]
-        pytest_assert(exit_code == 0, "Failed to disable the autorestart of container '{}'".format(container_name))
-        logger.info("The autorestart of container '{}' was disabled.".format(container_name))
-
-
-def get_group_program_info(duthost, container_name, group_name):
-    """Gets program names, running status and their pids by analyzing the command
-       output of "docker exec <container_name> supervisorctl status". Program name
-       at here represents a program which is part of group <group_name>
-
-    Args:
-        duthost: Hostname of DUT.
-        container_name: A string shows container name.
-        program_name: A string shows process name.
-
-    Returns:
-        A dictionary where keys are the program names and values are their running
-        status and pids.
-    """
-    group_program_info = defaultdict(list)
-    program_name = None
-    program_status = None
-    program_pid = -1
-
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
-    for program_info in program_list["stdout_lines"]:
-        if program_info.find(group_name) != -1:
-            program_name = program_info.split()[0].split(':')[1].strip()
-            program_status = program_info.split()[1].strip()
-            if program_status in ["EXITED", "STOPPED", "STARTING"]:
-                program_pid = -1
-            else:
-                program_pid = int(program_info.split()[3].strip(','))
-
-            group_program_info[program_name].append(program_status)
-            group_program_info[program_name].append(program_pid)
-
-            if program_pid != -1:
-                logger.info("Found program '{}' in the '{}' state with pid {}"
-                            .format(program_name, program_status, program_pid))
-
-    return group_program_info
-
-
-def get_program_info(duthost, container_name, program_name):
-    """Gets program running status and its pid by analyzing the command
-       output of "docker exec <container_name> supervisorctl status"
-
-    Args:
-        duthost: Hostname of DUT.
-        container_name: A string shows container name.
-        program_name: A string shows process name.
-
-    Return:
-        Program running status and its pid.
-    """
-    program_status = None
-    program_pid = -1
-
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
-    for program_info in program_list["stdout_lines"]:
-        if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1].strip()
-            if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
-            break
-
-    if program_pid != -1:
-        logger.info("Found program '{}' in the '{}' state with pid {}"
-                    .format(program_name, program_status, program_pid))
-
-    return program_status, program_pid
 
 
 def kill_process_by_pid(duthost, container_name, program_name, program_pid):
@@ -466,25 +393,6 @@ def restart_critical_processes(duthost, containers_in_namespaces):
                     check_and_restart_process(duthost, container_name_in_namespace, program_name)
 
 
-def restore_containers_autorestart(duthost, containers_autorestart_states):
-    """Restore the autorestart of all containers.
-
-    Args:
-        duthost: Hostname of DUT.
-        containers_in_namespaces: A dictionary where keys are container names and
-        values are lists which contains ids of namespaces this container should reside in.
-
-    Returns:
-        None.
-    """
-    for container_name, state in containers_autorestart_states.items():
-        logger.info("Enabling the autorestart of container '{}'...".format(container_name))
-        command_output = duthost.shell("sudo config feature autorestart {} {}".format(container_name, state))
-        exit_code = command_output["rc"]
-        pytest_assert(exit_code == 0, "Failed to enable the autorestart of container '{}'".format(container_name))
-        logger.info("The autorestart of container '{}' is enabled.".format(container_name))
-
-
 def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     """Tests the feature of monitoring critical processes with Supervisord.
 
@@ -502,7 +410,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
-    containers_autorestart_states = duthost.get_container_autorestart_states()
     bgp_neighbors = duthost.get_bgp_neighbors()
     up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
 
@@ -512,9 +419,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
 
-    num_asics = get_num_asics(duthost)
+    num_asics = duthost.num_asics()
     containers_in_namespaces = parse_feature_table(duthost, num_asics, skip_containers)
-    disable_containers_autorestart(duthost, containers_in_namespaces)
 
     expected_alerting_messages = get_expected_alerting_messages(duthost, containers_in_namespaces)
     loganalyzer.expect_regex.extend(expected_alerting_messages)
@@ -528,15 +434,13 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
 
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
-    logger.info("Checking the alerting messages from syslog was done!")
+    logger.info("Found all the expected alerting messages from syslog!")
 
     logger.info("Executing the config reload...")
     config_reload(duthost)
     logger.info("Executing the config reload was done!")
 
     restart_critical_processes(duthost, containers_in_namespaces)
-
-    restore_containers_autorestart(duthost, containers_autorestart_states)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the container checker!")
