@@ -184,6 +184,9 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
             time.sleep(1)
             attempts += 1
 
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts))
+
     """ Dump per-flow statistics """
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
     api.set_state(State(FlowTransmitState(state='stop')))
