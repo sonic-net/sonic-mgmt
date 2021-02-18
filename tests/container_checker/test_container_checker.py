@@ -8,6 +8,7 @@ import pytest
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.dut_utils import clear_failed_flag_and_restart
 from tests.common.helpers.dut_utils import is_hitting_start_limit
@@ -43,8 +44,8 @@ def check_image_version(duthost):
     Return:
         None.
     """
-    if parse_version(duthost.kernel_version) <= parse_version("4.9.0"):
-        pytest.skip("Test was not supported for 201911 and older image version!")
+    pytest_require(parse_version(duthost.kernel_version) > parse_version("4.9.0"),
+                   "Test was not supported for 201911 and older image version!")
 
 
 @pytest.fixture(autouse=True, scope="module")
