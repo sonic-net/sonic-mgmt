@@ -1,4 +1,3 @@
-import ipaddress
 import logging
 import os
 import pytest
