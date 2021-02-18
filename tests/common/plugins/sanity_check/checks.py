@@ -106,7 +106,7 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
 def check_interfaces(duthosts):
     def _check():
         check_results = []
-        for dut in duthosts:
+        for dut in duthosts.frontend_nodes:
             logger.info("Checking interfaces status on %s..." % dut.hostname)
 
             networking_uptime = dut.get_networking_uptime().seconds
@@ -161,7 +161,7 @@ def check_interfaces(duthosts):
 def check_bgp(duthosts):
     def _check():
         check_results = []
-        for dut in duthosts:
+        for dut in duthosts.frontend_nodes:
             def _check_bgp_status_helper():
                 asic_check_results = []
                 bgp_facts = dut.bgp_facts(asic_index='all')
