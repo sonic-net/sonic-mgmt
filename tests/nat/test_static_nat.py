@@ -929,6 +929,26 @@ class TestStaticNat(object):
         db_rules = {}
         output = get_redis_val(duthost, 0, "BINDING")
         pytest_assert(db_rules == output, "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output, db_rules))
+        # Restore switch configuration back to original values and confirm that pool and bindings APP_DB and CONFIG_DB are restored properly
+        duthost.command("sudo config nat remove pool test_pool_2")
+        duthost.command("sudo config nat add pool test_pool {} {}-{}".format(network_data.public_ip, POOL_RANGE_START_PORT, POOL_RANGE_END_PORT))
+        duthost.command("sudo config nat add binding test_binding test_pool test_acl_table")
+        duthost.command("sudo config acl remove table test_acl_2")
+        # Pool CONFIG_DB
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip = network_data.public_ip)
+        output = get_redis_val(duthost, 4, "POOL")
+        pytest_assert(db_rules == output['NAT_POOL|test_pool']['value'],
+                      "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_POOL|test_pool']['value'], db_rules))
+        # Binding CONFIG_DB
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Binding CONFIG_DB')
+        output = get_redis_val(duthost, 4, "BINDING")
+        pytest_assert(db_rules == output['NAT_BINDINGS|test_binding']['value'],
+                      "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_BINDINGS|test_binding']['value'], db_rules))
+        # Binding APP_DB
+        db_rules = {}
+        output = get_redis_val(duthost, 0, "BINDING")
+        pytest_assert(db_rules == output,
+                      "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output, db_rules))
 
     @pytest.mark.nat_static
     def test_nat_static_redis_napt(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
