@@ -1,13 +1,13 @@
-# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
-ptf1-m,ptf1,ptf32,docker-ptf,ptf-unknown,10.255.0.188/24,,server_1,,str-msn2700-01,Test ptf Mellanox
-ptf2-b,ptf2,ptf64,docker-ptf,ptf-unknown,10.255.0.189/24,,server_1,,lab-s6100-01,Test ptf Broadcom
-vms-sn2700-t1,vms1-1,t1,docker-ptf,ptf-unknown,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests Mellanox SN2700 vms
-vms-sn2700-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-unknown,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests Mellanox SN2700 vms
-vms-sn2700-t0,vms1-1,t0,docker-ptf,ptf-unknown,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests Mellanox SN2700 vms
-vms-s6000-t0,vms2-1,t0,docker-ptf,ptf-unknown,10.255.0.179/24,,server_1,VM0100,lab-s6000-01,Tests Dell S6000 vms
-vms-a7260-t0,vms3-1,t0-116,docker-ptf,ptf-unknown,10.255.0.180/24,,server_1,VM0100,lab-a7260-01,Tests Arista A7260 vms
-vms-s6100-t0,vms4-1,t0-64,docker-ptf,ptf-unknown,10.255.0.181/24,,server_1,VM0100,lab-s6100-01,Tests Dell S6100 vms
-vms-s6100-t1,vms4-1,t1-64,docker-ptf,ptf-unknown,10.255.0.182/24,,server_1,VM0100,lab-s6100-01,Tests Dell S6100 vms
-vms-s6100-t1-lag,vms5-1,t1-64-lag,docker-ptf,ptf-unknown,10.255.0.183/24,,server_1,VM0100,lab-s6100-01,Tests Dell S6100 vms
-vms-multi-dut,vms1-duts,ptf64,docker-ptf,ptf-unknown,10.255.0.184/24,,server_1,VM0100,[dut-host1;dut-host2],Example Multi DUTs testbed
-vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,superman
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment
+ptf1-m,ptf1,ptf32,docker-ptf,ptf-unknown,10.255.0.188/24,,server_1,,str-msn2700-01,lab,False,Test ptf Mellanox
+ptf2-b,ptf2,ptf64,docker-ptf,ptf-unknown,10.255.0.189/24,,server_1,,lab-s6100-01,lab,False,Test ptf Broadcom
+vms-sn2700-t1,vms1-1,t1,docker-ptf,ptf-unknown,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,lab,True,Tests Mellanox SN2700 vms
+vms-sn2700-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-unknown,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,lab,True,Tests Mellanox SN2700 vms
+vms-sn2700-t0,vms1-1,t0,docker-ptf,ptf-unknown,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,lab,True,Tests Mellanox SN2700 vms
+vms-s6000-t0,vms2-1,t0,docker-ptf,ptf-unknown,10.255.0.179/24,,server_1,VM0100,lab-s6000-01,lab,True,Tests Dell S6000 vms
+vms-a7260-t0,vms3-1,t0-116,docker-ptf,ptf-unknown,10.255.0.180/24,,server_1,VM0100,lab-a7260-01,lab,True,Tests Arista A7260 vms
+vms-s6100-t0,vms4-1,t0-64,docker-ptf,ptf-unknown,10.255.0.181/24,,server_1,VM0100,lab-s6100-01,lab,True,Tests Dell S6100 vms
+vms-s6100-t1,vms4-1,t1-64,docker-ptf,ptf-unknown,10.255.0.182/24,,server_1,VM0100,lab-s6100-01,lab,True,Tests Dell S6100 vms
+vms-s6100-t1-lag,vms5-1,t1-64-lag,docker-ptf,ptf-unknown,10.255.0.183/24,,server_1,VM0100,lab-s6100-01,lab,True,ests Dell S6100 vms
+vms-multi-dut,vms1-duts,ptf64,docker-ptf,ptf-unknown,10.255.0.184/24,,server_1,VM0100,[dut-host1;dut-host2],lab,True,Example Multi DUTs testbed
+vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,lab,True,superman

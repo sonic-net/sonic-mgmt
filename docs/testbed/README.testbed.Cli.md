@@ -12,9 +12,9 @@
 
 ## Add/Remove topo
 ```
-# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
-vms1-1-t1,vms1-1,t1,docker-ptf,ptf-1,10.0.10.5/23,,server_1,VM0100,str-msn2700-11,t1 tests
-vms1-1-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-2,10.0.10.5/23,,server_1,VM0100,str-msn2700-11,t1-lag tests
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment
+vms1-1-t1,vms1-1,t1,docker-ptf,ptf-1,10.0.10.5/23,,server_1,VM0100,str-msn2700-11,lab,True,t1 tests
+vms1-1-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-2,10.0.10.5/23,,server_1,VM0100,str-msn2700-11,lab,False,t1-lag tests
 
 ```
 Goal is to use one VM with different topologies

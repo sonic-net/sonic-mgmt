@@ -28,11 +28,18 @@ options:
 '''
 
 EXAMPLES = '''
-    Testbed CSV file example:
+    Testbed CSV file example - deprecated:
         # conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
         ptf1-m,ptf1,ptf32,docker-ptf,ptf-1,10.255.0.188/24,,server_1,,str-msn2700-01,Tests ptf
         vms-t1,vms1-1,t1,docker-ptf,ptf-2,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests vms
         vms-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-3,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests vms
+        ...
+
+    Testbed CSV file example - recommended:
+        # conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_file,auto_recover,comment
+        ptf1-m,ptf1,ptf32,docker-ptf,ptf-1,10.255.0.188/24,,server_1,,str-msn2700-01,lab,False,Tests ptf
+        vms-t1,vms1-1,t1,docker-ptf,ptf-2,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,lab,True,Tests vms
+        vms-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-3,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,lab,True,Tests vms
         ...
 
     Testcases YAML File example:
@@ -98,7 +105,8 @@ TESTCASE_FILE = 'roles/test/vars/testcases.yml'
 class ParseTestbedTopoinfo():
     """Parse the testbed file used to describe whole testbed info"""
 
-    TESTBED_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
 
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
@@ -113,13 +121,17 @@ class ParseTestbedTopoinfo():
         def _read_testbed_topo_from_csv():
             """Read csv testbed info file."""
             with open(self.testbed_filename) as f:
-                topo = csv.DictReader(f, fieldnames=self.TESTBED_FIELDS,
-                                      delimiter=',')
+                header = [field.strip(' #') for field in f.readline().strip().split(',')]
+                if len(header) == len(self.TESTBED_FIELDS_DEPRECATED):
+                    testbed_fields = self.TESTBED_FIELDS_DEPRECATED
+                elif len(header) == len(self.TESTBED_FIELDS_RECOMMENDED):
+                    testbed_fields = self.TESTBED_FIELDS_RECOMMENDED
+                else:
+                    raise ValueError('Unsupported testbed fields %s' % str(header))
+                for header_field, expect_field in zip(header, testbed_fields):
+                    assert header_field == expect_field
 
-                # Validate all field are in the same order and are present
-                header = next(topo)
-                for field in self.TESTBED_FIELDS:
-                    assert header[field].replace('#', '').strip() == field
+                topo = csv.DictReader(f, fieldnames=testbed_fields, delimiter=',')
 
                 for line in topo:
                     if line['conf-name'].lstrip().startswith('#'):
@@ -133,7 +145,7 @@ class ParseTestbedTopoinfo():
                             _cidr_to_ip_mask(line["ptf_ipv6"])
 
                     line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
-                    line['duts_map'] = {dut:line['duts'].index(dut) for dut in line['duts']}
+                    line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
                     del line['dut']
 
                     self.testbed_topo[line['conf-name']] = line

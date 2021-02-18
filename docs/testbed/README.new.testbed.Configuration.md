@@ -49,12 +49,12 @@ The devices section is a dictionary that contains all devices and hosts. This se
 
 For each device that you add, add the following:
 
-| Hostname | ansible_host | ansible_ssh_user | ansible_ssh_pass | HwSKU | device_type |
-| ------ | ------ | ------ | ------ | ------ | ------ |
-| str-msn2700-01 | [IP Address] | [username] | [password] | DevSonic | DevSonic |
-| str-7260-10 | [IP Address] | [username] | [password] |Arista-7260QX-64 | FanoutRoot |
-| str-7260-10 | [IP Address] | [username] | [password] |Arista-7260QX-64 | FanoutLeaf |
-| str-acs-serv-01 | [IP Address] | [username] | [password] | TestServ | Server |
+| Hostname        | ansible_host | ansible_ssh_user | ansible_ssh_pass | HwSKU            | device_type |
+| --------------- | ------------ | ---------------- | ---------------- | ---------------- | ----------- |
+| str-msn2700-01  | [IP Address] | [username]       | [password]       | DevSonic         | DevSonic    |
+| str-7260-10     | [IP Address] | [username]       | [password]       | Arista-7260QX-64 | FanoutRoot  |
+| str-7260-10     | [IP Address] | [username]       | [password]       | Arista-7260QX-64 | FanoutLeaf  |
+| str-acs-serv-01 | [IP Address] | [username]       | [password]       | TestServ         | Server      |
 
 - hostname - names the devices you will use
 - ansible_host - this is the managementIP where you can connect to to the device
@@ -111,10 +111,10 @@ Define:
 
 This is where the topology configuration file for the testbed will collect information from when running TestbedProcessing.py.
 
-| #conf-name | group-name | topo | ptf_image_name | ptf_ip | server | vm_base | dut | comment |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf] | [ip address] | [server group] | [vm_base] | [dut] | [comment] |
-| [t0 conf-name] | [t0 group-name] | [t0] | [docker-ptf] | [ip address] | [server group] | [vm_base] | [dut] | [comment] |
+| #conf-name        | group-name         | topo    | ptf_image_name | ptf_ip       | server         | vm_base   | dut   | inv_name   | auto_recover   | comment   |
+| ----------------- | ------------------ | ------- | -------------- | ------------ | -------------- | --------- | ----- | ---------- | -------------- | --------- |
+| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf]   | [ip address] | [server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
+| [t0 conf-name]    | [t0 group-name]    | [t0]    | [docker-ptf]   | [ip address] | [server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
 
 
 For each topology you use in your testbed environment, define the following:
@@ -129,6 +129,8 @@ For each topology you use in your testbed environment, define the following:
 - server - server where the testbed resides. Choose a veos_group to use that contains both the lab server and virtual machines
 - vm_base - enter in the lowest ID value for the VMs you will be using to run the test cases. The lowest VM ID value can be found under the veos section of the testbed configuration file. IF empty, no VMs are used
 - dut - enter in the target DUT that is used in the testbed environment
+- inv_name - inventory file name that contains the definition of the target DUTs
+- auto_recover - (`yes`|`True`|`true`) to recover this testbed when runnings serve recovery script, (`no`|`False`|`false`) otherwise
 - comment -  make a little note here
 - ansible
     - ansible_host - IP address with port number

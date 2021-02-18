@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 class TestbedInfo(object):
     """Parse the testbed file used to describe whole testbed info."""
 
-    TESTBED_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -69,13 +70,18 @@ class TestbedInfo(object):
     def _read_testbed_topo_from_csv(self):
         """Read csv testbed info file."""
         with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f, fieldnames=self.TESTBED_FIELDS,
-                                  delimiter=',')
+            header = [field.strip(' #') for field in f.readline().strip().split(',')]
+            print(header)
+            if len(header) == len(self.TESTBED_FIELDS_DEPRECATED):
+                self.testbed_fields = self.TESTBED_FIELDS_DEPRECATED
+            elif len(header) == len(self.TESTBED_FIELDS_RECOMMENDED):
+                self.testbed_fields = self.TESTBED_FIELDS_RECOMMENDED
+            else:
+                raise ValueError('Unsupported testbed fields %s' % str(header))
+            for header_field, expect_field in zip(header, self.testbed_fields):
+                assert header_field == expect_field
 
-            # Validate all field are in the same order and are present
-            header = next(topo)
-            for field in self.TESTBED_FIELDS:
-                assert header[field].replace('#', '').strip() == field
+            topo = csv.DictReader(f, fieldnames=self.testbed_fields, delimiter=',')
 
             for line in topo:
                 if line['conf-name'].lstrip().startswith('#'):
@@ -89,7 +95,7 @@ class TestbedInfo(object):
                         self._cidr_to_ip_mask(line['ptf_ipv6'])
 
                 line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
-                line['duts_map'] = {dut:line['duts'].index(dut) for dut in line['duts']}
+                line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
                 del line['dut']
 
                 self.testbed_topo[line['conf-name']] = line
@@ -135,6 +141,7 @@ class TestbedInfo(object):
             [1]: https://web.archive.org/web/20170903201521/https://pyyaml.org/ticket/64
             [2]: https://github.com/yaml/pyyaml/issues/127
             """
+
             def increase_indent(self, flow=False, indentless=False):
                 return yaml.Dumper.increase_indent(self, flow, False)
 
@@ -153,7 +160,7 @@ class TestbedInfo(object):
                 ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
                                                  tb_dict["ptf_netmask_v6"])
             testbed_mapping = zip(
-                self.TESTBED_FIELDS,
+                self.testbed_fields,
                 [
                     tb_name,
                     tb_dict["group-name"],
