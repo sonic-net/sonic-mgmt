@@ -143,7 +143,7 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
             if not pfc_pause:
                 pause_prio = None
 
-            if i == 0:
+            if not storm_handle:
                 storm_handle = PFCStorm(duthost, fanout_info, fanouthosts,
                                         pfc_queue_idx=pause_prio,
                                         pfc_frames_number=PFC_PKT_COUNT,
