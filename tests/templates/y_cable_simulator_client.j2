@@ -26,7 +26,6 @@ PORT_CONFIG_INI = 'port_config.ini'
 
 # A dict for mapping physical port to host interface
 g_physical_to_host_port_mapping = {}
-g_physical_to_logical_port_mapping = {}
 
 def _physical_port_to_host_port(physical_port):
     """
@@ -39,9 +38,8 @@ def _physical_port_to_host_port(physical_port):
     @returns: The host interface index (0-based)
     """
     global g_physical_to_host_port_mapping
-    global g_physical_to_logical_port_mapping
 
-    if not g_physical_to_host_port_mapping or not g_physical_to_logical_port_mapping:
+    if not g_physical_to_host_port_mapping:
         _load_port_info()
     # Return physical_port - 1 in case loading port config file failure
     return g_physical_to_host_port_mapping.get(physical_port, physical_port - 1)
@@ -64,7 +62,6 @@ def _load_port_config_json():
     A helper function for loading port config from 'platform.json'
     """
     global g_physical_to_host_port_mapping
-    global g_physical_to_logical_port_mapping
 
     (platform, hwsku) = device_info.get_platform_and_hwsku()
     ports, _, _ = get_port_config(hwsku, platform)
@@ -84,17 +81,13 @@ def _load_port_config_json():
                 fp_port_index = int(ports[intf_name]['index'])
             if fp_port_index not in g_physical_to_host_port_mapping:
                 g_physical_to_host_port_mapping[fp_port_index] = host_intf_index;
-            if g_physical_to_logical_port_mapping.get(fp_port_index) is None:
-                g_physical_to_logical_port_mapping[fp_port_index] = [intf_name]
-            else:
-                g_physical_to_logical_port_mapping[fp_port_index].append(intf_name)
+            host_intf_index += 1
 
 def _load_port_config_ini(porttabfile):
     """
     A helper function for loading port config from 'port_config.ini'
     """
     global g_physical_to_host_port_mapping
-    global g_physical_to_logical_port_mapping
 
     parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
     host_intf_index = 0
@@ -107,7 +100,7 @@ def _load_port_config_ini(porttabfile):
             if re.search("^#", line) is not None:
                 # The current format is: # name lanes alias index speed
                 # Where the ordering of the columns can vary
-                title = line.split()[1:]
+                title = line.lstrip('#').strip().split()
                 continue
             # Parsing logic for 'port_config.ini' file
             if (parse_fmt_port_config_ini):
@@ -137,10 +130,6 @@ def _load_port_config_ini(porttabfile):
             if fp_port_index not in g_physical_to_host_port_mapping:
                 g_physical_to_host_port_mapping[fp_port_index] = host_intf_index
 
-            if g_physical_to_logical_port_mapping.get(fp_port_index) is None:
-                g_physical_to_logical_port_mapping[fp_port_index] = [portname]
-            else:
-                g_physical_to_logical_port_mapping[fp_port_index].append(portname)
             # Next line, next host index
             host_intf_index += 1
 
