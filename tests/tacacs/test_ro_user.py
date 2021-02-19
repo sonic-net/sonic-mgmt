@@ -80,10 +80,16 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             # 'sudo psuutil *',
             # 'sudo sfputil show *',
             'sudo ip netns identify 1',
+            'sudo ipintutil'
     ]
         # Run as readonly use the commands allowed indirectly based on sudoers file
     commands_indirect = [
             'show version',
+            'show interface status',
+            'show interface portchannel',
+            'show ip bgp summary',
+            'show ip interface',
+            'show lldp table'
     ]
 
     for command in commands_direct + commands_indirect:
@@ -105,6 +111,8 @@ def test_ro_user_banned_command(localhost, duthosts, rand_one_dut_hostname, cred
     # Run as readonly use the commands allowed by sudoers file
     commands = [
             'sudo shutdown',
+            # all commands under the config tree
+            'sudo config'
     ]
 
     for command in commands:
