@@ -70,7 +70,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             outer_ttl, inner_ttl = packet[IP].ttl, packet[IP].payload[IP].ttl
             logging.debug("Outer packet TTL: %s, inner packet TTL: %s", outer_ttl, inner_ttl)
             if outer_ttl != 255:
-                raise ValueError("Outer packet's TTL expected TTL 255, actual %s" % outer_ttl)
+                return "outer packet's TTL expected TTL 255, actual %s" % outer_ttl
+            return ""
 
         @staticmethod
         def _check_tos(packet):
@@ -84,10 +85,12 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.debug("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
             logging.debug("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
+            check_res = []
             if outer_dscp != inner_ecn:
-                raise ValueError("Outer packet DSCP not same as inner packet DSCP.")
+                check_res.append("outer packet DSCP not same as inner packet DSCP")
             if outer_ecn != inner_ecn:
-                raise ValueError("Outer packet ECN not same as inner packet ECN")
+                check_res.append("outer packet ECN not same as inner packet ECN")
+            return " ,".join(check_res)
 
         def __init__(self, active_tor, standby_tor, existing=True):
             """
@@ -136,7 +139,14 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 rec_port = self.listen_ports[port_index]
                 logging.debug("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
                 logging.debug("Encapsulated packet:\n%s", self._dump_show_str(self.rec_pkt))
-                self._check_ttl(self.rec_pkt)
-                self._check_tos(self.rec_pkt)
+                ttl_check_res = self._check_ttl(self.rec_pkt)
+                tos_check_res = self._check_tos(self.rec_pkt)
+                check_res = []
+                if ttl_check_res:
+                    check_res.append(ttl_check_res)
+                if tos_check_res:
+                    check_res.append(tos_check_res)
+                if check_res:
+                    raise ValueError(", ".join(check_res) + ".")
 
     return TunnelTrafficMonitor
