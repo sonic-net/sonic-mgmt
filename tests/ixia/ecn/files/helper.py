@@ -308,6 +308,9 @@ def __run_traffic(api,
             time.sleep(1)
             attempts += 1
 
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts))
+
     """ Dump captured packets """
     pcap_bytes = api.get_capture_results(CaptureRequest(port_name=capture_port_name))
     with open(pcap_file_name, 'wb') as fid:
