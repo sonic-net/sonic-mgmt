@@ -18,6 +18,7 @@ WD_ACTION_MSG_PFX = { "dontcare": "Verify PFCWD detection when queue buffer is n
                       "drop": "Verify proper function of drop action",
                       "forward": "Verify proper function of forward action"
                     }
+MMU_ACTIONS = ['change', 'noop', 'restore', 'noop']
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -83,6 +84,39 @@ class PfcCmd(object):
         """
         cmd = "redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {}:{}".format(port, queue_num)
         return dut.command(cmd)['stdout']
+
+    @staticmethod
+    def update_alpha(dut, profile, value):
+        """
+        Update dynamic threshold value in buffer profile
+
+        Args:
+            dut(AnsibleHost) : dut instance
+            profile(string) : profile name
+            value(int) : dynamic threshold value to update
+        """
+        logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
+        cmd = "redis-cli -n 4 HSET {} dynamic_th {}".format(profile, value)
+        dut.command(cmd)
+
+    @staticmethod
+    def get_mmu_params(dut, port):
+        """
+        Retreive the pg profile for a port and the dynamic threshold used
+
+        Args:
+            dut(AnsibleHost) : dut instance
+            port(string) : port name
+
+        Returns:
+            pg_profile(string), alpha(string)
+        """
+        logger.info("Retreiving pg profile and dynamic threshold for port: {}".format(port))
+        cmd = "redis-cli -n 4 HGET BUFFER_PG|{}|3-4 profile".format(port)
+        pg_profile = dut.command(cmd)['stdout'][1:-1]
+        cmd = "redis-cli -n 4 HGET {} dynamic_th".format(pg_profile)
+        alpha = dut.command(cmd)['stdout']
+        return pg_profile, alpha
 
 class PfcPktCntrs(object):
     """ PFCwd counter retrieval and verifications  """
@@ -166,7 +200,7 @@ class PfcPktCntrs(object):
 
 class SetupPfcwdFunc(object):
     """ Test setup per port """
-    def setup_test_params(self, port, vlan, init=False):
+    def setup_test_params(self, port, vlan, init=False, mmu_params=False):
         """
         Sets up test parameters associated with a DUT port
 
@@ -177,6 +211,8 @@ class SetupPfcwdFunc(object):
         """
         logger.info("--- Setting up test params for port {} ---".format(port))
         self.setup_port_params(port, init=init)
+        if mmu_params:
+            self.setup_mmu_params(port)
         self.resolve_arp(vlan)
         if not self.pfc_wd['fake_storm']:
             self.storm_setup(init=init)
@@ -207,6 +243,24 @@ class SetupPfcwdFunc(object):
          elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
              self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
          self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+
+    def update_queue(self, port):
+         if self.pfc_wd['queue_index'] == 4:
+            self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] - 1
+         else:
+            self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] + 1
+         logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
+         self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+
+    def setup_mmu_params(self, port):
+         self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port)
+
+    def update_mmu_params(self, mmu_action):
+        if mmu_action == "change":
+            PfcCmd.update_alpha(self.dut, self.pg_profile, int(self.alpha) + 1)
+        elif mmu_action == "restore":
+            PfcCmd.update_alpha(self.dut, self.pg_profile, self.alpha)
+        time.sleep(2)
 
     def resolve_arp(self, vlan):
         """
@@ -243,6 +297,7 @@ class SetupPfcwdFunc(object):
                                             pfc_queue_idx=self.pfc_wd['queue_index'],
                                             pfc_frames_number=self.pfc_wd['frames_number'],
                                             peer_info=peer_info)
+            self.storm_hndle.update_queue_index(self.pfc_wd['queue_index'])
             self.storm_hndle.update_peer_info(peer_info)
             self.storm_hndle.deploy_pfc_gen()
 
@@ -253,6 +308,7 @@ class SetupPfcwdFunc(object):
                          'pfc_fanout_interface': self.neighbors[self.pfc_wd['test_port']]['peerport']
                         }
 
+            self.storm_hndle.update_queue_index(self.pfc_wd['queue_index'])
             self.storm_hndle.update_peer_info(peer_info)
 
 
@@ -337,8 +393,14 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_test_port_ids) + " ]"
+
+        if self.pfc_queue_index == 4:
+             other_queue = self.pfc_queue_index - 1
+        else:
+             other_queue = self.pfc_queue_index + 1
+
         ptf_params = {'router_mac': self.router_mac,
-                      'queue_index': self.pfc_queue_index - 1,
+                      'queue_index': other_queue,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
                       'port_dst': dst_port,
@@ -359,8 +421,14 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
+
+        if self.pfc_queue_index == 4:
+             other_pg = self.pfc_queue_index - 1
+        else:
+             other_pg = self.pfc_queue_index + 1
+
         ptf_params = {'router_mac': self.router_mac,
-                      'queue_index': self.pfc_queue_index - 1,
+                      'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
                       'port_dst': dst_port,
@@ -482,7 +550,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer.analyze(marker)
         self.stats.get_pkt_cnts(self.queue_oid, begin=False)
 
-    def run_test(self, dut, port, action):
+    def run_test(self, dut, port, action, mmu_action=None):
         """
         Test method that invokes the storm detection and restoration path which includes the traffic
         test and associated counter verifications
@@ -494,6 +562,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         """
         logger.info("--- Storm detection path for port {} ---".format(port))
         loganalyzer = self.storm_detect_path(dut, port, action)
+
+        if mmu_action is not None:
+            self.update_mmu_params(mmu_action)
+
         logger.info("--- Storm restoration path for port {} ---".format(port))
         self.storm_restore_path(dut, loganalyzer, port, action)
         logger.info("--- Verify PFCwd counters for port {} ---".format(port))
@@ -551,3 +623,62 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                          PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
                      logger.info("--- Stop PFC WD ---")
                      self.dut.command("pfcwd stop")
+
+    def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+        """
+        Tests if mmu changes impact Pfcwd functionality
+
+        Args:
+            request(object) : pytest request object
+            fake_storm(fixture) : Module scoped fixture for enable/disable fake storm
+            setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
+            fanout_graph_facts(fixture) : fanout graph info
+            ptfhost(AnsibleHost) : ptf host instance
+            duthost(AnsibleHost) : DUT instance
+            rand_one_dut_hostname(string) : randomly pick a dut in multi DUT setup
+            fanouthosts(AnsibleHost): fanout instance
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        setup_info = setup_pfc_test
+        self.fanout_info = fanout_graph_facts
+        self.ptf = ptfhost
+        self.dut = duthost
+        self.fanout = fanouthosts
+        self.timers = setup_info['pfc_timers']
+        self.ports = setup_info['selected_test_ports']
+        key, value  = self.ports.items()[0]
+        self.ports = {key: value}
+        port = key
+        self.neighbors = setup_info['neighbors']
+        dut_facts = self.dut.facts
+        self.peer_dev_list = dict()
+        self.fake_storm = fake_storm
+        self.storm_hndle = None
+        logger.info("---- Testing on port {} ----".format(port))
+        self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True)
+        self.stats = PfcPktCntrs(self.dut, "drop")
+
+        try:
+            for idx, mmu_action in enumerate(MMU_ACTIONS):
+                self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+                pfc_wd_restore_time_large = request.config.getoption("--restore-time")
+                # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
+                self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
+                if idx:
+                    self.update_queue(port)
+                    self.storm_setup()
+                self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+                self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
+                self.dut.command("pfcwd stop")
+
+        except Exception as e:
+            pytest.fail(str(e))
+
+        finally:
+            if self.storm_hndle:
+                logger.info("--- Stop pfc storm on port {}".format(port))
+                self.storm_hndle.stop_storm()
+            # restore alpha
+            PfcCmd.update_alpha(self.dut, self.pg_profile, self.alpha)
+            logger.info("--- Stop PFC WD ---")
+            self.dut.command("pfcwd stop")
