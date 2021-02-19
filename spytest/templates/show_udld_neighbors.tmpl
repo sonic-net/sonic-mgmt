@@ -5,10 +5,10 @@
 #Ethernet1      sonic           3c2c.992d.8201    Ethernet0       Bidirectional   
 #Ethernet3      sonic           3c2c.992d.8201    Ethernet3       Bidirectional 
 ###############################################################################
-Value local_port (\w+)
+Value local_port (\S+)
 Value device_name (\w+)
 Value remote_device_id (\w\w\w\w.\w\w\w\w.\w\w\w\w)
-Value remote_port (\w+)
+Value remote_port (\S+)
 Value neighbor_state (\w+)
 
 Start

@@ -40,6 +40,14 @@ qos_params:
                 pkts_num_leak_out: 0
                 pkts_num_fill_min: 0
                 packet_size: 300
+            hdrm_pool_size:
+                dscps: [3, 4]
+                ecn: 1
+                pgs: [3, 4]
+                pkts_num_trig_pfc: 0
+                pkts_num_leak_out: 0
+                pkts_num_fill_min: 0
+                packet_size: 300
         xon_1:
             dscp: 3
             ecn: 1
@@ -141,6 +149,7 @@ qos_params:
             limit: 80
             pkts_num_leak_out: 48
             lossy_weight: 8
+            lossless_weight: 8
     td2:
         40000_5m:
             pkts_num_leak_out: 48
@@ -606,6 +615,8 @@ qos_params:
             pkts_num_trig_egr_drp: 9887
             pkts_num_fill_egr_min: 8
             cell_size: 208
+        hdrm_pool_wm_multiplier: 4
+        cell_size: 208
     th2:
         40000_300m:
             pkts_num_leak_out: 0
@@ -802,3 +813,5 @@ qos_params:
             pkts_num_trig_egr_drp: 10692
             pkts_num_fill_egr_min: 16
             cell_size: 208
+        hdrm_pool_wm_multiplier: 4
+        cell_size: 208

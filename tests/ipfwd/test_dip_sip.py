@@ -11,10 +11,18 @@ DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0', 't1', 't2')
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module", autouse="True")
+def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    patch_lldpctl(localhost, duthost)
+    yield
+    unpatch_lldpctl(localhost, duthost)
 
 
 def lag_facts(dut, mg_facts):
@@ -48,11 +56,11 @@ def lag_facts(dut, mg_facts):
 
     facts['dst_port_ids'] = []
     for intf in mg_facts['minigraph_portchannels'][dst_lag]['members']:
-        facts['dst_port_ids'].append(mg_facts['minigraph_port_indices'][intf])
+        facts['dst_port_ids'].append(mg_facts['minigraph_ptf_indices'][intf])
 
     facts['src_port_ids'] = []
     for intf in mg_facts['minigraph_portchannels'][src_lag]['members']:
-        facts['src_port_ids'].append(mg_facts['minigraph_port_indices'][intf])
+        facts['src_port_ids'].append(mg_facts['minigraph_ptf_indices'][intf])
 
     return facts
 
@@ -86,22 +94,23 @@ def port_facts(dut, mg_facts):
                 facts['dst_router_ipv6'] = intf['addr']
                 facts['dst_host_ipv6'] = intf['peer_addr']
 
-    facts['dst_port_ids'] = [mg_facts['minigraph_port_indices'][dst_port]]
-    facts['src_port_ids'] = [mg_facts['minigraph_port_indices'][src_port]]
+    facts['dst_port_ids'] = [mg_facts['minigraph_ptf_indices'][dst_port]]
+    facts['src_port_ids'] = [mg_facts['minigraph_ptf_indices'][src_port]]
 
     return facts
 
 
 @pytest.fixture(scope='function')
-def gather_facts(tbinfo, duthost):
+def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     facts = {}
 
     topo_type = tbinfo['topo']['type']
-    if topo_type not in ('t0', 't1'):
+    if topo_type not in ('t0', 't1', 't2'):
         pytest.skip("Unsupported topology")
 
     logger.info("Gathering facts on DUT ...")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # if minigraph_portchannel_interfaces is not empty - topology with lag
     if mg_facts['minigraph_portchannel_interfaces']:

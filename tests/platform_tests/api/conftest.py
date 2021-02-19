@@ -20,13 +20,17 @@ def start_platform_api_service(duthost, localhost):
                              timeout=5,
                              module_ignore_errors=True)
     if 'exception' in res:
+        # TODO: Remove this check once we no longer need to support Python 2
+        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+        py3_platform_api_available = not res['failed']
+
         supervisor_conf = [
-            "[program:platform_api_server]",
-            "command=/usr/bin/python /opt/platform_api_server.py --port {}".format(SERVER_PORT),
-            "autostart=True",
-            "autorestart=True",
-            "stdout_logfile=syslog",
-            "stderr_logfile=syslog",
+            '[program:platform_api_server]',
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available else '2', SERVER_PORT),
+            'autostart=True',
+            'autorestart=True',
+            'stdout_logfile=syslog',
+            'stderr_logfile=syslog',
         ]
         dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
         pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
@@ -45,7 +49,6 @@ def start_platform_api_service(duthost, localhost):
         # Reload the supervisor config and Start the HTTP server
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
-        duthost.command('docker exec -i pmon supervisorctl start platform_api_server.conf')
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
         assert 'exception' not in res
@@ -66,7 +69,9 @@ def stop_platform_api_service(duthost):
         duthost.command('docker exec -i pmon supervisorctl update')
 
         # Delete the iptables rule we added
-        duthost.command(IPTABLES_DELETE_RULE_CMD)
+        # We ignore errors here because after a watchdog test, the DuT will have power-cycled and will
+        # no longer have the rule we added in the start_platform_api_service fixture
+        duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
 
 @pytest.fixture(scope='function')
 def platform_api_conn(duthost, start_platform_api_service):

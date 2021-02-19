@@ -1,11 +1,12 @@
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2010"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"]
-SPC3_HWSKUS = ["ACS-MSN4700", "ACS-MSN4600C"]
+SPC3_HWSKUS = ["ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410"]
 SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS
 
 SWITCH_MODELS = {
     "x86_64-mlnx_msn2700-r0": {
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -56,6 +57,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2740-r0": {
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -103,6 +105,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2410-r0": {
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -153,6 +156,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2010-r0": {
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -196,6 +200,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn2100-r0": {
+        "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": True,
@@ -239,6 +244,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn3800-r0": {
+        "chip_type": "spectrum2",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
@@ -296,6 +302,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn3700-r0": {
+        "chip_type": "spectrum2",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
@@ -349,6 +356,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn3700c-r0": {
+        "chip_type": "spectrum2",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
@@ -402,6 +410,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn4700-r0": {
+        "chip_type": "spectrum3",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
@@ -455,6 +464,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn4600c-r0": {
+        "chip_type": "spectrum3",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
@@ -508,6 +518,7 @@ SWITCH_MODELS = {
         }
     },
     "x86_64-mlnx_msn3420-r0": {
+        "chip_type": "spectrum2",
         "reboot": {
             "cold_reboot": True,
             "fast_reboot": False,
@@ -559,6 +570,60 @@ SWITCH_MODELS = {
                 "number": 1
             }
         }
+    },
+    "x86_64-mlnx_msn4410-r0": {
+        "chip_type": "spectrum3",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": False,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 6,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 2,
+            "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 4
+        },
+        "ports": {
+            "number": 32
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 4
+            },
+            "module": {
+                "start": 1,
+                "number": 32
+            },
+            "psu": {
+                "start": 1,
+                "number": 2
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 1
+            },
+            "fan_ambient": {
+                "number": 1
+            },
+            "comex_ambient": {
+                "number": 1
+            }
+        }
     }
 }
 
@@ -575,3 +640,8 @@ def get_platform_data(dut):
     """
     dut_platform = dut.facts["platform"]
     return SWITCH_MODELS[dut_platform]
+
+
+def get_chip_type(dut):
+    platform_data = get_platform_data(dut)
+    return platform_data.get("chip_type")

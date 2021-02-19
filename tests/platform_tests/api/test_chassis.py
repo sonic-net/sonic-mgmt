@@ -55,6 +55,7 @@ ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
+    request.cls.asic_type = duthost.facts.get("asic_type")
 
     # Get host vars from inventory file
     request.cls.duthost_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
@@ -135,6 +136,18 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(status is not None, "Unable to retrieve chassis status")
         pytest_assert(isinstance(status, bool), "Chassis status appears incorrect")
 
+    def test_get_position_in_parent(self, platform_api_conn):
+        position = chassis.get_position_in_parent(platform_api_conn)
+        if self.expect(position is not None, "Failed to perform get_position_in_parent"):
+            self.expect(isinstance(position, int), "Position value must be an integer value")
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        replaceable = chassis.is_replaceable(platform_api_conn)
+        if self.expect(replaceable is not None, "Failed to perform is_replaceable"):
+            self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value")
+        self.assert_expectations()
+
     #
     # Functions to test methods defined in ChassisBase class
     #
@@ -145,19 +158,6 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
         self.compare_value_with_device_facts('base_mac', base_mac, False)
-
-    def test_get_serial_number(self, duthost, localhost, platform_api_conn):
-        # Ensure the serial number is sane
-        # Note: It appears that when retrieving some variable-length fields,
-        # the value is padded with trailing '\x00' bytes because the field
-        # length is longer than the actual value, so we strip those bytes
-        # here before comparing. We may want to change the EEPROM parsing
-        # logic to ensure that trailing '\x00' bytes are removed when retreiving
-        # a variable-length value.
-        serial = chassis.get_serial_number(platform_api_conn).rstrip('\x00')
-        pytest_assert(serial is not None, "Failed to retrieve serial number")
-        pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
-        self.compare_value_with_device_facts('serial', serial)
 
     def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
@@ -365,22 +365,48 @@ class TestChassisApi(PlatformApiTestBase):
 
     def test_status_led(self, duthost, localhost, platform_api_conn):
         # TODO: Get a platform-specific list of available colors for the status LED
-        LED_COLOR_LIST = [
-            "off",
-            "red",
+
+        FAULT_LED_COLOR_LIST = [
             "amber",
-            "green",
+            "red"
         ]
 
-        for color in LED_COLOR_LIST:
-            result = chassis.set_status_led(platform_api_conn, color)
-            if self.expect(result is not None, "Failed to perform set_status_led"):
-                self.expect(result is True, "Failed to set status_led to {}".format(color))
+        NORMAL_LED_COLOR_LIST = [
+            "green"
+        ]
 
-            color_actual = chassis.get_status_led(platform_api_conn)
-            if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                    self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
+        OFF_LED_COLOR_LIST = [
+            "off"
+        ]
+
+        LED_COLOR_TYPES = []
+        LED_COLOR_TYPES.append(FAULT_LED_COLOR_LIST)
+        LED_COLOR_TYPES.append(NORMAL_LED_COLOR_LIST)
+
+        # Mellanox is not supporting set leds to 'off'
+        if self.asic_type != "mellanox":
+            LED_COLOR_TYPES.append(OFF_LED_COLOR_LIST)
+
+        LED_COLOR_TYPES_DICT = {
+            0: "fault",
+            1: "normal",
+            2: "off"
+        }
+
+        for index, led_type in enumerate(LED_COLOR_TYPES):
+            led_type_result = False
+            for color in led_type:
+                result = chassis.set_status_led(platform_api_conn, color)
+                if self.expect(result is not None, "Failed to perform set_status_led"):
+                    led_type_result = result or led_type_result
+                if ((result is None) or (not result)):
+                    continue
+                color_actual = chassis.get_status_led(platform_api_conn)
+                if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                    if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
+                        self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
+            self.expect(led_type_result is True, "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
+
         self.assert_expectations()
 
     def test_get_thermal_manager(self, duthost, localhost, platform_api_conn):

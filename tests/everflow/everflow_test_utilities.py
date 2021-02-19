@@ -32,7 +32,7 @@ EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthost, tbinfo):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Gather all required test information.
 
@@ -44,25 +44,49 @@ def setup_info(duthost, tbinfo):
         dict: Required test information
 
     """
-    # TODO: Support all T1 and T0 topos in these tests.
-    if tbinfo["topo"]["name"] not in ("t1", "t1-lag", "t1-64-lag", "t1-64-lag-clet"):
-        pytest.skip("Unsupported topology")
+    duthost = duthosts[rand_one_dut_hostname]
 
-    tor_ports = []
-    spine_ports = []
+    # { namespace : [tor ports] }
+    tor_ports_namespace_map = defaultdict(list)
+    # { namespace : [spine ports] }
+    spine_ports_namespace_map = defaultdict(list)
+
+    # { set of namespace tor ports belongs }
+    tor_ports_namespace = set()
+    # { set of namespace spine ports belongs }
+    spine_ports_namespace = set()
+
 
     # Gather test facts
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
-    host_facts = duthost.setup()["ansible_facts"]
 
     # Get the list of T0/T2 ports
     # TODO: The ACL tests do something really similar, I imagine we could refactor this bit.
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
         if "T0" in neigh["name"]:
-            tor_ports.append(dut_port)
+            # Add Tor ports to namespace
+            tor_ports_namespace_map[neigh['namespace']].append(dut_port)
+            tor_ports_namespace.add(neigh['namespace'])
         elif "T2" in neigh["name"]:
-            spine_ports.append(dut_port)
+            # Add Spine ports to namespace
+            spine_ports_namespace_map[neigh['namespace']].append(dut_port)
+            spine_ports_namespace.add(neigh['namespace'])
+
+    # Set of TOR ports only Namespace 
+    tor_only_namespace = tor_ports_namespace.difference(spine_ports_namespace)
+    # Set of Spine ports only Namespace 
+    spine_only_namespace = spine_ports_namespace.difference(tor_ports_namespace)
+ 
+    # Randomly choose from TOR_only Namespace if present else just use first one 
+    tor_namespace = random.choice(tuple(tor_only_namespace)) if tor_only_namespace else tuple(tor_ports_namespace)[0]
+    # Randomly choose from Spine_only Namespace if present else just use first one 
+    spine_namespace = random.choice(tuple(spine_only_namespace)) if spine_only_namespace else tuple(spine_ports_namespace)[0]
+
+    # Get the corresponding namespace ports
+    tor_ports = tor_ports_namespace_map[tor_namespace]
+    spine_ports = spine_ports_namespace_map[spine_namespace]
+         
 
     switch_capabilities = switch_capability_facts["switch_capabilities"]["switch"]
 
@@ -91,7 +115,7 @@ def setup_info(duthost, tbinfo):
         out_port_exclude_list = []
         for port in in_port_list:
             if port not in out_port_list and port not in out_port_exclude_list and len(out_port_list) < 4:
-                ptf_port_id = str(mg_facts["minigraph_port_indices"][port])
+                ptf_port_id = str(mg_facts["minigraph_ptf_indices"][port])
                 out_port_list.append(port)
                 out_port_lag_name.append("Not Applicable")
 
@@ -101,7 +125,7 @@ def setup_info(duthost, tbinfo):
                         for lag_member in portchannelinfo[1]["members"]:
                             if port == lag_member:
                                 continue
-                            ptf_port_id += "," + (str(mg_facts["minigraph_port_indices"][lag_member]))
+                            ptf_port_id += "," + (str(mg_facts["minigraph_ptf_indices"][lag_member]))
                             out_port_exclude_list.append(lag_member)
 
                 out_port_ptf_id_list.append(ptf_port_id)
@@ -122,7 +146,7 @@ def setup_info(duthost, tbinfo):
     # Also given how much info is here it probably makes sense to make a data object/named
     # tuple to help with the typing.
     setup_information = {
-        "router_mac": host_facts["ansible_Ethernet0"]["macaddress"],
+        "router_mac": duthost.facts["router_mac"],
         "tor_ports": tor_ports,
         "spine_ports": spine_ports,
         "test_mirror_v4": test_mirror_v4,
@@ -137,47 +161,49 @@ def setup_info(duthost, tbinfo):
         },
         "tor": {
             "src_port": spine_ports[0],
-            "src_port_ptf_id": str(mg_facts["minigraph_port_indices"][spine_ports[0]]),
+            "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][spine_ports[0]]),
             "dest_port": tor_dest_ports,
             "dest_port_ptf_id": tor_dest_ports_ptf_id,
-            "dest_port_lag_name": tor_dest_lag_name
+            "dest_port_lag_name": tor_dest_lag_name,
+            "namespace": tor_namespace
         },
         "spine": {
             "src_port": tor_ports[0],
-            "src_port_ptf_id": str(mg_facts["minigraph_port_indices"][tor_ports[0]]),
+            "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][tor_ports[0]]),
             "dest_port": spine_dest_ports,
             "dest_port_ptf_id": spine_dest_ports_ptf_id,
-            "dest_port_lag_name": spine_dest_lag_name
+            "dest_port_lag_name": spine_dest_lag_name,
+            "namespace": spine_namespace
         },
         "port_index_map": {
             k: v
-            for k, v in mg_facts["minigraph_port_indices"].items()
+            for k, v in mg_facts["minigraph_ptf_indices"].items()
             if k in mg_facts["minigraph_ports"]
+        },
+        # { ptf_port_id : namespace }
+        "port_index_namespace_map" : {
+           v: mg_facts["minigraph_neighbors"][k]['namespace']
+           for k, v in mg_facts["minigraph_ptf_indices"].items()
+           if k in mg_facts["minigraph_ports"]
         }
     }
 
-    # NOTE: This is important to add since for the Policer test case regular packets
-    # and mirror packets can go to same interface, which causes tail drop of
-    # police packets and impacts test case cir/cbs calculation.
-    #
-    # We are making sure regular traffic has a dedicated route and does not use
-    # the default route.
-
-    peer_ip, _ = get_neighbor_info(duthost, spine_dest_ports[3])
-
-    add_route(duthost, "30.0.0.1/24", peer_ip)
-
+    # Disable BGP so that we don't keep on bouncing back mirror packets
+    # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
+    duthost.command("sudo config bgp shutdown all")
+    time.sleep(60)
     duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
-
+    
     yield setup_information
-
+    
+    # Enable BGP again 
+    duthost.command("sudo config bgp startup all")
+    time.sleep(60)
     duthost.command("rm -rf {}".format(DUT_RUN_DIR))
-
-    remove_route(duthost, "30.0.0.1/24", peer_ip)
-
+ 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def add_route(duthost, prefix, nexthop):
+def add_route(duthost, prefix, nexthop, namespace):
     """
     Add a route to the DUT.
 
@@ -185,13 +211,15 @@ def add_route(duthost, prefix, nexthop):
         duthost: DUT fixture
         prefix: IP prefix for the route
         nexthop: next hop for the route
+        namespace: namsespace/asic to add the route
 
     """
-    duthost.shell("vtysh -c \"configure terminal\" -c \"ip route {} {}\"".format(prefix, nexthop))
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"ip route {} {}\"".format(prefix, nexthop), namespace))
+
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def remove_route(duthost, prefix, nexthop):
+def remove_route(duthost, prefix, nexthop, namespace):
     """
     Remove a route from the DUT.
 
@@ -199,13 +227,14 @@ def remove_route(duthost, prefix, nexthop):
         duthost: DUT fixture
         prefix: IP prefix to remove
         nexthop: next hop to remove
+        namespace: namsespace/asic to remove the route
 
     """
-    duthost.shell("vtysh -c \"configure terminal\" -c \"no ip route {} {}\"".format(prefix, nexthop))
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"no ip route {} {}\"".format(prefix, nexthop), namespace))
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def get_neighbor_info(duthost, dest_port, resolved=True):
+def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
     """
     Get the IP and MAC of the neighbor on the specified destination port.
 
@@ -216,16 +245,16 @@ def get_neighbor_info(duthost, dest_port, resolved=True):
 
     """
     if not resolved:
-        return "20.20.20.100", None
+        return "20.20.20.100"
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for bgp_peer in mg_facts["minigraph_bgp"]:
         if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
             peer_ip = bgp_peer["addr"]
             break
 
-    return peer_ip, duthost.shell("ip neigh show {} | awk -F\" \" \"{{print $5}}\"".format(peer_ip))["stdout"]
+    return peer_ip
 
 
 # TODO: This can probably be moved to a shared location in a later PR.
@@ -261,7 +290,7 @@ class BaseEverflowTest(object):
         return request.param
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, duthost, config_method):
+    def setup_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session for Everflow.
 
@@ -271,6 +300,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         session_info = self._mirror_session_info("test_session_1", duthost.facts["asic_type"])
 
         self.apply_mirror_config(duthost, session_info, config_method)
@@ -280,7 +310,7 @@ class BaseEverflowTest(object):
         self.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, duthost, config_method):
+    def policer_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -290,6 +320,7 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
+        duthost = duthosts[rand_one_dut_hostname]
         policer = "TEST_POLICER"
 
         # Create a policer that allows 100 packets/sec through
@@ -350,7 +381,7 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_table(self, duthost, setup_info, setup_mirror_session, config_method):
+    def setup_acl_table(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, config_method):
         """
         Configure the ACL table for this set of test cases.
 
@@ -359,6 +390,7 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
+        duthost = duthosts[rand_one_dut_hostname]
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))
@@ -468,7 +500,8 @@ class BaseEverflowTest(object):
                                       mirror_packet,
                                       src_port=None,
                                       dest_ports=None,
-                                      expect_recv=True):
+                                      expect_recv=True,
+                                      valid_across_namespace=True):
         expected_mirror_packet = self._get_expected_mirror_packet(mirror_session,
                                                                   setup,
                                                                   duthost,
@@ -480,42 +513,63 @@ class BaseEverflowTest(object):
         if not dest_ports:
             dest_ports = [self._get_monitor_port(setup, mirror_session, duthost)]
 
-        ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, src_port, mirror_packet)
+        # In Below logic idea is to send traffic in such a way so that mirror traffic
+        # will need to go across namespaces and within namespace. If source and mirror destination
+        # namespace are different then traffic mirror will go across namespace via (backend asic)
+        # else via same namespace(asic)
 
-        if expect_recv:
-            _, received_packet = testutils.verify_packet_any_port(
-                ptfadapter,
-                expected_mirror_packet,
-                ports=dest_ports
-            )
-            logging.info("Received packet: %s", packet.Ether(received_packet).summary())
+        src_port_namespace = self._get_port_namespace(setup, int(src_port))
+        dest_ports_namespace = self._get_port_namespace(setup,int (dest_ports[0]))
 
-            inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet))
-            logging.info("Received inner packet: %s", inner_packet.summary())
+        src_port_set =  set()
+        
+        # Some of test scenario are not valid across namespaces so test will explicltly pass 
+        # valid_across_namespace as False (default is True)
+        if valid_across_namespace == True or src_port_namespace == dest_ports_namespace:
+            src_port_set.add(src_port)
+        
+        # To verify same namespace mirroring we will add destination port also to the Source Port Set
+        if src_port_namespace != dest_ports_namespace:
+            src_port_set.add(dest_ports[0])
 
-            inner_packet = Mask(inner_packet)
+        # Loop through Source Port Set and send traffic on each source port of the set
+        for src_port in src_port_set:
+            ptfadapter.dataplane.flush()
+            testutils.send(ptfadapter, src_port, mirror_packet)
 
-            # For egress mirroring, we expect the DUT to have modified the packet
-            # before forwarding it. Specifically:
-            #
-            # - In L2 the SMAC and DMAC will change.
-            # - In L3 the TTL and checksum will change.
-            #
-            # We know what the TTL and SMAC should be after going through the pipeline,
-            # but DMAC and checksum are trickier. For now, update the TTL and SMAC, and
-            # mask off the DMAC and IP Checksum to verify the packet contents.
-            if self.mirror_type() == "egress":
-                mirror_packet[packet.IP].ttl -= 1
-                mirror_packet[packet.Ether].src = setup["router_mac"]
+            if expect_recv:
+                _, received_packet = testutils.verify_packet_any_port(
+                    ptfadapter,
+                    expected_mirror_packet,
+                    ports=dest_ports
+                )
+                logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
-                inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
-                inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet))
+                logging.info("Received inner packet: %s", inner_packet.summary())
 
-            logging.info("Expected inner packet: %s", mirror_packet.summary())
-            pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
-        else:
-            testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
+                inner_packet = Mask(inner_packet)
+
+                # For egress mirroring, we expect the DUT to have modified the packet
+                # before forwarding it. Specifically:
+                #
+                # - In L2 the SMAC and DMAC will change.
+                # - In L3 the TTL and checksum will change.
+                #
+                # We know what the TTL and SMAC should be after going through the pipeline,
+                # but DMAC and checksum are trickier. For now, update the TTL and SMAC, and
+                # mask off the DMAC and IP Checksum to verify the packet contents.
+                if self.mirror_type() == "egress":
+                    mirror_packet[packet.IP].ttl -= 1
+                    mirror_packet[packet.Ether].src = setup["router_mac"]
+
+                    inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+                    inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+
+                logging.info("Expected inner packet: %s", mirror_packet.summary())
+                pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
+            else:
+                testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
     def _get_expected_mirror_packet(self, mirror_session, setup, duthost, mirror_packet):
         payload = mirror_packet.copy()
@@ -545,6 +599,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
+        expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
         # though the session does have a DSCP specified.
@@ -566,7 +621,7 @@ class BaseEverflowTest(object):
         session_src_ip = "1.1.1.1"
         session_dst_ip = "2.2.2.2"
         session_dscp = "8"
-        session_ttl = "1"
+        session_ttl = "4"
 
         if "mellanox" == asic_type:
             session_gre = 0x8949
@@ -589,6 +644,9 @@ class BaseEverflowTest(object):
             "session_gre": session_gre,
             "session_prefixes": session_prefixes
         }
+    
+    def _get_port_namespace(self,setup, port):
+        return setup["port_index_namespace_map"][port]
 
     def _get_random_src_port(self, setup):
         return setup["port_index_map"][random.choice(setup["port_index_map"].keys())]
@@ -597,14 +655,80 @@ class BaseEverflowTest(object):
         mirror_output = duthost.command("show mirror_session")
         logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
 
-        matching_session = list(filter(lambda line: line.startswith(mirror_session["session_name"]),
-                                       mirror_output["stdout_lines"]))
-        pytest_assert(matching_session, "Test mirror session {} not found".format(mirror_session["session_name"]))
-        logging.info("Found mirror session:\n%s", matching_session[0])
+        pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
+                      "Test mirror session {} not found".format(mirror_session["session_name"]))
 
-        monitor_port = matching_session[0].split()[-1]
+        lines = mirror_output["stdout_lines"]
+
+        if "201911" in duthost.os_version:
+            # Because this line is not in the output in 201911, we need to add it so that the
+            # parser is consistent between 201911 and future versions.
+            lines = ["ERSPAN Sessions"] + lines
+
+        sessions = self._parse_mirror_session_running_config(lines)
+
+        session = [x for x in sessions["ERSPAN Sessions"]["data"] if x["Name"] == mirror_session["session_name"]]
+        pytest_assert(0 < len(session))
+
+        monitor_port = session[0]["Monitor Port"]
+
         pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
-        logging.info("Selected monitor port %s (index=%s)", monitor_port, setup["port_index_map"][monitor_port])
+        logging.info("Selected monitor interface %s (port=%s)", monitor_port, setup["port_index_map"][monitor_port])
 
         return setup["port_index_map"][monitor_port]
+
+    def _parse_mirror_session_running_config(self, lines):
+        sessions = {}
+        while True:
+            session_group, lines = self._parse_mirror_session_group(lines)
+            if session_group is None:
+                break
+            sessions[session_group["name"]] = session_group
+
+        return sessions
+
+    def _parse_mirror_session_group(self, lines):
+        while len(lines) and lines[0].strip() == "":
+            lines.pop(0)
+
+        if len(lines) < 3:
+            return None, lines
+
+        table_name = lines[0]
+        separator_line = lines[2]
+        header = lines[1]
+
+        session_group = {
+            "name": table_name,
+            "data": []
+        }
+
+        separators = separator_line.split()
+
+        lines = lines[3:]
+        for ln in lines[:]:
+            lines.pop(0)
+            if ln.strip() == "":
+                break
+
+            index = 0
+            data = {}
+            for s in separators:
+                end = index + len(s)
+                name = header[index:end].strip()
+                value = ln[index:end].strip()
+                index = index + len(s) + 2
+                data[name] = value
+
+            session_group["data"].append(data)
+
+        return session_group, lines
+
+    def _get_tx_port_id_list(self, tx_ports):
+        tx_port_ids = []
+        for port in tx_ports:
+            members = port.split(',')
+            for member in members:
+                tx_port_ids.append(int(member))
+        return tx_port_ids

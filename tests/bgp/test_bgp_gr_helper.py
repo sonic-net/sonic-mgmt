@@ -11,10 +11,11 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_restart, tbinfo):
+def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts, setup_bgp_graceful_restart, tbinfo):
     """
     Verify that DUT routes are preserved when peer performed graceful restart
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
@@ -47,7 +48,7 @@ def test_bgp_gr_helper_routes_perserved(duthost, nbrhosts, setup_bgp_graceful_re
         for member in po[ifname]['members']:
             nbr_ports.append(dev_nbr[member]['port'])
     else:
-        pytest.skip("Do not support peer device not connected via port channel")
+        nbr_ports.append(dev_nbr[ifname]['port'])
     logger.info("neighbor device connected ports {}".format(nbr_ports))
 
     # get nexthop ip

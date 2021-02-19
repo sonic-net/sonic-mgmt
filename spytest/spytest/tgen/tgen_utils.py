@@ -1,7 +1,8 @@
 import re
-from spytest import st
-from spytest.dicts import SpyTestDict
-
+import copy
+from spytest import st, SpyTestDict
+from spytest.tgen_api import get_chassis
+from apis.system.basic import get_techsupport
 
 def _log_call(fname, **kwargs):
     args_list=[]
@@ -16,33 +17,33 @@ def _validate_parameters(tr_details):
     for tr_pair in range(1,len(tr_details)+1):
         tr_pair = str(tr_pair)
         for param in mandatory_params:
-            if tr_details[tr_pair].get(param) == None:
-                st.log('{} parameter missing in traffic pair: {}'.format(param,tr_pair))
+            if tr_details[tr_pair].get(param) is None:
+                st.error('{} parameter missing in traffic pair: {}'.format(param,tr_pair))
                 return False
         if len(tr_details[tr_pair]['tx_ports']) != len(tr_details[tr_pair]['tx_obj']) != len(tr_details[tr_pair]['exp_ratio']):
-            st.log('tx_ports, tx_obj and exp_ratio must be of same length, in traffic pair: {}'.format(tr_pair))
+            st.error('tx_ports, tx_obj and exp_ratio must be of same length, in traffic pair: {}'.format(tr_pair))
             return False
         if len(tr_details[tr_pair]['rx_ports']) != len(tr_details[tr_pair]['rx_obj']):
-            st.log('rx_ports and rx_obj must be of length, in traffic pair: {}'.format(tr_pair))
+            st.error('rx_ports and rx_obj must be of length, in traffic pair: {}'.format(tr_pair))
             return False
         if tr_details[tr_pair].get('stream_list',None) != None:
             if len(tr_details[tr_pair]['tx_ports']) != len(tr_details[tr_pair]['stream_list']):
-                st.log('tx_ports, stream_list must be of same length, in traffic pair: {}'.format(tr_pair))
+                st.error('tx_ports, stream_list must be of same length, in traffic pair: {}'.format(tr_pair))
                 return False
         if tr_details[tr_pair].get('filter_param',None) != None and tr_details[tr_pair].get('stream_list',None) != None:
             if len(tr_details[tr_pair]['filter_param']) != len(tr_details[tr_pair]['stream_list']):
-                st.log('stream_list and filter list must be of same length, in traffic pair: {}'.format(tr_pair))
+                st.error('stream_list and filter list must be of same length, in traffic pair: {}'.format(tr_pair))
                 return False
         if tr_details[tr_pair].get('filter_val',None) != None and tr_details[tr_pair].get('filter_param',None) != None:
             if len(tr_details[tr_pair]['filter_val']) != len(tr_details[tr_pair]['filter_param']):
-                st.log('filer value and filter list must be of same length, in traffic pair: {}'.format(tr_pair))
+                st.error('filer value and filter list must be of same length, in traffic pair: {}'.format(tr_pair))
                 return False
-    st.log('param validation successful')
+    st.debug('param validation successful')
     return True
 
 
-def get_counter_name(mode,tg_type,comp_type,direction):
-    tg_type = "ixia" if tg_type == "scapy" else tg_type
+def get_counter_name(mode,tg_type,comp_type,direction,logger=True):
+    tg_type2 = "ixia" if tg_type == "scapy" else tg_type
     traffic_counters = {
         'aggregate': {
             'stc': {
@@ -124,10 +125,65 @@ def get_counter_name(mode,tg_type,comp_type,direction):
             }
         }
 
-    counter_name = traffic_counters[mode][tg_type][direction][comp_type]
-    st.log('TG type: {}, Comp_type: {}, Direction: {}, Counter_name: {}'.format(tg_type, comp_type, direction, counter_name))
+    counter_name = traffic_counters[mode][tg_type2][direction][comp_type]
+    if logger:
+        st.debug('TG type: {}, Comp_type: {}, Direction: {}, Counter_name: {}'.format(tg_type, comp_type, direction, counter_name))
     return counter_name
 
+
+def _get_debug_dump(name='tg_stats_failed'):
+    tg=get_chassis()
+    get_techsupport(filename=name)
+    tg.collect_diagnosic(fail_reason=name)
+
+
+def _fetch_stats(obj, port, mode, comp_type, direction, stream_elem=None):
+    """
+    @author: Lakshminarayana D(lakshminarayana.d@broadcom.com)
+    Fuction will fetch traffic stats based inputs and classify TgenFail based on stats available.
+    :param obj: TG object
+    :param port: Port handler
+    :param mode: Mode of the stats to be fetched(Ex: streams, aggregate, traffic_items)
+    :param comp_type: packet_count or packet_rate
+    :param direction: Traffic direction ('tx' or 'rx')
+    :param stream_elem: Stream handle need to provide when mode is streams or traffic_item
+    :return: stats: A Dictionary object with tx/rx packets/bytes stats
+    """
+
+    stats_mode = 'streamblock' if mode in ['streams', 'traffic_item'] else mode
+    counter_name = get_counter_name(stats_mode, obj.tg_type, comp_type, direction, logger=False)
+    tx_counter = int()
+    stats = dict()
+    for loop in range(0, 4):
+        if loop > 0:
+            st.log('TG stats are not fully ready. Trying to fetch stats again.... iteration {}'.format(loop))
+            st.wait(2, 'waiting before fetch stats again')
+        stats = obj.tg_traffic_stats(port_handle=port, mode=mode)
+        if obj.tg_type == 'stc':
+            if mode == 'streams':
+                tx_counter = float(stats[port]['stream'][stream_elem][direction][counter_name])
+            else:
+                tx_counter = int(stats[port][mode][direction][counter_name])
+            if direction == 'rx' or tx_counter != 0: break
+        elif obj.tg_type in ['ixia', 'scapy']:
+            try:
+                if mode == 'traffic_item':
+                    tx_counter = float(stats[mode][stream_elem][direction][counter_name])
+                else:
+                    tx_counter = int(stats[port][mode][direction][counter_name])
+            except Exception:
+                st.error('Could not get traffic_stats from the TGEN, Please check if traffic was started')
+                tx_counter = 0
+            if stats.get('waiting_for_stats', '1') == '0' and (direction == 'rx' or tx_counter != 0):
+                    break
+    if direction == 'tx' and not tx_counter:
+        (name, value) = ('stream handle', stream_elem) if stream_elem else ('port', port)
+        msg = 'TX Counter {} is 0 (zero) for {}: {}'.format(counter_name, name, value)
+        _get_debug_dump()
+        st.warn(msg)
+        st.report_tgen_fail('tgen_failed_api', msg)
+
+    return stats
 
 def _verify_aggregate_stats(tr_details,mode,comp_type,tolerance_factor,delay_factor,retry,return_all):
 
@@ -136,19 +192,9 @@ def _verify_aggregate_stats(tr_details,mode,comp_type,tolerance_factor,delay_fac
     delay = 5 * float(delay_factor)
     tolerance = 5 * float(tolerance_factor)
 
-    ################### scapy ######################
-    for tr_pair in range(1,len(tr_details)+1):
-        tr_pair = str(tr_pair)
-        tx_objs = tr_details[tr_pair]['tx_obj']
-        for obj in tx_objs:
-            if obj.tg_type == 'scapy':
-                delay = 5 * delay
-                break
-        break
-    ################### scapy ######################
+    st.tg_wait(delay, "aggregate_stats")
 
-    st.tg_wait(delay)
-
+    port_stats = dict()
     for tr_pair in range(1,len(tr_details)+1):
         tr_pair = str(tr_pair)
         tx_ports = tr_details[tr_pair]['tx_ports']
@@ -157,43 +203,61 @@ def _verify_aggregate_stats(tr_details,mode,comp_type,tolerance_factor,delay_fac
         rx_ports = tr_details[tr_pair]['rx_ports']
         rx_obj = tr_details[tr_pair]['rx_obj']
 
+        cmsg = 'Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format(tr_pair, tx_ports, rx_ports)
         st.log('Validating Traffic, Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format(tr_pair,tx_ports,rx_ports))
-        exp_val = 0
-        for port,obj,ratio in zip(tx_ports,tx_obj,exp_ratio):
-            tx_ph = obj.get_port_handle(port)
-            tx_stats = obj.tg_traffic_stats(port_handle=tx_ph,mode=mode)
-            #st.debug(tx_stats)
-            counter_name = get_counter_name(mode,obj.tg_type,comp_type,'tx')
-            cur_tx_val = int(tx_stats[tx_ph][mode]['tx'][counter_name])
-            st.log('Transmit counter_name: {}, counter_val: {}'.format(counter_name,cur_tx_val))
-            if cur_tx_val == 0:
-                msg = 'Transmit Counters is 0 (zero) for port: {}'.format(port)
-                st.log(msg)
-                st.report_tgen_fail('tgen_failed_api', msg)
-            exp_val += cur_tx_val * ratio
-#            st.log(exp_val)
-        st.log('Total Tx from ports {}: {}'.format(tx_ports,exp_val))
+        retry_count = retry + 1 if not retry and comp_type == 'packet_rate' else retry
+        tx_ph, rx_ph = None, None
+        for loop in range(0, int(retry_count) + 1):
+            if loop > 0:
+                st.log('The difference is not in the given tolerance. So, retrying the stats fetch once again....{}'.format(loop))
+                st.wait(2, 'waiting to before fetch stats again')
+                for port in [tx_ph, rx_ph]: port_stats.pop(port, '')
+            exp_val = 0
+            for port,obj,ratio in zip(tx_ports,tx_obj,exp_ratio):
+                tx_ph = obj.get_port_handle(port)
+                # tx_stats = obj.tg_traffic_stats(port_handle=tx_ph, mode=mode)
+                if tx_ph not in port_stats:
+                    port_stats[tx_ph] = _fetch_stats(obj, tx_ph, mode, comp_type, 'tx')
+                tx_stats = port_stats[tx_ph]
+                #st.debug(tx_stats)
+                counter_name = get_counter_name(mode,obj.tg_type,comp_type,'tx')
+                cur_tx_val = int(tx_stats[tx_ph][mode]['tx'][counter_name])
+                st.log('Transmit counter_name: {}, counter_val: {}'.format(counter_name,cur_tx_val))
+                exp_val += cur_tx_val * ratio
+            st.log('Total Tx from ports {}: {}'.format(tx_ports,exp_val))
 
-        for port,obj in zip(rx_ports,rx_obj):
-            rx_ph = obj.get_port_handle(port)
-            rx_stats = obj.tg_traffic_stats(port_handle=rx_ph,mode=mode)
-            #st.debug(rx_stats)
-            counter_name = get_counter_name(mode,obj.tg_type,comp_type,'rx')
-            real_rx_val = int(rx_stats[rx_ph][mode]['rx'][counter_name])
-            st.log('Receive counter_name: {}, counter_val: {}'.format(counter_name,real_rx_val))
+            for port,obj in zip(rx_ports,rx_obj):
+                rx_ph = obj.get_port_handle(port)
+                # rx_stats = obj.tg_traffic_stats(port_handle=rx_ph, mode=mode)
+                if rx_ph not in port_stats:
+                    port_stats[rx_ph] = _fetch_stats(obj, rx_ph, mode, comp_type, 'rx')
+                rx_stats = port_stats[rx_ph]
+                #st.debug(rx_stats)
+                counter_name = get_counter_name(mode,obj.tg_type,comp_type,'rx')
+                real_rx_val = int(rx_stats[rx_ph][mode]['rx'][counter_name])
+                st.log('Receive counter_name: {}, counter_val: {}'.format(counter_name,real_rx_val))
 
-        st.log('Total Rx on ports {}: {}'.format(rx_ports,real_rx_val))
+            st.log('Total Rx on ports {}: {}'.format(rx_ports, real_rx_val))
 
-        diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / cur_tx_val)
-        if diff <= tolerance:
-            st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format('Success',tr_pair,tx_ports,rx_ports))
-            st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
-            ret_all.append(True)
-        else:
+            diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / cur_tx_val)
+            if diff <= tolerance:
+                st.log('Traffic Validation: {}, {}'.format('Success',cmsg))
+                st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+                ret_all.append(True)
+                break
+            elif loop != retry_count:
+                if not retry and comp_type == 'packet_rate' and diff > (tolerance + 5):
+                    msg = 'The traffic difference is in not between {} and {}. Skipping the retry'.format(tolerance, tolerance + 5)
+                    st.debug(msg)
+                else:
+                    st.log('Traffic Varification: {}, {}'.format('Failure', cmsg))
+                    st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val, real_rx_val, diff))
+                    continue
             return_value = False
             ret_all.append(False)
-            st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format('Failure',tr_pair,tx_ports,rx_ports))
+            st.log('Traffic Validation: {}, {}'.format('Failure', cmsg))
             st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+            break
     return return_value if return_all==0 else (return_value, ret_all)
 
 
@@ -204,8 +268,9 @@ def _verify_streamlevel_stats(tr_details,mode,comp_type,tolerance_factor,delay_f
     delay = 5 * float(delay_factor)
     tolerance = 5 * float(tolerance_factor)
 
-    st.tg_wait(delay)
+    st.tg_wait(delay, "streamlevel_stats")
 
+    stream_stats = dict()
     for tr_pair in range(1,len(tr_details)+1):
         tr_pair = str(tr_pair)
         tx_ports = tr_details[tr_pair]['tx_ports']
@@ -215,7 +280,8 @@ def _verify_streamlevel_stats(tr_details,mode,comp_type,tolerance_factor,delay_f
         rx_obj = tr_details[tr_pair]['rx_obj']
         stream_list = tr_details[tr_pair]['stream_list']
 
-        st.log('Validating Traffic, Pair: {}, Transmit Ports: {}, Receive Ports: {}, stream_list: {}'.format(tr_pair,tx_ports,rx_ports,stream_list))
+        cmsg = 'Pair: {}, TX Ports: {}, RX Ports: {}'.format(tr_pair,tx_ports,rx_ports)
+        st.log('Validating Traffic, {}, stream_list: {}'.format(cmsg,stream_list))
 
         rx_obj = rx_obj[0]
         rx_port = rx_ports[0]
@@ -227,53 +293,72 @@ def _verify_streamlevel_stats(tr_details,mode,comp_type,tolerance_factor,delay_f
                 ratio = ratio * len(stream)
             tx_ph = txObj.get_port_handle(txPort)
             for strelem,ratelem in zip(stream,ratio):
-                exp_val = 0
-                if rx_obj.tg_type == 'stc':
-                    tx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'tx')
-                    rx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'rx')
-                    rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph,mode='streams',streams=strelem)
-                    exp_val = int(rx_stats[tx_ph]['stream'][strelem]['tx'][tx_counter_name])
-                    tx_val=exp_val
-                    if exp_val == 0:
-                        msg = 'Transmit Counters is 0 (zero) for port: {}'.format(strelem)
-                        st.log(msg)
-                        st.report_tgen_fail('tgen_failed_api', msg)
-                    exp_val = int(exp_val * float(ratelem))
-                    real_rx_val = int(rx_stats[tx_ph]['stream'][strelem]['rx'][rx_counter_name])
-                elif rx_obj.tg_type in ['ixia', 'scapy']:
-                    tx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'tx')
-                    rx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'rx')
-                    rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph,mode='traffic_item')
+                retry_count = retry + 1 if not retry and comp_type == 'packet_rate' else retry
+                for loop in range(0, int(retry_count)+1):
+                    if loop > 0:
+                        st.log('The difference is not in the given tolerance. So, retrying the stats fetch once again....{}'.format(loop))
+                        st.wait(2, 'waiting to before fetch stats again')
+                        if rx_obj.tg_type == 'stc': stream_stats.pop(tx_ph, '')
+                        if rx_obj.tg_type in ['ixia', 'scapy']: stream_stats.pop(rx_ph, '')
+                    exp_val = 0
+                    tx_counter_name = get_counter_name(mode, rx_obj.tg_type, comp_type, 'tx')
+                    rx_counter_name = get_counter_name(mode, rx_obj.tg_type, comp_type, 'rx')
+                    if rx_obj.tg_type == 'stc':
+                        #rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph,mode='streams',streams=strelem)
+                        if tx_ph not in stream_stats:
+                            stream_stats[tx_ph] = _fetch_stats(txObj, tx_ph, 'streams', comp_type, 'tx', stream_elem=strelem)
+                        rx_stats = stream_stats[tx_ph]
+                        exp_val = int(rx_stats[tx_ph]['stream'][strelem]['tx'][tx_counter_name])
+                        tx_val=exp_val
+                        exp_val = int(exp_val * float(ratelem))
+                        real_rx_val = int(rx_stats[tx_ph]['stream'][strelem]['rx'][rx_counter_name])
+                    elif rx_obj.tg_type in ['ixia', 'scapy']:
+                        #rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph, mode='traffic_item')
+                        if rx_ph not in stream_stats:
+                            stream_stats[rx_ph] = _fetch_stats(rx_obj, rx_ph, 'traffic_item', comp_type, 'tx', stream_elem=strelem)
+                        rx_stats = stream_stats[rx_ph]
 
-                    #Following check is to avoid KeyError traffic_item. Reason is traffic was not started.
-                    #Ixia team is looking into why traffic was not started - might be setup issue
+                        #Following check is to avoid KeyError traffic_item. Reason is traffic was not started.
+                        #Ixia team is looking into why traffic was not started - might be setup issue
+                        if rx_stats['status'] != '1':
+                            st.error('Could not get traffic_stats from the TGEN, Please check if traffic was started')
+                            return False
+                        try:
+                            exp_val = float(rx_stats['traffic_item'][strelem]['tx'][tx_counter_name])
+                        except Exception:
+                            st.error('Could not get tx counter from the TGEN, Please check if traffic was started')
+                            return False
 
-                    if rx_stats['status'] != '1':
-                        st.log('Could not get traffic_stats from the TGEN, Please check if traffic was started')
-                        return False
+                        tx_val=exp_val
+                        exp_val = int(exp_val * float(ratelem))
 
-                    exp_val = float(rx_stats['traffic_item'][strelem]['tx'][tx_counter_name])
-                    tx_val=exp_val
-                    if exp_val == 0:
-                        msg = 'Transmit Counters is 0 (zero) for port: {}'.format(strelem)
-                        st.log(msg)
-                        st.report_tgen_fail('tgen_failed_api', msg)
-                    exp_val = int(exp_val * float(ratelem))
-                    real_rx_val = float(rx_stats['traffic_item'][strelem]['rx'][rx_counter_name])
+                        try:
+                            real_rx_val = float(rx_stats['traffic_item'][strelem]['rx'][rx_counter_name])
+                        except Exception:
+                            st.error('Could not get rx counter from the TGEN, Please check if traffic was started')
+                            return False
 
-                st.log('Receive counter_name: {}, counter_val: {}'.format(rx_counter_name,real_rx_val))
-                diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / tx_val)
-                if diff <= tolerance:
-                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}\
-                           streamid: {}'.format('Success',tr_pair,tx_ports,rx_ports,strelem))
-                    st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
-                    ret_all.append(True)
-                else:
+                    st.log('RX counter {} = {}'.format(rx_counter_name, real_rx_val))
+                    if tx_val > 0:
+                        diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / tx_val)
+                        if diff <= tolerance:
+                            st.log('Traffic Validation: {}, {} streamid: {}'.format('Success',cmsg, strelem))
+                            st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+                            ret_all.append(True)
+                            break
+                        if loop != retry_count:
+                            if not retry and comp_type == 'packet_rate' and diff > (tolerance + 5):
+                                msg = 'The traffic difference is in not between {} and {}. Skipping the retry'.format(tolerance, tolerance + 5)
+                                st.debug(msg)
+                            else:
+                                st.log('Traffic Varification: {}, {} streamid: {}'.format('Failure', cmsg, strelem))
+                                st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val, real_rx_val, diff))
+                                continue
                     return_value = False
                     ret_all.append(False)
-                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}\
-                           streamid: {}'.format('Failure',tr_pair,tx_ports,rx_ports,strelem))
+                    st.log('Traffic Validation: {}, {} streamid: {}'.format('Failure',cmsg, strelem))
                     st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+                    break
     return return_value if return_all==0 else (return_value, ret_all)
 
 def _verify_analyzer_filter_stats(tr_details,mode,comp_type,tolerance_factor,delay_factor,retry,return_all):
@@ -283,7 +368,7 @@ def _verify_analyzer_filter_stats(tr_details,mode,comp_type,tolerance_factor,del
     delay = 5 * float(delay_factor)
     tolerance = 5 * float(tolerance_factor)
 
-    st.tg_wait(delay)
+    st.tg_wait(delay, "analyzer_filter_stats")
 
     for tr_pair in range(1,len(tr_details)+1):
         tr_pair = str(tr_pair)
@@ -318,8 +403,8 @@ def _verify_analyzer_filter_stats(tr_details,mode,comp_type,tolerance_factor,del
                     exp_val = int(tx_stats[tx_ph]['stream'][strelem]['tx'][tx_counter_name])
                     tx_val=exp_val
                     if exp_val == 0:
-                        msg = 'Transmit Counters is 0 (zero) for port: {}'.format(strelem)
-                        st.log(msg)
+                        msg = 'TX Counter {} is 0 (zero) for port: {}'.format(tx_counter_name, strelem)
+                        st.warn(msg)
                         st.report_tgen_fail('tgen_failed_api', msg)
                     exp_val = exp_val * ratio
                     rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph,mode='aggregate')
@@ -335,8 +420,8 @@ def _verify_analyzer_filter_stats(tr_details,mode,comp_type,tolerance_factor,del
                     exp_val = int(float(tx_stats[tx_ph]['stream'][strelem]['tx'][tx_counter_name]))
                     tx_val=exp_val
                     if exp_val == 0:
-                        msg = 'Transmit Counters is 0 (zero) for port: {}'.format(strelem)
-                        st.log(msg)
+                        msg = 'TX Counter {} is 0 (zero) for port: {}'.format(tx_counter_name, strelem)
+                        st.warn(msg)
                         st.report_tgen_fail('tgen_failed_api', msg)
                     exp_val = exp_val * ratio
                     # need to get total flows and verify whether particular flow matching the filter value
@@ -348,15 +433,15 @@ def _verify_analyzer_filter_stats(tr_details,mode,comp_type,tolerance_factor,del
                 st.log('Receive counter_name: {}, counter_val: {}'.format(rx_counter_name,real_rx_val))
                 diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / tx_val)
                 if diff <= tolerance:
-                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}\
-                           streamid: {}, filter param: {}, filter value: {}'.format('Success',tr_pair,tx_ports,rx_ports,strelem,fpelem,fvelem))
+                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}, streamid: {}, filter param: {}, filter value: {}'.format(
+                            'Success', tr_pair, tx_ports, rx_ports, strelem, fpelem, fvelem))
                     st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
                     ret_all.append(True)
                 else:
                     return_value = False
                     ret_all.append(False)
-                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}\
-                           streamid: {}, filter param: {}, filter value: {}'.format('Failure',tr_pair,tx_ports,rx_ports,strelem,fpelem,fvelem))
+                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}, streamid: {}, filter param: {}, filter value: {}'.format(
+                            'Failure', tr_pair, tx_ports, rx_ports, strelem, fpelem, fvelem))
                     st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
     return return_value if return_all==0 else (return_value, ret_all)
 
@@ -368,7 +453,7 @@ def _verify_custom_filter_stats(tr_details,mode,comp_type,tolerance_factor,delay
     delay = 5 * float(delay_factor)
     tolerance = 5 * float(tolerance_factor)
 
-    st.tg_wait(delay)
+    st.tg_wait(delay, "custom_filter_stats")
 
     for tr_pair in range(1,len(tr_details)+1):
         tr_pair = str(tr_pair)
@@ -388,20 +473,18 @@ def _verify_custom_filter_stats(tr_details,mode,comp_type,tolerance_factor,delay
             cur_tx_val = int(tx_stats[tx_ph][mode]['tx'][counter_name])
             st.log('Transmit counter_name: {}, counter_val: {}'.format(counter_name,cur_tx_val))
             if cur_tx_val == 0:
-                msg = 'Transmit Counters is 0 (zero) for port: {}'.format(port)
-                st.log(msg)
+                msg = 'TX Counter {} is 0 (zero) for port: {}'.format(counter_name, port)
+                st.warn(msg)
                 st.report_tgen_fail('tgen_failed_api', msg)
             exp_val += cur_tx_val * ratio
-#            st.log(exp_val)
+            # st.log(exp_val)
         st.log('Total Tx from ports {}: {}'.format(tx_ports,exp_val))
 
         for port,obj in zip(rx_ports,rx_obj):
             rx_ph = obj.get_port_handle(port)
             mode = 'custom_filter'
             rx_stats = obj.tg_custom_filter_config(mode='getStats',port_handle=rx_ph)
-#            st.log(rx_stats)
-#            counter_name = get_counter_name(mode,obj.tg_type,comp_type,'rx')
-            print(rx_stats)
+            st.log(rx_stats)
             counter_name = 'filtered_frame_count'
             real_rx_val = int(rx_stats[rx_ph][mode][counter_name])
             st.log('Receive counter_name: {}, counter_val: {}'.format(counter_name,real_rx_val))
@@ -453,18 +536,19 @@ def validate_tgen_traffic(**kwargs):
 
     _log_call("validate_tgen_traffic", **kwargs)
 
-    if kwargs.get('traffic_details') == None:
+    if kwargs.get('traffic_details') is None:
         st.log('Mandatory param traffic_details is missing')
         return False
 
     traffic_details = kwargs['traffic_details']
-    st.log(traffic_details)
+    #st.log(traffic_details)
     if not _validate_parameters(traffic_details):
         return False
 
     delay_factor = kwargs.get('delay_factor',1)
+    delay_factor = delay_factor if float(delay_factor) >= 1 else 1
     tolerance_factor = kwargs.get('tolerance_factor',1)
-    retry = kwargs.get('retry',1)
+    retry = kwargs.get('retry',0)
     comp_type = kwargs.get('comp_type','packet_count')
     return_all = kwargs.get('return_all',0)
     mode = kwargs.get('mode').lower()
@@ -482,7 +566,8 @@ def validate_tgen_traffic(**kwargs):
         return _verify_custom_filter_stats(traffic_details, mode=mode, comp_type=comp_type, \
                tolerance_factor=tolerance_factor, delay_factor=delay_factor, retry=retry, return_all=return_all)
 
-def _verify_packet_capture(pkt_dict, offset_list, value_list,port_handle, max_count=20):
+
+def _verify_packet_capture(pkt_dict, offset_list, value_list,port_handle, max_count=20, return_index=0):
 
     tot_pkts = int(pkt_dict[port_handle]['aggregate']['num_frames'])
     if max_count > 0 and tot_pkts > max_count:
@@ -510,7 +595,7 @@ def _verify_packet_capture(pkt_dict, offset_list, value_list,port_handle, max_co
 
             try:
                 found_value = pkt_dict[port_handle]['frame'][str(pkt_num)]['frame_pylist'][start_range:end_range]
-            except:
+            except Exception:
                 found_value = []
 
             if found_value == value:
@@ -519,8 +604,11 @@ def _verify_packet_capture(pkt_dict, offset_list, value_list,port_handle, max_co
             else:
                 st.log('Match not found in packet: {} at offset: {}, Expected: {}, Found: {}'.format(pkt_num,offset,value,found_value))
 
-        if ret_val == 0:
-            return True
+        if ret_val == 0 and return_index:
+            return pkt_num, True
+        elif ret_val == 0:
+            return  True
+    return (-1, False) if return_index else False
 
 def _parse_ixia_packet(pkt_dict,header,field,value,offset='not_set'):
 
@@ -544,7 +632,7 @@ def _parse_ixia_packet(pkt_dict,header,field,value,offset='not_set'):
     ixia_pckt_cap_ret_val.append(False)
     return ixia_pckt_cap_ret_val
 
-def _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle):
+def _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle,return_index=0):
 
         frame_format = {
             'ETH': {
@@ -577,21 +665,23 @@ def _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle):
                 }
             }
 
-
+        global ixia_pckt_cap_ret_val
         last_pkt_count = int(pkt_dict[port_handle]['frame']['data']['frame_id_end'])+1
     #    last_pkt_count = 2
         for pkt_num in range(1,last_pkt_count):
             st.log('Parsing packet: {}, port_handle: {}'.format(pkt_num,port_handle))
-            p_d = pkt_dict[port_handle]['frame']['data'][str(pkt_num)]
+            try:
+                p_d = pkt_dict[port_handle]['frame']['data'][str(pkt_num)]
+            except Exception:
+                st.error('The given indexed packet not found in the capture buffer')
+                st.report_tgen_fail('tgen_failed_capture_buffer')
             #p_d = pkt_dict
             ret_val = len(value_list)
             for header_field,value in zip(header_list,value_list):
                 header = header_field.split(':')[0]
                 field = header_field.split(':')[1]
                 offset = 'not_set'
-                code = "ixia_pckt_cap_ret_val = []"
-                exec(code, globals(), globals())
-
+                ixia_pckt_cap_ret_val = []
                 if header == 'GRE' and re.search(r'Data',field,re.I):
                     offset = header_field.split(':')[2]
                     if re.search(r':',value):
@@ -610,7 +700,7 @@ def _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle):
                     # dscp
                     else:
                         value = str(int(value,16))
-                print(header, field, value)
+                st.log("{} {} {}".format(header, field, value))
 
                 res = _parse_ixia_packet(p_d,frame_format[header]['h_name'],field,value,offset)
                 if True in res:
@@ -620,14 +710,19 @@ def _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle):
                     st.log('Match not found in packet: {} for {} in {}:{} header'.format(pkt_num,value,header,field))
                     st.log('Packet: {}'.format(p_d))
 
-            if ret_val == 0:
+            if ret_val == 0 and return_index:
+                return pkt_num, True
+            elif ret_val == 0:
                 return True
+
 
 def validate_packet_capture(**kwargs):
     pkt_dict = kwargs['pkt_dict']
     header_list = kwargs.get('header_list','new_ixia_format')
     offset_list = kwargs['offset_list']
     value_list = kwargs['value_list']
+    num_frames = kwargs.get('var_num_frames', 20)
+    return_index =kwargs.get('return_index', 0)
 
     _log_call("validate_packet_capture", **kwargs)
 
@@ -635,7 +730,7 @@ def validate_packet_capture(**kwargs):
         st.log('Packets have caputred on more than one port. Pass packet info for only one port')
         return False
 
-    for key,value in pkt_dict.items():
+    for key in pkt_dict:
         if key != 'status':
             port_handle = key
 
@@ -646,17 +741,17 @@ def validate_packet_capture(**kwargs):
         st.log('Number of packets captured: {}'.format(pkt_dict[port_handle]['aggregate']['num_frames']))
 
     if kwargs['tg_type'] in ['stc']:
-        return _verify_packet_capture(pkt_dict,offset_list,value_list,port_handle)
+        return _verify_packet_capture(pkt_dict,offset_list,value_list,port_handle,num_frames,return_index)
 
     if kwargs['tg_type'] in ['scapy']:
-        return _verify_packet_capture(pkt_dict,offset_list,value_list,port_handle, 0)
+        return _verify_packet_capture(pkt_dict,offset_list,value_list,port_handle, 0, return_index)
 
     if kwargs['tg_type'] in ['ixia']:
         if header_list == 'new_ixia_format':
             ### _verify_packet_capture_ixia is obsolete from now on, it is there only for legacy script.
-            return _verify_packet_capture(pkt_dict,offset_list,value_list,port_handle)
+            return _verify_packet_capture(pkt_dict,offset_list,value_list,port_handle,num_frames,return_index)
         else:
-            return _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle)
+            return _verify_packet_capture_ixia(pkt_dict,header_list,value_list,port_handle,return_index)
 
 def verify_ping(src_obj,port_handle,dev_handle,dst_ip,ping_count=5,exp_count=5):
     ping_count,exp_count = int(ping_count),int(exp_count)
@@ -666,23 +761,28 @@ def verify_ping(src_obj,port_handle,dev_handle,dst_ip,ping_count=5,exp_count=5):
         return True if int(result['tx']) == ping_count and  int(result['rx']) == exp_count else False
     elif src_obj.tg_type in ['ixia', 'scapy']:
         count = 0
-        for num in range(ping_count):
+        for _ in range(ping_count):
             result = src_obj.tg_interface_config(protocol_handle=dev_handle,send_ping='1',ping_dst=dst_ip)
             st.log("ping output: {}".format(result))
-            try:
-                result = result[port_handle]['ping_details']
-                if src_obj.tg_type == 'scapy':
-                    ping_out = re.search(r'([0-9]+)\s+packets transmitted,\s+([0-9]+)\s+received', result)
-                else:
-                    ping_out = re.search(r'([0-9]+)\s+requests sent,\s+([0-9]+)\s+replies received', result)
-                tx_pkt,rx_pkt = ping_out.group(1),ping_out.group(2)
-                if int(tx_pkt) == int(rx_pkt):
-                    count += 1
-            except AttributeError:
-                st.log("ping command o/p not matching regular expression or port_handle details not found in o/p")
+            if port_handle not in result:
+                st.warn("port_handle details not found in o/p")
+            elif "ping_details" not in result[port_handle]:
+                st.warn("ping_details details not found in o/p")
+            else:
+                try:
+                    result = result[port_handle]['ping_details']
+                    if src_obj.tg_type == 'scapy':
+                        ping_out = re.search(r'([0-9]+)\s+packets transmitted,\s+([0-9]+)\s+received', result)
+                    else:
+                        ping_out = re.search(r'([0-9]+)\s+requests sent,\s+([0-9]+)\s+replies received', result)
+                    tx_pkt,rx_pkt = ping_out.group(1),ping_out.group(2)
+                    if int(tx_pkt) == int(rx_pkt):
+                        count += 1
+                except AttributeError:
+                    st.warn("ping command o/p not matching regular expression")
         return True if count == exp_count else False
     else:
-        st.log("Need to add code for this tg type: {}".format(src_obj.tg_type))
+        st.error("Need to add code for this tg type: {}".format(src_obj.tg_type))
         return False
 
 def tg_bgp_config(**kwargs):
@@ -728,7 +828,6 @@ def tg_bgp_config(**kwargs):
         ctrl_var  = tg_bgp_ctrl1)
     """
 
-    import copy
     ret = {}
     def_conf_var = { 'mode'                  : 'enable',
                      'active_connect_enable' : '1'
@@ -774,17 +873,17 @@ def tg_bgp_config(**kwargs):
     bgp_ctrl={}
     if 'conf_var' in kwargs:
         bgp_conf = tg.tg_emulation_bgp_config(handle=handle, **conf_var)
-        print(bgp_conf)
+        st.log(bgp_conf)
         hand = bgp_conf['handle']
 
     if 'route_var' in kwargs:
         for i,var in enumerate(route_var):
             bgp_route.append(tg.tg_emulation_bgp_route_config(handle=hand, **var))
-        print(bgp_route)
+        st.log(bgp_route)
 
     if 'ctrl_var' in kwargs:
         bgp_ctrl = tg.tg_emulation_bgp_control(handle=hand,**ctrl_var)
-        print(bgp_ctrl)
+        st.log(bgp_ctrl)
 
     ret['conf'] = copy.deepcopy(bgp_conf)
     ret['route'] = copy.deepcopy(bgp_route)
@@ -839,7 +938,6 @@ def tg_igmp_config(**kwargs):
         igmp_group_var = igmp_group_conf1,
     """
 
-    import copy
     ret = {}
     def_session_var = { 'mode' : 'create',
                         'igmp_version' : 'v2'
@@ -940,25 +1038,20 @@ def get_traffic_stats(tg_obj, **kwargs):
         return False
     port_handle = kwargs["port_handle"]
     mode = kwargs["mode"] if "mode" in kwargs else "aggregate"
-    stats_tg = tg_obj.tg_traffic_stats(mode=mode, port_handle=port_handle)
-    if tg_obj.tg_type in ['ixia', 'scapy']:
-        stats.tx.total_packets = int(stats_tg[port_handle][mode]['tx']['total_pkts'])
-        stats.tx.total_bytes = int(stats_tg[port_handle][mode]['tx']['pkt_byte_count'])
-        stats.rx.total_packets = int(stats_tg[port_handle][mode]['rx']['total_pkts'])
-        stats.rx.total_bytes = int(stats_tg[port_handle][mode]['rx']['pkt_byte_count'])
-        stats.rx.oversize_count = 0
-        if "oversize_count" in stats_tg[port_handle][mode]['rx']:
-            stats.rx.oversize_count = int(stats_tg[port_handle][mode]['rx']['oversize_count'])
-    elif tg_obj.tg_type == 'stc':
-        stats.tx.total_packets = int(stats_tg[port_handle][mode]['tx']['total_pkts'])
-        stats.tx.total_bytes = int(stats_tg[port_handle][mode]['tx']['pkt_byte_count'])
-        stats.rx.total_packets = int(stats_tg[port_handle][mode]['rx']['total_pkts'])
-        stats.rx.total_bytes = int(stats_tg[port_handle][mode]['rx']['pkt_byte_count'])
+    direction = kwargs.get('direction', 'rx')
+    stats_tg = _fetch_stats(tg_obj, port_handle, mode, 'packet_count', direction)
+    stats.tx.total_packets = int(stats_tg[port_handle][mode]['tx']['total_pkts'])
+    stats.tx.total_bytes = int(stats_tg[port_handle][mode]['tx']['pkt_byte_count'])
+    stats.rx.total_packets = int(stats_tg[port_handle][mode]['rx']['total_pkts'])
+    stats.rx.total_bytes = int(stats_tg[port_handle][mode]['rx']['pkt_byte_count'])
+    stats.rx.oversize_count = 0
+    if "oversize_count" in stats_tg[port_handle][mode]['rx']:
         stats.rx.oversize_count = int(stats_tg[port_handle][mode]['rx']['oversize_count'])
     st.log("*****TG STATS******")
     st.log(stats)
     st.log("***********")
     return stats
+
 
 # combine the calls when the tg is same
 def port_traffic_control(action, *args, **kwargs):

@@ -2,9 +2,11 @@ import os
 import json
 import random
 import logging
+from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import *
 from tests.common.mellanox_data import get_platform_data
 from minimum_table import get_min_table
+
 
 NOT_AVAILABLE = 'N/A'
 
@@ -37,8 +39,10 @@ THERMAL_NAMING_RULE = {
         "temperature": "gearbox{}_temp_input"
     },
     "asic_ambient": {
-        "name": "Ambient ASIC Temp",
-        "temperature": "asic"
+        "name": "ASIC",
+        "temperature": "asic",
+        "high_threshold": "mlxsw/temp_trip_hot",
+        "high_critical_threshold": "mlxsw/temp_trip_crit"
     },
     "port_ambient": {
         "name": "Ambient Port Side Temp",
@@ -52,6 +56,11 @@ THERMAL_NAMING_RULE = {
         "name": "Ambient COMEX Temp",
         "temperature": "comex_amb"
     }
+}
+
+ASIC_THERMAL_RULE_201911 = {
+    "name": "Ambient ASIC Temp",
+    "temperature": "asic"
 }
 
 FAN_NAMING_RULE = {
@@ -70,7 +79,8 @@ FAN_NAMING_RULE = {
     "psu_fan": {
         "name": "psu_{}_fan_1",
         "speed": "psu{}_fan1_speed_get",
-        "power_status": "psu{}_pwr_status"
+        "power_status": "psu{}_pwr_status",
+        "max_speed": "psu_fan_max",
     }
 }
 
@@ -111,6 +121,7 @@ class MockerHelper:
         self.dut = dut
         #self.unlink_file_list = {}
         self._extract_num_of_fans_and_fan_drawers()
+        self.deinit_retry = 5
 
     def _extract_num_of_fans_and_fan_drawers(self):
         """
@@ -133,7 +144,14 @@ class MockerHelper:
         content = output['stdout'].strip()
         if not content:
             return
+
         MockerHelper.FAN_NUM = int(content)
+        platform_data = get_platform_data(self.dut)
+        if not platform_data['fans']['hot_swappable']:
+            # For non swappable fan, there is no drawer. We put them in a "virtual" drawer.
+            MockerHelper.FAN_NUM_PER_DRAWER = MockerHelper.FAN_NUM
+            return
+
         if MockerHelper.FAN_NUM > fan_drawer_num:
             MockerHelper.FAN_NUM_PER_DRAWER = 2
         else:
@@ -234,10 +252,39 @@ class MockerHelper:
         Destructor of MockerHelper. Re-link all sys fs files.
         :return:
         """
+        failed_recover_files = {}
         for file_path, link_target in self.unlink_file_list.items():
-            self.dut.command('rm -f {}'.format(file_path))
-            self.dut.command('ln -s {} {}'.format(link_target, file_path))
+            try:
+                self.dut.command('ln -f -s {} {}'.format(link_target, file_path))
+            except Exception as e:
+                # Catch any exception for later retry
+                failed_recover_files[file_path] = link_target
+
         self.unlink_file_list.clear()
+        # If there is any failed recover files, retry it
+        if failed_recover_files:
+            self.deinit_retry -= 1
+            if self.deinit_retry > 0:
+                self.unlink_file_list = failed_recover_files
+                self.deinit()
+            else:
+                # We don't want to retry it infinite, and 5 times retry
+                # is enough, so if it still fails after the retry, it
+                # means there is probably an issue with our sysfs, we need
+                # mark it fail here
+                error_message = "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
+                logging.error(error_message)
+                raise RuntimeError(error_message)
+
+    def is_201911(self):
+        """
+        Workaround to make thermal control test cases compatible with 201911 and master
+        :return:
+        """
+        if parse_version(self.dut.kernel_version) > parse_version('4.9.0'):
+            return False
+        else:
+            return True
 
 
 class FanDrawerData:
@@ -363,7 +410,10 @@ class FanData:
     PWM_MAX = 255
 
     # Speed tolerance
-    SPEED_TOLERANCE = 0.2
+    SPEED_TOLERANCE = 0.5
+
+    # Cooling cur state file
+    COOLING_CUR_STATE_FILE = 'cooling_cur_state'
 
     def __init__(self, mock_helper, naming_rule, index):
         """
@@ -434,13 +484,20 @@ class FanData:
         else:
             self.mocked_status = 'OK'
 
+    @classmethod
+    def mock_cooling_cur_state(cls, mock_helper, value):
+        mock_helper.mock_thermal_value(cls.COOLING_CUR_STATE_FILE, str(value))
+
     def get_max_speed(self):
         """
         Get max speed of this FAN.
         :return: Max speed of this FAN or -1 if max speed is not available.
         """
         if self.max_speed_file:
-            max_speed = self.helper.read_thermal_value(self.max_speed_file)
+            if 'psu' not in self.max_speed_file:
+                max_speed = self.helper.read_thermal_value(self.max_speed_file)
+            else:
+                max_speed = self.helper.read_value(os.path.join('/run/hw-management/config', self.max_speed_file))
             return int(max_speed)
         else:
             return -1
@@ -490,6 +547,10 @@ class TemperatureData:
         :param index: Thermal index.
         """
         self.helper = mock_helper
+        if 'ASIC' in naming_rule['name']:
+            if self.helper.is_201911():
+                naming_rule = ASIC_THERMAL_RULE_201911
+
         self.name = naming_rule['name']
         self.temperature_file = naming_rule['temperature']
         self.high_threshold_file = naming_rule['high_threshold'] if 'high_threshold' in naming_rule else None
@@ -643,6 +704,10 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         presence = 0
         direction = NOT_AVAILABLE
         naming_rule = FAN_NAMING_RULE['fan']
+        # All system fan is controlled to have the same speed, so only
+        # get a random value once here
+        speed = random.randint(60, 100)
+        FanData.mock_cooling_cur_state(self.mock_helper, speed/10)
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
@@ -660,7 +725,6 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 fan_index += 1
                 if presence == 1:
                     fan_data.mock_status(random.randint(0, 1))
-                    speed = random.randint(60, 100)
                     fan_data.mock_speed(speed)
                     fan_data.mock_target_speed(speed)
                     self.expected_data[fan_data.name] = [
@@ -696,18 +760,20 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         platform_data = get_platform_data(self.mock_helper.dut)
         psu_count = platform_data["psus"]["number"]
         naming_rule = FAN_NAMING_RULE['psu_fan']
+        if self.mock_helper.is_201911():
+            led_color = ''
+        else:
+            led_color = 'green'
         for index in range(1, psu_count + 1):
             try:
                 fan_data = FanData(self.mock_helper, naming_rule, index)
-                # PSU fan speed display PWM not percentage, it should not be less than 100
-                speed = random.randint(101, RandomFanStatusMocker.PSU_FAN_MAX_SPEED)
                 fan_data.mock_speed(speed)
 
                 self.expected_data[fan_data.name] = [
                     'N/A',
-                    '',
+                    led_color,
                     fan_data.name,
-                    '{}RPM'.format(fan_data.mocked_speed),
+                    '{}%'.format(fan_data.mocked_speed),
                     NOT_AVAILABLE,
                     'Present',
                     'OK'
@@ -722,13 +788,14 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         :param expected_speed: Expect speed in percentage.
         :return: True if match else False.
         """
-        for fan_data in self.expected_data.values():
-            if fan_data.target_speed_file:
-                target_speed = fan_data.get_target_speed()
-                if expected_speed != target_speed:
-                    logging.error(
-                        '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
-                    return False
+        for drawer_data in self.drawer_list:
+            for fan_data in drawer_data.fan_data_list:
+                if fan_data.target_speed_file:
+                    target_speed = fan_data.get_target_speed()
+                    if expected_speed != target_speed:
+                        logging.error(
+                            '{} expected speed={}, actual speed={}'.format(fan_data.name, expected_speed, target_speed))
+                        return False
         return True
 
 
@@ -985,9 +1052,9 @@ class MinTableMocker(object):
     def __init__(self, dut):
         self.mock_helper = MockerHelper(dut)
 
-    def get_expect_cooling_level(self, air_flow_dir, temperature, trust_state):
+    def get_expect_cooling_level(self, temperature, trust_state):
         minimum_table = get_min_table(self.mock_helper.dut)
-        row = minimum_table['{}_{}'.format(air_flow_dir, 'trust' if trust_state else 'untrust')]
+        row = minimum_table['unk_{}'.format('trust' if trust_state else 'untrust')]
         temperature = temperature / 1000
         for range_str, cooling_level in row.items():
             range_str_list = range_str.split(':')
@@ -998,17 +1065,10 @@ class MinTableMocker(object):
 
         return None
 
-    def mock_min_table(self, air_flow_dir, temperature, trust_state):
+    def mock_min_table(self, temperature, trust_state):
         trust_value = '0' if trust_state else '1'
-        if air_flow_dir == 'p2c':
-            fan_temp = temperature
-            port_temp = temperature - 100
-        elif air_flow_dir == 'c2p':
-            fan_temp = temperature - 100
-            port_temp = temperature
-        else:
-            fan_temp = temperature
-            port_temp = temperature
+        fan_temp = temperature
+        port_temp = temperature
 
         self.mock_helper.mock_thermal_value(self.FAN_AMB_PATH, str(fan_temp))
         self.mock_helper.mock_thermal_value(self.PORT_AMB_PATH, str(port_temp))

@@ -55,7 +55,7 @@ class TestPsuFans(PlatformApiTestBase):
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, platform_api_conn):
-        if self.num_fans is None:
+        if self.num_psus is None:
             try:
                 self.num_psus = chassis.get_num_psus(platform_api_conn)
             except:
@@ -94,7 +94,7 @@ class TestPsuFans(PlatformApiTestBase):
 
                 if self.expect(name is not None, "Unable to retrieve psu {} fan {} name".format(j, i)):
                     self.expect(isinstance(name, STRING_TYPE), "psu {} fan {} name appears incorrect".format(j, i))
-                    self.compare_value_with_platform_facts(self, 'name', name, j, i)
+                    self.compare_value_with_platform_facts('name', name, j, i)
 
         self.assert_expectations()
 
@@ -150,6 +150,25 @@ class TestPsuFans(PlatformApiTestBase):
 
                 if self.expect(status is not None, "Unable to retrieve psu {} fan {} status".format(j, i)):
                     self.expect(isinstance(status, bool), "psu {} fan {} status appears incorrect".format(j, i))
+
+        self.assert_expectations()
+
+    def test_get_position_in_parent(self, platform_api_conn):
+        for j in range(self.num_psus):
+            num_fans = psu.get_num_fans(platform_api_conn, j)
+            for i in range(num_fans):
+                position = psu_fan.get_position_in_parent(platform_api_conn, j, i)
+                if self.expect(position is not None, "Failed to perform get_position_in_parent for PSU {} fan {}".format(j, i)):
+                    self.expect(isinstance(position, int), "Position value must be an integer value for PSU {} fan {}".format(j, i))
+        self.assert_expectations()
+
+    def test_is_replaceable(self, platform_api_conn):
+        for j in range(self.num_psus):
+            num_fans = psu.get_num_fans(platform_api_conn, j)
+            for i in range(num_fans):
+                replaceable = psu_fan.is_replaceable(platform_api_conn, j, i)
+                if self.expect(replaceable is not None, "Failed to perform is_replaceable for PSU {} fan {}".format(j, i)):
+                    self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for PSU {} fan {}".format(j, i))
 
         self.assert_expectations()
 
@@ -228,7 +247,7 @@ class TestPsuFans(PlatformApiTestBase):
             target_speed = random.randint(1, 100)
 
             for i in range(num_fans):
-                spped = psu_fan.get_speed(platform_api_conn, j, i)
+                speed = psu_fan.get_speed(platform_api_conn, j, i)
                 speed_tol = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
 
                 speed_set = psu_fan.set_speed(platform_api_conn, j, i, target_speed)

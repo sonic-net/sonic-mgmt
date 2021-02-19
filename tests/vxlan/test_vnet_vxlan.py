@@ -19,6 +19,8 @@ pytestmark = [
     pytest.mark.asic("mellanox")
 ]
 
+vlan_tagging_mode = ""
+
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     """
     Prepares the PTF container for testing
@@ -50,7 +52,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
-        "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"],
+        "dut_mac": dut_facts["router_mac"],
         "vnet_interfaces": vnet_config["vnet_intf_list"],
         "vnet_routes": vnet_config["vnet_route_list"] + vnet_config["vnet_subnet_routes"],
         "vnet_local_routes": vnet_config["vnet_local_routes"],
@@ -60,7 +62,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
     """
     Prepares DUT and PTF hosts for testing
 
@@ -71,8 +73,9 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
         vnet_config: Configuration file generated from templates/vnet_config.j2
         vnet_test_params: Dictionary holding vnet test parameters
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
-    dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
+    dut_facts = duthost.facts
 
     prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
 
@@ -81,7 +84,7 @@ def setup(duthost, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
     return minigraph_facts
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_params, vnet_config):
     """
     Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
 
@@ -93,23 +96,29 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
     Returns:
         A tuple containing the VxLAN status (True or False), and the test scenario (one of the pytest parameters)
     """
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = setup
+    attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
+    vlan_member = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
+    global vlan_tagging_mode
 
     vxlan_enabled = False
     if request.param == "Disabled":
         vxlan_enabled = False
     elif request.param == "Enabled":
-        mg_facts = setup
-
         duthost.shell("sonic-clear fdb all")
-
-        attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
-        member_to_remove = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
-        duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, member_to_remove))
+        result = duthost.shell("redis-cli -n 4 HGET \"VLAN_MEMBER|{}|{}\" tagging_mode ".format(attached_vlan, vlan_member))
+        if result["stdout_lines"] is not None:
+            vlan_tagging_mode = result["stdout_lines"][0]
+            duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
 
         apply_dut_config_files(duthost, vnet_test_params)
 
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
+        if vlan_tagging_mode != "":
+            duthost.shell("redis-cli -n 4 hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(attached_vlan, vlan_member, vlan_tagging_mode))
+
         vxlan_enabled = True
         cleanup_vnet_routes(duthost, vnet_config)
         cleanup_dut_vnets(duthost, setup, vnet_config)
@@ -117,7 +126,7 @@ def vxlan_status(setup, request, duthost, vnet_test_params, vnet_config):
     return vxlan_enabled, request.param
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, creds):
+def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
     """
     Test case for VNET VxLAN
 
@@ -128,6 +137,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthost, ptfhost, vnet_test_params, cre
         ptfhost: PTF host object
         vnet_test_params: Dictionary containing vnet test parameters
     """
+    duthost = duthosts[rand_one_dut_hostname]
 
     vxlan_enabled, scenario = vxlan_status
 

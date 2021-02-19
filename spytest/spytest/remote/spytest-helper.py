@@ -15,8 +15,6 @@ import filecmp
 import argparse
 import subprocess
 
-g_use_config_replace = False
-g_community_build = False
 g_breakout_native = False
 g_breakout_file = None
 g_debug = False
@@ -30,9 +28,11 @@ copp_config_file = "/etc/swss/config.d/00-copp.config.json"
 tmp_copp_file = "/tmp/copp.json"
 frr_config_file = "/etc/sonic/frr/frr.conf"
 tmp_frr_file = "/tmp/frr.conf"
-syslog_file = "/etc/rsyslog.d/99-default.conf"
-tmp_syslog_file = "/tmp/rsyslog-default.conf"
+rsyslog_conf_file = "/etc/rsyslog.d/99-default.conf"
+tmp_rsyslog_conf_file = "/tmp/rsyslog-default.conf"
+pim_config_file = "/etc/sonic/frr/pimd.conf"
 
+var_log_dir = "/var/log"
 spytest_dir = "/etc/spytest"
 init_config_file = spytest_dir + "/init_config_db.json"
 base_config_file = spytest_dir + "/base_config_db.json"
@@ -87,7 +87,7 @@ def iterdict(d):
             v = iterdict(v)
         try:
             new_dict[k] = int(v)
-        except:
+        except Exception:
             new_dict[k] = v
     return new_dict
 
@@ -100,18 +100,25 @@ def read_lines(file_path, default=None):
             raise exp
     return default
 
+def write_file(filename, data, mode="w"):
+    fh = open(filename, mode)
+    fh.write(data)
+    fh.close()
+    return data
+
 def read_offset(file_path):
     lines = read_lines(file_path, [])
-    offset = int(lines[0].split()[0]) if lines else 0
-    return (file_path, offset)
+    if not lines: return (file_path, 0, "")
+    parts = lines[0].split()
+    return (file_path, int(parts[0]), parts[1])
 
-def write_offset(file_path, retval, add=0):
+def write_offset(file_path, retval, add, append=""):
     try:
         lines = retval.split()
         offset = add + int(lines[0].split()[0])
         with open(file_path, "w") as infile:
-            infile.write("{} unused".format(offset))
-    except: pass
+            infile.write("{} {}".format(offset, append))
+    except Exception: pass
 
 def execute_from_file(file_path):
     execute_cmds(read_lines(file_path))
@@ -122,10 +129,10 @@ def execute_cmds(cmds):
         retval.append(execute_check_cmd(cmd))
     return "\n".join(retval)
 
-def execute_check_cmd(cmd, show=True, skip_error=False):
+def execute_check_cmd(cmd, trace_cmd=True, trace_out=True, skip_error=False):
     retval = ""
     try:
-        if show:
+        if trace_cmd:
             print("Remote CMD: '{}'".format(cmd))
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         out, err = proc.communicate()
@@ -134,11 +141,31 @@ def execute_check_cmd(cmd, show=True, skip_error=False):
             retval = "Error: Failed to execute '{}' ('{}')\n".format(cmd, err.strip())
         if out.strip() != "":
             retval = retval + out.strip()
-    except:
+    except Exception:
         retval = "Error: Exception occurred while executing the command '{}'".format(cmd)
-    if retval.strip() != "":
+    if trace_out and retval.strip() != "":
         print(retval)
     return retval
+
+def execute_cmd_retry(cmd, count=3):
+    print("Remote CMD: '{}'".format(cmd))
+    out_msg = ""
+    try:
+        for retry in range(1, count+1):
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            out, err = proc.communicate()
+            proc.wait()
+            if proc.returncode == 0:
+                out_msg = out.strip()
+                break
+            out_msg = "Error: Failed to execute '{}' ('{}')\n".format(cmd, err.strip())
+            print("Trying {} again {}".format(cmd, retry))
+            execute_check_cmd("sleep 5", trace_cmd=False)
+    except Exception:
+        out_msg = "Error: Exception occurred while executing the command '{}'".format(cmd)
+    if out_msg.strip() != "":
+        print(out_msg)
+    return out_msg
 
 def run_as_system_cmd(cmd, show=True):
     retcode = None
@@ -148,7 +175,7 @@ def run_as_system_cmd(cmd, show=True):
         retcode = os.system(cmd)
         if retcode != 0:
             print("Error: Failed to execute '{}'. Return code is '{}'".format(cmd, retcode))
-    except:
+    except Exception:
         print("Error: Exception occurred while executing the command '{}'".format(cmd))
     return retcode
 
@@ -179,6 +206,15 @@ def read_json(filepath):
     return eval(open(filepath, 'rU').read())
 
 def get_file_diff(file1, file2, show_diff=False):
+
+    if not os.path.exists(file1):
+        print("Missing file {} to compare".format(file1))
+        return False
+
+    if not os.path.exists(file2):
+        print("Missing file {} to compare".format(file2))
+        return False
+
     if filecmp.cmp(file1, file2):
         # files have same content
         return True
@@ -203,7 +239,7 @@ def json_fix(filepath):
     data = open(filepath, 'rU').read()
     try:
         obj = json.loads(data)
-    except:
+    except Exception:
         print("invalid json - trying to fix")
         # remove trailing object comma
         regex = re.compile(r'(,)\s*}(?=([^"\\]*(\\.|"([^"\\]*\\.)*[^"\\]*"))*[^"]*$)')
@@ -213,7 +249,7 @@ def json_fix(filepath):
         data = regex.sub("]", data)
         try:
             obj = json.loads(data)
-        except:
+        except Exception:
             raise ValueError("invalid json data")
 
     dst_file = "{}.new".format(filepath)
@@ -284,9 +320,11 @@ def apply_file(filepath, method):
         basename = os.path.basename(filepath)
         old_file = os.path.join(dut_file_location, basename)
         if not os.path.exists(old_file + ".orig"):
-            commands_to_execute.append("cp {} {}.orig".format(old_file, old_file))
+            commands_to_execute.append("cp {0} {0}.orig".format(old_file))
         commands_to_execute.append("cp {} {}".format(filepath, old_file))
-
+    elif filepath.endswith('.pim'):
+        backup_file(pim_config_file)
+        commands_to_execute.append("cp {} {}".format(filepath, pim_config_file))
     if commands_to_execute:
         execute_cmds(commands_to_execute)
     else:
@@ -316,7 +354,7 @@ def clear_techsupport(flag):
         execute_check_cmd("sonic-clear techsupport till 'now' -y")
 
 def init_clean(flags):
-    [core_flag, dump_flag, clear_flag] = flags.split(",")
+    [core_flag, dump_flag, clear_flag, misc_flag] = flags.split(",")
     # remove core files
     clean_core_files(core_flag)
     # remove techsupport dump files
@@ -324,14 +362,17 @@ def init_clean(flags):
     # remove core dumps and techsupport till now using CLI command.
     clear_techsupport(clear_flag)
 
+    if misc_flag != "YES":
+        return
+
     # disable syslog messages
     print("disable syslog messages")
     enable_disable_debug(False)
 
     # clear syslog messages
+    execute_check_cmd("logrotate -f /etc/logrotate.conf", skip_error=True)
     execute_check_cmd("rm -f {}/syslog.*".format(spytest_dir))
     execute_check_cmd("rm -f {}/sairedis.*".format(spytest_dir))
-    execute_check_cmd("logrotate -f /etc/logrotate.conf", skip_error=True)
 
 def init_ta_config(flags, profile):
     init_clean(flags)
@@ -347,8 +388,37 @@ def init_ta_config(flags, profile):
     # remove syslogs and sairedis files
     print("clear syslog and sairedis files")
     execute_check_cmd("logrotate -f /etc/logrotate.conf", skip_error=True)
-    execute_check_cmd("rm -f /var/log/syslog.*")
-    execute_check_cmd("rm -f /var/log/swss/sairedis.rec.*")
+    clear = os.getenv("SPYTEST_ONINIT_CLEAR", "syslog,sairedis")
+    if "syslog" in clear:
+        execute_check_cmd("rm -f {}/syslog.*".format(var_log_dir))
+        execute_check_cmd("rm -f {}/syslog.*".format(spytest_dir))
+    if "redis" in clear:
+        execute_check_cmd("rm -f {}/swss/sairedis.rec.*".format(var_log_dir))
+        execute_check_cmd("rm -f {}/sairedis.*".format(spytest_dir))
+
+    print("DONE")
+
+def reset_intf_naming_mode():
+    print("change intf_naming_mode in init ta config")
+    file_dict = read_json(init_config_file)
+
+    if "DEVICE_METADATA" in file_dict:
+        if "localhost" in file_dict["DEVICE_METADATA"]:
+            metadata = file_dict["DEVICE_METADATA"]["localhost"]
+            metadata["intf_naming_mode"] = "standard"
+
+            # save the configuration to init file
+            with open(init_config_file, 'w') as outfile:
+                json.dump(file_dict, outfile, indent=4)
+
+    print("DONE")
+
+def rewrite_ta_config():
+    print("save the running configuration to default ta config")
+
+    # save the config to init file.
+    execute_check_cmd("config save -y {}".format(init_config_file))
+    execute_check_cmd("config save -y")
 
     print("DONE")
 
@@ -371,6 +441,7 @@ def create_default_base_config():
     # remove all the unnecessary sections from init file
     print("remove all the unnecessary sections")
     retain = ['DEVICE_METADATA', 'PORT', 'FLEX_COUNTER_TABLE', "MGMT_PORT"]
+    retain.extend(["BREAKOUT_CFG", "BREAKOUT_PORTS"])
     if os.getenv("SPYTEST_NTP_CONFIG_INIT", "0") != "0":
         retain.append("NTP_SERVER")
     if os.getenv("SPYTEST_CLEAR_MGMT_INTERFACE", "0") == "0":
@@ -380,18 +451,22 @@ def create_default_base_config():
             del file_dict[key]
 
     # enable docker_routing_config_mode
-    print("enable docker_routing_config_mode")
+    routing_mode = os.getenv("SPYTEST_ROUTING_CONFIG_MODE", "separated")
+    print("setting docker_routing_config_mode to {}".format(routing_mode))
     if "DEVICE_METADATA" in file_dict:
         if "localhost" in file_dict["DEVICE_METADATA"]:
-            file_dict["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "split"
+            metadata = file_dict["DEVICE_METADATA"]["localhost"]
+            metadata.pop("intf_naming_mode", None)
+            if routing_mode:
+                metadata["docker_routing_config_mode"] = routing_mode
             if os.getenv("SPYTEST_CLEAR_DEVICE_METADATA_HOSTNAME", "0") == "0":
-                file_dict["DEVICE_METADATA"]["localhost"]["hostname"] = "sonic"
+                metadata["hostname"] = "sonic"
 
     # enable all ports
     print("enable all ports")
     if "PORT" in file_dict:
         port_dict = file_dict['PORT']
-        for k, v in port_dict.items():
+        for _, v in port_dict.items():
             v["admin_status"] = "up"
 
     # save the configuration to init file
@@ -409,8 +484,10 @@ def apply_config_profile(profile):
     if profile == "na":
         print("Skipping the profile config as it is not required for 'NA'.")
     else:
-        output = execute_check_cmd("show config profiles")
+        output = execute_check_cmd("show switch-profiles")
         match = re.match(r"Factory Default:\s+(\S+)", output)
+        if not match:
+            execute_check_cmd("show config profiles")
         if match and profile == match.group(1):
             execute_check_cmd("rm -rf {}".format(config_file))
         execute_check_cmd("config profile factory {} -y".format(profile))
@@ -442,47 +519,23 @@ def update_reserved_ports(port_list):
 
     print("DONE")
 
-def wait_for_ports_2(port_init_wait, poll_for_ports):
-    # Wait for last port to be available
-    port_num = read_port_inifile()
-    output = []
-    if poll_for_ports == "yes":
-        for iter in range(0, port_init_wait/2):
-            retval = execute_check_cmd("grep -r PortInitDone /var/log/syslog", skip_error=True)
-            port_info = get_port_status(port_num)
-            if port_info:
-                output.append(port_info)
-            if "PortInitDone" in retval:
-                output.append(retval)
-                break
-            if port_info and port_num in port_info:
-                break
-            execute_check_cmd("sleep 2", False)
-    else:
-        execute_check_cmd("sleep {}".format(port_init_wait))
-    return "\n".join(output)
-
 def wait_for_ports(port_init_wait, poll_for_ports):
     if port_init_wait == 0:
         return
 
-    # use older mechanism for community build
-    if g_community_build:
-        return wait_for_ports_2(port_init_wait, poll_for_ports)
-
-    if poll_for_ports == "yes":
-        # Wait for last port to be available
-        port_num = read_port_inifile()
-        for iter in range(0, port_init_wait/2):
-            port_info = get_port_status(port_num)
-            retval = execute_check_cmd("show system status")
-            if "System is ready" in retval:
-                break
-            if port_info and port_num in port_info:
-                break
-            execute_check_cmd("sleep 2", False)
-    else:
+    if poll_for_ports != "yes":
         execute_check_cmd("sleep {}".format(port_init_wait))
+        return
+
+    # read last port number
+    port_num = read_port_inifile()
+
+    # Wait for last port to be available
+    for _ in range(0, port_init_wait/5):
+        port_info = get_port_status(port_num)
+        if port_info and port_num in port_info:
+            break
+        execute_check_cmd("sleep 5", trace_cmd=False)
 
 # check if the MAC address is present in config_db.json
 def ensure_mac_address(filepath):
@@ -497,20 +550,16 @@ def ensure_mac_address(filepath):
                     json.dump(file_dict, outfile, indent=4)
                 print("===========================================")
 
-def do_config_reload(filename=""):
-    if g_use_config_replace:
+def do_config_reload(method, filename=""):
+    if method in ["replace", "force-replace"]:
         if filename:
             execute_check_cmd("config_replace -f {}".format(filename))
         else:
             execute_check_cmd("config_replace")
     else:
-        execute_check_cmd("config reload -y {}".format(filename))
+        execute_cmd_retry("config reload -y {}".format(filename))
 
-def dump_click_cmds():
-    script = "/etc/spytest/remote/click-helper.py"
-    execute_check_cmd("python {}".format(script), show=False)
-
-def set_port_defaults(breakout, speed, port_init_wait, poll_for_ports):
+def set_port_defaults(method, breakout, speed, port_init_wait, poll_for_ports):
     if g_breakout_native:
         script = "/usr/local/bin/port_breakout.py"
     else:
@@ -528,7 +577,7 @@ def set_port_defaults(breakout, speed, port_init_wait, poll_for_ports):
         index = index + 2
     if breakout:
         ensure_mac_address(config_file)
-        do_config_reload()
+        do_config_reload(method)
 
     index = 0
     while index < len(speed):
@@ -545,13 +594,13 @@ def set_port_defaults(breakout, speed, port_init_wait, poll_for_ports):
 
     wait_for_ports(port_init_wait, poll_for_ports)
 
-def config_reload(save, port_init_wait, poll_for_ports):
+def config_reload(method, save, port_init_wait, poll_for_ports):
     if save == "yes":
         execute_check_cmd("config save -y")
 
     ensure_mac_address(config_file)
 
-    do_config_reload()
+    do_config_reload(method)
 
     wait_for_ports(port_init_wait, poll_for_ports)
 
@@ -561,8 +610,8 @@ def copy_or_delete(from_file, to_file):
     else:
         execute_check_cmd("rm -f {}".format(to_file))
 
-def show_file_content(filename, msg=""):
-    if g_debug:
+def show_file_content(filename, msg="", force=False):
+    if g_debug or force:
         print("======================== {} ====================".format(msg))
         if os.path.exists(filename):
             execute_check_cmd("cat {}".format(filename))
@@ -588,7 +637,7 @@ def save_module_config():
 
     # save the FRR configuration applied in module init
     execute_check_cmd("touch {}".format(frr_config_file))
-    execute_check_cmd("vtysh -c write file")
+    execute_cmd_retry("vtysh -c write file")
     show_file_content(frr_config_file, "save_module_config FRR")
 
     # Copy all the actual files as module files.
@@ -600,17 +649,28 @@ def save_module_config():
 
     print("DONE")
 
-def apply_ta_config(method, port_init_wait, poll_for_ports, is_module_cfg):
+def apply_ta_config(method, port_init_wait, poll_for_ports, config_type):
 
-    ta_config_file = module_config_file if is_module_cfg else base_config_file
-    ta_frr_config_file = module_frr_config_file if is_module_cfg else base_frr_config_file
-    ta_copp_config_file = module_copp_config_file if is_module_cfg else base_copp_config_file
-    ta_minigraph_file = module_minigraph_file if is_module_cfg else base_minigraph_file
+    if config_type == "init":
+        ta_config_file = init_config_file
+        ta_frr_config_file = init_frr_config_file
+        ta_copp_config_file = init_copp_config_file
+        ta_minigraph_file = init_minigraph_file
+    elif config_type == "base":
+        ta_config_file = base_config_file
+        ta_frr_config_file = base_frr_config_file
+        ta_copp_config_file = base_copp_config_file
+        ta_minigraph_file = base_minigraph_file
+    else:
+        ta_config_file = module_config_file
+        ta_frr_config_file = module_frr_config_file
+        ta_copp_config_file = module_copp_config_file
+        ta_minigraph_file = module_minigraph_file
 
     # If no base/module config_db.json return back. No need to check for other file formats.
     if not os.path.exists(ta_config_file):
         print("==============================================================================")
-        print("======================= TA DEFAULT CONFIG FILE IS MISSING ====================")
+        print("=========== TA DEFAULT CONFIG FILE {} IS MISSING ".format(ta_config_file))
         print("==============================================================================")
         print("NOFILE")
         return
@@ -619,7 +679,7 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, is_module_cfg):
 
     # Save current config in DB to temp file to and compare it with base/module config_db.json file
     # If there is a change, add config to list.
-    execute_check_cmd("config save -y {}".format(tmp_config_file))
+    execute_check_cmd("config save -y {}".format(tmp_config_file), skip_error=True)
     if not get_file_diff(tmp_config_file, ta_config_file, g_debug):
         trace("TA Config File Differs")
         changed_files.append("config")
@@ -638,7 +698,7 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, is_module_cfg):
     # If there is a change or no base/module/actual frr.conf file exists, add frr to list.
     show_file_content(frr_config_file, "existing FRR")
     execute_check_cmd("touch {}".format(frr_config_file))
-    execute_check_cmd("vtysh -c write file")
+    execute_cmd_retry("vtysh -c write file")
     show_file_content(frr_config_file, "generated FRR")
     show_file_content(ta_frr_config_file, "TA FRR")
     if not os.path.exists(ta_frr_config_file) and not os.path.exists(frr_config_file):
@@ -665,7 +725,7 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, is_module_cfg):
 
     # If a force method is *NOT* used, check for any entries in changed list
     # If no entries are present(Means no change in configs), Return back.
-    if method not in ["force_reload", "force_reboot"]:
+    if method not in ["force-reload", "force-replace", "force-reboot"]:
         if not changed_files:
             print("Config, FRR, COPP are same as TA files")
             print("DONE")
@@ -688,11 +748,11 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, is_module_cfg):
         execute_check_cmd("cp -f {} {}".format(ta_frr_config_file, frr_config_file))
     if os.path.exists(ta_copp_config_file) and "copp" in changed_files:
         execute_check_cmd("docker cp {} swss:{}".format(ta_copp_config_file, copp_config_file))
-        method = "force_reboot"
+        method = "force-reboot"
 
     # We copied the changed files to actual files.
     # If reboot related method is used, return back asking for reboot required.
-    if method in ["force_reboot", "reboot"]:
+    if method in ["force-reboot", "reboot"]:
         print("REBOOT REQUIRED")
         return
 
@@ -707,17 +767,17 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, is_module_cfg):
 
     # If config entry is present, perform config reload, this will take care of frr too.
     # If frr enry is present, perform bgp docker restart.
-    if "config" in changed_files or method in ["force_reload"]:
+    if "config" in changed_files or method in ["force-reload"]:
         ensure_mac_address(ta_config_file)
         #execute_check_cmd("echo before reload;date")
-        do_config_reload(ta_config_file)
+        do_config_reload(method, ta_config_file)
         #execute_check_cmd("echo after reload;date")
-    if "frr" in changed_files or method in ["force_reload"]:
+    if "frr" in changed_files or method in ["force-reload"]:
         execute_cmds(["systemctl restart bgp"])
         execute_cmds(["sleep 10"])
 
     # Re-Write the base/module frr.conf, this is to allow the hook level code to get saved in frr.conf.
-    execute_check_cmd("vtysh -c write file")
+    execute_cmd_retry("vtysh -c write file")
     if os.path.exists(frr_config_file):
         execute_check_cmd("cp -f {} {}".format(frr_config_file, ta_frr_config_file))
         show_file_content(ta_frr_config_file, "rewrite TA FRR")
@@ -735,24 +795,24 @@ def run_test(script_fullpath, proc_args):
     print("Script '{}' not exists".format(script_fullpath))
 
 def enable_disable_debug(flag):
-    if not os.path.exists(syslog_file):
+    if not os.path.exists(rsyslog_conf_file):
         print("==============================================================================")
         print("============================= SYSLOG FILE IS MISSING =========================")
         print("==============================================================================")
         print("NOFILE")
         return
 
-    backup_file(syslog_file)
-    execute_check_cmd("cp {} {}".format(syslog_file, tmp_syslog_file))
+    backup_file(rsyslog_conf_file)
+    execute_check_cmd("cp {} {}".format(rsyslog_conf_file, tmp_rsyslog_conf_file))
 
     cmd = ""
     if flag:
-        cmd = '''sed -i '$ a :msg, contains, "(core dumped)"   /dev/console' {}'''.format(syslog_file)
+        cmd = '''sed -i '$ a :msg, contains, "(core dumped)"   /dev/console' {}'''.format(rsyslog_conf_file)
     else:
-        cmd = '''sed '/core dumped/d' -i {}'''.format(syslog_file)
-    execute_check_cmd(cmd, False)
+        cmd = '''sed '/core dumped/d' -i {}'''.format(rsyslog_conf_file)
+    execute_check_cmd(cmd, trace_cmd=False)
 
-    if not filecmp.cmp(syslog_file, tmp_syslog_file):
+    if not filecmp.cmp(rsyslog_conf_file, tmp_rsyslog_conf_file):
         # files have different content
         execute_check_cmd("systemctl restart rsyslog")
         print("DONE")
@@ -761,30 +821,73 @@ def enable_disable_debug(flag):
     print("NOCHANGE")
 
 def read_messages(file_path, all_file, var_file, our_file):
-    (offset_file, offset) = read_offset(file_path)
-    execute_check_cmd("tail --lines=+{} {} > {}".format(offset, all_file, our_file))
-    execute_check_cmd("ls -l {}*".format(var_file))
-    retval = execute_check_cmd("wc -l {}".format(our_file))
-    write_offset(file_path, retval, offset)
+    (_, offset, old_inode) = read_offset(file_path)
+    var_file_1 = "{}.1".format(var_file)
+    retval = execute_check_cmd("ls -ltir {} {}".format(var_file, var_file_1), skip_error=True)
+    read_files, matched_inode = [], ""
+    for line in retval.split("\n"):
+        parts = line.split()
+        inode, fname = parts[0], parts[-1]
+        if fname not in [var_file, var_file_1]:
+            continue
+        if read_files or old_inode == inode:
+            read_files.append([fname, inode])
+        if fname == var_file:
+            matched_inode = inode
+    if not read_files:
+        read_files.append([var_file, matched_inode])
+        offset = 0
+    for fname, inode in read_files:
+        execute_check_cmd("tail --lines=+{} {} > {}".format(offset, fname, our_file))
+        retval = execute_check_cmd("wc -l {}".format(our_file))
+        write_offset(file_path, retval, offset, inode)
+        offset = 0
+    return retval
 
 def syslog_read_msgs(lvl, phase):
     if phase: execute_check_cmd("sudo echo {}".format(phase))
     file_path = "{}/syslog.offset".format(spytest_dir)
-    var_file = "/var/log/syslog"
+    var_file = "{}/syslog".format(var_log_dir)
     our_file = "{}/syslog.txt".format(spytest_dir)
-    read_messages(file_path, var_file, var_file, our_file)
-    if lvl != "none" and lvl in syslog_levels:
-        index = syslog_levels.index(lvl)
-        needed = "|".join(syslog_levels[:index+1])
-        cmd = r"""grep -E "^\S+\s+[0-9]+\s+[0-9]+:[0-9]+:[0-9]+(\.[0-9]+){{0,1}}\s+\S+\s+({})" {}"""
-        execute_check_cmd(cmd.format(needed.upper(), our_file), False, True)
+    lines_count = read_messages(file_path, var_file, var_file, our_file)
+
+    # check if there is data
+    try:
+        lines = lines_count.split()
+        syslog_lines = int(lines[0].split()[0])
+    except Exception: syslog_lines = 0
+
+    if not syslog_lines:
+        print("NO-SYSLOGS-CAPTURED")
+        return # no data
+
+    if lvl == "none" or lvl not in syslog_levels:
+        return # no need to give any data
+
+    index = syslog_levels.index(lvl)
+    needed = "|".join(syslog_levels[:index+1])
+    cmd = r"""grep -E "^\S+\s+[0-9]+\s+[0-9]+:[0-9]+:[0-9]+(\.[0-9]+){{0,1}}(\s+[0-9]+){{0,1}}\s+\S+\s+({})" {}"""
+    retval = execute_check_cmd(cmd.format(needed.upper(), our_file), trace_cmd=False, trace_out=False, skip_error=True)
+    lines = retval.split("\n")
+    syslog_lines = len(lines)
+
+    max_syslog_count = 1000
+    if syslog_lines > max_syslog_count:
+        write_file(our_file, retval)
+        msg = "Syslog count is more than the max limit '{}'. Capturing to file '{}' "
+        print(msg.format(max_syslog_count, our_file))
+        print("SYSLOGS_CAPTURED_FILE: {}".format(our_file))
+    else:
+        print("=" * 17 + " MATCHED SYSLOG " + "=" * 17)
+        print(retval)
+        print("=" * 50)
 
 def do_sairedis(op):
     if op == "clean":
         execute_check_cmd("rm -f {}/sairedis.*".format(spytest_dir))
-        execute_check_cmd("rm -f /var/log/swss/sairedis.rec.*")
+        execute_check_cmd("rm -f {}/swss/sairedis.rec.*".format(var_log_dir))
     file_path = "{}/sairedis.offset".format(spytest_dir)
-    var_file = "/var/log/swss/sairedis.rec"
+    var_file = "{}/swss/sairedis.rec".format(var_log_dir)
     our_file = "{}/sairedis.txt".format(spytest_dir)
     all_file = "{}/sairedis.all".format(spytest_dir)
     execute_check_cmd("rm -f {0};ls -1tr {1}* | xargs zcat -f >> {0}".format(all_file, var_file))
@@ -795,7 +898,7 @@ def do_sairedis(op):
 def invalid_ip(addr):
     try:
         socket.inet_aton(addr)
-    except:
+    except Exception:
         return True
     return False
 
@@ -805,7 +908,7 @@ def mgmt_ip_setting(mgmt_type, ip_addr_mask, gw_addr):
         if ip_addr_mask and gw_addr:
             try:
                 (ipaddr, mask_str) = ip_addr_mask.split("/")
-            except:
+            except Exception:
                 print("IP and Mask should be provided with '/' delimited.")
                 return
             try:
@@ -813,7 +916,7 @@ def mgmt_ip_setting(mgmt_type, ip_addr_mask, gw_addr):
                 if mask < 0 or mask > 32:
                     print("Invalid MASK provided.")
                     return
-            except:
+            except Exception:
                 print("Invalid MASK provided.")
                 return
             if invalid_ip(ipaddr) or invalid_ip(gw_addr):
@@ -898,7 +1001,58 @@ def fetch_kdump_files():
         return
     print("NO-KDUMP-FILES: No tar file is generated for kdump files")
 
+def do_asan_config(cfg):
+    src = "/etc/spytest/remote/asan.bashrc"
+    dst = "/etc/asan.bashrc"
+    execute_check_cmd("mkdir -p {}/asan".format(var_log_dir))
+    execute_check_cmd("cp -f {} {}".format(src, dst))
+    show_file_content(dst, "ASAN-CONFIG", True)
+
+
+def do_asan_report():
+    pass
+
+service_template = """
+[Unit]
+Description=SPyTest Service - {0}
+
+[Service]
+#EnvironmentFile=-/etc/default/ztp
+ExecStart=/usr/bin/python {1}
+#ExecStart=/bin/sh -c 'exec /usr/bin/python >{2} 2>{3}'
+StandardOutput=syslog
+StandardError=syslog
+UMask=177
+User=root
+Group=root
+Type=idle
+"""
+
+def do_service_start(name):
+    service = "/lib/systemd/system/spytest-{}.service".format(name)
+    script = "{}/service-{}.py".format(spytest_dir, name)
+    logfile = "{}/service-{}.log".format(spytest_dir, name)
+    errfile = "{}/service-{}.err".format(spytest_dir, name)
+    data = service_template.format(name, script, logfile, errfile)
+    write_file(service, data)
+    execute_check_cmd("chmod 644 {}".format(service))
+    execute_check_cmd("systemctl daemon-reload")
+    execute_check_cmd("systemctl enable spytest-{}.service".format(name))
+    execute_check_cmd("systemctl status spytest-{}.service".format(name))
+
+def do_service_stop(name):
+    execute_check_cmd("systemctl disable spytest-{}.service".format(name))
+    execute_check_cmd("systemctl status spytest-{}.service".format(name))
+
+def do_service_get(name, clear=True):
+    logfile = "{}/service-{}.log".format(spytest_dir, name)
+    rv = execute_check_cmd("cat {}".format(logfile))
+    print(rv)
+    if clear:
+        execute_check_cmd("truncate -s 0 {}".format(logfile))
+
 if __name__ == "__main__":
+    print("################ SPYTEST-HELPER ####################")
     parser = argparse.ArgumentParser(description='SpyTest Helper script.')
 
     parser.add_argument("--env", action="append", default=[],
@@ -916,16 +1070,19 @@ if __name__ == "__main__":
             help="save the current config as module config.")
     parser.add_argument("--init-ta-config", action="store", default=None,
             help="save the current config as ta default config.")
-    parser.add_argument("--port-init-wait", action="store", type=int, default=0,
-            help="Wait time in seconds for ports to come up -- default: 0")
-    parser.add_argument("--poll-for-ports", action="store", default="no",
-            choices=['yes', 'no'],
-            help="Poll for the ports status after the DUT reload")
-    parser.add_argument("--apply-base-config", action="store",
-            choices=['reload', 'replace', 'reboot', 'force_reload', 'force_reboot'],
+    parser.add_argument("--reset-intf-naming-mode", action="store_true", default=False,
+            help="reset the interface name mode in init ta config.")
+    parser.add_argument("--rewrite-ta-config", action="store_true", default=False,
+            help="rewrite the running config to ta default config.")
+    parser.add_argument("--load-config-method", action="store", default="none",
+                    choices=['none', 'reload', 'replace', 'reboot',
+                    'force-reload', 'force-replace', 'force-reboot'],
+                    help="method to apply config")
+    parser.add_argument("--apply-init-config", action="store_true",
+            help="apply init config as current config.")
+    parser.add_argument("--apply-base-config", action="store_true",
             help="apply base config as current config.")
-    parser.add_argument("--apply-module-config", action="store",
-            choices=['reload', 'replace', 'reboot', 'force_reload', 'force_reboot'],
+    parser.add_argument("--apply-module-config", action="store_true",
             help="apply module config as current config.")
     parser.add_argument("--json-diff", action="store", nargs=2, default=None,
             help="dump the difference between json files.")
@@ -963,14 +1120,12 @@ if __name__ == "__main__":
             nargs="+", help="speed operations to be performed.")
     parser.add_argument("--port-defaults", action="store_true", default=None,
             help="apply breakout/speed defaults.")
-    parser.add_argument("--dump-click-cmds", action="store_true", default=None,
-            help="dump all click commnds.")
     parser.add_argument("--config-reload", action="store", default=None,
             choices=['yes', 'no'],
             help="perform config reload operation: yes=save+reload no=reload")
-    parser.add_argument("--wait-for-ports", action="store_true", default=None,
+    parser.add_argument("--wait-for-ports", action="store", default=0, type=int,
             help="wait for ports to comeup.")
-    parser.add_argument("--config-profile", action="store", default="na",
+    parser.add_argument("--config-profile", action="store", default=None,
             choices=['l2', 'l3', 'na'], help="Profile name to load.")
     parser.add_argument("--community-build", action="store_true", default=False,
             help="use community build options.")
@@ -981,6 +1136,11 @@ if __name__ == "__main__":
     parser.add_argument("--use-config-replace", action="store_true", default=False,
             help="use config replace where ever config reload is needed.")
     parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("--asan-config", action="store_true", default=False)
+    parser.add_argument("--asan-report", action="store_true", default=False)
+    parser.add_argument("--service-start", action="store", default=None)
+    parser.add_argument("--service-stop", action="store", default=None)
+    parser.add_argument("--service-get", action="store", default=None)
 
     args, unknown = parser.parse_known_args()
 
@@ -988,10 +1148,8 @@ if __name__ == "__main__":
         print("IGNORING unknown arguments", unknown)
 
     #g_debug = args.debug
-    g_community_build = args.community_build
     g_breakout_native = args.breakout_native
     g_breakout_file = args.breakout_file
-    g_use_config_replace = args.use_config_replace
 
     for name, value in args.env:
         os.environ[name] = value
@@ -1004,14 +1162,20 @@ if __name__ == "__main__":
         run_test(script_fullname, script_arguments)
     elif args.init_ta_config:
         init_ta_config(args.init_ta_config, args.config_profile)
+    elif args.reset_intf_naming_mode:
+        reset_intf_naming_mode()
+    elif args.rewrite_ta_config:
+        rewrite_ta_config()
     elif args.save_base_config:
         save_base_config()
     elif args.save_module_config:
         save_module_config()
+    elif args.apply_init_config:
+        apply_ta_config(args.load_config_method, 0, "no", "init")
     elif args.apply_base_config:
-        apply_ta_config(args.apply_base_config, args.port_init_wait, args.poll_for_ports, False)
+        apply_ta_config(args.load_config_method, 0, "no", "base")
     elif args.apply_module_config:
-        apply_ta_config(args.apply_module_config, args.port_init_wait, args.poll_for_ports, True)
+        apply_ta_config(args.load_config_method, 0, "no", "module")
     elif args.json_diff:
         retval = get_file_diff(args.json_diff[0], args.json_diff[1], True)
         print(retval)
@@ -1038,14 +1202,23 @@ if __name__ == "__main__":
     elif args.update_reserved_ports:
         update_reserved_ports(args.update_reserved_ports)
     elif args.port_defaults:
-        set_port_defaults(args.breakout, args.speed, args.port_init_wait, args.poll_for_ports)
-    elif args.dump_click_cmds:
-        dump_click_cmds()
+        set_port_defaults(args.load_config_method, args.breakout, args.speed, 0, "no")
     elif args.config_reload:
-        config_reload(args.config_reload, args.port_init_wait, args.poll_for_ports)
+        config_reload(args.load_config_method, args.config_reload, 0, "no")
     elif args.wait_for_ports:
-        wait_for_ports(args.port_init_wait, args.poll_for_ports)
+        wait_for_ports(args.wait_for_ports, "yes")
     elif args.config_profile:
         apply_config_profile(args.config_profile)
+    elif args.asan_config:
+        do_asan_config(args.asan_config)
+    elif args.asan_report:
+        do_asan_report()
+    elif args.service_start:
+        do_service_start(args.service_start)
+    elif args.service_stop:
+        do_service_stop(args.service_stop)
+    elif args.service_get:
+        do_service_get(args.service_get)
     else:
        print("Error: Invalid/Unknown arguments provided for the script.")
+

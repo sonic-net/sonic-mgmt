@@ -43,6 +43,13 @@ def get_status(conn, mod_idx):
     return module_api(conn, mod_idx, 'get_status')
 
 
+def get_position_in_parent(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_position_in_parent')
+
+
+def is_replaceable(conn, mod_idx):
+    return module_api(conn, mod_idx, 'is_replaceable')
+
 #
 # Methods defined in ModuleBase class
 #
@@ -52,10 +59,6 @@ def get_status(conn, mod_idx):
 
 def get_base_mac(conn, mod_idx):
     return module_api(conn, mod_idx, 'get_base_mac')
-
-
-def get_serial_number(conn, mod_idx):
-    return module_api(conn, mod_idx, 'get_serial_number')
 
 
 def get_system_eeprom_info(conn, mod_idx):

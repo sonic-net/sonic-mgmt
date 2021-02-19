@@ -8,48 +8,6 @@ import apis.routing.bgp as bgp_obj
 import apis.switching.portchannel as portchannel_obj
 import apis.switching.vlan as vlan_obj
 
-vars = dict()
-
-@pytest.fixture(scope="module", autouse=True)
-def bgp_fast_reboot_module_hooks(request):
-    global vars
-    vars = st.ensure_min_topology("D1D2:1", "D1T1:2")
-    st.log("Enabling IPv6 mode globally")
-    ip_obj.config_ipv6(vars.D1,action='enable')
-    ip_obj.config_ipv6(vars.D2,action='enable')
-    st.log("Configuring ipv4 addresses on routing interfaces")
-    ipv4_ip_address_config()
-    st.log("Verifying ipv4 addresses on routing interfaces")
-    verify_ipv4_address_config()
-    st.log("Configuring ipv6 addresses on routing interfaces")
-    ipv6_address_config()
-    st.log("Verifying ipv6 addresses on routing interfaces")
-    verify_ipv6_address_config()
-    st.log("Configuring IPV6 eBGP config between DUT1 and DUT2,iBGP config between DUT1 and TG2")
-    ipv6_bgp_config()
-    st.log("Configuring IPV4 eBGP config between DUT1 and DUT2,iBGP config between DUT1 and TG1")
-    ipv4_bgp_config()
-    st.log("Configuring TG2 V6 iBGP config")
-    tg_bgpv6_config(vars, data.local_asn4, data.remote_asn4)
-    st.log("Configuring TG1 V4 iBGP config")
-    tg_bgp_config(vars, data.local_asn4, data.remote_asn4)
-    st.log("Verify IPV4 eBGP neighborship between D1 and D2 and iBGP neighborship between D1 and TG1")
-    verify_v4_bgp_neigborship()
-    st.log("Verify IPV6 eBGP neighborship between D1 and D2 and iBGP neighborship between D1 and TG2")
-    verify_v6_bgp_neigborship()
-    yield
-    bgp_obj.cleanup_router_bgp(st.get_dut_names())
-    ip_obj.clear_ip_configuration(st.get_dut_names())
-    ip_obj.clear_ip_configuration(st.get_dut_names(), 'ipv6')
-    vlan_obj.clear_vlan_configuration(st.get_dut_names())
-    portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
-
-
-@pytest.fixture(scope="function", autouse=True)
-def bgp_fast_reboot_func_hooks(request):
-    yield
-
-
 data = SpyTestDict()
 data.local_ip_addr = "12.12.12.1"
 data.neigh_ip_addr = "12.12.12.2"
@@ -75,6 +33,66 @@ data.local_asn = "4294966195"
 data.tg_bgp_route_prfix = "157.1.0.0"
 data.local_asn4 = "4294966195"
 data.remote_asn4 = "65001"
+data.ipv6_support = True
+data.neighborship_wait = 10
+
+@pytest.fixture(scope="module", autouse=True)
+def bgp_fast_reboot_module_hooks(request):
+    global vars
+    vars = st.ensure_min_topology("D1D2:1", "D1T1:2")
+    if not st.is_feature_supported("bgp-neighbotship-performance", vars.D1):
+        data.neighborship_wait = 30
+
+    st.log("Enabling IPv6 mode globally")
+    ip_obj.config_ipv6(vars.D1,action='enable')
+    ip_obj.config_ipv6(vars.D2,action='enable')
+
+    st.log("Configuring ipv4 addresses on routing interfaces")
+    ipv4_ip_address_config()
+
+    st.log("Verifying ipv4 addresses on routing interfaces")
+    verify_ipv4_address_config()
+
+    if data.ipv6_support:
+        st.log("Configuring ipv6 addresses on routing interfaces")
+        ipv6_address_config()
+        st.log("Verifying ipv6 addresses on routing interfaces")
+        verify_ipv6_address_config()
+        st.log("Configuring IPV6 eBGP config between DUT1 and DUT2,iBGP config between DUT1 and TG2")
+        ipv6_bgp_config()
+
+    st.log("Configuring IPV4 eBGP config between DUT1 and DUT2,iBGP config between DUT1 and TG1")
+    ipv4_bgp_config()
+
+    if data.ipv6_support:
+        st.log("Configuring TG2 V6 iBGP config")
+        tg_bgpv6_config(vars, data.local_asn4, data.remote_asn4)
+
+    st.log("Configuring TG1 V4 iBGP config")
+    tg_bgp_config(vars, data.local_asn4, data.remote_asn4)
+
+    st.log("Verify IPV4 eBGP neighborship between D1 and D2 and iBGP neighborship between D1 and TG1")
+    verify_v4_bgp_neigborship()
+
+    if data.ipv6_support:
+        st.log("Verify IPV6 eBGP neighborship between D1 and D2 and iBGP neighborship between D1 and TG2")
+        verify_v6_bgp_neigborship()
+
+    yield
+
+    bgp_obj.cleanup_router_bgp(st.get_dut_names())
+    ip_obj.clear_ip_configuration(st.get_dut_names())
+
+    if data.ipv6_support:
+        ip_obj.clear_ip_configuration(st.get_dut_names(), 'ipv6')
+
+    vlan_obj.clear_vlan_configuration(st.get_dut_names())
+    portchannel_obj.clear_portchannel_configuration(st.get_dut_names())
+
+
+@pytest.fixture(scope="function", autouse=True)
+def bgp_fast_reboot_func_hooks(request):
+    yield
 
 
 def ipv4_ip_address_config():
@@ -222,42 +240,42 @@ def tg_bgpv6_config(vars, local_asn, remote_asn):
 
 
 def verify_v4_bgp_neigborship():
-    st.wait(10)
+    st.wait(data.neighborship_wait, "wait for bgp v4 neighborship")
     st.log("Waiting for the eBGP neighbors to get Established")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_vtysh,
                                       neighbor=data.neigh_ip_addr, state='Established', asn=data.remote_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.neigh_ip_addr)
     else:
         st.log("eBGP peer neigborship is successful")
-    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv4, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv4, shell=data.shell_vtysh,
                                       neighbor=data.local_ip_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.local_ip_addr)
     else:
         st.log("eBGP V4 peer neigborship is successful")
 
-    st.log("Waiting for the iBGP neighbors to get Established wit TG1")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_sonic,
+    st.log("Waiting for the iBGP neighbors to get Established with TG1")
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv4, shell=data.shell_vtysh,
                                       neighbor=data.t1d1_ip_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.t1d1_ip_addr)
     else:
         st.log("iBGP V4 peer neigborship is successful")
 
 def verify_v6_bgp_neigborship():
-    st.wait(10)
+    st.wait(data.neighborship_wait, "wait for bgp v6 neighborship")
     st.log("Waiting for the eBGP neighbors to get Established with peer DUT")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_vtysh,
                                       neighbor=data.neigh_ip6_addr, state='Established', asn=data.remote_asn4):
         st.report_fail('bgp_ip6_peer_establish_fail', data.neigh_ip6_addr)
     else:
         st.log("eBGP V6 peer neigborship is successful")
-    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv6, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D2, family=data.af_ipv6, shell=data.shell_vtysh,
                                       neighbor=data.local_ip6_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip6_peer_establish_fail', data.local_ip6_addr)
     else:
         st.log("eBGP V6 peer neigborship is successful")
 
         st.log("Waiting for the iBGPV6 neighbors to get Established with TG2")
-    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_sonic,
+    if not bgp_obj.verify_bgp_neighborship(vars.D1, family=data.af_ipv6, shell=data.shell_vtysh,
                                       neighbor=data.t1d1_ip6_addr, state='Established', asn=data.local_asn4):
         st.report_fail('bgp_ip_peer_establish_fail', data.t1d1_ip6_addr)
     else:
@@ -270,16 +288,14 @@ def test_ft_bgp_fast_reboot():
     bgp_obj.enable_docker_routing_config_mode(vars.D1)
     bgp_obj.enable_docker_routing_config_mode(vars.D2)
     st.log("saving the BGP config in vtysh shell")
-    command = "copy run start"
-    st.vtysh(vars.D1, command)
-    st.vtysh(vars.D2, command)
     st.log("config save in D1 and D2")
     reboot_obj.config_save([vars.D1, vars.D2])
     st.log("Performing fast reboot")
     st.reboot(vars.D1,"fast")
     st.log("Verifying BGP is established after fast reboot")
     verify_v4_bgp_neigborship()
-    st.log("Verifying BGPV6 is  established after fast reboot")
-    verify_v6_bgp_neigborship()
+    if data.ipv6_support:
+        st.log("Verifying BGPV6 is  established after fast reboot")
+        verify_v6_bgp_neigborship()
     st.report_pass('test_case_passed')
 

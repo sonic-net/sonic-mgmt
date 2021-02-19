@@ -10,6 +10,7 @@ import time
 
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from thermal_control_test_helper import *
@@ -41,6 +42,11 @@ LOG_EXPECT_FAN_OVER_SPEED_CLEAR_RE = '.*Fan high speed warning cleared:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warning:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
+SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument must be a string.* or a number.*',
+                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*']
+
+SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*']
+
 
 def check_sensord_status(ans_host):
     """
@@ -71,18 +77,19 @@ def stop_pmon_sensord_task(ans_host):
 
     sensord_running_status, sensord_pid = check_sensord_status(ans_host)
     if sensord_running_status:
-        assert False, "Failed to stop sensord task before test."
+        pytest_assert(False, "Failed to stop sensord task before test.")
     else:
         logging.info("sensord stopped successfully")
 
 
 @pytest.fixture(scope="module")
-def psu_test_setup_teardown(duthost):
+def psu_test_setup_teardown(duthosts, rand_one_dut_hostname):
     """
     @summary: Sensord task will print out error msg when detect PSU offline,
               which can cause log analyzer fail the test. So stop sensord task
               before test and restart it after all test finished.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logging.info("Starting psu test setup")
     stop_pmon_sensord_task(duthost)
 
@@ -97,9 +104,24 @@ def psu_test_setup_teardown(duthost):
         if sensord_running_status:
             logging.info("sensord task restarted, pid = {}".format(sensord_pid))
         else:
-            assert False, "Failed to restart sensord task after test."
+            pytest_assert(False, "Failed to restart sensord task after test.")
     else:
         logging.info("sensord is running, pid = {}".format(sensord_pid))
+
+
+@pytest.fixture(scope="function")
+def ignore_particular_error_log(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
+    loganalyzer.load_common_config()
+
+    ignore_list = request.param
+    loganalyzer.ignore_regex.extend(ignore_list)
+    marker = loganalyzer.init()
+
+    yield
+
+    loganalyzer.analyze(marker)
 
 
 def get_psu_num(dut):
@@ -110,8 +132,8 @@ def get_psu_num(dut):
     psu_num = 0
     try:
         psu_num = int(psu_num_out["stdout"])
-    except:
-        assert False, "Unable to get the number of PSUs using command '%s'" % cmd_num_psu
+    except Exception as e:
+        pytest_assert(False, "Unable to get the number of PSUs using command '{}' with exception {}".format(cmd_num_psu, repr(e)))
 
     return psu_num
 
@@ -131,13 +153,13 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
         check_psu_sysfs(dut, psu_id, psu_status)
 
 
-def turn_all_psu_on(psu_ctrl):
-    all_psu_status = psu_ctrl.get_psu_status()
-    if all_psu_status:
-        for psu in all_psu_status:
-            if not psu["psu_on"]:
-                psu_ctrl.turn_on_psu(psu["psu_id"])
-                time.sleep(5)
+def turn_all_outlets_on(pdu_ctrl):
+    all_outlet_status = pdu_ctrl.get_outlet_status()
+    pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot to get at least 2 outlet status: {}'.format(all_outlet_status))
+    for outlet in all_outlet_status:
+        if not outlet["outlet_on"]:
+            pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+            time.sleep(5)
 
 
 def check_all_psu_on(dut, psu_test_results):
@@ -156,126 +178,125 @@ def check_all_psu_on(dut, psu_test_results):
 
 
 @pytest.mark.disable_loganalyzer
-def test_turn_on_off_psu_and_check_psustatus(duthost, psu_controller):
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
+def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pdu_controller, ignore_particular_error_log):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
-    loganalyzer.load_common_config()
-
-    loganalyzer.ignore_regex.append("Error getting sensor data: dps460.*Kernel interface error")
-    marker = loganalyzer.init()
+    duthost = duthosts[rand_one_dut_hostname]
 
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
 
     psu_num = get_psu_num(duthost)
-    if psu_num < 2:
-        pytest.skip("At least 2 PSUs required for rest of the testing in this case")
+    pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller
-    if psu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
+    pdu_ctrl = pdu_controller
+    pytest_require(pdu_ctrl, "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
     logging.info("To avoid DUT being shutdown, need to turn on PSUs that are not powered")
-    turn_all_psu_on(psu_ctrl)
+    turn_all_outlets_on(pdu_ctrl)
 
     logging.info("Initialize test results")
     psu_test_results = {}
-    if not check_all_psu_on(duthost, psu_test_results):
-        pytest.skip("Some PSU are still down, skip rest of the testing in this case")
+    pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
 
-    assert len(psu_test_results.keys()) == psu_num, \
-        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus")
+    pytest_assert(len(psu_test_results.keys()) == psu_num, \
+        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
 
     logging.info("Start testing turn off/on PSUs")
-    all_psu_status = psu_ctrl.get_psu_status()
-    for psu in all_psu_status:
+    all_outlet_status = pdu_ctrl.get_outlet_status()
+    pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot get at least 2 outlet status: {}'.format(all_outlet_status))
+    for outlet in all_outlet_status:
         psu_under_test = None
 
-        logging.info("Turn off PSU %s" % str(psu["psu_id"]))
-        psu_ctrl.turn_off_psu(psu["psu_id"])
+        logging.info("Turn off outlet %s" % str(outlet["outlet_id"]))
+        pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
         time.sleep(5)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
-            assert psu_line_pattern.match(line), "Unexpected PSU status output"
+            pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
             fields = line.split()
             if fields[2] != "OK":
                 psu_under_test = fields[1]
             check_vendor_specific_psustatus(duthost, line)
-        assert psu_under_test is not None, "No PSU is turned off"
+        pytest_assert(psu_under_test is not None, "No PSU is turned off")
 
-        logging.info("Turn on PSU %s" % str(psu["psu_id"]))
-        psu_ctrl.turn_on_psu(psu["psu_id"])
+        logging.info("Turn on outlet %s" % str(outlet["outlet_id"]))
+        pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
         time.sleep(5)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
-            assert psu_line_pattern.match(line), "Unexpected PSU status output"
+            pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
             fields = line.split()
             if fields[1] == psu_under_test:
-                assert fields[2] == "OK", "Unexpected PSU status after turned it on"
+                pytest_assert(fields[2] == "OK", "Unexpected PSU status after turned it on")
             check_vendor_specific_psustatus(duthost, line)
 
         psu_test_results[psu_under_test] = True
 
     for psu in psu_test_results:
-        assert psu_test_results[psu], "Test psu status of PSU %s failed" % psu
-
-    loganalyzer.analyze(marker)
+        pytest_assert(psu_test_results[psu], "Test psu status of PSU %s failed" % psu)
 
 
-def test_show_platform_fanstatus_mocked(duthost, mocker_factory):
+@pytest.mark.disable_loganalyzer
+def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory, disable_thermal_policy):
     """
     @summary: Check output of 'show platform fan'.
     """
+    duthost = duthosts[rand_one_dut_hostname]
+
     # Mock data and check
     mocker = mocker_factory(duthost, 'FanStatusMocker')
-    if mocker is None:
-        pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+    pytest_require(mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
     logging.info('Mock FAN status data...')
     mocker.mock_data()
     logging.info('Wait and check actual data with mocked FAN status data...')
     result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
-    assert result, 'FAN mock data mismatch'
+    pytest_assert(result, 'FAN mock data mismatch')
 
 
-def test_show_platform_temperature_mocked(duthost, mocker_factory):
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
+def test_show_platform_temperature_mocked(duthosts, rand_one_dut_hostname, mocker_factory, ignore_particular_error_log):
     """
     @summary: Check output of 'show platform temperature'
     """
+    duthost = duthosts[rand_one_dut_hostname]
     # Mock data and check
     mocker = mocker_factory(duthost, 'ThermalStatusMocker')
-    if mocker is None:
-        pytest.skip("No ThermalStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+    pytest_require(mocker, "No ThermalStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
     logging.info('Mock Thermal status data...')
     mocker.mock_data()
     logging.info('Wait and check actual data with mocked Thermal status data...')
     result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_TEMPER, THERMAL_CONTROL_TEST_WAIT_TIME)
 
-    assert result, 'Thermal mock data mismatch'
+    pytest_assert(result, 'Thermal mock data mismatch')
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_format_json(duthost):
+def test_thermal_control_load_invalid_format_json(duthosts, rand_one_dut_hostname):
     """
     @summary: Load a thermal policy file with invalid format, check thermal
               control daemon is up and there is an error log printed
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logging.info('Loading invalid format policy file...')
     check_thermal_control_load_invalid_file(duthost, THERMAL_POLICY_INVALID_FORMAT_FILE)
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_value_json(duthost):
+def test_thermal_control_load_invalid_value_json(duthosts, rand_one_dut_hostname):
     """
     @summary: Load a thermal policy file with invalid value, check thermal
               control daemon is up and there is an error log printed
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logging.info('Loading invalid value policy file...')
     check_thermal_control_load_invalid_file(duthost, THERMAL_POLICY_INVALID_VALUE_FILE)
 
@@ -286,37 +307,38 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
               control daemon is up and there is an error log printed
     """
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='thermal_control')
-    with ThermalPolicyFileContext(duthost, file_name):
-        loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
-        with loganalyzer:
+    loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
+    with loganalyzer:
+        with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)
 
 
-def test_thermal_control_psu_absence(duthost, psu_controller, mocker_factory):
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
+def test_thermal_control_psu_absence(duthosts, rand_one_dut_hostname, pdu_controller, mocker_factory, ignore_particular_error_log):
     """
     @summary: Turn off/on PSUs, check thermal control is working as expect.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     psu_num = get_psu_num(duthost)
-    if psu_num < 2:
-        pytest.skip("At least 2 PSUs required for rest of the testing in this case")
+    
+    pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
-    logging.info("Create PSU controller for testing")
-    psu_ctrl = psu_controller
-    if psu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
+    logging.info("Create PDU controller for testing")
+    pdu_ctrl = pdu_controller
+
+    pytest_require(pdu_ctrl, "No PDU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
     logging.info("To avoid DUT being shutdown, need to turn on PSUs that are not powered")
-    turn_all_psu_on(psu_ctrl)
+    turn_all_outlets_on(pdu_ctrl)
 
     logging.info("Initialize test results")
     psu_test_results = {}
-    if not check_all_psu_on(duthost, psu_test_results):
-        pytest.skip("Some PSU are still down, skip rest of the testing in this case")
+    pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
 
     with ThermalPolicyFileContext(duthost, THERMAL_POLICY_VALID_FILE):
         fan_mocker = mocker_factory(duthost, 'FanStatusMocker')
-        if fan_mocker is None:
-            pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+        pytest_require(fan_mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
         restart_thermal_control_daemon(duthost)
         logging.info('Wait and check all FAN speed turn to 60%...')
@@ -324,74 +346,73 @@ def test_thermal_control_psu_absence(duthost, psu_controller, mocker_factory):
                                  THERMAL_CONTROL_TEST_CHECK_INTERVAL,
                                  fan_mocker.check_all_fan_speed,
                                  60)
-        if not wait_result:
-             pytest.skip("FAN speed is not 60%, there might be abnormal in FAN/PSU, skip rest of the testing in this case")
+
+        pytest_require(wait_result, "FAN speed is not 60%, there might be abnormal in FAN/PSU, skip rest of the testing in this case")
 
         check_thermal_algorithm_status(duthost, mocker_factory, False)
 
-        logging.info('Shutdown first PSU and check thermal control result...')
-        all_psu_status = psu_ctrl.get_psu_status()
-        psu = all_psu_status[0]
-        turn_off_psu_and_check_thermal_control(duthost, psu_ctrl, psu, fan_mocker)
+        logging.info('Shutdown first PDU outlet and check thermal control result...')
+        all_outlet_status = pdu_ctrl.get_outlet_status()
+        pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot get at least 2 outlet status: {}'.format(all_outlet_status))
+        outlet = all_outlet_status[0]
+        turn_off_outlet_and_check_thermal_control(duthost, pdu_ctrl, outlet, fan_mocker)
         psu_test_results.clear()
-        if not check_all_psu_on(duthost, psu_test_results):
-            pytest.skip("Some PSU are still down, skip rest of the testing in this case")
+        pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
 
-        logging.info('Shutdown second PSU and check thermal control result...')
-        psu = all_psu_status[1]
-        turn_off_psu_and_check_thermal_control(duthost, psu_ctrl, psu, fan_mocker)
+        logging.info('Shutdown second PDU outlet and check thermal control result...')
+        outlet = all_outlet_status[1]
+        turn_off_outlet_and_check_thermal_control(duthost, pdu_ctrl, outlet, fan_mocker)
         psu_test_results.clear()
-        if not check_all_psu_on(duthost, psu_test_results):
-            pytest.skip("Some PSU are still down, skip rest of the testing in this case")
+        pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
 
         logging.info('Wait and check all FAN speed turn to 65%...')
-        assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
-                          THERMAL_CONTROL_TEST_CHECK_INTERVAL,
-                          fan_mocker.check_all_fan_speed,
-                          65), 'FAN speed not change to 65% according to policy'
+        pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                                 THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                                 fan_mocker.check_all_fan_speed,
+                                 65), 'FAN speed not change to 65% according to policy')
 
 
-def turn_off_psu_and_check_thermal_control(dut, psu_ctrl, psu, mocker):
+def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     """
     @summary: Turn off PSUs, check all FAN speed are set to 100% according to thermal
               control policy file.
     """
-    logging.info("Turn off PSU %s" % str(psu["psu_id"]))
-    psu_ctrl.turn_off_psu(psu["psu_id"])
+    logging.info("Turn off outlet %s" % str(outlet["psu_id"]))
+    pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
     time.sleep(5)
 
     psu_under_test = None
     psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
     cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
     for line in cli_psu_status["stdout_lines"][2:]:
-        assert psu_line_pattern.match(line), "Unexpected PSU status output"
+        pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
         fields = line.split()
         if fields[2] != "OK":
             psu_under_test = fields[1]
 
-    assert psu_under_test is not None, "No PSU is turned off"
+    pytest_assert(psu_under_test is not None, "No PSU is turned off")
     logging.info('Wait and check all FAN speed turn to 100%...')
-    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
-                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
-                      mocker.check_all_fan_speed,
-                      100), 'FAN speed not turn to 100% after PSU off'
+    pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                             THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                             mocker.check_all_fan_speed,
+                             100), 'FAN speed not turn to 100% after PSU off')
 
-    psu_ctrl.turn_on_psu(psu["psu_id"])
+    pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
     time.sleep(5)
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_fan_status(duthost, mocker_factory):
+def test_thermal_control_fan_status(duthosts, rand_one_dut_hostname, mocker_factory):
     """
     @summary: Make FAN absence, over speed and under speed, check logs and LED color.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='thermal_control')
     loganalyzer.load_common_config()
 
     with ThermalPolicyFileContext(duthost, THERMAL_POLICY_VALID_FILE):
         fan_mocker = mocker_factory(duthost, 'FanStatusMocker')
-        if fan_mocker is None:
-            pytest.skip("No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+        pytest_require(fan_mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
         logging.info('Mock FAN status data...')
         fan_mocker.mock_data()  # make data random
