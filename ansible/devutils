@@ -17,6 +17,7 @@ import sys
 sys.path.append("..")
 from tests.common.connections import ConsoleHost
 from tests.common.plugins.pdu_controller.snmp_pdu_controllers import get_pdu_controller
+from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory
 
 g_inv_mgr = None
 g_task_runner = None
@@ -53,12 +54,12 @@ def get_pdu_info(pdu_host):
         return g_pdu_dict[pdu_host]
 
     hosts = retrieve_hosts('all', pdu_host)
-    pdus=[]
+    pdus={}
     g_pdu_dict[pdu_host] = pdus
     for ph in pdu_host.split(','):
         if ph in hosts:
             pdu = hosts[ph]
-            pdus.append(pdu)
+            pdus[ph] = pdu
 
     return pdus
 
@@ -79,7 +80,7 @@ def action_list(parameters):
             data.append(dict(zip(header, (name, vars['ansible_host']))))
     else:
         for name, vars in hosts.items():
-            data.append((name, vars['ansible_host']))
+            data.append((name, vars['ansible_host'] if 'ansible_host' in vars else 'not_available'))
     show_data_output(header, data, parameters['json'])
 
 
@@ -146,35 +147,27 @@ def pdu_action_on_dut(host, attrs, action):
         ret['Summary'].append('PDU not found in inventory')
         return ret
 
-    for pdu_info in pdu_list:
-        pdu_host = pdu_info['ansible_host'] if pdu_info and 'ansible_host' in pdu_info else None
-        p_name = pdu_info['inventory_hostname'] if pdu_info and 'inventory_hostname' in pdu_info else None
-        if not pdu_host or not p_name:
-            ret['Summary'].append('No PDU IP or name')
-            continue
+    # TODO: fake graph data to force building pdu manager from inventory until
+    #       we add code to read and construct the conn_graph_facts
+    fake_graph = { 'device_pdu_info' : {}, 'device_pdu_links' : {} }
 
-        controller = get_pdu_controller(pdu_host, host, pdu_info)
+    pduman = pdu_manager_factory(host, pdu_list, fake_graph, pdu_list.values()[0])
 
-        if not controller:
-            ret['Summary'].append('Failed to communicate with controller {}'.format(p_name))
-            continue
+    if not pduman:
+        ret['Summary'].append('Failed to communicate with controller {}'.format(pdu_name))
+        return ret
 
-        status = controller.get_outlet_status()
-        if action == 'off':
-            for outlet in status:
-                controller.turn_off_outlet(outlet['outlet_id'])
-            status = controller.get_outlet_status()
-        elif action == 'on':
-            for outlet in status:
-                controller.turn_on_outlet(outlet['outlet_id'])
-            status = controller.get_outlet_status()
-        elif action != 'status':
-            ret['Summary'].append('Unsupported action {}.'.format(action))
-            continue
+    if action == 'off':
+        pduman.turn_off_outlet()
+    elif action == 'on':
+        pduman.turn_on_outlet()
+    elif action != 'status':
+        ret['Summary'].append('Unsupported action {}.'.format(action))
+        return ret
 
-        for outlet in status:
-            outlet.update({ 'PDU' : p_name, 'PDU_IP' : pdu_host })
-            ret['PDU status'].append(outlet)
+    status = pduman.get_outlet_status()
+    for outlet in status:
+        ret['PDU status'].append(outlet)
 
     return ret
 
