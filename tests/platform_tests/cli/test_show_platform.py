@@ -81,9 +81,8 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
 
     actual_fields_values = set(summary_dict.values())
     diff_fields_values = expected_fields_values.difference(actual_fields_values)
-    pytest_assert((len(diff_fields_values) == 0 or (len(diff_fields_values) == 1 and diff_fields_values.pop() is None)),
-                  "Unexpected value of fields, actual=%s, expected=%s on host '%s'" % (
-                        str(actual_fields_values), str(expected_fields_values), duthost.hostname))
+    pytest_assert((len(diff_fields_values) == 0 or (len(diff_fields_values) == 1 and diff_fields_values.pop() == None)),
+                  "Unexpected value of fields, actual={}, expected={} on host '{}'".format(actual_fields_values, expected_fields_values, duthost.hostname))
 
 
 def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
@@ -120,7 +119,6 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "0x2B": "Mellanox"
             "0xFE": "0xFBA1E964"
     """
-    
     if 'syseeprom_info' in dut_vars:
         expected_syseeprom_info_dict = dut_vars['syseeprom_info']
 
@@ -153,8 +151,8 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "CRC-32"]
 
         utility_cmd = "sudo python -c \"import imp; \
-            m = imp.load_source('eeprom', '/usr/share/sonic/device/%s/plugins/eeprom.py'); \
-            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"" % duthost.facts["platform"]
+            m = imp.load_source('eeprom', '/usr/share/sonic/device/{}/plugins/eeprom.py'); \
+            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"".format(duthost.facts["platform"])
 
         utility_cmd_output = duthost.command(utility_cmd)
 
