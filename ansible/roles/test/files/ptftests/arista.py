@@ -49,6 +49,7 @@ class Arista(object):
         self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
         self.reboot_type = test_params['reboot_type']
+        self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
 
     def __del__(self):
         self.disconnect()
@@ -272,13 +273,14 @@ class Arista(object):
             last_state = events[-1][1]
             assert last_state == 'Established', 'Last BGP state is not Established, it was {}'.format(last_state)
 
-        # verify BGP establishment time between v4 and v6 peer is not more than 40s
+        # verify BGP establishment time between v4 and v6 peer is not more than self.bgp_v4_v6_time_diff
         if self.reboot_type == 'warm-reboot':
             estab_time = 0
             for ip in result_bgp:
                 if estab_time > 0:
                     diff = abs(result_bgp[ip][-1][0] - estab_time)
-                    assert diff <= 40, 'BGP establishement time between v4 and v6 peer is longer than 40 sec, it was {}'.format(diff)
+                    assert diff <= self.bgp_v4_v6_time_diff, \
+                        'BGP establishement time between v4 and v6 peer is longer than {} sec, it was {}'.format(self.bgp_v4_v6_time_diff, diff)
                     break
                 estab_time = result_bgp[ip][-1][0]
 

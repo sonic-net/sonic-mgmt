@@ -155,6 +155,7 @@ class ReloadTest(BaseTest):
         self.check_param('vnet', False, required=False)
         self.check_param('vnet_pkts', None, required=False)
         self.check_param('target_version', '', required=False)
+        self.check_param('bgp_v4_v6_time_diff', 40, required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
