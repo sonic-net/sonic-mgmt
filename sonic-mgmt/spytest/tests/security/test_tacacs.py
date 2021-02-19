@@ -29,8 +29,8 @@ def tacacs_module_hooks(request):
     data.priority = ensure_service_params(vars.D1, "tacacs", "hosts", 0, "priority")
     data.timeout = ensure_service_params(vars.D1, "tacacs", "hosts", 0, "timeout")
     data.auth_type = ensure_service_params(vars.D1, "tacacs", "hosts", 0, "auth_type")
-    data.tacacs_ser_ip_2 = ensure_service_params(vars.D1, "tacacs", "hosts", 2, "ip")
-    data.priority_server2 = ensure_service_params(vars.D1, "tacacs", "hosts", 2, "priority")
+    data.tacacs_ser_ip_2 = ensure_service_params(vars.D1, "tacacs", "hosts", 1, "ip")
+    data.priority_server2 = ensure_service_params(vars.D1, "tacacs", "hosts", 1, "priority")
     data.time_out = '10'
     data.username = 'test'
     data.password = 'test'
