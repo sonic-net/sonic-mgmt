@@ -36,11 +36,11 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     ans_host = duthost
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
-    logging.info("Check output of '%s'" % cmd_sfp_presence)
+    logging.info("Check output of '{}'".format(cmd_sfp_presence))
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
-        assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
+        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts):
@@ -52,7 +52,7 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     ans_host = duthost
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
-    logging.info("Check output of '%s'" % cmd_sfp_eeprom)
+    logging.info("Check output of '{}'".format(cmd_sfp_eeprom))
     sfp_eeprom = duthost.command(cmd_sfp_eeprom)
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in dev_conn:
@@ -76,8 +76,8 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             continue
         tested_physical_ports.add(phy_intf)
         logging.info("resetting {} physical interface {}".format(intf, phy_intf))
-        reset_result = duthost.command("%s %s" % (cmd_sfp_reset, intf))
-        assert reset_result["rc"] == 0, "'%s %s' failed" % (cmd_sfp_reset, intf)
+        reset_result = duthost.command("{} {}".format(cmd_sfp_reset, intf))
+        assert reset_result["rc"] == 0, "'{} {}' failed".format(cmd_sfp_reset, intf)
         time.sleep(5)
     logging.info("Wait some time for SFP to fully recover after reset")
     time.sleep(60)
@@ -86,14 +86,14 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
-        assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
+        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
+        "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
 
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo):
@@ -113,12 +113,12 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     global ans_host
     ans_host = duthost
 
-    logging.info("Check output of '%s'" % cmd_sfp_show_lpmode)
+    logging.info("Check output of '{}'".format(cmd_sfp_show_lpmode))
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     original_lpmode = copy.deepcopy(parsed_lpmode)
     for intf in dev_conn:
-        assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
+        assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
@@ -146,8 +146,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
         tested_physical_ports.add(phy_intf)
         logging.info("setting {} physical interface {}".format(intf, phy_intf))
         new_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
-        lpmode_set_result = duthost.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
-        assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
+        lpmode_set_result = duthost.command("{} {} {}".format(cmd_sfp_set_lpmode, new_lpmode, intf))
+        assert lpmode_set_result["rc"] == 0, "'{} {} {}' failed".format(cmd_sfp_set_lpmode, new_lpmode, intf)
     time.sleep(10)
 
     if len(tested_physical_ports) == 0:
@@ -157,7 +157,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     for intf in dev_conn:
-        assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
+        assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Try to change SFP lpmode")
@@ -173,22 +173,22 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
         tested_physical_ports.add(phy_intf)
         logging.info("restoring {} physical interface {}".format(intf, phy_intf))
         new_lpmode = original_lpmode[intf].lower()
-        lpmode_set_result = duthost.command("%s %s %s" % (cmd_sfp_set_lpmode, new_lpmode, intf))
-        assert lpmode_set_result["rc"] == 0, "'%s %s %s' failed" % (cmd_sfp_set_lpmode, new_lpmode, intf)
+        lpmode_set_result = duthost.command("{} {} {}".format(cmd_sfp_set_lpmode, new_lpmode, intf))
+        assert lpmode_set_result["rc"] == 0, "'{} {} {}' failed".format(cmd_sfp_set_lpmode, new_lpmode, intf)
     time.sleep(10)
 
     logging.info("Check SFP lower power mode again after changing SFP lpmode")
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     for intf in dev_conn:
-        assert intf in parsed_lpmode, "Interface is not in output of '%s'" % cmd_sfp_show_lpmode
+        assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
         assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
 
     logging.info("Check sfp presence again after setting lpmode")
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
-        assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
+        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
@@ -201,4 +201,4 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
         up_ports = {k:v for k, v in portmap.items() if k in mg_facts["minigraph_ports"]}
     intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: %s" % str(intf_facts["ansible_interface_link_down_ports"])
+        "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])

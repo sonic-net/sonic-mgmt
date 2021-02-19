@@ -31,11 +31,11 @@ def test_check_sfp_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     ans_host = duthost
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
-    logging.info("Check output of '%s'" % cmd_sfp_presence)
+    logging.info("Check output of '{}'".format(cmd_sfp_presence))
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
-        assert intf in parsed_presence, "Interface is not in output of '%s'" % cmd_sfp_presence
+        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 
@@ -48,7 +48,7 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     ans_host = duthost
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
-    logging.info("Check output of '%s'" % cmd_sfp_eeprom)
+    logging.info("Check output of '{}'".format(cmd_sfp_eeprom))
     sfp_eeprom = duthost.command(cmd_sfp_eeprom)
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in dev_conn:
