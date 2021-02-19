@@ -81,7 +81,7 @@ radius:
   logs_path: {path: '/var/log/auth.log'}
   cisco_acs_server: {ip: 10.52.136.77, username: qauser, password: qauser123, passkey: lvl7india}
   radius_conf_files: {path: '/usr/share/sonic/templates/radius_nss.conf.j2', backup_path: '/usr/share/sonic/templates/radius_nss_bkp.conf.j2'}
-  ro_user: {username: test1, password: password, password1: test1}
+  ro_user: {username: test1, password: password, password1: test}
 
 syslog:
   ip: 192.168.1.1

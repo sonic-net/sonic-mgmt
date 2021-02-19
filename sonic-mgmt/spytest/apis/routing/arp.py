@@ -304,7 +304,7 @@ def verify_arp(dut, ipaddress, macaddress=None, interface=None, vlan=None, cli_t
     # This is a temporary fix to support 201911 image
     if entries[0]['iface']== "-" and entries[0]['vlan'] :
         vlanOutput= st.show(dut, "show vlan config")[0]
-        if entries[0]['vlan'] == vlanOutput['VID'] :
+        if entries[0]['vlan'] == vlanOutput['vid'] :
             entries[0]['iface'] = vlanOutput['member']
     if macaddress and not filter_and_select(entries, None, {"address": ipaddress, "macaddress": macaddress}):
         st.error("Provided and configured macaddress values are not same.")
