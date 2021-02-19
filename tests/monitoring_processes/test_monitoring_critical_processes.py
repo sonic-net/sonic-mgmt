@@ -10,6 +10,7 @@ from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -47,7 +48,7 @@ def disable_and_enable_autorestart(duthost):
     disabled_autorestart_containers = []
 
     for container_name, state in containers_autorestart_states.items():
-        if state != "disabled":
+        if state == "enabled":
             logger.info("Disabling the autorestart of container '{}'.".format(container_name))
             command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
             command_output = duthost.shell(command_disable_autorestart)
@@ -133,7 +134,7 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
 
 
 def get_expected_alerting_messages(duthost, containers_in_namespaces):
-    """Generates the expected alerting messages from the stopped critical processes in each namespace.
+    """Generates the expected alerting messages for the stopped critical processes in each namespace.
 
     Args:
         duthost: Hostname of DUT.
@@ -144,111 +145,63 @@ def get_expected_alerting_messages(duthost, containers_in_namespaces):
         None.
     """
     expected_alerting_messages = []
-    logger.info("Generating the alerting messages... ")
 
     for container_name in containers_in_namespaces.keys():
+        logger.info("Generating the expected alerting messages for container '{}'...".format(container_name))
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
 
-        namespaces = containers_in_namespaces[container_name]
-        for namespace_id in namespaces:
+        namespace_ids = containers_in_namespaces[container_name]
+        for namespace_id in namespace_ids:
             namespace_name = "host"
-            if namespace_id != "host":
-                namespace_name = "asic" + namesapce_id
+            if namespace_id != DEFAULT_ASIC_ID:
+                namespace_name = NAMESPACE_PREFIX + namesapce_id
 
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if container_name == "syncd" and critical_process == "dsserve":
                     continue
+                logger.info("Generating the expected alerting message for process '{}'".format(critical_process))
                 expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*".format(critical_process, namespace_name))
 
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name, critical_group)
                 for program_name in group_program_info:
+                    logger.info("Generating the expected alerting message for process '{}'".format(program_name))
                     expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*".format(program_name, namespace_name))
 
-    logger.info("Generating the alerting message was done!")
+        logger.info("Generating the expected alerting messages for container '{}' was done!".format(container_name))
+
     return expected_alerting_messages
 
 
-def parse_config_entry(config_info):
-    """Parse a single entry of `FEATURE` table.
-
-    Args:
-        config_info: A list which contains the detailed configuration of a
-        container in `FEATURE` table.
-
-    Returns:
-        is_enabled: A string ("enabled|disabled") shows whether this container
-        is enabled or not.
-        has_global_scope: A string ("True|False") shows if a device has multi-ASIC,
-        whether the container should be running in the host.
-        has_per_asic_scope: A string ("True|False") shows if a device has multi-ASIC,
-        whether the container should be running in each ASIC.
+def get_containers_namespace_ids(duthost, skip_containers):
     """
-    is_enabled = ""
-    has_global_scope = ""
-    has_per_asic_scope = ""
-
-    for index, item in enumerate(config_info):
-        if item == "state":
-            is_enabled = config_info[index + 1]
-        elif item == "has_global_scope":
-            has_global_scope = config_info[index + 1]
-        elif item == "has_per_asic_scope":
-            has_per_asic_scope = config_info[index + 1]
-
-    return is_enabled, has_global_scope, has_per_asic_scope
-
-
-def parse_feature_table(duthost, num_asics, skip_containers):
-    """Parses the `FEATURE` table in Config_DB.
-
-    This function will parse the `FEATURE` table in Config_DB to get which containers
-    were enabled and which namespaces these enabled containers reside in.
+    This function will get namespace ids for each enabled container.
 
     Args:
         duthost: Hostname of DUT.
-        num_asics: An integer shows number of ASICs on the DUT.
-        skip_containers: A list shows which containers will be skipped.
+        skip_containers: A list shows which containers should be skipped for testing.
 
     Returns:
         A dictionary where keys are container names and values are a list which contains
-        ids of namespaces this container should reside in such as {lldp: ["host", "0", "1"]}
+        ids of namespaces this container should reside in such as {lldp: [DEFAULT_ASIC_ID, "0", "1"]}
     """
-    container_list = []
     containers_in_namespaces = defaultdict(list)
 
-    container_list_command = "sonic-db-cli CONFIG_DB keys \"FEATURE|*\""
-    command_output = duthost.shell(container_list_command)
-    exit_code = command_output["rc"]
-    pytest_assert(exit_code == 0, "Failed to get keys (container names) in `FEATURE` table")
-    for line in command_output["stdout_lines"]:
-        container_name = line.split("|")[1].strip()
-        if container_name not in skip_containers:
-            container_list.append(container_name)
+    logger.info("Getting the namespace ids for each container...")
+    containers_states, succeed = duthost.get_feature_status()
+    pytest_assert(succeed, "Failed to get feature status of containers!")
 
-    for container_name in container_list:
-        command_config_entry = "sonic-db-cli CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
-        command_output = duthost.shell(command_config_entry)
-        exit_code = command_output["rc"]
-        pytest_assert(exit_code == 0, "Failed to get configuration of container '{}' in `FEATURE` table"
-                      .format(container_name))
+    for container_name, state in containers_states.items():
+        if container_name not in skip_containers and state == "enabled":
+            namespace_ids, succeed = duthost.get_namespace_ids(container_name)
+            pytest_assert(succeed, "Failed to get namespace ids of container '{}'".format(container_name))
+            containers_in_namespaces[container_name] = namespace_ids
 
-        is_enabled, has_global_scope, has_per_asic_scope = parse_config_entry(command_output["stdout_lines"])
-        if is_enabled != "disabled":
-            logger.info("Parsing the configuration of container '{}' in Config_DB.".format(container_name))
-            if num_asics > 1:
-                if has_global_scope == "True":
-                    containers_in_namespaces[container_name].append("host")
-                if has_per_asic_scope == "True":
-                    for asic_id in range(num_asics):
-                        containers_in_namespaces[container_name].append(str(asic_id))
-            else:
-                containers_in_namespaces[container_name].append("host")
-            logger.info("The configuration of container '{}' in `FEATURE` table was retrieved.".format(container_name))
-
+    logger.info("container_namespaces: {}".format(containers_in_namespaces))
+    logger.info("Getting the namespace ids for each container was done!")
     return containers_in_namespaces
 
 
@@ -312,10 +265,10 @@ def stop_critical_processes(duthost, containers_in_namespaces):
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
 
-        namespaces = containers_in_namespaces[container_name]
-        for namespace_id in namespaces:
+        namespace_ids = containers_in_namespaces[container_name]
+        for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
-            if namespace_id != "host":
+            if namespace_id != DEFAULT_ASIC_ID:
                 container_name_in_namespace += namesapce_id
 
             for critical_process in critical_process_list:
@@ -411,6 +364,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
+    loganalyzer.expect_regex = []
     bgp_neighbors = duthost.get_bgp_neighbors()
     up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
 
@@ -420,8 +374,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
 
-    num_asics = duthost.num_asics()
-    containers_in_namespaces = parse_feature_table(duthost, num_asics, skip_containers)
+    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
     expected_alerting_messages = get_expected_alerting_messages(duthost, containers_in_namespaces)
     loganalyzer.expect_regex.extend(expected_alerting_messages)
