@@ -645,10 +645,10 @@ class SonicHost(AnsibleHostBase):
 
     def get_namespace_ids(self, container_name):
         """
-        Gets ids of namespaces where the container should reside in
+        Gets ids of namespace where the container should reside in.
 
         Returns:
-            A list contains ids of namespaces such as [DEFAULT_ASIC_ID, "0", "1", ...]}
+            A list contains ids of namespace such as [DEFAULT_ASIC_ID, "0", "1", ...]}
         """
         has_global_scope = ""
         has_per_asic_scope = ""
@@ -661,7 +661,8 @@ class SonicHost(AnsibleHostBase):
         if exit_code != 0:
             return namespace_ids, False
 
-        for index, item in enumerate(command_output["stdout_lines"]):
+        config_info = command_output["stdout_lines"]
+        for index, item in enumerate(config_info):
             if item == "has_global_scope":
                 has_global_scope = config_info[index + 1]
             elif item == "has_per_asic_scope":
