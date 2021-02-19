@@ -357,7 +357,7 @@ def check_mux_simulator(mux_server_url, ptf_server_intf, tor_mux_intf, ptfadapte
             results['failed_reason'] = 'Unable to switch active link to upper ToR'
             return results
 
-        # Ping from both ToRs, expect both messages to reach PTF
+        # Ping from both ToRs, expect only message from upper ToR to reach PTF
         upper_tor_host.shell(ping_cmd.format(tor_mux_intf, upper_tor_ping_tgt_ip))
         try:
             testutils.verify_packet(ptfadapter, upper_tor_exp_pkt, ptf_port_index)
@@ -374,7 +374,7 @@ def check_mux_simulator(mux_server_url, ptf_server_intf, tor_mux_intf, ptfadapte
             results['failed_reason'] = 'Packet from standby lower ToR received'
             return results
 
-        # Send dummy ARP packets from PTF to ToR. Ensure that ARP is learned on active ToR only
+        # Send dummy ARP packets from PTF to ToR. Ensure that ARP is learned on both ToRs
         upper_tor_host.shell("ip neigh flush all")
         lower_tor_host.shell("ip neigh flush all")
         testutils.send_packet(ptfadapter, ptf_port_index, ptf_arp_pkt)
