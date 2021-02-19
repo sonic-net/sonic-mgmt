@@ -1,8 +1,5 @@
 import logging
-import time
-import os
 import re
-import yaml
 import json
 import pytest
 from tests.common.utilities import wait_until
@@ -25,60 +22,6 @@ RX_ERR = "RX_ERR"
 PKT_NUMBER = 1000
 COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
-
-
-@pytest.fixture(autouse=True, scope="module")
-def enable_counters(duthosts, rand_one_dut_hostname):
-    """ Fixture which enables RIF and L2 counters """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    previous_cnt_status = {}
-    # Separating comands based on whether they need to be done per namespace or globally.
-    cmd_list = ["intfstat -D", "sonic-clear counters"]
-    cmd_list_per_ns = ["counterpoll port enable", "counterpoll rif enable", "sonic-clear rifcounters"]
-
-    """ Fixture which enables RIF and L2 counters """
-    duthost.shell_cmds(cmds=cmd_list)
-
-    namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
-    for namespace in namespace_list:
-        cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
-        previous_cnt_status[namespace] = {item: duthost.command(cmd_get_cnt_status.format(namespace, item.upper()))["stdout"] for item in ["port", "rif"]}
-
-        ns_cmd_list = []
-        CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-        for cmd in cmd_list_per_ns:
-            ns_cmd_list.append(CMD_PREFIX + cmd)
-        duthost.shell_cmds(cmds=ns_cmd_list)
-
-    yield
-    for namespace in namespace_list:
-        for port, status in previous_cnt_status[namespace].items():
-            if status == "disable":
-                logger.info("Restoring counter '{}' state to disable".format(port))
-                CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-                duthost.command(CMD_PREFIX + "counterpoll {} disable".format(port))
-
-
-@pytest.fixture(scope='module', autouse=True)
-def parse_combined_counters(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    # Get info whether L2 and L3 drop counters are linked
-    # Or ACL and L2 drop counters are linked
-    global COMBINED_L2L3_DROP_COUNTER, COMBINED_ACL_DROP_COUNTER
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(base_dir, "combined_drop_counters.yml")) as stream:
-        regexps = yaml.safe_load(stream)
-        if regexps["l2_l3"]:
-            for item in regexps["l2_l3"]:
-                if re.match(item, duthost.facts["platform"]):
-                    COMBINED_L2L3_DROP_COUNTER = True
-                    break
-        if regexps["acl_l2"]:
-            for item in regexps["acl_l2"]:
-                if re.match(item, duthost.facts["platform"]):
-                    COMBINED_ACL_DROP_COUNTER = True
-                    break
 
 
 def get_pkt_drops(duthost, cli_cmd, asic_index):
@@ -158,5 +101,4 @@ def verify_drop_counters(duthost, asic_index, dut_iface, get_cnt_cli_cmd, column
             column_key, dut_iface, column_key, get_drops(), PKT_NUMBER
         )
         pytest.fail(fail_msg)
-
 
