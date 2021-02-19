@@ -36,23 +36,31 @@ def mux_server_url(request, tbinfo):
     port = utilities.get_group_visible_vars(inv_files, server, 'mux_simulator_port')
     return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
-def _url(server_url, physical_port=None, action=None):
+@pytest.fixture
+def url(mux_server_url, duthost, tbinfo):
     """
-    Helper function to build an url for given port and target
+    A helper function is returned to make fixture accept arguments
+    """
+    def _url(interface_name=None, action=None):
+        """
+        Helper function to build an url for given port and target
 
-    Args:
-        server_url: a str, the url for mux server, like http://10.0.0.64:8080/mux/vms17-8
-        physical_port: physical port on switch, an integer starting from 1
-                        If physical_port is none, the returned url contains no '/port/action' (For polling/toggling all ports)
-        action: a str, output|drop|None. If action is None, the returned url contains no '/action'
-    Returns:
-        The url for posting flow update request, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
-    """
-    if not physical_port:
-        return server_url
-    if not action:
-        return server_url + "/{}".format(physical_port - 1)
-    return server_url + "/{}/{}".format(physical_port - 1, action)
+        Args:
+            interface_name: a str, the name of interface
+                            If interface_name is none, the returned url contains no '/port/action' (For polling/toggling all ports)
+            action: a str, output|drop|None. If action is None, the returned url contains no '/action'
+        Returns:
+            The url for posting flow update request, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
+        """
+        if not interface_name:
+            return mux_server_url
+        mg_facts = duthost.get_extended_minigraph_facts()
+        mbr_index = mg_facts['minigraph_ptf_indices'][interface_name]
+        if not action:
+            return mux_server_url + "/{}".format(mbr_index)
+        return mux_server_url + "/{}/{}".format(mbr_index, action)
+
+    return _url
 
 def _get(server_url):
     """
@@ -107,106 +115,137 @@ def _post(server_url, data):
         return False
     return True
 
-def set_drop(mux_server_url, physical_port, directions):
+@pytest.fixture
+def set_drop(url):
     """
-    A fixture to set drop for a certain direction on a port
-    Args:
-        mux_server_url: a str, the address of mux server
-        physical_port: physical port on switch, an integer starting from 1
-        directions: a list, may contain "upper_tor", "lower_tor", "nic"
-    Returns:
-        None.
+    A helper function is returned to make fixture accept arguments
     """
-    server_url = _url(mux_server_url, physical_port, DROP)
-    data = {"out_ports": directions}
-    pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
+    def _set_drop(interface_name, directions):
+        """
+        A fixture to set drop for a certain direction on a port
+        Args:
+            interface_name: a str, the name of interface
+            directions: a list, may contain "upper_tor", "lower_tor", "nic"
+        Returns:
+            None.
+        """
+        server_url = url(interface_name, DROP)
+        data = {"out_ports": directions}
+        pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
-def set_output(mux_server_url, physical_port, directions):
-    """
-    Function to set output for a certain direction on a port
-    Args:
-        mux_server_url: a str, the address of mux server
-        physical_port: physical port on switch, an integer starting from 1
-        directions: a list, may contain "upper_tor", "lower_tor", "nic"
-    Returns:
-        None.
-    """
-    server_url = _url(mux_server_url, physical_port, OUTPUT)
-    data = {"out_ports": directions}
-    pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
-
-def _simulator_port_toggle_to(mux_server_url, physical_port, target):
-    """
-    A helper function to toggle y_cable simulator ports
-    Args:
-        mux_server_url: a str, the address of mux server
-        physical_port: physical port on switch, an integer starting from 1
-        target: "upper_tor" or "lower_tor"
-    """
-    server_url = _url(mux_server_url, physical_port)
-    data = {"active_side": target}
-    pytest_assert(_post(server_url, data), "Failed to toggle to {} on port {}".format(target, physical_port))
-
-def toggle_simulator_port_to_upper_tor(mux_server_url, physical_port):
-    """
-    Function to toggle a given y_cable ports to upper_tor
-    Args:
-        mux_server_url: a str, the address of mux server
-        physical_port: physical port on switch, an integer starting from 1
-    """
-    _simulator_port_toggle_to(mux_server_url, physical_port, UPPER_TOR)
-
-def toggle_simulator_port_to_lower_tor(mux_server_url, physical_port):
-    """
-    Function to toggle a given y_cable ports to lower_tor
-    Args:
-        mux_server_url: a str, the address of mux server
-        physical_port: physical port on switch, an integer starting from 1
-    """
-    _simulator_port_toggle_to(mux_server_url, physical_port, LOWER_TOR)
-
-def recover_all_directions(mux_server_url, physical_port):
-    """
-    Function to recover all traffic on all directions on a certain port
-    Args:
-        mux_server_url: a str, the address of mux server
-        physical_port: physical port on switch, an integer starting from 1
-    Returns:
-        None.
-    """
-    server_url = _url(mux_server_url, physical_port, OUTPUT)
-    data = {"out_ports": [UPPER_TOR, LOWER_TOR, NIC]}
-    pytest_assert(_post(server_url, data), "Failed to set output on all directions")
-
-def check_simulator_read_side(mux_server_url, physical_port):
-    """
-    Retrieve the current active tor from y_cable simulator server.
-    Args:
-        mux_server_url: a str, the address of mux server
-        physical_port: physical port on switch, an integer starting from 1
-    Returns:
-        1 if upper_tor is active
-        2 if lower_tor is active
-        -1 for exception or inconstient status
-    """
-    server_url = _url(mux_server_url, physical_port)
-    res = _get(server_url)
-    if not res:
-        return -1
-    active_side = res["active_side"]
-    if active_side == UPPER_TOR:
-        return 1
-    elif active_side == LOWER_TOR:
-        return 2
-    else:
-        return -1
+    return _set_drop
 
 @pytest.fixture
-def get_active_torhost(mux_server_url, upper_tor_host, lower_tor_host):
+def set_output(url):
+    """
+    A helper function is returned to make fixture accept arguments
+    """
+    def _set_output(interface_name, directions):
+        """
+        Function to set output for a certain direction on a port
+        Args:
+            interface_name: a str, the name of interface
+            directions: a list, may contain "upper_tor", "lower_tor", "nic"
+        Returns:
+            None.
+        """
+        server_url = url(interface_name, OUTPUT)
+        data = {"out_ports": directions}
+        pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
 
-    def get_active_torhost():
+    return _set_output
+
+@pytest.fixture
+def toggle_simulator_port_to_upper_tor(url):
+    """
+    Returns _toggle_simulator_port_to_upper_tor to make fixture accpet arguments
+    """
+    def _toggle_simulator_port_to_upper_tor(interface_name):
+        """
+        A helper function to toggle y_cable simulator ports
+        Args:
+            interface_name: a str, the name of interface
+            target: "upper_tor" or "lower_tor"
+        """
+        server_url = url(interface_name)
+        data = {"active_side": UPPER_TOR}
+        pytest_assert(_post(server_url, data), "Failed to toggle to upper_tor on interface {}".format(interface_name))
+
+    return _toggle_simulator_port_to_upper_tor
+
+@pytest.fixture
+def toggle_simulator_port_to_lower_tor(url):
+    """
+    Returns _toggle_simulator_port_to_lower_tor to make fixture accept arguments
+    """
+    def _toggle_simulator_port_to_lower_tor(interface_name):
+        """
+        Function to toggle a given y_cable ports to lower_tor
+        Args:
+            interface_name: a str, the name of interface to control
+        """
+        server_url = url(interface_name)
+        data = {"active_side": LOWER_TOR}
+        pytest_assert(_post(server_url, data), "Failed to toggle to lower_tor on interface {}".format(interface_name))
+
+    return _toggle_simulator_port_to_lower_tor
+
+@pytest.fixture
+def recover_all_directions(url):
+    """
+    A function level fixture, will return _recover_all_directions to make fixture accept arguments
+    """
+    def _recover_all_directions(interface_name):
+        """
+        Function to recover all traffic on all directions on a certain port
+        Args:
+            interface_name: a str, the name of interface to control
+        Returns:
+            None.
+        """
+        server_url = url(interface_name, OUTPUT)
+        data = {"out_ports": [UPPER_TOR, LOWER_TOR, NIC]}
+        pytest_assert(_post(server_url, data), "Failed to set output on all directions for interface {}".format(interface_name))
+
+    return _recover_all_directions
+
+@pytest.fixture
+def check_simulator_read_side(url):
+    """
+    A function level fixture, will return _check_simulator_read_side
+    """
+    def _check_simulator_read_side(interface_name):
+        """
+        Retrieve the current active tor from y_cable simulator server.
+        Args:
+            interface_name: a str, the name of interface to control
+        Returns:
+            1 if upper_tor is active
+            2 if lower_tor is active
+            -1 for exception or inconstient status
+        """
+        server_url = url(interface_name)
+        res = _get(server_url)
+        if not res:
+            return -1
+        active_side = res["active_side"]
+        if active_side == UPPER_TOR:
+            return 1
+        elif active_side == LOWER_TOR:
+            return 2
+        else:
+            return -1
+
+    return _check_simulator_read_side
+
+@pytest.fixture
+def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side):
+    """
+    A function level fixture which returns a helper function
+    """
+    def _get_active_torhost(interface_name):
         active_tor_host = None
-        active_side = check_simulator_read_side(mux_server_url, 1)
+        active_side = check_simulator_read_side(interface_name)
         pytest_assert(active_side != -1, "Failed to retrieve the current active tor from y_cable simulator server")
         if active_side == 1:
             active_tor_host = upper_tor_host
@@ -214,7 +253,7 @@ def get_active_torhost(mux_server_url, upper_tor_host, lower_tor_host):
             active_tor_host = lower_tor_host
         return active_tor_host
 
-    return get_active_torhost
+    return _get_active_torhost
 
 def _toggle_all_simulator_ports(mux_server_url, side):
     pytest_assert(side in TOGGLE_SIDES, "Unsupported side '{}'".format(side))
@@ -255,9 +294,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand
         data = {"active_side": UPPER_TOR}
     else:
         data = {"active_side": LOWER_TOR}
-    
-    server_url = _url(mux_server_url)
-    pytest_assert(_post(server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
+
+    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
@@ -274,3 +312,13 @@ def toggle_all_simulator_ports_to_random_side(mux_server_url):
     A module level fixture to toggle all ports to a random side.
     """
     _toggle_all_simulator_ports(mux_server_url, RANDOM)
+
+@pytest.fixture
+def simulator_server_down(set_drop):
+    """
+    A fixture to set drop on a given mux cable
+    """
+    def _helper(interface_name):
+        set_drop(interface_name, [UPPER_TOR, LOWER_TOR])
+
+    return _helper
