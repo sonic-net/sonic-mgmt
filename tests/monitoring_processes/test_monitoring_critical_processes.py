@@ -155,7 +155,7 @@ def get_expected_alerting_messages(duthost, containers_in_namespaces):
         for namespace_id in namespace_ids:
             namespace_name = "host"
             if namespace_id != DEFAULT_ASIC_ID:
-                namespace_name = NAMESPACE_PREFIX + namesapce_id
+                namespace_name = NAMESPACE_PREFIX + namespace_id
 
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
@@ -200,8 +200,8 @@ def get_containers_namespace_ids(duthost, skip_containers):
             pytest_assert(succeed, "Failed to get namespace ids of container '{}'".format(container_name))
             containers_in_namespaces[container_name] = namespace_ids
 
-    logger.info("container_namespaces: {}".format(containers_in_namespaces))
     logger.info("Getting the namespace ids for each container was done!")
+
     return containers_in_namespaces
 
 
@@ -269,7 +269,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
         for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
             if namespace_id != DEFAULT_ASIC_ID:
-                container_name_in_namespace += namesapce_id
+                container_name_in_namespace += namespace_id
 
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
@@ -327,11 +327,11 @@ def restart_critical_processes(duthost, containers_in_namespaces):
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
 
-        namespaces = containers_in_namespaces[container_name]
-        for namespace_id in namespaces:
+        namespace_ids = containers_in_namespaces[container_name]
+        for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
-            if namespace_id != "host":
-                container_name_in_namespace += namesapce_id
+            if namespace_id != DEFAULT_ASIC_ID:
+                container_name_in_namespace += namespace_id
 
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
