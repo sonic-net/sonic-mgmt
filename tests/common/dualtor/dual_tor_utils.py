@@ -3,7 +3,6 @@ import pytest
 import json
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
-import ptf.testutils as testutils
 
 from natsort import natsorted
 from tests.common.config_reload import config_reload
