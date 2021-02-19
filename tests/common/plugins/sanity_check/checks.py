@@ -5,8 +5,6 @@ import ptf.testutils as testutils
 import pytest
 import time
 
-import pytest
-
 from ipaddress import ip_network, IPv4Network
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait, wait_until
