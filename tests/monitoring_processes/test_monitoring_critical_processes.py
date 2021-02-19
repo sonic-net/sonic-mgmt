@@ -134,7 +134,7 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
 
 
 def get_expected_alerting_messages(duthost, containers_in_namespaces):
-    """Generates the expected alerting messages for the stopped critical processes in each namespace.
+    """Generates the regex of expected alerting messages for the critical processes in each namespace.
 
     Args:
         duthost: Hostname of DUT.
@@ -178,7 +178,7 @@ def get_expected_alerting_messages(duthost, containers_in_namespaces):
 
 def get_containers_namespace_ids(duthost, skip_containers):
     """
-    This function will get namespace ids for each enabled container.
+    This function will get namespace ids for each running container.
 
     Args:
         duthost: Hostname of DUT.
@@ -251,7 +251,7 @@ def check_and_kill_process(duthost, container_name, program_name, program_status
 
 
 def stop_critical_processes(duthost, containers_in_namespaces):
-    """Gets all critical processes of each enabled container and stops them from running.
+    """Gets critical processes of each running container and then stops them from running.
 
     Args:
         duthost: Hostname of DUT.
@@ -313,7 +313,7 @@ def check_and_restart_process(duthost, container_name, critical_process):
 
 
 def restart_critical_processes(duthost, containers_in_namespaces):
-    """Restarts all critical process in enabled containers.
+    """Checks whether all critical process are running.
 
     Args:
         duthost: Hostname of DUT.
@@ -351,8 +351,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     """Tests the feature of monitoring critical processes with Supervisord.
 
     This function will check whether names of critical processes will appear
-    in the syslog if the autorestart were disabled and these critical processes were
-    mnually stopped.
+    in the syslog if the autorestart were disabled and these critical processes
+    were stopped.
 
     Args:
         duthosts: list of DUTs.
