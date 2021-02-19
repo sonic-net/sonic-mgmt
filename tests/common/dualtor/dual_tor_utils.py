@@ -3,9 +3,7 @@ import pytest
 import json
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
-import ptf.testutils as testutils
 
-from ipaddress import ip_interface
 from natsort import natsorted
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -550,30 +548,3 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
                 log_file=log_file,
                 qlen=2000,
                 socket_recv_size=16384)
-
-@pytest.fixture(scope='function', autouse=True)
-def start_linkmgrd_heartbeat(ptfadapter, duthost, tbinfo):
-    '''
-    Send a GARP from from PTF->ToR from each PTF port connected to a mux cable
-
-    This is needed since linkmgrd will not start sending heartbeats until the PTF MAC is learned in the DUT neighbor table
-    '''
-    garp_pkts = {}
-
-    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-    mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
-
-    for vlan_intf, config in mux_cable_table.items():
-        ptf_port_index = ptf_indices[vlan_intf]
-        server_ip = ip_interface(config['server_ipv4'])
-        ptf_mac = ptfadapter.dataplane.ports[(0, ptf_port_index)].mac()
-
-        garp_pkt = testutils.simple_arp_packet(eth_src=ptf_mac,
-                                               hw_snd=ptf_mac,
-                                               ip_snd=str(server_ip.ip),
-                                               ip_tgt=str(server_ip.ip), # Re-use server IP as target IP, since it is within the subnet of the VLAN IP
-                                               arp_op=2)
-        garp_pkts[ptf_port_index] = garp_pkt
-
-    for port, pkt in garp_pkts.items():
-        testutils.send_packet(ptfadapter, port, pkt)
