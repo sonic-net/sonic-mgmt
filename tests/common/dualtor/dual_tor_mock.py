@@ -312,16 +312,23 @@ def apply_mux_cable_table_to_dut(duthosts, rand_one_dut_hostname, mock_server_ba
 
 
 @pytest.fixture(scope='module')
-def apply_mock_dual_tor_tables(apply_mux_cable_table_to_dut, apply_tunnel_table_to_dut, apply_peer_switch_table_to_dut):
+def apply_mock_dual_tor_tables(request, tbinfo):
     '''
     Wraps all table fixtures for convenience
     '''
-    logger.info("Done applying database tables for dual ToR mock")
+    if tbinfo["topo"]["name"] == "t0":
+        request.getfixturevalue("apply_mux_cable_table_to_dut")
+        request.getfixturevalue("apply_tunnel_table_to_dut")
+        request.getfixturevalue("apply_peer_switch_table_to_dut")
+        logger.info("Done applying database tables for dual ToR mock")
 
 
 @pytest.fixture(scope='module')
-def apply_mock_dual_tor_kernel_configs(apply_dual_tor_peer_switch_route, apply_dual_tor_neigh_entries):
+def apply_mock_dual_tor_kernel_configs(request, tbinfo):
     '''
     Wraps all kernel related (routes and neighbor entries) fixtures for convenience
     '''
-    logger.info("Done applying kernel configs for dual ToR mock")
+    if tbinfo["topo"]["name"] == "t0":
+        request.getfixturevalue("apply_dual_tor_peer_switch_route")
+        request.getfixturevalue("apply_dual_tor_neigh_entries")
+        logger.info("Done applying kernel configs for dual ToR mock")
