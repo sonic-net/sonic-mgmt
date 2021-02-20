@@ -141,18 +141,18 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports
 
     send_packets(pkt, duthost, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
     if discard_group == "L2":
-        verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
-        ensure_no_l3_drops(duthost, asic_index)
+        verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+        ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
-            verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
-            ensure_no_l3_drops(duthost, asic_index)
+            verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
 
-            verify_drop_counters(duthost, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY)
-            ensure_no_l2_drops(duthost, asic_index)
+            verify_drop_counters(duthost, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
+            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "ACL":
         if not tx_dut_ports:
             pytest.fail("No L3 interface specified")
@@ -165,11 +165,11 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports
             )
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
-            ensure_no_l3_drops(duthost, asic_index)
-            ensure_no_l2_drops(duthost, asic_index)
+            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "NO_DROPS":
-        ensure_no_l2_drops(duthost, asic_index)
-        ensure_no_l3_drops(duthost, asic_index)
+        ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+        ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
