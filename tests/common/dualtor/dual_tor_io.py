@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class DualTorIO:
-    def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo, server_port, tor_port, delay, timeout, io_ready):
+    def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo, io_ready, server_port=None, tor_port=None):
         self.tor_port = tor_port
         self.server_port = server_port
         self.duthost = activehost
@@ -53,9 +53,9 @@ class DualTorIO:
         self.total_disrupt_packets = None
         self.max_lost_id = None
         self.max_disrupt_time = None
-        self.received_counter = 0
+        self.received_counter = int()
         self.lost_packets = dict()
-        self.duplicated_packets = dict()
+        self.duplicated_packets_count = int()
         self.total_lost_packets = None
         # This list will contain all unique Payload ID, to filter out received floods.
         self.unique_id = set()
@@ -361,16 +361,20 @@ class DualTorIO:
         return self.total_disrupt_packets
 
 
+    def get_total_sent_packets(self):
+        return len(self.packets_list)
+
+
     def get_total_received_packets(self):
         return self.received_counter
 
 
-    def get_total_dropped_packets(self):
+    def get_total_lost_packets(self):
         return self.total_lost_packets
 
 
-    def get_duplicated_packets(self):
-        return len(self.duplicated_packets)
+    def get_duplicated_packets_count(self):
+        return self.duplicated_packets_count
 
 
     def no_flood(self, packet):
@@ -396,63 +400,6 @@ class DualTorIO:
             All disruptions are saved to self.lost_packets dictionary, in format:
             disrupt_start_id = (missing_packets_count, disrupt_time, disrupt_start_timestamp, disrupt_stop_timestamp)
         """
-        def examine_each_packet(packets):
-            lost_packets = dict()
-            sent_packets = dict()
-            duplicated_packets = dict()
-            prev_payload, prev_time = None, None
-            sent_payload = 0
-            disruption_start, disruption_stop = None, None
-            received_counter = 0    # Counts packets from dut.
-            for packet in packets:
-                if packet[scapyall.Ether].dst == self.sent_pkt_dst_mac:
-                    # This is a sent packet - keep track of it as payload_id:timestamp.
-                    sent_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
-                    sent_packets[sent_payload] = packet.time
-                    continue
-                if packet[scapyall.Ether].src in self.received_pkt_src_mac:
-                    # This is a received packet.
-                    received_time = packet.time
-                    received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
-                    if received_payload == prev_payload:
-                        duplicated_packets[received_payload] = packet.time
-                        continue
-                    received_counter += 1
-                if not (received_payload and received_time):
-                    # This is the first valid received packet.
-                    prev_payload = received_payload
-                    prev_time = received_time
-                    continue
-                if received_payload - prev_payload > 1:
-                    # Packets in a row are missing, a disruption.
-                    lost_id = (received_payload - 1) - prev_payload # How many packets lost in a row.
-                    disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
-                    # Add disruption to the lost_packets dict:
-                    lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
-                    logger.info("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
-                    if not disruption_start:
-                        disruption_start = datetime.datetime.fromtimestamp(prev_time)
-                    disruption_stop = datetime.datetime.fromtimestamp(received_time)
-                prev_payload = received_payload
-                prev_time = received_time
-
-            self.total_lost_packets = len(sent_packets) - received_counter
-            self.received_counter = received_counter
-            self.lost_packets = lost_packets
-            self.duplicated_packets = duplicated_packets
-
-        def check_tcp_payload(packet):
-            """
-            @summary: Helper method
-
-            Returns: Bool: True if a packet is not corrupted and has a valid TCP sequential TCP Payload
-            """
-            try:
-                int(str(packet[scapyall.TCP].payload).replace('X','')) in range(self.packets_to_send)
-                return True
-            except Exception as err:
-                return False
-    
         examine_start = datetime.datetime.now()
         logger.info("Packet flow examine started {}".format(str(examine_start)))
 
@@ -465,7 +412,7 @@ class DualTorIO:
             not scapyall.ICMP in pkt and
             pkt[scapyall.TCP].sport == 1234 and
             pkt[scapyall.TCP].dport == TCP_DST_PORT and
-            check_tcp_payload(pkt) and
+            self.check_tcp_payload(pkt) and
             self.no_flood(pkt)
             ]
         logger.info("Number of filtered packets captured: {}".format(len(filtered_packets)))
@@ -483,7 +430,7 @@ class DualTorIO:
             scapyall.wrpcap(filename, packets)
             logger.info("Filtered pcap dumped to {}".format(filename))
 
-        examine_each_packet(packets)
+        self.examine_each_packet(packets)
 
         self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
         if self.lost_packets:
@@ -499,12 +446,72 @@ class DualTorIO:
             self.total_disrupt_time = 0
             logger.info("Gaps in forwarding not found.")
 
+        logger.info("Packet flow examine finished after {}".format(str(datetime.datetime.now() - examine_start)))
+        logger.info("Total number of filtered incoming packets captured {}".format(self.received_counter))
+        logger.info("Number of duplicated packets received: {}".format(self.duplicated_packets_count))
+        logger.info("Number of packets lost: {}".format(self.total_lost_packets))
+
+
+    def examine_each_packet(self, packets):
+        lost_packets = dict()
+        sent_packets = dict()
+        duplicated_packets_count = 0
+        prev_payload, prev_time = None, None
+        sent_payload = 0
+        disruption_start, disruption_stop = None, None
+        received_counter = 0    # Counts packets from dut.
+        for packet in packets:
+            if packet[scapyall.Ether].dst == self.sent_pkt_dst_mac:
+                # This is a sent packet - keep track of it as payload_id:timestamp.
+                sent_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
+                sent_packets[sent_payload] = packet.time
+                continue
+            if packet[scapyall.Ether].src in self.received_pkt_src_mac:
+                # This is a received packet.
+                received_time = packet.time
+                received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
+                if received_payload == prev_payload:
+                    # make account for packet duplication, and keep looking for a new and unique received packet
+                    duplicated_packets_count = duplicated_packets_count + 1
+                    continue
+                received_counter += 1
+            if not (received_payload and received_time):
+                # This is the first valid received packet.
+                prev_payload = received_payload
+                prev_time = received_time
+                continue
+            if received_payload - prev_payload > 1:
+                # Packets in a row are missing, a disruption.
+                lost_id = (received_payload - 1) - prev_payload # How many packets lost in a row.
+                disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
+                # Add disruption to the lost_packets dict:
+                lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
+                logger.info("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
+                if not disruption_start:
+                    disruption_start = datetime.datetime.fromtimestamp(prev_time)
+                disruption_stop = datetime.datetime.fromtimestamp(received_time)
+            prev_payload = received_payload
+            prev_time = received_time
+
+        self.total_lost_packets = len(sent_packets) - received_counter
+        self.received_counter = received_counter
+        self.lost_packets = lost_packets
+        self.duplicated_packets_count = duplicated_packets_count
+
         if self.received_counter == 0:
             logger.error("Sniffer failed to filter any traffic from DUT")
         if self.lost_packets:
-            logger.info("Disruptions happen between {} and {}.".format(str(self.disruption_start), str(self.disruption_stop)))
+            logger.info("Disruptions happen between {} and {}.".format(str(disruption_start), str(disruption_stop)))
 
-        logger.info("Packet flow examine finished after {}".format(str(datetime.datetime.now() - examine_start)))
-        logger.info("Total number of filtered incoming packets captured {}".format(self.received_counter))
-        logger.info("Number of duplicated packets received: {}".format(len(self.duplicated_packets)))
-        logger.info("Number of packets lost: {}".format(self.total_lost_packets))
+
+    def check_tcp_payload(self, packet):
+        """
+        @summary: Helper method
+
+        Returns: Bool: True if a packet is not corrupted and has a valid TCP sequential TCP Payload
+        """
+        try:
+            int(str(packet[scapyall.TCP].payload).replace('X','')) in range(self.packets_to_send)
+            return True
+        except Exception as err:
+            return False
