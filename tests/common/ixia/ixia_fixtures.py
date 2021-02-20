@@ -297,13 +297,19 @@ def ixia_testbed(conn_graph_facts,
     return config
 
 
-@pytest.fixture(scope='session')
-def api(ixia_api_serv_ip,
-        ixia_api_serv_port):
-    # TODO: this is specific to IxNetwork, handle in more
-    # dynamic way
-    host = "https://" + ixia_api_serv_ip + ":" + ixia_api_serv_port
+@pytest.fixture(scope='module')
+def snappi_api(ixia_api_serv_ip,
+               ixia_api_serv_port):
+    """
+    Snappi session fixture for snappi Tgen API
+
+    Args:
+        ixia_api_serv_ip (pytest fixture): ixia_api_serv_ip fixture
+        ixia_api_serv_port (pytest fixture): ixia_api_serv_port fixture.
+    """
+    host = "https://" + ixia_api_serv_ip + ":" + str(ixia_api_serv_port)
     api = snappi.api(host=host, ext="ixnetwork")
+
     yield api
 
     if api.assistant is not None:
@@ -316,6 +322,13 @@ def tgen_ports(duthost,
                fanout_graph_facts):
 
     """
+    Populate tgen ports info of T0 testbed and returns as a list
+
+    Args:
+        duthost (pytest fixture): duthost fixture
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+
     Return:
     [{'card_id': '1',
         'ip': '21.1.1.2',
