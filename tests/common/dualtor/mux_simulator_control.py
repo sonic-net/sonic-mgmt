@@ -37,7 +37,7 @@ def mux_server_url(request, tbinfo):
     return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
 @pytest.fixture
-def url(mux_server_url, duthost, tbinfo):
+def url(mux_server_url, duthost):
     """
     A helper function is returned to make fixture accept arguments
     """
@@ -158,7 +158,7 @@ def set_output(url):
 @pytest.fixture
 def toggle_simulator_port_to_upper_tor(url):
     """
-    Returns _toggle_simulator_port_to_upper_tor to make fixture accpet arguments
+    Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
     """
     def _toggle_simulator_port_to_upper_tor(interface_name):
         """
@@ -222,7 +222,7 @@ def check_simulator_read_side(url):
         Returns:
             1 if upper_tor is active
             2 if lower_tor is active
-            -1 for exception or inconstient status
+            -1 for exception or inconsistent status
         """
         server_url = url(interface_name)
         res = _get(server_url)
