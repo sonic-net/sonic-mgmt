@@ -314,11 +314,14 @@ def toggle_all_simulator_ports_to_random_side(mux_server_url):
     _toggle_all_simulator_ports(mux_server_url, RANDOM)
 
 @pytest.fixture
-def simulator_server_down(set_drop):
+def simulator_server_down(set_drop, set_output):
     """
     A fixture to set drop on a given mux cable
     """
-    def _helper(interface_name):
+    tmp_list = []
+    def _drop_helper(interface_name):
+        tmp_list.append(interface_name)
         set_drop(interface_name, [UPPER_TOR, LOWER_TOR])
 
-    return _helper
+    yield _drop_helper
+    set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
