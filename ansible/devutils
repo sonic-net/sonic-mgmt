@@ -16,7 +16,6 @@ from devutil.task_runner import TaskRunner
 import sys
 sys.path.append("..")
 from tests.common.connections import ConsoleHost
-from tests.common.plugins.pdu_controller.snmp_pdu_controllers import get_pdu_controller
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory
 
 g_inv_mgr = None
