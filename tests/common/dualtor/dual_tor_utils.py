@@ -95,23 +95,31 @@ def map_hostname_to_tor_side(tbinfo, hostname):
         return None
 
 
+def get_t1_ptf_pc_ports(dut, tbinfo):
+    """Gets the PTF portchannel ports connected to the T1 switchs."""
+    config_facts = dut.get_running_config_facts()
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+
+    pc_ports = {}
+    for pc in config_facts['PORTCHANNEL'].keys():
+        pc_ports[pc] = []
+        for intf in config_facts["PORTCHANNEL"][pc]["members"]:
+            ptf_port_index = mg_facts["minigraph_ptf_indices"][intf]
+            intf_name = "eth{}".format(ptf_port_index)
+            pc_ports[pc].append(intf_name)
+
+    return pc_ports
+
+
 def get_t1_ptf_ports(dut, tbinfo):
     '''
     Gets the PTF ports connected to a given DUT for the first T1
     '''
-    config_facts = dut.get_running_config_facts()
-    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    pc_ports = get_t1_ptf_pc_ports(dut, tbinfo)
 
     # Always choose the first portchannel
-    portchannel = sorted(config_facts['PORTCHANNEL'].keys())[0]
-    dut_portchannel_members = config_facts['PORTCHANNEL'][portchannel]['members']
-
-    ptf_portchannel_intfs = []
-
-    for intf in dut_portchannel_members:
-        member = mg_facts['minigraph_ptf_indices'][intf]
-        intf_name = 'eth{}'.format(member)
-        ptf_portchannel_intfs.append(intf_name)
+    portchannel = sorted(pc_ports.keys())[0]
+    ptf_portchannel_intfs = pc_ports[portchannel]
 
     logger.info("Using portchannel ports {} on PTF for DUT {}".format(ptf_portchannel_intfs, dut.hostname))
     return ptf_portchannel_intfs
@@ -155,7 +163,7 @@ def update_mux_configs_and_config_reload(dut, state):
     # Update mux_cable state and dump to a temp file
     mux_cable_config_json = json.loads(mux_cable_config)
     for _, config in mux_cable_config_json.items():
-            config['state'] = state
+        config['state'] = state
     mux_cable_config_json = {"MUX_CABLE": mux_cable_config_json}
     TMP_FILE = "/tmp/mux_config.json"
     with open(TMP_FILE, "w") as f:
@@ -186,6 +194,7 @@ def force_active_tor(dut, intf):
         for i in intf:
             cmds.append("config muxcable mode active {}".format(i))
     dut.shell_cmds(cmds=cmds)
+
 
 def _get_tor_fanouthosts(tor_host, fanouthosts):
     """Helper function to get the fanout host objects that the current tor_host connected to.
