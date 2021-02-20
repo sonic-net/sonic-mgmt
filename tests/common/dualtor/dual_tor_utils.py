@@ -557,3 +557,12 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
                 log_file=log_file,
                 qlen=2000,
                 socket_recv_size=16384)
+
+
+def crm_nexthop_counter(host):
+    """
+    Get used crm nexthop counter
+    """
+    cmd = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_ipv4_nexthop_used"
+    output = host.shell(cmd)['stdout']
+    return int(output)
