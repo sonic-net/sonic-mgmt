@@ -155,6 +155,7 @@ class ReloadTest(BaseTest):
         self.check_param('vnet', False, required=False)
         self.check_param('vnet_pkts', None, required=False)
         self.check_param('target_version', '', required=False)
+        self.check_param('bgp_v4_v6_time_diff', 40, required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -871,6 +872,7 @@ class ReloadTest(BaseTest):
 
         def wait_for_ssh_threads(signal):
             while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
+                self.log('Waiting till SSH threads stop')
                 time.sleep(self.TIMEOUT)
 
             for thr, _ in self.ssh_jobs:
@@ -1147,8 +1149,10 @@ class ReloadTest(BaseTest):
         return stdout, stderr, return_code
 
     def peer_state_check(self, ip, queue):
-        ssh = Arista(ip, queue, self.test_params)
+        self.log('SSH thread for VM {} started'.format(ip))
+        ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
+        self.log('SSH thread for VM {} finished'.format(ip))
 
     def wait_until_cpu_port_down(self, signal):
         while not signal.is_set():
