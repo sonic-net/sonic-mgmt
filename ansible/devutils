@@ -92,7 +92,8 @@ def action_ping(parameters):
         g_task_runner.submit_task(name + '|' + vars['ansible_host'], run_cmd, cmd=cmd)
     if parameters['json']:
         for name, result in g_task_runner.task_results():
-            data.append(dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
+            data.append(
+                dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
     else:
         for name, result in g_task_runner.task_results():
             data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
@@ -104,7 +105,8 @@ def action_ping(parameters):
                 g_task_runner.submit_task(name + '|' + vars['ansible_hostv6'], run_cmd, cmd=cmd)
         if parameters['json']:
             for name, result in g_task_runner.task_results():
-                data.append(dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
+                data.append(
+                    dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
         else:
             for name, result in g_task_runner.task_results():
                 data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
@@ -116,7 +118,8 @@ def action_ssh(parameters):
     hosts = parameters['hosts']
     for _, vars in hosts.items():
         client = SSHClient()
-        client.connect(hostname=vars['ansible_host'], username=vars['creds']['username'], passwords=vars['creds']['password'])
+        client.connect(hostname=vars['ansible_host'], username=vars[
+                       'creds']['username'], passwords=vars['creds']['password'])
         client.posix_shell()
 
 
@@ -125,17 +128,17 @@ def action_console(parameters):
     # Todo: Retrieve console vars from conn_graph_fact
     for _, vars in hosts.items():
         console_host = ConsoleHost(console_type=vars['console_type'],
-                                    console_host=vars['console_host'],
-                                    console_port=vars['console_port'],
-                                    sonic_username=vars['creds']['username'],
-                                    sonic_password=vars['creds']['password'],
-                                    console_username=vars['creds']['console_user'][vars['console_type']],
-                                    console_password=vars['creds']['console_password'][vars['console_type']])
+                                   console_host=vars['console_host'],
+                                   console_port=vars['console_port'],
+                                   sonic_username=vars['creds']['username'],
+                                   sonic_password=vars['creds']['password'],
+                                   console_username=vars['creds']['console_user'][vars['console_type']],
+                                   console_password=vars['creds']['console_password'][vars['console_type']])
         console_host.posix_shell()
 
 
 def pdu_action_on_dut(host, attrs, action):
-    ret = { 'Host' : host, 'PDU status' : [], 'Summary' : [], 'Action' : action }
+    ret = {'Host': host, 'PDU status': [], 'Summary': [], 'Action': action}
     pdu_name = attrs['pdu_host'] if 'pdu_host' in attrs else None
     if not pdu_name:
         ret['Summary'].append('DUT has no PDU configuration')
@@ -148,7 +151,7 @@ def pdu_action_on_dut(host, attrs, action):
 
     # TODO: fake graph data to force building pdu manager from inventory until
     #       we add code to read and construct the conn_graph_facts
-    fake_graph = { 'device_pdu_info' : {}, 'device_pdu_links' : {} }
+    fake_graph = {'device_pdu_info': {}, 'device_pdu_links': {}}
 
     pduman = pdu_manager_factory(host, pdu_list, fake_graph, pdu_list.values()[0])
 
@@ -174,7 +177,7 @@ def pdu_action_on_dut(host, attrs, action):
 def action_pdu(parameters, action):
     hosts = parameters['hosts']
     data = []
-    header = [ 'Host', 'Action', 'PDU status', 'Summary' ]
+    header = ['Host', 'Action', 'PDU status', 'Summary']
     for host, attrs in hosts.items():
         g_task_runner.submit_task(host, pdu_action_on_dut, host=host, attrs=attrs, action=action)
 
@@ -183,7 +186,7 @@ def action_pdu(parameters, action):
         if parameters['json']:
             data.append(status)
         else:
-            data.append([ status[x] for x in header ])
+            data.append([status[x] for x in header])
 
     return header, data
 
@@ -238,16 +241,19 @@ def parallel_run(parameters):
         for name, result in g_task_runner.task_results():
             print("task result for {} ===============>\n{}".format(name, str(result['result'][1])))
 
+
 def ssh_run_command(hostname, username, passwords, cmd):
     client = SSHClient()
     client.connect(hostname=hostname, username=username, passwords=passwords)
     return client.run_command(cmd)
+
 
 def validate_args(args):
     if args.action == 'run' and args.cmd == '':
         print("command is missing for run action")
         return False
     return True
+
 
 def main():
     parser = argparse.ArgumentParser(description='Device utilities')
@@ -267,7 +273,8 @@ def main():
                         type=str, required=False)
     parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
                         type=str, required=False, default='admin')
-    parser.add_argument('-c', '--concurrency', help='Concurrency: the max concurrency for tasks that can run simultaneously, default 1',
+    parser.add_argument(
+        '-c', '--concurrency', help='Concurrency: the max concurrency for tasks that can run simultaneously, default 1',
                         type=int, required=False, default=1)
     parser.add_argument('-j', '--json', help='json output', action='store_true',
                         required=False, default=False)
@@ -275,26 +282,26 @@ def main():
     args = parser.parse_args()
     if not validate_args(args):
         return
-    build_global_vars(args.concurrency, args.inventory);
+    build_global_vars(args.concurrency, args.inventory)
     hosts = retrieve_hosts(args.group, args.limit)
-    actions = { 'list' : action_list,
-                'ping' : action_ping,
-                'ssh' : action_ssh,
-                'console' : action_console,
-                'run' : ssh_run_command,
-                'pdu_status' : action_pdu_status,
-                'pdu_off' : action_pdu_off,
-                'pdu_on' : action_pdu_on,
-                'pdu_reboot' : action_pdu_reboot,
-              }
-    parameters = { 'hosts' : hosts,
-                   'limit' : args.limit,
-                   'action' : actions[args.action],
-                   'user' : args.user,
-                   'ipv6' : args.ipv6,
-                   'cmd': args.cmd,
-                   'json' : args.json,
-                 }
+    actions = {'list': action_list,
+               'ping': action_ping,
+               'ssh': action_ssh,
+               'console': action_console,
+               'run': ssh_run_command,
+               'pdu_status': action_pdu_status,
+               'pdu_off': action_pdu_off,
+               'pdu_on': action_pdu_on,
+               'pdu_reboot': action_pdu_reboot,
+               }
+    parameters = {'hosts': hosts,
+                  'limit': args.limit,
+                  'action': actions[args.action],
+                  'user': args.user,
+                  'ipv6': args.ipv6,
+                  'cmd': args.cmd,
+                  'json': args.json,
+                  }
     action_dispatcher(parameters)
 
 

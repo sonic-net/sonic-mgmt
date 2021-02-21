@@ -23,7 +23,9 @@ from snmp_pdu_controllers import get_pdu_controller
 
 logger = logging.getLogger(__name__)
 
+
 class PduManager():
+
     def __init__(self, dut_hostname):
         """
             dut_hostname is the target DUT host name. The dut
@@ -47,12 +49,10 @@ class PduManager():
         """
         self.controllers = []
 
-
     def _update_outlets(self, outlets, pdu_index):
         for outlet in outlets:
             outlet['pdu_index'] = pdu_index
             outlet['pdu_name'] = self.controllers[pdu_index]['psu_peer']['peerdevice']
-
 
     def add_controller(self, psu_name, psu_peer, pdu_vars):
         """
@@ -83,17 +83,17 @@ class PduManager():
                 logger.warning('PSU {} already has a pdu definition'.format(psu_name))
                 return
             if pdu_ip == pdu['host']:
-                shared_pdu = True # Sharing controller with another outlet
+                shared_pdu = True  # Sharing controller with another outlet
                 controller = pdu['controller']
 
         outlets = []
         pdu = {
-                'psu_name' : psu_name,
-                'host' : pdu_ip,
-                'controller' : controller,
-                'outlets' : outlets,
-                'psu_peer' : psu_peer,
-              }
+            'psu_name': psu_name,
+                'host': pdu_ip,
+                'controller': controller,
+                'outlets': outlets,
+                'psu_peer': psu_peer,
+        }
         next_index = len(self.controllers)
         self.controllers.append(pdu)
         if not shared_pdu:
@@ -106,11 +106,9 @@ class PduManager():
             pdu['outlets'] = outlets
             pdu['controller'] = controller
 
-
     def _get_pdu_controller(self, pdu_index):
         pdu = self.controllers[pdu_index]
         return pdu['controller']
-
 
     def turn_on_outlet(self, outlet=None):
         """
@@ -131,7 +129,6 @@ class PduManager():
 
         return ret
 
-
     def turn_off_outlet(self, outlet=None):
         """
             Turnning off an outlet. The outlet contains enough information
@@ -150,7 +147,6 @@ class PduManager():
                     ret = ret and rc
 
         return ret
-
 
     def get_outlet_status(self, outlet=None):
         """
@@ -174,7 +170,6 @@ class PduManager():
                     status = status + outlets
 
         return status
-
 
     def close(self):
         for controller in self.controllers:
@@ -227,17 +222,18 @@ def _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars)
 
         controller_protocol = var_list.get("protocol")
         if not controller_protocol:
-            logger.info('No protocol is defined in inventory file for "{}". Try to use default "snmp"'.format(pdu_hosts))
+            logger.info(
+                'No protocol is defined in inventory file for "{}". Try to use default "snmp"'.format(pdu_hosts))
             controller_protocol = 'snmp'
 
         psu_peer = {
-                        'peerdevice'   : ph,
-                        'HwSku'        : 'unknown',
-                        'Protocol'     : controller_protocol,
-                        'ManagementIp' : controller_ip,
-                        'Type'         : 'Pdu',
-                        'peerport'     : 'probing',
-                   }
+            'peerdevice': ph,
+                        'HwSku': 'unknown',
+                        'Protocol': controller_protocol,
+                        'ManagementIp': controller_ip,
+                        'Type': 'Pdu',
+                        'peerport': 'probing',
+        }
         pduman.add_controller(ph, psu_peer, pdu_vars)
 
     return len(pduman.controllers) > 0
@@ -260,5 +256,3 @@ def pdu_manager_factory(dut_hostname, pdu_hosts, conn_graph_facts, pdu_vars):
         return pduman
 
     return None
-
-
