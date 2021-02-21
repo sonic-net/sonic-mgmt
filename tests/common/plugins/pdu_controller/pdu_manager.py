@@ -77,13 +77,13 @@ class PduManager():
 
         controller = None
         pdu_ip = psu_peer['ManagementIp']
-        dup_ctrl = False
+        shared_pdu = False
         for pdu in self.controllers:
             if psu_name in pdu:
                 logger.warning('PSU {} already has a pdu definition'.format(psu_name))
                 return
             if pdu_ip == pdu['host']:
-                dup_ctrl = True
+                shared_pdu = True # Sharing controller with another outlet
                 controller = pdu['controller']
 
         outlets = []
@@ -96,7 +96,7 @@ class PduManager():
               }
         next_index = len(self.controllers)
         self.controllers.append(pdu)
-        if not dup_ctrl:
+        if not shared_pdu:
             controller = get_pdu_controller(pdu_ip, self.dut_hostname, pdu_vars)
             if not controller:
                 logger.warning('Failed creating pdu controller: {}'.format(psu_peer))

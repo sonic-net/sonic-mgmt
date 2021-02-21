@@ -53,7 +53,7 @@ def get_pdu_info(pdu_host):
         return g_pdu_dict[pdu_host]
 
     hosts = retrieve_hosts('all', pdu_host)
-    pdus={}
+    pdus = {}
     g_pdu_dict[pdu_host] = pdus
     for ph in pdu_host.split(','):
         if ph in hosts:
@@ -153,7 +153,7 @@ def pdu_action_on_dut(host, attrs, action):
     pduman = pdu_manager_factory(host, pdu_list, fake_graph, pdu_list.values()[0])
 
     if not pduman:
-        ret['Summary'].append('Failed to communicate with controller {}'.format(pdu_name))
+        ret['Summary'].append('Failed to communicate with PDU controller {}'.format(pdu_name))
         return ret
 
     if action == 'off':
