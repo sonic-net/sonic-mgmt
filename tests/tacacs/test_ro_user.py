@@ -80,7 +80,10 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             # 'sudo psuutil *',
             # 'sudo sfputil show *',
             'sudo ip netns identify 1',
-            'sudo ipintutil'
+            'sudo ipintutil',
+            'sudo ipintutil -a ipv6',
+            'sudo ipintutil -n asic0 -d all',
+            'sudo ipintutil -n asic0 -d all -a ipv6'
     ]
         # Run as readonly use the commands allowed indirectly based on sudoers file
     commands_indirect = [
@@ -89,6 +92,7 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'show interface portchannel',
             'show ip bgp summary',
             'show ip interface',
+            'show ipv6 interface',
             'show lldp table'
     ]
 
