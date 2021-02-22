@@ -178,7 +178,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
-    logging.debug("Start running icmp_responder")
+    logging.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     vlan_intfs = duthost.get_vlan_intfs()
@@ -196,7 +196,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
     yield
 
-    logging.debug("Stop running icmp_responder")
+    logging.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
 
 
