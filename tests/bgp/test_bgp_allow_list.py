@@ -14,6 +14,7 @@ from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
+from bgp_helpers import verify_all_routes_announce_to_bgpmon 
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -355,20 +356,24 @@ class TestBGPAllowListBase(object):
         results = parallel_run(check_other_neigh, (nbrhosts, permit), {}, other_neighbors, timeout=180)
         self.check_results(results)
 
-    def test_default_allow_list_preconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts):
+    def test_default_allow_list_preconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
         permit = True if DEFAULT_ACTION == "permit" else False
         duthost = duthosts[rand_one_dut_hostname]
         self.check_routes_on_tor1(setup, nbrhosts)
         self.check_routes_on_dut(duthost)
         self.check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit)
-
+        pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
+                      "Not all routes are announced to bgpmon")
+ 
     @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
-    def test_allow_list(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list):
+    def test_allow_list(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
         permit = True if load_remove_allow_list == "permit" else False
         duthost = duthosts[rand_one_dut_hostname]
         self.check_routes_on_tor1(setup, nbrhosts)
         self.check_routes_on_dut(duthost)
         self.check_routes_on_neighbors(nbrhosts, setup, permit)
+        pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
+                      "Not all routes are announced to bgpmon")
     
-    def test_default_allow_list_postconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts):
-        self.test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, setup, nbrhosts)
+    def test_default_allow_list_postconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
+        self.test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown)
