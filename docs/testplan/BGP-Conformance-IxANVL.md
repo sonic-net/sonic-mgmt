@@ -12,14 +12,14 @@
   - [Call for action](#call-for-action)
 
 ## Purpose
-SONiC today uses the FRRouting(FRR) protocol suite for implementing BGP. However in the final deployments for Hyperscalers and Network operators we see a lot of customnization to further optimization necessary for deisred performance. Each of these customization done to BGP needs to be validated to make sure it is not breaking the BGP conformance. This is mandatory to keep interoperability working between platforms in a heterogeneous environment which is very common in a data center. Network operators are challenges to make sure protocol conformance is maintained at each stage. 
+SONiC today uses the FRRouting(FRR) protocol suite for implementing BGP. However in the final deployments for Hyperscalers and Network operators we see a lot of customnization to further optimization necessary for deisred performance. Each of these customization done to BGP needs to be validated to make sure it is not breaking the BGP conformance. This is mandatory to keep interoperability working between platforms in a heterogeneous environment which is very common in a data center. Network operators have challenges to make sure protocol conformance is maintained at each stage. 
 
 One of the most efficient yet comprehensive way of validating protocol conformance is IxANVL. With IxANVL  (Automated Network Validation
 Library), one can quickly and effortlessly access a
 vast array of protocol libraries and utilities to validate
 protocol compliance and interoperability. 
 ## Scope
-In this test plan we will integrate IxANVL into the sonic-mgmt testbed server, enabling is to run end to end conformance test with either Anvl running in a docker with SONiC virtual DUT or physical DUT. Also for better performance there will be ability to run with a Ixia chassis. 
+In this test plan we will integrate IxANVL into the sonic-mgmt testbed server, enabling is to run end to end conformance test with either Anvl running in a docker with SONiC virtual DUT or physical DUT. Also for ease of use there will be ability to run with a Ixia chassis. 
 
 ## IxANVL Testbed
 This can be run in the Keysight version of community test bed. In addition for simplicity we will discuss here how this can be run on a virtual test bed. 
