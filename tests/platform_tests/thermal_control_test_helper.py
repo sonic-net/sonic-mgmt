@@ -337,3 +337,20 @@ class ThermalPolicyFileContext:
         """
         self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
         restart_thermal_control_daemon(self.dut)
+
+
+@pytest.fixture
+def disable_thermal_policy(duthosts, rand_one_dut_hostname):
+    """Fixture to help disable thermal policy during the test. After test, it will
+       automatically re-enable thermal policy. The idea here is to make thermalctld
+       load a invalid policy file. To use this fixture, the test case will probably 
+       marked as @pytest.mark.disable_loganalyzer.
+
+    Args:
+        duthosts DUT object representing a SONiC switch under test
+        rand_one_dut_hostname random DUT hostname
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    invalid_policy_file = os.path.join(FILES_DIR, 'invalid_format_policy.json')
+    with ThermalPolicyFileContext(duthost, invalid_policy_file):
+        yield

@@ -444,20 +444,20 @@ def test_turn_off_pdu_and_check_psu_info(duthost, localhost, creds, pdu_controll
         pytest.skip('At least 2 outlets required for rest of the testing in this case')
 
     # turn on all PSU
-    for item in outlet_status:
-        if not item['outlet_on']:
-            pdu_controller.turn_on_outlet(item["outlet_id"])
+    for outlet in outlet_status:
+        if not outlet['outlet_on']:
+            pdu_controller.turn_on_outlet(outlet)
     time.sleep(5)
 
     outlet_status = pdu_controller.get_outlet_status()
-    for item in outlet_status:
-        if not item['outlet_on']:
+    for outlet in outlet_status:
+        if not outlet['outlet_on']:
             pytest.skip('Not all outlet are powered on, skip rest of the testing in this case')
 
     # turn off the first PSU
-    first_outlet_id = outlet_status[0]['outlet_id']
-    pdu_controller.turn_off_outlet(first_outlet_id)
-    assert wait_until(30, 5, check_outlet_status, pdu_controller, first_outlet_id, False)
+    first_outlet = outlet_status[0]
+    pdu_controller.turn_off_outlet(first_outlet)
+    assert wait_until(30, 5, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
     assert wait_until(120, 20, _check_psu_status_after_power_off, duthost, localhost, creds)
 
@@ -581,13 +581,13 @@ def is_null_str(value):
     return not value or value == str(None) or value == 'N/A'
 
 
-def check_outlet_status(pdu_controller, outlet_id, expect_status):
+def check_outlet_status(pdu_controller, outlet, expect_status):
     """
     Check if a given PSU is at expect status
     :param pdu_controller: PDU controller
-    :param outlet_id: outlet id
+    :param outlet: PDU outlet
     :param expect_status: Expect bool status, True means on, False means off
     :return: True if a given PSU is at expect status
     """
-    status = pdu_controller.get_outlet_status(outlet_id)
+    status = pdu_controller.get_outlet_status(outlet)
     return 'outlet_on' in status[0] and status[0]['outlet_on'] == expect_status

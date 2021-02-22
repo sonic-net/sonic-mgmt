@@ -158,7 +158,7 @@ def turn_all_outlets_on(pdu_ctrl):
     pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot to get at least 2 outlet status: {}'.format(all_outlet_status))
     for outlet in all_outlet_status:
         if not outlet["outlet_on"]:
-            pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+            pdu_ctrl.turn_on_outlet(outlet)
             time.sleep(5)
 
 
@@ -210,8 +210,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
     for outlet in all_outlet_status:
         psu_under_test = None
 
-        logging.info("Turn off outlet %s" % str(outlet["outlet_id"]))
-        pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
+        logging.info("Turn off outlet {}".format(outlet))
+        pdu_ctrl.turn_off_outlet(outlet)
         time.sleep(5)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
@@ -223,8 +223,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
             check_vendor_specific_psustatus(duthost, line)
         pytest_assert(psu_under_test is not None, "No PSU is turned off")
 
-        logging.info("Turn on outlet %s" % str(outlet["outlet_id"]))
-        pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+        logging.info("Turn on outlet {}".format(outlet))
+        pdu_ctrl.turn_on_outlet(outlet)
         time.sleep(5)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
@@ -242,24 +242,22 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
 
 
 @pytest.mark.disable_loganalyzer
-def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory):
+def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory, disable_thermal_policy):
     """
     @summary: Check output of 'show platform fan'.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Load an invalid thermal control configuration file here to avoid thermal policy affect the test result
-    with ThermalPolicyFileContext(duthost, THERMAL_POLICY_INVALID_FORMAT_FILE):
-        # Mock data and check
-        mocker = mocker_factory(duthost, 'FanStatusMocker')
-        pytest_require(mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
+    # Mock data and check
+    mocker = mocker_factory(duthost, 'FanStatusMocker')
+    pytest_require(mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
 
-        logging.info('Mock FAN status data...')
-        mocker.mock_data()
-        logging.info('Wait and check actual data with mocked FAN status data...')
-        result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+    logging.info('Mock FAN status data...')
+    mocker.mock_data()
+    logging.info('Wait and check actual data with mocked FAN status data...')
+    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
-        pytest_assert(result, 'FAN mock data mismatch')
+    pytest_assert(result, 'FAN mock data mismatch')
 
 
 @pytest.mark.disable_loganalyzer
@@ -380,7 +378,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
               control policy file.
     """
     logging.info("Turn off outlet %s" % str(outlet["psu_id"]))
-    pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
+    pdu_ctrl.turn_off_outlet(outlet)
     time.sleep(5)
 
     psu_under_test = None
@@ -399,7 +397,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
                              mocker.check_all_fan_speed,
                              100), 'FAN speed not turn to 100% after PSU off')
 
-    pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+    pdu_ctrl.turn_on_outlet(outlet)
     time.sleep(5)
 
 
