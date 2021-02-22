@@ -44,7 +44,7 @@ stages:
   jobs:
   - job: kvmWarmbootTest
     displayName: "kvmtest"
-    timeoutInMinutes: 720
+    timeoutInMinutes: 0
     steps:
     - task: DownloadPipelineArtifact@2
 
