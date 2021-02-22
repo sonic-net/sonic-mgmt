@@ -438,7 +438,7 @@ def check_mux_simulator(mux_server_url, ptf_server_intf, tor_mux_intf, ptfadapte
             results['failed_reason'] = 'Packet from PTF not received on active lower ToR'
             return results
 
-        logger.info(json.dumps(results, indent=4, sort_keys=True))
+        logger.info('Finished mux simulator check')
         return results
     return _check
 
