@@ -63,8 +63,10 @@ class TestQosSai(QosSaiBase):
         logger.info("qosConfig {}".format(dutQosConfig))
 
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2"])
-    def testQosSaiPfcXoffLimit(self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-                               ingressLosslessProfile, egressLosslessProfile):
+    def testQosSaiPfcXoffLimit(
+        self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, egressLosslessProfile, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI XOFF limits
 
@@ -105,13 +107,14 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig[xoffProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"], testCase="sai_qos_tests.PFCtest",
-            testParams=testParams
+            ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
-    def testQosSaiPfcXonLimit(self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-                              ingressLosslessProfile):
+    def testQosSaiPfcXonLimit(
+        self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI XON limits
 
@@ -156,11 +159,13 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig[xonProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.PFCXonTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
 
-    def testQosSaiHeadroomPoolSize(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile):
+    def testQosSaiHeadroomPoolSize(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI Headroom pool size
 
@@ -220,11 +225,15 @@ class TestQosSai(QosSaiBase):
             testParams["margin"] = margin
 
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
+            testParams=testParams
         )
 
-    def testQosSaiHeadroomPoolWatermark(self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize, resetWatermark):
+    def testQosSaiHeadroomPoolWatermark(
+        self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams,
+        dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize,
+        resetWatermark, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI Headroom pool watermark
 
@@ -276,12 +285,16 @@ class TestQosSai(QosSaiBase):
             "max_headroom": sharedHeadroomPoolSize
         })
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.HdrmPoolSizeTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
+            testParams=testParams
         )
 
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
-    def testQosSaiBufferPoolWatermark(self, request, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile, egressLossyProfile, resetWatermark):
+    def testQosSaiBufferPoolWatermark(
+        self, request, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, egressLossyProfile, resetWatermark,
+        ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
 
@@ -337,11 +350,14 @@ class TestQosSai(QosSaiBase):
             "buf_pool_roid": buf_pool_roid
         })
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.BufferPoolWatermarkTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest",
+            testParams=testParams
         )
 
-    def testQosSaiLossyQueue(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, ingressLossyProfile):
+    def testQosSaiLossyQueue(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLossyProfile, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
 
@@ -385,11 +401,13 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig["lossy_queue_1"].keys():
             testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.LossyQueueTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.LossyQueueTest",
+            testParams=testParams
         )
 
-    def testQosSaiDscpQueueMapping(self, ptfhost, dutTestParams, dutConfig):
+    def testQosSaiDscpQueueMapping(
+        self, ptfhost, dutTestParams, dutConfig, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI DSCP to queue mapping
 
@@ -414,11 +432,14 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
         })
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.DscpMappingPB", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.DscpMappingPB",
+            testParams=testParams
         )
 
-    def testQosSaiDwrr(self, ptfhost, dutTestParams, dutConfig, dutQosConfig):
+    def testQosSaiDwrr(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI DWRR
 
@@ -457,13 +478,14 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
         })
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"], testCase="sai_qos_tests.WRRtest",
-            testParams=testParams
+            ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
 
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
-    def testQosSaiPgSharedWatermark(self, pgProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-                                    resetWatermark):
+    def testQosSaiPgSharedWatermark(
+        self, pgProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        resetWatermark, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
 
@@ -511,11 +533,14 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[pgProfile].keys():
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.PGSharedWatermarkTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest",
+            testParams=testParams
         )
 
-    def testQosSaiPgHeadroomWatermark(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, resetWatermark):
+    def testQosSaiPgHeadroomWatermark(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, resetWatermark,
+        ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI PG headroom watermark test
 
@@ -554,12 +579,15 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
             testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.PGHeadroomWatermarkTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest",
+            testParams=testParams
         )
 
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
-    def testQosSaiQSharedWatermark(self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig, resetWatermark):
+    def testQosSaiQSharedWatermark(
+        self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        resetWatermark, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
 
@@ -602,11 +630,14 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[queueProfile].keys():
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.QSharedWatermarkTest", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.QSharedWatermarkTest",
+            testParams=testParams
         )
 
-    def testQosSaiDscpToPgMapping(self, request, ptfhost, dutTestParams, dutConfig):
+    def testQosSaiDscpToPgMapping(
+        self, request, ptfhost, dutTestParams, dutConfig,
+        ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
@@ -635,11 +666,14 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
         })
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"],
-            testCase="sai_qos_tests.DscpToPgMapping", testParams=testParams
+            ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
+            testParams=testParams
         )
 
-    def testQosSaiDwrrWeightChange(self, ptfhost, dutTestParams, dutConfig, dutQosConfig, updateSchedProfile):
+    def testQosSaiDwrrWeightChange(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        updateSchedProfile, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Test QoS SAI DWRR runtime weight change
 
@@ -682,6 +716,5 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
         })
         self.runPtfTest(
-            ptfhost, dutConfig["dutAsic"], testCase="sai_qos_tests.WRRtest",
-            testParams=testParams
+            ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )

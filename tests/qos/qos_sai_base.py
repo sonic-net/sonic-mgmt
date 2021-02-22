@@ -329,7 +329,7 @@ class QosSaiBase:
             "src_port_ip": testPortIps[testPortIds[srcPorts[0]]],
         }
 
-    def runPtfTest(self, ptfhost, dut_asic, testCase='', testParams={}):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}):
         """
             Runs QoS SAI test case on PTF host
 
@@ -344,7 +344,6 @@ class QosSaiBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        dut_asic.create_ssh_tunnel_sai_rpc()
         pytest_assert(ptfhost.shell(
                       argv = [
                           "ptf",
@@ -371,7 +370,6 @@ class QosSaiBase:
                       chdir = "/root",
                       )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
-        dut_asic.remove_ssh_tunnel_sai_rpc()
 
     @pytest.fixture(scope='class')
     def swapSyncd(self, request, duthosts, rand_one_dut_hostname, creds):
@@ -475,8 +473,20 @@ class QosSaiBase:
             "testPortIds": testPortIds,
             "testPortIps": testPortIps,
             "testPorts": testPorts,
-            "dutAsic": dut_asic,
         }
+
+    @pytest.fixture(scope='class')
+    def ssh_tunnel_to_syncd_rpc(
+        self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
+        swapSyncd
+    ):
+        duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        dut_asic.create_ssh_tunnel_sai_rpc()
+
+        yield
+
+        dut_asic.remove_ssh_tunnel_sai_rpc()
 
     @pytest.fixture(scope='class')
     def updateIptables(
@@ -735,7 +745,7 @@ class QosSaiBase:
     @pytest.fixture(scope='class')
     def releaseAllPorts(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        ptfhost, dutTestParams, updateIptables
+        ptfhost, dutTestParams, updateIptables, ssh_tunnel_to_syncd_rpc
     ):
         """
             Release all paused ports prior to running QoS SAI test cases
@@ -754,14 +764,15 @@ class QosSaiBase:
         duthost = duthosts[rand_one_dut_hostname]
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         self.runPtfTest(
-            ptfhost, dut_asic, testCase="sai_qos_tests.ReleaseAllPorts",
+            ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
             testParams=dutTestParams["basicParams"]
         )
 
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts,
+        ssh_tunnel_to_syncd_rpc
     ):
         """
             Update ARP entries of QoS SAI test ports
@@ -797,7 +808,7 @@ class QosSaiBase:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
             self.runPtfTest(
-                ptfhost, dut_asic, testCase=saiQosTest, testParams=testParams
+                ptfhost, testCase=saiQosTest, testParams=testParams
             )
 
     @pytest.fixture(scope='class', autouse=True)
