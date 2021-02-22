@@ -2044,7 +2044,7 @@ class SonicAsic(object):
         run_opt = "-I INPUT 1" if state == "present" else "-D INPUT"
         check_opt = "-C INPUT"
         cmd = (
-            "{} /sbin/{} -t filter {{}} -p tcp -j DROP --destination-port bgp"
+            "{}/sbin/{} -t filter {{}} -p tcp -j DROP --destination-port bgp"
         ).format(self._ns_arg, ipcmd)
 
         check_cmd = cmd.format(check_opt)

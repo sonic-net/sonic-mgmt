@@ -311,11 +311,6 @@ class QosSaiBase:
             )
         )
 
-        pytest_assert(
-            len(dstPorts) == 3 and len(srcPorts) == 1,
-            ("Invalid number of ports provided, qos_dst_ports:{0},"
-             "qos_src_ports:{1}").format(len(dstPorts), len(srcPorts))
-        )
 
         #TODO: Randomize port selection
         return {
@@ -614,8 +609,7 @@ class QosSaiBase:
 
     @pytest.fixture(scope='class', autouse=True)
     def disablePacketAging(
-        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        stopServices
+        self, duthosts, rand_one_dut_hostname, stopServices
     ):
         """
             disable packet aging on DUT host
