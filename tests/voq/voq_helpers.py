@@ -1,8 +1,10 @@
 import json
 import logging
 import re
+import pytest
+
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli
+from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli, RedisNoCommandOutput, RedisKeyNotFound
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +22,13 @@ def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state):
 
     """
     arptable = host.switch_arptable()['ansible_facts']
-    logger.debug("ARP: %s", arptable)
+
     if ':' in neighbor_ip:
         table = arptable['arptable']['v6']
     else:
         table = arptable['arptable']['v4']
+    for entry in table:
+        logger.debug("%s ARP: %s => %s", host.hostname, entry, table[entry])
     pytest_assert(neighbor_ip in table, "IP %s not in arp list: %s" % (neighbor_ip, table.keys()))
     pytest_assert(table[neighbor_ip]['macaddress'] == neighbor_mac,
                   "table MAC %s does not match neighbor mac: %s" % (table[neighbor_ip]['macaddress'], neighbor_mac))
@@ -32,6 +36,27 @@ def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state):
                   "table interface %s does not match interface: %s" % (table[neighbor_ip]['interface'], interface))
     pytest_assert(table[neighbor_ip]['state'].lower() == state.lower(),
                   "table state %s is not %s" % (table[neighbor_ip]['state'].lower(), state.lower()))
+
+
+def check_host_arp_table_deleted(host, neighbor_ip):
+    """
+    Verifies the ARP entry is deleted.
+
+    Args:
+        host: instance of SonicHost to run the arp show.
+        neighbor_ip: IP address of the neighbor to verify.
+
+    """
+    arptable = host.switch_arptable()['ansible_facts']
+    logger.debug("ARP: %s", arptable)
+    if ':' in neighbor_ip:
+        table = arptable['arptable']['v6']
+    else:
+        table = arptable['arptable']['v4']
+    if neighbor_ip in table:
+        raise AssertionError("ip %s is still in table: %s" % (neighbor_ip, table[neighbor_ip]))
+    else:
+        logger.info("IP %s is not in %s ARP table" % (neighbor_ip, host.hostname))
 
 
 def check_local_neighbor_asicdb(asic, neighbor_ip, neighbor_mac):
@@ -124,21 +149,24 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
     parsed = json.loads(output["stdout"])
     if present is True:
         pytest_assert(prefix in parsed.keys(), "Prefix: %s not in route list: %s" % (prefix, parsed.keys()))
+        found = False
         for route in parsed[prefix]:
             if route['distance'] != 0:
-                found = False
                 continue
+            found = True
             pytest_assert(route['protocol'] == "kernel", "Prefix: %s not kernel route" % prefix)
             pytest_assert(route['nexthops'][0]['directlyConnected'] is True,
                           "Prefix: %s not directly connected" % prefix)
             pytest_assert(route['nexthops'][0]['active'] is True, "Prefix: %s not active" % prefix)
             pytest_assert(route['nexthops'][0]['interfaceName'] == interface,
                           "Prefix: %s out interface is not correct" % prefix)
-
-            found = True
             break
         pytest_assert(found, "Kernel route is not present in bgp output: %s" % parsed[prefix])
         logger.info("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
+    if present is False:
+        logger.info("outout: %s", parsed)
+        pytest_assert(parsed == {}, "Prefix: %s still in route list: %s" % (prefix, parsed.keys()))
+        logger.info("Route %s is removed from remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
 
 
 def check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present=True):
@@ -164,10 +192,12 @@ def check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present=Tru
         cmd = "ip netns exec asic{} ip {} route show exact {}".format(asicnum, ver, ipaddr)
     logger.debug("Kernel rt cmd: %s", cmd)
     output = host.command(cmd)['stdout']
+    logger.info("host ip route output: %s", output)
     if present is True:
-        logger.info("host ip route output: %s", output)
         pytest_assert(output.startswith(ipaddr), "Address: %s not in netstat output list: %s" % (ipaddr, output))
         pytest_assert("dev %s" % interface in output, "Interface is not %s: %s" % (interface, output))
+    if present is False:
+        pytest_assert(output == "", "Address: %s still in netstat output list: %s" % (ipaddr, output))
 
 
 def check_neighbor_kernel_route(host, asicnum, ipaddr, interface, present=True):
@@ -306,9 +336,9 @@ def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac)
     voqdb.get_and_check_key_value(neigh_key, encap_index, field="encap_index")
 
 
-def get_neighbor_mac(neigh_ip, nbrhosts, nbrhosts_facts):
+def get_neighbor_info(neigh_ip, nbrhosts):
     """
-    Gets the MAC address of a neighbor IP on an EOS host.
+    Gets the neighbor VM info of a neighbor VM on an EOS host.
 
     We need to get the MAC of the VM out of the linux shell, not from the EOS CLI.  The MAC used for punt/inject
     on the EOS seems to be the linux one.  Find the interface name on the VM that is associated with the IP address,
@@ -319,38 +349,16 @@ def get_neighbor_mac(neigh_ip, nbrhosts, nbrhosts_facts):
         nbrhosts: dictionary provided by the nbrhosts fixture.
 
     Returns:
-        A string with the MAC address.
+        A dictionary with mac, vmname, port and shell port name.
     """
-    nbr_vm = ""
-    nbr_intf = ""
 
-    for a_vm in nbrhosts_facts:
+    vm_info = get_vm_with_ip(neigh_ip, nbrhosts)
+    nbr_vm = vm_info['vm']
+    nbr_intf = vm_info['port']
 
-        intfs = nbrhosts_facts[a_vm]['ansible_facts']['ansible_net_interfaces']
-        for intf in intfs:
-            if intfs[intf]['ipv4'] != {} and intfs[intf]['ipv4']['address'] == neigh_ip:
-                nbr_vm = a_vm
-                nbr_intf = intf
-                break
-            if 'ipv6' in intfs[intf] and intfs[intf]['ipv6']['address'].lower() == neigh_ip.lower():
-                nbr_vm = a_vm
-                nbr_intf = intf
-                break
-        if nbr_vm != "":
-            break
-    else:
-        logger.error("Could not find port for neighbor IP: %s", neigh_ip)
-        logger.info("vm facts: {}".format(json.dumps(nbrhosts_facts, indent=4)))
-        return None
-    # convert Ethernet1 to eth1
-    shell_intf = "eth" + nbr_intf[-1]
-    nbrhosts[nbr_vm]['host'].eos_command(commands=["enable"])
-    output = nbrhosts[nbr_vm]['host'].eos_command(commands=["bash ip addr show dev %s" % shell_intf])
-    # 8: Ethernet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9100 ...
-    #     link/ether a6:69:05:fd:da:5f brd ff:ff:ff:ff:ff:ff
-    mac = output['stdout_lines'][0][1].split()[1]
-    logger.info("mac: %s", mac)
-    return mac
+    macs = get_eos_mac(nbrhosts[nbr_vm], nbr_intf)
+
+    return {'mac': macs['mac'], "port": nbr_intf, "shell_intf": macs['shell_intf'], "vm": nbr_vm}
 
 
 def get_sonic_mac(host, asicnum, port):
@@ -425,6 +433,28 @@ def get_inband_info(cfg_facts):
     return ret
 
 
+def get_vm_with_ip(neigh_ip, nbrhosts):
+    """
+    Finds the EOS VM and port with a specific IP Address.
+
+    Args:
+        neigh_ip: IP address to find.
+        nbrhosts: nbrhosts fixture.
+
+    Returns:
+        A dictionary with the vm index for nbrhosts, and port name.
+    """
+    for a_vm in nbrhosts:
+        for port, a_intf in nbrhosts[a_vm]['conf']['interfaces'].iteritems():
+            if 'ipv4' in a_intf and a_intf['ipv4'].split("/")[0] == neigh_ip:
+                return {"vm": a_vm, "port": port}
+            if 'ipv6' in a_intf and a_intf['ipv6'].split("/")[0].lower() == neigh_ip.lower():
+                return {"vm": a_vm, "port": port}
+    logger.error("Could not find vm connected to neighbor IP: %s", neigh_ip)
+    logger.info("nbrhosts: {}".format(json.dumps(nbrhosts, indent=4)))
+    return None
+
+
 def get_port_by_ip(cfg_facts, ipaddr):
     """
     Returns the port which has a given IP address from the dut config.
@@ -476,7 +506,10 @@ def find_system_port(dev_sysports, slot, asic_index, hostif):
 
     """
 
-    sys_re = re.compile(r'([a-zA-Z]+{})\|([a-zA-Z]+{})\|{}'.format(slot, asic_index, hostif))
+    if "portchannel" in hostif.lower():
+        sys_re = re.compile(r'^([a-zA-Z]+{})\|([a-zA-Z]+{})\|'.format(slot, asic_index))
+    else:
+        sys_re = re.compile(r'^([a-zA-Z]+{})\|([a-zA-Z]+{})\|{}$'.format(slot, asic_index, hostif))
     sys_info = {}
 
     for sysport in dev_sysports:
@@ -488,6 +521,7 @@ def find_system_port(dev_sysports, slot, asic_index, hostif):
             return sys_info
 
     raise KeyError("Could not find system port for {}/{}/{}".format(slot, asic_index, hostif))
+
 
 def get_vm_with_ip(neigh_ip, nbrhosts):
     """
@@ -535,3 +569,299 @@ def get_eos_mac(nbr, nbr_intf):
 
     mac = output['stdout_lines'][1].split()[1]
     return {'mac': mac, "shell_intf": shell_intf}
+
+
+def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts):
+    """
+    Verifies a single neighbor entry is present in a voq system on local and remote sonic instances.
+
+    For local neighbor, verifies ASIC DB, APP DB, and ARP table entry.  Collects encap ID.
+    On supervisor, verifies neighbor in Chassis DB and verifies encap ID.
+    On remote sonics, verifies ASIC DB, APP DB, kernel route and ARP entries, and encap ID.
+
+    Args:
+        duthosts: The duthost fixture.
+        per_host: The MultiAsicSonicHost instance for the local neighbor.
+        asic: The SonicAsic instance for the local neighbor.
+        neighbor: The IP address of the neighbor to check as a string.
+        nbrhosts: The nbrhosts fixture.
+        all_cfg_facts: The config facts fixture from voq/conftest.py
+
+    """
+    cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+    dev_sysports = get_device_system_ports(cfg_facts)
+    neighs = cfg_facts['BGP_NEIGHBOR']
+    inband_info = get_inband_info(cfg_facts)
+    local_ip = neighs[neighbor]['local_addr']
+
+    if local_ip == inband_info['ipv4_addr'] or local_ip == inband_info['ipv6_addr']:
+        # skip inband neighbors
+        return
+
+    # Check neighbor on local linecard
+    local_port = get_port_by_ip(cfg_facts, local_ip)
+    show_intf = asic.show_interface(command="status")['ansible_facts']
+    if local_port is None:
+        logger.error("Did not find port for this neighbor %s, must skip", local_ip)
+        return
+
+    if show_intf['int_status'][local_port]['oper_state'] == "down":
+        logger.error("Port is down, must skip interface: %s, IP: %s", local_port, local_ip)
+        return
+
+    neigh_mac = get_neighbor_info(neighbor, nbrhosts)['mac']
+    if neigh_mac is None:
+        logger.error("Could not find neighbor MAC, must skip.  IP: %s, port: %s", local_ip, local_port)
+
+    local_dict = check_local_neighbor(per_host, asic, neighbor, neigh_mac, local_port)
+    logger.info("Local_dict: %s", local_dict)
+
+    # Check the same neighbor entry on the supervisor nodes
+    sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, local_port)
+    for sup in duthosts.supervisor_nodes:
+        check_voq_neighbor_on_sup(sup, sysport_info['slot'], sysport_info['asic'], local_port,
+                                  neighbor, local_dict['encap_index'], neigh_mac)
+
+    # Check the neighbor entry on each remote linecard
+    for rem_host in duthosts.frontend_nodes:
+
+        for rem_asic in rem_host.asics:
+            if rem_host == per_host and rem_asic == asic:
+                # skip remote check on local host
+                continue
+            rem_cfg_facts = all_cfg_facts[rem_host.hostname][rem_asic.asic_index]['ansible_facts']
+            remote_inband_info = get_inband_info(rem_cfg_facts)
+            remote_inband_mac = get_sonic_mac(rem_host, rem_asic.asic_index, remote_inband_info['port'])
+            check_voq_remote_neighbor(rem_host, rem_asic, neighbor, neigh_mac, remote_inband_info['port'],
+                                      local_dict['encap_index'], remote_inband_mac)
+
+
+def check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts):
+    """
+    Verifies all neighbors for all sonic hosts in a voq system.
+
+    Args:
+        duthosts: The duthost fixture.
+        nbrhosts: The nbrhosts fixture.
+        all_cfg_facts: The config facts fixture from voq/conftest.py
+
+    """
+    for per_host in duthosts.frontend_nodes:
+
+        for asic in per_host.asics:
+            logger.info("Checking local neighbors on host: %s, asic: %s", per_host.hostname, asic.asic_index)
+            cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+            neighs = cfg_facts['BGP_NEIGHBOR']
+
+            # Check each neighbor in table
+            for neighbor in neighs:
+                check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
+
+
+def asic_cmd(asic, cmd, module_ignore_errors=False):
+    """
+    Runs a command in the appropriate namespace for an ASIC.
+    Args:
+        asic: Instance of SonicAsic to run a command.
+        cmd: Command string to execute.
+        module_ignore_errors: Flag to pass along to ansible to ignore any execution errors.
+
+    Returns:
+        The output of the SonicHost.command() execution.
+
+    """
+    if asic.namespace is not None:
+        fullcmd = "sudo ip netns exec {} {}".format(asic.namespace, cmd)
+        return asic.sonichost.command(fullcmd, module_ignore_errors=module_ignore_errors)
+    else:
+        return asic.sonichost.command(cmd, module_ignore_errors=module_ignore_errors)
+
+
+def sonic_ping(asic, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=None, verbose=False):
+    """
+    Sends a ping from a sonic asic instance.
+
+    Args:
+        asic: Instance of SonicAsic to send ping command in.
+        ipaddr: String with the target IP.
+        count: Integer for ping count.
+        timeout: Integer of timeout.
+        interface: String of IP address to egress packet.
+        size: size of ICMP data.
+        ttl: TTL of sent packet
+        verbose: True to print send and rx output.
+
+    Returns:
+        The output of the SonicHost.command() execution.
+
+    """
+    cmd = "ping -c{c} {ip} -W {to}".format(c=count, ip=ipaddr, to=timeout)
+    if interface is not None:
+        cmd += " -I {}".format(interface)
+    if size is not None:
+        cmd += " -s {}".format(size)
+    if ttl is not None:
+        cmd += " -t {}".format(ttl)
+
+    output = asic_cmd(asic, cmd, module_ignore_errors=True)
+
+    if verbose:
+        logger.info("Ping  : %s, %s : %s" % (asic.sonichost.hostname, asic.asic_index, cmd))
+        logger.info("Result: %s", output['stdout_lines'][-2:])
+
+    output['parsed'] = parse_ping(output['stdout_lines'])
+
+    if "0% packet loss" not in output['stdout_lines'][-2]:
+        raise AssertionError(output['parsed'])
+
+    return output
+
+
+def check_neighbor_is_gone(duthosts, all_cfg_facts, per_host, asic, neighbor):
+    """
+    Verifies a neighbor has been deleted from local and remote sonic instances, and the supervisor.
+
+    Args:
+        duthosts: Instance of the duthosts fixture.
+        all_cfg_facts: Instance of fixture from voq/conftest.py
+        per_host: Instance of MultiAsicSonicHost where neighbor is attached.
+        asic: Instance of SonicAsic where neighbor is attached.
+        neighbor: IP of the neighbor.
+
+    """
+    asicdb = AsicDbCli(asic)
+    appdb = AppDbCli(asic)
+    logger.info("Checking ARP/NDP for %s is deleted from host: %s, asic: %s", neighbor, per_host.hostname,
+                asic.asic_index)
+    # check local host
+    check_host_arp_table_deleted(per_host, neighbor)
+    with pytest.raises((RedisNoCommandOutput, RedisKeyNotFound)):
+        asicdb.get_neighbor_key_by_ip(neighbor)
+    with pytest.raises(RedisNoCommandOutput):
+        appdb.get_neighbor_key_by_ip(neighbor)
+
+    # check supervisor
+    for sup in duthosts.supervisor_nodes:
+        voqdb = VoqDbCli(sup)
+        with pytest.raises(RedisNoCommandOutput):
+            voqdb.get_neighbor_key_by_ip(neighbor)
+
+    # check remote hosts
+    for rem_host in duthosts.frontend_nodes:
+
+        for rem_asic in rem_host.asics:
+            if rem_host == per_host and rem_asic == asic:
+                # skip remote check on local host
+                continue
+            logger.info("Remote host checks of ARP/NDP for %s are deleted from host: %s, asic: %s", neighbor,
+                        rem_host.hostname,
+                        rem_asic.asic_index)
+            asicdb = AsicDbCli(rem_asic)
+            appdb = AppDbCli(rem_asic)
+            with pytest.raises((RedisNoCommandOutput, RedisKeyNotFound)):
+                asicdb.get_neighbor_key_by_ip(neighbor)
+            with pytest.raises(RedisNoCommandOutput):
+                appdb.get_neighbor_key_by_ip(neighbor)
+            check_host_arp_table_deleted(rem_host, neighbor)
+            rem_cfg_facts = all_cfg_facts[rem_host.hostname][rem_asic.asic_index]['ansible_facts']
+            remote_inband_info = get_inband_info(rem_cfg_facts)
+            check_neighbor_kernel_route(per_host, rem_asic.asic_index, neighbor, remote_inband_info['port'],
+                                        present=False)
+
+
+def parse_ping(stdout):
+    """
+    Parses the result of the ping command for eos and sonic.
+
+    Args:
+        stdout: The stdout_lines output of the eos_ping or sonic_ping.
+
+    Returns:
+        A list of dictionaries, one per packet. The dictionary has the following keys:
+            -icmp_seq: the sequence number of the packet
+            -bytes: the received packet size
+            -ttl: the received ttl
+            -time: the received round trip time.
+            -ttl_exceeded: flag for whether a ttl exceeded error was recieved.
+
+    """
+    parsed_lines = []
+    for line in stdout:
+        # 64 bytes from 100.0.0.1: icmp_seq=1 ttl=63 time=1.32 ms
+        parsed = {}
+        match = re.search(r"icmp_seq=(\d+)", line)
+        if match:
+            parsed['icmp_seq'] = match.group(1)
+        else:
+            continue
+
+        match = re.search(r"(\d+) bytes", line)
+        if match:
+            parsed['bytes'] = match.group(1)
+
+        match = re.search(r"ttl=(\d+)", line)
+        if match:
+            parsed['ttl'] = match.group(1)
+
+        match = re.search(r"time=([\.\d]+)", line)
+        if match:
+            parsed['time'] = match.group(1)
+
+        match = re.search(r"Time[\w\s]+exceeded", line)
+        if match:
+            parsed['ttl_exceed'] = True
+        else:
+            parsed['ttl_exceed'] = False
+
+        if parsed != {}:
+            parsed_lines.append(parsed)
+
+    return parsed_lines
+
+
+def eos_ping(eos, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=None, verbose=False):
+    """
+    Sends a ping from a sonic asic instance.
+
+    Args:
+        eos: Instance of EosHost to send ping command in.
+        ipaddr: String with the target IP.
+        count: Integer for ping count.
+        timeout: Integer of timeout.
+        interface: String of IP address to egress packet.
+        size: size of ICMP data.
+        ttl: TTL of sent packet
+        verbose: True to print send and rx output.
+
+    Returns:
+        The output of the EosHost.eos_command() execution.
+
+    Raises:
+        AssertionError if there an error code returned from the command.
+
+    """
+
+    cmd = "sudo ping -c{c} {ip} -W {to}".format(c=count, ip=ipaddr, to=timeout)
+    if interface is not None:
+        cmd += " -I {}".format(interface)
+    if size is not None:
+        cmd += " -s {}".format(size)
+    if ttl is not None:
+        cmd += " -t {}".format(ttl)
+
+    output = eos.command(cmd, module_ignore_errors=True)
+    if verbose:
+        logger.info("Ping  : %s" % cmd)
+        logger.info("Result: %s", output['stdout_lines'][-2:])
+
+    output['parsed'] = parse_ping(output['stdout_lines'])
+
+    if "error code" in output['stdout_lines'][-1]:
+        raise AssertionError(output['parsed'])
+
+    if "0% packet loss" not in output['stdout_lines'][-2]:
+        logger.warning("Did not find 0 percent packet loss: %s" % output['stdout_lines'][-2:])
+        raise AssertionError("Ping failed: %s" % output['parsed'])
+
+    return output
+

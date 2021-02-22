@@ -58,11 +58,12 @@ class RedisCli(object):
             Exception: If the command had no output.
 
         """
+        logger.debug("REDIS: %s", cmd)
         result = self.host.run_redis_cli_cmd(cmd)
 
         if len(result["stdout_lines"]) == 0:
-            logger.error("No command response: %s" % cmd)
-            raise Exception("Command: %s returned no response." % cmd)
+            logger.warning("No command response: %s" % cmd)
+            raise RedisNoCommandOutput("Command: %s returned no response." % cmd)
 
         return result
 
@@ -85,7 +86,7 @@ class RedisCli(object):
         if result == {}:
             raise RedisKeyNotFound("Key: %s not found in rediscmd: %s" % (key, cmd))
         else:
-            return result['stdout']
+            return result['stdout'].decode('unicode-escape')
 
     def hget_key_value(self, key, field):
         """
@@ -97,9 +98,9 @@ class RedisCli(object):
 
         Returns:
             The corresponding value of the key.
-
         Raises:
             RedisKeyNotFound: If the key or field has no value or is not present.
+
 
         """
         cmd = self._cli_prefix() + "hget {} {}".format(key, field)
@@ -107,7 +108,7 @@ class RedisCli(object):
         if result == {}:
             raise RedisKeyNotFound("Key: %s, field: %s not found in rediscmd: %s" % (key, field, cmd))
         else:
-            return result['stdout']
+            return result['stdout'].decode('unicode-escape')
 
     def get_and_check_key_value(self, key, value, field=None):
         """
@@ -207,6 +208,8 @@ class AsicDbCli(RedisCli):
     ASIC_SYSPORT_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT"
     ASIC_PORT_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_PORT"
     ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
+    ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
+    ASIC_LAG_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"
     ASIC_ROUTERINTF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE"
     ASIC_NEIGH_ENTRY_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY"
 
@@ -238,9 +241,24 @@ class AsicDbCli(RedisCli):
         cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_HOSTIF_TABLE
         return self._run_and_raise(cmd)["stdout_lines"]
 
+    def get_asic_db_lag_list(self):
+        """Returns a list of keys in the lag table"""
+        cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_LAG_TABLE
+        return self._run_and_raise(cmd)["stdout_lines"]
+
+    def get_asic_db_lag_member_list(self):
+        """Returns a list of keys in the lag member table"""
+        cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_LAG_MEMBER_TABLE
+        return self._run_and_raise(cmd)["stdout_lines"]
+
     def get_router_if_list(self):
         """Returns a list of keys in the router interface table"""
         cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_ROUTERINTF_TABLE
+        return self._run_and_raise(cmd)["stdout_lines"]
+
+    def get_neighbor_list(self):
+        """Returns a list of keys in the neighbor table"""
+        cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_NEIGH_ENTRY_TABLE
         return self._run_and_raise(cmd)["stdout_lines"]
 
     def get_neighbor_key_by_ip(self, ipaddr):
@@ -251,12 +269,13 @@ class AsicDbCli(RedisCli):
 
         """
         result = self._run_and_raise(self._cli_prefix() + "KEYS %s*%s*" % (AsicDbCli.ASIC_NEIGH_ENTRY_TABLE, ipaddr))
-        neighbor_key = None
         match_str = '"ip":"%s"' % ipaddr
         for key in result["stdout_lines"]:
             if match_str in key:
                 neighbor_key = key
                 break
+        else:
+            raise RedisKeyNotFound("Did not find key: %s*%s* in asicdb" % (AsicDbCli.ASIC_NEIGH_ENTRY_TABLE, ipaddr))
 
         return neighbor_key
 
@@ -357,6 +376,8 @@ class AppDbCli(RedisCli):
 
     """
     APP_NEIGH_TABLE = "NEIGH_TABLE"
+    APP_LAG_TABLE = "LAG_TABLE"
+    APP_LAG_MEMBER_TABLE = "LAG_MEMBER_TABLE"
 
     def __init__(self, host):
         super(AppDbCli, self).__init__(host, 0)
@@ -368,7 +389,7 @@ class AppDbCli(RedisCli):
             ipaddr: The IP address to search for in the neighbor table.
 
         """
-        result = self._run_and_raise(self._cli_prefix() + "KEYS %s:*%s*" % (AppDbCli.APP_NEIGH_TABLE, ipaddr))
+        result = self._run_and_raise(self._cli_prefix() + "KEYS %s:*%s" % (AppDbCli.APP_NEIGH_TABLE, ipaddr))
         neighbor_key = None
         for key in result["stdout_lines"]:
             if key.endswith(ipaddr):
@@ -376,6 +397,20 @@ class AppDbCli(RedisCli):
                 break
 
         return neighbor_key
+
+    def get_app_db_lag_list(self):
+        """
+        Retuns lag list in app db
+        """
+        result = self._run_and_raise(self._cli_prefix() + "KEYS *%s*" % AppDbCli.APP_LAG_TABLE)
+        return result["stdout_lines"]
+
+    def get_app_db_lag_member_list(self):
+        """
+        return lag member list in app db
+        """
+        result = self._run_and_raise(self._cli_prefix() + "KEYS *{}:*".format(AppDbCli.APP_LAG_MEMBER_TABLE))
+        return result["stdout_lines"]
 
 
 class VoqDbCli(RedisCli):
@@ -386,6 +421,8 @@ class VoqDbCli(RedisCli):
         host: a SonicHost instance for a supervisor card.  Commands will be run on this shell.
 
     """
+    SYSTEM_LAG_TABLE = "SYSTEM_LAG_TABLE"
+    SYSTEM_LAG_MEMBER_TABLE = "SYSTEM_LAG_MEMBER_TABLE"
 
     def __init__(self, host):
         """Initializes the class with the database parameters and finds the IP address of the database"""
@@ -406,7 +443,7 @@ class VoqDbCli(RedisCli):
             ipaddr: The IP address to search for in the neighbor table.
 
         """
-        cmd = self._cli_prefix() + 'KEYS "SYSTEM_NEIGH|*%s*"' % ipaddr
+        cmd = self._cli_prefix() + 'KEYS "SYSTEM_NEIGH|*%s"' % ipaddr
         result = self._run_and_raise(cmd)
         neighbor_key = None
         for key in result["stdout_lines"]:
@@ -441,9 +478,26 @@ class VoqDbCli(RedisCli):
         key = "SYSTEM_INTERFACE|{}|{}|{}".format(slot_str, asic_str, port)
         return self.hget_key_value(key, "rif_id")
 
+    def get_lag_list(self):
+        """Returns a list of keys in the system lag table"""
+        cmd = self._cli_prefix() + "KEYS *{}*".format(VoqDbCli.SYSTEM_LAG_TABLE)
+        return self._run_and_raise(cmd)["stdout_lines"]
+
+    def get_lag_member_list(self):
+        """Returns a list of keys in the ststem lag member table"""
+        cmd = self._cli_prefix() + "KEYS *{}*".format(VoqDbCli.SYSTEM_LAG_MEMBER_TABLE)
+        return self._run_and_raise(cmd)["stdout_lines"]
+
 
 class RedisKeyNotFound(KeyError):
     """
     Raised when requested keys or fields are not found in the redis db.
+    """
+    pass
+
+
+class RedisNoCommandOutput(Exception):
+    """
+    Raised when no output is generated by the redis-cli command.
     """
     pass
