@@ -661,26 +661,29 @@ def generate_params_supervisor_hostname(request):
     pytest.fail("Test selected require a supervisor node, " +
                 "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname))
 
-def generate_param_asic_index(request, dut_indices, param_type):
+def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=False):
     _, tbinfo = get_tbinfo(request)
     inv_files = get_inventory_files(request)
-    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
-    #if the params are not present treat the device as a single asic device
-    asic_index_params = [DEFAULT_ASIC_ID]
+    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_hostnames))
 
-    for dut_id in dut_indices:
-        dut = tbinfo['duts'][dut_id]
+    asic_index_params = []
+    for dut in dut_hostnames:
         inv_data = get_host_visible_vars(inv_files, dut)
-        if inv_data is not None:
+        # if the params are not present treat the device as a single asic device
+        dut_asic_params = [DEFAULT_ASIC_ID]
+        if inv_data:
             if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
                 if int(inv_data[ASIC_PARAM_TYPE_ALL]) == 1:
-                    asic_index_params = [DEFAULT_ASIC_ID]
+                    dut_asic_params = [DEFAULT_ASIC_ID]
                 else:
-                    asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+                    dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
-                asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
-            logging.info("dut_index {} dut name {}  asics params = {}".format(
-                dut_id, dut, asic_index_params))
+                dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
+        if random_asic:
+            asic_index_params.append(random.sample(dut_asic_params, 1))
+        else:
+            asic_index_params.append(dut_asic_params)
     return asic_index_params
 
 
@@ -805,44 +808,69 @@ _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
-    dut_indices = [0]
+    dut_fixture_name = None
+    duts_selected = None
     global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
-    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
-    if "enum_dut_index" in metafunc.fixturenames:
-        dut_indices = generate_params_dut_index(metafunc)
-        metafunc.parametrize("enum_dut_index", dut_indices, scope="module")
-    elif "enum_dut_hostname" in metafunc.fixturenames:
-        dut_hostnames = generate_params_dut_hostname(metafunc)
-        metafunc.parametrize("enum_dut_hostname", dut_hostnames, scope="module")
+    # Enumerators for duts are mutually exclusive
+    if "enum_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_dut_hostname(metafunc)
+        dut_fixture_name = "enum_dut_hostname"
     elif "enum_supervisor_dut_hostname" in metafunc.fixturenames:
-        supervisor_hosts = generate_params_supervisor_hostname(metafunc)
-        metafunc.parametrize("enum_supervisor_dut_hostname", supervisor_hosts, scope="module")
+        duts_selected = generate_params_supervisor_hostname(metafunc)
+        dut_fixture_name = "enum_supervisor_dut_hostname"
     elif "enum_frontend_dut_hostname" in metafunc.fixturenames:
-        frontend_hosts = generate_params_frontend_hostname(metafunc)
-        metafunc.parametrize("enum_frontend_dut_hostname", frontend_hosts, scope="module")
+        duts_selected = generate_params_frontend_hostname(metafunc)
+        dut_fixture_name = "enum_frontend_dut_hostname"
     elif "enum_rand_one_per_hwsku_hostname" in metafunc.fixturenames:
         if metafunc.module not in _hosts_per_hwsku_per_module:
             hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc)
             _hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
-        hosts = _hosts_per_hwsku_per_module[metafunc.module]
-        metafunc.parametrize("enum_rand_one_per_hwsku_hostname", hosts, scope="module")
+        duts_selected = _hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_hostname"
     elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
         if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
             hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc, frontend_only=True)
             _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
-        hosts = _frontend_hosts_per_hwsku_per_module[metafunc.module]
-        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", hosts, scope="module")
+        duts_selected = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
 
+    asics_selected = None
+    asic_fixture_name = None
     if "enum_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_asic_index", generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
-    if "enum_frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize(
-            "enum_frontend_asic_index",
-            generate_param_asic_index(
-                metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND
-            ),
-            scope="class"
-        )
+        if duts_selected is None:
+            tbname, tbinfo = get_tbinfo(metafunc)
+            duts_selected = [tbinfo["duts"][0]]
+        asic_fixture_name = "enum_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
+    elif "enum_frontend_asic_index" in metafunc.fixturenames:
+        if duts_selected is None:
+            tbname, tbinfo = get_tbinfo(metafunc)
+            duts_selected = [tbinfo["duts"][0]]
+        asic_fixture_name = "enum_frontend_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected,ASIC_PARAM_TYPE_FRONTEND)
+    elif "enum_rand_one_asic_index" in metafunc.fixturenames:
+        if duts_selected is None:
+            tbname, tbinfo = get_tbinfo(metafunc)
+            duts_selected = [tbinfo["duts"][0]]
+        asic_fixture_name = "enum_rand_one_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
+
+    # Create parameterization tuple of dut_fixture_name and asic_fixture_name to parameterize
+    if dut_fixture_name and asic_fixture_name:
+        # parameterize on both - create tuple for each
+        tuple_list = []
+        for a_dut_index, a_dut in enumerate(duts_selected):
+            for a_asic in asics_selected[a_dut_index]:
+                # Create tuple of dut and asic index
+                tuple_list.append((a_dut, a_asic))
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
+    elif dut_fixture_name:
+        # parameterize only on DUT
+        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
+    elif asic_fixture_name:
+        # We have no duts selected, so need asic list for the first DUT
+        metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
