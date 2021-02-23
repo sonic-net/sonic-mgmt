@@ -764,7 +764,6 @@ class QosSaiBase:
     def populateArpEntries(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
         ptfhost, dutTestParams, dutConfig, releaseAllPorts,
-        ssh_tunnel_to_syncd_rpc
     ):
         """
             Update ARP entries of QoS SAI test ports
