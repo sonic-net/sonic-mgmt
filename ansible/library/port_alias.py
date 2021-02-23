@@ -94,6 +94,11 @@ class SonicPortAliasMap():
         portmap = {}
         aliasmap = {}
         portspeed = {}
+        # Front end interface asic names
+        asicifnames = []
+        # All asic names
+        asicnames = []
+
         filename = self.get_portconfig_path(asic_id)
         if filename is None:
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
@@ -102,6 +107,7 @@ class SonicPortAliasMap():
         alias_index = -1
         speed_index = -1
         role_index = -1
+        asic_name_index = -1
         while len(lines) != 0:
             line = lines.pop(0)
             if re.match('^#', line):
@@ -115,6 +121,8 @@ class SonicPortAliasMap():
                             speed_index = index
                         if 'role' in text:
                             role_index = index
+                        if 'asic_port_name' in text:
+                            asic_name_index = index
             else:
                 #added support to parse recycle port
                 if re.match('^Ethernet', line) or re.match('^Inband', line):
@@ -134,8 +142,14 @@ class SonicPortAliasMap():
                         aliasmap[alias] = name
                         if (speed_index != -1) and (len(mapping) > speed_index):
                             portspeed[alias] = mapping[speed_index]
+                        if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                            asicifname = mapping[asic_name_index]
+                            asicifnames.append(asicifname)
+                    if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                        asicname = mapping[asic_name_index]
+                        asicnames.append(asicname)
 
-        return (aliases, portmap, aliasmap, portspeed)
+        return (aliases, portmap, aliasmap, portspeed, asicifnames, asicnames)
 
 def main():
     module = AnsibleModule(
@@ -152,6 +166,11 @@ def main():
         aliasmap = {}
         portspeed = {}
         allmap = SonicPortAliasMap(m_args['hwsku'])
+        # Front end interface asic names
+        asicifnames = []
+        # { asic_name: [ asic interfaces] }
+        asicnames = {}
+
         # When this script is invoked on sonic-mgmt docker, num_asic 
         # parameter is passed.
         if m_args['num_asic'] is not None:
@@ -166,7 +185,7 @@ def main():
         for asic_id in range(num_asic):
             if num_asic == 1:
                 asic_id = None
-            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic) = allmap.get_portmap(asic_id)
+            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, asicifnames_asic, asicnames_asic) = allmap.get_portmap(asic_id)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:
@@ -175,10 +194,17 @@ def main():
                 aliasmap.update(aliasmap_asic)
             if portspeed_asic is not None:
                 portspeed.update(portspeed_asic)
+            if asicifnames_asic is not None:
+                asicifnames.extend(asicifnames_asic)
+            if asicnames_asic is not None:
+                asic = 'ASIC' + str(asic_id)
+                asicnames[asic] = asicnames_asic
         module.exit_json(ansible_facts={'port_alias': aliases,
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
-                                        'port_speed': portspeed})
+                                        'port_speed': portspeed,
+                                        'asic_ifnames': asicifnames,
+                                        'asic_names': asicnames})
     except (IOError, OSError), e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)
