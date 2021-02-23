@@ -42,11 +42,13 @@ TDB
 
 ## Test Methodology
 Here are the highlevel steps:
-1. Pytest script pushes initial configuration in DUT using fixtures (duthost)
-2. Pytest script kicks off IxANVL execution
-3. IxANVL creates virtual interfaces with chassis for packet transmission and reception
+
+1. Ansible scripts deploy virtual test bed inclusing IxANVL docker 
+2. Pytest script pushes initial configuration in DUT using fixtures (duthost)
+3. Pytest script kicks off IxANVL execution
 4. IxANVL starts running test cases and does runtime DUT configurations using vtysh
 5. Once the execution completes, pytest script fetches the run results
+![IxANVL test methodology](Img/anvl-test-methodology.png)
 
 ### Test cases
 View IxANVL datasheet for details (BGP4 Core)
