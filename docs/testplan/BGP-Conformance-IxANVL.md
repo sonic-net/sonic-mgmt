@@ -38,16 +38,16 @@ IxANVL test bed deployment (PR TBD)
 ![Keysight Topology ](Img/anvl-testbed.png)
 
 ## Setup configuration
-TDB
+1. Testbed Configuration script brings up the IxANVL docker and the SONIC VS DUT
+2. Testbed Configuration script also brings up the connections between IxANVL docker and the SONIC VS DUT for test channel
 
 ## Test Methodology
 Here are the highlevel steps:
-
-1. Ansible scripts deploy virtual test bed inclusing IxANVL docker 
-2. Pytest script pushes initial configuration in DUT using fixtures (duthost)
-3. Pytest script kicks off IxANVL execution
-4. IxANVL starts running test cases and does runtime DUT configurations using vtysh
-5. Once the execution completes, pytest script fetches the run results
+1. Pytest script pushes initial configuration in DUT using fixtures (duthost)
+2. Pytest script kicks off IxANVL execution
+3. IxANVL starts running test cases and does runtime DUT configurations using vtysh
+4. Once the execution completes, pytest script fetches the run results
+   
 ![IxANVL test methodology](Img/anvl-test-methodology.png)
 
 ### Test cases
