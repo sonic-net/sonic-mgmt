@@ -1142,10 +1142,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return mg_facts
 
-    def get_route(self, prefix):
-        cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
-        return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
-
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd)
@@ -2104,6 +2100,15 @@ class MultiAsicSonicHost(object):
             return cmd
         ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
         return ns_cmd
+    
+    def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
+        asic_id = self.get_asic_id_from_namespace(namespace)
+        if asic_id == DEFAULT_ASIC_ID:
+           ns_prefix = ''
+        else:
+           ns_prefix = '-n ' + str(asic_id)
+        cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
+        return json.loads(self.shell('vtysh {} -c "{} {} json"'.format(ns_prefix, cmd, prefix))['stdout'])
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
