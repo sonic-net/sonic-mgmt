@@ -66,7 +66,7 @@ def detect_shared_headroom_pool_mode(duthost):
         DEFAULT_SHARED_HEADROOM_POOL_ENABLED = True
         DEFAULT_OVER_SUBSCRIBE_RATIO = int(over_subscribe_ratio)
 
-    shared_headroom_pool_size = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" size')['stdout']
+    shared_headroom_pool_size = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
     if shared_headroom_pool_size and shared_headroom_pool_size != '0':
         DEFAULT_SHARED_HEADROOM_POOL_ENABLED = True
         DEFAULT_SHARED_HEADROOM_POOL_SIZE = int(shared_headroom_pool_size)
@@ -168,7 +168,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
     Args:
         ingress_lossless_pool_oid: The SAI OID of the ingress lossless pool in ASIC_DB
         kwargs: The parameters based on which the expected pool size is calculated.
-                They are represeted in form of kwargs because different vendor can require different parameters
+                They are represented in form of kwargs because different vendor can require different parameters
                 For Mellanox, it includes:
                  - Old / new pg size
                  - Old / new pg xoff (required only over subscribe ratio is defined)
