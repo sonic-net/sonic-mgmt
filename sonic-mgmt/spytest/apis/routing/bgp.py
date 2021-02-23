@@ -123,7 +123,8 @@ def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', 
     if cli_type in ['vtysh', 'click']:
         cli_type = 'vtysh'
         if vrf.lower() == 'default':
-            command = "{} router bgp {}".format(mode, local_asn)
+            command = "{} router bgp {} \n".format(mode, local_asn)
+            command += "no bgp ebgp-requires-policy \n"
         else:
             command = "{} router bgp {} vrf {}".format(mode, local_asn, vrf)
     elif cli_type == 'klish':
@@ -3617,6 +3618,7 @@ def config_bgp(dut, **kwargs):
             my_cmd += '{} bgp confederation identifier {}\n'.format(config_cmd, conf_identf)
 
         for type1 in config_type_list:
+            my_cmd += "no bgp ebgp-requires-policy \n"
             if type1 == 'neighbor':
                 my_cmd += '{} neighbor {} remote-as {}\n'.format(config_cmd, neighbor, remote_as)
             elif type1 == 'shutdown':

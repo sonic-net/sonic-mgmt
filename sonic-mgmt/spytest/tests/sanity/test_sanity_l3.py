@@ -482,7 +482,7 @@ def test_static_route_with_portchannel():
 
     #step5 add static route via port channel
     ipfeature.create_static_route(dut1, data.d2d1_ip_addr, data.static_ip_list[1])
-    ipfeature.create_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[1])
+    ipfeature.create_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[1], family='ipv6')
     st.log("checking show ip routes")
     st.show(dut1, "show ip route")
 
@@ -500,7 +500,7 @@ def test_static_route_with_portchannel():
 
     #step7 revert back the configs done for port channel
     ipfeature.delete_static_route(dut1, data.d2d1_ip_addr, data.static_ip_list[1])
-    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[1])
+    ipfeature.delete_static_route(dut1, data.d2d1_ip_addr_v6, data.static_ipv6_list[1], family='ipv6')
     portchannel_obj.delete_portchannel(dut1, data.port_channel)
     portchannel_obj.delete_portchannel(dut2, data.port_channel)
 
