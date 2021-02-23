@@ -1,0 +1,152 @@
+# Starter pipeline
+
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+
+# Add steps that build, run tests, deploy, and more:
+
+# https://aka.ms/yaml
+
+pr:
+- master
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+resources:
+  repositories:
+  - repository: sonic-mgmt
+    type: github
+    name: Azure/sonic-mgmt
+    endpoint: build
+
+parameters:
+- name: iterations 
+  type: object
+  default: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100] 
+
+stages:
+- stage: Test
+  pool: sonictest
+  variables:
+  - name: dut
+    value: vlab-01
+  - name: tbname
+    value: vms-kvm-t0
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.csv
+  - name: ptf_name
+    value: ptf_vms6-1
+  - name: continue
+    value: true
+   
+
+  jobs:
+  - job: kvmWarmbootTest
+    displayName: "kvmtest"
+    timeoutInMinutes: 0
+    steps:
+    - task: DownloadPipelineArtifact@2
+
+      inputs:
+        source: specific
+        project: build
+        pipeline: 1
+        artifact: sonic-buildimage.vs
+        runVersion: 'latestFromBranch'
+        runBranch: 'refs/heads/master'
+      displayName: "Download sonic kvm image"
+
+    - script: |
+        sudo mkdir -p /data/sonic-vm/images
+        sudo cp -v ../target/sonic-vs.img.gz /data/sonic-vm/images/sonic-vs.img.gz
+        sudo gzip -fd /data/sonic-vm/images/sonic-vs.img.gz
+        username=$(id -un)
+        sudo chown -R $username.$username /data/sonic-vm
+        pushd /data/sonic-mgmt
+        git remote update
+        git reset --hard origin/master
+        sed -i s/use_own_value/${username}/ ansible/veos_vtb
+        echo aaa > ansible/password.txt
+        docker exec sonic-mgmt bash -c "pushd /data/sonic-mgmt/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg $(tbname) lab password.txt" && sleep 180
+      displayName: "Setup T0 testbed"
+
+    - ${{ each iter in parameters.iterations }}:
+      - script: |
+          echo " Continue running test: $(continue)" # outputs secondValue
+          if $(continue); then
+              pwd
+              username=$(id -un)
+              rm -rf $(Build.ArtifactStagingDirectory)/*
+
+              IMAGE_LOCATION="https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image-202012/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz"
+              IMAGE_LIST="current"
+              CONTINUOUS_REBOOT_COUNT=1
+              CONTINUOUS_REBOOT_DELAY=600
+
+              CMD="cd /data/sonic-mgmt/tests/ ; \
+              export ANSIBLE_CONFIG=/data/sonic-mgmt/ansible ANSIBLE_LIBRARY=/data/sonic-mgmt/ansible/library/; \
+              pytest platform_tests/test_cont_warm_reboot.py \
+                    --continuous_reboot_count=$CONTINUOUS_REBOOT_COUNT \
+                    --continuous_reboot_delay=$CONTINUOUS_REBOOT_DELAY \
+                    --testbed=$(tbname) --host-pattern=$(tbname) --inventory=/data/sonic-mgmt/ansible/veos_vtb \
+                    --testbed_file=/data/sonic-mgmt/ansible/vtestbed.csv --module-path=/data/sonic-mgmt/ansible/library \
+                    --show-capture=no --log-cli-level=INFO  \
+                    --image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST \
+                    --reboot_type=warm --skip_sanity"
+
+              LOG_CMD="mkdir -p /data/sonic-mgmt/tests/logs/continuous_warm_reboot/ ; mv /data/sonic-mgmt/tests/continous_reboot_* /data/sonic-mgmt/tests/logs/continuous_warm_reboot/ || true"
+              echo "Continuous warm reboot test command: $CMD"
+              iteration=${{ iter }}
+              echo "================ iteration ${iteration} started==================="
+              echo $iteration
+              docker exec sonic-mgmt bash -c "rm -rf /data/sonic-mgmt/tests/logs/continuous_warm_reboot || true"
+              docker exec sonic-mgmt bash -c "$CMD"
+
+              if [ "${PIPESTATUS[0]}" -ne "0" ]; then
+                  # fail and stop all the remaining batches if pytest fails
+                  echo "Iteration ${iteration} failed. Cancel subsequent tests, and saving KVM memdmp"
+                  echo "##vso[task.setvariable variable=continue]false"
+
+                  # save dut state if test fails
+                  virsh_version=$(virsh --version)
+                  if [ $virsh_version == "6.0.0" ]; then
+                      mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
+                      virsh -c qemu:///system list
+                      virsh -c qemu:///system save $(dut) $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).memdmp
+                      virsh -c qemu:///system dumpxml $(dut) > $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).xml
+                      img=$(virsh -c qemu:///system domblklist $(dut) | grep vda | awk '{print $2}')
+                      cp $img $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).img
+                      virsh -c qemu:///system undefine $(dut)
+                  fi
+                  docker commit $(ptf_name) docker-ptf:$(Build.BuildNumber)
+                  docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
+                  docker rmi docker-ptf:$(Build.BuildNumber)
+              fi
+              docker exec sonic-mgmt bash -c "$LOG_CMD"
+              cp -r /data/sonic-mgmt/tests/logs $(Build.ArtifactStagingDirectory)/
+              sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
+              echo "================ iteration ${iteration} completed==================="
+          else
+              echo "Test execution failure caused skipping of remaining tests"
+              exit 2
+          fi
+        displayName: "Run continuous warmboot tests"
+        continueOnError: false
+
+      - publish: $(Build.ArtifactStagingDirectory)/logs/continuous_warm_reboot
+        artifact: sonic-buildimage.kvmtest.log@${{ iter }}
+        displayName: "Archive sonic kvm logs"
+        continueOnError: true
+
+
+    - publish: $(Build.ArtifactStagingDirectory)/kvmdump
+      artifact: sonic-buildimage.kvmtest.memdump@$(System.JobAttempt)
+      displayName: "Archive sonic kvm memdump"
+      condition: failed()
+
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
+        testRunTitle: kvmtest
+      condition: succeededOrFailed()
