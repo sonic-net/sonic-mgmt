@@ -112,8 +112,8 @@ all:
           ansible_password: password
           ansible_user: admin
         vlab-07:
-          ansible_host: 10.250.0.109
-          ansible_hostv6: fec0::ffff:afa:9
+          ansible_host: 10.250.0.110
+          ansible_hostv6: fec0::ffff:afa:a
           type: kvm
           hwsku: msft_multi_asic_vs
           serial_port: 9005

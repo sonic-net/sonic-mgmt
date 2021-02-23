@@ -123,8 +123,8 @@ sonic_multi_asic:
     start_topo_service: True  
   hosts:
     vlab-07:
-      ansible_host: 10.250.0.109
-      ansible_hostv6: fec0::ffff:afa:7
+      ansible_host: 10.250.0.110
+      ansible_hostv6: fec0::ffff:afa:a
 
 sonic_multi_asic_2:
   vars:
