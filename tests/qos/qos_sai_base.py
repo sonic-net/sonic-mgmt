@@ -755,7 +755,6 @@ class QosSaiBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        duthost = duthosts[rand_one_dut_hostname]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
             testParams=dutTestParams["basicParams"]
