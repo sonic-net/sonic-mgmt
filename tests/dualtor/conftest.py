@@ -7,10 +7,10 @@ from tests.common.dualtor.dual_tor_utils import lower_tor_host, upper_tor_host #
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='function', autouse=False)
 def set_crm_polling_interval(lower_tor_host):
     """
-    A session level fixture to set crm polling interval to 1 second
+    A function level fixture to set crm polling interval to 1 second
     """
     wait_time = 2
     lower_tor_host.command("crm config polling interval {}".format(CRM_POLL_INTERVAL))
