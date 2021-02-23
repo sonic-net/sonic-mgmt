@@ -403,7 +403,7 @@ function copy_minigraph
   shift
   shift
 
-  echo "Deploying minigraph '$topology'"
+  echo "Copying minigraph '$topology'"
 
   read_file $topology
 
