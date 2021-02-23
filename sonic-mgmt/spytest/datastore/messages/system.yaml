@@ -16,6 +16,8 @@ interface_is_down_on_partner:  interface is down on partner device
 interface_down_after_all_iterations: interface is down after all iterations
 interfaces_not_listed_after_max_poll: Interfaces are not listed after max polling interval
 interface_counters_not_found: Interface counters not found
+interface_naming_passed: Interface naming test passed for {}
+interface_rx_err_counters_fail: rx_err counters is not increasing for port {}
 
 ##NTP
 ntpserver_not_configured: mentioned server ip is not configured
@@ -98,6 +100,7 @@ threshold_exceeded_success: Threshold exceeded - logs generated successfully
 threshold_exceeded_fail: Failed to generate 'Threshold exceeded' logs
 threshold_clear_success: Threshold  logs generated successfully
 threshold_clear_fail: Failed to generate 'Threshold clear' logs
+threshold_no_logs: Threshold logs are not generated for {}
 polling_interval: Polling interval configured as {}
 polling_interval_fail: Polling interval configuration failed.
 max_threshold_exceed: Max threshold exceeds the default value.
@@ -149,6 +152,7 @@ snmp_trap_informs_status: snmp trap informs status of {} are {}
 snmp_community_invalid_error_code: Observed invalid error code {} when snmp community - {} is configured via rest.
 snmp_community_config_gnmi_unsuccessful: Failed to {} snmp community - {} via gnmi.
 snmp_agent_address_config_verify_unsuccessful: Failed to configure snmp agent addresses - {} with non-default port - {}
+snmp_counter_not_incremented: SNMP counter value not incremented though simulated
 
 ##PMON
 pmon_service_not_up : PMON service is not up
@@ -299,6 +303,7 @@ found_string_dirty: The string dirty is found in {} output
 
 #PDDF
 pddf_mode_set_failed: "{0}: Failed to {1} {0} mode on device."
+pddf_service_is_not_running: "PDDF service is not running on the device."
 empty_values_observed: "{}: Observed empty values for some or all fields {}."
 value_mismatch: "{}: Observed value mismatch in sys-eeprom field {}."
 show_platform_syseeprom_command_verified: "{}: Successfully verified the output of 'show platform syseeprom' command."
@@ -434,6 +439,12 @@ snapshot_clear_verify : verification of {} is {}
 snapshot_all_buffer_counters : verification of all buffer counters using {} traffic is {}
 snapshot_tc_counter_DB_verify : verification of {} counter using counter DB is {}
 snapshot_clear_counter_DB_verify : verification of {} counter using counter DB is {}
+snapshot_pg_shared_watermark_verify : verification of snapshot pg shared watermark using {} CLI is {}
+snapshot_queue_unicast_watermark_verify : verification of snapshot queue unicast watermark using {} CLI is {}
+snapshot_queue_multicast_watermark_verify : verification of snapshot queue multicast watermark using {} CLI is {}
+snapshot_pg_shared_clear_verify : verification of clearing snapshot pg shared using {} CLI is {}
+snapshot_queue_unicast_clear_verify : verification of clearing snapshot queue unicast using {} CLI is {}
+snapshot_queue_multicast_clear_verify : verification of clearing snapshot queue multicast using {} CLI is {}
 
 #BARE BONE OC YANG VERSION
 rest_error_observed: REST error response {} status code observed
@@ -441,3 +452,33 @@ no_response_found: No response found with {}
 bare_bone_ocyang_version_status: Verification the bare bone oc yang version using correct, no version and incorrect version using {} call is {}.
 ocyang_unsupported_build_version: OCYANG version is unsupported on this build.
 ocyang_error_is_not_as_per_the_design: OCYANG ERROR {} is not as per the design.
+
+#Threhsold RESTConf compliance
+threshold_feature_restconf_compliance: Verification of RESTConf compliance for threshold feature is {}
+threshold_rest_operation_fail: Threshold config {} operation is not compliant with RESTConf
+bufferpool_threshold_rest_operation_fail: Buffer pool threshold config {} operation is not compliant with RESTConf
+
+#Snapshot RESTConf compliance
+snapshot_feature_restconf_compliance: Verification of RESTConf compliance for watermark snapshot/telemetry feature is {}
+snapshot_interval_rest_operation_fail: Watermark Snapshot interval {} operation is not compliant with RESTConf
+telemetry_interval_rest_operation_fail: Watermark Telemetry interval {} operation is not compliant with RESTConf
+
+#Threshold show running config
+threshold_show_running_config_fail: Threshold config commands for {} are not shown in show running-configuration output.
+
+#Snapshot show running config
+snapshot_show_running_config_fail: Watermark/Telemetry interval config commands are not shown in show running-configuration output.
+
+#DPB
+base_config_verification_failed: Base Config Verification Failed.
+
+
+#Hw_watchdog
+hw_watchdog_disable_fail: Failed to disable Hw watchdog feature
+hw_watchdog_enable_fail: Failed to enable Hw watchdog feature
+hw_watchdog_status_fail: Failed to get Hw watchdog status
+hw_watchdog_timeout_fail: Failed to get timeout value
+hw_watchdog_reset_fail: Failed to reset hw watchdog feature
+hw_watchdog_running_status: Failed to get running status of hw watchdog feature
+hw_watchdog_kdump_fail: Failed to get kdump collection of hw watchdog feature
+hw_watchdog_unsupported: Hw watchdog feature is unsupported

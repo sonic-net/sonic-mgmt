@@ -22,7 +22,7 @@ logger = logging.getLogger('EverflowPolicerTest')
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
-    NUM_OF_TOTAL_PACKETS = 500
+    NUM_OF_TOTAL_PACKETS = 10000
     METER_TYPES = ['packets', 'bytes']
 
 
@@ -106,9 +106,9 @@ class EverflowPolicerTest(BaseTest):
         logger.info(msg)
         msg = "tolerance={}".format(self.tolerance)
         logger.info(msg)
-        msg = "min_range={}".format(self.min_range)
+        msg = "min_range={}".format(self.min_rx_pps)
         logger.info(msg)
-        msg = "max_range={}".format(self.max_range)
+        msg = "max_range={}".format(self.max_rx_pps)
         logger.info(msg)
 
 
@@ -142,8 +142,7 @@ class EverflowPolicerTest(BaseTest):
         assert_str = "cbs({}) > 0".format(self.cbs)
         assert self.cbs > 0, assert_str
 
-        self.min_range = self.cbs - (self.cbs / 100) * self.tolerance
-        self.max_range = self.cbs + (self.cbs / 100) * self.tolerance
+        self.min_rx_pps, self.max_rx_pps = self.cbs * (1 - self.tolerance/100.), self.cbs * (1 + self.tolerance/100.)
 
         self.base_pkt = testutils.simple_tcp_packet(
                 eth_dst = self.router_mac,
@@ -173,14 +172,16 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
+        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
         for i in range(0, self.NUM_OF_TOTAL_PACKETS):
-            testutils.send_packet(self, self.src_port, self.base_pkt)
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None:
                 count += 1
             elif count == 0:
                 assert_str = "The first original packet is not recieved"
                 assert count > 0, assert_str # Fast failure without waiting for full iteration
+            else:
+                break # No more packets available
 
         logger.info("Recieved {} original packets".format(count))
 
@@ -247,8 +248,12 @@ class EverflowPolicerTest(BaseTest):
 
         self.dataplane.flush()
 
+        packet_flow_start_tstamp = time.time()
+        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
+        packet_flow_end_tstamp = time.time()
+        packet_flow_duration = packet_flow_end_tstamp - packet_flow_start_tstamp
+
         count = 0
-        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
         for i in range(0,self.NUM_OF_TOTAL_PACKETS):
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None and match_payload(rcv_pkt):
@@ -259,9 +264,14 @@ class EverflowPolicerTest(BaseTest):
             else:
                 break # No more packets available
 
-        logger.info("Received {} mirrored packets after rate limiting".format(count))
+        tx_pps = self.NUM_OF_TOTAL_PACKETS / packet_flow_duration
+        rx_pps = count / packet_flow_duration
 
-        return count
+        logger.info("Received {} mirrored packets after rate limiting".format(count))
+        logger.info("TX PPS {}".format(tx_pps))
+        logger.info("RX PPS {}".format(rx_pps))
+
+        return count, tx_pps, rx_pps
 
 
     def runTest(self):
@@ -288,6 +298,6 @@ class EverflowPolicerTest(BaseTest):
         testutils.add_filter(self.greFilter)
 
         # Send traffic and verify the mirroed traffic is rate limited
-        count = self.checkMirroredFlow()
-        assert_str = "min({1}) <= count({0}) <= max({2})".format(count, self.min_range, self.max_range)
-        assert count >= self.min_range and count <= self.max_range, assert_str
+        count, tx_pps, rx_pps = self.checkMirroredFlow()
+        assert_str = "min({1}) <= count({0}) <= max({2})".format(count, self.min_rx_pps, self.max_rx_pps)
+        assert count >= self.min_rx_pps and rx_pps <= self.max_rx_pps, assert_str

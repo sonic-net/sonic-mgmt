@@ -7,11 +7,14 @@
 #Peer Link Status     : up
 #Source Address       : 12.1.1.2
 #Peer Address         : 12.1.1.1
-#Peer Link            : PortChannel0002
+#Peer Link            : PortChannel0002 OR Ethernet3 OR Ethernet1/5/3
 #Keepalive Interval   : 1 secs
 #Session Timeout      : 15 secs
+#Delay Restore        : 60 secs (9 secs left on timer)  OR  Delay Restore        : 60 secs
 #System Mac           : 3c:2c:99:53:c7:c0
-# 
+#Mclag System Mac     : 10:10:10:10:10:10
+#Gateway Mac          : 00:01:02:03:01:01
+#
 # 
 #Number of MLAG Interfaces:4
 #-----------------------------------------------------------
@@ -32,10 +35,14 @@ Value session_status (\w+)
 Value domain_id (\d+)
 Value local_ip (\d+\.\d+\.\d+\.\d+)
 Value peer_ip (\d+\.\d+\.\d+\.\d+)
-Value peer_link_inf (\w+)
+Value peer_link_inf (\S+)
 Value keepalive_timer (\d+)
 Value session_timer (\d+)
+Value delay_restore_timer (\d+)
+Value delay_restore_left_timer (\d+)
 Value peer_link_mac (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)
+Value mclag_sys_mac (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)
+Value gw_mac (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)
 Value node_role (\w+)
 Value num_mclag_intfs (\d+)
 Value List mclag_intfs (\w+)
@@ -50,7 +57,11 @@ Start
   ^\s*Peer Link\s*: ${peer_link_inf}$$
   ^\s*Keepalive Interval\s*: ${keepalive_timer} secs
   ^\s*Session Timeout\s*: ${session_timer} secs
+  ^\s*Delay Restore\s*: ${delay_restore_timer} secs \(${delay_restore_left_timer} secs left on timer\)$$
+  ^\s*Delay Restore\s*: ${delay_restore_timer} secs
   ^\s*System Mac\s*: ${peer_link_mac}$$
+  ^\s*Mclag System Mac\s*: ${mclag_sys_mac}$$
+  ^\s*Gateway Mac\s*: ${gw_mac}$$
   ^\s*Role\s*: ${node_role}$$
   ^\s*Number of MLAG Interfaces:${num_mclag_intfs}$$ -> Record
   ^\s*${mclag_intfs}\s*${local_status}/${remote_status}\s*$$

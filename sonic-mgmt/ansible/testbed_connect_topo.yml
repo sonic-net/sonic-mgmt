@@ -11,9 +11,9 @@
     fail: msg="Define vm_set_name variable with -e vm_set_name=something"
     when: vm_set_name is not defined
 
-  - name: Check that variable dut_name is defined
-    fail: msg="Define dut_name variable with -e dut_name=something"
-    when: dut_name is not defined
+  - name: Check that variable duts_name is defined
+    fail: msg="Define duts_name variable with -e duts_name=something"
+    when: duts_name is not defined
 
   - name: Check that variable VM_base is defined
     fail: msg="Define VM_base variable with -e VM_base=something"
@@ -44,15 +44,15 @@
 
   - name: Read dut minigraph
     conn_graph_facts:
-      host: "{{ dut_name }}"
+      host: "{{ duts_name }}"
     delegate_to: localhost
-    when: dut_name.split(',')|length == 1
+    when: duts_name.split(',')|length == 1
 
   - name: Read duts minigraph
     conn_graph_facts:
-      hosts: "{{ dut_name.split(',') }}"
+      hosts: "{{ duts_name.split(',') }}"
     delegate_to: localhost
-    when: dut_name.split(',')|length > 1
+    when: duts_name.split(',')|length > 1
 
   roles:
     - { role: vm_set, action: 'add_topo', when external_port is not defined }

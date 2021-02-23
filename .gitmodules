@@ -1,0 +1,3 @@
+[submodule "infra/gnxi"]
+	path = infra/gnxi
+	url = https://github.com/google/gnxi.git

@@ -37,7 +37,7 @@
     ports: "{{minigraph_ports.keys() | join(' ')}}"
 
 - set_fact:
-    neighbors: "{{device_conn}}"
+    neighbors: "{{device_conn[inventory_hostname]}}"
 
 - set_fact:
     ansible_eth0_ipv4_addr: "{{ansible_eth0['ipv4']['address']}}"

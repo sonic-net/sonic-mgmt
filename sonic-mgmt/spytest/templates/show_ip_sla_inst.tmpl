@@ -1,0 +1,55 @@
+Value Required INST (\d+)
+Value TYPE (\S+)
+Value DST_ADDR (\S+)
+Value DST_PORT (\S+)
+Value SRC_ADDR (\S+)
+Value SRC_INTF (\S+)
+Value SRC_PORT (\d+)
+Value VRF_NAME (\S+)
+Value ICMP_SIZE (\d+)
+Value FREQ (\d+)
+Value TIMEOUT (\d+)
+Value TTL (\d+)
+Value TOS (\d+)
+Value OPER_STATE (\S+)
+Value OPER_SUCC_CNT (\d+)
+Value OPER_FAIL_CNT (\d+)
+Value ICMP_REQ_CNT (\d+)
+Value ICMP_SUCC_CNT (\d+)
+Value ICMP_ERR_CNT (\d+)
+Value TCP_REQ_CNT (\d+)
+Value TCP_SUCC_CNT (\d+)
+Value TCP_ERR_CNT (\d+)
+Value THRESHOLD (\d+)
+
+
+Start
+  ^\s*IP SLA Operation Number\s*:\s+${INST}
+  ^\s*Type of Operation\s*:\s+${TYPE}
+  ^\s*Target address\s*:\s+${DST_ADDR}
+  ^\s*.*destination\s*IP\s*address:\s*${DST_ADDR}
+  ^\s*.*destination\s*port:\s*${DST_PORT}
+  ^\s*Target TCP port\s*:\s+${DST_PORT} 
+  ^\s*Source address\s*:\s+${SRC_ADDR}
+  ^\s*.*source\s*IP\s*address:\s*${SRC_ADDR}
+  ^\s*.*source\s*interface:\s*${SRC_INTF}
+  ^\s*Source port\s*:\s+${SRC_PORT}
+  ^\s*TCP\s*source\s*port\s*:\s*${SRC_PORT}
+  ^\s*Source VRF\s*:\s+${VRF_NAME}
+  ^\s*Request size \(ICMP data portion\)\s*:\s+${ICMP_SIZE}
+  ^\s*ICMP\s*request\s*data\s*size:\s*${ICMP_SIZE}
+  ^\s*.*Time-To-Live\(TTL\)\s*:\s*${TTL}
+  ^\s*.*Type-of-Service\(ToS\):\s*${TOS}
+  ^\s*TCP\s*ToS\s*\(Type-of-Service\):\s*${TOS}
+  ^\s*Operation frequency \(sec\)\s*:\s+${FREQ}
+  ^\s*Operation timeout \(sec\)\s*:\s+${TIMEOUT}
+  ^\s*Operation\s*threshold\s*:\s*${THRESHOLD}
+  ^\s*Operation state\s*:\s+${OPER_STATE}
+  ^\s*Operation success counter\s*:\s+${OPER_SUCC_CNT}
+  ^\s*Operation failure counter\s*:\s+${OPER_FAIL_CNT}
+  ^\s*ICMP Echo Request counter\s*:\s+${ICMP_REQ_CNT}
+  ^\s*ICMP Echo Reply counter\s*:\s+${ICMP_SUCC_CNT}
+  ^\s*ICMP Error counter\s*:\s+${ICMP_ERR_CNT}
+  ^\s*TCP connect request counter\s*:\s+${TCP_REQ_CNT}
+  ^\s*TCP connect success counter\s*:\s+${TCP_SUCC_CNT}
+  ^\s*TCP connect error counter\s*:\s+${TCP_ERR_CNT}$$

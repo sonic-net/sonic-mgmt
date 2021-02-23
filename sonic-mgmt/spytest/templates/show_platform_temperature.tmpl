@@ -1,0 +1,15 @@
+Value sensor (\S+)
+Value temp (\S+)
+Value high_th (\S+)
+Value low_th (\S+)
+Value crit_high_th (\S+)
+Value crit_low_th (\S+)
+Value warning (\S+)
+Value timestamp (\S+)
+Value hours (\d+)
+Value minutes (\d+)
+Value seconds (\d+)
+
+Start
+  ^(-+\s*)*$$
+  ^\s*${sensor}\s*${temp}\s*${high_th}\s*${low_th}\s*${crit_high_th}\s*${crit_low_th}\s*${warning}\s*${timestamp}?\s*${hours}?:?${minutes}?:?${seconds}?\s*$$ -> Record

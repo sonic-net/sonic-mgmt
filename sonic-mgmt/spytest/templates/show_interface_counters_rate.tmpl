@@ -1,0 +1,15 @@
+Value IFACE (\S+)
+Value RATE_INTERVAL (\S+)
+Value RX_MBPS (\S+)
+Value RX_MBITSPS (\S+)
+Value RX_PPS (\S+)
+Value RX_UTIL (\S+)
+Value TX_MBPS (\S+)
+Value TX_MBITSPS (\S+)
+Value TX_PPS (\S+)
+Value TX_UTIL (\S+)
+
+Start
+  ^\s*${IFACE}\s+${RATE_INTERVAL}\s+${RX_MBPS}\s+${RX_MBITSPS}\s+${RX_PPS}\s+${RX_UTIL}\s+${TX_MBPS}\s+${TX_MBITSPS}\s+${TX_PPS}\s+${TX_UTIL} -> Record
+
+EOF

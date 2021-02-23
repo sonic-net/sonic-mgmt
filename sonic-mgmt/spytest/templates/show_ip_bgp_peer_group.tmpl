@@ -1,0 +1,14 @@
+Value Required PGNAME (\w+)
+Value REMOTEASN (\d+)
+Value List CONFIGAF (IPv\d Unicast)
+Value List PGMEMBER ([\:\d\w\.\/]+)
+Value List PGMEMSTATE ((Active)|(Idle))
+Start
+  ^\s*BGP peer\-group ${PGNAME}, remote AS ${REMOTEASN}
+  ^\s*BGP peer\-group ${PGNAME}
+  ^\s*Configured address-families: ${CONFIGAF} -> Continue
+  ^.*Configured address-families: IPv\d Unicast; ${CONFIGAF}
+  ^\s*Peer-group\smembers: -> Next PGparse
+PGparse
+  ^\s*$$ -> Next.Record Start
+  ^\s*${PGMEMBER}\s${PGMEMSTATE}

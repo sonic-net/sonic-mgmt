@@ -1,0 +1,19 @@
+main {
+  padding: 2em 4em;
+}
+mat-form-field {
+  display: block;
+}
+#test-runner {
+  width: 75%;
+}
+section {
+  background: #000;
+  height: 100%;
+  width: 100%;
+  border-left: 4px solid #e91e63;
+  font-family: 'Inconsolata', monospace;
+  overflow-y: scroll;
+  padding: 1em;
+  white-space: pre-line;
+}

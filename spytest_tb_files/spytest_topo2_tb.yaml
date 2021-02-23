@@ -15,19 +15,19 @@ configs:
 devices:
     SD1:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.146, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.239, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD2:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.178, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.216, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     stc-01:
         device_type: TGEN
-        properties: {type: stc, version: 5.05, ip: 192.168.122.119, params: def_tg}
+        properties: {type: stc, version: 5.05, ip: 192.168.122.16, params: def_tg}
 
 topology:
     SD1:

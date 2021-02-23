@@ -1,0 +1,32 @@
+Value Filldown,Required MAP_NAME ([\w\-_]+)
+Value Required FILTER_TYPE ((permit)|(deny))
+Value SEQ_NUM (\d{1,5})
+Value List MATCH_CLAUSE ([\w\-\s_\.\/]+)
+Value List SET_CLAUSE ([\w\-\s_\.\:\,\/]+)
+Value List CALL_CLAUSE ([\w\-\s_\.]+)
+# If more actions are defined later, add them by appending "|(next_action)"
+# after "(current_last_defined_action)".
+# e.g. ((Exit routemap)|(Do Somethingelse))
+Value List ACTION ((Exit routemap))
+
+Start
+  ^\s*Route map .* -> Continue.Record
+  ^\s*Route map ${MAP_NAME}:
+  ^\s*((permit)|(deny)), sequence.* -> Continue.Record
+  ^\s*${FILTER_TYPE}, sequence ${SEQ_NUM}
+  ^\s*Match clauses:.* -> Next.NoRecord MatchList
+  ^\s*${ACTION}
+
+MatchList
+  ^\s*Set clauses:.* -> Next.NoRecord SetList
+  ^\s*${MATCH_CLAUSE}
+
+SetList
+  ^\s*Call clauses:.* -> Next.NoRecord CallList
+  ^\s*${SET_CLAUSE}
+
+# Transition back to Start state to parse multple "actions" while
+# also checking for conditions requiring recording of the current row.
+CallList
+  ^\s*Actions:.* -> Next.NoRecord Start
+  ^\s*${CALL_CLAUSE}

@@ -1,0 +1,43 @@
+Value PREFIXIP ([\d\.:]+)
+Value PREFIXMASKLEN ([\d]+)
+Value NOOFPATHS (\d+)
+Value PEERIP ([(\d+\.\d+\.\d+\.\d)\s]+)
+Value PEERASN ([\d+\s]+)
+Value peernhtip1 ([\d\.:]+)
+Value peernhtip2 ([\d\.:]+)
+Value peerrtrid ([\d\.]+)
+Value ORIGIN (\S+)
+Value METRIC (\d+)
+Value WEIGHT (\d+)
+Value VALID (valid)
+Value EXTERNAL (external)
+Value MULTIPATH (multipath)
+Value BEST (best)
+Value COMMUNITY (.*?)
+
+
+Start
+  ^\s*BGP\s*routing\s*table\s*entry\s*for\s*${PREFIXIP}\/${PREFIXMASKLEN}$$ 
+  ^\s*Paths\:\s*\(${NOOFPATHS}\s*available,\s*best\s*\#([\d]*),\s*table\s*default\)$$
+  ^\s*Advertised\s*to\s*non\s*peer-group\s*peers\:$$
+  ^\s*${PEERASN}$$
+  ^\s*${PEERIP}$$
+  ^\s*${peernhtip1}\s*from\s*${peernhtip2}\s*\(${peerrtrid}\)
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*${VALID},\s*${EXTERNAL},\s*${MULTIPATH},\s*${BEST}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*${VALID},\s*${EXTERNAL},\s*${MULTIPATH}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},${EXTERNAL},\s*${MULTIPATH},\s*${BEST}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},${EXTERNAL},\s*${MULTIPATH}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*${VALID},\s*${EXTERNAL},\s*${BEST}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},${EXTERNAL},\s*${BEST}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},${EXTERNAL}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*weight\s*${WEIGHT},\s*${VALID},\s*${MULTIPATH},\s*${BEST}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*weight\s*${WEIGHT},\s*${VALID},\s*${MULTIPATH}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*weight\s*${WEIGHT},\s*${MULTIPATH}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*weight\s*${WEIGHT},\s*${VALID},\s*${BEST}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*weight\s*${WEIGHT},\s*${VALID}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*metric\s*${METRIC},\s*weight\s*${WEIGHT}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*${VALID},\s*${BEST}.*$$
+  ^\s*Origin\s*${ORIGIN},\s*${VALID}.*$$
+  ^\s*Origin\s*${ORIGIN}.*$$
+  ^\s*Community:\s*${COMMUNITY}\s*$$
+  ^\s*Last update:\s*(.*)$$ -> Record

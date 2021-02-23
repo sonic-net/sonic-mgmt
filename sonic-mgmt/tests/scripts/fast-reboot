@@ -12,7 +12,14 @@ FORCE=no
 STRICT=no
 REBOOT_METHOD="/sbin/kexec -e"
 ASSISTANT_IP_LIST=""
-ASSISTANT_SCRIPT="/usr/bin/neighbor_advertiser"
+ASSISTANT_SCRIPT="/usr/local/bin/neighbor_advertiser"
+
+# To maintain backward-compatibility with 201911 branch, when sonic-utilities
+# was intalled as a Debian package, not a Python wheel.
+# TODO: Remove this check once no longer necessary
+if [[ ! -f ${ASSISTANT_SCRIPT} ]]; then
+    ASSISTANT_SCRIPT="/usr/bin/neighbor_advertiser"
+fi
 
 # Require 100M available on the hard drive for warm reboot temp files,
 # Size is in 1K blocks:
@@ -263,7 +270,15 @@ function reboot_pre_check()
     fi
     
     # Make sure ASIC configuration has not changed between images
-    ASIC_CONFIG_CHECK_SCRIPT="/usr/bin/asic_config_check"
+    ASIC_CONFIG_CHECK_SCRIPT="/usr/local/bin/asic_config_check"
+
+    # To maintain backward-compatibility with 201911 branch, when sonic-utilities
+    # was intalled as a Debian package, not a Python wheel.
+    # TODO: Remove this check once no longer necessary
+    if [[ ! -f ${ASIC_CONFIG_CHECK_SCRIPT} ]]; then
+        ASIC_CONFIG_CHECK_SCRIPT="/usr/bin/asic_config_check"
+    fi
+
     ASIC_CONFIG_CHECK_SUCCESS=0
     if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
         ASIC_CONFIG_CHECK_EXIT_CODE=0
@@ -382,7 +397,7 @@ if [[ "$REBOOT_TYPE" = "fast-reboot" ]]; then
     # into /host/fast-reboot
     mkdir -p /host/fast-reboot
     FAST_REBOOT_DUMP_RC=0
-    /usr/bin/fast-reboot-dump.py -t /host/fast-reboot || FAST_REBOOT_DUMP_RC=$?
+    fast-reboot-dump.py -t /host/fast-reboot || FAST_REBOOT_DUMP_RC=$?
     if [[ FAST_REBOOT_DUMP_RC -ne 0 ]]; then
         error "Failed to run fast-reboot-dump.py. Exit code: $FAST_REBOOT_DUMP_RC"
         unload_kernel

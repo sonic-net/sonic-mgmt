@@ -641,62 +641,11 @@
             "rrclient": "0"
         }
     }, 
-    "CONTAINER_FEATURE": {
-        "bgp": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "database": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "dhcp_relay": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "lldp": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "nat": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "pmon": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "radv": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "restapi": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "sflow": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "snmp": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "swss": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "syncd": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "teamd": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
-        }, 
-        "telemetry": {
-            "auto_restart": "disabled", 
-            "high_mem_alert": "disabled"
+    "BUFFER_POOL": {
+        "egress_pool": {
+            "mode": "dynamic", 
+            "size": "67108864", 
+            "type": "egress"
         }
     }, 
     "CRM": {
@@ -745,6 +694,7 @@
     }, 
     "DEVICE_METADATA": {
         "localhost": {
+            "asic": "cisco-8000", 
             "bgp_asn": "65100", 
             "cloudtype": "None", 
             "default_bgp_status": "up", 
@@ -753,17 +703,454 @@
             "docker_routing_config_mode": "separated", 
             "hostname": "sherman-01", 
             "hwsku": "36x100Gb", 
-            "mac": "54:00:40:00:8a:c7", 
+            "mac": "02:68:64:c5:72:a0", 
             "platform": "x86_64-8201_sys-r0", 
             "region": "None", 
             "type": "LeafRouter"
         }
     }, 
+    "DEVICE_NEIGHBOR": {
+        "Ethernet0": {
+            "name": "ARISTA01T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet1": {
+            "name": "ARISTA02T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet2": {
+            "name": "ARISTA03T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet3": {
+            "name": "ARISTA04T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet4": {
+            "name": "ARISTA05T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet5": {
+            "name": "ARISTA06T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet6": {
+            "name": "ARISTA07T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet7": {
+            "name": "ARISTA08T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet8": {
+            "name": "ARISTA09T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet9": {
+            "name": "ARISTA10T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet10": {
+            "name": "ARISTA11T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet11": {
+            "name": "ARISTA12T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet12": {
+            "name": "ARISTA13T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet13": {
+            "name": "ARISTA14T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet14": {
+            "name": "ARISTA15T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet15": {
+            "name": "ARISTA16T2", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet16": {
+            "name": "ARISTA01T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet17": {
+            "name": "ARISTA02T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet18": {
+            "name": "ARISTA03T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet19": {
+            "name": "ARISTA04T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet20": {
+            "name": "ARISTA05T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet21": {
+            "name": "ARISTA06T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet22": {
+            "name": "ARISTA07T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet23": {
+            "name": "ARISTA08T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet24": {
+            "name": "ARISTA09T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet25": {
+            "name": "ARISTA10T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet26": {
+            "name": "ARISTA11T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet27": {
+            "name": "ARISTA12T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet28": {
+            "name": "ARISTA13T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet29": {
+            "name": "ARISTA14T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet30": {
+            "name": "ARISTA15T0", 
+            "port": "Ethernet1"
+        }, 
+        "Ethernet31": {
+            "name": "ARISTA16T0", 
+            "port": "Ethernet1"
+        }
+    }, 
+    "DEVICE_NEIGHBOR_METADATA": {
+        "ARISTA01T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.187", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA01T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.253", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA02T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.109", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA02T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.245", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA03T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.140", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA03T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.153", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA04T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.63", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA04T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.120", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA05T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.159", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA05T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.230", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA06T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.103", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA06T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.72", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA07T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.189", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA07T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.249", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA08T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.152", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA08T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.62", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA09T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.43", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA09T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.66", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA10T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.200", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA10T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.35", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA11T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.33", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA11T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.15", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA12T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.77", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA12T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.107", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA13T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.250", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA13T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.92", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA14T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.112", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA14T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.6", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA15T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.49", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA15T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.59", 
+            "type": "SpineRouter"
+        }, 
+        "ARISTA16T0": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.115", 
+            "type": "ToRRouter"
+        }, 
+        "ARISTA16T2": {
+            "hwsku": "Arista-VM", 
+            "lo_addr": "None", 
+            "mgmt_addr": "192.168.122.193", 
+            "type": "SpineRouter"
+        }
+    }, 
+    "DHCP_SERVER": {
+        "192.0.0.1": {}, 
+        "192.0.0.2": {}, 
+        "192.0.0.3": {}, 
+        "192.0.0.4": {}
+    }, 
     "FEATURE": {
+        "bgp": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "False", 
+            "has_per_asic_scope": "True", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "database": {
+            "auto_restart": "disabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "True", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "dhcp_relay": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "lldp": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "True", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "mgmt-framework": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "True", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "nat": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "disabled"
+        }, 
+        "pmon": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "radv": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
         "sflow": {
-            "status": "disabled"
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "disabled"
+        }, 
+        "snmp": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "True", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "swss": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "False", 
+            "has_per_asic_scope": "True", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "syncd": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "False", 
+            "has_per_asic_scope": "True", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
+        }, 
+        "teamd": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "False", 
+            "has_per_asic_scope": "True", 
+            "has_timer": "False", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled"
         }, 
         "telemetry": {
+            "auto_restart": "enabled", 
+            "has_global_scope": "True", 
+            "has_per_asic_scope": "False", 
+            "has_timer": "True", 
+            "high_mem_alert": "disabled", 
+            "state": "enabled", 
             "status": "enabled"
         }
     }, 
@@ -871,7 +1258,7 @@
         "Loopback0|FC00:1::32/128": {}
     }, 
     "MGMT_INTERFACE": {
-        "eth0|192.168.122.47/24": {
+        "eth0|192.168.122.122/24": {
             "gwaddr": "192.168.122.1"
         }, 
         "eth0|FC00:2::32/64": {
@@ -884,299 +1271,446 @@
             "alias": "eth0"
         }
     }, 
+    "NTP_SERVER": {
+        "10.0.0.1": {}, 
+        "10.0.0.2": {}
+    }, 
     "PORT": {
         "Ethernet0": {
-            "admin_status": "up",
-            "alias": "eth0",
-            "index": "0",
-            "lanes": "9,8,11,10",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet0", 
+            "description": "ARISTA01T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "0", 
+            "lanes": "9,8,11,10", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet1": {
-            "admin_status": "up",
-            "alias": "eth1",
-            "index": "1",
-            "lanes": "1,0,3,2",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet1", 
+            "description": "ARISTA02T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "1", 
+            "lanes": "1,0,3,2", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet2": {
-            "admin_status": "up",
-            "alias": "eth2",
-            "index": "2",
-            "lanes": "256,257,258,259",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet2", 
+            "description": "ARISTA03T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "2", 
+            "lanes": "256,257,258,259", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet3": {
-            "admin_status": "up",
-            "alias": "eth3",
-            "index": "3",
-            "lanes": "264,265,266,267",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet3", 
+            "description": "ARISTA04T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "3", 
+            "lanes": "264,265,266,267", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet4": {
-            "admin_status": "up",
-            "alias": "eth4",
-            "index": "4",
-            "lanes": "2568,2569,2570,2571",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet4", 
+            "description": "ARISTA05T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "4", 
+            "lanes": "2568,2569,2570,2571", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet5": {
-            "admin_status": "up",
-            "alias": "eth5",
-            "index": "5",
-            "lanes": "2560,2561,2562,2563",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet5", 
+            "description": "ARISTA06T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "5", 
+            "lanes": "2560,2561,2562,2563", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet6": {
-            "admin_status": "up",
-            "alias": "eth6",
-            "index": "6",
-            "lanes": "2816,2817,2818,2819",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet6", 
+            "description": "ARISTA07T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "6", 
+            "lanes": "2816,2817,2818,2819", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet7": {
-            "admin_status": "up",
-            "alias": "eth7",
-            "index": "7",
-            "lanes": "2824,2825,2826,2827",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet7", 
+            "description": "ARISTA08T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "7", 
+            "lanes": "2824,2825,2826,2827", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet8": {
-            "admin_status": "up",
-            "alias": "eth8",
-            "index": "8",
-            "lanes": "2312,2313,2314,2315",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet8", 
+            "description": "ARISTA09T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "8", 
+            "lanes": "2312,2313,2314,2315", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet9": {
-            "admin_status": "up",
-            "alias": "eth9",
-            "index": "9",
-            "lanes": "2304,2305,2306,2307",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet9", 
+            "description": "ARISTA10T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "9", 
+            "lanes": "2304,2305,2306,2307", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet10": {
-            "admin_status": "up",
-            "alias": "eth10",
-            "index": "10",
-            "lanes": "2056,2057,2058,2059",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet10", 
+            "description": "ARISTA11T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "10", 
+            "lanes": "2056,2057,2058,2059", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet11": {
-            "admin_status": "up",
-            "alias": "eth11",
-            "index": "11",
-            "lanes": "2048,2049,2050,2051",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet11", 
+            "description": "ARISTA12T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "11", 
+            "lanes": "2048,2049,2050,2051", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet12": {
-            "admin_status": "up",
-            "alias": "eth12",
-            "index": "12",
-            "lanes": "1800,1801,1802,1803",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet12", 
+            "description": "ARISTA13T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "12", 
+            "lanes": "1800,1801,1802,1803", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet13": {
-            "admin_status": "up",
-            "alias": "eth13",
-            "index": "13",
-            "lanes": "1792,1793,1794,1795",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet13", 
+            "description": "ARISTA14T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "13", 
+            "lanes": "1792,1793,1794,1795", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet14": {
-            "admin_status": "up",
-            "alias": "eth14",
-            "index": "14",
-            "lanes": "1536,1537,1538,1539",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet14", 
+            "description": "ARISTA15T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "14", 
+            "lanes": "1536,1537,1538,1539", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet15": {
-            "admin_status": "up",
-            "alias": "eth15",
-            "index": "15",
-            "lanes": "1544,1545,1546,1547",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet15", 
+            "description": "ARISTA16T2:Ethernet1", 
+            "fec": "rs", 
+            "index": "15", 
+            "lanes": "1544,1545,1546,1547", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet16": {
-            "admin_status": "up",
-            "alias": "eth16",
-            "index": "16",
-            "lanes": "1288,1289,1290,1291",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet16", 
+            "description": "ARISTA01T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "16", 
+            "lanes": "1288,1289,1290,1291", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet17": {
-            "admin_status": "up",
-            "alias": "eth17",
-            "index": "17",
-            "lanes": "1280,1281,1282,1283",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet17", 
+            "description": "ARISTA02T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "17", 
+            "lanes": "1280,1281,1282,1283", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet18": {
-            "admin_status": "up",
-            "alias": "eth18",
-            "index": "18",
-            "lanes": "1032,1033,1034,1035",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet18", 
+            "description": "ARISTA03T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "18", 
+            "lanes": "1032,1033,1034,1035", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet19": {
-            "admin_status": "up",
-            "alias": "eth19",
-            "index": "19",
-            "lanes": "1024,1025,1026,1027",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet19", 
+            "description": "ARISTA04T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "19", 
+            "lanes": "1024,1025,1026,1027", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet20": {
-            "admin_status": "up",
-            "alias": "eth20",
-            "index": "20",
-            "lanes": "776,777,778,779",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet20", 
+            "description": "ARISTA05T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "20", 
+            "lanes": "776,777,778,779", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet21": {
-            "admin_status": "up",
-            "alias": "eth21",
-            "index": "21",
-            "lanes": "768,769,770,771",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet21", 
+            "description": "ARISTA06T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "21", 
+            "lanes": "768,769,770,771", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet22": {
-            "admin_status": "up",
-            "alias": "eth22",
-            "index": "22",
-            "lanes": "520,521,522,523",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet22", 
+            "description": "ARISTA07T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "22", 
+            "lanes": "520,521,522,523", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet23": {
-            "admin_status": "up",
-            "alias": "eth23",
-            "index": "23",
-            "lanes": "512,513,514,515",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet23", 
+            "description": "ARISTA08T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "23", 
+            "lanes": "512,513,514,515", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet24": {
-            "admin_status": "up",
-            "alias": "eth24",
-            "index": "24",
-            "lanes": "1552,1553",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet24", 
+            "description": "ARISTA09T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "24", 
+            "lanes": "1552,1553", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet25": {
-            "admin_status": "up",
-            "alias": "eth25",
-            "index": "25",
-            "lanes": "1808,1809",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet25", 
+            "description": "ARISTA10T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "25", 
+            "lanes": "1808,1809", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet26": {
-            "admin_status": "up",
-            "alias": "eth26",
-            "index": "26",
-            "lanes": "1040,1041",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet26", 
+            "description": "ARISTA11T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "26", 
+            "lanes": "1040,1041", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet27": {
-            "admin_status": "up",
-            "alias": "eth27",
-            "index": "27",
-            "lanes": "1296,1297",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet27", 
+            "description": "ARISTA12T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "27", 
+            "lanes": "1296,1297", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet28": {
-            "admin_status": "up",
-            "alias": "eth28",
-            "index": "28",
-            "lanes": "528,529",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet28", 
+            "description": "ARISTA13T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "28", 
+            "lanes": "528,529", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet29": {
-            "admin_status": "up",
-            "alias": "eth29",
-            "index": "29",
-            "lanes": "784,785",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet29", 
+            "description": "ARISTA14T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "29", 
+            "lanes": "784,785", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet30": {
-            "admin_status": "up",
-            "alias": "eth30",
-            "index": "30",
-            "lanes": "16,17",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet30", 
+            "description": "ARISTA15T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "30", 
+            "lanes": "16,17", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet31": {
-            "admin_status": "up",
-            "alias": "eth31",
-            "index": "31",
-            "lanes": "272,273",
-            "mtu": "9100",
+            "admin_status": "up", 
+            "alias": "Ethernet31", 
+            "description": "ARISTA16T0:Ethernet1", 
+            "fec": "rs", 
+            "index": "31", 
+            "lanes": "272,273", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet32": {
-            "admin_status": "up",
-            "alias": "eth32",
-            "index": "32",
-            "lanes": "2576,2577",
-            "mtu": "9100",
+            "alias": "Ethernet32", 
+            "description": "Ethernet32", 
+            "fec": "rs", 
+            "index": "32", 
+            "lanes": "2576,2577", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet33": {
-            "admin_status": "up",
-            "alias": "eth33",
-            "index": "33",
-            "lanes": "2832,2833",
-            "mtu": "9100",
+            "alias": "Ethernet33", 
+            "description": "Ethernet33", 
+            "fec": "rs", 
+            "index": "33", 
+            "lanes": "2832,2833", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet34": {
-            "admin_status": "up",
-            "alias": "eth34",
-            "index": "34",
-            "lanes": "2064,2065",
-            "mtu": "9100",
+            "alias": "Ethernet34", 
+            "description": "Ethernet34", 
+            "fec": "rs", 
+            "index": "34", 
+            "lanes": "2064,2065", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
-        },
+        }, 
         "Ethernet35": {
-            "admin_status": "up",
-            "alias": "eth35",
-            "index": "35",
-            "lanes": "2320,2321",
-            "mtu": "9100",
+            "alias": "Ethernet35", 
+            "description": "Ethernet35", 
+            "fec": "rs", 
+            "index": "35", 
+            "lanes": "2320,2321", 
+            "mtu": "9100", 
+            "pfc_asym": "off", 
             "speed": "100000"
         }
-    },
+    }, 
+    "RESTAPI": {
+        "certs": {
+            "ca_crt": "/etc/sonic/credentials/restapica.crt", 
+            "client_crt_cname": "client.restapi.sonic", 
+            "server_crt": "/etc/sonic/credentials/restapiserver.crt", 
+            "server_key": "/etc/sonic/credentials/restapiserver.key"
+        }, 
+        "config": {
+            "allow_insecure": "false", 
+            "client_auth": "true", 
+            "log_level": "trace"
+        }
+    }, 
+    "SYSLOG_SERVER": {
+        "10.0.0.5": {}, 
+        "10.0.0.6": {}
+    }, 
+    "TACPLUS_SERVER": {
+        "10.0.0.8": {
+            "priority": "1", 
+            "tcp_port": "49"
+        }, 
+        "10.0.0.9": {
+            "priority": "1", 
+            "tcp_port": "49"
+        }
+    }, 
+    "TELEMETRY": {
+        "certs": {
+            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer", 
+            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer", 
+            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key"
+        }, 
+        "gnmi": {
+            "client_auth": "true", 
+            "log_level": "2", 
+            "port": "50051"
+        }
+    }, 
     "VERSIONS": {
         "DATABASE": {
-            "VERSION": "version_1_0_3"
+            "VERSION": "version_1_0_4"
         }
     }
 }

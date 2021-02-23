@@ -1,32 +1,28 @@
-- debug: msg="{{ device_info }}"
+- debug: msg="{{ device_info[inventory_hostname] }}"
 
 - name: prepare fanout switch admin login info
   set_fact: ansible_user={{ fanout_sonic_user }} ansible_password={{ fanout_sonic_password }}
 
 - name: find interface name mapping
-  port_alias: hwsku="{{ device_info["HwSku"] }}"
+  port_alias: hwsku="{{ device_info[inventory_hostname]["HwSku"] }}"
 
 - name: build fanout vlan config
-  template: src=sonic_deploy.j2
-            dest=/etc/sonic/vlan.json
-  become: yes
+  fail: msg="SONiC fanout switch with HwSku {{ device_info[inventory_hostname]['HwSku'] }} not supported"
+  when: device_info[inventory_hostname]["HwSku"] != "Arista-7060CX-32S-C32"
 
-- include_tasks: add_container_to_inventory.yml
-  vars:
-    container_name: swss
+- name: build fanout startup config for Arista 7060 SONiC leaf fanout
+  template: src=sonic_deploy_arista_7060.j2
+            dest=/etc/sonic/vlan.json
+  when: device_info[inventory_hostname]["HwSku"] == "Arista-7060CX-32S-C32"
+  become: yes
 
 - name: disable all copp rules
-  copy: content='[]'
-        dest=/etc/swss/config.d/00-copp.config.json
+  shell:
+    cmd: docker exec swss bash -c 'echo [] > /etc/swss/config.d/00-copp.config.json'
   become: yes
-  delegate_to: "{{ ansible_host }}_swss"
 
 - name: generate config_db.json
   shell: sonic-cfggen -H -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
-  become: yes
-
-- name: reload config_db.json
-  shell: config reload -y
   become: yes
 
 - name: stop and disable lldp service

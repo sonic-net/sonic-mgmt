@@ -1,0 +1,66 @@
+all:
+  children:
+    k8s_vm_host:
+      children:
+        k8s_vm_host21:
+    k8s_ubu:
+      children:
+        k8s_vms1_21:
+        k8s_vms2_21:
+    k8s_servers:
+      children:
+        k8s_server_21:
+    
+k8s_server_21:
+  vars:
+    host_var_file: host_vars/STR-ACS-VSERV-21.yml
+  children:
+    k8s_vm_host21:
+    k8s_vms1_21:
+
+k8s_vm_host21:
+  hosts:
+    STR-ACS-VSERV-21:
+      ansible_host: 172.17.0.1
+      ansible_user: use_own_value
+
+k8s_vms1_21:
+  hosts:
+    kvm21-1m1:
+      ansible_host: 10.250.0.106
+      master: true
+      master_leader: true
+    kvm21-1m2:
+      ansible_host: 10.250.0.107
+      master: true
+      master_member: true
+    kvm21-1m3:
+      ansible_host: 10.250.0.108
+      master_member: true
+      master: true
+    kvm21-1ha:
+      ansible_host: 10.250.0.109
+      haproxy: true 
+
+k8s_vms2_21:
+  hosts:
+    kvm21-2m1:
+      ansible_host: 10.250.0.110
+      master: true
+      master_leader: true
+    kvm21-2m2:
+      ansible_host: 10.250.0.111
+      master: true
+      master_member: true
+    kvm21-2m3:
+      ansible_host: 10.250.0.112
+      master_member: true
+      master: true
+    kvm21-2ha:
+      ansible_host: 10.250.0.113
+      haproxy: true 
+
+
+
+
+

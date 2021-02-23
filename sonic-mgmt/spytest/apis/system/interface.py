@@ -1,14 +1,22 @@
 # This file contains the list of API's for operations on interface
 # @author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+# @author2 :Jagadish Chatrasi (jagadish.chatrasi@broadcom.com)
+
+import re
+from collections import OrderedDict
 
 from spytest import st
+
+import apis.system.port as portapi
+from apis.system.port_rest import rest_get_queue_counters
+from apis.system.rest import config_rest, get_rest, delete_rest
+
 from utilities.common import filter_and_select, make_list, exec_all, dicts_list_values, convert_to_bits
 from utilities.utils import get_interface_number_from_name
-import apis.system.port as portapi
-import re
 
 
-def interface_status_show(dut, interfaces=None, cli_type="click"):
+def interface_status_show(dut, interfaces=[], cli_type=''):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
        Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
     Function to get the interface(s) status
@@ -17,22 +25,28 @@ def interface_status_show(dut, interfaces=None, cli_type="click"):
     :param cli_type:
     :return:
     """
+    if interfaces:
+        interfaces = make_list(interfaces)
     if cli_type == "click":
         if interfaces:
-            return portapi.get_status(dut, ','.join(make_list(interfaces)))
-        return portapi.get_status(dut, interfaces)
+            return portapi.get_status(dut, ','.join(interfaces), cli_type=cli_type)
+        return portapi.get_status(dut, interfaces, cli_type=cli_type)
     elif cli_type == "klish":
         command = "show interface status"
-        interface = make_list(interfaces)
-        if interface:
-            command += " | grep \"{}\"".format("|".join(interface))
+        if interfaces:
+            command += " | grep \"{}\"".format("|".join(interfaces))
         return st.show(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        if interfaces:
+            return portapi.get_status(dut, ','.join(interfaces), cli_type=cli_type)
+        return portapi.get_status(dut, cli_type=cli_type)
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))
         return False
 
 
-def interface_operation(dut, interfaces, operation="shutdown", skip_verify=True, cli_type=""):
+def interface_operation(dut, interfaces, operation="shutdown", skip_verify=True, cli_type="", skip_error_check=False):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     This is an internal common function for interface operations
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -43,14 +57,10 @@ def interface_operation(dut, interfaces, operation="shutdown", skip_verify=True,
     :param cli_type:  (default: click)
     :return: boolean
     """
-
-    if not cli_type:
-        cli_type=st.get_ui_type(dut)
-
+    interfaces_li = make_list(interfaces)
     if cli_type == "click":
-        interfaces_li = make_list(interfaces)
         response = portapi.set_status(dut, interfaces_li, operation)
-        if "Error" in response:
+        if "Error" in str(response):
             st.log(response)
             return False
 
@@ -67,10 +77,9 @@ def interface_operation(dut, interfaces, operation="shutdown", skip_verify=True,
                     return False
         return True
     elif cli_type == "klish":
-        interface = make_list(interfaces)
         commands = list()
-        if interface:
-            for intf in interface:
+        if interfaces_li:
+            for intf in interfaces_li:
                 intf_details = get_interface_number_from_name(intf)
                 if not intf_details:
                     st.error("Interface data not found for {} ".format(intf))
@@ -80,15 +89,29 @@ def interface_operation(dut, interfaces, operation="shutdown", skip_verify=True,
                     commands.append(command)
                     commands.append("exit")
         if commands:
-            st.config(dut, commands, type=cli_type)
+            st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
             return True
         return False
+    elif cli_type in ["rest-patch", "rest-put"]:
+        if not portapi.set_status(dut, interfaces_li, operation, cli_type=cli_type):
+            return False
+        if not skip_verify:
+            output = interface_status_show(dut, interfaces=interfaces_li, cli_type=cli_type)
+            if not output:
+                st.error("No output found")
+                return False
+            state = 'down' if operation == 'shutdown' else 'up'
+            for interface in interfaces_li:
+                if filter_and_select(output, ['admin'], {'interface': interface})[0]['admin'] != state:
+                    st.log("state to be validated for port: {} is: {}".format(interface, state))
+                    return False
+        return True
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))
         return False
 
 
-def interface_operation_parallel(input, operation='startup', thread=True):
+def interface_operation_parallel(input, operation='startup', thread=True, cli_type=''):
     """
     Author : Chaitanya Lohith Bollapragada
     This will perform the shutdown and noshutdown of given ports in given DUTs parallel.
@@ -99,13 +122,18 @@ def interface_operation_parallel(input, operation='startup', thread=True):
 
     Ex: interface_operation_parallel({vars:D1:[vars.D1D2P1,vars.D1D2P2], vars.D2:[vars.D2D1P1,vars.D2T1P1]},)
     """
-    [out, exceptions] = exec_all(thread, [[interface_operation, duts, input[duts], operation]
-                                          for duts in input.keys()])
+    dut_list = input.keys()
+    if not dut_list:
+        return False
+    cli_type = st.get_ui_type(dut_list[0], cli_type=cli_type)
+    [out, exceptions] = exec_all(thread, [[interface_operation, dut, input[dut], operation, True, cli_type]
+                                          for dut in dut_list])
     st.log(exceptions)
     return False if False in out else True
 
 
-def interface_shutdown(dut, interfaces, skip_verify=True, cli_type="click"):
+def interface_shutdown(dut, interfaces, skip_verify=True, cli_type="", skip_error_check=False):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
       Function to shutdown interface
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -115,10 +143,11 @@ def interface_shutdown(dut, interfaces, skip_verify=True, cli_type="click"):
     :param cli_type:
     :return:
     """
-    return interface_operation(dut, interfaces, "shutdown", skip_verify, cli_type=cli_type)
+    return interface_operation(dut, interfaces, "shutdown", skip_verify, cli_type=cli_type, skip_error_check=skip_error_check)
 
 
-def interface_noshutdown(dut, interfaces, skip_verify=True, cli_type="click"):
+def interface_noshutdown(dut, interfaces, skip_verify=True, cli_type=''):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
       Function to no shut the interface
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -131,7 +160,8 @@ def interface_noshutdown(dut, interfaces, skip_verify=True, cli_type="click"):
     return interface_operation(dut, interfaces, "startup", skip_verify, cli_type=cli_type)
 
 
-def interface_properties_set(dut, interfaces_list, property, value, skip_error=False, no_form=False, cli_type="click"):
+def interface_properties_set(dut, interfaces_list, property, value, skip_error=False, no_form=False, cli_type=''):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
         Function to set the interface properties.
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -185,6 +215,14 @@ def interface_properties_set(dut, interfaces_list, property, value, skip_error=F
             if not no_form:
                 if property.lower() == "autoneg":
                     command = "autoneg on"
+                elif property.lower() == "fec":
+                    if value not in ["rs", "fc", "none"]:
+                        st.log("Provided fec value not supported ...")
+                        return False
+                    if value != "none":
+                        command = " fec {}".format(value.upper())
+                    else:
+                        command = " fec off"
                 else:
                     command = "{} {}".format(properties[property.lower()], value)
                 commands.append(command)
@@ -193,6 +231,8 @@ def interface_properties_set(dut, interfaces_list, property, value, skip_error=F
                     command = "autoneg off"
                 elif property.lower() in ["ip_address", "ipv6_address"]:
                     command = "no {} {}".format(properties[property.lower()], value)
+                elif property.lower() == "fec":
+                    command = "no fec"
                 else:
                     command = "no {}".format(properties[property.lower()])
                 commands.append(command)
@@ -200,12 +240,62 @@ def interface_properties_set(dut, interfaces_list, property, value, skip_error=F
             if commands:
                 st.config(dut, commands, type=cli_type)
         return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        for interface in interfaces_li:
+            if property.lower() == "mtu":
+                url = rest_urls['per_interface_config'].format(interface)
+                if not no_form:
+                    mtu_config = {"openconfig-interfaces:config": {"mtu": int(value)}}
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=mtu_config):
+                        return False
+                else:
+                    mtu_config = {"openconfig-interfaces:config": {"mtu": 9100}}
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=mtu_config):
+                        return False
+            elif property.lower() == "description":
+                url = rest_urls['per_interface_config'].format(interface)
+                if not no_form:
+                    description_config = {"openconfig-interfaces:config": {"description": value}}
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=description_config):
+                        return False
+                else:
+                    description_config = {"openconfig-interfaces:config": {"description": ""}}
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=description_config):
+                        return False
+            elif property.lower() == "fec":
+                url = rest_urls['fec_config_unconfig'].format(interface)
+                if value not in ["rs", "fc", "none"]:
+                    st.log("Provided fec value not supported ...")
+                    return False
+                if not no_form:
+                    if value == "rs":
+                        fec_config = {"openconfig-if-ethernet-ext2:port-fec": "FEC_RS"}
+                        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=fec_config):
+                            return False
+                    if value == "fc":
+                        fec_config = {"openconfig-if-ethernet-ext2:port-fec": "FEC_FC"}
+                        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=fec_config):
+                            return False
+                    if value == "none":
+                        fec_config = {"openconfig-if-ethernet-ext2:port-fec": "FEC_DISABLED"}
+                        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=fec_config):
+                            return False
+                else:
+                    if not delete_rest(dut, rest_url=url):
+                        return False
+
+            else:
+                st.error("Invalid property:{}".format(property))
+                return False
+        return True
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))
         return False
 
 
-def _get_interfaces_by_status(dut, status):
+def _get_interfaces_by_status(dut, status, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     Internal function to get the interface status
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -213,7 +303,7 @@ def _get_interfaces_by_status(dut, status):
     :param status: status of the interface
     :return: list of interface status
     """
-    output = interface_status_show(dut, None)
+    output = interface_status_show(dut, cli_type=cli_type)
     retval = []
     match = {"oper": status} if status else None
     entries = filter_and_select(output, ["interface"], match)
@@ -222,26 +312,29 @@ def _get_interfaces_by_status(dut, status):
     return retval
 
 
-def get_up_interfaces(dut):
+def get_up_interfaces(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
     This is to get the list of up interfaces
     :param dut: dut obj
     :return: list of interfaces
     """
-    return _get_interfaces_by_status(dut, "up")
+    return _get_interfaces_by_status(dut, "up", cli_type=cli_type)
 
 
-def get_down_interfaces(dut):
+def get_down_interfaces(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
     :param dut: DUT object
     :return: list of down interfaces
     """
-    return _get_interfaces_by_status(dut, "down")
+    return _get_interfaces_by_status(dut, "down", cli_type=cli_type)
 
 
-def get_all_interfaces(dut, int_type=None, cli_type="click"):
+def get_all_interfaces(dut, int_type=None, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
     API to get all the interfaces nin DUT
@@ -254,7 +347,7 @@ def get_all_interfaces(dut, int_type=None, cli_type="click"):
     out = dicts_list_values(output, 'interface')
     if out:
         if int_type == 'physical':
-            return [each for each in out if each.startswith("Ethernet")]
+            return [each for each in out if each.startswith("Eth")]
         elif int_type == 'port_channel':
             return [each for each in out if each.lower().startswith("portchannel")]
         else:
@@ -263,14 +356,15 @@ def get_all_interfaces(dut, int_type=None, cli_type="click"):
         return []
 
 
-def get_all_ports_speed_dict(dut):
+def get_all_ports_speed_dict(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     :param dut:
     :return: dict of all ports of same speed
     """
     all_speed_ports = dict()
-    output = interface_status_show(dut)
-    physical_port_list = [each['interface'] for each in output if each['interface'].startswith("Ethernet")]
+    output = interface_status_show(dut, cli_type=cli_type)
+    physical_port_list = [each['interface'] for each in output if each['interface'].startswith("Eth")]
     for each in physical_port_list:
         speed = filter_and_select(output, ['speed'], {'interface': each})[0]['speed']
         if speed not in all_speed_ports:
@@ -280,7 +374,8 @@ def get_all_ports_speed_dict(dut):
     return all_speed_ports
 
 
-def verify_interface_status(dut, interface, property, value, cli_type="click"):
+def verify_interface_status(dut, interface, property, value, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
     This API to verify the interface status
@@ -307,20 +402,47 @@ def verify_interface_status(dut, interface, property, value, cli_type="click"):
     return True
 
 
-def clear_interface_counters(dut):
-    """
-    Clear interface counters
-    Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
-    :param dut:
-    :return:
-    """
-    if st.is_community_build():
-        return st.config(dut, "sonic-clear counters")
+def clear_interface_counters(dut, **kwargs):
+    cli_type = st.get_ui_type(dut, **kwargs)
+    interface_name = kwargs.get("interface_name", "")
+    interface_type = kwargs.get("interface_type", "all")
+    if cli_type == "klish":
+        confirm = kwargs.get("confirm") if kwargs.get("confirm") else "y"
+        if interface_type != "all":
+            interface_type = get_interface_number_from_name(str(interface_name))
+            if interface_type["type"] and interface_type["number"]:
+                interface_val = "{} {}".format(interface_type.get("type"), interface_type.get("number"))
+            else:
+                interface_val = ""
+        else:
+            interface_val = "all"
+        if not interface_val:
+            st.log("Invalid interface type")
+            return False
+        command = "clear counters interface {}".format(interface_val)
+        st.config(dut, command, type=cli_type, confirm=confirm, conf=False, skip_error_check=True)
+    elif cli_type == "click":
+        command = "show interfaces counters -c"
+        if not st.is_feature_supported("show-interfaces-counters-clear-command", dut):
+            st.community_unsupported(command, dut)
+            return st.config(dut, "sonic-clear counters")
+        return st.show(dut, command)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url = rest_urls['clear_interface_counters']
+        clear_type = 'all' if interface_type == 'all' else interface_name
+        clear_counters = {"sonic-interface:input": {"interface-param": clear_type}}
+        if not config_rest(dut, http_method='post', rest_url=url, json_data=clear_counters, timeout=50):
+            st.error("Failed to clear interface counters")
+            return False
     else:
-        return st.show(dut, "show interfaces counters -c")
+        st.log("Unsupported CLI TYPE {}".format(cli_type))
+        return False
+    return True
 
 
-def show_interfaces_counters(dut, interface=None, property=None, cli_type="click"):
+def show_interfaces_counters(dut, interface=None, property=None, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     show interface counter
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -341,27 +463,44 @@ def show_interfaces_counters(dut, interface=None, property=None, cli_type="click
         return output
     elif cli_type == "klish":
         command = "show interface counters"
-        interface = make_list(interface)
         if interface:
-            command += " | grep \"{}\"".format("|".join(interface))
+            command += " | grep \"{}\"".format("|".join(make_list(interface)))
         return st.show(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        result = portapi.get_interface_counters_all(dut, cli_type=cli_type)
+        if interface:
+            if property:
+                result = filter_and_select(result, [property], {'iface': interface})
+            else:
+                result = filter_and_select(result, None, {'iface': interface})
+        return result
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))
         return False
 
 
-def show_interface_counters_all(dut):
+def show_interface_counters_all(dut, cli_type=''):
     """
     Show interface counter all.
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     :param dut:
     :return:
     """
-    command = "show interfaces counters -a"
-    return st.show(dut, command)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type == 'click':
+        command = "show interfaces counters -a"
+        return st.show(dut, command, type=cli_type)
+    elif cli_type == 'klish':
+        command = "show interface counters"
+        return st.show(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        return portapi.get_interface_counters_all(dut, cli_type=cli_type)
+    else:
+        st.error('Invalid CLI type')
+        return False
 
 
-def get_interface_counters(dut, port, *counter):
+def get_interface_counters(dut, port, *counter, **kwargs):
     """
     This API is used to get the interface counters.
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -370,12 +509,43 @@ def get_interface_counters(dut, port, *counter):
     :param counter:
     :return:
     """
-    output = show_specific_interface_counters(dut, port)
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    output = show_specific_interface_counters(dut, port, cli_type=cli_type)
     entries = filter_and_select(output, counter, {'iface': port})
     return entries
 
 
-def poll_for_interfaces(dut, iteration_count=180, delay=1, cli_type="click"):
+def show_specific_interface_counters(dut, interface_name,  cli_type=''):
+    """
+    API to fetch the specific interface counters
+    :param dut:
+    :param interface_name:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type == 'click':
+        command = "show interfaces counters -a -i {}".format(interface_name)
+        if not st.is_feature_supported("show-interfaces-counters-interface-command", dut):
+            st.community_unsupported(command, dut)
+            command = "show interfaces counters -a | grep -w {}".format(interface_name)
+        output = st.show(dut, command)
+    elif cli_type == 'klish':
+        command = "show interface counters | grep \"{} \"".format(interface_name)
+        output = st.show(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url = rest_urls['per_interface_details'].format(interface_name)
+        output = []
+        result = get_rest(dut, rest_url = url, timeout=60)
+        processed_output = portapi.process_intf_counters_rest_output(result)
+        if processed_output:
+            output.extend(processed_output)
+    st.log(output)
+    return output
+
+
+def poll_for_interfaces(dut, iteration_count=180, delay=1, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     This API is to  poll the DUT to get the list of interfaces
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -398,7 +568,8 @@ def poll_for_interfaces(dut, iteration_count=180, delay=1, cli_type="click"):
         st.wait(delay)
 
 
-def poll_for_interface_status(dut, interface, property, value, iteration=5, delay=1, cli_type="click"):
+def poll_for_interface_status(dut, interface, property, value, iteration=5, delay=1, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API to poll for interface status
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -423,7 +594,8 @@ def poll_for_interface_status(dut, interface, property, value, iteration=5, dela
         st.wait(delay)
 
 
-def get_interface_property(dut, interfaces_list, property, cli_type="click"):
+def get_interface_property(dut, interfaces_list, property, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
 
     :param dut:
@@ -432,8 +604,7 @@ def get_interface_property(dut, interfaces_list, property, cli_type="click"):
     :param cli_type:
     :return: Returns interfaces list properties in the interfaces order passed to api
     """
-    if not isinstance(interfaces_list, list):
-        interfaces_li = [interfaces_list]
+    interfaces_li = make_list(interfaces_list)
     output = interface_status_show(dut, interfaces_li, cli_type=cli_type)
     return_list = []
     for each_interface in interfaces_li:
@@ -472,7 +643,7 @@ def delete_ip_on_interface_linux(dut, interface_name, ip_address):
     st.config(dut, command)
 
 
-def show_queue_counters(dut, interface_name, queue=None):
+def show_queue_counters(dut, interface_name, queue=None, cli_type=''):
     """
     Show Queue counters
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -481,32 +652,67 @@ def show_queue_counters(dut, interface_name, queue=None):
     :param queue: UC0-UC9 | MC10-MC19 (Default None)
     :return:
     """
-    command = "show queue counters {}".format(interface_name)
-    output = st.show(dut, command)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type == 'click':
+        command = "show queue counters {}".format(interface_name)
+        output = st.show(dut, command, type=cli_type)
+    elif cli_type == 'klish':
+        if interface_name == "CPU":
+            command = "show queue counters interface CPU"
+        else:
+            intf_details = get_interface_number_from_name(interface_name)
+            command = "show queue counters interface {} {}".format(intf_details['type'], intf_details['number'])
+        output = st.show(dut, command, type=cli_type)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        output = rest_get_queue_counters(dut, interface_name)
+    else:
+        st.log("Unsupported CLI TYPE {}".format(cli_type))
+        return False
     if queue:
         return filter_and_select(output, None, {'txq': queue})
     return output
 
 
-def clear_queue_counters(dut, interfaces_list=[]):
+def clear_queue_counters(dut, interfaces_list=[], cli_type=''):
     """
     Clear Queue counters
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     :param dut:
     :return:
     """
-    interface_li = list(interfaces_list) if isinstance(interfaces_list, list) else [interfaces_list]
-    if not interface_li:
-        command = "show queue counters -c"
-        st.config(dut, command)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type in ['rest-put', 'rest-patch']:     #OC-YANG URL is not available to clear counters, reported JIRA: SONIC-23227 for this.
+        cli_type = 'klish'
+    if cli_type == 'click':
+        interface_li = make_list(interfaces_list)
+        if not interface_li:
+            command = "show queue counters -c"
+            st.show(dut, command)
+        else:
+            for each_port in interface_li:
+                command = "show queue counters {} -c".format(each_port)
+                st.show(dut, command, type=cli_type)
+    elif cli_type == 'klish':
+        if interfaces_list:
+            port_list = make_list(interfaces_list)
+            for port in port_list:
+                if port == "CPU":
+                    command = "clear queue counters interface CPU"
+                else:
+                    intf_details = get_interface_number_from_name(port)
+                    command = 'clear queue counters interface {} {}'.format(intf_details['type'], intf_details['number'])
+                st.config(dut, command, type=cli_type)
+        else:
+            command = 'clear queue counters'
+            st.config(dut, command, type=cli_type)
     else:
-        for each_port in interface_li:
-            command = "show queue counters {} -c".format(each_port)
-            st.config(dut, command)
+        st.log("Unsupported CLI TYPE {}".format(cli_type))
+        return False
     return True
 
 
-def get_free_ports_speed_dict(dut, cli_type="click"):
+def get_free_ports_speed_dict(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     :param dut:
     :param cli_type:
@@ -537,7 +743,7 @@ def enable_dhcp_on_interface(dut, interface_name, type="v4", skip_error_check=Fa
     return st.config(dut, command, skip_error_check=skip_error_check)
 
 
-def show_interface_counters_detailed(dut, interface, filter_key=None):
+def show_interface_counters_detailed(dut, interface, filter_key=None, cli_type=""):
     """
     show interfaces counters detailed <interface>.
     Author : Rakesh Kumar Vooturi (rakesh-kumar.vooturi@broadcom.com)
@@ -545,11 +751,22 @@ def show_interface_counters_detailed(dut, interface, filter_key=None):
     :param interface:
     :return:
     """
-    command = "show interfaces counters detailed {}".format(interface)
-    if st.is_community_build():
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
+    intf_details = get_interface_number_from_name(interface)
+    intf_type = intf_details['type']
+    ## Adding this logic due to defect SONIC-28659 will revert back once it is fixed
+    if intf_type == "PortChannel":
+        cli_type = "click"
+    if cli_type == "click":
+        command = "show interfaces counters detailed {}".format(interface)
+    else:
+        command = "show interface counters {}".format(interface)
+    if not st.is_feature_supported("show-interfaces-counters-detailed-command", dut):
+        st.community_unsupported(command, dut)
         output = st.show(dut, command, skip_error_check=True)
     else:
-        output = st.show(dut, command)
+        output = st.show(dut, command, type=cli_type)
     if not filter_key:
         return output
     else:
@@ -605,22 +822,7 @@ def show_watermark_counters(dut, mode='all'):
     return result
 
 
-def show_specific_interface_counters(dut, interface_name):
-    """
-    API to fetch the specific interface counters
-    :param dut:
-    :param interface_name:
-    :return:
-    """
-    command = "show interfaces counters -a -i {}".format(interface_name)
-    if st.is_community_build():
-        command = "show interfaces counters -a | grep -w {}".format(interface_name)
-    output = st.show(dut, command)
-    st.log(output)
-    return output
-
-
-def get_interface_counter_value(dut, ports, properties):
+def get_interface_counter_value(dut, ports, properties, cli_type=""):
     """
     This API is used to get the multiple interfaces counters value in dictionary of dictionaries.
     Author : Ramprakash Reddy (ramprakash-reddy.kanala@broadcom.com)
@@ -629,19 +831,21 @@ def get_interface_counter_value(dut, ports, properties):
     :param property: Interface properties ["rx_ok","tx_ok"]
     :return: {"Ethernet0":{"rx_ok":"1234","tx_ok":"45"},"Ethenrnet1":{"rx_ok"="4325","tx_ok"="2424"}}
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if not isinstance(ports, list):
         ports = [ports]
     if not isinstance(properties, list):
         properties = [properties]
     counters_dict = dict()
-    output = show_interface_counters_all(dut)
+    output = show_interface_counters_all(dut, cli_type=cli_type)
     for each_port in ports:
         entries = filter_and_select(output, properties, {'iface': each_port})[0]
         counters_dict[each_port] = entries
     return convert_to_bits(counters_dict)
 
 
-def verify_interface_counters(dut, params, cli_type="click"):
+def verify_interface_counters(dut, params, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     :param dut:
     :param params: {"module_type":"mirror","source":["Ethernet1","tx_ok"], "destination":["Ethernet2","rx_ok"],
@@ -649,100 +853,75 @@ def verify_interface_counters(dut, params, cli_type="click"):
     :param cli_type:
     :return:
     """
-    if cli_type == "click":
-        st.log("Verifying interface counters on {}".format(dut))
-        output = show_interface_counters_all(dut)
-        if not output:
-            st.log("Output not found")
-            return False
-        if params:
-            source_counters, destination_counters, mirror_counters = 0, 0, 0
-            module_type = params.get("module_type", "mirror")
-            for data in output:
-                if params.get("source") and data["iface"] == params["source"][0]:
-                    source_counters = data[params["source"][1]]
-                if params.get("destination") and data["iface"] == params["destination"][0]:
-                    destination_counters = data[params["destination"][1]]
-                if module_type in ["mirror", "mirror_both"] and params.get("mirrored_port"):
-                    if data["iface"] == params["mirrored_port"][0]:
-                        mirror_counters = \
-                            data[params["mirrored_port"][1]]
-            try:
-                st.log('The source counter is {}'.format(source_counters))
-                st.log('The destination counter is {}'.format(destination_counters))
-                st.log("Mirror Counters:{}".format(mirror_counters))
-                float(source_counters.split()[0].replace(",", ""))
-                float(destination_counters.split()[0].replace(",", ""))
-            except:
-                st.report_fail("counters_are_not_initilaized")
-            source_counters = int(source_counters.replace(",", ""))
-            destination_counters = int(destination_counters.replace(",", ""))
-            mirror_counters = int(mirror_counters.replace(",", ""))
-            if module_type == "mirror":
-                if not ((mirror_counters >= 0.98 * source_counters) and (destination_counters >= 0.98 * source_counters)):
-                    st.log("Counters mismatch Source Counters:{},Destination Counters:{}Mirror"
-                           " Counters:{}".format(source_counters, destination_counters, mirror_counters))
-                    st.log("Observed mismatch in counter validation")
-                    st.log("Source Counters:{}".format(source_counters))
-                    st.log("Destination Counters:{}".format(destination_counters))
-                    st.log("Mirror Counters:{}".format(mirror_counters))
-                    return False
-                else:
-                    return True
-            elif module_type == "mirror_both":
-                mirror_counters_both = int(source_counters) + int(destination_counters)
-                #mirror_counters_both = int(mirror_counters_both.replace(",", ""))
-                if not (int(mirror_counters) >= 0.99 * mirror_counters_both):
-                    st.log("Observed mismatch in counter validation")
-                    st.log("Source Counters:{}".format(source_counters))
-                    st.log("Destination Counters:{}".format(destination_counters))
-                    st.log("Mirror Counters:{}".format(mirror_counters))
-                    st.log("Mirror Counters both:{}".format(mirror_counters_both))
-                    return False
-                else:
-                    return True
-            elif module_type == "bum":
-                source_counters = int(round(float(source_counters.split()[0])))
-                destination_counters = int(round(float(destination_counters.split()[0])))
-                if not destination_counters - source_counters <= 100:
-                    st.log("Destination counter:{} and Source Counters:{}".format(destination_counters,
-                                                                                  source_counters))
-                    return False
-                else:
-                    return destination_counters
-            else:
-                st.log("Unsupported module type {}".format(module_type))
-                return False
-        else:
-            st.log("Parameters not found - {} ...".format(params))
-            return False
-
-def config_loopback_interfaces(dut, lpbk_if_data={}, config='yes'):
-
-    if config == 'yes' or config == 'add':
-        config = 'add'
-    elif config == 'no' or config == 'del':
-        config = 'del'
-    else :
-        st.error("Invalid config type {}".format(config))
+    st.log("Verifying interface counters on {}".format(dut))
+    output = show_interface_counters_all(dut, cli_type=cli_type)
+    if not output:
+        st.log("Output not found")
         return False
-
-    command = []
-    for if_name, if_data in lpbk_if_data.items():
-        cmd_str = "sudo  config loopback {} {} ".format(config, if_name)
-        command.append(cmd_str)
-
-    if command != '':
+    if params:
+        source_counters, destination_counters, mirror_counters = 0, 0, 0
+        module_type = params.get("module_type", "mirror")
+        for data in output:
+            if params.get("source") and data["iface"] == params["source"][0]:
+                source_counters = data[params["source"][1]]
+            if params.get("destination") and data["iface"] == params["destination"][0]:
+                destination_counters = data[params["destination"][1]]
+            if module_type in ["mirror", "mirror_both"] and params.get("mirrored_port"):
+                if data["iface"] == params["mirrored_port"][0]:
+                    mirror_counters = \
+                        data[params["mirrored_port"][1]]
         try:
-            st.config(dut, command)
-        except Exception as e:
-            st.log(e)
+            st.log('The source counter is {}'.format(source_counters))
+            st.log('The destination counter is {}'.format(destination_counters))
+            st.log("Mirror Counters:{}".format(mirror_counters))
+            float(source_counters.split()[0].replace(",", ""))
+            float(destination_counters.split()[0].replace(",", ""))
+        except Exception:
+            st.report_fail("counters_are_not_initilaized")
+        source_counters = int(source_counters.replace(",", ""))
+        destination_counters = int(destination_counters.replace(",", ""))
+        mirror_counters = int(mirror_counters.replace(",", ""))
+        if module_type == "mirror":
+            if not ((mirror_counters >= 0.93 * source_counters) and (destination_counters >= 0.93 * source_counters)):
+                st.log("Counters mismatch Source Counters:{},Destination Counters:{}Mirror"
+                       " Counters:{}".format(source_counters, destination_counters, mirror_counters))
+                st.log("Observed mismatch in counter validation")
+                st.log("Source Counters:{}".format(source_counters))
+                st.log("Destination Counters:{}".format(destination_counters))
+                st.log("Mirror Counters:{}".format(mirror_counters))
+                return False
+            else:
+                return True
+        elif module_type == "mirror_both":
+            mirror_counters_both = int(source_counters) + int(destination_counters)
+            #mirror_counters_both = int(mirror_counters_both.replace(",", ""))
+            if not (int(mirror_counters) >= 0.93 * mirror_counters_both):
+                st.log("Observed mismatch in counter validation")
+                st.log("Source Counters:{}".format(source_counters))
+                st.log("Destination Counters:{}".format(destination_counters))
+                st.log("Mirror Counters:{}".format(mirror_counters))
+                st.log("Mirror Counters both:{}".format(mirror_counters_both))
+                return False
+            else:
+                return True
+        elif module_type == "bum":
+            source_counters = int(round(float(source_counters.split()[0])))
+            destination_counters = int(round(float(destination_counters.split()[0])))
+            if not destination_counters - source_counters <= 100:
+                st.log("Destination counter:{} and Source Counters:{}".format(destination_counters,
+                                                                              source_counters))
+                return False
+            else:
+                return destination_counters
+        else:
+            st.log("Unsupported module type {}".format(module_type))
             return False
+    else:
+        st.log("Parameters not found - {} ...".format(params))
+        return False
 
-    return True
 
-
-def config_portchannel_interfaces(dut, portchannel_data={}, config='yes'):
+def config_portchannel_interfaces(dut, portchannel_data={}, config='yes', cli_type=''):
 
     if config == 'yes' or config == 'add':
         config = 'add'
@@ -751,47 +930,86 @@ def config_portchannel_interfaces(dut, portchannel_data={}, config='yes'):
     else :
         st.error("Invalid config type {}".format(config))
         return False
+
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
 
     command = []
 
     if config == 'del' :
         for if_name, if_data in portchannel_data.items():
+            pch_info = get_interface_number_from_name(if_name)
             for link_member in if_data['members'] :
-                cmd_str = "sudo config portchannel member {} {} {} ".format(config, if_name, link_member)
-                command.append(cmd_str)
-        try:
-            st.config(dut, command)
-        except Exception as e:
-            st.log(e)
-            return False
+                if cli_type == 'click':
+                    cmd_str = "sudo config portchannel member {} {} {} ".format(config, if_name, link_member)
+                    command.append(cmd_str)
+                elif cli_type == 'klish':
+                    intf_info = get_interface_number_from_name(link_member)
+                    cmd_str = "interface {} {}".format(intf_info["type"], intf_info["number"])
+                    command.append(cmd_str)
+                    cmd_str = "no channel-group"
+                    command.append(cmd_str)
+                    command.append('exit')
+
+        if cli_type in ['click', 'klish'] :
+            try:
+                st.config(dut, command, type=cli_type)
+            except Exception as e:
+                st.log(e)
+                return False
 
     command = []
     for if_name, if_data in portchannel_data.items():
-        cmd_str = "sudo config portchannel {} {}  ".format(config, if_name)
-        command.append(cmd_str)
+        if cli_type == 'click':
+            cmd_str = "sudo config portchannel {} {}  ".format(config, if_name)
+            command.append(cmd_str)
+        elif cli_type == 'klish':
+            pch_info = get_interface_number_from_name(if_name)
+            cmd_str = 'no ' if config == 'del' else ''
+            cmd_str += "interface {} {}".format(pch_info["type"], pch_info["number"])
+            command.append(cmd_str)
+            if config == 'add' :
+                command.append('no shutdown')
+                command.append('exit')
 
-    try:
-        st.config(dut, command)
-    except Exception as e:
-        st.log(e)
-        return False
+    if cli_type in ['click', 'klish'] :
+        try:
+            st.config(dut, command, type=cli_type)
+        except Exception as e:
+            st.log(e)
+            return False
 
     command = []
     if config == 'add' :
         for if_name, if_data in portchannel_data.items():
+            pch_info = get_interface_number_from_name(if_name)
+
             for link_member in if_data['members'] :
-                cmd_str = "sudo config portchannel member {} {} {} ".format(config, if_name, link_member)
-                command.append(cmd_str)
-        try:
-            st.config(dut, command)
-        except Exception as e:
-            st.log(e)
-            return False
+                if cli_type == 'click':
+                    cmd_str = "sudo config portchannel member {} {} {} ".format(config, if_name, link_member)
+                    command.append(cmd_str)
+                elif cli_type == 'klish':
+                    intf_info = get_interface_number_from_name(link_member)
+                    cmd_str = "interface {} {}".format(intf_info["type"], intf_info["number"])
+                    command.append(cmd_str)
+                    cmd_str = "channel-group {}".format(pch_info["number"])
+                    command.append(cmd_str)
+                    command.append('exit')
+
+                    intf_info = get_interface_number_from_name(link_member)
+                    cmd_str = "interface {} {}".format(intf_info["type"], intf_info["number"])
+                    command.append(cmd_str)
+
+        if cli_type in ['click', 'klish'] :
+            try:
+                st.config(dut, command, type=cli_type)
+            except Exception as e:
+                st.log(e)
+                return False
 
     return True
 
 
-def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
+def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False, cli_type=''):
 
     if config == 'yes' or config == 'add':
         config = 'add'
@@ -801,9 +1019,11 @@ def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
         st.error("Invalid config type {}".format(config))
         return False
 
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
     command = []
     if config == 'del' :
-        for if_name, if_data in vlan_data.items():
+        for _, if_data in vlan_data.items():
             vlan_id = if_data['vlan_id']
 
             range_cmd = False
@@ -819,26 +1039,49 @@ def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
                     vlan_id = range_ids[0]
 
             for link_member in if_data['members'] :
+
+                if cli_type == 'klish':
+                    intf_info = get_interface_number_from_name(link_member)
+                    cmd_str = 'interface {} {}'.format(intf_info["type"], intf_info["number"])
+                    command.append(cmd_str)
+
                 if not range_cmd :
-                    cmd_str = "config vlan member {} {} {} ".format(config, vlan_id, link_member)
-                    command.append(cmd_str)
-                elif not st.is_community_build():
-                    cmd_str = "config vlan member range {} {} {} {}".format(config, range_min, range_max, link_member)
-                    command.append(cmd_str)
+                    if cli_type == 'click':
+                        cmd_str = "config vlan member {} {} {} ".format(config, vlan_id, link_member)
+                        command.append(cmd_str)
+                    elif cli_type == 'klish':
+                        cmd_str = "no switchport trunk allowed Vlan {}".format(vlan_id)
+                        command.append(cmd_str)
+                elif st.is_feature_supported("vlan-range", dut):
+                    if cli_type == 'click':
+                        cmd_str = "config vlan member range {} {} {} {}".format(config, range_min, range_max, link_member)
+                        command.append(cmd_str)
+                    elif cli_type == 'klish':
+                        cmd_str = "no switchport trunk allowed Vlan {}-{}".format(range_min, range_max)
+                        command.append(cmd_str)
                 else:
                     skip_error = True
                     for vid in range(range_min, range_max+1):
-                        cmd_str = "config vlan member {} {} {} ".format(config, vid, link_member)
-                        command.append(cmd_str)
+                        if cli_type == 'click':
+                            cmd_str = "config vlan member {} {} {} ".format(config, vid, link_member)
+                            command.append(cmd_str)
+                        elif cli_type == 'klish':
+                            cmd_str = "no switchport trunk allowed Vlan {}".format(vid)
+                            command.append(cmd_str)
 
-        try:
-            st.config(dut, command, skip_error_check=skip_error)
-        except Exception as e:
-            st.log(e)
-            return False
+                if cli_type == 'klish':
+                     command.append('exit')
+
+
+        if cli_type in ['click', 'klish'] :
+            try:
+                st.config(dut, command, skip_error_check=skip_error, type=cli_type)
+            except Exception as e:
+                st.log(e)
+                return False
 
     command = []
-    for if_name, if_data in vlan_data.items():
+    for _, if_data in vlan_data.items():
         vlan_id = if_data['vlan_id']
 
         range_cmd = False
@@ -854,25 +1097,41 @@ def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
                 vlan_id = range_ids[0]
 
         if not range_cmd :
-            cmd_str = "sudo config vlan {} {} ".format(config, vlan_id)
-            command.append(cmd_str)
-        elif not st.is_community_build():
-            cmd_str = "sudo config vlan range {} {} {}".format(config, range_min, range_max)
-            command.append(cmd_str)
+            if cli_type == 'click':
+                cmd_str = "sudo config vlan {} {} ".format(config, vlan_id)
+                command.append(cmd_str)
+            elif cli_type == 'klish':
+                cmd_str = 'no ' if config =='del' else ''
+                cmd_str += "interface Vlan {}".format(vlan_id)
+                command.append(cmd_str)
+                if config =='add' :
+                    command.append('exit')
+        elif st.is_feature_supported("vlan-range", dut) and cli_type != 'klish':
+            if cli_type == 'click':
+                cmd_str = "sudo config vlan range {} {} {}".format(config, range_min, range_max)
+                command.append(cmd_str)
         else :
             for vid in range(range_min, range_max+1):
-                cmd_str = "sudo config vlan {} {} ".format(config, vid)
-                command.append(cmd_str)
+                if cli_type == 'click':
+                    cmd_str = "sudo config vlan {} {} ".format(config, vid)
+                    command.append(cmd_str)
+                elif cli_type == 'klish':
+                    cmd_str = 'no ' if config =='del' else ''
+                    cmd_str += "interface Vlan {}".format(vid)
+                    command.append(cmd_str)
+                    if config =='add' :
+                        command.append('exit')
 
-    try:
-        st.config(dut, command)
-    except Exception as e:
-        st.log(e)
-        return False
+    if cli_type in ['click', 'klish'] :
+        try:
+            st.config(dut, command, type=cli_type)
+        except Exception as e:
+            st.log(e)
+            return False
 
     command = []
     if config == 'add' :
-        for if_name, if_data in vlan_data.items():
+        for _, if_data in vlan_data.items():
             vlan_id = if_data['vlan_id']
 
             range_cmd = False
@@ -889,27 +1148,48 @@ def config_vlan_interfaces(dut, vlan_data={}, config='yes', skip_error=False):
 
             for link_member in if_data['members'] :
 
+                if cli_type == 'klish':
+                    intf_info = get_interface_number_from_name(link_member)
+                    cmd_str = 'interface {} {}'.format(intf_info["type"], intf_info["number"])
+                    command.append(cmd_str)
+
                 if not range_cmd :
-                    cmd_str = "config vlan member {} {} {} ".format(config, vlan_id, link_member)
-                    command.append(cmd_str)
-                elif not st.is_community_build():
-                    cmd_str = "config vlan member range {} {} {} {}".format(config, range_min, range_max, link_member)
-                    command.append(cmd_str)
+                    if cli_type == 'click' :
+                        cmd_str = "config vlan member {} {} {} ".format(config, vlan_id, link_member)
+                        command.append(cmd_str)
+                    elif cli_type == 'klish':
+                        cmd_str = "switchport trunk allowed Vlan {}".format(vlan_id)
+                        command.append(cmd_str)
+                elif st.is_feature_supported("vlan-range", dut):
+                    if cli_type == 'click' :
+                        cmd_str = "config vlan member range {} {} {} {}".format(config, range_min, range_max, link_member)
+                        command.append(cmd_str)
+                    elif cli_type == 'klish':
+                        cmd_str = "switchport trunk allowed Vlan {}-{}".format(range_min, range_max)
+                        command.append(cmd_str)
                 else:
                     for vid in range(range_min, range_max+1):
-                        cmd_str = "config vlan member {} {} {} ".format(config, vid, link_member)
-                        command.append(cmd_str)
+                        if cli_type == 'click' :
+                            cmd_str = "config vlan member {} {} {} ".format(config, vid, link_member)
+                            command.append(cmd_str)
+                        elif cli_type == 'klish':
+                            cmd_str = "switchport trunk allowed Vlan {}".format(vid)
+                            command.append(cmd_str)
 
-        try:
-            st.config(dut, command)
-        except Exception as e:
-            st.log(e)
-            return False
+                if cli_type == 'klish':
+                     command.append('exit')
+
+        if cli_type in ['click', 'klish'] :
+            try:
+                st.config(dut, command, type=cli_type)
+            except Exception as e:
+                st.log(e)
+                return False
 
     return True
 
 
-def config_interface_vrf_binds(dut, if_vrf_data={}, config='yes'):
+def config_interface_vrf_binds(dut, if_vrf_data={}, config='yes', cli_type=''):
 
     if config == 'yes' or config == 'add':
         config = 'bind'
@@ -919,22 +1199,41 @@ def config_interface_vrf_binds(dut, if_vrf_data={}, config='yes'):
         st.error("Invalid config type {}".format(config))
         return False
 
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
     command = []
     for if_name, if_data in if_vrf_data.items():
         vrf = if_data['vrf']
-        cmd_str = "sudo config interface vrf {} {} {} ".format(config, if_name, vrf)
-        command.append(cmd_str)
+        if cli_type == 'click':
+            cmd_str = "sudo config interface vrf {} {} {} ".format(config, if_name, vrf)
+            command.append(cmd_str)
+        elif cli_type == 'klish':
+            intf_info = get_interface_number_from_name(if_name)
+            cmd_str = 'interface {} {}'.format(intf_info["type"], intf_info["number"])
+            command.append(cmd_str)
+            cmd_str = "no " if config == 'unbind' else ''
+            cmd_str += "ip vrf forwarding {}".format(vrf)
+            command.append(cmd_str)
+            command.append('exit')
+        elif cli_type in ['rest-patch', 'rest-put']:
+            st.log("Spytest API not yet supported for REST type")
+            return False
+        else:
+            st.log("Unsupported CLI TYPE {}".format(cli_type))
+            return False
 
-    try:
-        st.config(dut, command)
-    except Exception as e:
-        st.log(e)
-        return False
+    if cli_type in ['click', 'klish'] :
+        try:
+            st.config(dut, command, type=cli_type)
+        except Exception as e:
+            st.log(e)
+            return False
 
     return True
 
 
-def config_portgroup_property(dut, portgroup, value, property="speed", skip_error=False, cli_type="click"):
+def config_portgroup_property(dut, portgroup, value, property="speed", skip_error=False, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     Function to configure portgroup properties
     Author: Ramprakash Reddy (ramprakash-reddy.kanala@broadcom.com)
@@ -950,7 +1249,9 @@ def config_portgroup_property(dut, portgroup, value, property="speed", skip_erro
     st.config(dut, command, skip_error_check=skip_error, type=cli_type)
     return True
 
-def show_portgroup(dut, interface=None, cli_type="click"):
+
+def show_portgroup(dut, interface=None, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API to get the list of port groups available in DUT
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -1003,25 +1304,19 @@ def verify_portgroup(dut, **kwargs):
     interface = kwargs.get("interface", None)
     portgroup = kwargs.get("portgroup", None)
     speed = kwargs.get("speed", None)
-    result = 0
     output = show_portgroup(dut, interface=interface,cli_type=cli_type)
     if not output:
         st.log("Empty output observed - {}".format(output))
         return False
     for data in output:
         if portgroup and str(data["portgroup"]) != str(portgroup):
-            result = 1
-        else:
-            result = 0
+            return False
         if speed and str(speed) not in data["speed"]:
-            result = 1
-        else:
-            result = 0
-    if result:
-        return False
+            return False
     return True
 
-def is_port_group_supported(dut, cli_type="click"):
+def is_port_group_supported(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API to check whether port group is supported or not
     Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
@@ -1034,3 +1329,197 @@ def is_port_group_supported(dut, cli_type="click"):
         return False
     else:
         return True
+
+
+def config_ifname_type(dut, config='yes', cli_type=""):
+
+    """
+    Function to configure interface naming(Modes: native: Ethernet0, standard: Eth1/1)
+    Author: Lakshminarayana D (lakshminarayana.d@broadcom.com)
+    :param dut:
+    :param config:
+    :param cli_type:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type in ['click', 'vtysh']:
+        st.error("interface-naming command not available in {}".format(cli_type))
+        return False
+    elif cli_type == 'klish':
+        config = '' if config == 'yes' else 'no'
+        command = "{} interface-naming standard".format(config)
+        st.config(dut, command, type=cli_type)
+        st.config(dut, 'pwd', cli_type='click')
+        show_ifname_type(dut, cli_type=cli_type)
+    else:
+        st.error("Provided invalid CLI type-{}".format(cli_type))
+        return False
+    return True
+
+
+def show_ifname_type(dut, cli_type=''):
+    """
+    API to verify interface naming
+    Author: Lakshminarayana D (lakshminarayana.d@broadcom.com)
+    :param dut:
+    :param cli_type:
+    :return:
+    """
+    cli_type = "klish" if cli_type == '' else cli_type
+    command = 'show interface-naming'
+    if cli_type in ['click', 'vtysh']:
+        st.error("show interface-naming command not available in {}".format(cli_type))
+        return False
+    elif cli_type == 'klish':
+        output = st.show(dut, command, type=cli_type)
+    else:
+        st.error("Provided invalid CLI type-{}".format(cli_type))
+        return False
+
+    if not output:
+        return None
+    return output
+
+
+def verify_ifname_type(dut, mode='native', cli_type=''):
+    """
+    API to verify interface naming either native or standard
+    Author: Lakshminarayana D (lakshminarayana.d@broadcom.com)
+    :param dut:
+    :param cli_type:
+    :param mode: default is native
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    output = show_ifname_type(dut, cli_type=cli_type)
+
+    if not output:
+        st.error("Empty output observed - {}".format(output))
+        return False
+
+    if output[0]['mode'] != mode:
+        return False
+    return True
+
+
+def get_ifname_alias(dut, intf_list=None, cli_type=''):
+    """
+    API to return alternate name(s) for given native interface name(s)
+    Author: Lakshminarayana D (lakshminarayana.d@broadcom.com)
+    :param dut:
+    :param cli_type:
+    :param intf_list: [Ethernet0, Ethernet1]
+    :return: API will return alternate name for provided interface name. Ethernet0-Eth1/1
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
+    if cli_type in ['click']:
+        alias_list = get_interface_property(dut, intf_list, 'alias', cli_type=cli_type)
+    else:
+        alias_list = get_interface_property(dut, intf_list, 'altname', cli_type=cli_type)
+    if not alias_list:
+        st.error("Empty output observed - {}".format(alias_list))
+        return False
+    return alias_list
+
+def get_physical_ifname_map(dut, cli_type=''):
+    """
+    API to return interface native to alias mapping
+    Author: Lakshminarayana D (lakshminarayana.d@broadcom.com)
+    :param dut:
+    :param cli_type:
+    :return: API will return native to alias map
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
+    output = interface_status_show(dut, cli_type=cli_type)
+    prop = "alias" if cli_type in ['click'] else "altname"
+    entries = filter_and_select(output, ["interface", prop])
+    retval = OrderedDict()
+    for entry in entries:
+        interface, alias = entry["interface"], entry[prop]
+        if interface.startswith("Ethernet"):
+            retval[interface] = alias
+        elif interface.startswith("Eth"):
+            retval[alias] = interface
+    return retval
+
+
+def get_native_interface_name(dut, if_name, cli_type=''):
+    """
+    API to return native interface name(s)
+    Author: naveen.suvarna@broadcom.com
+    :param dut:
+    :if_name: Interface name string or list of strings
+    :param cli_type:
+    :return: API will return native name if its a Ethernet physical
+             interface else same input name will be returned
+             if input if_name type is list, return type will be list
+             else return type will be string
+    """
+
+    if isinstance(if_name, list) :
+        if_name_list = if_name
+    else :
+        if_name_list = [ if_name ]
+
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
+    ntv_if_list = []
+    show_if_entries = None
+    name_field = 'interface'
+    alias_field = "alias" if cli_type in ['click'] else "altname"
+    phy_if_types = ["Ethernet", "ethernet", "Eth", "eth"]
+
+    for curr_if in if_name_list :
+        if curr_if == '' :
+            ntv_if_list.append('')
+            continue
+
+        phy_interface = False
+        for intf_prefix in phy_if_types :
+            if curr_if.startswith(intf_prefix) :
+                phy_interface = True
+                break
+
+        if phy_interface != True :
+            ntv_if_list.append(curr_if)
+            continue
+
+        intf_info = get_interface_number_from_name(curr_if)
+        if not intf_info:
+            st.error("Interface data not found for {} ".format(curr_if))
+            ntv_if_list.append(curr_if)
+            continue
+
+        if intf_info["type"] not in phy_if_types :
+            ntv_if_list.append(curr_if)
+            continue
+
+        if show_if_entries is None :
+            output = interface_status_show(dut, cli_type=cli_type)
+            show_if_entries = filter_and_select(output, [name_field, alias_field])
+
+        #found = False
+        for if_entry in show_if_entries:
+            interface, alias_name = if_entry[name_field], if_entry[alias_field]
+            if interface == curr_if or  alias_name == curr_if :
+                if interface.startswith("Ethernet"):
+                    ntv_if_list.append(interface)
+                    #found = True
+                    break
+                elif alias_name.startswith("Ethernet"):
+                    ntv_if_list.append(alias_name)
+                    #found = True
+                    break
+
+        #if found == False :
+            #ntv_if_list.append(one_if)
+
+    if isinstance(if_name, list) :
+        st.log("Get Native interface names {} -> {}.".format(if_name, ntv_if_list))
+        return ntv_if_list
+    else :
+        st.log("Get Native interface name {} -> {}.".format(if_name, ntv_if_list[0]))
+        return ntv_if_list[0]
+

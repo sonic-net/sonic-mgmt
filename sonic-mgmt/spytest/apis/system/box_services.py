@@ -4,6 +4,9 @@ from apis.system.basic import poll_for_system_status
 import utilities.utils as utils
 import utilities.common as cutils
 import re
+from apis.system.rest import get_rest
+import struct
+import base64
 
 
 def get_system_uptime_in_seconds(dut):
@@ -71,7 +74,24 @@ def verify_interfaces_transceiver_presence(dut, intf, status):
         return False
 
 
-def get_platform_fan_status(dut, fan=None):
+def get_platform_temperature(dut, cli_type=''):
+    """
+    Author: Kanala Ramprakash Reddy (ramprakash-reddy.kanala@broadcom.com)
+    Function to get the platform temperature of the device.
+    :param dut:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type in ["click", "klish"]:
+        command = "show platform temperature"
+        output = st.show(dut, command, type=cli_type)
+        return output
+    else:
+        st.error("UNSUPPORTED CLI-TYPE: {}").format(cli_type)
+        return False
+
+
+def get_platform_fan_status(dut, fan=None, cli_type=''):
     """
     To Get Platform Fan Status
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -79,16 +99,40 @@ def get_platform_fan_status(dut, fan=None):
     :param fan:
     :return:
     """
-
-    command = "show platform fanstatus"
-    output = st.show(dut, command)
-    if fan:
-        return filter_and_select(output, None, {"fan": fan})
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    result = list()
+    if cli_type in ["click", "klish"]:
+        command = "show platform fanstatus"
+        output = st.show(dut, command, type=cli_type)
+        if cli_type == "klish":
+            fan_mapping = {"FAN 1": "Fantray1_1", "FAN 2": "Fantray1_2", "FAN 3": "Fantray2_1", "FAN 4": "Fantray2_2",
+                           "FAN 5": "Fantray3_1", "FAN 6": "Fantray3_2", "FAN 7": "Fantray4_1", "FAN 8": "Fantray4_2",
+                           "FAN 9": "Fantray5_1", "FAN 10": "Fantray5_2", "FAN 11": "Fantray6_1",
+                           "FAN 12": "Fantray6_2"}
+            for i in range(0, len(output)):
+                output[i]["fan"] = fan_mapping[output[i]["fan"]]
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url1 = rest_urls['get_fan_psu']
+        data = get_rest(dut, rest_url=url1)
+        output = _get_fan_server_info(data['output'])
     else:
-        return output
+        st.error("UNSUPPORTED CLI-TYPE: {}").format(cli_type)
+        return False
+    if output:
+        for each in output:
+            if each["status"] == "ACTIVE":
+                each["status"] = "OK"
+            elif each["status"] == "INACTIVE":
+                each["status"] = "NOT OK"
+            result.append(each)
+    if fan and result:
+        return filter_and_select(result, None, {"fan": fan})
+    else:
+        return result
 
 
-def verify_platform_fan_params(dut, fan_list):
+def verify_platform_fan_params(dut, fan_list, cli_type=''):
     """
     To Verify platform Fan status parameters
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -96,8 +140,9 @@ def verify_platform_fan_params(dut, fan_list):
     :param fan_list:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     fans = fan_list if isinstance(fan_list, list) else [fan_list]
-    output = get_platform_fan_status(dut)
+    output = get_platform_fan_status(dut, cli_type=cli_type)
     if not output:
         st.log("Platform fan details not found")
         return False
@@ -109,7 +154,7 @@ def verify_platform_fan_params(dut, fan_list):
         if data["status"] != "OK":
             st.error("Invalid FAN status detected - {}".format(data["status"]))
             cnt += 1
-        if data["direction"] not in ["INTAKE", "EXHAUST"]:
+        if data["direction"] not in ["Intake", "Exhaust", "intake", "exhaust"]:
             st.error("Invalid FAN direction detected - {}".format(data["direction"]))
             cnt += 1
         if data["speed"] in ['0', 'N/A']:
@@ -129,7 +174,8 @@ def verify_platform_fan_status(dut, fan, **kwargs):
     :param fan:
     :return:
     """
-    output = get_platform_fan_status(dut, fan)
+    cli_type = st.get_ui_type(dut, **kwargs)
+    output = get_platform_fan_status(dut, fan, cli_type=cli_type)
     result = True
     for each in kwargs:
         if not filter_and_select(output, None, {each: kwargs[each]}):
@@ -138,7 +184,7 @@ def verify_platform_fan_status(dut, fan, **kwargs):
     return result
 
 
-def get_platform_psu_summary(dut, psu=None):
+def get_platform_psu_summary(dut, psu=None, cli_type=''):
     """
     To Get Platform PSU Status
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -146,22 +192,41 @@ def get_platform_psu_summary(dut, psu=None):
     :param psu:
     :return:
     """
-    command = "show platform psusummary"
-    output = st.show(dut, command)
-    if psu:
-        return filter_and_select(output, None, {"psu": psu})
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    result = list()
+    if cli_type in ["click", "klish"]:
+        command = "show platform psusummary"
+        output = st.show(dut, command, type=cli_type)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url1 = rest_urls['get_fan_psu']
+        data = get_rest(dut, rest_url=url1)
+        output = _get_psu_server_info(data['output'])
     else:
-        return output
+        st.error("UNSUPPORTED CLI-TYPE: {}").format(cli_type)
+        return []
+    if output:
+        for each in output:
+            if each["psu_status"] == "ACTIVE":
+                each["psu_status"] = "OK"
+            elif each["psu_status"] == "INACTIVE":
+                each["psu_status"] = "NOT OK"
+            result.append(each)
+    if psu and result:
+        return filter_and_select(result, None, {"psu": psu})
+    else:
+        return result
 
 
-def verify_platform_psu_params(dut):
+def verify_platform_psu_params(dut, cli_type=''):
     """
     API to verify the Platform psu params
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     :param dut:
     :return:
     """
-    output = get_platform_psu_summary(dut)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    output = get_platform_psu_summary(dut, cli_type=cli_type)
     if not output:
         st.error("Output not found")
         return False
@@ -186,7 +251,8 @@ def verify_platform_psu_summary(dut, psu=None, **kwargs):
     :param :fan:
     :return:
     """
-    output = get_platform_psu_summary(dut, psu)
+    cli_type = st.get_ui_type(dut, **kwargs)
+    output = get_platform_psu_summary(dut, psu, cli_type=cli_type)
     result = True
     for each in kwargs:
         if filter_and_select(output, None, {each: kwargs[each]}):
@@ -240,7 +306,7 @@ def is_service_active(dut, service="pddf"):
     return True
 
 
-def get_psuutil_data(dut, mode="status"):
+def get_psuutil_data(dut, mode="status", cli_type=""):
     """
     API to get psuutil data based on type of the command
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -248,18 +314,31 @@ def get_psuutil_data(dut, mode="status"):
     :param mode:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if mode not in ["status", "numpsus", "version"]:
         st.log("Unsupported command type")
         return False
-    command = "sudo psuutil {}".format(mode)
-    skip_tmpl = False
-    if mode == "numpsus":
-        skip_tmpl = True
-    output = st.show(dut, command, skip_tmpl=skip_tmpl)
-    if mode == "numpsus":
-        return {"numpsus": utils.remove_last_line_from_string(output)}
-    else:
+    if cli_type == "click":
+        command = "sudo psuutil {}".format(mode)
+        skip_tmpl = False
+        if mode == "numpsus":
+            skip_tmpl = True
+        output = st.show(dut, command, skip_tmpl=skip_tmpl)
+        if mode == "numpsus":
+            return {"numpsus": utils.remove_last_line_from_string(output)}
+        else:
+            return output
+    elif cli_type in ["klish", "rest-patch", "rest-put"]:
+        if mode == "numpsus":
+            return {"numpsus": str(len(get_platform_psu_summary(dut, cli_type=cli_type)))}
+        output = get_platform_psu_summary(dut, cli_type=cli_type)
+        for i in range(0, len(output)):
+            output[i]["psu"] = output[i]["psu"].replace(" ", "")
+            output[i]["status"] = output[i]["psu_status"]
         return output
+    else:
+        st.error("Unsupported CLI Type provided: {}".format(cli_type))
+        return []
 
 
 def verify_psuutil_data(dut, *argv, **kwargs):
@@ -282,7 +361,7 @@ def verify_psuutil_data(dut, *argv, **kwargs):
             psu_li = cutils.dicts_list_values(output, "psu")
             for psu in kwargs['psu_list']:
                 if psu not in psu_li:
-                    st.error("PSU - {} is not present in DUT.")
+                    st.error("PSU - {} is not present in DUT.".format(psu))
                     result = False
 
             status_li = cutils.dicts_list_values(output, "status")
@@ -294,6 +373,7 @@ def verify_psuutil_data(dut, *argv, **kwargs):
             if "OK" not in status_li:
                 st.error("None of the PSU status is - OK")
                 result = False
+
     return result
 
 
@@ -339,7 +419,7 @@ def config_sfputil(dut, **kwargs):
         return False
 
 
-def show_sfputil(dut, mode, interface=None):
+def show_sfputil(dut, mode, interface=None, cli_type=""):
     """
     API to get the sfputil output
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -348,13 +428,21 @@ def show_sfputil(dut, mode, interface=None):
     :param mode: eeprom, presence, lpmode
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if mode not in ["lpmode", "presence", "eeprom"]:
         st.log("Unsupported mode provided")
         return False
-    command = "sudo sfputil show {}".format(mode)
-    if interface:
-        command = "sudo sfputil show {} | grep -w {}".format(mode, interface)
-    output = st.show(dut, command)
+    cli_type = "click" if mode == "lpmode" else cli_type
+    if cli_type == "click":
+        command = "sudo sfputil show {}".format(mode)
+        if interface:
+            command = "sudo sfputil show {} | grep -w {}".format(mode, interface)
+        output = st.show(dut, command)
+    elif cli_type in ["klish", "rest-patch", "rest-put"]:
+        output = show_interface_transceiver(dut, mode, interface, cli_type)
+    else:
+        st.error("Unsupported CLI Type provided: {}".format(cli_type))
+        return []
     return output
 
 
@@ -383,7 +471,7 @@ def verify_sfputil_show_interface_tranceiver(dut, mode, **kwargs):
     return result
 
 
-def show_interface_transceiver(dut, mode, interface=None):
+def show_interface_transceiver(dut, mode, interface=None, cli_type=""):
     """
     API to get the interface transceiver eeprom details
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -392,16 +480,43 @@ def show_interface_transceiver(dut, mode, interface=None):
     :param interface:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if mode not in ["eeprom", "presence"]:
         st.log("Unsupported modes provided ...")
         return False
-    command = "show interface transceiver {}".format(mode)
-    if interface:
-        command = "show interface transceiver {} | grep -w {}".format(mode, interface)
-    return st.show(dut, command)
+    if cli_type == "click":
+        command = "show interface transceiver {}".format(mode)
+        if interface:
+            command = "show interface transceiver {} | grep -w {}".format(mode, interface)
+        return st.show(dut, command)
+    elif cli_type == "klish":
+        if interface:
+            intf_data = utils.get_interface_number_from_name(interface)
+            command = "show interface transceiver {} {}".format(intf_data['type'], intf_data['number'])
+        else:
+            command = "show interface transceiver"
+        output = st.show(dut, command, type=cli_type)
+        for i in range(len(output)):
+            if output[i]['presence'] == "PRESENT":
+                output[i]['presence'] = "Present"
+                output[i]['eeprom_status'] = "SFP EEPROM detected"
+            else:
+                output[i]['presence'] = "Not present"
+                output[i]['eeprom_status'] = "SFP EEPROM Not detected"
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url1 = rest_urls['get_fan_psu']
+        data = get_rest(dut, rest_url=url1)["output"]
+        output = _get_transceiver_data(data)
+        if interface:
+            output = filter_and_select(output, match={"port": interface})
+    else:
+        st.error("Unsupported CLI Type provided: {}".format(cli_type))
+        return []
+    return output
 
 
-def show_pddf_psuutils(dut, mode):
+def show_pddf_psuutils(dut, mode, cli_type=""):
     """
     API to get PDDF PSUUTIL DATA based on type of mode
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -409,18 +524,28 @@ def show_pddf_psuutils(dut, mode):
     :param mode:
     :return:
     """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if mode not in ["numpsus", "status", "mfrinfo", "seninfo", "version"]:
         st.log("Unsupported modes provided ")
         return False
-    skip_tmpl = False
-    if mode == "numpsus":
-        skip_tmpl = True
-    command = "sudo pddf_psuutil {}".format(mode)
-    output = st.show(dut, command, skip_tmpl=skip_tmpl)
-    if mode == "numpsus":
-        return {"numpsus": utils.remove_last_line_from_string(output)}
+    if cli_type == "click":
+        skip_tmpl = False
+        if mode == "numpsus":
+            skip_tmpl = True
+        command = "sudo pddf_psuutil {}".format(mode)
+        output = st.show(dut, command, skip_tmpl=skip_tmpl)
+        if mode == "numpsus":
+            return {"numpsus": utils.remove_last_line_from_string(output)}
+        else:
+            return output
+    elif cli_type in ["click", "klish", "rest-patch"]:
+        if mode in ["numpsus", "status", "version"]:
+            return get_psuutil_data(dut, mode, cli_type)
+        else:
+            return get_platform_psu_summary(dut, cli_type=cli_type)
     else:
-        return output
+        st.error("Unsupported CLI Type provided: {}".format(cli_type))
+        return []
 
 
 def verify_pddf_psuutils(dut, *argv, **kwargs):
@@ -476,7 +601,7 @@ def verify_pddf_psuutils(dut, *argv, **kwargs):
     return result
 
 
-def show_pddf_fanutil(dut, mode):
+def show_pddf_fanutil(dut, mode, cli_type=""):
     """
     API to get PDDF FANUTIL DATA based on type of mode
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -484,18 +609,28 @@ def show_pddf_fanutil(dut, mode):
     :param mode:
     :return:
     """
-    if mode not in ["direction", "getspeed", "numfans", "status", "version"]:
-        st.log("Unsupported modes provided ")
-        return False
-    skip_tmpl = False
-    if mode == "numfans":
-        skip_tmpl = True
-    command = "sudo pddf_fanutil {}".format(mode)
-    output = st.show(dut, command, skip_tmpl=skip_tmpl)
-    if mode == "numfans":
-        return {"numfans": utils.remove_last_line_from_string(output)}
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "click" if mode == "version" else cli_type
+    if cli_type == "click":
+        if mode not in ["direction", "getspeed", "numfans", "status", "version"]:
+            st.log("Unsupported modes provided ")
+            return False
+        skip_tmpl = False
+        if mode == "numfans":
+            skip_tmpl = True
+        command = "sudo pddf_fanutil {}".format(mode)
+        output = st.show(dut, command, skip_tmpl=skip_tmpl)
+        if mode == "numfans":
+            return {"numfans": utils.remove_last_line_from_string(output)}
+        else:
+            return output
+    elif cli_type in ["klish", "rest-patch", "rest-put"]:
+        if mode == "numfans":
+            return {"numfans": str(len(get_platform_fan_status(dut, cli_type=cli_type)))}
+        return get_platform_fan_status(dut, cli_type=cli_type)
     else:
-        return output
+        st.error("Unsupported CLI Type provided: {}".format(cli_type))
+        return []
 
 
 def verify_pddf_fanutil(dut, mode, fan_list, version="2.0"):
@@ -517,7 +652,7 @@ def verify_pddf_fanutil(dut, mode, fan_list, version="2.0"):
         count = 0
         for fan in fans:
             if mode == "direction":
-                if fan == data["fan"] and data["direction"] not in ["INTAKE", "EXHAUST"]:
+                if fan == data["fan"].upper() and data["direction"].upper() not in ["INTAKE", "EXHAUST"]:
                     st.error("Invalid FAN direction detected - {}".format(data["direction"]))
                     count += 1
             elif mode == "getspeed":
@@ -655,7 +790,7 @@ def show_pddf_thermalutil(dut, mode):
     :param mode:
     :return:
     """
-    if mode not in ["gettemp", "numthermals",  "version"]:
+    if mode not in ["gettemp", "numthermals", "version"]:
         st.log("Unsupported modes provided ")
         return False
     skip_tmpl = False
@@ -686,22 +821,152 @@ def verify_pddf_thermalutil(dut, mode, thermal_list, version="2.0"):
     if not output:
         st.error("PDDF THERMAL UTIL DATA NOT FOUND")
         return False
-        count = 0
-        if mode == "gettemp":
-            for data in output:
-                for each_thermal in thermal_li:
-                    if each_thermal != data["temp_sensor"]:
-                        st.error("Invalid Temp Sensor detected - {}".format(data["temp_sensor"]))
-                        count += 1
-        elif mode == "numthermals":
-            if str(len(thermal_list)) != str(output[data]):
+    count = 0
+    if mode == "gettemp":
+        for data in output:
+            if data["temp_sensor"] not in thermal_li:
+                st.error("Invalid Temp Sensor detected - {}".format(data["temp_sensor"]))
+                count += 1
+                break
+    elif mode == "numthermals":
+        for data in output:
+            if int(len(thermal_list)) != int(output[data]):
                 st.error("Incorrect Thermal sensors numbers detected - {}".format(output[data]))
                 count += 1
-        elif mode == "version":
-            if str(version) not in str(data["version"]):
+                break
+    elif mode == "version":
+        for data in output:
+            if str(version) not in str(output[data]):
                 st.error("Invalid Thermal version detected - {}".format(data["version"]))
                 count += 1
-        if count:
-            st.error("Mismatch in PDDF Thermal UTIL data")
-            return False
+                break
+    if count:
+        st.error("Mismatch in PDDF Thermal UTIL data")
+        return False
+
     return True
+
+
+def _get_fan_server_info(data):
+    ret_val = []
+    for fan in data["openconfig-platform:components"]["component"]:
+        if "FAN".lower() in fan["name"].lower():
+            temp = {}
+            temp["direction"] = fan["fan"]["state"]["openconfig-platform-ext:direction"]
+            temp["speed"] = fan["fan"]["state"]["openconfig-platform-fan:speed"]
+            temp["fan"] = fan["state"]["name"]
+            temp["status"] = fan["state"]["oper-status"].split(":")[1]
+            ret_val.append(temp)
+            st.debug(ret_val)
+    return ret_val
+
+
+def _get_psu_server_info(data):
+    ret_val = []
+    for name in data["openconfig-platform:components"]["component"]:
+        if "PSU".lower() in name["name"].lower():
+            temp = {}
+            temp['psu'] = name["name"]
+            temp['psu_status'] = name['state']['oper-status'].split(":")[1]
+            if temp['psu_status'] == "ACTIVE":
+                temp['output_current'] = name['power-supply']['state']['openconfig-platform-psu:output-current']
+                temp['output_power'] = name['power-supply']['state']['openconfig-platform-psu:output-power']
+                temp['output_voltage'] = name['power-supply']['state']['openconfig-platform-psu:output-voltage']
+                temp['model'] = name['state']['description']
+                temp['manufacturer_id'] = name['state']['mfg-name']
+                temp['empty'] = name['state']['empty']
+                temp['serial_number'] = name['state']['serial-no']
+                for each in ['output_current', 'output_power', 'output_voltage']:
+                    temp[each] = struct.unpack('>f', base64.b64decode(temp[each]))[0]
+            ret_val.append(temp)
+            st.debug(ret_val)
+    return ret_val
+
+
+def _get_transceiver_data(data):
+    ret_val = []
+    for name in data["openconfig-platform:components"]["component"]:
+        if "Ethernet" in name["name"]:
+            temp = {}
+            temp["port"] = name["name"]
+            try:
+                if name["openconfig-platform-transceiver:transceiver"]["state"]["present"] == "PRESENT":
+                    temp["presence"] = "Present"
+                    temp["eeprom_status"] = "SFP EEPROM detected"
+            except Exception:
+                temp["presence"] = "Not Present"
+                temp["eeprom_status"] = "SFP EEPROM Not detected"
+            ret_val.append(temp)
+    return ret_val
+
+
+def hw_watchdog_config(dut, mode=None, cli_type=""):
+    """
+    :param dut:
+    :param mode:
+    :param config:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "click" if cli_type in ["klish", "rest-patch", "rest-put"] else cli_type
+    if mode == 'reset':
+        cmd = "watchdogutil pause"
+    elif mode == "enable":
+        cmd = "watchdogutil arm"
+    elif mode == "disable":
+        cmd = "watchdogutil disarm"
+    elif mode == "status":
+        cmd = "watchdogutil status"
+    elif mode == "timeout":
+        cmd = "watchdogutil timeout"
+    elif mode == "running_status":
+        cmd = "systemctl status watchdog-control"
+    elif mode == "kdump":
+        cmd = "bash -c 'echo c>/proc/sysrq-trigger'"
+        st.config(dut, cmd, expect_reboot=True, type=cli_type)
+        st.config(dut, 'rm -rf /var/crash/20*')
+        return True
+    else:
+        st.log("Provide supported mode")
+        return False
+    st.config(dut, cmd)
+    return True
+
+
+def hw_watchdog_timeout_config(dut, timeout_value=None, cli_type=""):
+    """
+    :param dut:
+    :param timeout_value:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "click" if cli_type in ["klish", "rest-patch", "rest-put"] else cli_type
+    cmd = "watchdogutil  arm -s {}".format(timeout_value)
+    st.config(dut, cmd, type=cli_type)
+    return True
+
+
+def hw_watch_service_isactive(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "click" if cli_type in ["klish", "rest-patch", "rest-put"] else cli_type
+    cmd = "systemctl is-active watchdog-control.service"
+    out = st.show(dut, cmd, skip_tmpl=True, type=cli_type)
+    return out
+
+
+def hw_watchdog_start_service(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "click" if cli_type in ["klish", "rest-patch", "rest-put"] else cli_type
+    cmd = "systemctl start watchdog-control.service"
+    out = st.config(dut, cmd, type=cli_type)
+    return out
+
+
+def hw_watchdog_stop_service(dut, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = "click" if cli_type in ["klish", "rest-patch", "rest-put"] else cli_type
+    cmd = "systemctl stop watchdog-control.service"
+    st.config(dut, cmd, type=cli_type)
+    return True
+
+

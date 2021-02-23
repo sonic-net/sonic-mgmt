@@ -663,6 +663,9 @@ def sai_thrift_read_port_counters(client,port):
     port_cnt_ids.append(SAI_PORT_STAT_PFC_7_TX_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_OCTETS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_UCAST_PKTS)
+    port_cnt_ids.append(SAI_PORT_STAT_IN_DROPPED_PKTS)
+    port_cnt_ids.append(SAI_PORT_STAT_OUT_DROPPED_PKTS)
+
     counters_results=[]
     counters_results = client.sai_thrift_get_port_stats(port,port_cnt_ids,len(port_cnt_ids))
 
@@ -752,6 +755,17 @@ def sai_thrift_read_buffer_pool_watermark(client, buffer_pool_id):
     wm_vals = client.sai_thrift_get_buffer_pool_stats(buffer_pool_id, buffer_pool_wm_ids)
     if not wm_vals:
         print >> sys.stderr, "sai_thrift_read_buffer_pool_watermark returns empty list"
+        return None
+    return wm_vals[0]
+
+def sai_thrift_read_headroom_pool_watermark(client, buffer_pool_id):
+    buffer_pool_wm_ids = [
+        SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES
+    ]
+
+    wm_vals = client.sai_thrift_get_buffer_pool_stats(buffer_pool_id, buffer_pool_wm_ids)
+    if not wm_vals:
+        print >> sys.stderr, "sai_thrift_read_headroom_pool_watermark returns empty list"
         return None
     return wm_vals[0]
 

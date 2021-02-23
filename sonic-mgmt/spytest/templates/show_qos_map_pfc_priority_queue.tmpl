@@ -1,0 +1,11 @@
+Value Filldown TABLE (\S+)
+Value PFC_PRIORITY (\d+)
+Value QUEUE (\d+)
+
+
+Start
+  ^\s*PFC-Priority-Queue-MAP\s*:\s*${TABLE}\s*$$
+  ^\s*${PFC_PRIORITY}\s+${QUEUE}\s*$$ -> Record
+  ^$$
+
+EOF

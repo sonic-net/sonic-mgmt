@@ -1,0 +1,4 @@
+k8s_root_path: /home/azure/ubuntu-vm
+k8s_vm_images_url: https://acsbe.blob.core.windows.net/vmimages
+#This image is from public URL https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img. To convert img to qcow2, run: `qemu-img convert -f qcow2 bionic-server-cloudimg-amd64.img bionic-server-cloudimg-amd64.qcow2`
+k8s_hdd_image_filename: bionic-server-cloudimg-amd64.qcow2

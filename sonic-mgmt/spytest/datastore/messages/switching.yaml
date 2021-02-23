@@ -45,7 +45,8 @@ portchannel_creation_deletion_multiple_pass: Verified that multiple creation / d
 portchannel_random_link_flap: Verified random link flap in port channel.
 portchannel_l2_forwarding_success: Verified basic L2 forwarding with 100 MAC address learned on portchannel is success
 portchannel_member_en_dis_success: Successfully verified the traffic hashing when we enable and disable the memberport
-portchannel_with_members_deletion_should_not_successful: Portchannel {} having members {} configured should not get deleted.
+portchannel_member_en_dis_failed: Failed to verify the traffic hashing when we enable and disable the memberport
+portchannel_with_vlan_membership_should_not_successful: Portchannel {} with vlan membership should not get deleted.
 portchannel_verification_failed : Portchannel {} on {} verification failed
 portchannel_deletion_failed: PortChannel {} deletion failed.
 portchannel_not_found: PortChannel {} not found.
@@ -58,6 +59,7 @@ PortChannel_came_up_with_ip_address: PortChannel {} came up with ip address
 portchannel_verification_db_failed : Portchannel {} on {} verification failed in {}
 portchannel_member_verification_db_failed: Portchannel {} on {} member verification failed in {}
 portchannel_functionality_during_warmreboot: successfully verified portchannel functionality during warmreboot
+portchannel_functionality_during_warmreboot_failed: portchannel functionality during warmreboot failed
 portchannel_functionality_after_save_and_reboot: successfully verified portchannel functionality after save and reboot
 portchannel_functionality_after_save_and_fastreboot: successfully verified portchannel functionality after fast reboot
 portchannel_l3_forwarding_success: successfully verified L3 traffic on {} in {}
@@ -230,3 +232,12 @@ UDLD_TX_RX_loop_Normal_Failed: UDLD TX/RX loop Normal Failed
 UDLD_TX_RX_loop_Normal_Passed: UDLD TX/RX loop Normal Passed
 UDLD_TX_RX_loop_Aggressive_Failed: UDLD TX/RX loop Aggressive Failed
 UDLD_TX_RX_loop_Aggressive_Passed: UDLD TX/RX loop Aggressive Passed
+
+##STP loop guard
+stp_convergence_fail: STp convergence got failed
+STP_loop_guard_config_fail: Failed to configure loopguard
+port_inconsistent_state_fail: Port failed to move to inconsistent state
+port_discarding_fail: Port failed to move to discarding state
+port_forwarding_fail: Port failed to move to forwarding state
+loopguard_pvst_should_fail: IN PVST mode loopguard config should fail
+

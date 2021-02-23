@@ -1,0 +1,4 @@
+server 192.168.122.2 iburst prefer
+server 2.ntp.esl.cisco.com
+server 1.ntp.esl.cisco.com
+server 127.127.1.0 prefer

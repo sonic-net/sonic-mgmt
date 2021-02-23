@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import itertools
 import re
 import sys
 import time
@@ -62,11 +61,11 @@ class VlanPort(object):
         return
 
     def create_vlan_ports(self):
-        for vlan_id in self.vlan_ids:
+        for vlan_id in self.vlan_ids.values():
             self.create_vlan_port(self.external_port, vlan_id)
 
     def remove_vlan_ports(self):
-        for vlan_id in self.vlan_ids:
+        for vlan_id in self.vlan_ids.values():
             vlan_port = "%s.%d" % (self.external_port, vlan_id)
             self.destroy_vlan_port(vlan_port)
 
@@ -118,29 +117,22 @@ class VlanPort(object):
 
         return stdout
 
+
 def main():
 
     module = AnsibleModule(argument_spec=dict(
         cmd=dict(required=True, choices=['create', 'remove', 'list']),
         external_port=dict(required=True, type='str'),
-        vlan_ids=dict(required=True, type='list'),
-        is_multi_duts=dict(required=False, type='bool', default=False),
+        vlan_ids=dict(required=True, type='dict'),
     ))
 
     cmd = module.params['cmd']
     external_port = module.params['external_port']
     vlan_ids = module.params['vlan_ids']
-    is_multi_duts = module.params['is_multi_duts']
 
-    _vlan_ids = vlan_ids
-    if is_multi_duts:
-        # flatten the list in the case of multi-DUTs
-        _vlan_ids = list(itertools.chain.from_iterable(_vlan_ids))
-    _vlan_ids.sort()
+    fp_ports = {}
 
-    fp_ports = []
-
-    vp = VlanPort(external_port, _vlan_ids)
+    vp = VlanPort(external_port, vlan_ids)
 
     vp.up_external_port()
     if cmd == "create":
@@ -149,13 +141,8 @@ def main():
         vp.remove_vlan_ports()
 
     fp_port_templ = external_port + ".%s"
-    if is_multi_duts:
-        fp_ports = []
-        for dut_vlans in vlan_ids:
-            dut_vlans.sort()
-            fp_ports.append([fp_port_templ % vid for vid in dut_vlans])
-    else:
-        fp_ports = [fp_port_templ % vid for vid in vlan_ids]
+    for a_port_index, vid in vlan_ids.items():
+        fp_ports[a_port_index] = fp_port_templ % vid
 
     module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
 

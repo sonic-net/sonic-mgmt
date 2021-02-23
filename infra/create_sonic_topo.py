@@ -62,7 +62,7 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git stash apply\n")
+    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout master; git stash apply\n")
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
@@ -110,7 +110,7 @@ def deploy_mg(data,base_topo_file):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
-    chan.send('./testbed-cli.sh -t testbed.csv gen-mg docker-ptf lab group_vars/lab/secrets.yml\n')
+    chan.send('./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml\n')
     chan.settimeout(180)
     buff = ''
     err_buff = ''
@@ -491,6 +491,9 @@ def main():
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
 
+    print("********** Do a Git Update **********")
+    git_update(data)
+
     # Create testbed file based on vxr_ports 
     print("****** Create testbed file based on vxr_ports *******")
     create_testbed_file(data,base_topo_file,vEOS_count)
@@ -508,16 +511,16 @@ def main():
     deploy_mg(data,base_topo_file)
 
     # Start docker container, deploy DUT minigraph
-    print("********** Download DUT minigraph ***********")
-    download_mg(data,topo_type)
+    #print("********** Download DUT minigraph ***********")
+    #download_mg(data,topo_type)
 
     # Replace DUT Mgmt Address
-    print("********** Replace DUT Mgmt Address ***********")
-    replace_dut_mgmt_address(data)
+    #print("********** Replace DUT Mgmt Address ***********")
+    #replace_dut_mgmt_address(data)
 
     # Reload DUT config
-    print("********** Reload DUT config ***********")
-    reload_dut_with_newCFG(data)
+    #print("********** Reload DUT config ***********")
+    #reload_dut_with_newCFG(data)
 
     # Add vEOS config
     print("********** Add vEOS config ***********")
@@ -526,15 +529,14 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
-    print("********** Do a Git Update **********")
-    git_update(data)
     
-    print("Sonic DUT:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
+    print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
-    print("Sonic Mgmt:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
+    print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
-    print("PTF:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['ptf']['HostAgent'], data['ptf']['serial0'], data['ptf']['xr_mgmt_ip'], data['ptf']['xr_redir22']))
+    print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['ptf']['HostAgent'], data['ptf']['serial0'], data['ptf']['xr_mgmt_ip'], data['ptf']['xr_redir22']))
 
+    print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
         print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
 

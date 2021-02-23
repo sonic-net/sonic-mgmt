@@ -28,8 +28,8 @@ def disable_ssh_timout(dut):
     @param dut: Ansible host DUT
     '''
     logger.info('Disabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i 's/^ClientAliveInterval/#&/' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
+    dut.command("sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak")
+    dut.command("sudo sed -i -e 's/^ClientAliveInterval/#&/' -e 's/^ClientAliveCountMax/#&/' /etc/ssh/sshd_config")
 
     dut.command("sudo systemctl restart ssh")
     time.sleep(5)
@@ -41,15 +41,15 @@ def enable_ssh_timout(dut):
     @param dut: Ansible host DUT
     '''
     logger.info('Enabling ssh time out on dut: %s' % dut.hostname)
-    dut.command("sudo sed -i '/^#ClientAliveInterval/s/^#//' /etc/ssh/sshd_config")
-    dut.command("sudo sed -i '/^#ClientAliveCountMax/s/^#//' /etc/ssh/sshd_config")
+    dut.command("sudo mv /etc/ssh/sshd_config.bak /etc/ssh/sshd_config")
 
     dut.command("sudo systemctl restart ssh")
     time.sleep(5)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def test_setup_teardown(duthost, localhost):
+def test_setup_teardown(duthosts, rand_one_dut_hostname, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
     disable_ssh_timout(duthost)
     # There must be a better way to do this.
     # Reboot the DUT so that we guaranteed to login without ssh timeout.
@@ -67,7 +67,7 @@ def test_setup_teardown(duthost, localhost):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.broadcom
-def test_ser(duthost):
+def test_ser(duthosts, rand_one_dut_hostname):
     '''
     @summary: Broadcom SER injection test use Broadcom SER injection utility to insert SER
               into different memory tables. Before the SER injection, Broadcom mem/sram scanners
@@ -77,6 +77,7 @@ def test_ser(duthost):
                                                    --host-pattern=vms12-t0-s6000-1 --module-path=../ansible/library
     @param duthost: Ansible framework testbed DUT device
     '''
+    duthost = duthosts[rand_one_dut_hostname]
     asic_type = duthost.facts["asic_type"]
     if "broadcom" not in asic_type:
         pytest.skip('Skipping SER test for asic_type: %s' % asic_type)

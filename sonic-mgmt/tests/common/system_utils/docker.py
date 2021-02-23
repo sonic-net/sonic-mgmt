@@ -67,7 +67,7 @@ def delete_container(dut, container_name):
             dut (SonicHost): The target device.
             container_name (str): The name of the container to delete.
     """
-
+    dut.command("docker stop {}".format(container_name))
     dut.command("docker rm {}".format(container_name))
 
 def download_image(dut, registry, image_name, image_version="latest"):

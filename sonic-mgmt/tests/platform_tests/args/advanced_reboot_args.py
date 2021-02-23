@@ -25,7 +25,6 @@ def add_advanced_reboot_args(parser):
         "--reboot_limit",
         action="store",
         type=int,
-        default=30,
         help="Reboot time limit in sec",
     )
 
@@ -83,4 +82,12 @@ def add_advanced_reboot_args(parser):
         type=bool,
         default=False,
         help="Replace fast-reboot script on DUT",
+    )
+
+    parser.addoption(
+        "--post_reboot_check_script",
+        action="store",
+        type=str,
+        default=None,
+        help="Script for checking additional states on DUT"
     )

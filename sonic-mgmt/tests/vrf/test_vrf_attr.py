@@ -2,11 +2,12 @@ import pytest
 
 from test_vrf import g_vars
 from test_vrf import setup_vrf              # lgtm[py/unused-import]
-from test_vrf import host_facts             # lgtm[py/unused-import]
+from test_vrf import dut_facts             # lgtm[py/unused-import]
 from test_vrf import gen_vrf_neigh_file
 from test_vrf import partial_ptf_runner     # lgtm[py/unused-import]
 
 from tests.ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -17,11 +18,12 @@ class TestVrfAttrSrcMac():
     new_vrf1_router_mac = '00:12:34:56:78:9a'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_src_mac(self, duthost, ptfhost, host_facts):
+    def setup_vrf_attr_src_mac(self, duthosts, rand_one_dut_hostname, ptfhost, dut_facts):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         extra_vars = { 'router_mac': self.new_vrf1_router_mac }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        duthost.template(src="vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
+        duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
@@ -33,13 +35,14 @@ class TestVrfAttrSrcMac():
         yield
 
         # -------- Teardown ----------
-        extra_vars = { 'router_mac': host_facts['ansible_Ethernet0']['macaddress'] }
+        extra_vars = { 'router_mac': dut_facts['router_mac'] }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.template(src="vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
-    def test_vrf_src_mac_cfg(self, duthost):
+    def test_vrf_src_mac_cfg(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
         # get vrf1 new router_mac from config_db
         vrf1_mac = duthost.shell("redis-cli -n 4 hget 'VRF|Vrf1' 'src_mac'")['stdout']
         assert vrf1_mac == self.new_vrf1_router_mac
@@ -53,13 +56,13 @@ class TestVrfAttrSrcMac():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_vrf1_neigh_with_new_router_mac(self, ptfhost, host_facts, testbed):
+    def test_vrf1_neigh_with_new_router_mac(self, ptfhost, tbinfo):
         # send packets with new router_mac
         ptf_runner(ptfhost,
                 "ptftests",
                 "vrf_test.FwdTest",
                 platform_dir='ptftests',
-                params={'testbed_type': testbed['topo']['name'],
+                params={'testbed_type': tbinfo['topo']['name'],
                         'router_mac': self.new_vrf1_router_mac,
                         'fwd_info': "/tmp/vrf1_neigh.txt",
                         'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
@@ -76,7 +79,8 @@ class TestVrfAttrSrcMac():
 
 class TestVrfAttrTTL():
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_ttl(self, duthost, ptfhost):
+    def setup_vrf_attr_ttl(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.copy(src="vrf/vrf_attr_ttl_action.json", dest="/tmp")
         duthost.copy(src="vrf/vrf_restore.json", dest="/tmp")
@@ -124,7 +128,8 @@ class TestVrfAttrTTL():
 
 class TestVrfAttrIpAction():
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_ip_opt_action(self, duthost, ptfhost):
+    def setup_vrf_attr_ip_opt_action(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.copy(src="vrf/vrf_attr_ip_opt_action.json", dest="/tmp")
         duthost.copy(src="vrf/vrf_restore.json", dest="/tmp")
@@ -178,7 +183,8 @@ class TestVrfAttrIpAction():
 
 class TestVrfAttrIpState():
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_ip_state(self, duthost, ptfhost):
+    def setup_vrf_attr_ip_state(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         duthost.copy(src="vrf/vrf_attr_ip_state.json", dest="/tmp")
         duthost.copy(src="vrf/vrf_restore.json", dest="/tmp")

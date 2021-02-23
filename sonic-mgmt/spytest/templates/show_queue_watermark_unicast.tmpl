@@ -1,0 +1,40 @@
+Value port (\S+)
+Value uc0 (\d+)
+Value uc1 (\d+)
+Value uc2 (\d+)
+Value uc3 (\d+)
+Value uc4 (\d+)
+Value uc5 (\d+)
+Value uc6 (\d+)
+Value uc7 (\d+)
+Value uc8 (\d+)
+Value uc9 (\d+)
+
+
+Start
+  ^\s*${port}\s+${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s*$$ -> CLICK
+  ^\s*${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s*$$ -> KLISH
+  ^\s*${port}\s+${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s+${uc8}\s+${uc9}\s*$$ -> CLICK_10_QUEUES
+  ^\s*${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s+${uc8}\s+${uc9}\s*$$ -> KLISH_10_QUEUES
+
+CLICK
+  ^(-+\s*)*$$
+  ^\s*${port}\s+${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s*$$ -> Record
+  ^$$
+
+
+KLISH
+  ^(-+\s*)*$$
+  ^\s*${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s*$$ -> Record
+  ^$$
+
+CLICK_10_QUEUES
+  ^(-+\s*)*$$
+  ^\s*${port}\s+${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s+${uc8}\s+${uc9}\s*$$ -> Record
+  ^$$
+
+
+KLISH_10_QUEUES
+  ^(-+\s*)*$$
+  ^\s*${uc0}\s+${uc1}\s+${uc2}\s+${uc3}\s+${uc4}\s+${uc5}\s+${uc6}\s+${uc7}\s+${uc8}\s+${uc9}\s*$$ -> Record
+  ^$$

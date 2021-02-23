@@ -22,6 +22,7 @@
 #}
 {% set vnet_v6_base = 4 %}
 {% set vlan_id_base = 3001 %}
+{% set vlan_rif_base = 2000 %}
 
 {# A single vnet batch contains 8 Vnets #}
 {% set num_vnet_batch = 8 %}
@@ -74,6 +75,12 @@ num_vnet_batch: {{ num_vnet_batch }}
   {% set max_rif = num_vnet %}
 {% endif %}
 
+{% if num_intf_per_vnet is undefined or not num_intf_per_vnet %}
+    {% set num_addl_intf = 0%}
+{% else %}
+    {% set num_addl_intf = (num_intf_per_vnet|int) - 1 %}
+{% endif %}
+
 {# Vlan Configurations 
  Vlan IP - A.B.10.1/24; starts 30.1.10.1/24 (A,B derived from vlan id)
 #}
@@ -86,6 +93,14 @@ vlan_intf_list:
     ifname: 'Vlan{{ vlan }}'
     ip: '{{ ip_a }}.{{ ip_b }}.10.1/24'
     port: '{{ ports[loop.index0%(ports|length)] }}'
+{% endfor %}
+{% for vlan in range(vlan_rif_base, num_addl_intf * num_vnet + vlan_rif_base) %}
+  {% set vlan_str = (vlan)|string %}
+  {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int) %}
+  - vlan_id: '{{ (vlan|int) }}'
+    ifname: 'Vlan{{ vlan }}'
+    ip: '{{ ip_a }}.{{ ip_b }}.10.1/24'
+    port: '{{ ports[loop.index0 // num_addl_intf % (ports|length) ] }}'
 {% endfor %}
 
 {# Interface Configuration #}
@@ -125,6 +140,10 @@ vnet_intf_list:
   - ifname: Vlan{{ vlan }}
     vnet: Vnet{{ loop.index }}
 {% endfor %}
+{% for vlan in range(vlan_rif_base, num_addl_intf * num_vnet + vlan_rif_base) %}
+  - ifname: Vlan{{ vlan }}
+    vnet: Vnet{{ loop.index0 // num_addl_intf + 1 }}
+{% endfor %}
 
 {# Vnet - Neighbor Configurations #}
 vnet_nbr_list:
@@ -140,6 +159,12 @@ vnet_nbr_list:
     {% endif %}
   {% endfor %}
 {% endfor %}
+{% for vlan in range(vlan_rif_base, num_addl_intf * num_vnet + vlan_rif_base) %}
+  {% set vlan_str = vlan|string %}
+  {% set ip_a, ip_b = vlan_str[:2]|int, vlan_str[2:]|int %}
+  - ifname: Vlan{{ vlan }}
+    ip: '{{ ip_a }}.{{ ip_b }}.10.101'
+{% endfor  %}
   - ifname: {{ minigraph_vlans[topo_vlan].members[0] }}
     ip: '10.10.10.102'
 
@@ -161,6 +186,23 @@ vnet_local_routes:
       - pfx: '60.1.1.0/24'
         nh: '{{ ip_a }}.{{ ip_b }}.10.101'
         ifname: 'Vlan{{ vlan_batch[1] }}'
+{% endfor %}
+
+{# Vnet - Subnet tunnel route Configurations #}
+vnet_subnet_routes:
+{% for vlan_batch in range (vlan_id_base, vlan_id_base + max_rif)|batch(4) %}
+  - Vnet{{ vlan_batch[0]-vlan_id_base+1 }}_route_list:
+    {% set vlan_str = (vlan_batch[0]-1)|string %}
+    {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
+      - pfx: '{{ ip_a }}.{{ ip_b }}.10.201/32'
+        end: '200.1.{{ ip_a }}.{{ ip_b }}'
+  - Vnet{{ vlan_batch[1]-vlan_id_base+1 }}_route_list:
+    {% set vlan_str = (vlan_batch[1]-1)|string %}
+    {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
+      - pfx: '{{ ip_a }}.{{ ip_b }}.10.202/32'
+        end: '200.1.{{ ip_a }}.{{ ip_b }}'
+        vni: '12345'
+        mac: '00:00:00:00:a1:b2'
 {% endfor %}
 
 {# Vnet - Routes

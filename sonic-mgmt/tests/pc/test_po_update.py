@@ -11,7 +11,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -29,15 +29,16 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
             ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
             ".*ERR syncd#syncd: :- translate_vid_to_rid: unable to get RID for VID.*",
         ]
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
     yield
 
-def test_po_update(duthost):
+def test_po_update(duthosts, rand_one_dut_hostname, tbinfo):
     """
     test port channel add/deletion as well ip address configuration
     """
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     int_facts = duthost.interface_facts()['ansible_facts']
 
     # Initialize portchannel

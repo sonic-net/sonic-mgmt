@@ -4,8 +4,11 @@
 from spytest import st
 import tempfile
 import utilities.utils as util_obj
-import json
+import json, os, re, subprocess, shlex
 from apis.system.basic import service_operations_by_systemctl
+from apis.common import redis
+import utilities.common as cutils
+from apis.system.rest import fix_set_url, fix_get_url
 
 supported_gnmi_operations = ["set", "get", "cli"]
 
@@ -210,28 +213,27 @@ def client_auth(dut, **kwargs):
     :return:
     """
     st.log("Configuring gNMI authentication.")
-    docer_name = "TELEMETRY"
     docker_name= "telemetry"
-    command = 'redis-cli -n 4 hmset "TELEMETRY|gnmi" client_auth'
+    command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth')
     if 'auth_type' in kwargs:
         if kwargs.get('auth_type'):
-            command = 'redis-cli -n 4 hmset "TELEMETRY|gnmi" client_auth "{}"'.format(kwargs.get('auth_type'))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth "{}"'.format(kwargs.get('auth_type')))
         else:
-            command = 'redis-cli -n 4 hdel "TELEMETRY|gnmi" client_auth'
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|gnmi" client_auth')
         st.config(dut, command)
     if 'server_key' in kwargs:
         if kwargs.get('server_key'):
-            command = 'redis-cli -n 4 hmset "DEVICE_METADATA|x509" server_key "{}"'.format(kwargs.get('server_key'))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" server_key "{}"'.format(kwargs.get('server_key')))
         st.config(dut, command)
     if 'server_crt' in kwargs:
         if kwargs.get('server_crt'):
-            command = 'redis-cli -n 4 hmset "DEVICE_METADATA|x509" server_crt "{}"'.format(kwargs.get('server_crt'))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" server_crt "{}"'.format(kwargs.get('server_crt')))
         st.config(dut, command)
     if 'ca_crt' in kwargs:
         if kwargs.get('ca_crt'):
-            command = 'redis-cli -n 4 hmset "DEVICE_METADATA|x509" ca_crt "{}"'.format(kwargs.get('ca_crt'))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" ca_crt "{}"'.format(kwargs.get('ca_crt')))
         else:
-            command = 'redis-cli -n 4 hdel "DEVICE_METADATA|x509" ca_crt'
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "DEVICE_METADATA|x509" ca_crt')
         st.config(dut, command)
     service_operations_by_systemctl(dut, docker_name, 'stop')
     service_operations_by_systemctl(dut, docker_name, 'start')
@@ -292,3 +294,185 @@ def gnmi_debug(dut):
     command = 'sonic-cfggen -d -v "TELEMETRY"'
     output = st.config(dut, command)
     st.log("DEBUG OUPUT for GNMI STATUS --- {}".format(output))
+
+
+def clear_gnmi_utils():
+    try:
+        os.system("rm -f /tmp/gnmi_*")
+    except Exception:
+        pass
+
+
+def copy_gnmi_utils(dut, src_path, dst_path="/tmp"):
+    gnmi_files = ["gnmi_set", "gnmi_get"]
+    dut_path = src_path
+    for file in gnmi_files:
+        command = "docker cp telemetry:/usr/sbin/{} {}".format(file, dut_path)
+        st.config(dut, command)
+        st.download_file_from_dut(dut, "{}/{}".format(dut_path, file), "{}/".format(dst_path))
+    return True
+
+
+def convert_rest_url_to_gnmi_url(path, url_params={}):
+    pattern_match = re.findall(r"{(\w+(-*\w+)+)}", path)
+    if pattern_match:
+        for key, value in url_params.items():
+            for attr in pattern_match:
+                if key == attr[0]:
+                    path = path.replace("={" + key + "}", "[{}={}]".format(key, value))
+                    path = path.replace(",{" + key + "}", "[{}={}]".format(key, value))
+    path = path.replace("/restconf/data", "")
+    return path
+
+
+def _run_gnmi_command(command):
+    result = dict()
+    st.log("CMD: {}".format(command))
+    process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    data, error = process.communicate()
+    rc = process.poll()
+    result.update({"output": data})
+    result.update({"rc": rc})
+    result.update({"error": error})
+    st.log("RESULT {}".format(result))
+    return result
+
+
+def _prepare_gnmi_command(dut, xpath, **kwargs):
+    credentials = st.get_credentials(dut)
+    ip_address = kwargs.get('ip_address', '127.0.0.1')
+    port = kwargs.get('port', '8080')
+    insecure = kwargs.get('insecure', '')
+    username = kwargs.get('username', credentials[0])
+    password = kwargs.get('password', credentials[3])
+    gnmi_utils_path = kwargs.get("gnmi_utils_path", "/tmp")
+    cert = kwargs.get('cert')
+    action = kwargs.get("action", "get")
+    pretty = kwargs.get('pretty')
+    mode = kwargs.get('mode', '-update')
+    target_name = kwargs.get('target_name')
+    if action == "get":
+        gnmi_command = 'gnmi_get -xpath {} -target_addr {}:{}'.format(xpath, ip_address, port)
+    elif action == "set":
+        gnmi_command = 'gnmi_set {} {}:@{} -target_addr {}:{}'.format(mode, xpath, kwargs.get("data_file_path"), ip_address, port)
+        if pretty:
+            gnmi_command += " --pretty"
+    elif action == "delete":
+        gnmi_command = 'gnmi_set --delete {} --target_addr {}:{}'.format(xpath, ip_address, port)
+    if username:
+        gnmi_command += " --username {}".format(username)
+    if password:
+        gnmi_command += " --password {}".format(password)
+    if cert:
+        gnmi_command += " -cert {}".format(cert)
+    if target_name:
+        gnmi_command += " -target_name {}".format(target_name)
+    if insecure:
+        gnmi_command += " -insecure {}".format(insecure)
+    gnmi_command += " -insecure -alsologtostderr"
+    command = '{}/{}'.format(gnmi_utils_path, gnmi_command)
+    return command
+
+
+def gnmi_apply(dut, **kwargs):
+    operation = kwargs.get("operation", "get")
+    if operation == "patch":
+        action = "set"
+    elif operation == "delete":
+        action = "delete"
+    else:
+        action = "get"
+    xpath = kwargs.get("path")
+    if not xpath:
+        st.error("XPATH NOT PROVIDED")
+        return False
+    ip_addr = st.get_mgmt_ip(dut)
+    kwargs.update({"ip_address":kwargs.get("ip_address", ip_addr)})
+    xpath = convert_rest_url_to_gnmi_url(xpath, kwargs.get("url_params"))
+    kwargs.update({"json_content":kwargs.get("data")})
+    kwargs.update({"action":action})
+    if action == "set":
+        xpath, data = fix_set_url(xpath, kwargs.get("data"))
+        kwargs.update({"json_content": data})
+    else:
+        xpath = fix_get_url(xpath)
+    if action in ["get", "set", "delete"]:
+        return _gnmi_operation(dut, xpath, **kwargs)
+    else:
+        st.log("Invalid operation for GNMI -- {}".format(action))
+        return False
+
+
+def _gnmi_operation(dut, xpath, **kwargs):
+    """
+    API to set GNMI configuration
+    Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+    :param dut:
+    :param xpath:
+    :param json_content:
+    :param kwargs:
+    :return:
+    """
+    st.log("Performing GNMI {} OPERATION ...".format(kwargs.get("action").upper()))
+    if kwargs.get("action") == "set":
+        json_content = kwargs.get("json_content")
+        if json_content:
+            temp_dir = tempfile.gettempdir()
+            current_datetime = cutils.get_current_datetime(fmt="%m%d%Y%H%M%S%f")
+            file_name = "sonic_uignmi_{}.json".format(current_datetime)
+            tmp_path = "{}/{}".format(temp_dir, file_name)
+            rm_cmds = ['rm {}'.format(tmp_path)]
+            kwargs.update({"devname": dut})
+            kwargs.update({"json_content": json_content})
+            kwargs.update({"data_file_path": tmp_path})
+            command = _prepare_gnmi_command(dut, xpath, **kwargs)
+            file_operation = cutils.write_to_json_file(json_content, tmp_path)
+            if not file_operation:
+                st.error("File operation failed.")
+                return False
+            output = _run_gnmi_command(command)
+            st.debug("OUTPUT : {}".format(output))
+            for rm_cmd in rm_cmds:
+                _run_gnmi_command(rm_cmd)
+            return output
+        else:
+            st.error("Could not find JSON CONTENT for SET operation")
+            return False
+    elif kwargs.get("action") in ["get", "delete"]:
+        try:
+            kwargs.update({"devname": dut})
+            command = _prepare_gnmi_command(dut, xpath, **kwargs)
+            output = _run_gnmi_command(command)
+            output['output'] = _get_processed_gnmi_ouput(output['output']) if kwargs.get("action") == 'get' else output['output']
+            st.debug(output)
+            return output
+        except Exception as e:
+            st.error(e)
+            return False
+    else:
+        st.log("Invalid operation for GNMI -- {}".format(kwargs.get("action")))
+        return False
+
+
+def _get_processed_gnmi_ouput(data):
+    """
+    API to return GNMI GET processed output
+    Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+    :param dut:
+    :param xpath:
+    :param json_content:
+    :param kwargs:
+    :return:
+    """
+    my_data = ""
+    if data:
+        out=data.replace("\n", "").replace(" ", "").replace(">", "").replace("<", "").replace("'\"", "").replace("\"'", "").replace("False", "false").replace("True", "true").replace("\\", "")
+        processed_output = re.findall(r'json_ietf_val:(.*)', out)
+        if processed_output:
+            a = processed_output[0].strip('"')
+            try:
+                my_data = json.loads(a)
+            except Exception as e:
+                st.error("Exception occurred: {}".format(e))
+    st.debug("Processed gnmi GET output: {}".format(my_data))
+    return my_data
