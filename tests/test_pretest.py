@@ -207,6 +207,16 @@ def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
     dut.shell('docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages/')
     dut.shell('systemctl restart pmon')
 
+def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
+    '''
+     Stop pfcwd on dual tor testbeds
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        pytest.skip("Skip this test on non dualTOR testbeds")
+
+    dut = duthosts[enum_dut_hostname]
+    dut.command('pfcwd stop')
+
 """
     Separator for internal pretests.
     Please add public pretest above this comment and keep internal
