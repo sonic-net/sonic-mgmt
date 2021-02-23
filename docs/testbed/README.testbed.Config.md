@@ -25,10 +25,10 @@
 
 ### ```testbed.csv``` format
 ```
-# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
-ptf1-m,ptf1,ptf32,docker-ptf,ptf-1,10.255.0.188/24,,server_1,,str-msn2700-01,Tests ptf
-vms-t1,vms1-1,t1,docker-ptf,ptf-2,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests vms
-vms-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-3,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,Tests vms
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment
+ptf1-m,ptf1,ptf32,docker-ptf,ptf-1,10.255.0.188/24,,server_1,,str-msn2700-01,lab,False,Tests ptf
+vms-t1,vms1-1,t1,docker-ptf,ptf-2,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,lab,True,Tests vms
+vms-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-3,10.255.0.178/24,,server_1,VM0100,str-msn2700-01,lab,True,Tests vms
 
 ```
 
@@ -40,6 +40,8 @@ vms-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-3,10.255.0.178/24,,server_1,VM0100,str-m
 - server – server where the testbed resides
 - vm_base – first VM for the testbed. If empty, no VMs are used
 - dut – target dut name
+- inv_name - inventory file name that contains the definition of the target DUTs
+- auto_recover - (`yes`|`True`|`true`) to recover this testbed when runnings serve recovery script, (`no`|`False`|`false`) otherwise
 - comment – any text here
 
 ### ```testbed.csv``` consistency rules
