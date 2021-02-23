@@ -294,21 +294,21 @@ def nat_zones_config(duthost, setup_info, interface_type):
             pytest_assert(str(nat_zone_vars['zone_id']) == zone_id, "NAT zone was not set to {}".format(zone_id))
 
 
-def get_cli_show_nat_config_output(duthost, command, nat_type='dynamic'):
+def get_cli_show_nat_config_output(duthost, command):
     """
     created ditionary with output of show nat command
     :param duthost: DUT host object
     :param command: str, command to execute
     :return: dict, dictionary with values
     """
-    output_list = duthost.command("show nat config {}".format(command))['stdout_lines'][1::2]
-    keys_unsorted = (',').join(output_list[0].split()).split(',')
-    if nat_type != "dynamic":
-        keys = ['{} {}'.format(keys_unsorted[i], keys_unsorted[i + 1]) for i in range(0, len(keys_unsorted), 2)]
-    else:
-        keys = [key.strip() for key in output_list[0].split("    ")]
-    values = output_list[1].split()
-    return dict(zip(keys, values))
+    output_list = duthost.command("show nat config {}".format(command))['stdout_lines']
+    keys = [key.strip() for key in output_list[1].split("    ") if key]
+    output_dict = dict()
+    for entry in output_list[3:]:
+        values = entry.split()
+        output_dict.update({values[0]: dict(zip(keys, values))})
+
+    return output_dict
 
 
 def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
@@ -342,7 +342,7 @@ def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
         duthost.command("sudo config nat add static {0} {1} {2} {3} {4} -nat_type=dnat".
                         format(protocol_type.lower(), public_ip, global_port, private_ip, local_port))
     # Check that rule was applied
-    static_nat = get_cli_show_nat_config_output(duthost, "static", nat_type="static")
+    static_nat = get_cli_show_nat_config_output(duthost, "static").itervalues().next()
     pytest_assert('dnat' == static_nat['Nat Type'], "Default NAT type was changed")
     pytest_assert(public_ip == static_nat['Global IP'], "Global IP does not match {}".format(public_ip))
     pytest_assert(private_ip == static_nat['Local IP'], "Local IP does not match {}".format(private_ip))
@@ -992,14 +992,14 @@ def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interfa
     # Set NAT configuration for test
     duthost.command("sudo config nat add pool {0} {1} {2}".format(pool_name, public_ip, port_range))
     # Check that pool configuration was applied
-    show_nat_pool = get_cli_show_nat_config_output(duthost, "pool")
+    show_nat_pool = get_cli_show_nat_config_output(duthost, "pool").itervalues().next()
     pytest_assert(pool_name == show_nat_pool['Pool Name'], "Pool name was not set to {}".format(pool_name))
     pytest_assert(public_ip == show_nat_pool['Global IP Range'], "Global IP Range was not set to {}".format(public_ip))
     pytest_assert(port_range == show_nat_pool['Global Port Range'], "Global Port Range was not set to {}".format(port_range))
     # Add bindings
     duthost.command("sudo config nat add binding {0} {1} {2}".format(binding_name, pool_name, acl_table))
     # Check that binding configuration was applied
-    show_nat_binding = get_cli_show_nat_config_output(duthost, "bindings")
+    show_nat_binding = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
     pytest_assert(binding_name == show_nat_binding['Binding Name'], "Binding Name was not set to {}".format(binding_name))
     pytest_assert(pool_name == show_nat_binding['Pool Name'], "Pool Name was not set to {}".format(pool_name))
     pytest_assert(acl_table == show_nat_binding['Access-List'], "Access-List was not set to {}".format(acl_table))

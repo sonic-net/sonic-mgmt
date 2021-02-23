@@ -2,6 +2,7 @@ import re
 import copy
 import time
 import random
+import logging
 
 import pytest
 
@@ -37,6 +38,8 @@ from nat_helpers import get_cli_show_nat_config_output
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 
+logging.basicConfig(level=logging.DEBUG)
+mylogger = logging.getLogger()
 
 pytestmark = [
     pytest.mark.topology('t0')
