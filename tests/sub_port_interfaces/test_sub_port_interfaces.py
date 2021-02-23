@@ -2,8 +2,8 @@
 Tests sub-port interfaces in SONiC.
 """
 
-import pytest
 import random
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from sub_ports_helpers import generate_and_verify_traffic
@@ -15,7 +15,7 @@ from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import check_sub_port
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 't1')
 ]
 
 class TestSubPorts(object):
@@ -23,7 +23,7 @@ class TestSubPorts(object):
     TestSubPorts class for testing sub-port interfaces
     """
 
-    def test_packet_routed_with_valid_vlan(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+    def test_packet_routed_with_valid_vlan(self, duthost, ptfhost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
         Validates that packet routed if sub-ports have valid VLAN ID.
 
@@ -153,7 +153,8 @@ class TestSubPorts(object):
         sub_ports = apply_config_on_the_dut['sub_ports']
         sub_ports_new[sub_ports.keys()[0]] = sub_ports[sub_ports.keys()[0]]
         sub_ports_new[sub_ports.keys()[-1]] = sub_ports[sub_ports.keys()[-1]]
-        rand_sub_ports = sub_ports.keys()[random.randint(1, len(sub_ports))]
+
+        rand_sub_ports = sub_ports.keys()[random.randint(1, len(sub_ports)-1)]
         sub_ports_new[rand_sub_ports] = sub_ports[rand_sub_ports]
 
         for sub_port, value in sub_ports_new.items():
@@ -166,7 +167,7 @@ class TestSubPorts(object):
                                         pkt_action='fwd')
 
 
-    def test_mtu_inherited_from_parent_port(self, duthost, ptfadapter, apply_config_on_the_dut):
+    def test_mtu_inherited_from_parent_port(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
         Validates that MTU settings of sub-ports inherited from parent port
 

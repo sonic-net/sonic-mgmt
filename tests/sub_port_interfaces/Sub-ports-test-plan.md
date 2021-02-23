@@ -1,6 +1,6 @@
 # Sub-port interfaces Test Plan
 
-## Rev 0.1
+## Rev 0.3
 
 - [Revision](#revision)
 - [Overview](#overview)
@@ -10,13 +10,17 @@
 - [Test Cases](#Test-cases)
   - [test_packet_routed_with_valid_vlan](#Test-case-test_packet_routed_with_valid_vlan)
   - [test_packet_routed_with_invalid_vlan](#Test-case-test_packet_routed_with_invalid_vlan)
+  - [test_admin_status_down_disables_forwarding](#Test-case-test_admin_status_down_disables_forwarding)
+  - [test_max_numbers_of_sub_ports](#Test-case-test_max_numbers_of_sub_ports)
+  - [test_mtu_inherited_from_parent_port](#Test-case-test_mtu_inherited_from_parent_port)
+  - [test_vlan_config_impact](#Test-case-test_vlan_config_impact)
 
 
 ## Revision
 
 | Rev |     Date    |       Author             | Change Description                 |
 |:---:|:-----------:|:-------------------------|:-----------------------------------|
-| 0.1 |  30/11/2020 | Intel: Oleksandr Kozodoi |          Initial version           |
+| 0.3 |  02/23/2021 | Intel: Oleksandr Kozodoi |          Initial version           |
 
 
 ## Overview
@@ -31,12 +35,12 @@ Purpose of the test is to verify a SONiC switch system correctly performs sub-po
 
 ## Testbed
 
-Supported topologies: t0
+Supported topologies: t0, t1
 
 ## Setup configuration
 
 Each sub-ports test case needs traffic transmission.
-Traffic starts transmission, if DUT and PTF directly connected interfaces have the same VLAN IDs. So we need configure correct sub-ports on the DUT and PTF.
+Traffic starts transmission, if DUT and PTF directly connected interfaces have the same VLAN IDs. So we need configure correct sub-ports on the DUT and PTF. 
 
 For example the customized testbed with applied T0 topo for test_packet_routed test case looks as follows:
 
@@ -58,7 +62,7 @@ For example the customized testbed with applied T0 topo for test_packet_routed t
       |_________________________________|
 
 ```
-Port mapping:
+#### Port mapping for port:
 | DUT        |             |  PTF       |             |
 |:----------:|:-----------:|:-----------|:------------|
 |**Sub-port**|**IP**       |**Sub-port**|**IP**       |
@@ -67,6 +71,15 @@ Port mapping:
 |Ethernet8.10|172.16.4.1/30|eth2.10     |172.16.4.2/30|
 |Ethernet8.20|172.16.4.5/30|eth2.20     |172.16.4.6/30|
 
+#### Port mapping for port in LAG:
+| DUT        |             |  PTF       |             |
+|:----------:|:-----------:|:-----------|:------------|
+|**Sub-port**|**IP**       |**Sub-port**|**IP**       |
+|PortChannel1.10|172.16.0.1/30|bond1.10     |172.16.0.2/30|
+|PortChannel1.20|172.16.0.5/30|bond1.20     |172.16.0.6/30|
+|PortChannel2.10|172.16.4.1/30|bond2.10     |172.16.4.2/30|
+|PortChannel2.20|172.16.4.5/30|bond2.20     |172.16.4.6/30|
+
 After end of the test session teardown procedure turns testbed to the initial state.
 
 ## Python scripts to setup and run test
@@ -74,6 +87,8 @@ After end of the test session teardown procedure turns testbed to the initial st
 Sub-ports test suite is located in tests/sub_port_interfaces folder. There is one files test_sub_port_interfaces.py
 
 ### Setup of DUT switch
+
+Parent ports of sub-ports are members of Vlan1000 in the t0 topology. So we need to remove parent ports from Vlan1000 before tests running.
 
 During setup procedure python mgmt scripts perform DUT configuration via jinja template to convert it in to the JSON file containing configuration to be pushed to the SONiC config DB via sonic-cfggen. Setup procedure configures sub-port interfaces with fixture ```define_sub_ports_configuration```.
 
@@ -90,6 +105,7 @@ sub_port_config.j2
     }
 }
 ```
+Also, all test cases support LAG ports. So we need to configure additional PortChannel ports on the DUT and bond ports on the PTF before test running. We should use ```create_lag_port``` function and ```create_bond_port``` function for this. [Port mapping for port in LAG](#Port-mapping-for-port-in-LAG).
 
 ## Test cases
 
@@ -173,6 +189,7 @@ Validates that admin status DOWN disables packet forwarding.
 
 - reload_dut_config function: reload DUT configuration
 - reload_ptf_config function: remove all sub-ports configuration
+- teardown_test_class function: reload DUT configuration after running of test suite
 
 ## Test case test_max_numbers_of_sub_ports
 
@@ -198,9 +215,6 @@ Validates that 256 sub-ports can be created per port or LAG.
 
 - reload_dut_config function: reload DUT configuration
 - reload_ptf_config function: remove all sub-ports configuration
-
-### NOTE
-The running of the test case takes about 80 minutes.
 
 ## Test case test_mtu_inherited_from_parent_port
 
