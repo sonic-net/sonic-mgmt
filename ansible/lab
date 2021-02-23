@@ -120,7 +120,8 @@ sonic_multi_asic:
     hwsku: msft_multi_asic_vs
     iface_speed: 40000
     num_asics: 6
-    start_topo_service: True  
+    start_topo_service: True
+    frontend_asics: [0,1,2,3]
   hosts:
     vlab-07:
       ansible_host: 10.250.0.110
@@ -132,6 +133,7 @@ sonic_multi_asic_2:
     iface_speed: 40000
     num_asics: 4
     start_topo_service: True
+    frontend_asics: [0,1]
   hosts:
     vlab-08:
       ansible_host: 10.250.0.112
