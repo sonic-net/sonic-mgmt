@@ -158,7 +158,7 @@ def turn_all_outlets_on(pdu_ctrl):
     pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot to get at least 2 outlet status: {}'.format(all_outlet_status))
     for outlet in all_outlet_status:
         if not outlet["outlet_on"]:
-            pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+            pdu_ctrl.turn_on_outlet(outlet)
             time.sleep(5)
 
 
@@ -210,8 +210,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
     for outlet in all_outlet_status:
         psu_under_test = None
 
-        logging.info("Turn off outlet %s" % str(outlet["outlet_id"]))
-        pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
+        logging.info("Turn off outlet {}".format(outlet))
+        pdu_ctrl.turn_off_outlet(outlet)
         time.sleep(5)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
@@ -223,8 +223,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
             check_vendor_specific_psustatus(duthost, line)
         pytest_assert(psu_under_test is not None, "No PSU is turned off")
 
-        logging.info("Turn on outlet %s" % str(outlet["outlet_id"]))
-        pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+        logging.info("Turn on outlet {}".format(outlet))
+        pdu_ctrl.turn_on_outlet(outlet)
         time.sleep(5)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
@@ -378,7 +378,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
               control policy file.
     """
     logging.info("Turn off outlet %s" % str(outlet["psu_id"]))
-    pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
+    pdu_ctrl.turn_off_outlet(outlet)
     time.sleep(5)
 
     psu_under_test = None
@@ -397,7 +397,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
                              mocker.check_all_fan_speed,
                              100), 'FAN speed not turn to 100% after PSU off')
 
-    pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+    pdu_ctrl.turn_on_outlet(outlet)
     time.sleep(5)
 
 

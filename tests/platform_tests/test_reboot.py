@@ -161,12 +161,12 @@ def _power_off_reboot_helper(kwargs):
 
     for outlet in all_outlets:
         logging.debug("turning off {}".format(outlet))
-        pdu_ctrl.turn_off_outlet(outlet["outlet_id"])
+        pdu_ctrl.turn_off_outlet(outlet)
     time.sleep(delay_time)
     logging.info("Power on {}".format(power_on_seq))
     for outlet in power_on_seq:
         logging.debug("turning on {}".format(outlet))
-        pdu_ctrl.turn_on_outlet(outlet["outlet_id"])
+        pdu_ctrl.turn_on_outlet(outlet)
 
 
 def test_power_off_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list, pdu_controller, power_off_delay):

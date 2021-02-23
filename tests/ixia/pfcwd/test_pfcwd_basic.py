@@ -92,7 +92,7 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api,
     Returns:
         N/A
     """
-    dut_hostname, dut_port = enum_dut_portname_oper_up.split('|')
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
 

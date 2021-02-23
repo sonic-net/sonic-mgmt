@@ -79,6 +79,7 @@ class AdvancedReboot:
         self.readyTimeout = self.request.config.getoption("--ready_timeout")
         self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
+        self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -482,6 +483,7 @@ class AdvancedReboot:
                 "setup_fdb_before_test" : True,
                 "vnet" : self.vnet,
                 "vnet_pkts" : self.vnetPkts,
+                "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff
             },
             log_file=u'/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors
