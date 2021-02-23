@@ -390,7 +390,7 @@ class SonicHost(AnsibleHostBase):
         except:
             return False
 
-    def is_container_present(self, service):
+    def is_container_running(self, service):
         """
         Checks where a container exits.
 
@@ -400,8 +400,7 @@ class SonicHost(AnsibleHostBase):
             True or False
         """
         status = self.command(
-            "docker ps -f name={}".format(service),
-            module_ignore_errors=True
+            "docker ps -f name={}".format(service), module_ignore_errors=True
         )
 
         if len(status["stdout_lines"]) > 1:
@@ -409,7 +408,7 @@ class SonicHost(AnsibleHostBase):
                 service, status["stdout"])
             )
         else:
-            logging.info("container {} does not exist".format(service))
+            logging.info("container {} is not running".format(service))
 
         return len(status["stdout_lines"]) > 1
 
@@ -1136,7 +1135,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             map = tbinfo['topo']['ptf_map'][str(dut_index)]
             if map:
                 for port, index in mg_facts['minigraph_port_indices'].items():
-                    mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
+                    if str(index) in map:
+                        mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
         except (ValueError, KeyError):
             pass
 
@@ -1291,8 +1291,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         logging.debug("Stopped {}".format(service_name))
 
     def delete_container(self, service):
-        if self.is_container_present(service):
-            self.command("docker rm {}".format(service))
+        self.command(
+            "docker rm {}".format(service), module_ignore_errors=True
+        )
 
     def is_bgp_state_idle(self):
         bgp_summary = self.command("show ip bgp summary")["stdout_lines"]
@@ -1323,6 +1324,19 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return "RUNNING" in service_status
 
+    def get_up_ip_ports(self):
+        """
+        Get a list for all up ip interfaces
+        """
+        up_ip_ports = []
+        ip_intf_facts = self.show_ip_interface()['ansible_facts']['ip_interfaces']
+        for intf in ip_intf_facts:
+            try:
+                if ip_intf_facts[intf]['oper_state'] == 'up':
+                    up_ip_ports.append(intf)
+            except KeyError:
+                pass
+        return up_ip_ports
 
 class K8sMasterHost(AnsibleHostBase):
     """
@@ -1891,7 +1905,7 @@ class SonicAsic(object):
 
     def interface_facts(self, *module_args, **complex_args):
         """Wrapper for the interface_facts ansible module.
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
@@ -1924,12 +1938,12 @@ class SonicAsic(object):
             )
         return self.sonichost.delete_container(service)
 
-    def is_container_present(self, service):
+    def is_container_running(self, service):
         if self.sonichost.is_multi_asic:
             service = self._MULTI_ASIC_DOCKER_NAME.format(
                 service, self.asic_index
             )
-        return self.sonichost.is_container_present(service)
+        return self.sonichost.is_container_running(service)
 
     def is_service_running(self, service_name, docker_name):
         if self.sonichost.is_multi_asic:
@@ -2129,12 +2143,12 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             asic.delete_container(service)
 
-    def is_container_present(self, service):
+    def is_container_running(self, service):
         if service in self._DEFAULT_SERVICES:
-            return self.sonichost.is_container_present(service)
+            return self.sonichost.is_container_running(service)
 
         for asic in self.asics:
-            if asic.is_container_present(service):
+            if asic.is_container_running(service):
                 return True
 
         return False

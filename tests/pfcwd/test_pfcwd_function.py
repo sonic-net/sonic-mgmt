@@ -499,12 +499,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         logger.info("--- Verify PFCwd counters for port {} ---".format(port))
         self.stats.verify_pkt_cnts(self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
 
-    def test_pfcwd_actions(self, request, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+    def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
         """
         PFCwd functional test
 
         Args:
             request(object) : pytest request object
+            fake_storm(fixture) : Module scoped fixture for enable/disable fake storm
             setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
             fanout_graph_facts(fixture) : fanout graph info
             ptfhost(AnsibleHost) : ptf host instance
@@ -522,10 +523,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.neighbors = setup_info['neighbors']
         dut_facts = self.dut.facts
         self.peer_dev_list = dict()
-        self.fake_storm = request.config.getoption("--fake-storm")
+        self.fake_storm = fake_storm
+        self.storm_hndle = None
 
         for idx, port in enumerate(self.ports):
-             self.storm_hndle = None
              logger.info("")
              logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
              self.setup_test_params(port, setup_info['vlan'], init=not idx)

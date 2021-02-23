@@ -1,0 +1,271 @@
+from urllib import request, error
+import json
+import os
+import re
+from sonic_py_common import logger, device_info
+from portconfig import get_port_config
+from natsort import natsorted
+from sonic_py_common.interface import backplane_prefix
+
+DUTS_MAP = {{ duts_map }}
+
+VM_SET = "{{ group_name }}"
+
+DUT_NAME = "{{ dut_name }}"
+
+BASE_URL = "http://{{ mux_simulator_server }}:{{ mux_simulator_port }}/"
+
+SYSLOG_IDENTIFIER = "y_cable_sim"
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
+
+UPPER_TOR = "upper_tor"
+LOWER_TOR = "lower_tor"
+
+PLATFORM_JSON = 'platform.json'
+PORT_CONFIG_INI = 'port_config.ini'
+
+# A dict for mapping physical port to host interface
+g_physical_to_host_port_mapping = {}
+
+def _physical_port_to_host_port(physical_port):
+    """
+    Convert physical port to host interface index.
+    The physical port index got from spf is different with host interface index when interface is splited.
+    However, the mux bridges on vm_host are named according to host interface index (vm_topology.py).
+    So a convert is needed.
+
+    @arg physical_port: The physical port index got from sfputil
+    @returns: The host interface index (0-based)
+    """
+    global g_physical_to_host_port_mapping
+
+    if not g_physical_to_host_port_mapping:
+        _load_port_info()
+    # Return physical_port - 1 in case loading port config file failure
+    return g_physical_to_host_port_mapping.get(physical_port, physical_port - 1)
+
+def _load_port_info():
+    """
+    Parse platform.json or port_config.ini to get the mapping between physical_port and host interface index
+    and physical_port and logical port name. The mapping is saved in two global variables.
+    """
+    porttabfile = device_info.get_path_to_port_config_file()
+    parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
+
+    if parse_fmt_platform_json:
+        _load_port_config_json()
+    else:
+        _load_port_config_ini(porttabfile)
+
+def _load_port_config_json():
+    """
+    A helper function for loading port config from 'platform.json'
+    """
+    global g_physical_to_host_port_mapping
+
+    (platform, hwsku) = device_info.get_platform_and_hwsku()
+    ports, _, _ = get_port_config(hwsku, platform)
+    if not ports:
+        helper_logger.log_warning('Failed to get port config')
+        return
+    else:
+        logical_list = []
+        for intf in ports.keys():
+            logical_list.append(intf)
+
+        logical = natsorted(logical_list, key=lambda y: y.lower())
+        host_intf_index = 0
+        for intf_name in logical:
+            fp_port_index = -1
+            if 'index' in ports[intf_name].keys():
+                fp_port_index = int(ports[intf_name]['index'])
+            if fp_port_index not in g_physical_to_host_port_mapping:
+                g_physical_to_host_port_mapping[fp_port_index] = host_intf_index;
+            host_intf_index += 1
+
+def _load_port_config_ini(porttabfile):
+    """
+    A helper function for loading port config from 'port_config.ini'
+    """
+    global g_physical_to_host_port_mapping
+
+    parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
+    host_intf_index = 0
+    with open(porttabfile, "r") as f:
+        # Read the porttab file and generate dicts
+        # with mapping for future reference.
+        title = []
+        for line in f:
+            line.strip()
+            if re.search("^#", line) is not None:
+                # The current format is: # name lanes alias index speed
+                # Where the ordering of the columns can vary
+                title = line.lstrip('#').strip().split()
+                continue
+            # Parsing logic for 'port_config.ini' file
+            if (parse_fmt_port_config_ini):
+                # bcm_port is not explicitly listed in port_config.ini format
+                # Currently we assume ports are listed in numerical order according to bcm_port
+                # so we use the port's position in the file (zero-based) as bcm_port
+                portname = line.split()[0]
+
+                # Ignore if this is an internal backplane interface
+                if portname.startswith(backplane_prefix()):
+                    continue
+
+                if "index" in title:
+                    fp_port_index = int(line.split()[title.index("index")])
+                # Leave the old code for backward compatibility
+                elif "asic_port_name" not in title and len(line.split()) >= 4:
+                    fp_port_index = int(line.split()[3])
+                else:
+                    fp_port_index = portname.split("Ethernet").pop()
+                    fp_port_index = int(fp_port_index.split("s").pop(0))/4
+            else:
+                # Parsing logic for older 'portmap.ini' file
+                (portname, bcm_port) = line.split("=")[1].split(",")[:2]
+
+                fp_port_index = portname.split("Ethernet").pop()
+                fp_port_index = int(fp_port_index.split("s").pop(0))/4
+            if fp_port_index not in g_physical_to_host_port_mapping:
+                g_physical_to_host_port_mapping[fp_port_index] = host_intf_index
+
+            # Next line, next host index
+            host_intf_index += 1
+
+def _url(physical_port):
+    """
+    Helper function to build an url for given physical_port
+
+    Args:
+        physical_port: physical port on switch, an integer starting from 1
+    Returns:
+        str: The url for post/get.
+    """
+    host_intf_index = _physical_port_to_host_port(physical_port)
+    return BASE_URL + "/mux/{}/{}".format(VM_SET, host_intf_index)
+
+def _post(physical_port, data):
+    """
+    Helper function for posting data to y_cable server.
+
+    Args:
+        physical_port: physical port on switch, an integer starting from 1
+        data: data to post
+    Returns:
+        True if succeed. False otherwise
+    """
+    data = json.dumps(data).encode(encoding='utf-8')
+    header = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+    req = request.Request(url=_url(physical_port), data=data, headers=header)
+    try:
+        _ = request.urlopen(req)
+    except error.HTTPError as e:
+        try:
+            err_msg = json.loads(e.read().decode())['err_msg']
+            helper_logger.log_warning("post request returns err. status_code = {} err_msg = {}".format(e.code, err_msg))
+        except Exception:
+            helper_logger.log_warning("post request returns err. status_code = {}".format(e.code))
+        return False
+    except error.URLError as e:
+        helper_logger.log_warning("post request returns err. err_msg = {}".format(str(e)))
+        return False
+    return True
+
+def _get(physical_port):
+    """
+    Helper function for polling status from y_cable server.
+
+    Args:
+        physical_port: physical port on switch, an integer starting from 1
+    Returns:
+        dict: A dict decoded from server's response.
+        None: Returns None is error is detected.
+    """
+    req = request.Request(url=_url(physical_port))
+    try:
+        res = request.urlopen(req)
+        data = res.read()
+        return json.loads(data)
+    except error.HTTPError as e:
+        err_msg = json.loads(e.read().decode())['err_msg']
+        helper_logger.log_warning("get request returns err. status_code = {} err_msg = {}".format(e.code, err_msg))
+    except error.URLError as e:
+        helper_logger.log_warning("get request returns err. err_msg = {}".format(str(e)))
+    except json.decoder.JSONDecodeError as e:
+        helper_logger.log_warning("failed to parse response as json. err_msg = {}".format(str(e)))
+    except Exception as e:
+        helper_logger.log_warning("get request returns err. err_msg = {}".format(str(e)))
+    return None
+
+def _toggle_to(physical_port, target):
+    """
+    Helper function for toggling to certain TOR.
+
+    Args:
+        physical_port: physical port on switch, an integer starting from 1
+        target: UPPER_TOR / LOWER_TOR
+    Returns:
+        True if succeed. False otherwise
+    """
+    data = {"active_side": target}
+    helper_logger.log_info("physical_port {} toggle to {}".format(physical_port, target))
+    return _post(physical_port, data)
+
+def _get_side(physical_port):
+    """
+    Retrieve the current active tor from y_cable simulator server.
+    Args:
+        physical_port: physical port on switch, an integer starting from 1
+    Returns:
+        1 if UPPER_TOR is active
+        2 if LOWER_TOR is active
+        -1 for exception or inconstient status
+    """
+    res = _get(physical_port)
+    if not res:
+        return -1
+    active_side = res["active_side"]
+    if active_side == UPPER_TOR:
+        return 1
+    elif active_side == LOWER_TOR:
+        return 2
+    else:
+        return -1
+
+def toggle_mux_to_torA(physical_port):
+    return _toggle_to(physical_port, UPPER_TOR)
+
+def toggle_mux_to_torB(physical_port):
+    return _toggle_to(physical_port, LOWER_TOR)
+
+def check_read_side(physical_port):
+    return DUTS_MAP[DUT_NAME] + 1
+
+def check_mux_direction(physical_port):
+    return _get_side(physical_port)
+
+def check_active_linked_tor_side(physical_port):
+    return _get_side(physical_port)
+
+def check_if_link_is_active_for_NIC(physical_port):
+    """
+    Checks if NIC side of the Y cable's link is active.
+    Always return True for now because all links in simulator are active.
+    """
+    return True
+
+def check_if_link_is_active_for_torA(physical_port):
+    """
+    Checks if UPPER_TOR side of the Y cable's link is active.
+    Always return True for now because all links in simulator are active.
+    """
+    return True
+
+def check_if_link_is_active_for_torB(physical_port):
+    """
+    Checks if LOWER_TOR side of the Y cable's link is active.
+    Always return True for now because all links in simulator are active.
+    """
+    return True
+

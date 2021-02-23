@@ -7,7 +7,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
-    get_egress_lossless_buffer_size
+    get_egress_lossless_buffer_size, stop_pfcwd, disable_packet_aging
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
@@ -59,13 +59,13 @@ def run_pfc_test(api,
         test_traffic_pause (bool): if test flows are expected to be paused
 
     Returns:
-        None
+        N/A
     """
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    """ Disable PFC watchdog """
-    duthost.shell('sudo pfcwd stop')
+    stop_pfcwd(duthost)
+    disable_packet_aging(duthost)
 
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -310,7 +310,10 @@ def __run_traffic(api,
     api.set_state(State(FlowTransmitState(state='start')))
     time.sleep(exp_dur_sec)
 
-    while True:
+    attempts = 0
+    max_attempts = 20
+
+    while attempts < max_attempts:
         rows = api.get_flow_results(FlowRequest(flow_names=data_flow_names))
 
         """ If all the data flows have stopped """
@@ -321,6 +324,10 @@ def __run_traffic(api,
             break
         else:
             time.sleep(1)
+            attempts += 1
+
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
@@ -357,7 +364,7 @@ def __verify_results(rows,
         tolerance (float): maximum allowable deviation
 
     Returns:
-        None
+        N/A
     """
 
     """ All the pause frames should be dropped """

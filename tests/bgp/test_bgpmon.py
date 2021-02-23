@@ -11,18 +11,14 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.helpers.generators import generate_ips as generate_ips
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-
+from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 pytestmark = [
     pytest.mark.topology('any'),
 ]
 
-BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
-BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
 ZERO_ADDR = r'0.0.0.0/0'
-BGP_MONITOR_NAME = "bgp_monitor"
-BGP_MONITOR_PORT = 7000
 logger = logging.getLogger(__name__)
 
 def route_through_default_routes(host, ip_addr):
@@ -141,11 +137,11 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
     logger.info("Configured bgpmon and verifying packet on {}".format(peer_ports))
     duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
     # Verify syn packet on ptf
-    (rcvd_port, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
+    (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
     #To establish the connection we set the PTF port that receive syn packet following properties
     # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) , 
     # add the neighbor entry and the default route for dut loopback 
-    ptf_interface = "eth" + str(rcvd_port)
+    ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
     res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
     original_mac = res['stdout']
     ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, Ether(rcvd_pkt).dst))

@@ -118,7 +118,7 @@ class snmpPduController(PduControllerBase):
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
         if not self.pduType:
-            logging.info('PDU type is unknown')
+            logging.info('PDU type is unknown: pdu_ip {} dut {}'.format(self.controller, self.hostname))
             return
 
         max_lane = 5
@@ -149,7 +149,7 @@ class snmpPduController(PduControllerBase):
                     self.map_host_to_lane(lane_id)
                     break
         else:
-            logging.error("{} device is not attached to any of PDU port".format(self.hostname.lower()))
+            logging.error("{} device is not attached to any outlet of PDU {}".format(self.hostname.lower(), self.controller))
 
     def map_host_to_lane(self, lane_id):
         """
@@ -198,7 +198,7 @@ class snmpPduController(PduControllerBase):
         @return: Return true if successfully execute the command for turning on power. Otherwise return False.
         """
         if not self.pduType:
-            logging.error('Unable to turn on: PDU type is unknown')
+            logging.error('Unable to turn on: PDU type is unknown: pdu_ip {} dut {}'.format(self.controller, self.hostname))
             return False
 
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(outlet)]
@@ -231,7 +231,7 @@ class snmpPduController(PduControllerBase):
         @return: Return true if successfully execute the command for turning off power. Otherwise return False.
         """
         if not self.pduType:
-            logging.error('Unable to turn off: PDU type is unknown')
+            logging.error('Unable to turn off: PDU type is unknown: pdu_ip {} dut {}'.format(self.controller, self.hostname))
             return False
 
         port_oid = self.pPORT_CONTROL_BASE_OID + self.pdu_ports[rfc1902.Integer(outlet)]
@@ -268,7 +268,7 @@ class snmpPduController(PduControllerBase):
         """
         results = []
         if not self.pduType:
-            logging.error('Unable to retrieve status: PDU type is unknown')
+            logging.error('Unable to retrieve status: PDU type is unknown: pdu_ip {} dut {}'.format(self.controller, self.hostname))
             return results
 
         cmdGen = cmdgen.CommandGenerator()
