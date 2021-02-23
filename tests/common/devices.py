@@ -1310,6 +1310,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         idle_count = 0
         expected_idle_count = 0
+        bgp_monitor_count = 0
         for line in bgp_summary:
             if "Idle (Admin)" in line:
                 idle_count += 1
@@ -1318,7 +1319,10 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 tokens = line.split()
                 expected_idle_count = int(tokens[-1])
 
-        return idle_count == expected_idle_count
+            if "BGPMonitor" in line:
+                bgp_monitor_count += 1
+
+        return idle_count == (expected_idle_count - bgp_monitor_count)
 
     def is_service_running(self, service_name, docker_name):
         """
