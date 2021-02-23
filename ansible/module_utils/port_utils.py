@@ -101,7 +101,7 @@ def get_port_alias_to_name_map(hwsku):
     elif hwsku == "Celestica-E1031-T48S4":
         for i in range(1, 53):
             port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
-    elif hwsku == "et6448m":
+    elif hwsku == "et6448m" or hwsku == "Nokia-7215":
         for i in range(0, 52):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "newport":
