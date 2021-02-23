@@ -738,8 +738,8 @@ class QosSaiBase:
 
     @pytest.fixture(scope='class')
     def releaseAllPorts(
-        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        ptfhost, dutTestParams, updateIptables, ssh_tunnel_to_syncd_rpc
+        self, duthosts, rand_one_dut_hostname, ptfhost, dutTestParams,
+        updateIptables, ssh_tunnel_to_syncd_rpc
     ):
         """
             Release all paused ports prior to running QoS SAI test cases
@@ -756,7 +756,6 @@ class QosSaiBase:
                 RunAnsibleModuleFail if ptf test fails
         """
         duthost = duthosts[rand_one_dut_hostname]
-        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
             testParams=dutTestParams["basicParams"]
