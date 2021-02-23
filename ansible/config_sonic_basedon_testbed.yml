@@ -48,6 +48,11 @@
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
       when: inventory_hostname not in testbed_facts['duts']
 
+    - name: Set default num_asic
+      set_fact:
+        num_asics: 1
+      when: num_asics is not defined
+
     - name: Set default dut index
       set_fact:
         dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
@@ -66,11 +71,11 @@
     delegate_to: localhost
 
   - name: find interface name mapping and individual interface speed if defined from dut
-    port_alias: hwsku="{{ hwsku }}"
+    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
-    port_alias: hwsku="{{ hwsku }}"
+    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -347,6 +352,11 @@
         register: docker_status
 
       - debug: msg={{ docker_status.stdout_lines }}
+
+      - name: start topology service for multi-asic platform
+        become: true
+        shell: systemctl start topology.service
+        when: start_topo_service is defined and start_topo_service|bool == true
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
