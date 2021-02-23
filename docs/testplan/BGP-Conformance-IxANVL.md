@@ -12,26 +12,28 @@
   - [Call for action](#call-for-action)
 
 ## Purpose
-SONiC today uses the FRRouting(FRR) protocol suite for implementing BGP. However in the final deployments for Hyperscalers and Network operators we see a lot of customnization to further optimization necessary for deisred performance. Each of these customization done to BGP needs to be validated to make sure it is not breaking the BGP conformance. This is mandatory to keep interoperability working between platforms in a heterogeneous environment which is very common in a data center. Network operators have challenges to make sure protocol conformance is maintained at each stage. 
+SONiC today uses the FRRouting(FRR) protocol suite for implementing BGP. However in the final deployment network operators may have reasons to customize BGP implementation. Each of these customizations done to BGP needs to be validated to make sure it is not breaking the BGP conformance. This is mandatory to keep interoperability working between different implementations of BGP in a heterogeneous environment which is very common in different tiers of a data center. Network operators have challenges to make sure protocol conformance is maintained at each stage. 
 
-One of the most efficient yet comprehensive way of validating protocol conformance is IxANVL. With IxANVL  (Automated Network Validation
-Library), one can quickly and effortlessly access a
-vast array of protocol libraries and utilities to validate
-protocol compliance and interoperability. 
+A comprehensive way of validating protocol conformance is IxANVL. With IxANVL  (Automated Network Validation Library), one can quickly access a vast array of protocol libraries and utilities to validate protocol compliance and interoperability. FRR publishes IxANVL result for each release at https://www.frrouting.org/. This makes it a good yard stick to measure conformance post the customizations mentioned above to make sure it is at maintains RFC conpliance same as its origin.
+
 ## Scope
-In this test plan we will integrate IxANVL into the sonic-mgmt testbed server, enabling is to run end to end conformance test with either Anvl running in a docker with SONiC virtual DUT or physical DUT. Also for ease of use there will be ability to run with a Ixia chassis. 
+In this test plan we will integrate IxANVL into the sonic-mgmt testbed server. This will include:
+
+* Deployment of IxANVL docker using Ansible scripts
+* SONiC DUT automation to run the IxANVL tests
+
+Also option for using Keysight chassis connected to physical DUT workflow for ease of use will be included. 
+To run these tests users will need to procure IxANVL license. 
 
 ## IxANVL Testbed
-This can be run in the Keysight version of community test bed. In addition for simplicity we will discuss here how this can be run on a virtual test bed. 
+As discussed above the test bed will be hosted in the testbed server.
 Follow the instruction to setup a virtual test bed from this document:
 https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md
-Only sonic-mgmt and sonic-vs steps are required.
-For IxANVL download docker image from Ixia website (Link TBD)
-IxANVL test bed deployment (PR Pending)
 
-The tests will run on following testbeds:
-* t0
-  
+Only sonic-mgmt and sonic-vs steps are required.
+For IxANVL download, docker image from Ixia website (Link TBD)
+IxANVL test bed deployment (PR TBD)
+ 
 ## Topology
 ![Keysight Topology ](Img/anvl-testbed.png)
 
@@ -47,10 +49,10 @@ Here are the highlevel steps:
 5. Once the execution completes, pytest script fetches the run results
 
 ### Test cases
-View IxANVL datasheet for details
+View IxANVL datasheet for details (BGP4 Core)
 
 https://www.keysight.com/us/en/assets/3120-1119/data-sheets/IxANVL-Automated-Network-Validation-Library.pdf 
 ### Test results
 TDB
 ## Call for action
-* Solicit experience in multi-DUT system test scenarios.
+What are protocols are cadidates for protocol conformance tests?
