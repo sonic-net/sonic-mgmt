@@ -1,7 +1,9 @@
+import json
 import os
 import pytest
 import logging
 
+from ipaddress import ip_interface
 from jinja2 import Template
 from natsort import natsorted
 
@@ -10,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 ROOT_DIR = "/root"
 OPT_DIR = "/opt"
+TMP_DIR = '/tmp'
 SUPERVISOR_CONFIG_DIR = "/etc/supervisor/conf.d/"
 SCRIPTS_SRC_DIR = "scripts/"
 TEMPLATES_DIR = "templates/"
@@ -21,6 +24,8 @@ ICMP_RESPONDER_PY = "icmp_responder.py"
 ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
 CHANGE_MAC_ADDRESS_SCRIPT = "scripts/change_mac.sh"
 REMOVE_IP_ADDRESS_SCRIPT = "scripts/remove_ip.sh"
+GARP_SERVICE_PY = 'garp_service.py'
+GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -173,7 +178,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
-    logging.debug("Start running icmp_responder")
+    logging.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     vlan_intfs = duthost.get_vlan_intfs()
@@ -191,5 +196,39 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
     yield
 
-    logging.debug("Stop running icmp_responder")
+    logging.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
+
+
+@pytest.fixture(scope='session', autouse=True)
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses):
+
+    garp_config = {}
+
+    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+    mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
+
+    logger.info("Generating GARP service config file")
+
+    for vlan_intf, config in mux_cable_table.items():
+        ptf_port_index = ptf_indices[vlan_intf]
+        server_ip = ip_interface(config['server_ipv4']).ip
+
+        garp_config[ptf_port_index] = {
+                                        'target_ip': '{}'.format(server_ip)  
+                                      }
+
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
+
+    with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
+        template = Template(f.read())
+
+    ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
+    ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
+    logger.info("Starting GARP Service on PTF host")
+    ptfhost.shell('supervisorctl update')
+    ptfhost.shell('supervisorctl start garp_service')
+
+    yield
+
+    ptfhost.shell('supervisorctl stop garp_service')

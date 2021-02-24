@@ -52,7 +52,7 @@ class ICMPSniffer(object):
                 for s in sel[0]:
                     packet = s.recv()
                     if packet is not None:
-                        if packet[ICMP].type == self.TYPE_ECHO_REQUEST and self.request_handler:
+                        if ICMP in packet and packet[ICMP].type == self.TYPE_ECHO_REQUEST and self.request_handler:
                             self.request_handler(s, packet, self.dst_mac)
         finally:
             for s in self.sniff_sockets:

@@ -11,18 +11,14 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.helpers.generators import generate_ips as generate_ips
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-
+from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 pytestmark = [
     pytest.mark.topology('any'),
 ]
 
-BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
-BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
 ZERO_ADDR = r'0.0.0.0/0'
-BGP_MONITOR_NAME = "bgp_monitor"
-BGP_MONITOR_PORT = 7000
 logger = logging.getLogger(__name__)
 
 def route_through_default_routes(host, ip_addr):
