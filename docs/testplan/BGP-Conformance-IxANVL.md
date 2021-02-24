@@ -38,8 +38,8 @@ IxANVL test bed deployment (PR TBD)
 ![Keysight Topology ](Img/anvl-testbed.png)
 
 ## Setup configuration
-1. Testbed Configuration script brings up the IxANVL docker and the SONIC VS DUT
-2. Testbed Configuration script also brings up the connections between IxANVL docker and the SONIC VS DUT for test channel
+1. Testbed Configuration script brings up the IxANVL docker and the SONiC VS DUT
+2. Testbed Configuration script also brings up the connections between IxANVL docker and the SONiC VS DUT for test channel
 
 ## Test Methodology
 Here are the highlevel steps:
