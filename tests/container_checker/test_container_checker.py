@@ -75,8 +75,8 @@ def update_monit_service(duthost):
     duthost.shell("sudo systemctl restart monit")
     yield
     logger.info("Roll back the Monit configuration of container checker.")
-    duthost.shell("sudo mv /tmp/monitrc /etc/monit/")
-    duthost.shell("sudo mv /tmp/sonic-host /etc/monit/conf.d/")
+    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv -f /tmp/sonic-host /etc/monit/conf.d/")
     logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
     duthost.shell("sudo systemctl restart monit")
 
