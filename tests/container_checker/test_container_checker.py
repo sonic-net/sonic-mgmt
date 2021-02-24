@@ -62,7 +62,7 @@ def update_monit_service(duthost):
     Return:
         None.
     """
-    logger.info("Back up Monit configuration files...")
+    logger.info("Back up Monit configuration files.")
     duthost.shell("sudo cp /etc/monit/monitrc /tmp/")
     duthost.shell("sudo cp /etc/monit/conf.d/sonic-host /tmp/")
 
