@@ -14,7 +14,7 @@
 ## Purpose
 SONiC today uses the FRRouting(FRR) protocol suite for implementing BGP. However in the final deployment network operators may have reasons to customize BGP implementation. Each of these customizations done to BGP needs to be validated to make sure it is not breaking the BGP conformance. This is mandatory to keep interoperability working between different implementations of BGP in a heterogeneous environment which is very common in different tiers of a data center. Network operators have challenges to make sure protocol conformance is maintained at each stage. 
 
-A comprehensive way of validating protocol conformance is IxANVL. With IxANVL  (Automated Network Validation Library), one can quickly access a vast array of protocol libraries and utilities to validate protocol compliance and interoperability. FRR publishes IxANVL result for each release at https://www.frrouting.org/. This makes it a good yard stick to measure conformance post the customizations mentioned above to make sure it is at maintains RFC conpliance same as its origin.
+A comprehensive way of validating protocol conformance is IxANVL. With IxANVL  (Automated Network Validation Library), one can quickly access a vast array of protocol libraries and utilities to validate protocol compliance and interoperability. FRR publishes IxANVL result for each release at https://www.frrouting.org/. IxANVL enables conformance comparisons of customized FRR forks mentioned above to the upstream FRR and other routing implementations. 
 
 ## Scope
 In this test plan we will integrate IxANVL into the sonic-mgmt testbed server. This will include:
