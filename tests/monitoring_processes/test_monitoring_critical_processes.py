@@ -81,8 +81,8 @@ def check_image_version(duthost):
                    "Test was not supported for 201911 and older image versions!")
 
 
-def check_all_critical_processes_status(duthost):
-    """Post-checks the status of critical processes.
+def check_all_critical_processes_running(duthost):
+    """Determine whether all critical processes are running on a DUT.
 
     Args:
         duthost: Hostname of DUT.
@@ -111,7 +111,7 @@ def post_test_check(duthost, up_bgp_neighbors):
         This function will return True if all critical processes are running and
         all BGP sessions are established. Otherwise it will return False.
     """
-    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
+    return check_all_critical_processes_running(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
@@ -288,8 +288,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
                                            group_program_info[program_name][1])
 
 
-def check_and_restart_process(duthost, container_name, critical_process):
-    """Checks the running status of a critical process and restarts it if it was not running.
+def ensure_process_is_running(duthost, container_name, critical_process):
+    """Checks the running status of a critical process and starts it if it was not running.
 
     Args:
         duthost: Hostname of DUT.
@@ -304,16 +304,16 @@ def check_and_restart_process(duthost, container_name, critical_process):
     if program_status == "RUNNING":
         logger.info("Process '{}' in container '{} is running.".format(critical_process, container_name))
     else:
-        logger.info("Process '{}' in container '{}' is not running and restart it...".format(critical_process, container_name))
-        command_output = duthost.shell("docker exec {} supervisorctl restart {}".format(container_name, critical_process))
+        logger.info("Process '{}' in container '{}' is not running and start it...".format(critical_process, container_name))
+        command_output = duthost.shell("docker exec {} supervisorctl start {}".format(container_name, critical_process))
         if command_output["rc"] == 0:
-            logger.info("Process '{}' in container '{}' is restarted.".format(critical_process, container_name))
+            logger.info("Process '{}' in container '{}' is started.".format(critical_process, container_name))
         else:
-            pytest.fail("Failed to restart process '{}' in container '{}'.".format(critical_process, container_name))
+            pytest.fail("Failed to start process '{}' in container '{}'.".format(critical_process, container_name))
 
 
-def restart_critical_processes(duthost, containers_in_namespaces):
-    """Checks whether all critical process are running.
+def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
+    """Checks whether each critical process is running and starts it if it is not running.
 
     Args:
         duthost: Hostname of DUT.
@@ -339,12 +339,12 @@ def restart_critical_processes(duthost, containers_in_namespaces):
                 if container_name_in_namespace == "syncd" and critical_process == "dsserve":
                     continue
 
-                check_and_restart_process(duthost, container_name_in_namespace, critical_process)
+                ensure_process_is_running(duthost, container_name_in_namespace, critical_process)
 
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
-                    check_and_restart_process(duthost, container_name_in_namespace, program_name)
+                    ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
 def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
@@ -394,7 +394,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     config_reload(duthost)
     logger.info("Executing the config reload was done!")
 
-    restart_critical_processes(duthost, containers_in_namespaces)
+    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the container checker!")
