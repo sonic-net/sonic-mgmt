@@ -27,6 +27,7 @@ DEFAULT_MTU = None
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
 TESTPARAM_SHARED_HEADROOM_POOL = None
+TESTPARAM_LOSSY_PG = None
 
 BUFFER_MODEL_DYNAMIC = True
 
@@ -123,6 +124,7 @@ def load_test_parameters(duthost):
     global TESTPARAM_HEADROOM_OVERRIDE
     global TESTPARAM_LOSSLESS_PG
     global TESTPARAM_SHARED_HEADROOM_POOL
+    global TESTPARAM_LOSSY_PG
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -134,6 +136,7 @@ def load_test_parameters(duthost):
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
         TESTPARAM_LOSSLESS_PG = vendor_specific_param['lossless_pg']
         TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
+        TESTPARAM_LOSSY_PG = vendor_specific_param['lossy_pg']
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -245,7 +248,12 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             else:
                 new_reserved = 0
 
-            original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + old_size * old_pg_number
+            if "adjust_lossy_pg_size" in kwargs:
+                adjust_lossy_pg_size = int(kwargs["adjust_lossy_pg_size"])
+            else:
+                adjust_lossy_pg_size = 0
+
+            original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + old_size * old_pg_number + adjust_lossy_pg_size
 
             old_speed = kwargs.get("old_speed")
             new_speed = kwargs.get("new_speed")
@@ -1233,6 +1241,171 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len), module_ignore_errors = True)
         duthost.shell('config buffer profile remove headroom-override', module_ignore_errors = True)
         duthost.shell('config buffer profile remove non-default-dynamic_th', module_ignore_errors = True)
+
+def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
+    """The test case for admin down ports
+
+    For administratively down ports, all PGs should be removed from the ASIC
+
+    Args:
+        port_to_test: Port to run the test
+
+    The flow of the test case:
+        1. Shut down the port
+        2. Check:
+           - whether all the PGs on the port has been removed
+           - whether the lossless profile is removed if it's referenced by the port_to_test only
+        3. Perform the following operations
+           - add/remove a general dynamic PG (profile = NULL)
+           - add/remove a headroom override PG
+           - add/remove a dynamic PG with non default dynamic th
+           - change the cable length
+        4. Check whether the PGs are correctly applied after port being started up
+    """
+    param = TESTPARAM_HEADROOM_OVERRIDE.get("add")
+    if not param:
+        pytest.skip('Shutdown port test skipped due to no headroom override parameters defined')
+
+    duthost = duthosts[rand_one_dut_hostname]
+    original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+    original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
+    original_pg_xoff = int(duthost.shell('redis-cli hget "{}" xoff'.format(original_profile))['stdout']) if DEFAULT_OVER_SUBSCRIBE_RATIO else None
+    original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+
+    new_cable_len = '15m'
+
+    lossy_pg_size = TESTPARAM_LOSSY_PG.get(original_speed)
+    if not lossy_pg_size:
+        lossy_pg_size = TESTPARAM_LOSSY_PG.get('default')
+        if not lossy_pg_size:
+            pytest.skip('Shutdown port test skipped due to no lossy pg size defined')
+
+    if DEFAULT_OVER_SUBSCRIBE_RATIO:
+        original_pg_xoff = int(duthost.shell('redis-cli hget "{}" xoff'.format(original_profile))['stdout'])
+        original_shp_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
+    else:
+        original_pg_xoff = None
+        original_shp_size = None
+
+    initial_asic_db_profiles = fetch_initial_asic_db(duthost)
+
+    # Create a non default dynamic-th profile
+    non_default_dynamic_th_profile = 'test-profile-non-default-dynamic_th'
+    dynamic_th_value = '2'
+    duthost.shell('config buffer profile add {} --dynamic_th {}'.format(non_default_dynamic_th_profile, dynamic_th_value))
+
+    # Create a headroom override profile
+    headroom_override_profile = 'test-profile-headroom-override'
+    duthost.shell('config buffer profile add {} --xon {} --xoff {}'.format(headroom_override_profile, param['xon'], param['xoff']))
+
+    _, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, headroom_override_profile, None, None)
+
+    """
+        Each item is a tuple consisting of:
+         - Hint message to user
+         - Command to be executed
+         - The expected profile after the command is executed and the port is administratively up
+         - Whether we need to check whether the previous expected_profile has been removed after port is administratively down
+    """
+    scenarios = [
+        ('Remove the generic PG when port is administratively down',
+         'config interface buffer priority-group lossless remove {} 3-4'.format(port_to_test),
+         None,
+         False),
+        ('Add a PG with non default dynamic_th when port is administratively down',
+         'config interface buffer priority-group lossless add {} 3-4 {}'.format(port_to_test, non_default_dynamic_th_profile),
+         'pg_lossless_{}_{}_th{}_profile'.format(original_speed, original_cable_len, dynamic_th_value),
+         False),
+        ('Remove the PG with non default dynamic_th when port is administratively down',
+         'config interface buffer priority-group lossless remove {} 3-4'.format(port_to_test),
+         None,
+         True),
+        ('Add a PG with headroom override profile when port is administratively down',
+         'config interface buffer priority-group lossless add {} 3-4 {}'.format(port_to_test, headroom_override_profile),
+         headroom_override_profile,
+         False),
+        ('Remove the PG with headroom override when port is administratively down',
+         'config interface buffer priority-group lossless remove {} 3-4'.format(port_to_test),
+         None,
+         False),
+        ('Readd the generic PG when port is administratively down',
+         'config interface buffer priority-group lossless add {} 3-4'.format(port_to_test),
+         'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len),
+         False),
+        ('Change the cable length when port is administratively down',
+         'config interface cable-length {} {}'.format(port_to_test, new_cable_len),
+         'pg_lossless_{}_{}_profile'.format(original_speed, new_cable_len),
+         False),
+        ('Restore the cable length when port is administratively down',
+         'config interface cable-length {} {}'.format(port_to_test, original_cable_len),
+         'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len),
+         True)
+    ]
+
+    expected_profile_in_appldb = None
+    try:
+        for scenario in scenarios:
+            # Shutdown port
+            logging.info('Shut down port {}'.format(port_to_test))
+            duthost.shell('config interface shutdown {}'.format(port_to_test))
+            # Make sure there isn't any PG on the port
+            logging.info('Check whether all PGs are removed from port {}'.format(port_to_test))
+            time.sleep(10)
+            pgs_in_appl_db = duthost.shell('redis-cli keys "BUFFER_PG_TABLE:{}:*"'.format(port_to_test))['stdout']
+            pytest_assert(not pgs_in_appl_db, "There shouldn't be any PGs on an administratively down port but we got {}".format(pgs_in_appl_db))
+
+            # Check the pool size after the port is admin down
+            check_pool_size(duthost,
+                            pool_oid,
+                            pool_size = original_pool_size,
+                            shp_size = original_shp_size,
+                            old_xoff = original_pg_xoff,
+                            old_size = original_pg_size,
+                            new_pg_number = 0,
+                            adjust_lossy_pg_size = lossy_pg_size)
+
+            previous_profile = expected_profile_in_appldb
+            hint, command, expected_profile_in_appldb, need_remove_previous_profile = scenario
+
+            # Check whether the profile that is expected to be removed is removed
+            if need_remove_previous_profile:
+                logging.info('Check whether profile {} has been removed after port being administratively down'.format(previous_profile))
+                check_lossless_profile_removed(duthost, previous_profile)
+            logging.info(hint)
+            duthost.shell(command)
+
+            logging.info('Start up port {}'.format(port_to_test))
+            duthost.shell('config interface startup {}'.format(port_to_test))
+            if expected_profile_in_appldb:
+                logging.info('Check whether profile in PG is as expected({})'.format(expected_profile_in_appldb))
+                check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile_in_appldb)
+            else:
+                logging.info('Check whether profile in PG has been removed')
+                time.sleep(10)
+                pgs_in_appl_db = duthost.shell('redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
+                pytest_assert(not pgs_in_appl_db, "There shouldn't be PGs 3-4 but we got {}".format(pgs_in_appl_db))
+
+        # Check the pool size at the end of test.
+        # We don't check the pool size each time the port is admin down because
+        # 1. It's difficult to pass parameters for all of the scenarios
+        # 2. We have done this kind of test for many times in other testcases
+        check_pool_size(duthost,
+                        pool_oid,
+                        pool_size = original_pool_size,
+                        shp_size = original_shp_size,
+                        old_xoff = original_pg_xoff,
+                        old_size = original_pg_size,
+                        new_pg_number = 2)
+
+    finally:
+        duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len), module_ignore_errors=True)
+        duthost.shell('config interface startup {}'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config interface buffer priority-group lossless set {} 3-4'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config buffer profile remove {}'.format(non_default_dynamic_th_profile), module_ignore_errors=True)
+        duthost.shell('config buffer profile remove {}'.format(headroom_override_profile), module_ignore_errors=True)
 
 
 @pytest.mark.disable_loganalyzer
