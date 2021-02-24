@@ -167,6 +167,7 @@ class DualTorIO:
             self.from_tor_src_port = random.choice(self.port_channel_ports)
 
         logger.info("-"*20 + "T1 to server packet" + "-"*20)
+        logger.info("Source port: {}".format(self.from_tor_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(eth_dst, eth_src))
         logger.info("IP address: dst: {} src: random".format(ip_dst))
         logger.info("TCP port: dst: {}".format(tcp_dport))
@@ -213,6 +214,7 @@ class DualTorIO:
                  )
 
         logger.info("-"*20 + "Server to T1 packet" + "-"*20)
+        logger.info("Source port: {}".format(self.from_server_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(self.vlan_mac, eth_src))
         logger.info("IP address: dst: {} src: {}".format(self.from_server_dst_addr, self.from_server_src_addr))
         logger.info("TCP port: dst: {} src: 1234".format(tcp_dport))
