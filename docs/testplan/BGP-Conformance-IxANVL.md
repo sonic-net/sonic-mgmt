@@ -9,7 +9,7 @@
   - [Test Methodology](#test-methodology)
     - [Test cases](#test-cases)
     - [Test results](#test-results)
-  - [Call for action](#call-for-action)
+  - [Call for actions](#call-for-actions)
 
 ## Purpose
 SONiC today uses the FRRouting(FRR) protocol suite for implementing BGP. However in the final deployment network operators may have reasons to customize BGP implementation. Each of these customizations done to BGP needs to be validated to make sure it is not breaking the BGP conformance. This is mandatory to keep interoperability working between different implementations of BGP in a heterogeneous environment which is very common in different tiers of a data center. Network operators have challenges to make sure protocol conformance is maintained at each stage. 
@@ -58,5 +58,5 @@ https://www.keysight.com/us/en/assets/3120-1119/data-sheets/IxANVL-Automated-Net
 Number of tests run:          143<br />
 Number of tests passed:       107<br />
 Number of tests failed:       36
-## Call for action
-What are protocols are cadidates for protocol conformance tests?
+## Call for actions
+What other protocols are cadidates for protocol conformance tests?
