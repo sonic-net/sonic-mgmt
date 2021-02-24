@@ -63,8 +63,8 @@ def update_monit_service(duthost):
         None.
     """
     logger.info("Back up Monit configuration files.")
-    duthost.shell("sudo cp /etc/monit/monitrc /tmp/")
-    duthost.shell("sudo cp /etc/monit/conf.d/sonic-host /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/conf.d/sonic-host /tmp/")
 
     temp_config_line = "    if status != 0 for 2 times within 2 cycles then alert repeat every 1 cycles"
     logger.info("Reduce the monitoring interval of container_checker.")
@@ -75,10 +75,8 @@ def update_monit_service(duthost):
     duthost.shell("sudo systemctl restart monit")
     yield
     logger.info("Roll back the Monit configuration of container checker.")
-    duthost.shell("sudo cp -f /tmp/monitrc /etc/monit/")
-    duthost.shell("sudo rm -f /tmp/monitrc")
-    duthost.shell("sudo cp -f /tmp/sonic-host /etc/monit/conf.d/")
-    duthost.shell("sudo rm -f /tmp/sonic-host")
+    duthost.shell("sudo mv /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv /tmp/sonic-host /etc/monit/conf.d/")
     logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
     duthost.shell("sudo systemctl restart monit")
 
