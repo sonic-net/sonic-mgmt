@@ -55,6 +55,8 @@ View IxANVL datasheet for details (BGP4 Core)
 
 https://www.keysight.com/us/en/assets/3120-1119/data-sheets/IxANVL-Automated-Network-Validation-Library.pdf 
 ### Test results
-TDB
+Number of tests run:          143<br />
+Number of tests passed:       107<br />
+Number of tests failed:       36
 ## Call for action
 What are protocols are cadidates for protocol conformance tests?
