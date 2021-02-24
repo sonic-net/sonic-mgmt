@@ -1,16 +1,16 @@
 import logging
 import os
-import re
 import time
 import pytest
 import yaml
-import json
+import re
 
 import ptf.packet as packet
 import ptf.testutils as testutils
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, ensure_no_l3_drops, ensure_no_l2_drops
 from drop_packets import *  # FIXME
 
 pytestmark = [
@@ -69,6 +69,27 @@ def enable_counters(duthosts, rand_one_dut_hostname):
                 duthost.command(CMD_PREFIX + "counterpoll {} disable".format(port))
 
 
+@pytest.fixture(scope='module', autouse=True)
+def parse_combined_counters(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    # Get info whether L2 and L3 drop counters are linked
+    # Or ACL and L2 drop counters are linked
+    global COMBINED_L2L3_DROP_COUNTER, COMBINED_ACL_DROP_COUNTER
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(base_dir, "combined_drop_counters.yml")) as stream:
+        regexps = yaml.safe_load(stream)
+        if regexps["l2_l3"]:
+            for item in regexps["l2_l3"]:
+                if re.match(item, duthost.facts["platform"]):
+                    COMBINED_L2L3_DROP_COUNTER = True
+                    break
+        if regexps["acl_l2"]:
+            for item in regexps["acl_l2"]:
+                if re.match(item, duthost.facts["platform"]):
+                    COMBINED_ACL_DROP_COUNTER = True
+                    break
+
+
 @pytest.fixture
 def acl_setup(duthosts, rand_one_dut_hostname, loganalyzer):
     """ Create acl rule defined in config file. Delete rule after test case finished """
@@ -105,105 +126,6 @@ def acl_setup(duthosts, rand_one_dut_hostname, loganalyzer):
         time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
-@pytest.fixture(scope='module', autouse=True)
-def parse_combined_counters(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    # Get info whether L2 and L3 drop counters are linked
-    # Or ACL and L2 drop counters are linked
-    global COMBINED_L2L3_DROP_COUNTER, COMBINED_ACL_DROP_COUNTER
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(base_dir, "combined_drop_counters.yml")) as stream:
-        regexps = yaml.safe_load(stream)
-        if regexps["l2_l3"]:
-            for item in regexps["l2_l3"]:
-                if re.match(item, duthost.facts["platform"]):
-                    COMBINED_L2L3_DROP_COUNTER = True
-                    break
-        if regexps["acl_l2"]:
-            for item in regexps["acl_l2"]:
-                if re.match(item, duthost.facts["platform"]):
-                    COMBINED_ACL_DROP_COUNTER = True
-                    break
-
-def get_pkt_drops(duthost, cli_cmd, asic_index):
-    """
-    @summary: Parse output of "portstat" or "intfstat" commands and convert it to the dictionary.
-    @param module: The AnsibleModule object
-    @param cli_cmd: one of supported CLI commands - "portstat -j" or "intfstat -j"
-    @return: Return dictionary of parsed counters
-    """
-    # Get namespace from asic_index.
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-
-    # Frame the correct cli command
-    # the L2 commands need _SUFFIX and L3 commands need _PREFIX
-    if cli_cmd == GET_L3_COUNTERS:
-        CMD_PREFIX = NAMESPACE_PREFIX if duthost.is_multi_asic else ''
-        cli_cmd = CMD_PREFIX + cli_cmd
-    elif cli_cmd == GET_L2_COUNTERS:
-        CMD_SUFFIX = NAMESPACE_SUFFIX if duthost.is_multi_asic else ''
-        cli_cmd = cli_cmd + CMD_SUFFIX
-
-    stdout = duthost.command(cli_cmd.format(namespace))
-    stdout = stdout["stdout"]
-    match = re.search("Last cached time was.*\n", stdout)
-    if match:
-        stdout = re.sub("Last cached time was.*\n", "", stdout)
-
-    try:
-        return json.loads(stdout)
-    except Exception as err:
-        raise Exception("Failed to parse output of '{}', err={}".format(cli_cmd, str(err)))
-
-
-def ensure_no_l3_drops(duthost, asic_index):
-    """ Verify L3 drop counters were not incremented """
-    intf_l3_counters = get_pkt_drops(duthost, GET_L3_COUNTERS, asic_index)
-    unexpected_drops = {}
-    for iface, value in intf_l3_counters.items():
-        try:
-            rx_err_value = int(value[RX_ERR])
-        except ValueError as err:
-            logger.info("Unable to verify L3 drops on iface {}, L3 counters may not be supported on this platform\n{}".format(iface, err))
-            continue
-        if rx_err_value >= PKT_NUMBER:
-            unexpected_drops[iface] = rx_err_value
-    if unexpected_drops:
-        pytest.fail("L3 'RX_ERR' was incremented for the following interfaces:\n{}".format(unexpected_drops))
-
-
-def ensure_no_l2_drops(duthost, asic_index):
-    """ Verify L2 drop counters were not incremented """
-    intf_l2_counters = get_pkt_drops(duthost, GET_L2_COUNTERS, asic_index)
-    unexpected_drops = {}
-    for iface, value in intf_l2_counters.items():
-        try:
-            rx_drp_value = int(value[RX_DRP])
-        except ValueError as err:
-            logger.warning("Unable to verify L2 drops on iface {}\n{}".format(iface, err))
-            continue
-        if rx_drp_value >= PKT_NUMBER:
-            unexpected_drops[iface] = rx_drp_value
-    if unexpected_drops:
-        pytest.fail("L2 'RX_DRP' was incremented for the following interfaces:\n{}".format(unexpected_drops))
-
-
-def str_to_int(value):
-    """ Convert string value which can contain ',' symbols to integer value """
-    return int(value.replace(",", ""))
-
-
-def verify_drop_counters(duthost, asic_index, dut_iface, get_cnt_cli_cmd, column_key):
-    """ Verify drop counter incremented on specific interface """
-    get_drops = lambda: int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", ""))
-    check_drops_on_dut = lambda: PKT_NUMBER == get_drops()
-    if not wait_until(5, 1, check_drops_on_dut):
-        fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-            column_key, dut_iface, column_key, get_drops(), PKT_NUMBER
-        )
-        pytest.fail(fail_msg)
-
-
 def base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports_info, tx_dut_ports=None):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
@@ -219,18 +141,18 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports
 
     send_packets(pkt, duthost, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
     if discard_group == "L2":
-        verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
-        ensure_no_l3_drops(duthost, asic_index)
+        verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+        ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
-            verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY)
-            ensure_no_l3_drops(duthost, asic_index)
+            verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
 
-            verify_drop_counters(duthost, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY)
-            ensure_no_l2_drops(duthost, asic_index)
+            verify_drop_counters(duthost, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
+            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "ACL":
         if not tx_dut_ports:
             pytest.fail("No L3 interface specified")
@@ -243,11 +165,11 @@ def base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports
             )
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
-            ensure_no_l3_drops(duthost, asic_index)
-            ensure_no_l2_drops(duthost, asic_index)
+            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "NO_DROPS":
-        ensure_no_l2_drops(duthost, asic_index)
-        ensure_no_l3_drops(duthost, asic_index)
+        ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+        ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
