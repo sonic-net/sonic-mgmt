@@ -216,6 +216,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         print >> sys.stderr, "port list {}".format(port_list)
         # Get a snapshot of counter values
 
+        time.sleep(10)
         # port_results is not of our interest here
         port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
@@ -268,9 +269,9 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dscp 48 -> queue 6
             # So for the 64 pkts sent the mapping should be -> 58 queue 1, and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
             # Check results
+            # LAG ports can have LACP packets on queue 0, hence using >= comparison
             assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
-            # +1 to account for the pkt sent by get_rx_port()
-            assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1]) + 1
+            assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
             assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
