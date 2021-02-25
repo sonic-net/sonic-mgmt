@@ -35,6 +35,7 @@ from nat_helpers import generate_and_verify_not_translated_traffic
 from nat_helpers import generate_and_verify_not_translated_icmp_traffic
 from nat_helpers import generate_and_verify_traffic_dropped
 from nat_helpers import get_cli_show_nat_config_output
+from nat_helpers import DUT_TMP_DIR
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 
@@ -1077,7 +1078,7 @@ class TestDynamicNat(object):
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
 
         # Remove bindings
-        nat_binding = get_cli_show_nat_config_output(duthost, "bindings")
+        nat_binding = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
         duthost.command("config nat remove bindings")
         # Check, if nat bindings is empty
         pytest_assert(len(get_cli_show_nat_config_output(duthost, "bindings")) == 0, "Nat bindings is not empty")
