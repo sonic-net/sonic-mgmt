@@ -145,7 +145,6 @@ class snmpPduController(PduControllerBase):
             logging.info('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
 
-        host_matched = False
         cmdGen = cmdgen.CommandGenerator()
         snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
 
