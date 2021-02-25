@@ -10,7 +10,7 @@ IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACC
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthost, localhost):
+def start_platform_api_service(duthost, localhost, request):
     dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
 
     res = localhost.wait_for(host=dut_ip,
@@ -21,8 +21,13 @@ def start_platform_api_service(duthost, localhost):
                              module_ignore_errors=True)
     if 'exception' in res:
         # TODO: Remove this check once we no longer need to support Python 2
-        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
-        py3_platform_api_available = not res['failed']
+        if request.cls.__name__ == "TestSfpApi" and duthost.facts.get("asic_type") == "mellanox":
+            # On Mellanox platform, the SFP APIs are not migrated to python3 yet,
+            # thus we have to make it as an exception here.
+            py3_platform_api_available = False
+        else:
+            res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+            py3_platform_api_available = not res['failed']
 
         supervisor_conf = [
             '[program:platform_api_server]',
