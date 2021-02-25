@@ -20,6 +20,8 @@ import threading
 import time
 
 from tabulate import tabulate
+import sys
+sys.path.append('../')
 
 
 ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -90,6 +92,12 @@ class TaskStartTopoVMs(Task):
         self.args.extend(('start-topo-vms', tbname, passfile))
         self.tbname = tbname
 
+class TaskStartVMs(Task):
+    """Task start-vm"""
+
+    def __init__(self, server, passfile, log_save_dir, tbfile=None, vmfile=None, dry_run=False):
+        Task.__init__(self, server + '_start_vms', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
+        self.args.extend(('start-vms', server, passfile))
 
 class TaskAddTopo(Task):
     """Task add-topo."""
@@ -138,11 +146,16 @@ class Job(object):
                 TaskCleanupVMHosts(server, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
             ]
             self.ignore_errors = False
+        elif jobname == 'start-vms':
+            server = kwargs['server']
+            self.tasks = [
+                TaskStartVMs(server, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
+            ]
+            self.ignore_errors = False
         elif jobname == 'init_testbed':
             tbname = kwargs['tbname']
             inventory = kwargs['inventory']
             self.tasks = [
-                TaskStartTopoVMs(tbname, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run),
                 TaskAddTopo(tbname, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run),
                 TaskDeployMG(tbname, inventory, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
             ]
@@ -239,6 +252,17 @@ def do_jobs(testbeds, inventory, passfile, tbfile=None, vmfile=None, skip_cleanu
                 dry_run=dry_run
             ) for tbname in tbnames
         ]
+        jobs = [
+            Job(
+                'start-vms',
+                server=server,
+                passfile=passfile,
+                tbfile=tbfile,
+                vmfile=vmfile,
+                log_save_dir=log_save_dir_per_server,
+                dry_run=dry_run
+            )
+        ] + jobs
         if not skip_cleanup:
             jobs = [
                 Job(
