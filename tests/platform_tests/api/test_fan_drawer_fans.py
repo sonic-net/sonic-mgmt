@@ -70,7 +70,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
         expected_value = None
 
         if self.chassis_facts:
-            expected_fan_drawers = self.chassis_facts.get("fan_drawer")
+            expected_fan_drawers = self.chassis_facts.get("fan_drawers")
             if expected_fan_drawers:
                 expected_fans = expected_fan_drawers[fan_drawer_idx].get("fans")
                 if expected_fans:
