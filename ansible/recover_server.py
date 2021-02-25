@@ -20,7 +20,7 @@ import threading
 import time
 
 from tabulate import tabulate
-import sys
+# Add tests path to syspath
 sys.path.append('../')
 
 
@@ -193,7 +193,7 @@ def do_jobs(testbeds, inventory, passfile, tbfile=None, vmfile=None, skip_cleanu
         headers = [server, 'start-topo-vms', 'add-topo', 'deploy-mg']
         table = []
         for job in jobs:
-            line = [job.tbname, ]
+            line = [job.jobname, ]
             for task in job.tasks:
                 if task.returncode is None:
                     line.append('skipped')
