@@ -24,6 +24,9 @@
 	    "non-default-dynamic_th": {
 		"dynamic_th": "2"
 	    }
+	},
+	"shared-headroom-pool": {
+	    "size": "1024000"
 	}
     }
 }
