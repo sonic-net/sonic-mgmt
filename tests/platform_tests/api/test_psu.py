@@ -285,6 +285,7 @@ class TestPsuApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_master_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         FAULT_LED_COLOR_LIST = [
             STATUS_LED_COLOR_AMBER,
             STATUS_LED_COLOR_RED
@@ -309,25 +310,28 @@ class TestPsuApi(PlatformApiTestBase):
             2: "off"
         }
 
-        psu_id = random.randint(self.num_psus)
+        if self.num_psus == 0:
+            pytest.skip("No psus found on device skipping for device {}".format(duthost))
+        else:
+            psu_id = random.randint(0, self.num_psus)
 
-        for index, led_type in enumerate(LED_COLOR_TYPES):
-            led_type_result = False
-            for color in led_type:
-                result = psu.set_status_master_led(platform_api_conn, psu_id, color)
-                if self.expect(result is not None, "Failed to perform set master LED"):
-                    led_type_result = result or led_type_result
-                if ((result is None) or (not result)):
-                    continue
-                color_actual = psu.get_status_master_led(platform_api_conn, psu_id)
-                if self.expect(color_actual is not None,
-                               "Failed to retrieve status_led master led"):
-                    if self.expect(isinstance(color_actual, STRING_TYPE),
-                                   "Status of master LED color appears incorrect"):
-                        self.expect(color == color_actual,
-                                    "Status LED color incorrect (expected: {}, actual: {}) for master led".format(
-                                        color, color_actual))
-                self.expect(led_type_result is True,
-                            "Failed to set status_led of master LED to {}".format(LED_COLOR_TYPES_DICT[index]))
+            for index, led_type in enumerate(LED_COLOR_TYPES):
+                led_type_result = False
+                for color in led_type:
+                    result = psu.set_status_master_led(platform_api_conn, psu_id, color)
+                    if self.expect(result is not None, "Failed to perform set master LED"):
+                        led_type_result = result or led_type_result
+                    if ((result is None) or (not result)):
+                        continue
+                    color_actual = psu.get_status_master_led(platform_api_conn, psu_id)
+                    if self.expect(color_actual is not None,
+                                   "Failed to retrieve status_led master led"):
+                        if self.expect(isinstance(color_actual, STRING_TYPE),
+                                       "Status of master LED color appears incorrect"):
+                            self.expect(color == color_actual,
+                                        "Status LED color incorrect (expected: {}, actual: {}) for master led".format(
+                                            color, color_actual))
+                    self.expect(led_type_result is True,
+                                "Failed to set status_led of master LED to {}".format(LED_COLOR_TYPES_DICT[index]))
 
-        self.assert_expectations()
+            self.assert_expectations()
