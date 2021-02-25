@@ -213,17 +213,10 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
 
     # TODO: Compare against expected platform-specific output
     for psu_info in psu_info_list:
-        pytest_assert(("index" in psu_info and
-                       "name" in psu_info and
-                       "presence" in psu_info and
-                       "status" in psu_info and psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"] and
-                       "led_status" in psu_info and psu_info["led_status"] in ["green", "amber", "red", "off"] and
-                       "model" in psu_info and
-                       "serial" in psu_info and
-                       "voltage" in psu_info and
-                       "current" in psu_info and
-                       "power" in psu_info),
-                      "Unexpected PSU status JSON output: '{}'".format(psu_status_output))
+        expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current", "power"]
+        pytest_assert(all(key in psu_info for key in expected_keys), "Unexpected PSU status JSON output: '{}'".format(psu_status_output))
+        pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".format(psu_info["status"]))
+        pytest_assert(psu_info["led_status"] in ["green", "amber", "red", "off"], "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
 
 
 def verify_show_platform_fan_output(duthost, raw_output_lines):
