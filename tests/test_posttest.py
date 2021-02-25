@@ -58,3 +58,20 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         cmds.append(cmd_reload.format(feature_name))
         duthost.shell_cmds(cmds=cmds)
 
+def test_unblock_rsyslog_server(duthosts, enum_dut_hostname):
+    """
+    Unblock rsyslog server 10.20.6.16:514
+    """
+    # Recover to backup file
+    RSYS_CONF = "/etc/rsyslog.conf"
+    RSYS_CONF_BAK = RSYS_CONF + ".bak"
+
+    duthost = duthosts[enum_dut_hostname]
+    if not duthost.stat(path=RSYS_CONF_BAK)['stat']['exists']:
+        return
+
+    cmds = [
+        "mv {} {}".format(RSYS_CONF_BAK, RSYS_CONF),
+        "systemctl restart rsyslog"
+    ]
+    duthost.shell_cmds(cmds=cmds)
