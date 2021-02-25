@@ -299,7 +299,8 @@ def get_arp_pkt_info(dut):
 
 
 @pytest.fixture(scope='module')
-def check_mux_simulator(mux_server_url, ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host):
+def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
+                        recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
 
     def _check():
         """
@@ -319,8 +320,7 @@ def check_mux_simulator(mux_server_url, ptf_server_intf, tor_mux_intf, ptfadapte
 
         logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
         ptf_port_index = int(ptf_server_intf.replace('eth', ''))
-        mux_simulator_index = ptf_port_index + 1
-        recover_all_directions(mux_server_url, mux_simulator_index)
+        recover_all_directions(tor_mux_intf)
 
         upper_tor_intf_mac, upper_tor_mgmt_ip = get_arp_pkt_info(upper_tor_host)
         lower_tor_intf_mac, lower_tor_mgmt_ip = get_arp_pkt_info(lower_tor_host)
@@ -345,11 +345,15 @@ def check_mux_simulator(mux_server_url, ptf_server_intf, tor_mux_intf, ptfadapte
                                                 ip_snd=ptf_arp_tgt_ip,
                                                 arp_op=2)
 
+        # Clear ARP tables to start in consistent state
+        upper_tor_host.shell("ip neigh flush all")
+        lower_tor_host.shell("ip neigh flush all")
+
         # Run tests with upper ToR active
-        toggle_simulator_port_to_upper_tor(mux_server_url, mux_simulator_index)
+        toggle_simulator_port_to_upper_tor(tor_mux_intf)
 
         try:
-            pytest_assert(get_simulator_read_side(mux_server_url, mux_simulator_index) == 1)
+            pytest_assert(check_simulator_read_side(tor_mux_intf) == 1)
         except AssertionError:
             results['failed'] = True
             results['failed_reason'] = 'Unable to switch active link to upper ToR'
@@ -394,9 +398,9 @@ def check_mux_simulator(mux_server_url, ptf_server_intf, tor_mux_intf, ptfadapte
             return results
 
         # Repeat all tests with lower ToR active
-        toggle_simulator_port_to_lower_tor(mux_server_url, mux_simulator_index)
+        toggle_simulator_port_to_lower_tor(tor_mux_intf)
         try:
-            pytest_assert(get_simulator_read_side(mux_server_url, mux_simulator_index) == 2)
+            pytest_assert(check_simulator_read_side(tor_mux_intf) == 2)
         except AssertionError:
             results['failed'] = True
             results['failed_reason'] = 'Unable to switch active link to lower ToR'
