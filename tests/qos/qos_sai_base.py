@@ -415,7 +415,8 @@ class QosSaiBase:
         topo = tbinfo["topo"]["name"]
 
         testPortIds = []
-        if topo in self.SUPPORTED_T0_TOPOS:
+        # LAG ports in T1 TOPO need to be removed in Mellanox devices
+        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
             pytest_assert(
                 not duthost.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
