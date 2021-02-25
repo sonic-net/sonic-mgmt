@@ -5,7 +5,7 @@ import urllib2
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import utilities
 
-__all__ = ['get_simulator_read_side', 'mux_server_url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
+__all__ = ['check_simulator_read_side', 'mux_server_url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
            'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor']
 
