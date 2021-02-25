@@ -42,6 +42,7 @@ function usage
   echo "To start VMs for specified topology on server: $0 start-topo-vms 'topo-name' ~/.password"
   echo "To stop all VMs on a server:  $0 stop-vms 'server-name' ~/.password"
   echo "To stop VMs for specified topology on server: $0 stop-topo-vms 'topo-name' ~/.password"
+  echo "To cleanup *all* vms and docker: $0 cleanup-vmhost 'server-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
@@ -442,6 +443,18 @@ function stop_k8s_vms
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_k8s_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e k8s="true" $@
 }
 
+function cleanup_vmhost
+{
+  server=$1
+  passwd=$2
+  shift
+  shift
+  echo "Cleaning vm_host server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" testbed_cleanup.yml \
+      --vault-password-file="${passwd}" -l "${server}" $@
+}
+
 vmfile=veos
 tbfile=testbed.csv
 vm_type=veos
@@ -513,6 +526,8 @@ case "${subcmd}" in
   deploy-mg)   deploy_minigraph $@
                ;;
   test-mg)     test_minigraph $@
+               ;;
+  cleanup-vmhost) cleanup_vmhost $@
                ;;
   create-master) start_k8s_vms $@
                  setup_k8s_vms $@
