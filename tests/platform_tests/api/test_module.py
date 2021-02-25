@@ -429,4 +429,4 @@ class TestModuleApi(PlatformApiTestBase):
                 sleep(reboot_timeout)
                 mod_status = module.get_oper_status(platform_api_conn, mod_idx)
                 self.expect(mod_status == "Online", "module {} boot up successful".format(mod_idx))
-            self.assert_expectations()
+        self.assert_expectations()
