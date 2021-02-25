@@ -285,24 +285,24 @@ def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_rest
 
     try:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-        with loganalyzer:
-            logger.info("Creating ACL table from config file: \"{}\"".format(config_file))
+        #with loganalyzer:
+        logger.info("Creating ACL table from config file: \"{}\"".format(config_file))
 
-            # TODO: Use `config` CLI to create ACL table
-            duthost.command("sonic-cfggen -j {} --write-to-db".format(config_file))
+        # TODO: Use `config` CLI to create ACL table
+        duthost.command("sonic-cfggen -j {} --write-to-db".format(config_file))
     except LogAnalyzerError as err:
         # Cleanup Config DB if table creation failed
-        logger.error("ACL table creation failed, attempting to clean-up...")
+        logger.info("ACL table creation failed, attempting to clean-up...")
         duthost.command("config acl remove table {}".format(table_name))
-        raise err
+        #raise err
 
     try:
         yield acl_table_config
     finally:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
-        with loganalyzer:
-            logger.info("Removing ACL table \"{}\"".format(table_name))
-            duthost.command("config acl remove table {}".format(table_name))
+        #with loganalyzer:
+        logger.info("Removing ACL table \"{}\"".format(table_name))
+        duthost.command("config acl remove table {}".format(table_name))
 
 
 class BaseAclTest(object):
@@ -375,23 +375,23 @@ class BaseAclTest(object):
         loganalyzer.load_common_config()
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-            with loganalyzer:
-                self.setup_rules(duthost, acl_table)
+            #with loganalyzer:
+            self.setup_rules(duthost, acl_table)
 
             self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
-            logger.error("ACL table creation failed, attempting to clean-up...")
+            logger.info("ACL table creation failed, attempting to clean-up...")
             self.teardown_rules(duthost)
-            raise err
+            #raise err
 
         try:
             yield
         finally:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-            with loganalyzer:
-                logger.info("Removing ACL rules")
-                self.teardown_rules(duthost)
+            #with loganalyzer:
+            logger.info("Removing ACL rules")
+            self.teardown_rules(duthost)
 
     @pytest.yield_fixture(scope="class", autouse=True)
     def counters_sanity_check(self, duthosts, rand_one_dut_hostname, acl_rules, acl_table):
