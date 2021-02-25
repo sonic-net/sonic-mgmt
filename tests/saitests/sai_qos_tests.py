@@ -204,15 +204,20 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         exp_ip_id = 101
         exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt_rx_port = get_rx_port(self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
 
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (pkt_rx_port, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
         print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
         print >> sys.stderr, "port list {}".format(port_list)
         # Get a snapshot of counter values
 
         # port_results is not of our interest here
-        port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[pkt_rx_port])
+        port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
         # DSCP Mapping test
         try:
@@ -233,9 +238,9 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 cnt = 0
                 dscp_received = False
                 while not dscp_received:
-                    result = self.dataplane.poll(device_number=0, port_number=pkt_rx_port, timeout=3)
+                    result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
-                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (pkt_rx_port, cnt, result.format()))
+                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, cnt, result.format()))
                     recv_pkt = scapy.Ether(result.packet)
                     cnt += 1
 
@@ -251,7 +256,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
             # Read Counters
             time.sleep(10)
-            port_results, queue_results = sai_thrift_read_port_counters(self.client, port_list[pkt_rx_port])
+            port_results, queue_results = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
             print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
             # According to SONiC configuration all dscp are classified to queue 1 except:
@@ -264,12 +269,13 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # So for the 64 pkts sent the mapping should be -> 58 queue 1, and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
             # Check results
             assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
-            assert(queue_results[QUEUE_1] >= 1 + queue_results_base[QUEUE_1])
-            assert(queue_results[QUEUE_2] >= 1 + queue_results_base[QUEUE_2])
-            assert(queue_results[QUEUE_3] >= 1 + queue_results_base[QUEUE_3])
-            assert(queue_results[QUEUE_4] >= 1 + queue_results_base[QUEUE_4])
-            assert(queue_results[QUEUE_5] >= 1 + queue_results_base[QUEUE_5])
-            assert(queue_results[QUEUE_6] >= 1 + queue_results_base[QUEUE_6])
+            # +1 to account for the pkt sent by get_rx_port()
+            assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1]) + 1
+            assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
+            assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
+            assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
+            assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
+            assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
 
         finally:
             print >> sys.stderr, "END OF TEST"
