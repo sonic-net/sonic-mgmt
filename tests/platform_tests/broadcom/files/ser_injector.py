@@ -294,9 +294,6 @@ SKIP_MEMORY_PER_ASIC = {
         u'L3_DEFIP_LEVEL1_HIT_ONLY.ipipe0',
         u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE4.ipipe0',
         u'L3_DEFIP_ALPM_LEVEL3_HIT_ONLY.ipipe0'
-
-        ]
-
         ]
 }
 
