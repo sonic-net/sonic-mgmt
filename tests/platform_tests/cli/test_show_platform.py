@@ -203,7 +203,7 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
         pytest.skip("JSON output not available in this version")
 
     logging.info("Check pmon daemon status")
-    assert check_pmon_daemon_status(duthost), "Not all pmon daemons running."
+    pytest_assert(check_pmon_daemon_status(duthost), "Not all pmon daemons running.")
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
 
