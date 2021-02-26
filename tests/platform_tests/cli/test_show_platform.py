@@ -181,7 +181,7 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     else:
         psu_line_pattern = re.compile(r"PSU\s+\d+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
 
-    # Check that all psus are showing valid status and also at-least one PSU is OK.
+    # Check that all PSUs are showing valid status and also at least one PSU is OK
     num_psu_ok = 0
 
     for line in psu_status_output_lines[2:]:
@@ -190,7 +190,8 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
         psu_status = psu_match.group(1)
         if psu_status == "OK":
             num_psu_ok += 1
-    pytest_assert(num_psu_ok > 0, " No PSU's are displayed with OK status on '{}'".format(duthost.hostname))
+
+    pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
 
 
 def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
