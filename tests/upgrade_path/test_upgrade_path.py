@@ -12,8 +12,8 @@ from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
-from tests.common.reboot import get_reboot_cause
-from tests.common.reboot import REBOOT_TYPE_WARM
+from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -44,7 +44,7 @@ def setup(localhost, ptfhost, duthosts, rand_one_dut_hostname, upgrade_path_list
 
 
 def cleanup(localhost, ptfhost, duthost, upgrade_path_lists, tbinfo):
-    _, _, restore_to_image = upgrade_path_lists
+    _, _, _, restore_to_image = upgrade_path_lists
     if restore_to_image:
         logger.info("Preparing to cleanup and restore to {}".format(restore_to_image))
         # restore orignial image
@@ -89,7 +89,7 @@ def prepare_ptf(ptfhost, duthost, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
+def ptf_params(duthosts, rand_one_dut_hostname, creds, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
     if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
@@ -105,12 +105,10 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
             lo_v6_prefix = str(ipaddr.IPNetwork(intf['addr'] + '/64').network) + '/64'
             break
 
-    vm_hosts = []
-    nbrs = nbrhosts
-    for key, value in nbrs.items():
-        #TODO:Update to vm_hosts.append(value['host'].host.mgmt_ip)
-        vm_hosts.append(value['host'].host.options['inventory_manager'].get_host(value['host'].hostname).vars['ansible_host'])
-
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_hosts = [
+            attr['mgmt_addr'] for dev, attr in mgFacts['minigraph_devices'].items() if attr['hwsku'] == 'Arista-VM'
+        ]
     sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
     ptf_params = {
         "verbose": False,
@@ -135,16 +133,15 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
     return ptf_params
 
 
-def get_reboot_type(duthost):
-    next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
-    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
- 
-    # warm-reboot has to be forced for an upgrade from 201811 to 201811+ to bypass ASIC config changed error
-    if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201811' not in next_os_version:
-        reboot_type = "warm-reboot -f"
-    else:
-        reboot_type = "warm-reboot"
-    return reboot_type
+def get_reboot_command(duthost, upgrade_type):
+    reboot_command = reboot_ctrl_dict.get(upgrade_type).get("command")
+    if upgrade_type == REBOOT_TYPE_WARM:
+        next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
+        current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        # warm-reboot has to be forced for an upgrade from 201811 to 201811+ to bypass ASIC config changed error
+        if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201811' not in next_os_version:
+            reboot_command = "warm-reboot -f"
+    return reboot_command
 
 
 def check_sonic_version(duthost, target_version):
@@ -182,6 +179,7 @@ def install_sonic(duthost, image_url, tbinfo):
             duthost.shell("mkdir -p /tmp/tmpfs", module_ignore_errors=True)
             duthost.shell("umount /tmp/tmpfs", module_ignore_errors=True)
             duthost.shell("mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs", module_ignore_errors=True)
+        logger.info("Image exists locally. Copying the image {} into the device path {}".format(image_url, save_as))
         duthost.copy(src=image_url, dest=save_as)
         res = duthost.reduce_and_add_sonic_images(save_as=save_as)
 
@@ -213,7 +211,7 @@ def check_services(duthost):
 @pytest.mark.device_type('vs')
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgrade_path_lists, ptf_params, setup, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    from_list_images, to_list_images, _ = upgrade_path_lists
+    upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')
     assert (from_list and to_list)
@@ -233,20 +231,23 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
             target_version = install_sonic(duthost, to_image, tbinfo)
             test_params = ptf_params
             test_params['target_version'] = target_version
-            test_params['reboot_type'] = get_reboot_type(duthost)
+            test_params['reboot_type'] = get_reboot_command(duthost, upgrade_type)
             prepare_testbed_ssh_keys(duthost, ptfhost, test_params['dut_username'])
             log_file = "/tmp/advanced-reboot.ReloadTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-
-            ptf_runner(ptfhost,
-                       "ptftests",
-                       "advanced-reboot.ReloadTest",
-                       platform_dir="ptftests",
-                       params=test_params,
-                       platform="remote",
-                       qlen=10000,
-                       log_file=log_file)
+            if test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command"):
+                # advance-reboot test (on ptf) does not support cold reboot yet
+                reboot(duthost, localhost)
+            else:
+                ptf_runner(ptfhost,
+                        "ptftests",
+                        "advanced-reboot.ReloadTest",
+                        platform_dir="ptftests",
+                        params=test_params,
+                        platform="remote",
+                        qlen=10000,
+                        log_file=log_file)
             reboot_cause = get_reboot_cause(duthost)
-            logger.info("Check reboot cause. Expected cause {}".format(REBOOT_TYPE_WARM))
-            pytest_assert(reboot_cause == REBOOT_TYPE_WARM, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, REBOOT_TYPE_WARM))
+            logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
+            pytest_assert(reboot_cause == upgrade_type, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))
             check_services(duthost)
 
