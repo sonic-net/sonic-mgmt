@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_WARM
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -89,7 +89,7 @@ def prepare_ptf(ptfhost, duthost, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
+def ptf_params(duthosts, rand_one_dut_hostname, creds, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
     if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
@@ -105,12 +105,10 @@ def ptf_params(duthosts, rand_one_dut_hostname, nbrhosts, creds, tbinfo):
             lo_v6_prefix = str(ipaddr.IPNetwork(intf['addr'] + '/64').network) + '/64'
             break
 
-    vm_hosts = []
-    nbrs = nbrhosts
-    for key, value in nbrs.items():
-        #TODO:Update to vm_hosts.append(value['host'].host.mgmt_ip)
-        vm_hosts.append(value['host'].host.options['inventory_manager'].get_host(value['host'].hostname).vars['ansible_host'])
-
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_hosts = [
+            attr['mgmt_addr'] for dev, attr in mgFacts['minigraph_devices'].items() if attr['hwsku'] == 'Arista-VM'
+        ]
     sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
     ptf_params = {
         "verbose": False,
@@ -236,15 +234,18 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
             test_params['reboot_type'] = get_reboot_command(duthost, upgrade_type)
             prepare_testbed_ssh_keys(duthost, ptfhost, test_params['dut_username'])
             log_file = "/tmp/advanced-reboot.ReloadTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-
-            ptf_runner(ptfhost,
-                       "ptftests",
-                       "advanced-reboot.ReloadTest",
-                       platform_dir="ptftests",
-                       params=test_params,
-                       platform="remote",
-                       qlen=10000,
-                       log_file=log_file)
+            if test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command"):
+                # advance-reboot test (on ptf) does not support cold reboot yet
+                reboot(duthost, localhost)
+            else:
+                ptf_runner(ptfhost,
+                        "ptftests",
+                        "advanced-reboot.ReloadTest",
+                        platform_dir="ptftests",
+                        params=test_params,
+                        platform="remote",
+                        qlen=10000,
+                        log_file=log_file)
             reboot_cause = get_reboot_cause(duthost)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             pytest_assert(reboot_cause == upgrade_type, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))
