@@ -121,7 +121,7 @@ class DHCPTest(DataplaneBaseTest):
         self.switch_loopback_ip = self.test_params['switch_loopback_ip']
 
         # 'dual' for dual tor testing
-        # 'default' for regular single tor testing
+        # 'single' for regular single tor testing
         self.dual_tor = (self.test_params['testing_mode'] == 'dual')
 
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
