@@ -9,6 +9,7 @@ Tests for the `show platform ...` commands in SONiC
 # TODO: Add tests for `show platform firmware updates`
 # TODO: Add tests for `show platform firmware version`
 
+import json
 import logging
 import re
 
@@ -174,17 +175,49 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
     psu_status_output_lines = duthost.command(cmd)["stdout_lines"]
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
 
-    # Check that all psus are showing valid status and also at-least one PSU is OK.
+    if "201811" in duthost.os_version or "201911" in duthost.os_version:
+        psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
+    else:
+        psu_line_pattern = re.compile(r"PSU\s+\d+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
+
+    # Check that all PSUs are showing valid status and also at least one PSU is OK
     num_psu_ok = 0
+
     for line in psu_status_output_lines[2:]:
         psu_match = psu_line_pattern.match(line)
         pytest_assert(psu_match, "Unexpected PSU status output: '{}' on '{}'".format(line, duthost.hostname))
         psu_status = psu_match.group(1)
         if psu_status == "OK":
             num_psu_ok += 1
-    pytest_assert(num_psu_ok > 0, " No PSU's are displayed with OK status on '{}'".format(duthost.hostname))
+
+    pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
+
+
+def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
+    """
+    @summary: Verify output of `show platform psustatus --json`
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    if "201811" in duthost.os_version or "201911" in duthost.os_version:
+        pytest.skip("JSON output not available in this version")
+
+    logging.info("Check pmon daemon status")
+    pytest_assert(check_pmon_daemon_status(duthost), "Not all pmon daemons running.")
+
+    cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
+
+    logging.info("Verifying output of '{}' ...".format(cmd))
+    psu_status_output = duthost.command(cmd)["stdout"]
+    psu_info_list = json.loads(psu_status_output)
+
+    # TODO: Compare against expected platform-specific output
+    for psu_info in psu_info_list:
+        expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current", "power"]
+        pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".format(psu_status_output))
+        pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".format(psu_info["status"]))
+        pytest_assert(psu_info["led_status"] in ["green", "amber", "red", "off"], "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
 
 
 def verify_show_platform_fan_output(duthost, raw_output_lines):

@@ -4,6 +4,7 @@ Check platform information
 This script covers the test case 'Check platform information' in the SONiC platform test plan:
 https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
+import json
 import logging
 import re
 import time
@@ -20,6 +21,7 @@ pytestmark = [
 ]
 
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
+CMD_PLATFORM_PSUSTATUS_JSON = "{} --json".format(CMD_PLATFORM_PSUSTATUS)
 CMD_PLATFORM_FANSTATUS = "show platform fan"
 CMD_PLATFORM_TEMPER = "show platform temperature"
 
@@ -145,7 +147,11 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
     if dut.facts["asic_type"] in ["mellanox"]:
         from .mellanox.check_sysfs import check_psu_sysfs
 
-        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
+        if "201811" in dut.os_version or "201911" in dut.os_version:
+            psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
+        else:
+            psu_line_pattern = re.compile(r"PSU\s+(\d+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
+
         psu_match = psu_line_pattern.match(psu_status_line)
         psu_id = psu_match.group(1)
         psu_status = psu_match.group(2)
@@ -163,16 +169,25 @@ def turn_all_outlets_on(pdu_ctrl):
 
 
 def check_all_psu_on(dut, psu_test_results):
-    cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
     power_off_psu_list = []
-    for line in cli_psu_status["stdout_lines"][2:]:
-        fields = line.split()
-        psu_test_results[fields[1]] = False
-        if " ".join(fields[2:]) == "NOT OK":
-            power_off_psu_list.append(fields[1])
+
+    if "201811" in dut.os_version or "201911" in dut.os_version:
+        cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
+        for line in cli_psu_status["stdout_lines"][2:]:
+            fields = line.split()
+            psu_test_results[fields[1]] = False
+            if " ".join(fields[2:]) == "NOT OK":
+                power_off_psu_list.append(fields[1])
+    else:
+        # Use JSON output
+        cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
+        psu_info_list = json.loads(cli_psu_status["stdout"])
+        for psu_info in psu_info_list:
+            if psu_info["status"] == "NOT OK":
+                power_off_psu_list.append(psu_info["index"])
 
     if power_off_psu_list:
-        logging.warn('Power off PSU list: {}'.format(power_off_psu_list))
+        logging.warn('Powered off PSUs: {}'.format(power_off_psu_list))
 
     return len(power_off_psu_list) == 0
 
