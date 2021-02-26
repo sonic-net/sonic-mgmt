@@ -92,25 +92,32 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 check_res.append("outer packet ECN not same as inner packet ECN")
             return " ,".join(check_res)
 
-        def __init__(self, active_tor, standby_tor, existing=True):
+        def __init__(self, standby_tor, active_tor=None, existing=True):
             """
             Init the tunnel traffic monitor.
 
-            @param active_tor: active ToR that decaps the tunnel traffic.
             @param standby_tor: standby ToR that does the encap.
+            @param active_tor: active ToR that decaps the tunnel traffic.
             """
             self.active_tor = active_tor
             self.standby_tor = standby_tor
             self.listen_ports = sorted(self._get_t1_ptf_port_indexes(standby_tor, tbinfo))
             self.ptfadapter = ptfadapter
-            active_tor_cfg_facts = self.active_tor.config_facts(
-                host=self.active_tor.hostname, source="persistent"
-            )["ansible_facts"]
+
             standby_tor_cfg_facts = self.standby_tor.config_facts(
                 host=self.standby_tor.hostname, source="persistent"
             )["ansible_facts"]
-            self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
             self.standby_tor_lo_addr = self._find_ipv4_lo_addr(standby_tor_cfg_facts)
+            if self.active_tor:
+                active_tor_cfg_facts = self.active_tor.config_facts(
+                    host=self.active_tor.hostname, source="persistent"
+                )["ansible_facts"]
+                self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
+            else:
+                self.active_tor_lo_addr = [
+                    _["address_ipv4"] for _ in standby_tor_cfg_facts["PEER_SWITCH"].values()
+                ][0]
+
             self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr)
             self.rec_pkt = None
             self.existing = existing
@@ -139,6 +146,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 rec_port = self.listen_ports[port_index]
                 logging.debug("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
                 logging.debug("Encapsulated packet:\n%s", self._dump_show_str(self.rec_pkt))
+                if not self.existing:
+                    raise RuntimeError("Detected tunnel traffic from host %s." % self.standby_tor.hostname)
                 ttl_check_res = self._check_ttl(self.rec_pkt)
                 tos_check_res = self._check_tos(self.rec_pkt)
                 check_res = []

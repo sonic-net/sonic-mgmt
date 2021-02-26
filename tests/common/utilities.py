@@ -2,6 +2,7 @@
 Utility functions can re-used in testing scripts.
 """
 import collections
+import ipaddress
 import logging
 import six
 import sys
@@ -316,3 +317,12 @@ def get_test_server_vars(inv_files, server, variable=None):
     else:
         logger.error("Unable to find test server host under group {}".format(server))
         return None
+
+
+def is_ipv4_address(ip_address):
+    """Check if ip address is ipv4."""
+    try:
+        ipaddress.IPv4Address(ip_address)
+        return True
+    except ipaddress.AddressValueError:
+        return False

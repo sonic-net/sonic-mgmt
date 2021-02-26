@@ -139,7 +139,7 @@ def get_t1_active_ptf_ports(dut, tbinfo):
     ptf_portchannel_intfs = {}
     for k, v in config_facts['PORTCHANNEL'].items():
         if k in up_portchannels:
-            ptf_portchannel_intfs[k]  = []
+            ptf_portchannel_intfs[k] = []
             for member in v['members']:
                 ptf_portchannel_intfs[k].append(mg_facts['minigraph_ptf_indices'][member])
 
@@ -550,10 +550,10 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
     log_file = "/tmp/ip_in_ip_tunnel_test.{}.log".format(timestamp)
     logging.info("PTF log file: %s" % log_file)
     ptf_runner(ptfhost,
-                "ptftests",
-                "ip_in_ip_tunnel_test.IpinIPTunnelTest",
-                platform_dir="ptftests",
-                params=params,
-                log_file=log_file,
-                qlen=2000,
-                socket_recv_size=16384)
+               "ptftests",
+               "ip_in_ip_tunnel_test.IpinIPTunnelTest",
+               platform_dir="ptftests",
+               params=params,
+               log_file=log_file,
+               qlen=2000,
+               socket_recv_size=16384)
