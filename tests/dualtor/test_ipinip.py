@@ -30,7 +30,7 @@ def tor(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="function")
-def test_interface(tor):
+def select_test_interface(tor):
     """Select a random interface to test."""
     config_facts = tor.get_running_config_facts()
     muxcable_table = config_facts["MUX_CABLE"]
@@ -41,9 +41,9 @@ def test_interface(tor):
 
 
 @pytest.fixture(scope="function")
-def build_encapsulated_packet(test_interface, ptfadapter, tor, tunnel_traffic_monitor):
+def build_encapsulated_packet(select_test_interface, ptfadapter, tor, tunnel_traffic_monitor):
     """Build the encapsulated packet sent from T1 to ToR."""
-    _, server_ipv4 = test_interface
+    _, server_ipv4 = select_test_interface
     config_facts = tor.get_running_config_facts()
     try:
         peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
@@ -95,15 +95,15 @@ def build_expected_packet_to_server(encapsulated_packet):
     return exp_pkt
 
 
-def test_dualtor_ipinip_active_tor(
+def test_decap_active_tor(
     apply_mock_dual_tor_tables,
     apply_mock_dual_tor_kernel_configs,
     apply_active_state_to_orchagent,
-    build_encapsulated_packet, test_interface, ptfadapter,
+    build_encapsulated_packet, select_test_interface, ptfadapter,
     tbinfo, tor, tunnel_traffic_monitor
 ):
     encapsulated_packet = build_encapsulated_packet
-    iface, _ = test_interface
+    iface, _ = select_test_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
@@ -123,20 +123,19 @@ def test_dualtor_ipinip_active_tor(
         pytest.fail("the expected tos should be %s" % exp_tos)
 
 
-def test_dualtor_ipinip_standby_tor(
+def test_decap_standby_tor(
     apply_mock_dual_tor_tables,
     apply_mock_dual_tor_kernel_configs,
     apply_standby_state_to_orchagent,
-    build_encapsulated_packet, test_interface, ptfadapter,
+    build_encapsulated_packet, select_test_interface, ptfadapter,
     tbinfo, tor, tunnel_traffic_monitor
 ):
     encapsulated_packet = build_encapsulated_packet
-    iface, _ = test_interface
+    iface, _ = select_test_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
 
-    ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
     with tunnel_traffic_monitor(tor, existing=False):
