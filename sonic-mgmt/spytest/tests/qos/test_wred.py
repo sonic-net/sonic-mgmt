@@ -100,9 +100,10 @@ def binding_queue_map_to_interfaces():
 
 
 def fdb_config():
-    mac_obj.config_mac_agetime(vars.D1, data.ageout_time)
-    if not (mac_obj.get_mac_agetime(vars.D1) == data.ageout_time):
-        st.report_fail("mac_aging_time_failed_config")
+    if st.is_feature_supported("config-mac-aging_time-command", vars.D1):
+        mac_obj.config_mac_agetime(vars.D1, data.ageout_time)
+        if not (mac_obj.get_mac_agetime(vars.D1) == data.ageout_time):
+            st.report_fail("mac_aging_time_failed_config")
 
 def vlan_config():
     vlan_obj.create_vlan(vars.D1, data.vlan)
@@ -159,10 +160,10 @@ def test_ft_wred_functionality():
     st.log("Sending traffic from port 3 to learn the MAC in FDB table")
     data.tg.tg_traffic_control(action='run', stream_handle=data.streams['vlan_tagged_egress'])
     st.log("Verifying FDB table")
-    if not poll_wait(mac_obj.verify_mac_address_table, 30, vars.D1, data.dscp_dest_mac):
-        st.log("Displaying the interface counters to verify traffic is sent or not")
-        ifapi.show_interface_counters_all(vars.D1)
-        st.report_fail("mac_address_verification_fail")
+    #if not poll_wait(mac_obj.verify_mac_address_table, 30, vars.D1, data.dscp_dest_mac):
+    #    st.log("Displaying the interface counters to verify traffic is sent or not")
+    #    ifapi.show_interface_counters_all(vars.D1)
+    #    st.report_fail("mac_address_verification_fail")
     wred_running_config()
     configuring_tc_to_queue_map()
     configuring_dscp_to_tc_map()

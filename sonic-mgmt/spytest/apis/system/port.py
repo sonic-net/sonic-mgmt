@@ -299,7 +299,7 @@ def clear_interface_counters(dut, **kwargs):
         command = "clear counters interface {}".format(interface_val)
         st.config(dut, command, type=cli_type, confirm=confirm, conf=False, skip_error_check=True)
     elif cli_type == "click":
-        command = "show interfaces counters -c"
+        command = "sonic-clear counters"
         if not st.is_feature_supported("show-interfaces-counters-clear-command", dut):
             st.community_unsupported(command, dut)
             return st.config(dut, "sonic-clear counters")

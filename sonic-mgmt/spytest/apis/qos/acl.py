@@ -645,6 +645,7 @@ def delete_acl_rule(dut, acl_table_name=None, acl_type = None, acl_rule_name=Non
                         st.community_unsupported(command, dut)
                         delete_acl_rule_via_acl_loader(dut, acl_table_name, acl_rule)
                     else:
+                        command = "config acl remove table {}".format(acl_table_name)
                         st.config(dut, command)
             else:
                 st.config(dut, command)

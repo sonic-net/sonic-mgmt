@@ -422,7 +422,7 @@ def clear_interface_counters(dut, **kwargs):
         command = "clear counters interface {}".format(interface_val)
         st.config(dut, command, type=cli_type, confirm=confirm, conf=False, skip_error_check=True)
     elif cli_type == "click":
-        command = "show interfaces counters -c"
+        command = "show interfaces counters"
         if not st.is_feature_supported("show-interfaces-counters-clear-command", dut):
             st.community_unsupported(command, dut)
             return st.config(dut, "sonic-clear counters")
@@ -643,7 +643,7 @@ def delete_ip_on_interface_linux(dut, interface_name, ip_address):
     st.config(dut, command)
 
 
-def show_queue_counters(dut, interface_name, queue=None, cli_type=''):
+def show_queue_counters(dut, interface_name, queue=None, cli_type='click'):
     """
     Show Queue counters
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -686,11 +686,11 @@ def clear_queue_counters(dut, interfaces_list=[], cli_type=''):
     if cli_type == 'click':
         interface_li = make_list(interfaces_list)
         if not interface_li:
-            command = "show queue counters -c"
+            command = "sonic-clear queuecounters"
             st.show(dut, command)
         else:
             for each_port in interface_li:
-                command = "show queue counters {} -c".format(each_port)
+                command = "show queue counters {}".format(each_port)
                 st.show(dut, command, type=cli_type)
     elif cli_type == 'klish':
         if interfaces_list:
@@ -703,7 +703,7 @@ def clear_queue_counters(dut, interfaces_list=[], cli_type=''):
                     command = 'clear queue counters interface {} {}'.format(intf_details['type'], intf_details['number'])
                 st.config(dut, command, type=cli_type)
         else:
-            command = 'clear queue counters'
+            command = 'sonic-clear queuecounters'
             st.config(dut, command, type=cli_type)
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))

@@ -125,7 +125,8 @@ def verify_ipv4_address_config():
         st.report_fail('ip_routing_int_create_fail', vars.D1T1P1)
     else:
         st.log(" IPV4 Addres Config is successful")
-
+        ip_obj.ping(vars.D1, data.neigh_ip_addr, timeout=7)
+        ip_obj.ping(vars.D1, data.t1d1_ip_addr, timeout=7)
 
 def ipv6_address_config():
     st.log("Creating the ipv6 routing interfaces in {}".format(vars.D1D2P1))

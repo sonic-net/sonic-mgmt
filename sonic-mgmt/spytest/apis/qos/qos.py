@@ -62,7 +62,7 @@ def clear_qos_queue_counters(dut):
 
     Created by: Julius <julius.mariyan@broadcom.com
     '''
-    return True if st.show(dut,'show queue counters --clear',skip_tmpl=True) else False
+    return True if st.show(dut,'sonic-clear queuecounters',skip_tmpl=True) else False
 
 
 def bind_qos_map_port(dut, map_name, obj_name, interface):
