@@ -370,6 +370,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
 
     skip_containers = []
     skip_containers.append("database")
+    skip_containers.append("gbsyncd")
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
