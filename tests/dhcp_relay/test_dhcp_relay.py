@@ -350,3 +350,4 @@ def test_dhcp_relay_random_sport(duthosts, rand_one_dut_hostname, ptfhost, dut_d
 
     if testing_mode == 'dual':
         reset_dual_tor(duthost)
+
