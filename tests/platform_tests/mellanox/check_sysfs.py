@@ -7,7 +7,7 @@ import logging
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 
-MAX_FAN_SPEED_THRESHOLD = 0.1
+MAX_FAN_SPEED_THRESHOLD = 0.15
 
 
 def check_sysfs(dut):
