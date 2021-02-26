@@ -49,7 +49,7 @@ def get_group_program_info(duthost, container_name, group_name):
     group_program_info = defaultdict(list)
     program_name = None
     program_status = None
-    program_pid = -1
+    program_pid = None
 
     program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
