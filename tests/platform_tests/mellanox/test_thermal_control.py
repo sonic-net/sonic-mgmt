@@ -131,8 +131,7 @@ def get_psu_speed(dut, index):
     index = index + 1
     psu_speed_path = PSU_SPEED_PATH.format(index)
     file_stat = dut.stat(path=psu_speed_path)
-    if not file_stat["stat"]["exists"]:
-        return None
+    assert file_stat["stat"]["exists"], 'Failed to get PSU speed file due to {} does not exist'.format(psu_speed_path)
 
     cmd_output = dut.command('cat {}'.format(psu_speed_path))
     try:
