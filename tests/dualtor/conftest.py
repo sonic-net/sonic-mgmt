@@ -1,8 +1,7 @@
 import pytest
 import logging
 import time
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_upper_tor # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import lower_tor_host, get_crm_nexthop_counter # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter
 from tests.common.helpers.assertions import pytest_assert
 
 CRM_POLL_INTERVAL = 1
