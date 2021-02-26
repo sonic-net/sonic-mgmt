@@ -7,6 +7,7 @@ from time import sleep
 from tests.common.helpers.platform_api import chassis, module
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
+from tests.common.helpers.assertions import pytest_assert
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -417,16 +418,15 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        reboot_type= 'default'
+        reboot_type = 'default'
         reboot_timeout = 300
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
             if mod_name in self.skip_mod_list:
-                pytest.skip("skipping reboot for module {} ".format(mod_name))
+                logger.info("skipping reboot for module {} ".format(mod_name))
             else:
                 module_reboot = module.reboot(platform_api_conn, mod_idx, reboot_type)
-                self.expect(module_reboot == "True", "module {} reboot failed".format(mod_idx))
+                pytest_assert(module_reboot == "True", "module {} reboot failed".format(mod_idx))
                 sleep(reboot_timeout)
                 mod_status = module.get_oper_status(platform_api_conn, mod_idx)
-                self.expect(mod_status == "Online", "module {} boot up successful".format(mod_idx))
-        self.assert_expectations()
+                pytest_assert(mod_status == "Online", "module {} boot up successful".format(mod_idx))
