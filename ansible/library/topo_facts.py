@@ -182,7 +182,6 @@ class ParseTestbedTopoinfo():
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
             vm_topo_config['dut_asn'] = dut_asn
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
-            vmconfig = dict()
             vm_topo_config['vm'] = self.parse_topo_defintion(topo_definition, po_map, dut_num, 'VMs')
 
         for asic in asic_definition:
@@ -194,7 +193,6 @@ class ParseTestbedTopoinfo():
             for lo4096 in asic_definition[asic]['configuration_properties']['common']['Loopback4096']:
                 asic_topo_config[asic]['Loopback4096'].append(lo4096)
 
-            asicconfig = dict()
             asic_topo_config[asic]['asic'] = self.parse_topo_defintion(asic_definition[asic], po_map_asic, 1, 'ASICs')
 
         vm_topo_config['host_interfaces_by_dut'] = [[] for i in range(dut_num)]
