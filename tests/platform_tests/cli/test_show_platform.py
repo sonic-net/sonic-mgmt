@@ -214,7 +214,7 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
     # TODO: Compare against expected platform-specific output
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current", "power"]
-        pytest_assert(all(key in psu_info for key in expected_keys), "Unexpected PSU status JSON output: '{}'".format(psu_status_output))
+        pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".format(psu_status_output))
         pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".format(psu_info["status"]))
         pytest_assert(psu_info["led_status"] in ["green", "amber", "red", "off"], "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
 
