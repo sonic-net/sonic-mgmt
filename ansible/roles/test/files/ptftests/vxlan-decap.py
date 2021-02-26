@@ -48,12 +48,11 @@ def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, devi
     total_rcv_pkt_cnt = 0
     end_time = time.time() + timeout
     while time.time() < end_time:
-        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout)
+        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout, exp_pkt=exp_packet)
         if isinstance(result, test.dataplane.PollSuccess):
-            if ptf.dataplane.match_exp_pkt(exp_packet, result.packet):
-                total_rcv_pkt_cnt += 1
-                if total_rcv_pkt_cnt == exp_packet_number:
-                    break
+            total_rcv_pkt_cnt += 1
+            if total_rcv_pkt_cnt == exp_packet_number:
+                break
         else:
             break
 
