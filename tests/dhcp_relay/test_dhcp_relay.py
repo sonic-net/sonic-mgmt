@@ -15,6 +15,7 @@ pytestmark = [
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
@@ -41,6 +42,8 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     host_facts = duthost.setup()['ansible_facts']
+
+    switch_loopback_ip = mg_facts['minigraph_lo_interfaces'][0]['addr']
 
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
     vlan_dict = mg_facts['minigraph_vlans']
@@ -94,9 +97,12 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         dhcp_relay_data['client_iface'] = client_iface
         dhcp_relay_data['uplink_interfaces'] = uplink_interfaces
         dhcp_relay_data['uplink_port_indices'] = uplink_port_indices
+        dhcp_relay_data['switch_loopback_ip'] = str(switch_loopback_ip)
+
         dhcp_relay_data_list.append(dhcp_relay_data)
 
     return dhcp_relay_data_list
+
 
 @pytest.fixture(scope="module")
 def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
@@ -112,12 +118,31 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
         assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
 
-def test_dhcp_relay_default(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+def set_dual_tor(duthost):
+    duthost.shell('redis-cli -n 4 HSET "DEVICE_METADATA|localhost" "subtype" "DualToR"')
+    duthost.shell('systemctl restart dhcp_relay')
+    duthost.shell('systemctl reset-failed dhcp_relay')
+    time.sleep(30)
+
+
+def reset_dual_tor(duthost):
+    duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
+    duthost.shell('systemctl restart dhcp_relay')
+    duthost.shell('systemctl reset-failed dhcp_relay')
+    time.sleep(30)
+
+
+@pytest.mark.parametrize("testing_mode", ['single', 'dual'])
+def test_dhcp_relay_default(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_mode):
     """Test DHCP relay functionality on T0 topology.
 
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    if testing_mode == 'dual':
+        set_dual_tor(duthost)
+
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -134,17 +159,27 @@ def test_dhcp_relay_default(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_r
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
                            "dest_mac_address": BROADCAST_MAC,
-                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
+    if testing_mode == 'dual':
+        reset_dual_tor(duthost)
 
-def test_dhcp_relay_after_link_flap(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+
+@pytest.mark.parametrize("testing_mode", ['single', 'dual'])
+def test_dhcp_relay_after_link_flap(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_mode):
     """Test DHCP relay functionality on T0 topology after uplinks flap
 
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
        then test whether the DHCP relay agent relays packets properly.
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    if testing_mode == 'dual':
+        set_dual_tor(duthost)
+
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
@@ -175,11 +210,17 @@ def test_dhcp_relay_after_link_flap(duthosts, rand_one_dut_hostname, ptfhost, du
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
                            "dest_mac_address": BROADCAST_MAC,
-                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
+    if testing_mode == 'dual':
+        reset_dual_tor(duthost)
 
-def test_dhcp_relay_start_with_uplinks_down(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+
+@pytest.mark.parametrize("testing_mode", ['single', 'dual'])
+def test_dhcp_relay_start_with_uplinks_down(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_mode):
     """Test DHCP relay functionality on T0 topology when relay agent starts with uplinks down
 
        For each DHCP relay agent running on the DuT, bring the uplinks down, then restart the
@@ -187,6 +228,10 @@ def test_dhcp_relay_start_with_uplinks_down(duthosts, rand_one_dut_hostname, ptf
        relays packets properly.
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    if testing_mode == 'dual':
+        set_dual_tor(duthost)
+
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
@@ -224,16 +269,26 @@ def test_dhcp_relay_start_with_uplinks_down(duthosts, rand_one_dut_hostname, ptf
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
                            "dest_mac_address": BROADCAST_MAC,
-                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
+    if testing_mode == 'dual':
+        reset_dual_tor(duthost)
 
-def test_dhcp_relay_unicast_mac(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+
+@pytest.mark.parametrize("testing_mode", ['single', 'dual'])
+def test_dhcp_relay_unicast_mac(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_mode):
     """Test DHCP relay functionality on T0 topology with unicast mac
 
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    if testing_mode == 'dual':
+        set_dual_tor(duthost)
+
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -250,17 +305,27 @@ def test_dhcp_relay_unicast_mac(duthosts, rand_one_dut_hostname, ptfhost, dut_dh
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
                            "dest_mac_address": duthost.facts["router_mac"],
-                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT},
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
+    if testing_mode == 'dual':
+        reset_dual_tor(duthost)
 
-def test_dhcp_relay_random_sport(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist):
+
+@pytest.mark.parametrize("testing_mode", ['single', 'dual'])
+def test_dhcp_relay_random_sport(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_mode):
     """Test DHCP relay functionality on T0 topology with random source port (sport)
 
        If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
        Verify that DHCP relay works with random high sport.
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    if testing_mode == 'dual':
+        set_dual_tor(duthost)
+
     RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
@@ -278,5 +343,10 @@ def test_dhcp_relay_random_sport(duthosts, rand_one_dut_hostname, ptfhost, dut_d
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
                            "dest_mac_address": BROADCAST_MAC,
-                           "client_udp_src_port": RANDOM_CLIENT_PORT},
+                           "client_udp_src_port": RANDOM_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+
+    if testing_mode == 'dual':
+        reset_dual_tor(duthost)
