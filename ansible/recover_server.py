@@ -188,9 +188,17 @@ def do_jobs(testbeds, inventory, passfile, tbfile=None, vmfile=None, skip_cleanu
         if not skip_cleanup:
             if jobs[0].failed_task is not None:
                 output.append('Server %s cleanup failed, skip recovery.' % server)
-            jobs = jobs[2:]
+            jobs = jobs[1:]
+        # start-vms output
+        if jobs[0].failed_task is None:
+            start_vms_result = 'Succeed.'
+        else:
+            start_vms_result = 'Failed.'
+        output.append('Server %s start-vms result: %s ' % (server, start_vms_result))
+        jobs = jobs[1:]
+
         output.append('Server %s recovery result:' % server)
-        headers = [server, 'start-topo-vms', 'add-topo', 'deploy-mg']
+        headers = [server, 'add-topo', 'deploy-mg']
         table = []
         for job in jobs:
             line = [job.tbname, ]
