@@ -295,7 +295,7 @@ class snmpPduController(PduControllerBase):
             # Return status of all outlets
             ports = self.port_oid_dict.keys()
         elif outlet:
-            ports = [ oid for oid in self.port_oid_dict.keys() if outlet in oid ]
+            ports = [ oid for oid in self.port_oid_dict.keys() if oid.endswith(outlet) ]
             if not ports:
                 logging.error("Outlet ID {} doesn't belong to PDU {}".format(outlet, self.controller))
         elif hostname:
