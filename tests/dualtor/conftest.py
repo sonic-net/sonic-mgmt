@@ -18,6 +18,4 @@ def set_crm_polling_interval(lower_tor_host):
     time.sleep(wait_time)
     yield
     lower_tor_host.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
-    logging.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
 

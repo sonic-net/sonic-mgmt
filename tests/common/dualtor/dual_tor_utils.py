@@ -559,7 +559,7 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
                 socket_recv_size=16384)
 
 
-def crm_nexthop_counter(host):
+def get_crm_nexthop_counter(host):
     """
     Get used crm nexthop counter
     """
