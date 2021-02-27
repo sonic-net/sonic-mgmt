@@ -112,13 +112,13 @@ topology:
     vlan_configs:
       default_vlan_config: two_vlan_a
       two_vlan_a:
-        Vlan101: 
+        Vlan101:
           id: 101
           intfs: [0, 4]
           prefix: 192.168.100.1/21
           prefix_v6: fc02:100::1/64
           tag: 101
-        Vlan102: 
+        Vlan102:
           id: 102
           intfs: [8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
           prefix: 192.168.200.1/21
