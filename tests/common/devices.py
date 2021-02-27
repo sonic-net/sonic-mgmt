@@ -669,6 +669,43 @@ class SonicHost(AnsibleHostBase):
                 swss_docker_names.append("swss{}".format(asic))
         return swss_docker_names
 
+    def get_namespace_ids(self, container_name):
+        """
+        Gets ids of namespace where the container should reside in.
+
+        Returns:
+            A list contains ids of namespace such as [DEFAULT_ASIC_ID, "0", "1", ...]}
+        """
+        has_global_scope = ""
+        has_per_asic_scope = ""
+        namespace_ids = []
+
+        num_asics = int(self.facts["num_asic"])
+        command_config_entry = "sonic-db-cli CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
+        command_output = self.shell(command_config_entry)
+        exit_code = command_output["rc"]
+        if exit_code != 0:
+            return namespace_ids, False
+
+        config_info = command_output["stdout_lines"]
+        for index, item in enumerate(config_info):
+            if item == "has_global_scope":
+                has_global_scope = config_info[index + 1]
+            elif item == "has_per_asic_scope":
+                has_per_asic_scope = config_info[index + 1]
+
+        if num_asics > 1:
+            if has_global_scope == "True":
+                namespace_ids.append(DEFAULT_ASIC_ID)
+            if has_per_asic_scope == "True":
+                for asic_id in range(0, num_asics):
+                    namespace_ids.append(str(asic_id))
+        else:
+            namespace_ids.append(DEFAULT_ASIC_ID)
+
+        return namespace_ids, True
+
+
     def get_up_time(self):
         up_time_text = self.command("uptime -s")["stdout"]
         return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
