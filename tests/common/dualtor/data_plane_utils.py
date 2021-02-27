@@ -56,6 +56,7 @@ def generate_test_report(tor_IO):
             "disruptions": {
                 "total_disruptions": tor_IO.get_total_disruptions(),
                 "total_disrupted_packets": tor_IO.get_total_disrupted_packets(),
+                "total_disruption_time": tor_IO.get_total_disrupt_time(),
                 "longest_disruption": tor_IO.get_longest_disruption(),
                 "total_lost_packets": tor_IO.get_total_lost_packets()
             }

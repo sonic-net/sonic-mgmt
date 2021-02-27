@@ -9,13 +9,12 @@ import logging
 import json
 from netaddr import IPNetwork
 from collections import defaultdict
+from ipaddress import ip_interface
 
 import scapy.all as scapyall
 import ptf.testutils as testutils
 from tests.ptf_runner import ptf_runner
 
-DOWNSTREAM_DST_IP = "192.168.0.2"
-UPSTREAM_DST_IP = "192.168.128.1"
 TCP_DST_PORT = 5000
 SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
 PTFRUNNER_QLEN = 1000
@@ -68,13 +67,17 @@ class DualTorIO:
         self.n_hosts = 2**(32 - int(mask))
         self.port_indices = mg_facts['minigraph_ptf_indices']
         portchannel_info = mg_facts['minigraph_portchannels']
-        self.port_channel_ports = []
+        self.port_channel_ports = dict()
         for pc in portchannel_info.values():
-            self.port_channel_ports.extend([self.port_indices[member] for member in pc['members']])
+            for member in pc['members']:
+                self.port_channel_ports.update({member: self.port_indices[member]})
 
+        self.server_ip_list = list()
         self.vlan_interfaces = mg_facts["minigraph_vlan_interfaces"][VLAN_INDEX]
         self.vlan_network = self.vlan_interfaces["subnet"]
-        self.vlan_ports = [self.port_indices[ifname] for ifname in mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]]
+        self.vlan_ports = dict()
+        for ifname in mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]:
+            self.vlan_ports.update({ifname: self.port_indices[ifname]})
         self.vlan_host_map = self._generate_vlan_servers()
         self.__configure_arp_responder()
 
@@ -82,8 +85,8 @@ class DualTorIO:
         vlan_name = list(vlan_table.keys())[0]
         self.vlan_mac = vlan_table[vlan_name]['mac']
 
-        logger.debug("VLAN ports: {}".format(str(self.vlan_ports)))
-        logger.debug("PORTCHANNEL ports: {}".format(str(self.port_channel_ports)))
+        logger.info("VLAN ports: {}".format(str(self.vlan_ports.keys())))
+        logger.info("PORTCHANNEL ports: {}".format(str(self.port_channel_ports.keys())))
 
 
     def _generate_vlan_servers(self):
@@ -93,16 +96,19 @@ class DualTorIO:
                 - IP addresses are randomly selected from the given VLAN network
                 - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
         """
-        vlan_host_map = defaultdict(dict)
+        mux_cable_table = self.duthost.get_running_config_facts()['MUX_CABLE']
+        for _, config in mux_cable_table.items():
+            self.server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
+        logger.info("ALL server address:\n {}".format(self.server_ip_list))
 
-        addr_list = list(IPNetwork(self.vlan_network))
-        for counter, i in enumerate(range(2, VLAN_HOSTS + 2)):
+        vlan_host_map = defaultdict(dict)
+        addr_list = list(self.server_ip_list)
+        for counter, i in enumerate(range(2, len(self.server_ip_list) + 2)):
             mac = VLAN_BASE_MAC_PATTERN.format(counter)
-            port = self.vlan_ports[i % len(self.vlan_ports)]
+            port = self.vlan_ports.values()[i % len(self.vlan_ports.values())]
             addr = random.choice(addr_list)
             # Ensure that we won't get a duplicate ip address
             addr_list.remove(addr)
-
             vlan_host_map[port][str(addr)] = mac
 
         return vlan_host_map
@@ -157,19 +163,27 @@ class DualTorIO:
         """
         eth_dst = self.dut_mac
         eth_src = self.ptfadapter.dataplane.get_mac(0, 0)
-        ip_dst = DOWNSTREAM_DST_IP
         ip_ttl = 255
         tcp_dport = TCP_DST_PORT
 
         if self.tor_port:
             self.from_tor_src_port = self.tor_port
         else:
-            self.from_tor_src_port = random.choice(self.port_channel_ports)
+            self.from_tor_src_port = random.choice(self.port_channel_ports.values())
+
+        from_tor_src_port_name = None
+        for port_name, ptf_port_index in self.port_channel_ports.items():
+            if ptf_port_index == self.from_tor_src_port:
+                from_tor_src_port_name = port_name
+                break
+
+        if from_tor_src_port_name is None:
+            logger.error("Port name not found for port index {} in the list {}".format(self.from_tor_src_port, self.port_channel_ports.values()))
 
         logger.info("-"*20 + "T1 to server packet" + "-"*20)
         logger.info("Source port: {}".format(self.from_tor_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(eth_dst, eth_src))
-        logger.info("IP address: dst: {} src: random".format(ip_dst))
+        logger.info("IP address: dst: random src: random")
         logger.info("TCP port: dst: {}".format(tcp_dport))
         logger.info("DUT mac: {}".format(self.dut_mac))
         logger.info("VLAN mac: {}".format(self.vlan_mac))
@@ -180,7 +194,7 @@ class DualTorIO:
             tcp_tx_packet = testutils.simple_tcp_packet(
                 eth_dst=eth_dst,
                 eth_src=eth_src,
-                ip_dst=ip_dst,
+                ip_dst=random.choice(self.server_ip_list),
                 ip_src=self.random_host_ip(),
                 ip_ttl=ip_ttl,
                 tcp_dport=tcp_dport)
@@ -201,7 +215,7 @@ class DualTorIO:
         if self.server_port:
             self.from_server_src_port = self.server_port
         else:
-            self.from_server_src_port = random.choice(self.vlan_ports)
+            self.from_server_src_port = random.choice(self.vlan_ports.values())
         self.from_server_src_addr  = random.choice(self.vlan_host_map[self.from_server_src_port].keys())
         self.from_server_dst_addr  = self.random_host_ip()
         tcp_dport = TCP_DST_PORT
@@ -373,6 +387,10 @@ class DualTorIO:
 
     def get_total_lost_packets(self):
         return self.total_lost_packets
+
+
+    def get_total_disrupt_time(self):
+        return self.total_disrupt_time
 
 
     def get_duplicated_packets_count(self):
