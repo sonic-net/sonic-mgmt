@@ -46,13 +46,13 @@ def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, devi
         raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
 
     total_rcv_pkt_cnt = 0
-    while True:
-        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout)
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout, exp_pkt=exp_packet)
         if isinstance(result, test.dataplane.PollSuccess):
-            if ptf.dataplane.match_exp_pkt(exp_packet, result.packet):
-                total_rcv_pkt_cnt += 1
-                if total_rcv_pkt_cnt == exp_packet_number:
-                    break
+            total_rcv_pkt_cnt += 1
+            if total_rcv_pkt_cnt == exp_packet_number:
+                break
         else:
             break
 
