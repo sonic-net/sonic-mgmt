@@ -1,6 +1,6 @@
 ASIC0:
   topology:
-    ASICs:
+    NEIGH_ASIC:
       ASIC4:
         vlans:
           - 16
@@ -85,7 +85,7 @@ ASIC0:
           ipv6: 2603:10e2:400:1::5/126
 ASIC1:
   topology:
-    ASICs:
+    NEIGH_ASIC:
       ASIC4:
         vlans:
           - 16
@@ -170,7 +170,7 @@ ASIC1:
           ipv6: 2603:10e2:400:1::d/126
 ASIC2:
   topology:
-    ASICs:
+    NEIGH_ASIC:
       ASIC4:
         vlans:
           - 16
@@ -255,7 +255,7 @@ ASIC2:
           ipv6: 2603:10e2:400:1::15/126
 ASIC3:
   topology:
-    ASICs:
+    NEIGH_ASIC:
       ASIC4:
         vlans:
           - 16
@@ -340,7 +340,7 @@ ASIC3:
           ipv6: 2603:10e2:400:1::1d/126
 ASIC4:
   topology:
-    ASICs:
+    NEIGH_ASIC:
       ASIC0:
         vlans:
           - 0
@@ -499,7 +499,7 @@ ASIC4:
           ipv6: 2603:10e2:400:1::1a/126
 ASIC5:
   topology:
-    ASICs:
+    NEIGH_ASIC:
       ASIC0:
         vlans:
           - 0
