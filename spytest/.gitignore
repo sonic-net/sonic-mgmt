@@ -80,7 +80,7 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 # JetBrains templates
-**___jb_tmp___
+**/*___jb_tmp___
 
 ### PyCharm Patch ###
 # Comment Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-215987721
