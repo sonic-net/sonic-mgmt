@@ -53,6 +53,9 @@ all:
           ansible_host: 10.64.246.146
         vms21-3:
           ansible_host: 10.64.246.147
+        vms21-4:
+          ansible_host: 10.64.246.148
+
     pdu:
       hosts:
         pdu-96:
@@ -180,6 +183,9 @@ fanout:
       ansible_host: 10.3.146.32
     str2-7260-26:
       ansible_host: 10.3.146.160
+    str2-z9332f-04:
+      ansible_host: 10.3.146.230
+      os: sonic
 
 sonic:
   vars:
@@ -198,6 +204,7 @@ sonic:
     sonic_mlnx_4600C:
     sonic_arista64_100:
     sonic_nokia_7215:
+    sonic_dell_z9332f:
 
 sonic_mlnx:
   vars:
@@ -354,3 +361,11 @@ sonic_nokia_7215:
   hosts:
     str2-7215-acs-1:
       ansible_host: 10.3.146.59
+
+sonic_dell_z9332f:
+  vars:
+    iface_speed: 400000
+  hosts:
+    str2-z9332f-02:
+      ansible_host: 10.3.146.84
+      hwsku: DellEMC-Z9332f-M-O16C64
