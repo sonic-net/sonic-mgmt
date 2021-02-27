@@ -285,14 +285,36 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
             logging.debug("Expected pool {}, expec shp {}, curr_shp {} default ovs {}".format(expected_pool_size, expected_shp_size, curr_shp_size, DEFAULT_OVER_SUBSCRIBE_RATIO))
 
-    def _get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid):
-        pool_sai = _compose_dict_from_cli(duthost.shell('redis-cli -n 1 hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'.format(ingress_lossless_pool_oid))['stdout'].split('\n'))
-        if DEFAULT_SHARED_HEADROOM_POOL_ENABLED:
-            return pool_sai['SAI_BUFFER_POOL_ATTR_SIZE'], pool_sai['SAI_BUFFER_POOL_ATTR_XOFF_SIZE']
-        else:
-            return pool_sai['SAI_BUFFER_POOL_ATTR_SIZE'], None
+    pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
+                  "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
+                      expected_pool_size,
+                      expected_shp_size,
+                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
+                      get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                  if DEFAULT_OVER_SUBSCRIBE_RATIO else
+                  "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
+                      expected_pool_size,
+                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                      get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                  )
 
-    def _check_pool_size(duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid):
+
+def get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid):
+    pool_sai = _compose_dict_from_cli(duthost.shell('redis-cli -n 1 hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'.format(ingress_lossless_pool_oid))['stdout'].split('\n'))
+    return pool_sai.get('SAI_BUFFER_POOL_ATTR_SIZE'), pool_sai.get('SAI_BUFFER_POOL_ATTR_XOFF_SIZE')
+
+
+def ensure_pool_size(duthost, timeout, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid=None):
+    """Make sure the size of the buffer pool and shared headroom pool is as expected within a given time in APPL_DB and ASIC_DB (optional)
+
+    Args:
+        timeout: The time out value
+        expected_pool_size: The expected shared buffer pool size
+        expected_shp_size: The expected shared headroom pool size
+        ingress_lossless_pool_oid: The SAI OID of ingress lossless buffer pool. If it is omitted, the ASIC DB won't be checked
+    """
+    def _ensure_pool_size(duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid=None):
         pool_app =_compose_dict_from_cli(duthost.shell('redis-cli hgetall "BUFFER_POOL_TABLE:ingress_lossless_pool"')['stdout'].split('\n'))
 
         if expected_pool_size and int(pool_app['size']) != expected_pool_size:
@@ -302,7 +324,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             return False
 
         if ingress_lossless_pool_oid:
-            pool_size, shp_size = _get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid)
+            pool_size, shp_size = get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid)
             if expected_pool_size and int(pool_size) != expected_pool_size:
                 return False
 
@@ -311,19 +333,12 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
         return True
 
-    pytest_assert(wait_until(20, 2, _check_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
-                  "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
-                      expected_pool_size,
-                      expected_shp_size,
-                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
-                      _get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                  if DEFAULT_OVER_SUBSCRIBE_RATIO else
-                  "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
-                      expected_pool_size,
-                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                      _get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                  )
+    if timeout >= 5:
+        delay = timeout / 5
+    else:
+        delay = 1
+
+    return wait_until(timeout, delay, _ensure_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid)
 
 
 def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
@@ -778,6 +793,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         duthost.shell('config interface mtu {} {}'.format(port_to_test, DEFAULT_MTU), module_ignore_errors = True)
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len), module_ignore_errors = True)
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test), module_ignore_errors = True)
+        ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 
 def _parse_buffer_profile_params(param, cmd, name):
@@ -949,6 +965,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
         duthost.shell('config interface buffer priority-group lossless remove {}'.format(port_to_test), module_ignore_errors = True)
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test), module_ignore_errors = True)
         duthost.shell('config buffer profile remove headroom-override', module_ignore_errors = True)
+        ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
     def _check_buffer_profiles_for_shp(duthost, shp_enabled):
@@ -990,6 +1007,10 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         8. Restore configuration
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    pool_size_before_shp = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+    shp_size_before_shp = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+
     original_over_subscribe_ratio = duthost.shell('redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
     original_configured_shp_size = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
@@ -1101,6 +1122,7 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio {}'.format(original_over_subscribe_ratio), module_ignore_errors = True)
         duthost.shell('config buffer shared-headroom-pool size {}'.format(original_configured_shp_size), module_ignore_errors = True)
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len), module_ignore_errors = True)
+        ensure_pool_size(duthost, 60, pool_size_before_shp, shp_size_before_shp, None)
 
 
 def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test):
@@ -1129,6 +1151,8 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+    original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+    original_shp_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
 
     initial_asic_db_profiles = fetch_initial_asic_db(duthost)
 
@@ -1241,6 +1265,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len), module_ignore_errors = True)
         duthost.shell('config buffer profile remove headroom-override', module_ignore_errors = True)
         duthost.shell('config buffer profile remove non-default-dynamic_th', module_ignore_errors = True)
+        ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
     """The test case for admin down ports
@@ -1406,6 +1431,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test), module_ignore_errors=True)
         duthost.shell('config buffer profile remove {}'.format(non_default_dynamic_th_profile), module_ignore_errors=True)
         duthost.shell('config buffer profile remove {}'.format(headroom_override_profile), module_ignore_errors=True)
+        ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 
 @pytest.mark.disable_loganalyzer
@@ -1439,6 +1465,9 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_over_subscribe_ratio = duthost.shell('redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
     original_configured_shp_size = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
+    original_profile = 'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len)
+    original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+    original_shp_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
 
     try:
         # Test case runs with shared headroom pool disabled
@@ -1584,6 +1613,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         duthost.shell('config interface buffer priority-group lossless set {} 3-4'.format(port_to_test), module_ignore_errors = True)
         duthost.shell('config buffer profile remove test-headroom', module_ignore_errors = True)
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio {}'.format(original_over_subscribe_ratio), module_ignore_errors = True)
+        duthost.shell('config buffer shared-headroom-pool size {}'.format(original_configured_shp_size), module_ignore_errors = True)
+        ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 
 def _recovery_to_dynamic_buffer_model(duthost):
