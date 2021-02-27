@@ -146,6 +146,10 @@ class DHCPTest(DataplaneBaseTest):
         self.option82 += remote_id_string
 
         # In 'dual' testing mode, vlan ip is stored as suboption 5 of option 82.
+        # It consists of the following:
+        #  Byte 0: Suboption number, always set to 5
+        #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
+        #  Bytes 2+: vlan ip addr
         if self.dual_tor:
             link_selection = ''.join([chr(int(byte)) for byte in self.relay_iface_ip.split('.')])
             self.option82 += struct.pack('BB', 5, 4)
