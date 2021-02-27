@@ -68,9 +68,9 @@
 {% endfor %}
 {% for neigh_asic in asic_topo_config %}
 {%- set pc_intfs = [] -%}
-{%- if neigh_asic in asic_topo_config[asic]['asic'] and 'port-channel' in asic_topo_config[asic]['asic'][neigh_asic]['ip_intf'][0]|lower -%}
-{%- for intf in asic_topo_config[asic]['asic'][neigh_asic]['interface_indexes'][0] %}
-{{- pc_intfs.append(asic_names[asic][intf]) }} 
+{%- if neigh_asic in asic_topo_config[asic]['neigh_asic'] and 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower -%}
+{%- for intf in asic_topo_config[asic]['neigh_asic'][neigh_asic]['interface_indexes'][0] %}
+{{- pc_intfs.append(asic_if_names[asic][intf]) }} 
 {%- endfor -%}
 {%- set port_channel_intf=pc_intfs|join(';') -%}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
@@ -109,26 +109,26 @@
 {% endif %}
 {% endif %}
 {% endfor %}
-{% for neigh_asic in asic_topo_config[asic]['asic'] %}
+{% for neigh_asic in asic_topo_config[asic]['neigh_asic'] %}
         <IPInterface>
           <Name i:nil="true"/>
-{%- if 'port-channel' in asic_topo_config[asic]['asic'][neigh_asic]['ip_intf'][0]|lower %}
+{%- if 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
           <AttachTo>PortChannel{{ ((4000 + asic_index + (10*neigh_asic_index))|string).zfill(4) }}</AttachTo>
 {% else %}
-          <AttachTo>{{ asic_names[asic][asic_topo_config[asic]['asic'][neigh_asic]['interface_indexes'][0][0]] }}</AttachTo>
+          <AttachTo>{{ asic_if_names[asic][asic_topo_config[asic]['neigh_asic'][neigh_asic]['interface_indexes'][0][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ asic_topo_config[asic]['asic'][neigh_asic]['bgp_ipv4'][0] }}/{{ asic_topo_config[asic]['asic'][neigh_asic]['ipv4mask'][0] }}</Prefix>
+          <Prefix>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}/{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['ipv4mask'][0] }}</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:nil="true"/>
-{%- if 'port-channel' in asic_topo_config[asic]['asic'][neigh_asic]['ip_intf'][0]|lower %}
+{%- if 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
           <AttachTo>PortChannel{{ ((4000 + asic_index + (10*neigh_asic_index))|string).zfill(4) }}</AttachTo>
 {% else %}
-          <AttachTo>{{ asic_names[asic][asic_topo_config[asic]['asic'][neigh_asic]['interface_indexes'][0][0]] }}</AttachTo>
+          <AttachTo>{{ asic_if_names[asic][asic_topo_config[asic]['neigh_asic'][neigh_asic]['interface_indexes'][0][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ asic_topo_config[asic]['asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_topo_config[asic]['asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
+          <Prefix>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
         </IPInterface>
 {% endfor %}
       </IPInterfaces>
@@ -167,7 +167,7 @@
 {% endfor %}
 {% for neigh_asic in asic_topo_config %}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
-{%- if neigh_asic in asic_topo_config[asic]['asic'] and 'port-channel' in asic_topo_config[asic]['asic'][neigh_asic]['ip_intf'][0]|lower -%}
+{%- if neigh_asic in asic_topo_config[asic]['neigh_asic'] and 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower -%}
 {% set a_intf = 'PortChannel' + ((4000 + asic_index + (10*neigh_asic_index))|string).zfill(4) %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
@@ -184,9 +184,9 @@
 {% endif %}
 {% endfor -%}
 {%- for neigh_asic in asic_topo_config -%}
-{%- if neigh_asic in asic_topo_config[asic]['asic'] and 'port-channel' not in asic_topo_config[asic]['asic'][neigh_asic]['ip_intf'][0]|lower -%}
-{% if asic_topo_config[asic]['asic'][neigh_asic]['intfs'][0]|length %}
-{% set a_intf = asic_names[asic][asic_topo_config[asic]['asic'][neigh_asic]['interface_indexes'][0][0]] %}
+{%- if neigh_asic in asic_topo_config[asic]['neigh_asic'] and 'port-channel' not in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower -%}
+{% if asic_topo_config[asic]['neigh_asic'][neigh_asic]['intfs'][0]|length %}
+{% set a_intf = asic_if_names[asic][asic_topo_config[asic]['neigh_asic'][neigh_asic]['interface_indexes'][0][0]] %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}
