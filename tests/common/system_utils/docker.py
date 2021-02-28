@@ -56,17 +56,6 @@ def load_docker_registry_info(duthost, creds):
     return DockerRegistryInfo(host, username, password)
 
 
-def delete_container(duthost, container_name):
-    """Attempts to delete the specified container from the duthost.
-
-    Args:
-        duthost (SonicHost): The target device.
-        container_name (str): The name of the container to delete.
-    """
-    duthost.command("docker stop {}".format(container_name), module_ignore_errors=True)
-    duthost.command("docker rm {}".format(container_name), module_ignore_errors=True)
-
-
 def download_image(duthost, registry, image_name, image_version="latest"):
     """Attempts to download the specified image from the registry.
 
@@ -191,8 +180,8 @@ def restore_default_syncd(duthost, creds):
 def _perform_swap_syncd_shutdown_check(duthost):
     def ready_for_swap():
         if any([
-            duthost.is_container_present("syncd"),
-            duthost.is_container_present("swss"),
+            duthost.is_container_running("syncd"),
+            duthost.is_container_running("swss"),
             not duthost.is_bgp_state_idle()
         ]):
             return False

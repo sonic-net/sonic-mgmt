@@ -91,3 +91,11 @@ def add_advanced_reboot_args(parser):
         default=None,
         help="Script for checking additional states on DUT"
     )
+
+    parser.addoption(
+        "--bgp_v4_v6_time_diff",
+        action="store",
+        type=int,
+        default=40,
+        help="Time difference (in sec) between BGP V4 and V6 establishment time"
+    )
