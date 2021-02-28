@@ -43,7 +43,8 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "topo",
                                   "myip",
                                   "peerip",
-                                  "nn_target_interface"])
+                                  "nn_target_interface",
+                                  "nn_target_namespace"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
@@ -214,46 +215,91 @@ def _gather_test_params(tbinfo, duthost, request):
                                topo=topo,
                                myip=myip,
                                peerip = peerip,
-                               nn_target_interface=nn_target_interface)
+                               nn_target_interface=nn_target_interface,
+                               nn_target_namespace=mg_facts["minigraph_neighbors"][nn_target_interface]['namespace'])
 
 def _setup_testbed(dut, creds, ptf, test_params):
     """
         Sets up the testbed to run the COPP tests.
     """
+    if dut.is_multi_asic:
+       logging.info("Adding iptables rules and enabling eth0 port forwarding")
+       # IP Table rule for http and ptf nn_agent traffic.
+       dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=1")
+       mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+       dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
+       ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
+       dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
 
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params.nn_target_port)
 
     logging.info("Update the rate limit for the COPP policer")
-    copp_utils.limit_policer(dut, _TEST_RATE_LIMIT)
+    copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
 
-    if test_params.swap_syncd:
+    # Multi-asic will not support this mode as of now.
+    if test_params.swap_syncd and not dut.is_multi_asic:
         logging.info("Swap out syncd to use RPC image...")
         docker.swap_syncd(dut, creds)
     else:
+        # Set sysctl RCVBUF parameter for tests
+        dut.command("sysctl -w net.core.rmem_max=609430500")
+
+        # Set sysctl SENDBUF parameter for tests
+        dut.command("sysctl -w net.core.wmem_max=609430500")
+
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, wait=180)
+
+    # Shutdown BGP (needed on multi-asic for http connection. keeping generic as of now as it does not imapct testcase functionality) 
+    # and LLDP 
+    logging.info("Disable BGP and LLDP for COPP tests")
+    dut.command("sudo config bgp shutdown all")
+    asichost = dut.get_asic_from_namespace(test_params.nn_target_namespace)
+
+    lldp_docker_name = asichost.get_docker_name("lldp")
+
+    dut.command("docker exec {} supervisorctl stop lldp-syncd".format(lldp_docker_name))
+    dut.command("docker exec {} supervisorctl stop lldpd".format(lldp_docker_name))
 
     logging.info("Configure syncd RPC for testing")
-    copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface, creds)
+    copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface, 
+                               test_params.nn_target_namespace, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params):
     """
         Tears down the testbed, returning it to its initial state.
     """
+    if dut.is_multi_asic:
+       logging.info("Removing iptables rules and disabling eth0 port forwarding")
+       
+       dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=0")
+       
+       mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+       dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
 
+       ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
+       dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
+   
     logging.info("Restore PTF post COPP test")
     copp_utils.restore_ptf(ptf)
 
     logging.info("Restore COPP policer to default settings")
-    copp_utils.restore_policer(dut)
+    copp_utils.restore_policer(dut, test_params.nn_target_namespace)
 
-    if test_params.swap_syncd:
+    if test_params.swap_syncd and not dut.is_multi_asic:
         logging.info("Restore default syncd docker...")
         docker.restore_default_syncd(dut, creds)
+
+        asichost = dut.get_asic_from_namespace(test_params.nn_target_namespace)
+        lldp_docker_name = asichost.get_docker_name("lldp")
+
+        dut.command("docker exec {} supervisorctl start lldp-syncd".format(lldp_docker_name))
+        dut.command("docker exec {} supervisorctl ssraer lldpd".format(lldp_docker_name))
     else:
+        copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut)
 
@@ -268,19 +314,13 @@ def disable_lldp_for_testing(
     """Disables LLDP during testing so that it doesn't interfere with the policer."""
     duthost = duthosts[rand_one_dut_hostname]
 
-    logging.info("Disabling LLDP for the COPP tests")
+    logging.info("Disabling LLDP Container auto-restart for the COPP tests")
 
     feature_list = ['lldp']
     disable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
 
-    duthost.command("docker exec lldp supervisorctl stop lldp-syncd")
-    duthost.command("docker exec lldp supervisorctl stop lldpd")
-
     yield
 
     logging.info("Restoring LLDP after the COPP tests")
-
-    duthost.command("docker exec lldp supervisorctl start lldpd")
-    duthost.command("docker exec lldp supervisorctl start lldp-syncd")
 
     enable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
