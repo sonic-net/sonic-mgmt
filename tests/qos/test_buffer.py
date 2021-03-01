@@ -1263,7 +1263,6 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
-    original_profile = 'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len)
     original_over_subscribe_ratio = duthost.shell('redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
     original_configured_shp_size = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
 
