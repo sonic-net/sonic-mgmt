@@ -118,6 +118,19 @@ def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_
             duthost.command('config vlan add {}'.format(vlan['vlan_id']))
             duthost.command("config interface ip add Vlan{} {}".format(vlan['vlan_id'], vlan['ip'].upper()))
 
+        # Delete untagged vlans from interfaces to avoid error message
+        # when adding untagged vlan to interface that already have one
+        if '201911' not in duthost.os_version:
+            logger.info("Delete untagged vlans from interfaces")
+            for vlan_port in vlan_ports_list:
+                vlan_members = cfg_facts.get('VLAN_MEMBER', {})
+                vlan_name, vid = vlan_members.keys()[0], vlan_members.keys()[0].replace("Vlan", '')
+                try:
+                    if vlan_members[vlan_name][vlan_port['dev']]['tagging_mode'] == 'untagged':
+                        duthost.command("config vlan member del {} {}".format(vid, vlan_port['dev']))
+                except KeyError:
+                    continue
+
         logger.info("Add members to Vlans")
         for vlan_port in vlan_ports_list:
             for permit_vlanid in vlan_port['permit_vlanid'].keys():
@@ -424,7 +437,7 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
 
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
     dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
-    
+
     transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac)
     return_transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac)
 
@@ -441,7 +454,7 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
     else:
         pytest.fail("Expected packet was not received")
 
-    logger.info ("Untagged packet to be sent from port {} to port {}".format(dst_port, src_port))  
+    logger.info ("Untagged packet to be sent from port {} to port {}".format(dst_port, src_port))
 
     testutils.send(ptfadapter, dst_port, return_transmit_untagged_pkt)
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import re
 
@@ -42,6 +42,7 @@ import jinja2
 from ansible.module_utils.basic import *
 
 DEFAULT_DUMP_SCRIPT = "/usr/share/exabgp/dump.py"
+DEFAULT_BGP_LISTEN_PORT = 179
 
 dump_py = '''\
 #!/usr/bin/env python
@@ -110,6 +111,10 @@ group exabgp {
         local-as {{ local_asn }};
         auto-flush {{ auto_flush }};
         group-updates {{ group_updates }};
+        {%- if passive %}
+        passive;
+        listen {{ listen_port }};
+        {%- endif %}
     }
 }
 '''
@@ -167,7 +172,7 @@ def restart_exabgp(module, name):
 def stop_exabgp(module, name):
     exec_command(module, cmd="supervisorctl stop exabgp-%s" % name, ignore_error=True)
 
-def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, auto_flush=True, group_updates=True, dump_script=DEFAULT_DUMP_SCRIPT):
+def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, auto_flush=True, group_updates=True, dump_script=DEFAULT_DUMP_SCRIPT, passive=False):
     try:
         os.mkdir("/etc/exabgp", 0755)
     except OSError:
@@ -183,7 +188,8 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
                     port=port, \
                     auto_flush=auto_flush, \
                     group_updates=group_updates, \
-                    dump_script=dump_script)
+                    dump_script=dump_script, passive=passive,
+                    listen_port=DEFAULT_BGP_LISTEN_PORT)
     with open("/etc/exabgp/%s.conf" % name, 'w') as out_file:
         out_file.write(data)
 
@@ -228,7 +234,8 @@ def main():
             local_asn=dict(required=False, type='int'),
             peer_asn=dict(required=False, type='int'),
             port=dict(required=False, type='int', default=5000),
-            dump_script=dict(required=False, type='str', default=DEFAULT_DUMP_SCRIPT)
+            dump_script=dict(required=False, type='str', default=DEFAULT_DUMP_SCRIPT),
+            passive=dict(required=False, type='bool', default=False)
         ),
         supports_check_mode=False)
 
@@ -241,21 +248,22 @@ def main():
     peer_asn  = module.params['peer_asn']
     port      = module.params['port']
     dump_script = module.params['dump_script']
+    passive = module.params['passive']
 
     setup_exabgp_processor(dump_script==DEFAULT_DUMP_SCRIPT)
 
     result = {}
     try:
         if state == 'started':
-            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script)
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
             setup_exabgp_supervisord_conf(name)
             start_exabgp(module, name)
         elif state == 'restarted':
-            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script)
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
             setup_exabgp_supervisord_conf(name)
             restart_exabgp(module, name)
         elif state == 'present':
-            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script)
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
             setup_exabgp_supervisord_conf(name)
             refresh_supervisord(module)
         elif state == 'stopped':

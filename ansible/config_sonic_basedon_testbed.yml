@@ -48,6 +48,11 @@
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
       when: inventory_hostname not in testbed_facts['duts']
 
+    - name: Set default num_asic
+      set_fact:
+        num_asics: 1
+      when: num_asics is not defined
+
     - name: Set default dut index
       set_fact:
         dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
@@ -66,11 +71,11 @@
     delegate_to: localhost
 
   - name: find interface name mapping and individual interface speed if defined from dut
-    port_alias: hwsku="{{ hwsku }}"
+    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
-    port_alias: hwsku="{{ hwsku }}"
+    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -98,10 +103,6 @@
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
     delegate_to: localhost
-    when: "'dualtor' in topo"
-
-  - name: generate y_cable simulator driver
-    include_tasks: dualtor/config_y_cable_simulator.yml
     when: "'dualtor' in topo"
 
   - name: set default vm file path
@@ -134,7 +135,7 @@
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:
-      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'][dut_index|int] }) }}"
+      interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
@@ -144,8 +145,10 @@
 
   - name: find all interface names
     set_fact:
-      intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
-    with_dict: "{{ interface_to_vms }}"
+      intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -349,6 +352,11 @@
         register: docker_status
 
       - debug: msg={{ docker_status.stdout_lines }}
+
+      - name: start topology service for multi-asic platform
+        become: true
+        shell: systemctl start topology.service
+        when: start_topo_service is defined and start_topo_service|bool == true
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true

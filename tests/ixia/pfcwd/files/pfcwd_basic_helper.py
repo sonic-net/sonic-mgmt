@@ -8,7 +8,8 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
-    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time
+    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
+    enable_packet_aging, start_pfcwd
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
@@ -53,6 +54,11 @@ def run_pfcwd_basic_test(api,
     Returns:
         N/A
     """
+
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+
+    start_pfcwd(duthost)
+    enable_packet_aging(duthost)
 
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -268,6 +274,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
         else:
             time.sleep(1)
             attempts += 1
+
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
