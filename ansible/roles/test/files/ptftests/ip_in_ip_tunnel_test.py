@@ -12,12 +12,17 @@ import logging
 import random
 from ipaddress import ip_address
 import ptf
+from scapy.all import IP, Ether
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import *
 
+# packet count for verifying traffic is forwarded via IPinIP tunnel
 PACKET_NUM = 10000
+# packet count for verifying traffic is not forwarded from standby tor to server directly
+PACKET_NUM_FOR_NEGATIVE_CHECK = 100
+
 DIFF = 0.25 # The valid range for balance check
 SRC_IP_RANGE = [unicode('8.0.0.0'), unicode('8.255.255.255')]
 TIMEOUT = 1
@@ -37,6 +42,8 @@ class IpinIPTunnelTest(BaseTest):
 
     def setUp(self):
         self.server_ip = self.test_params['server_ip']
+        self.server_port = int(self.test_params['server_port'])
+        self.vlan_mac = self.test_params['vlan_mac']
         self.active_tor_mac = self.test_params['active_tor_mac']
         self.standby_tor_mac = self.test_params['standby_tor_mac']
         self.active_tor_ip = self.test_params['active_tor_ip']
@@ -95,7 +102,7 @@ class IpinIPTunnelTest(BaseTest):
         inner_pkt = inner_pkt.copy()
         inner_pkt.ttl = inner_pkt.ttl - 1
         pkt = scapy.Ether(dst=self.active_tor_mac, src=self.standby_tor_mac) / \
-            scapy.IP(src=self.standby_tor_ip, dst=self.active_tor_ip) / inner_pkt['IP']
+            scapy.IP(src=self.standby_tor_ip, dst=self.active_tor_ip) / inner_pkt[IP]
         exp_pkt = Mask(pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
 
@@ -121,6 +128,26 @@ class IpinIPTunnelTest(BaseTest):
 
         return exp_pkt
 
+    def generate_unexpected_packet(self, inner_pkt):
+        """
+        Generate a packet that shouldn't be observed.
+        All packet should be forward via tunnel, so no packet should be observed on server port
+        """
+        pkt = inner_pkt.copy()
+        pkt[Ether].src = self.vlan_mac
+        # TTL of packets from active tor to server is decreased by 1
+        pkt[IP].ttl -= 1
+        unexpected_packet = Mask(pkt)
+        # Ignore dst mac
+        unexpected_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
+
+        # Ignore check sum
+        unexpected_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+
+        #Ignore extra bytes
+        unexpected_packet.set_ignore_extra_bytes()
+
+        return unexpected_packet
 
     def check_balance(self, pkt_distribution, hash_key):
         portchannel_num = len(self.ptf_portchannel_indices)
@@ -145,12 +172,23 @@ class IpinIPTunnelTest(BaseTest):
         dst_ports = self.indice_to_portchannel.keys()
         # Select the first ptf indice as src port
         src_port = dst_ports[0]
+        # Step 1. verify no packet is received from standby_tor to server
+        for i in range(0, PACKET_NUM_FOR_NEGATIVE_CHECK):
+            inner_pkt = self.generate_packet_to_server('src-ip')
+            unexpected_packet = self.generate_unexpected_packet(inner_pkt)
+            send_packet(self, src_port, inner_pkt)
+            verify_no_packet(test=self,
+                             port_id=self.server_port,
+                             pkt=unexpected_packet,
+                             timeout=TIMEOUT)
+        # Step 2. verify packet is received from IPinIP tunnel and check balance
         for hash_key in self.hash_key_list:
             pkt_distribution = {}
             for i in range(0, PACKET_NUM):
                 inner_pkt = self.generate_packet_to_server(hash_key)
                 tunnel_pkt = self.generate_expected_packet(inner_pkt)
                 send_packet(self, src_port, inner_pkt)
+                # Verify packet is received from IPinIP tunnel
                 idx, count = verify_packet_any_port(test=self,
                                                     pkt=tunnel_pkt,
                                                     ports=dst_ports,
