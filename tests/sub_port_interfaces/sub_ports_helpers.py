@@ -148,23 +148,10 @@ def setup_vlan(duthost, vlan_id):
         duthost: DUT host object
         vlan_id: VLAN id
     """
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
-
     duthost.shell('config vlan add %s' % vlan_id)
-    for portchannel, ips in portchannel_interfaces.items():
-        duthost.shell('config interface shutdown {}'.format(portchannel))
-        for ip in ips:
-            duthost.shell('config interface ip remove {} {}'.format(portchannel, ip))
-
-        duthost.shell('config vlan member add --untagged {} {}'.format(vlan_id, portchannel))
 
     pytest_assert(wait_until(3, 1, __check_vlan, duthost, vlan_id),
                   "VLAN RIF Vlan{} didn't create as expected".format(vlan_id))
-
-    for portchannel in portchannel_interfaces.keys():
-        pytest_assert(wait_until(3, 1, __check_vlan_member, duthost, vlan_id, portchannel),
-                      "VLAN RIF Vlan{} doesn't have {} member as expected".format(vlan_id, portchannel))
 
 
 def __check_vlan(duthost, vlan_id, removed=False):
