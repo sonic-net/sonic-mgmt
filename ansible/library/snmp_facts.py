@@ -220,6 +220,10 @@ class DefineOid(object):
         # From Cisco private MIB (PSU)
         self.cefcFRUPowerOperStatus = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1.2" # + .psuindex
 
+        # ipCidrRouteTable MIB
+        self.ipCidrRouteEntry = dp + "1.3.6.1.2.1.4.24.4.1.1.0.0.0.0.0.0.0.0.0" # + .next hop IP
+        self.ipCidrRouteStatus = dp + "1.3.6.1.2.1.4.24.4.1.16.0.0.0.0.0.0.0.0.0" # + .next hop IP
+
 def decode_hex(hexstring):
 
     if len(hexstring) < 3:
@@ -868,6 +872,28 @@ def main():
             if v.cefcFRUPowerOperStatus in current_oid:
                 psuIndex = int(current_oid.split('.')[-1])
                 results['snmp_psu'][psuIndex]['operstatus'] = current_val
+
+    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        snmp_auth,
+        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.MibVariable(p.ipCidrRouteEntry,),
+        cmdgen.MibVariable(p.ipCidrRouteStatus,),
+    )
+
+    if errorIndication:
+        module.fail_json(msg=str(errorIndication) + ' querying CidrRouteTable')
+
+    for varBinds in varTable:
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if v.ipCidrRouteEntry in current_oid:
+                # extract next hop ip from oid
+                next_hop = current_oid.split(v.ipCidrRouteEntry + ".")[1]
+                results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
+            if v.ipCidrRouteStatus in current_oid:
+                next_hop = current_oid.split(v.ipCidrRouteStatus + ".")[1]
+                results['snmp_cidr_route'][next_hop]['status'] = current_val
 
     if not m_args['is_eos']:
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
