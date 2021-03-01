@@ -76,10 +76,16 @@ class ParseTestbedTopoinfo():
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
             if 'properties' in vmconfig[vm]:
                 vmconfig[vm]['properties']=topo_definition['configuration'][vm]['properties']
-            vmconfig[vm]['interface_indexes'] = [[] for i in range(dut_num)]
-            for vlan in topo_definition['topology'][type][vm]['vlans']:
-                (dut_index, vlan_index, _) = parse_vm_vlan_port(vlan)
-                vmconfig[vm]['interface_indexes'][dut_index].append(vlan_index)
+            if type == 'VMs':
+                vmconfig[vm]['interface_indexes'] = [[] for i in range(dut_num)]
+                for vlan in topo_definition['topology'][type][vm]['vlans']:
+                    (dut_index, vlan_index, _) = parse_vm_vlan_port(vlan)
+                    vmconfig[vm]['interface_indexes'][dut_index].append(vlan_index)
+            if type == 'NEIGH_ASIC':
+                vmconfig[vm]['asic_intfs'] = [[] for i in range(dut_num)]
+                dut_index = 0
+                for asic_intf in topo_definition['topology'][type][vm]['asic_intfs']:
+                    vmconfig[vm]['asic_intfs'][dut_index].append(asic_intf)
         
             # physical interface
             for intf in topo_definition['configuration'][vm]['interfaces']:

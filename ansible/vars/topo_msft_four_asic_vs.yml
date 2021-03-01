@@ -2,13 +2,13 @@ ASIC0:
   topology:
     NEIGH_ASIC:
       ASIC2:
-        vlans:
-          - 4
-          - 5
+        asic_intfs:
+          - Eth4-ASIC0
+          - Eth5-ASIC0
       ASIC3:
-        vlans:
-          - 6
-          - 7
+        asic_intfs:
+          - Eth6-ASIC0
+          - Eth7-ASIC0
   configuration_properties:
     common:
       dut_asn: 65100
@@ -51,13 +51,13 @@ ASIC1:
   topology:
     NEIGH_ASIC:
       ASIC2:
-        vlans:
-          - 4
-          - 5
+        asic_intfs:
+          - Eth4-ASIC1
+          - Eth5-ASIC1
       ASIC3:
-        vlans:
-          - 6
-          - 7
+        asic_intfs:
+          - Eth6-ASIC1
+          - Eth7-ASIC1
   configuration_properties:
     common:
       dut_asn: 65100
@@ -100,13 +100,13 @@ ASIC2:
   topology:
     NEIGH_ASIC:
       ASIC0:
-        vlans:
-          - 0
-          - 1
+        asic_intfs:
+          - Eth0-ASIC2
+          - Eth1-ASIC2
       ASIC1:
-        vlans:
-          - 2
-          - 3
+        asic_intfs:
+          - Eth2-ASIC2
+          - Eth3-ASIC2
   configuration_properties:
     common:
       dut_asn: 65100
@@ -149,13 +149,13 @@ ASIC3:
   topology:
     NEIGH_ASIC:
       ASIC0:
-        vlans:
-          - 0
-          - 1
+        asic_intfs:
+          - Eth0-ASIC3
+          - Eth1-ASIC3
       ASIC1:
-        vlans:
-          - 2
-          - 3
+        asic_intfs:
+          - Eth2-ASIC3
+          - Eth3-ASIC3
   configuration_properties:
     common:
       dut_asn: 65100
