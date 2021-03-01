@@ -24,7 +24,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
-from tests.common.connections import ConsoleHost
+from tests.common.connections.console_host import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
