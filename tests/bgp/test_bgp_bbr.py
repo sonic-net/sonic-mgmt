@@ -15,6 +15,7 @@ import ipaddr as ipaddress
 from jinja2 import Template
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 
@@ -51,38 +52,38 @@ def bbr_default_state(setup):
     return setup['bbr_default_state']
 
 
-def enable_bbr(duthost):
+def enable_bbr(duthost, namespace):
     logger.info('Enable BGP_BBR')
-    duthost.shell('sonic-cfggen -j /tmp/enable_bbr.json -w ')
+    duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace if namespace else ''))
     time.sleep(3)
 
 
-def disable_bbr(duthost):
+def disable_bbr(duthost, namespace):
     logger.info('Disable BGP_BBR')
-    duthost.shell('sonic-cfggen -j /tmp/disable_bbr.json -w')
+    duthost.shell('sonic-cfggen {} -j /tmp/disable_bbr.json -w'.format('-n ' + namespace if namespace else ''))
     time.sleep(3)
 
 
 @pytest.fixture
-def restore_bbr_default_state(duthosts, rand_one_dut_hostname, bbr_default_state):
+def restore_bbr_default_state(duthosts, setup, rand_one_dut_hostname, bbr_default_state):
     yield
     duthost = duthosts[rand_one_dut_hostname]
     if bbr_default_state == 'enabled':
-        enable_bbr(duthost)
+        enable_bbr(duthost, setup['tor1_namespace'])
     else:
-        disable_bbr(duthost)
+        disable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture
-def config_bbr_disabled(duthosts, rand_one_dut_hostname, restore_bbr_default_state):
+def config_bbr_disabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
-    disable_bbr(duthost)
+    disable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture
-def config_bbr_enabled(duthosts, rand_one_dut_hostname, restore_bbr_default_state):
+def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
-    enable_bbr(duthost)
+    enable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture(scope='module')
@@ -121,6 +122,12 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         else:
             neigh_peer_map[name].update({'peer_addr_v6': peer_addr})
 
+    tor1_namespace = DEFAULT_NAMESPACE
+    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+        if tor1 == neigh['name']:
+            tor1_namespace = neigh['namespace']
+            break
+
     # Announce route to one of the T0 VM
     tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
@@ -144,6 +151,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         'tor1': tor1,
         'other_vms': other_vms,
         'tor1_offset': tor1_offset,
+        'tor1_namespace': tor1_namespace,
         'tor1_exabgp_port': tor1_exabgp_port,
         'tor1_exabgp_port_v6': tor1_exabgp_port_v6,
         'dut_asn': dut_asn,
@@ -218,7 +226,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
     # Check route on DUT
     logger.info('Check route on DUT')
-    dut_route = duthost.get_route(route.prefix)
+    dut_route = duthost.get_route(route.prefix, setup['tor1_namespace'])
     if accepted:
         pytest_assert(dut_route, 'No route for {} found on DUT'.format(route.prefix))
         dut_route_aspath = dut_route['paths'][0]['aspath']['string']
