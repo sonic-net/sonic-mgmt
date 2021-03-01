@@ -47,7 +47,7 @@
         <EndPort>{{ intf }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ asic }}</StartDevice>
-        <StartPort>{{ asic_if_names[asic][asic_topo_config[asic]['neigh_asic'][neigh_asic]['interface_indexes'][0][loop.index-1]] }}</StartPort>
+        <StartPort>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][loop.index-1] }}</StartPort>
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
