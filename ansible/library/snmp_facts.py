@@ -206,6 +206,9 @@ class DefineOid(object):
         # Memory Check
         self.sysTotalMemery         = dp + "1.3.6.1.4.1.2021.4.5.0"
         self.sysTotalFreeMemery     = dp + "1.3.6.1.4.1.2021.4.6.0"
+        self.sysTotalSharedMemory   = dp + "1.3.6.1.4.1.2021.4.13.0"
+        self.sysTotalBuffMemory     = dp + "1.3.6.1.4.1.2021.4.14.0"
+        self.sysCachedMemory        = dp + "1.3.6.1.4.1.2021.4.15.0"
 
         # From Cisco private MIB (PFC and queue counters)
         self.cpfcIfRequests         = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1" # + .ifindex
@@ -872,12 +875,15 @@ def main():
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
             cmdgen.MibVariable(p.sysTotalMemery,),
             cmdgen.MibVariable(p.sysTotalFreeMemery,),
+            cmdgen.MibVariable(p.sysTotalSharedMemory,),
+            cmdgen.MibVariable(p.sysTotalBuffMemory,),
+            cmdgen.MibVariable(p.sysCachedMemory,),
             lookupMib=False, lexicographicMode=False
         )
-    
+
         if errorIndication:
             module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
-    
+
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
@@ -885,6 +891,12 @@ def main():
                 results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysTotalFreeMemery:
                 results['ansible_sysTotalFreeMemery'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysTotalSharedMemory:
+                results['ansible_sysTotalSharedMemory'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysTotalBuffMemory:
+                results['ansible_sysTotalBuffMemory'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysCachedMemory:
+                results['ansible_sysCachedMemory'] = decode_type(module, current_oid, val)
 
     module.exit_json(ansible_facts=results)
 

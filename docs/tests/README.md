@@ -10,7 +10,7 @@ Plugins:
 - [ptfadapter](/tests/common/ptfadapter/README.md)
 - [DUT monitor](/tests/common/dut_monitor/README.md)
 - [Log Analyzer](/tests/common/loganalyzer/README.md)
-- [PSU Controller](/tests/common/psu_controller/README.md)
+- [PSU Controller](/tests/common/pdu_controller/README.md)
 - [Sanity Check](/tests/common/sanity_check/README.md)
 - [Test Completeness](/tests/common/test_completeness/README.md)
 
