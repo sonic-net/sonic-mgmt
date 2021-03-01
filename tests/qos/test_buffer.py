@@ -193,7 +193,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                  - Old / new pg size
                  - Old / new pg xoff (required only over subscribe ratio is defined)
                  - Old / new pg numbers
-                 - Old_ratio / new_ratio (required only over subscribe ratio is defined)
+                 - Old_ratio / new_ratio / conn_graph_facts (required only over subscribe ratio is defined)
                  - Current pool size
                  - Current shared headroom pool size (required only over subscribe ratio is defined)
                  - The expected pool size is calculated as following:
@@ -203,6 +203,21 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                       current_pool_size + old_pg_num * old_pg_size - new_pg_num * new_pg_size
                           + (old_pg_num * old_pg_xoff - new_pg_num * new_pg_xoff) * over_subscribe_ratio
     """
+    def _fetch_size_difference_for_400g_ports(duthost, conn_graph_facts):
+        """Calculate the difference in buffer pool size caused by 400G ports on Mellanox platform
+
+        Args:
+            duthost: The duthost object
+            conn_graph_facts: The connection graph facts object
+        """
+        hostname = conn_graph_facts['device_conn'].keys()[0]
+        ports_info = conn_graph_facts['device_conn'][hostname]
+        ports_400g = [port for port in ports_info.keys() if ports_info[port]['speed'] == '400000']
+
+        lossless_pgs = duthost.shell('redis-cli keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split()
+        lossless_pgs_400g = [pg for pg in lossless_pgs if pg[16:-4] in ports_400g]
+        return len(lossless_pgs_400g) * 2 * 9216
+
     logging.debug("Kwargs {}".format(kwargs))
 
     if duthost.facts['asic_type'] == 'mellanox':
@@ -211,10 +226,14 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             curr_shp_size = int(kwargs["shp_size"])
             old_ratio = int(kwargs.get("old_ratio"))
             new_ratio = int(kwargs.get("new_ratio"))
+            conn_graph_facts = kwargs.get("conn_graph_facts")
             original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + curr_shp_size
             if new_ratio == 0:
                 expected_shp_size = 0
-                expected_pool_size = (original_memory - curr_shp_size * old_ratio) / DEFAULT_INGRESS_POOL_NUMBER
+                expected_pool_size = (original_memory - curr_shp_size * old_ratio)
+                if old_ratio != 0:
+                    expected_pool_size = expected_pool_size - _fetch_size_difference_for_400g_ports(duthost, conn_graph_facts)
+                expected_pool_size = expected_pool_size / DEFAULT_INGRESS_POOL_NUMBER
             else:
                 expected_shp_size = curr_shp_size * old_ratio / new_ratio
                 expected_pool_size = (original_memory - expected_shp_size) / DEFAULT_INGRESS_POOL_NUMBER
@@ -975,9 +994,13 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
             if m:
                 profile_obj = _compose_dict_from_cli(duthost.shell('redis-cli hgetall {}'.format(profile_name))['stdout'].split('\n'))
                 if shp_enabled:
-                    return profile_obj['xon'] == profile_obj['size']
+                    if not profile_obj['xon'] == profile_obj['size']:
+                        return False
                 else:
-                    return int(profile_obj['size']) == int(profile_obj['xon']) + int(profile_obj['xoff'])
+                    if int(profile_obj['size']) < int(profile_obj['xon']) + int(profile_obj['xoff']):
+                        return False
+        # Return True only if all lossless profiles pass the check
+        return True
 
     pytest_assert(wait_until(20, 2, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
@@ -1104,6 +1127,7 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
                         shp_size = original_shp_size,
                         old_ratio = '2',
                         new_ratio = '0',
+                        conn_graph_facts = conn_graph_facts,
                         old_pg_number = 0,
                         new_pg_number = 0)
 
