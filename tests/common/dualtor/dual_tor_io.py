@@ -7,9 +7,7 @@ import struct
 import ipaddress
 import logging
 import json
-from netaddr import IPNetwork
 from collections import defaultdict
-from ipaddress import ip_interface
 
 import scapy.all as scapyall
 import ptf.testutils as testutils
