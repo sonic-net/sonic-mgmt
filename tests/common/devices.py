@@ -2358,6 +2358,12 @@ class MultiAsicSonicHost(object):
         ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
         return ns_cmd
 
+    def get_linux_ip_cmd_for_namespace(self, cmd, namespace):
+        if not namespace:
+            return cmd
+        ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
+        return ns_cmd
+
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
 
