@@ -76,6 +76,7 @@
         </PortChannel>
 {% endif %}
 {% endfor %}
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
 {% for portchannel, params in portchannel_config.items() %}
 {% set port_channel_intf=';'.join(params['intfs'] | map('extract', port_alias)) %}
         <PortChannel>
@@ -84,6 +85,7 @@
           <SubInterface/>
         </PortChannel>
 {% endfor %}
+{% endif %}
       </PortChannelInterfaces>
 {% if tunnel_configs | length > 0 %}
       <TunnelInterfaces>
