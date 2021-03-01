@@ -213,7 +213,7 @@
     - name: Check VM type
       fail:
         msg: "Cannot support this VM type {{ vm_type }}"
-      when: vm_type not in support_vm_types
+      when: vm_type not in supported_vm_types
 
     - name: Ensure {{ root_path }} exists
       file: path={{ root_path }} state=directory

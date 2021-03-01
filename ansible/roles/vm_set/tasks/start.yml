@@ -56,11 +56,7 @@
 
     - name: Fail if there are no SONiC image and skip image downloading is active
       fail: msg="Please put {{ sonic_image_filename }} to {{ root_path }}/images"
-      when: not img_stat.stat.exists and skip_image_downloading
-
-    # - name: Download SONiC image
-    #   get_url: url="{{ vm_images_url }}/{{ sonic_image_filename }}?{{ vmimage_saskey }}" dest="{{ root_path }}/images/{{ sonic_image_filename }}"
-    #   when: not img_stat.stat.exists and not skip_image_downloading
+      when: not img_stat.stat.exists
 
     - set_fact:
         src_image_name: "{{ sonic_image_filename }}"
