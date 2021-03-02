@@ -561,3 +561,13 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, vlan_mac, act
                log_file=log_file,
                qlen=2000,
                socket_recv_size=16384)
+
+
+def get_crm_nexthop_counter(host):
+    """
+    Get used crm nexthop counter
+    """
+    crm_facts = host.get_crm_facts()
+    return crm_facts['resources']['ipv4_nexthop']['used']
+
+
