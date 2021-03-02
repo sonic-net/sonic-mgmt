@@ -355,6 +355,11 @@ class Parse_Lab_Graph():
                 ret = {}
             return ret
         else:
+            """
+            Please be noted that an empty dict is returned when hostname is not found
+            The behavior is different with get_host_vlan. devutils script will check if the returned dict
+            is empty to determine if console info exists for given hostname.
+            """
             return {}
 
     def get_host_console_link(self, hostname):
@@ -364,6 +369,7 @@ class Parse_Lab_Graph():
         if hostname in self.consolelinks:
             return  self.consolelinks[hostname]
         else:
+            # Please be noted that an empty dict is returned when hostname is not found
             return {}
 
     def get_host_pdu_info(self, hostname):
@@ -379,6 +385,7 @@ class Parse_Lab_Graph():
                     pass
             return ret
         else:
+            # Please be noted that an empty dict is returned when hostname is not found
             return {}
 
     def get_host_pdu_links(self, hostname):
@@ -388,6 +395,7 @@ class Parse_Lab_Graph():
         if hostname in self.pdulinks:
             return  self.pdulinks[hostname]
         else:
+            # Please be noted that an empty dict is returned when hostname is not found
             return {}
 
 
