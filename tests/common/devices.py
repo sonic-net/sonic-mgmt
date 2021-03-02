@@ -2384,7 +2384,7 @@ class MultiAsicSonicHost(object):
 
     def get_asic_from_namespace(self, namespace=DEFAULT_NAMESPACE):
         if not namespace:
-            return self.asics[0]
+            return self.sonichost
 
         for asic in self.asics:
             if asic.namespace == namespace:
