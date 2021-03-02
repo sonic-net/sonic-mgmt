@@ -372,34 +372,29 @@ def generate_nat_expected_rules(duthost, docker_network, asic_index):
 
     for acl_service in ACL_SERVICES:
         if ACL_SERVICES[acl_service]["multi_asic_ns_to_host_fwd"]:
-           # Get the Source IP Set if exists else use default source ip prefix
-            nat_source_ipv4_set = { "0.0.0.0/0" }
-            nat_source_ipv6_set = { "::/0" }
             for ip_protocol in ACL_SERVICES[acl_service]["ip_protocols"]:
                 for dst_port in ACL_SERVICES[acl_service]["dst_ports"]:
-                    for ipv4_src_ip in nat_source_ipv4_set:
-                        # IPv4 rules
-                        iptables_natrules.append(
-                                                 "-A PREROUTING -p {} -m {} --dport {} -j DNAT --to-destination {}".format
-                                                 (ip_protocol, ip_protocol, dst_port,
-                                                 docker_network['bridge']['IPv4Address']))
+                    # IPv4 rules
+                    iptables_natrules.append(
+                                             "-A PREROUTING -p {} -m {} --dport {} -j DNAT --to-destination {}".format
+                                             (ip_protocol, ip_protocol, dst_port,
+                                             docker_network['bridge']['IPv4Address']))
 
-                        iptables_natrules.append(
-                                                 "-A POSTROUTING -p {} -m {} --dport {} -j SNAT --to-source {}".format
-                                                 (ip_protocol, ip_protocol, dst_port,
-                                                 docker_network['container']['database' + str(asic_index)]['IPv4Address']))
+                    iptables_natrules.append(
+                                             "-A POSTROUTING -p {} -m {} --dport {} -j SNAT --to-source {}".format
+                                             (ip_protocol, ip_protocol, dst_port,
+                                             docker_network['container']['database' + str(asic_index)]['IPv4Address']))
 
-                    for ipv6_src_ip in nat_source_ipv6_set:
-                        # IPv6 rules
-                        ip6tables_natrules.append(
-                                                 "-A PREROUTING -p {} -m {} --dport {} -j DNAT --to-destination {}".format
-                                                 (ip_protocol, ip_protocol, dst_port,
-                                                 docker_network['bridge']['IPv6Address']))
+                    # IPv6 rules
+                    ip6tables_natrules.append(
+                                             "-A PREROUTING -p {} -m {} --dport {} -j DNAT --to-destination {}".format
+                                             (ip_protocol, ip_protocol, dst_port,
+                                             docker_network['bridge']['IPv6Address']))
 
-                        ip6tables_natrules.append(
-                                                 "-A POSTROUTING -p {} -m {} --dport {} -j SNAT --to-source {}".format
-                                                 (ip_protocol,ip_protocol, dst_port,
-                                                 docker_network['container']['database' + str(asic_index)]['IPv6Address']))
+                    ip6tables_natrules.append(
+                                             "-A POSTROUTING -p {} -m {} --dport {} -j SNAT --to-source {}".format
+                                             (ip_protocol,ip_protocol, dst_port,
+                                             docker_network['container']['database' + str(asic_index)]['IPv6Address']))
 
     return iptables_natrules, ip6tables_natrules
 
