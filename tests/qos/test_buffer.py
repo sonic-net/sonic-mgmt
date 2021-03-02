@@ -1247,7 +1247,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
     The flow of the test case:
         1. Find the longest possible cable length the port can support.
-           It will also verify whehter a super long cable will be applied
+           It will also verify whether a super long cable will be applied
+           The test will be skipped if such limit isn't found after the cable length has been increased to 2km.
         2. Add extra PGs to a port, which causes the accumulative headroom exceed the limit
         3. Configure a headroom-override on a port and then enlarge the size of the profile.
            Verify whether the large size is applied.
@@ -1293,6 +1294,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                 break
             logging.debug('Cable length {} has been applied successfully'.format(cable_length))
             cable_length += 100
+            if cable_length > 2000:
+                pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 2km, skip the test".format(port_to_test))
 
         # We've got the maximum cable length that can be applied on the port
         violating_cable_length = cable_length
