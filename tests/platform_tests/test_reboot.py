@@ -123,6 +123,10 @@ def test_soft_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
 
     duthost = duthosts[rand_one_dut_hostname]
 
+    soft_reboot_supported = duthost.command('which soft-reboot', module_ignore_errors=True)["stdout"]
+    if "" == soft_reboot_supported:
+        pytest.skip("Soft-reboot is not supported on this DUT, skip this test case")
+
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting soft reboot")
 
