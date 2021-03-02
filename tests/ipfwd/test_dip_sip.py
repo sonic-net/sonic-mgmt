@@ -25,7 +25,7 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     unpatch_lldpctl(localhost, duthost)
 
 
-def lag_facts(dut, mg_facts):
+def lag_facts(dut, mg_facts, enum_frontend_asic_index):
     facts = {}
 
     if not mg_facts['minigraph_portchannels']:
@@ -37,7 +37,10 @@ def lag_facts(dut, mg_facts):
     logger.info("src_lag is {}, dst_lag is {}".format(src_lag, dst_lag))
 
     # lldp facts
-    lldp_facts = dut.lldp()['ansible_facts']['lldp']
+    lldp_facts = dut.lldpctl_facts(asic_instance_id=int(enum_frontend_asic_index),
+                                    skip_interface_pattern_list=["eth0", "Ethernet-BP"]
+                                    )['ansible_facts']['lldpctl']
+
     facts['dst_host_mac'] = lldp_facts[mg_facts['minigraph_portchannels'][dst_lag]['members'][0]]['chassis']['mac']
     facts['src_host_mac'] = lldp_facts[mg_facts['minigraph_portchannels'][src_lag]['members'][0]]['chassis']['mac']
 
@@ -65,7 +68,7 @@ def lag_facts(dut, mg_facts):
     return facts
 
 
-def port_facts(dut, mg_facts):
+def port_facts(dut, mg_facts, enum_frontend_asic_index):
     facts = {}
 
     if not mg_facts['minigraph_interfaces']:
@@ -77,7 +80,9 @@ def port_facts(dut, mg_facts):
     logger.info("src_port is {}, dst_port is {}".format(src_port, dst_port))
 
     # lldp facts
-    lldp_facts = dut.lldp()['ansible_facts']['lldp']
+    lldp_facts = dut.lldpctl_facts(asic_instance_id=int(enum_frontend_asic_index),
+                                    skip_interface_pattern_list=["eth0", "Ethernet-BP"]
+                                    )['ansible_facts']['lldpctl']
     facts['dst_host_mac'] = lldp_facts[dst_port]['chassis']['mac']
     facts['src_host_mac'] = lldp_facts[src_port]['chassis']['mac']
 
@@ -101,7 +106,7 @@ def port_facts(dut, mg_facts):
 
 
 @pytest.fixture(scope='function')
-def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     facts = {}
 
@@ -110,13 +115,14 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         pytest.skip("Unsupported topology")
 
     logger.info("Gathering facts on DUT ...")
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    asic_host = duthost.get_asic(enum_frontend_asic_index)
+    mg_facts = asic_host.get_extended_minigraph_facts(tbinfo)
 
     # if minigraph_portchannel_interfaces is not empty - topology with lag
     if mg_facts['minigraph_portchannel_interfaces']:
-        facts = lag_facts(duthost, mg_facts)
+        facts = lag_facts(duthost, mg_facts, enum_frontend_asic_index)
     else:
-        facts = port_facts(duthost, mg_facts)
+        facts = port_facts(duthost, mg_facts, enum_frontend_asic_index)
 
     logger.info("gathered_facts={}".format(json.dumps(facts, indent=2)))
 
@@ -183,7 +189,7 @@ def run_test_ipv4(ptfadapter, facts):
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, facts['dst_port_ids'], timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
-def test_dip_sip(ptfadapter, gather_facts):
+def test_dip_sip(ptfadapter, gather_facts, enum_frontend_asic_index):
     ptfadapter.reinit()
     run_test_ipv4(ptfadapter, gather_facts)
     run_test_ipv6(ptfadapter, gather_facts)
