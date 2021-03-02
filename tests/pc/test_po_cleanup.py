@@ -27,8 +27,8 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
         ]
         loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
         expectRegex = [
-            ".*#teammgrd: :- cleanTeamProcesses.*",
-            ".*#teamsyncd: :- cleanTeamSync.*"
+            ".*teammgrd: :- cleanTeamProcesses.*",
+            ".*teamsyncd: :- cleanTeamSync.*"
         ]
         loganalyzer[rand_one_dut_hostname].expect_regex.extend(expectRegex)
 
