@@ -208,6 +208,25 @@ def rand_one_dut_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
 
+@pytest.fixture(scope="module")
+def rand_selected_dut(duthosts, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost
+    """
+    return duthosts[rand_one_dut_hostname]
+
+@pytest.fixture(scope="module")
+def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
+    """
+    Return the left duthost after random selection.
+    Return None for non dualtor testbed
+    """
+    dut_hostnames = generate_params_dut_hostname(request)
+    if len(dut_hostnames) <= 1:
+        return None
+    idx = dut_hostnames.index(rand_one_dut_hostname)
+    return duthosts[dut_hostnames[1 - idx]]
+
 
 @pytest.fixture(scope="module")
 def rand_one_dut_portname_oper_up(request):
