@@ -41,6 +41,7 @@ STATUS_LED_COLOR_OFF = "off"
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
+    request.cls.asic_type = duthost.facts.get("asic_type")
 
 
 @pytest.mark.usefixtures("gather_facts")
@@ -69,7 +70,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
         expected_value = None
 
         if self.chassis_facts:
-            expected_fan_drawers = self.chassis_facts.get("fan_drawer")
+            expected_fan_drawers = self.chassis_facts.get("fan_drawers")
             if expected_fan_drawers:
                 expected_fans = expected_fan_drawers[fan_drawer_idx].get("fans")
                 if expected_fans:
@@ -260,30 +261,51 @@ class TestFanDrawerFans(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_set_fans_led(self, duthost, localhost, platform_api_conn):
-        LED_COLOR_LIST = [
-            "off",
-            "red",
-            "amber",
-            "green",
+
+        FAULT_LED_COLOR_LIST = [
+            STATUS_LED_COLOR_AMBER,
+            STATUS_LED_COLOR_RED
         ]
 
+        NORMAL_LED_COLOR_LIST = [
+            STATUS_LED_COLOR_GREEN
+        ]
+
+        OFF_LED_COLOR_LIST = [
+            STATUS_LED_COLOR_OFF
+        ]
+
+        LED_COLOR_TYPES = []
+        LED_COLOR_TYPES.append(FAULT_LED_COLOR_LIST)
+        LED_COLOR_TYPES.append(NORMAL_LED_COLOR_LIST)
+
+        # Mellanox is not supporting set leds to 'off'
+        if self.asic_type != "mellanox":
+            LED_COLOR_TYPES.append(OFF_LED_COLOR_LIST)
+
+        LED_COLOR_TYPES_DICT = {
+            0: "fault",
+            1: "normal",
+            2: "off"
+        }
 
         for j in range(self.num_fan_drawers):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-
-                for color in LED_COLOR_LIST:
-
-                    result = fan_drawer_fan.set_status_led(platform_api_conn, j, i, color)
-                    if self.expect(result is not None, "Failed to perform set_status_led"):
-                        self.expect(result is True, "Failed to set status_led for fan drawer {} fan {} to {}".format(j , i, color))
-
-                    color_actual = fan_drawer_fan.get_status_led(platform_api_conn, j, i)
-
-                    if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                        if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                            self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
-                                color, color_actual, i))
+                for index, led_type in enumerate(LED_COLOR_TYPES):
+                    led_type_result = False
+                    for color in led_type:
+                        result = fan_drawer_fan.set_status_led(platform_api_conn, j, i, color)
+                        if self.expect(result is not None, "Failed to perform set_status_led"):
+                            led_type_result = result or led_type_result
+                        if ((result is None) or (not result)):
+                            continue
+                        color_actual = fan_drawer_fan.get_status_led(platform_api_conn, j, i)
+                        if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                            if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
+                                self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
+                                    color, color_actual, i))
+                    self.expect(result is True, "Failed to set status_led for fan drawer {} fan {} to {}".format(j , i, LED_COLOR_TYPES_DICT[index]))
 
         self.assert_expectations()

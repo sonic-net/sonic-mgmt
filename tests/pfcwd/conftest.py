@@ -4,6 +4,7 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,29 @@ def pytest_addoption(parser):
                      help='PFC WD storm restore interval')
     parser.addoption('--fake-storm', action='store', type=bool, default=True,
                      help='Fake storm for most ports instead of using pfc gen')
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_pfcwd_test_dualtor(tbinfo):
+    if 'dualtor' in tbinfo['topo']['name']:
+        pytest.skip("Pfcwd tests skipped on dual tor testbed")
+
+    yield
+
+@pytest.fixture(scope="module")
+def fake_storm(request, duthosts, rand_one_dut_hostname):
+    """
+    Enable/disable fake storm based on platform and input parameters
+
+    Args:
+        request: pytest request object
+        duthosts: AnsibleHost instance for multi DUT
+        rand_one_dut_hostname: hostname of DUT
+
+    Returns:
+        fake_storm: False/True
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(duthosts, rand_one_dut_hostname, ptfhost, conn_graph_facts, tbinfo):

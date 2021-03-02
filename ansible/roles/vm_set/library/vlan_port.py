@@ -117,20 +117,18 @@ class VlanPort(object):
 
         return stdout
 
+
 def main():
 
     module = AnsibleModule(argument_spec=dict(
         cmd=dict(required=True, choices=['create', 'remove', 'list']),
         external_port=dict(required=True, type='str'),
         vlan_ids=dict(required=True, type='dict'),
-        is_multi_duts=dict(required=False, type='bool', default=False),
     ))
 
     cmd = module.params['cmd']
     external_port = module.params['external_port']
     vlan_ids = module.params['vlan_ids']
-    is_multi_duts = module.params['is_multi_duts']
-
 
     fp_ports = {}
 
@@ -143,14 +141,8 @@ def main():
         vp.remove_vlan_ports()
 
     fp_port_templ = external_port + ".%s"
-    if is_multi_duts:
-        fp_ports = {}
-        for dut_vlans in vlan_ids:
-            dut_vlans.sort()
-            fp_ports.append([fp_port_templ % vid for vid in dut_vlans])
-    else:
-        for a_port_index, vid in vlan_ids.items():
-            fp_ports[a_port_index] = fp_port_templ % vid
+    for a_port_index, vid in vlan_ids.items():
+        fp_ports[a_port_index] = fp_port_templ % vid
 
     module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
 

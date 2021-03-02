@@ -1,5 +1,7 @@
+import ast
 import logging
 import pytest
+import re
 import time
 
 from tests.common.utilities import wait_until
@@ -74,20 +76,13 @@ PSU_SENSOR_INFO = {
     'voltage': ('Voltage', 4, SENSOR_TYPE_VOLTAGE),
 }
 
-XCVR_SENSOR_OID_LIST = [SENSOR_TYPE_TEMP,
-                        SENSOR_TYPE_PORT_TX_POWER + 1,
-                        SENSOR_TYPE_PORT_TX_POWER + 2,
-                        SENSOR_TYPE_PORT_TX_POWER + 3,
-                        SENSOR_TYPE_PORT_TX_POWER + 4,
-                        SENSOR_TYPE_PORT_RX_POWER + 1,
-                        SENSOR_TYPE_PORT_RX_POWER + 2,
-                        SENSOR_TYPE_PORT_RX_POWER + 3,
-                        SENSOR_TYPE_PORT_RX_POWER + 4,
-                        SENSOR_TYPE_PORT_TX_BIAS + 1,
-                        SENSOR_TYPE_PORT_TX_BIAS + 2,
-                        SENSOR_TYPE_PORT_TX_BIAS + 3,
-                        SENSOR_TYPE_PORT_TX_BIAS + 4,
-                        SENSOR_TYPE_VOLTAGE]
+# The sort factor values are got from https://github.com/Azure/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
+XCVR_SENSOR_PATTERN = {
+    'temperature': {'sort_factor': 0, 'oid_base': SENSOR_TYPE_TEMP, 'extract_line_number': False},
+    'voltage': {'sort_factor': 9000, 'oid_base': SENSOR_TYPE_VOLTAGE, 'extract_line_number': False},
+    'tx(\d+)power': {'sort_factor': 1000, 'oid_base': SENSOR_TYPE_PORT_TX_POWER, 'extract_line_number': True},
+    'rx(\d+)power': {'sort_factor': 2000, 'oid_base': SENSOR_TYPE_PORT_RX_POWER, 'extract_line_number': True},
+    'tx(\d+)bias': {'sort_factor': 3000, 'oid_base': SENSOR_TYPE_PORT_TX_BIAS, 'extract_line_number': True}}
 
 # Constants
 CHASSIS_KEY = 'chassis 1'
@@ -371,18 +366,21 @@ def test_transceiver_info(duthost, snmp_physical_entity_info):
         assert transceiver_snmp_fact['entPhysModelName'] == transceiver_info['model']
         assert transceiver_snmp_fact['entPhysIsFRU'] == REPLACEABLE if transceiver_info[
                                                                            'is_replaceable'] == 'True' else NOT_REPLACEABLE
-        _check_transceiver_dom_sensor_info(transceiver_snmp_fact['oid'], snmp_physical_entity_info)
+        _check_transceiver_dom_sensor_info(duthost, name, transceiver_snmp_fact['oid'], snmp_physical_entity_info)
 
 
-def _check_transceiver_dom_sensor_info(transceiver_oid, snmp_physical_entity_info):
+def _check_transceiver_dom_sensor_info(duthost, name, transceiver_oid, snmp_physical_entity_info):
     """
     Check transceiver DOM sensor information in physical entity mib
+    :param duthost: DUT host object
+    :param name: Transceiver name
     :param transceiver_oid: Transceiver oid
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
-    for index, sensor_oid_offset in enumerate(XCVR_SENSOR_OID_LIST):
-        expect_oid = transceiver_oid + sensor_oid_offset
+    sensor_data_list = _get_transceiver_sensor_data(duthost, name)
+    for index, sensor_data in enumerate(sensor_data_list):
+        expect_oid = transceiver_oid + sensor_data.oid_offset
         assert expect_oid in snmp_physical_entity_info, 'Cannot find port sensor in physical entity mib'
         sensor_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert sensor_snmp_fact['entPhysDescr'] is not None
@@ -399,37 +397,67 @@ def _check_transceiver_dom_sensor_info(transceiver_oid, snmp_physical_entity_inf
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
 
+class SensorData(object):
+    def __init__(self, key, value, sort_factor, oid_offset):
+        self.key = key
+        self.value = value
+        self.sort_factor = sort_factor
+        self.oid_offset = oid_offset
+
+
+def _get_transceiver_sensor_data(duthost, name):
+    key = XCVR_DOM_KEY_TEMPLATE.format(name)
+    sensor_info = redis_hgetall(duthost, STATE_DB, key)
+    sensor_data_list = []
+    for field, value in sensor_info.items():
+        for pattern, data in XCVR_SENSOR_PATTERN.items():
+            match_result = re.match(pattern, field)
+            if match_result:
+                if data['extract_line_number']:
+                    lane_number = int(match_result.group(1))
+                    sort_factor = data['sort_factor'] + lane_number
+                    oid_offset = data['oid_base'] + lane_number
+                else:
+                    sort_factor = data['sort_factor']
+                    oid_offset = data['oid_base']
+                sensor_data_list.append(SensorData(field, value, sort_factor, oid_offset))
+                break
+
+    sensor_data_list = sorted(sensor_data_list, key=lambda x: x.sort_factor)
+    return sensor_data_list
+
+
 @pytest.mark.disable_loganalyzer
-def test_turn_off_psu_and_check_psu_info(duthost, localhost, creds, psu_controller):
+def test_turn_off_pdu_and_check_psu_info(duthost, localhost, creds, pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
     :param duthost: DUT host object
     :param localhost: localhost object
     :param creds: Credential for snmp
-    :param psu_controller: PSU controller
+    :param pdu_controller: PDU controller
     :return:
     """
-    if not psu_controller:
-        pytest.skip('psu_controller is None, skipping this test')
-    psu_status = psu_controller.get_psu_status()
-    if len(psu_status) < 2:
-        pytest.skip('At least 2 PSUs required for rest of the testing in this case')
+    if not pdu_controller:
+        pytest.skip('pdu_controller is None, skipping this test')
+    outlet_status = pdu_controller.get_outlet_status()
+    if len(outlet_status) < 2:
+        pytest.skip('At least 2 outlets required for rest of the testing in this case')
 
     # turn on all PSU
-    for item in psu_status:
-        if not item['psu_on']:
-            psu_controller.turn_on_psu(item["psu_id"])
+    for outlet in outlet_status:
+        if not outlet['outlet_on']:
+            pdu_controller.turn_on_outlet(outlet)
     time.sleep(5)
 
-    psu_status = psu_controller.get_psu_status()
-    for item in psu_status:
-        if not item['psu_on']:
-            pytest.skip('Not all PSU are powered on, skip rest of the testing in this case')
+    outlet_status = pdu_controller.get_outlet_status()
+    for outlet in outlet_status:
+        if not outlet['outlet_on']:
+            pytest.skip('Not all outlet are powered on, skip rest of the testing in this case')
 
     # turn off the first PSU
-    first_psu_id = psu_status[0]['psu_id']
-    psu_controller.turn_off_psu(first_psu_id)
-    assert wait_until(30, 5, check_psu_status, psu_controller, first_psu_id, False)
+    first_outlet = outlet_status[0]
+    pdu_controller.turn_off_outlet(first_outlet)
+    assert wait_until(30, 5, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
     assert wait_until(120, 20, _check_psu_status_after_power_off, duthost, localhost, creds)
 
@@ -535,40 +563,13 @@ def redis_hgetall(duthost, db_id, key):
     :param key: Redis Key
     :return: A dictionary, key is field name, value is field value
     """
-    result = {}
-    """
-    Why we don't directly use HGETALL here? Because there are fields whose value contains line break.
-    And "sonic-db-cli XXX HGETALL XXX" may return something like:
-    
-    key1
-    value1
-    key2
-    part_of_value2
-                       part_of_value2
-                       part_of_value2
-    key3
-    value3
-    
-    Although we can still parse this kind of output to a dictionary, but the code will be very weird and not robust. 
-    So we use a solution here:
-        1. Get all field names of the table
-        2. Use HGET to get values for each fields
-    This solution is slower but more clear. 
-    """
-    cmd = 'sonic-db-cli {} HKEYS \"{}\"'.format(db_id, key)
+    cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
     if not content:
-        return result
+        return {}
 
-    field_names = content.split('\n')
-    for field_name in field_names:
-        field_name = field_name.strip()
-        cmd = 'sonic-db-cli {} HGET \"{}\" \"{}\"'.format(db_id, key, field_name)
-        output = duthost.shell(cmd)['stdout'].strip()
-        result[field_name] = output
-
-    return result
+    return ast.literal_eval(content)
 
 
 def is_null_str(value):
@@ -580,13 +581,13 @@ def is_null_str(value):
     return not value or value == str(None) or value == 'N/A'
 
 
-def check_psu_status(psu_controller, psu_id, expect_status):
+def check_outlet_status(pdu_controller, outlet, expect_status):
     """
     Check if a given PSU is at expect status
-    :param psu_controller: PSU controller
-    :param psu_id: PSU id
+    :param pdu_controller: PDU controller
+    :param outlet: PDU outlet
     :param expect_status: Expect bool status, True means on, False means off
     :return: True if a given PSU is at expect status
     """
-    status = psu_controller.get_psu_status(psu_id)
-    return 'psu_on' in status[0] and status[0]['psu_on'] == expect_status
+    status = pdu_controller.get_outlet_status(outlet)
+    return 'outlet_on' in status[0] and status[0]['outlet_on'] == expect_status

@@ -26,7 +26,7 @@ class TestNeighborMacNoPtf:
     }
 
     @pytest.fixture(scope="module", autouse=True)
-    def restoreDutConfig(self, duthosts, rand_one_dut_hostname):
+    def restoreDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
             Restores DUT configuration after test completes
 
@@ -36,7 +36,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         yield
 
         logger.info("Reload Config DB")
@@ -57,7 +57,7 @@ class TestNeighborMacNoPtf:
         yield request.param
 
     @pytest.fixture(scope="module")
-    def routedInterfaces(self, duthosts, rand_one_dut_hostname):
+    def routedInterfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
             Find routed interface to test neighbor MAC functionality with
 
@@ -67,20 +67,19 @@ class TestNeighborMacNoPtf:
             Retruns:
                 routedInterface (str): Routed interface used for testing
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         testRoutedInterface = {}
         for asichost in duthost.asics:
             intfStatus = asichost.show_interface(command="status")["ansible_facts"]["int_status"]
             for intf, status in intfStatus.items():
                 if "routed" in status["vlan"] and "up" in status["oper_state"]:
                     testRoutedInterface[asichost.asic_index] = intf
-        
-        pytest_assert(testRoutedInterface, "Failed to find a routed interface in '%s'" % intfStatus)
+            pytest_assert(testRoutedInterface, "Failed to find a routed interface in '%s'" % intfStatus)
 
         yield testRoutedInterface
 
     @pytest.fixture
-    def verifyOrchagentPresence(self, duthosts, rand_one_dut_hostname):
+    def verifyOrchagentPresence(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
             Verify orchagent is running before and after the test is finished
 
@@ -90,7 +89,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         def verifyOrchagentRunningOrAssert(duthost):
             """
                 Verifyes that orchagent is running, asserts otherwise
@@ -110,12 +109,12 @@ class TestNeighborMacNoPtf:
 
         verifyOrchagentRunningOrAssert(duthost)
 
-    def __updateNeighborIp(self, duthost, intf, ipVersion, macIndex, action=None):
+    def __updateNeighborIp(self, asichost, intf, ipVersion, macIndex, action=None):
         """
             Update IP neighbor
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                asichost (SonicHost): Asic Under Test (DUT)
                 intf (str): Interface name
                 ipVersion (Fixture<int>): IP version
                 macIndex (int): test MAC index to be used
@@ -127,17 +126,17 @@ class TestNeighborMacNoPtf:
         neighborIp = self.TEST_INTF[ipVersion]["NeighborIp"]
         neighborMac = self.TEST_MAC[ipVersion][macIndex]
         logger.info("{0} neighbor {1} lladdr {2} for {3}".format(action, neighborIp, neighborMac, intf))
-        cmd = duthost.ip_cmd if "add" in action else "{0} -{1}".format(duthost.ip_cmd, ipVersion)
+        cmd = asichost.ip_cmd if "add" in action else "{0} -{1}".format(asichost.ip_cmd, ipVersion)
         cmd += " neigh {0} {1} lladdr {2} dev {3}".format(action, neighborIp, neighborMac, intf)
         logger.info(cmd)
-        duthost.command(cmd)
+        asichost.shell(cmd)
 
-    def __updateInterfaceIp(self, duthost, intf, ipVersion, action=None):
+    def __updateInterfaceIp(self, asichost, intf, ipVersion, action=None):
         """
             Update interface IP
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                asichost (SonicHost): Asic Under Test (DUT)
                 intf (str): Interface name
                 ipVersion (Fixture<int>): IP version
                 action (str): action to perform
@@ -146,11 +145,11 @@ class TestNeighborMacNoPtf:
                 None
         """
         logger.info("{0} an ip entry '{1}' for {2}".format(action, self.TEST_INTF[ipVersion]["intfIp"], intf))
-        duthost.config_ip_intf(intf, self.TEST_INTF[ipVersion]["intfIp"], action)
+        asichost.config_ip_intf(intf, self.TEST_INTF[ipVersion]["intfIp"], action)
 
 
     @pytest.fixture(autouse=True)
-    def updateNeighborIp(self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index, routedInterfaces, ipVersion, verifyOrchagentPresence):
+    def updateNeighborIp(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, routedInterfaces, ipVersion, verifyOrchagentPresence):
         """
             Update Neighbor/Interface IP
 
@@ -167,7 +166,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asichost = duthost.get_asic(enum_frontend_asic_index)
         routedInterface = routedInterfaces[asichost.asic_index]
         self.__updateInterfaceIp(asichost, routedInterface, ipVersion, action="add")
@@ -183,7 +182,7 @@ class TestNeighborMacNoPtf:
         self.__updateInterfaceIp(asichost, routedInterface, ipVersion, action="remove")
 
     @pytest.fixture
-    def arpTableMac(self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index, ipVersion, updateNeighborIp):
+    def arpTableMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
             Retreive DUT ARP table MAC entry of neighbor IP
 
@@ -195,13 +194,13 @@ class TestNeighborMacNoPtf:
             Returns:
                 arpTableMac (str): ARP MAC entry of neighbor IP
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asichost = duthost.get_asic(enum_frontend_asic_index)
         dutArpTable = asichost.switch_arptable()["ansible_facts"]["arptable"]
         yield dutArpTable["v{0}".format(ipVersion)][self.TEST_INTF[ipVersion]["NeighborIp"]]["macaddress"]
 
     @pytest.fixture
-    def redisNeighborMac(self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index, ipVersion, updateNeighborIp):
+    def redisNeighborMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_frontend_asic_index,  ipVersion, updateNeighborIp):
         """
             Retreive DUT Redis MAC entry of neighbor IP
 
@@ -213,7 +212,7 @@ class TestNeighborMacNoPtf:
             Returns:
                 redisNeighborMac (str): Redis MAC entry of neighbor IP
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asichost = duthost.get_asic(enum_frontend_asic_index)
         redis_cmd = "{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*\"".format(asichost.sonic_db_cli)
         result = duthost.shell(redis_cmd)

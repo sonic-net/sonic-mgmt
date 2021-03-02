@@ -13,6 +13,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
 from tests.common.fixtures.duthost_utils import disable_route_checker
+from tests.common.fixtures.duthost_utils import disable_fdb_aging
 
 
 pytestmark = [
@@ -46,6 +47,28 @@ RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_fdb_entry": [],
                 "crm_cli_res": None,
                 "wait": 0}
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution.
+
+    We don't have control over the order events are received by orchagent, so it is
+    possible that we attempt to remove the VLAN before its members are removed. This results
+    in error messages initially, but subsequent retries will succeed once the VLAN member is
+    removed.
+
+    Args:
+        rand_one_dut_hostname: Fixture to randomly pick a DUT from the testbed
+        loganalyzer: Loganalyzer utility fixture
+
+    """
+    ignoreRegex = [
+        ".*ERR swss#orchagent.*removeVlan: Failed to remove non-empty VLAN.*"
+    ]
+
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
 
 def apply_acl_config(duthost, test_name, collector, entry_num=1):
@@ -804,7 +827,7 @@ def test_acl_counter(duthosts, rand_one_dut_hostname, collector):
     pytest_assert(original_crm_stats_acl_counter_available - new_crm_stats_acl_counter_available == 0, \
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
-
+@pytest.mark.usefixtures('disable_fdb_aging')
 def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     if "t0" not in tbinfo["topo"]["name"].lower():
@@ -888,12 +911,18 @@ def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
-
-    # Get new "crm_stats_fdb_entry" used and available counter value
-    new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+    # Timeout for asyc fdb clear 
+    FDB_CLEAR_TIMEOUT = 10
+    while FDB_CLEAR_TIMEOUT > 0:
+        # Get new "crm_stats_fdb_entry" used and available counter value
+        new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+        if new_crm_stats_fdb_entry_used == 0:
+            break
+        FDB_CLEAR_TIMEOUT -= CRM_POLLING_INTERVAL
+        time.sleep(CRM_POLLING_INTERVAL)
 
     # Verify "crm_stats_fdb_entry_used" counter was decremented
-    pytest_assert(new_crm_stats_fdb_entry_used == 0, "Counter 'crm_stats_fdb_entry_used' was not decremented. \
+    pytest_assert(new_crm_stats_fdb_entry_used == 0, "FDB entry is not completely cleared. \
         Used == {}".format(new_crm_stats_fdb_entry_used))
 
     # Verify "crm_stats_fdb_entry_available" counter was incremented

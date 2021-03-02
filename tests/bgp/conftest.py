@@ -1,3 +1,4 @@
+import os
 import contextlib
 import ipaddress
 import json
@@ -6,11 +7,21 @@ import netaddr
 import pytest
 import random
 
+from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.generators import generate_ips
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.utilities import wait_until
+from tests.common.utilities import wait_tcp_connection
+from tests.common import config_reload
+from bgp_helpers import define_config
+from bgp_helpers import apply_default_bgp_config
+from bgp_helpers import DUT_TMP_DIR
+from bgp_helpers import TEMPLATE_DIR
+from bgp_helpers import BGP_PLAIN_TEMPLATE
+from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
+from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 
 
 logger = logging.getLogger(__name__)
@@ -230,3 +241,103 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
         yield connections
 
     duthost.shell("sonic-clear arp")
+
+
+@pytest.fixture(scope="module")
+def deploy_plain_bgp_config(duthost):
+    """
+    Deploy bgp plain config on the DUT
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        Pathname of the bgp plain config on the DUT
+    """
+    bgp_plain_template_src_path = os.path.join(TEMPLATE_DIR, BGP_PLAIN_TEMPLATE)
+    bgp_plain_template_path = os.path.join(DUT_TMP_DIR, BGP_PLAIN_TEMPLATE)
+
+    define_config(duthost, bgp_plain_template_src_path, bgp_plain_template_path)
+
+    return bgp_plain_template_path
+
+
+@pytest.fixture(scope="module")
+def deploy_no_export_bgp_config(duthost):
+    """
+    Deploy bgp no export config on the DUT
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        Pathname of the bgp no export config on the DUT
+    """
+    bgp_no_export_template_src_path = os.path.join(TEMPLATE_DIR, BGP_NO_EXPORT_TEMPLATE)
+    bgp_no_export_template_path = os.path.join(DUT_TMP_DIR, BGP_NO_EXPORT_TEMPLATE)
+
+    define_config(duthost, bgp_no_export_template_src_path, bgp_no_export_template_path)
+
+    return bgp_no_export_template_path
+
+
+@pytest.fixture(scope="module")
+def backup_bgp_config(duthost):
+    """
+    Copy default bgp configuration to the DUT and apply default configuration on the bgp
+    docker after test
+
+    Args:
+        duthost: DUT host object
+    """
+    apply_default_bgp_config(duthost, copy=True)
+    yield
+    try:
+        apply_default_bgp_config(duthost)
+    except Exception:
+        config_reload(duthost)
+        apply_default_bgp_config(duthost)
+
+@pytest.fixture(scope="module")
+def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
+    connection = setup_interfaces[0]
+    dut_lo_addr = connection['local_addr'].split("/")[0]
+    peer_addr = connection['neighbor_addr'].split("/")[0]
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    asn = mg_facts['minigraph_bgp_asn']
+    # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
+    logger.info("Configuring bgp monitor session on DUT")
+    bgpmon_args = {
+        'db_table_name': 'BGP_MONITORS',
+        'peer_addr': peer_addr,
+        'asn': asn,
+        'local_addr': dut_lo_addr,
+        'peer_name': BGP_MONITOR_NAME
+    }
+    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    duthost.copy(content=bgpmon_template.render(**bgpmon_args),
+                 dest=BGPMON_CONFIG_FILE)
+    # Start bgpmon on DUT
+    logger.info("Starting bgpmon on DUT")
+    duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
+
+    logger.info("Starting bgp monitor session on PTF")
+    ptfhost.file(path=DUMP_FILE, state="absent")
+    ptfhost.copy(src=CUSTOM_DUMP_SCRIPT, dest=CUSTOM_DUMP_SCRIPT_DEST)
+    ptfhost.exabgp(name=BGP_MONITOR_NAME,
+                   state="started",
+                   local_ip=peer_addr,
+                   router_id=peer_addr,
+                   peer_ip=dut_lo_addr,
+                   local_asn=asn,
+                   peer_asn=asn,
+                   port=BGP_MONITOR_PORT,
+                   dump_script=CUSTOM_DUMP_SCRIPT_DEST)
+    pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
+                  "Failed to start bgp monitor session on PTF")
+    yield
+    # Cleanup bgp monitor
+    duthost.shell("redis-cli -n 4 -c DEL 'BGP_MONITORS|{}'".format(peer_addr))
+    ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
+    ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
+    ptfhost.file(path=DUMP_FILE, state="absent")

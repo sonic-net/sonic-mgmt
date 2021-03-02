@@ -7,9 +7,11 @@ import logging
 import ptf.packet as scapy
 import socket
 import ptf.dataplane as dataplane
+import ptf.testutils as testutils
 import sai_base_test
 import operator
 import sys
+import math
 from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
@@ -25,6 +27,7 @@ from switch import (switch_init,
                     sai_thrift_read_port_watermarks,
                     sai_thrift_read_pg_counters,
                     sai_thrift_read_buffer_pool_watermark,
+                    sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_port_tx_disable,
                     sai_thrift_port_tx_enable)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
@@ -57,6 +60,41 @@ STOP_PORT_MAX_RATE = 1
 RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53 # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52 # Fits the ptf hex_dump_buffer() parse function
+
+def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip):
+    ip_id = 0xBABE
+    tos = (0 << 2) | 1
+    src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
+    pkt = testutils.simple_ip_packet(pktlen=64,
+                            eth_dst=dst_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_ip,
+                            ip_dst=dst_ip,
+                            ip_tos=tos,
+                            ip_id=ip_id)
+
+    send_packet(dp, src_port_id, pkt, 1)
+
+    exp_pkt = testutils.simple_ip_packet(pktlen=48,
+                            eth_dst=dst_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_ip,
+                            ip_dst=dst_ip,
+                            ip_tos=tos,
+                            ip_id=ip_id)
+
+    masked_exp_pkt = Mask(exp_pkt, ignore_extra_bytes=True)
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
+    result = dp.dataplane.poll(device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+    if isinstance(result, dp.dataplane.PollFailure):
+        dp.fail("Expected packet was not received. Received on port:{} {}".format(result.port, result.format()))
+
+    return result.port
 
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
@@ -152,6 +190,7 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
 
 # DSCP to queue mapping
 class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
+
     def runTest(self):
         switch_init(self.client)
 
@@ -162,12 +201,22 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
-        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
         exp_ip_id = 101
         exp_ttl = 63
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
 
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
+        print >> sys.stderr, "port list {}".format(port_list)
         # Get a snapshot of counter values
+
+        time.sleep(10)
         # port_results is not of our interest here
         port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
@@ -176,8 +225,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             for dscp in range(0, 64):
                 tos = (dscp << 2)
                 tos |= 1
-                pkt = simple_tcp_packet(pktlen=64,
-                                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                pkt = testutils.simple_ip_packet(pktlen=64,
+                                        eth_dst=pkt_dst_mac,
                                         eth_src=src_port_mac,
                                         ip_src=src_port_ip,
                                         ip_dst=dst_port_ip,
@@ -220,7 +269,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dscp 48 -> queue 6
             # So for the 64 pkts sent the mapping should be -> 58 queue 1, and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
             # Check results
-            assert(queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
+            # LAG ports can have LACP packets on queue 0, hence using >= comparison
+            assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
             assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
             assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
@@ -857,10 +907,36 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.pgs_num = self.test_params['pgs_num']
         self.asic_type = self.test_params['sonic_asic_type']
         self.pkts_num_leak_out = self.test_params['pkts_num_leak_out']
-        self.pkts_num_trig_pfc = self.test_params['pkts_num_trig_pfc']
+        self.pkts_num_trig_pfc = self.test_params.get('pkts_num_trig_pfc')
+        if not self.pkts_num_trig_pfc:
+            self.pkts_num_trig_pfc_shp = self.test_params.get('pkts_num_trig_pfc_shp')
         self.pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         self.pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
-        print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial))
+        packet_size = self.test_params.get('packet_size')
+        if packet_size:
+            self.pkt_size = packet_size
+            cell_size = self.test_params.get('cell_size')
+            self.pkt_size_factor = int(math.ceil(float(packet_size)/cell_size))
+        else:
+            self.pkt_size = 64
+            self.pkt_size_factor = 1
+
+        if self.pkts_num_trig_pfc:
+            print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d, pkt_size %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))
+        elif self.pkts_num_trig_pfc_shp:
+            print >> sys.stderr, ("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))            
+
+        # used only for headroom pool watermark
+        if all(key in self.test_params for key in ['hdrm_pool_wm_multiplier', 'buf_pool_roid', 'cell_size', 'max_headroom']):
+           self.cell_size = int(self.test_params['cell_size'])
+           self.wm_multiplier = self.test_params['hdrm_pool_wm_multiplier']
+           print >> sys.stderr, "Wm multiplier: %d buf_pool_roid: %s" % (self.wm_multiplier, self.test_params['buf_pool_roid'])
+           self.buf_pool_roid = int(self.test_params['buf_pool_roid'], 0)
+           print >> sys.stderr, "buf_pool_roid: 0x%lx" % (self.buf_pool_roid)
+           self.max_headroom = int(self.test_params['max_headroom'])
+        else:
+           self.wm_multiplier = None
+
         sys.stderr.flush()
 
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
@@ -894,7 +970,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
-        margin = 0
+        margin = self.test_params.get('margin')
+        if not margin:
+            margin = 0
         sidx_dscp_pg_tuples = [(sidx, dscp, self.pgs[pgidx]) for sidx, sid in enumerate(self.src_port_ids) for pgidx, dscp in enumerate(self.dscps)]
         assert(len(sidx_dscp_pg_tuples) >= self.pgs_num)
         print >> sys.stderr, sidx_dscp_pg_tuples
@@ -911,7 +989,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         try:
             # send packets to leak out
             sidx = 0
-            pkt = simple_tcp_packet(pktlen=64,
+            pkt = simple_tcp_packet(pktlen=self.pkt_size,
                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                         eth_src=self.src_port_macs[sidx],
                         ip_src=self.src_port_ips[sidx],
@@ -926,7 +1004,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -934,7 +1012,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_dst=self.dst_port_ip,
                                         ip_tos=tos,
                                         ip_ttl=ttl)
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_trig_pfc)
+                if self.pkts_num_trig_pfc:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                else:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc / self.pkt_size_factor)
 
             print >> sys.stderr, "Service pool almost filled"
             sys.stderr.flush()
@@ -946,7 +1028,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -976,13 +1058,22 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, "PFC triggered"
             sys.stderr.flush()
 
+            upper_bound = 2
+            if self.wm_multiplier:
+                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+                print >> sys.stderr, "Actual headroom pool watermark value to start: %d" % hdrm_pool_wm
+                assert (hdrm_pool_wm <= (upper_bound * self.cell_size * self.wm_multiplier))
+
+            expected_wm = 0
+            wm_pkt_num = 0
+            upper_bound_wm = 0
             # send packets to all pgs to fill the headroom pool
             for i in range(0, self.pgs_num):
                 # Prepare TCP packet data
                 tos = sidx_dscp_pg_tuples[i][1] << 2
                 tos |= self.ecn
                 ttl = 64
-                default_packet_length = 64
+                default_packet_length = self.pkt_size
                 pkt = simple_tcp_packet(pktlen=default_packet_length,
                                         eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
                                         eth_src=self.src_port_macs[sidx_dscp_pg_tuples[i][0]],
@@ -991,7 +1082,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
 
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial)
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full / self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial / self.pkt_size_factor)
                 # allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
 
@@ -999,6 +1090,18 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 # assert no ingress drop
                 assert(recv_counters[INGRESS_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_DROP])
                 assert(recv_counters[INGRESS_PORT_BUFFER_DROP] == recv_counters_bases[sidx_dscp_pg_tuples[i][0]][INGRESS_PORT_BUFFER_DROP])
+
+                if self.wm_multiplier:
+                    wm_pkt_num += (self.pkts_num_hdrm_full if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial)
+                    hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+                    expected_wm = wm_pkt_num * self.cell_size * self.wm_multiplier
+                    upper_bound_wm = expected_wm + (upper_bound * self.cell_size * self.wm_multiplier)
+                    if upper_bound_wm > self.max_headroom:
+                        upper_bound_wm = self.max_headroom
+
+                    print >> sys.stderr, "pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" %(wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm)
+                    assert(expected_wm <= hdrm_pool_wm)
+                    assert(hdrm_pool_wm <= upper_bound_wm)
 
             print >> sys.stderr, "all but the last pg hdrms filled"
             sys.stderr.flush()
@@ -1020,6 +1123,16 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(xmit_counters[EGRESS_PORT_BUFFER_DROP] == xmit_counters_base[EGRESS_PORT_BUFFER_DROP])
 
             print >> sys.stderr, "pg hdrm filled"
+            if self.wm_multiplier:
+               # assert hdrm pool wm still remains the same
+               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+               assert(expected_wm <= hdrm_pool_wm)
+               assert(hdrm_pool_wm <= upper_bound_wm)
+               # at this point headroom pool should be full. send few more packets to continue causing drops
+               print >> sys.stderr, "overflow headroom pool"
+               send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
+               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+               assert(hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
         finally:
@@ -1520,7 +1633,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # as all lossy packets are now mapped to single pg 0
                 # so we remove the strict equity check, and use upper bound
                 # check instead
-                assert(1 * cell_size <= pg_shared_wm_res[pg])
                 assert(pg_shared_wm_res[pg] <= margin * cell_size)
 
             # send packet batch of fixed packet numbers to fill pg shared

@@ -5,11 +5,12 @@ function show_help_and_exit()
     echo "Usage ${SCRIPT} [options]"
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
-    echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
+    echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
+    echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
@@ -205,9 +206,6 @@ function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
     pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
-
-    # Give some delay for the newly announced routes to propagate.
-    sleep 120
 }
 
 function cleanup_dut()
@@ -261,7 +259,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
+while getopts "h?a:b:c:d:e:Ef:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -269,7 +267,7 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
         a )
             AUTO_RECOVER=${OPTARG}
             ;;
-        b ) 
+        b )
             KUBE_MASTER_ID=${OPTARG}
             SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
@@ -281,6 +279,9 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
             ;;
         e )
             EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
+            ;;
+        E )
+            set -e
             ;;
         f )
             TESTBED_FILE=${OPTARG}

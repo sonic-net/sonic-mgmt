@@ -7,23 +7,30 @@ modules, we have no other choice, at least for interacting with SONiC, localhost
 
 We can consider using netmiko for interacting with the VMs used in testing.
 """
+import copy
+import inspect
+import ipaddress
 import json
 import logging
 import os
 import re
-import inspect
-import ipaddress
-import copy
-from multiprocessing.pool import ThreadPool
-from datetime import datetime
+import socket
 import time
+
+from collections import defaultdict
+from datetime import datetime
+from multiprocessing.pool import ThreadPool
 
 from ansible import constants
 from ansible.plugins.loader import connection_loader
 
 from errors import RunAnsibleModuleFail
 from errors import UnsupportedAnsibleModule
+from tests.common.cache import cached
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, NAMESPACE_PREFIX
+from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.platform.ssh_utils import ssh_authorize_local_user
 
 # HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -238,6 +245,7 @@ class SonicHost(AnsibleHostBase):
 
         self.critical_services = service_list
 
+    @cached(name='basic_facts')
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
@@ -354,11 +362,9 @@ class SonicHost(AnsibleHostBase):
             the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
             logic if possible to derive it from the DUT.
         """
-        if 'type' in self.host.options["inventory_manager"].get_host(self.hostname).get_vars():
-            node_type = self.host.options["inventory_manager"].get_host(self.hostname).get_vars()["type"]
-            if node_type is not None and node_type == 'supervisor':
-                return True
-        return False
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        return is_supervisor_node(inv_files, self.hostname)
 
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
@@ -387,6 +393,28 @@ class SonicHost(AnsibleHostBase):
                 return False
         except:
             return False
+
+    def is_container_running(self, service):
+        """
+        Checks where a container exits.
+
+        @param service: Container name
+
+        Returns:
+            True or False
+        """
+        status = self.command(
+            "docker ps -f name={}".format(service), module_ignore_errors=True
+        )
+
+        if len(status["stdout_lines"]) > 1:
+            logging.info("container {} status: {}".format(
+                service, status["stdout"])
+            )
+        else:
+            logging.info("container {} is not running".format(service))
+
+        return len(status["stdout_lines"]) > 1
 
     def critical_services_status(self):
         result = {}
@@ -440,11 +468,17 @@ class SonicHost(AnsibleHostBase):
         critical_process_list = []
         succeeded = True
 
+
         file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
                 && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
+                if '201811' in self._os_version and len(line_info) == 1:
+                    identifier_value = line_info[0].strip()
+                    critical_process_list.append(identifier_value)
+                    continue
+
                 succeeded = False
                 break
 
@@ -635,6 +669,43 @@ class SonicHost(AnsibleHostBase):
                 swss_docker_names.append("swss{}".format(asic))
         return swss_docker_names
 
+    def get_namespace_ids(self, container_name):
+        """
+        Gets ids of namespace where the container should reside in.
+
+        Returns:
+            A list contains ids of namespace such as [DEFAULT_ASIC_ID, "0", "1", ...]}
+        """
+        has_global_scope = ""
+        has_per_asic_scope = ""
+        namespace_ids = []
+
+        num_asics = int(self.facts["num_asic"])
+        command_config_entry = "sonic-db-cli CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
+        command_output = self.shell(command_config_entry)
+        exit_code = command_output["rc"]
+        if exit_code != 0:
+            return namespace_ids, False
+
+        config_info = command_output["stdout_lines"]
+        for index, item in enumerate(config_info):
+            if item == "has_global_scope":
+                has_global_scope = config_info[index + 1]
+            elif item == "has_per_asic_scope":
+                has_per_asic_scope = config_info[index + 1]
+
+        if num_asics > 1:
+            if has_global_scope == "True":
+                namespace_ids.append(DEFAULT_ASIC_ID)
+            if has_per_asic_scope == "True":
+                for asic_id in range(0, num_asics):
+                    namespace_ids.append(str(asic_id))
+        else:
+            namespace_ids.append(DEFAULT_ASIC_ID)
+
+        return namespace_ids, True
+
+
     def get_up_time(self):
         up_time_text = self.command("uptime -s")["stdout"]
         return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
@@ -694,7 +765,7 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface startup {}".format(ifname))
 
-    def get_ip_route_info(self, dstip):
+    def get_ip_route_info(self, dstip, ns=""):
         """
         @summary: return route information for a destionation. The destination coulb an ip address or ip prefix.
 
@@ -762,9 +833,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         if isinstance(dstip, ipaddress.IPv4Network) or isinstance(dstip, ipaddress.IPv6Network):
             if dstip.version == 4:
-                rt = self.command("ip route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} route list exact {}".format(ns, dstip))['stdout_lines']
             else:
-                rt = self.command("ip -6 route list exact {}".format(dstip))['stdout_lines']
+                rt = self.command("ip {} -6 route list exact {}".format(ns , dstip))['stdout_lines']
 
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
@@ -786,7 +857,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                     rtinfo['nexthops'].append((ipaddress.ip_address(unicode(m.group(2))), unicode(m.group(3))))
 
         elif isinstance(dstip, ipaddress.IPv4Address) or isinstance(dstip, ipaddress.IPv6Address):
-            rt = self.command("ip route get {}".format(dstip))['stdout_lines']
+            rt = self.command("ip {} route get {}".format(ns, dstip))['stdout_lines']
             logging.info("route raw info for {}: {}".format(dstip, rt))
 
             if len(rt) == 0:
@@ -852,7 +923,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         bgp_facts = self.bgp_facts()['ansible_facts']
         if stat in bgp_facts['bgp_statistics']:
             ret = bgp_facts['bgp_statistics'][stat]
-        return ret;
+        return ret
 
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
@@ -1092,25 +1163,21 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
 
-    def get_namespace_from_asic_id(self, asic_id):
-        if asic_id is DEFAULT_ASIC_ID:
-            return DEFAULT_NAMESPACE
-        return "{}{}".format(NAMESPACE_PREFIX, asic_id)
-
+    @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
         mg_facts = self.minigraph_facts(host = self.hostname, namespace=namespace)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
-        # multiple DUTs sharing a same PTF host. Therefore, the indeces from
-        # the minigraph facts are not always match up with PTF port indeces.
+        # multiple DUTs sharing a same PTF host. Therefore, the indices from
+        # the minigraph facts are not always match up with PTF port indices.
         try:
             dut_index = tbinfo['duts'].index(self.hostname)
-            map = tbinfo['topo']['ptf_map'][dut_index]
+            map = tbinfo['topo']['ptf_map'][str(dut_index)]
             if map:
-                for port, index in mg_facts['minigraph_ptf_indices'].items():
-                    if index in map:
-                        mg_facts['minigraph_ptf_indices'][port] = map[index]
+                for port, index in mg_facts['minigraph_port_indices'].items():
+                    if str(index) in map:
+                        mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
         except (ValueError, KeyError):
             pass
 
@@ -1123,7 +1190,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd)
-        
+
     def get_asic_name(self):
         asic = "unknown"
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]
@@ -1136,8 +1203,217 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "td2"
         elif "Broadcom Limited Device b870" in output:
             asic = "td3"
+        elif "Broadcom Limited Device b980" in output:
+            asic = "th3"
 
         return asic
+
+    def get_running_config_facts(self):
+        return self.config_facts(host=self.hostname, source='running')['ansible_facts']
+
+    def get_vlan_intfs(self):
+        '''
+        Get any interfaces belonging to a VLAN
+        '''
+        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_intfs = []
+
+        for vlan in vlan_members_facts:
+            for intf in vlan_members_facts[vlan]:
+                vlan_intfs.append(intf)
+
+        return vlan_intfs
+
+    def get_crm_facts(self):
+        """Run various 'crm show' commands and parse their output to gather CRM facts
+
+        Executed commands:
+            crm show summary
+            crm show thresholds
+            crm show resources all
+
+        Example output:
+            {
+                "acl_group": [
+                    {
+                        "resource name": "acl_group",
+                        "bind point": "PORT",
+                        "available count": "200",
+                        "used count": "24",
+                        "stage": "INGRESS"
+                    },
+                   ...
+                ],
+                "acl_table": [
+                    {
+                        "table id": "",
+                        "resource name": "",
+                        "used count": "",
+                        "available count": ""
+                    },
+                    ...
+                ],
+                "thresholds": {
+                        "ipv4_route": {
+                            "high": 85,
+                            "type": "percentage",
+                            "low": 70
+                        },
+                    ...
+                },
+                "resources": {
+                    "ipv4_route": {
+                        "available": 100000,
+                        "used": 16
+                    },
+                    ...
+                },
+                "polling_interval": 300
+            }
+
+        Returns:
+            dict: Gathered CRM facts.
+        """
+        crm_facts = {}
+
+        # Get polling interval
+        output = self.command('crm show summary')['stdout']
+        parsed = re.findall(r'Polling Interval: +(\d+) +second', output)
+        if parsed:
+            crm_facts['polling_interval'] = int(parsed[0])
+
+        # Get thresholds
+        crm_facts['thresholds'] = {}
+        thresholds = self.show_and_parse('crm show thresholds all')
+        for threshold in thresholds:
+            crm_facts['thresholds'][threshold['resource name']] = {
+                'high': int(threshold['high threshold']),
+                'low': int(threshold['low threshold']),
+                'type': threshold['threshold type']
+            }
+
+        # Get output of all resources
+        output = self.command('crm show resources all')['stdout_lines']
+        in_section = False
+        sections = defaultdict(list)
+        section_id = 0
+        for line in output:
+            if len(line.strip()) != 0:
+                if not in_section:
+                    in_section = True
+                    section_id += 1
+                sections[section_id].append(line)
+            else:
+                in_section=False
+                continue
+        # Output of 'crm show resources all' has 3 sections.
+        #   section 1: resources usage
+        #   section 2: ACL group
+        #   section 3: ACL table
+        if 1 in sections.keys():
+            crm_facts['resources'] = {}
+            resources = self._parse_show(sections[1])
+            for resource in resources:
+                crm_facts['resources'][resource['resource name']] = {
+                    'used': int(resource['used count']),
+                    'available': int(resource['available count'])
+                }
+
+        if 2 in sections.keys():
+            crm_facts['acl_group'] = self._parse_show(sections[2])
+
+        if 3 in sections.keys():
+            crm_facts['acl_table'] = self._parse_show(sections[3])
+
+        return crm_facts
+
+    def stop_service(self, service_name, docker_name):
+        logging.debug("Stopping {}".format(service_name))
+        if self.is_service_fully_started(docker_name):
+            self.command("systemctl stop {}".format(service_name))
+        logging.debug("Stopped {}".format(service_name))
+
+    def delete_container(self, service):
+        self.command(
+            "docker rm {}".format(service), module_ignore_errors=True
+        )
+
+    def is_bgp_state_idle(self):
+        """
+        Check if all BGP peers are in IDLE state.
+
+        Returns:
+            True or False
+        """
+        bgp_summary = self.command("show ip bgp summary")["stdout_lines"]
+
+        idle_count = 0
+        expected_idle_count = 0
+        bgp_monitor_count = 0
+        for line in bgp_summary:
+            if "Idle (Admin)" in line:
+                idle_count += 1
+
+            if "Total number of neighbors" in line:
+                tokens = line.split()
+                expected_idle_count = int(tokens[-1])
+
+            if "BGPMonitor" in line:
+                bgp_monitor_count += 1
+
+        return idle_count == (expected_idle_count - bgp_monitor_count)
+
+    def is_service_running(self, service_name, docker_name):
+        """
+        Check if service is running. Service can be a service within a docker
+
+        Args:
+            service name, docker name
+        Returns:
+            True or False
+        """
+        service_status = self.command(
+            "docker exec {} supervisorctl status {}".format(
+                docker_name, service_name
+            ),
+            module_ignore_errors=True
+        )["stdout"]
+
+        logging.info("service {}:{} status: {} ".format(
+            docker_name, service_name, service_status)
+        )
+
+        return "RUNNING" in service_status
+
+    def remove_ssh_tunnel_sai_rpc(self):
+        """
+        Removes any ssh tunnels if present created for syncd RPC communication
+
+        Returns:
+            None
+        """
+        try:
+            pid_list = self.shell(
+                'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:9092"'
+            )["stdout_lines"]
+        except RunAnsibleModuleFail:
+            return
+        for pid in pid_list:
+            self.shell("kill {}".format(pid))
+
+    def get_up_ip_ports(self):
+        """
+        Get a list for all up ip interfaces
+        """
+        up_ip_ports = []
+        ip_intf_facts = self.show_ip_interface()['ansible_facts']['ip_interfaces']
+        for intf in ip_intf_facts:
+            try:
+                if ip_intf_facts[intf]['oper_state'] == 'up':
+                    up_ip_ports.append(intf)
+            except KeyError:
+                pass
+        return up_ip_ports
 
 
 class K8sMasterHost(AnsibleHostBase):
@@ -1358,7 +1634,8 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-        if out['changed'] == False:
+
+        if out['failed'] == True:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
@@ -1565,6 +1842,9 @@ class SonicAsic(object):
     """
 
     _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
+    _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
+    _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
+
     def __init__(self, sonichost, asic_index):
         """ Initializing a ASIC on a SONiC host.
 
@@ -1574,9 +1854,11 @@ class SonicAsic(object):
         """
         self.sonichost = sonichost
         self.asic_index = asic_index
+        self._ns_arg = ""
         if self.sonichost.is_multi_asic:
             self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
             self.cli_ns_option = "-n {}".format(self.namespace)
+            self._ns_arg = "sudo ip netns exec {} ".format(self.namespace)
         else:
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
@@ -1588,7 +1870,7 @@ class SonicAsic(object):
         """This function returns the list of the critical services
            for the namespace(asic)
 
-           If the dut is multi asic, then the asic_id is appended t0 the 
+           If the dut is multi asic, then the asic_id is appended t0 the
             _DEFAULT_ASIC_SERVICES list
         Returns:
             [list]: list of the services running the namespace/asic
@@ -1598,6 +1880,36 @@ class SonicAsic(object):
            a_service.append("{}{}".format(
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
+
+    def get_service_name(self, service):
+        service_name = "{}{}".format(service, "@{}".format(self.asic_index) if self.sonichost.is_multi_asic else "")
+        return service_name
+
+    def is_it_frontend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'frontend':
+                return True
+        return False
+
+    def is_it_backend(self):
+        if self.sonichost.is_multi_asic:
+            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            if sub_role is not None and sub_role.lower() == 'backend':
+                return True
+        return False
+
+    def get_docker_cmd(self, cmd, container_name):
+        if self.sonichost.is_multi_asic:
+            return "sudo docker exec {}{} {}".format(container_name, self.asic_index, cmd)
+        return cmd
+
+    def get_asic_namespace(self):
+        if self.sonichost.is_multi_asic:
+            return self.namespace
+        return DEFAULT_NAMESPACE
 
     def bgp_facts(self, *module_args, **complex_args):
         """ Wrapper method for bgp_facts ansible module.
@@ -1634,7 +1946,7 @@ class SonicAsic(object):
 
     def show_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_interface'
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
@@ -1647,7 +1959,7 @@ class SonicAsic(object):
 
     def show_ip_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_ip_interface'
-        
+
         Args:
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
@@ -1696,9 +2008,233 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.switch_arptable(*module_args, **complex_args)
     
-    def command(self, *module_args, **complex_args):
+    def shell(self, *module_args, **complex_args):
         return self.sonichost.shell(*module_args, **complex_args)
     
+    def get_ip_route_info(self, dstip):
+        return self.sonichost.get_ip_route_info(dstip, self.cli_ns_option)
+
+    @property
+    def os_version(self):
+        return self.sonichost.os_version
+
+    def interface_facts(self, *module_args, **complex_args):
+        """Wrapper for the interface_facts ansible module.
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            For a single ASIC platform, the namespace = DEFAULT_NAMESPACE, will retrieve interface facts for the global namespace
+            In case of multi-asic, if namespace = <ns>, will retrieve interface facts for that namespace.
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.interface_facts(*module_args, **complex_args)
+
+    def get_docker_name(self, service):
+        if (not self.sonichost.is_multi_asic or
+            service not in self._DEFAULT_ASIC_SERVICES
+        ):
+            return service
+
+        return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
+
+    def stop_service(self, service):
+        if not self.sonichost.is_multi_asic:
+            service_name = service
+            docker_name = service
+        else:
+            service_name = self._MULTI_ASIC_SERVICE_NAME.format(
+                service, self.asic_index
+            )
+            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
+                service, self.asic_index
+            )
+        return self.sonichost.stop_service(service_name, docker_name)
+
+    def delete_container(self, service):
+        if self.sonichost.is_multi_asic:
+            service = self._MULTI_ASIC_DOCKER_NAME.format(
+                service, self.asic_index
+            )
+        return self.sonichost.delete_container(service)
+
+    def is_container_running(self, service):
+        if self.sonichost.is_multi_asic:
+            service = self._MULTI_ASIC_DOCKER_NAME.format(
+                service, self.asic_index
+            )
+        return self.sonichost.is_container_running(service)
+
+    def is_service_running(self, service_name, docker_name):
+        if self.sonichost.is_multi_asic:
+            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
+                docker_name, self.asic_index
+            )
+        return self.sonichost.is_service_running(service_name, docker_name)
+
+    def ping_v4(self, ipv4, count=1):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv4 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_aton(ipv4)
+        except socket.error:
+            raise Exception("Invalid IPv4 address {}".format(ipv4))
+
+        try:
+            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
+                self._ns_arg, count, ipv4
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return True
+
+    def get_active_ip_interfaces(self):
+        """
+        Return a dict of active IP (Ethernet or PortChannel) interfaces, with
+        interface and peer IPv4 address.
+
+        Returns:
+            Dict of Interfaces and their IPv4 address
+        """
+        ip_ifs = self.show_ip_interface()["ansible_facts"]
+        ip_ifaces = {}
+        for k,v in ip_ifs["ip_interfaces"].items():
+            if (k.startswith("Ethernet") or
+                (k.startswith("PortChannel") and k.find("400") == -1)
+            ):
+                if (v["admin"] == "up" and v["oper_state"] == "up" and
+                        self.ping_v4(v["peer_ipv4"])
+                    ):
+                    ip_ifaces[k] = {
+                        "ipv4" : v["ipv4"],
+                        "peer_ipv4" : v["peer_ipv4"]
+                    }
+
+        return ip_ifaces
+
+    def bgp_drop_rule(self, ip_version, state="present"):
+        """
+        Programs iptable rule to either add or remove DROP for
+        BGP control frames
+
+        Args:
+            ip_version: IPv4 or IPv6
+            state = "present" or "absent" (add or remove)
+
+        Returns:
+            None
+        """
+        ipcmd = "iptables" if ip_version == "ipv4" else "ip6tables"
+        run_opt = "-I INPUT 1" if state == "present" else "-D INPUT"
+        check_opt = "-C INPUT"
+        cmd = (
+            "{}/sbin/{} -t filter {{}} -p tcp -j DROP --destination-port bgp"
+        ).format(self._ns_arg, ipcmd)
+
+        check_cmd = cmd.format(check_opt)
+        run_cmd = cmd.format(run_opt)
+
+        output = "Rule {} needs no action".format(run_cmd)
+        try:
+            self.sonichost.command(check_cmd)
+            if state == "absent":
+                output = self.sonichost.command(run_cmd)
+        except RunAnsibleModuleFail as e:
+            if state == "present":
+                output = self.sonichost.command(run_cmd)
+
+        logging.debug(output)
+
+    def remove_ssh_tunnel_sai_rpc(self):
+        """
+        Removes any ssh tunnels if present created for syncd RPC communication
+
+        Returns:
+            None
+        """
+        if not self.sonichost.is_multi_asic:
+            return
+        return self.sonichost.remove_ssh_tunnel_sai_rpc()
+
+    def create_ssh_tunnel_sai_rpc(self):
+        """
+        Create ssh tunnel between host and ASIC namespace on syncd RPC
+        port. This is used to forward thrift calls to and from the syncd
+        running on this ASIC.
+
+        Returns:
+            None
+        """
+        if not self.sonichost.is_multi_asic:
+            return
+        self.remove_ssh_tunnel_sai_rpc()
+        ssh_authorize_local_user(self.sonichost)
+
+        ip_ifs = self.show_ip_interface(
+            namespace=self.namespace
+        )["ansible_facts"]
+
+        # create SSH tunnel to ASIC namespace
+        ns_docker_if_ipv4 = ip_ifs["ip_interfaces"]["eth0"]["ipv4"]
+        try:
+            socket.inet_aton(ns_docker_if_ipv4)
+        except socket.error:
+            raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
+
+        self.sonichost.shell(
+            ("ssh -o StrictHostKeyChecking=no -fN"
+             " -L *:9092:{}:9092 localhost"
+            ).format(ns_docker_if_ipv4)
+        )
+
+    def command(self, *args, **kwargs):
+        """
+            Prepend 'ip netns' option for commands meant for this ASIC
+
+            Args:
+                *args and **kwargs
+            Returns:
+                Output from the ansible command module
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.sonichost.command(*args, **kwargs)
+
+        ns_arg_list = ["ip", "netns", "exec", self.namespace]
+        kwargs["argv"] = ns_arg_list + kwargs["argv"]
+        return self.sonichost.command(*args, **kwargs)
+
+    def run_redis_cmd(self, argv=[]):
+        """
+        Runs redis command on DUT.
+
+        Args:
+            argv (list): List of command options to run on duthost
+
+        Returns:
+            stdout (list): List of stdout lines spewed by the invoked command
+        """
+        if self.sonichost.is_multi_asic:
+            db_docker_instance = self.get_docker_name("database")
+            argv = ["docker", "exec", db_docker_instance] + argv
+
+        result = self.sonichost.shell(argv=argv)
+        pytest_assert(
+            result["rc"] == 0,
+            "Failed to run Redis command '{0}' with error '{1}'".format(
+                " ".join(map(str, argv)), result["stderr"]
+            )
+        )
+
+        return result["stdout_lines"]
+
 
 class MultiAsicSonicHost(object):
     """ This class represents a Multi-asic SonicHost It has two attributes:
@@ -1720,12 +2256,23 @@ class MultiAsicSonicHost(object):
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+
+        # Get the frontend and backend asics in a multiAsic device.
+        self.frontend_asics = []
+        self.backend_asics = []
+        if self.sonichost.is_multi_asic:
+            for asic in self.asics:
+                if asic.is_it_frontend():
+                    self.frontend_asics.append(asic)
+                elif asic.is_it_backend():
+                    self.backend_asics.append(asic)
+
         self.critical_services_tracking_list()
 
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
            The services on the sonic devices are:
-              - services running on the host 
+              - services running on the host
               - services which are replicated per asic
             Returns:
             [list]: list of the services running the device
@@ -1735,6 +2282,9 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
+
+    def get_default_critical_services_list(self):
+        return self._DEFAULT_SERVICES
 
     def _run_on_asics(self, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
@@ -1773,6 +2323,76 @@ class MultiAsicSonicHost(object):
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
 
+    def get_frontend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.frontend_asics]
+
+    def get_frontend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.frontend_asics]
+
+    def get_backend_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.backend_asics]
+
+    def get_backend_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.backend_asics]
+
+    def asic_instance(self, asic_index):
+        if asic_index is None:
+            return self.asics[0]
+        return self.asics[asic_index]
+
+    def get_asic_ids(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_ASIC_ID]
+
+        return [asic.asic_index for asic in self.asics]
+
+    def get_asic_namespace_list(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [DEFAULT_NAMESPACE]
+
+        return [asic.namespace for asic in self.asics]
+
+    def get_asic_id_from_namespace(self, namespace):
+        if self.sonichost.facts['num_asic'] == 1:
+            return DEFAULT_ASIC_ID
+
+        for asic in self.asics:
+            if namespace == asic.namespace:
+                return asic.asic_index
+
+        # Raise an error if we reach here
+        raise ValueError("Invalid namespace '{}' passed as input".format(namespace))
+
+    def get_namespace_from_asic_id(self, asic_id):
+        if self.sonichost.facts['num_asic'] == 1:
+            return DEFAULT_NAMESPACE
+
+        for asic in self.asics:
+            if asic_id == asic.asic_index:
+                return asic.namespace
+
+        # Raise an error if we reach here
+        raise ValueError("Invalid asic_id '{}' passed as input".format(asic_id))
+
+    def get_vtysh_cmd_for_namespace(self, cmd, namespace):
+        asic_id = self.get_asic_id_from_namespace(namespace)
+        if asic_id == DEFAULT_ASIC_ID:
+            return cmd
+        ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
+        return ns_cmd
+
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
 
@@ -1793,9 +2413,49 @@ class MultiAsicSonicHost(object):
             return getattr(self.sonichost, attr)  # For backward compatibility
 
     def get_asic(self, asic_id):
-        if asic_id == DEFAULT_ASIC_ID:
+        if self.sonichost.facts['num_asic'] == 1:
             return self.asics[0]
         return self.asics[asic_id]
+
+    def stop_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.stop_service(service, service)
+
+        for asic in self.asics:
+            asic.stop_service(service)
+
+    def delete_container(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.delete_container(service)
+
+        for asic in self.asics:
+            asic.delete_container(service)
+
+    def is_container_running(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.is_container_running(service)
+
+        for asic in self.asics:
+            if asic.is_container_running(service):
+                return True
+
+        return False
+
+    def is_bgp_state_idle(self):
+        return self.sonichost.is_bgp_state_idle()
+
+    def is_service_running(self, service_name, docker_name=None):
+        docker_name = service_name if docker_name is None else docker_name
+
+        if docker_name in self._DEFAULT_SERVICES:
+            return self.sonichost.is_service_running(service_name, docker_name)
+
+        for asic in self.asics:
+            if not asic.is_service_running(service_name, docker_name):
+                return False
+
+        return True
+
 
 class DutHosts(object):
     """ Represents all the DUTs (nodes) in a testbed. class has 3 important attributes:
@@ -1900,6 +2560,13 @@ class DutHosts(object):
             on that MultiAsicSonicHost
         """
         return getattr(self.nodes, attr)
+
+    def config_facts(self, *module_args, **complex_args):
+        result = {}
+        for node in self.nodes:
+            complex_args['host'] = node.hostname
+            result[node.hostname] = node.config_facts(*module_args, **complex_args)['ansible_facts']
+        return result
 
 
 class FanoutHost(object):

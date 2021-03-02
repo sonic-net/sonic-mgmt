@@ -36,6 +36,7 @@ STATUS_LED_COLOR_OFF = "off"
 def gather_facts(request, duthost):
     # Get platform facts from platform.json file
     request.cls.chassis_facts = duthost.facts.get("chassis")
+    request.cls.asic_type = duthost.facts.get("asic_type")
 
 
 @pytest.mark.usefixtures("gather_facts")
@@ -195,23 +196,47 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_led(self, duthost, localhost, platform_api_conn):
         ''' PSU status led test '''
-        LED_COLOR_LIST = [
-            STATUS_LED_COLOR_GREEN,
+        FAULT_LED_COLOR_LIST = [
             STATUS_LED_COLOR_AMBER,
-            STATUS_LED_COLOR_RED,
+            STATUS_LED_COLOR_RED
+        ]
+
+        NORMAL_LED_COLOR_LIST = [
+            STATUS_LED_COLOR_GREEN
+        ]
+
+        OFF_LED_COLOR_LIST = [
             STATUS_LED_COLOR_OFF
         ]
 
-        for psu_id in range(self.num_psus):
-            for color in LED_COLOR_LIST:
-                result = psu.set_status_led(platform_api_conn, psu_id, color)
-                if self.expect(result is not None, "Failed to perform set_status_led of PSU {}".format(psu_id)):
-                    self.expect(result is True, "Failed to set status_led of PSU {} to {}".format(psu_id, color))
+        LED_COLOR_TYPES = []
+        LED_COLOR_TYPES.append(FAULT_LED_COLOR_LIST)
+        LED_COLOR_TYPES.append(NORMAL_LED_COLOR_LIST)
 
-                color_actual = psu.get_status_led(platform_api_conn, psu_id)
-                if self.expect(color_actual is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
-                    if self.expect(isinstance(color_actual, STRING_TYPE), "PSU {} status LED color appears incorrect".format(psu_id)):
-                        self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {}) from PSU {}".format(color, color_actual, psu_id))
+        # Mellanox is not supporting set leds to 'off'
+        if self.asic_type != "mellanox":
+            LED_COLOR_TYPES.append(OFF_LED_COLOR_LIST)
+
+        LED_COLOR_TYPES_DICT = {
+            0: "fault",
+            1: "normal",
+            2: "off"
+        }   
+
+        for psu_id in range(self.num_psus):
+            for index, led_type in enumerate(LED_COLOR_TYPES):
+                led_type_result = False
+                for color in led_type:
+                    result = psu.set_status_led(platform_api_conn, psu_id, color)
+                    if self.expect(result is not None, "Failed to perform set_status_led of PSU {}".format(psu_id)):
+                        led_type_result = result or led_type_result
+                    if ((result is None) or (not result)):
+                        continue
+                    color_actual = psu.get_status_led(platform_api_conn, psu_id)
+                    if self.expect(color_actual is not None, "Failed to retrieve status_led of PSU {}".format(psu_id)):
+                        if self.expect(isinstance(color_actual, STRING_TYPE), "PSU {} status LED color appears incorrect".format(psu_id)):
+                            self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {}) from PSU {}".format(color, color_actual, psu_id))
+                self.expect(led_type_result is True, "Failed to set status_led of PSU {} to {}".format(psu_id, LED_COLOR_TYPES_DICT[index]))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):

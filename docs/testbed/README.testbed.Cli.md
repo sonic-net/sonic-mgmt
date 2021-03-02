@@ -12,9 +12,9 @@
 
 ## Add/Remove topo
 ```
-# conf-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
-vms1-1-t1,vms1-1,t1,docker-ptf-sai-mlnx,10.0.10.5/23,server_1,VM0100,str-msn2700-11,t1 tests
-vms1-1-t1-lag,vms1-1,t1-lag,docker-ptf-sai-mlnx,10.0.10.5/23,server_1,VM0100,str-msn2700-11,t1-lag tests
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment
+vms1-1-t1,vms1-1,t1,docker-ptf,ptf-1,10.0.10.5/23,,server_1,VM0100,str-msn2700-11,lab,True,t1 tests
+vms1-1-t1-lag,vms1-1,t1-lag,docker-ptf,ptf-2,10.0.10.5/23,,server_1,VM0100,str-msn2700-11,lab,False,t1-lag tests
 
 ```
 Goal is to use one VM with different topologies
@@ -32,9 +32,9 @@ Caveat: Have to remember what was the initial topology. Should be fixed in futur
 
 # Renumber topo
 ```
-# conf-name,testbed-name,topo,ptf_image_name,ptf_ip,server,vm_base,dut,owner
-vms2-2-b,vms2-2,t1,docker-ptf-sai-brcm,10.0.10.7/23,server_1,VM0100,str-d6000-05,brcm test
-vms2-2-m,vms2-2,t1,docker-ptf-sai-mlnx,10.0.10.7/23,server_1,VM0100,str-msn2700-5,mlnx test
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment
+vms2-2-b,vms2-2,t1,docker-ptf,ptf-1,10.0.10.7/23,,server_1,VM0100,str-d6000-05,brcm test
+vms2-2-m,vms2-2,t1,docker-ptf,ptf-2,10.0.10.7/23,,server_1,VM0100,str-msn2700-5,mlnx test
 
 ```
 Goal is to use one VM set against different DUTs
