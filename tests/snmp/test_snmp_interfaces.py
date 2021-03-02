@@ -6,7 +6,7 @@ pytestmark = [
 ]
 
 @pytest.mark.bsl
-def test_snmp_interface(localhost, creds, duthosts, enum_dut_hostname, enum_asic_index):
+def test_snmp_interfaces(localhost, creds, duthosts, enum_dut_hostname, enum_asic_index):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_dut_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
