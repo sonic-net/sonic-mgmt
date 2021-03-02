@@ -34,7 +34,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
-            cmdgen.MibVariable(pSYSDESCR,),
+            cmdgen.MibVariable(pSYSDESCR)
             )
         if errorIndication:
             logging.info("Failed to get pdu controller type, exception: " + str(errorIndication))
@@ -121,7 +121,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
-            cmdgen.MibVariable(query_oid,),
+            cmdgen.MibVariable(query_oid)
             )
         if errorIndication:
             logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
@@ -189,7 +189,7 @@ class snmpPduController(PduControllerBase):
         cmdgen.CommandGenerator().setCmd(
             cmdgen.CommunityData(self.snmp_rwcommunity),
             cmdgen.UdpTransportTarget((self.controller, 161)),
-            (port_oid, rfc1902.Integer(self.CONTROL_ON)),
+            (port_oid, rfc1902.Integer(self.CONTROL_ON))
         )
         if errorIndication or errorStatus != 0:
             logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
@@ -218,7 +218,7 @@ class snmpPduController(PduControllerBase):
         cmdgen.CommandGenerator().setCmd(
             cmdgen.CommunityData(self.snmp_rwcommunity),
             cmdgen.UdpTransportTarget((self.controller, 161)),
-            (port_oid, rfc1902.Integer(self.CONTROL_OFF)),
+            (port_oid, rfc1902.Integer(self.CONTROL_OFF))
         )
         if errorIndication or errorStatus != 0:
             logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
