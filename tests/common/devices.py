@@ -1183,10 +1183,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return mg_facts
 
-    def get_route(self, prefix):
-        cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
-        return json.loads(self.shell('vtysh -c "{} {} json"'.format(cmd, prefix))['stdout'])
-
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd)
@@ -2195,21 +2191,21 @@ class SonicAsic(object):
             ).format(ns_docker_if_ipv4)
         )
 
-    def command(self, *args, **kwargs):
+    def command(self, cmdstr):
         """
             Prepend 'ip netns' option for commands meant for this ASIC
 
             Args:
-                *args and **kwargs
+                cmdstr
             Returns:
                 Output from the ansible command module
         """
-        if not self.sonichost.is_multi_asic:
-            return self.sonichost.command(*args, **kwargs)
+        if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
+            return self.sonichost.command(cmdstr)
 
-        ns_arg_list = ["ip", "netns", "exec", self.namespace]
-        kwargs["argv"] = ns_arg_list + kwargs["argv"]
-        return self.sonichost.command(*args, **kwargs)
+        cmdstr = "sudo ip netns exec {} ".format(self.namespace) + cmdstr
+
+        return self.sonichost.command(cmdstr)
 
     def run_redis_cmd(self, argv=[]):
         """
@@ -2365,7 +2361,7 @@ class MultiAsicSonicHost(object):
         return [asic.namespace for asic in self.asics]
 
     def get_asic_id_from_namespace(self, namespace):
-        if self.sonichost.facts['num_asic'] == 1:
+        if self.sonichost.facts['num_asic'] == 1 or namespace == DEFAULT_NAMESPACE:
             return DEFAULT_ASIC_ID
 
         for asic in self.asics:
@@ -2376,7 +2372,7 @@ class MultiAsicSonicHost(object):
         raise ValueError("Invalid namespace '{}' passed as input".format(namespace))
 
     def get_namespace_from_asic_id(self, asic_id):
-        if self.sonichost.facts['num_asic'] == 1:
+        if self.sonichost.facts['num_asic'] == 1 or asic_id == DEFAULT_ASIC_ID:
             return DEFAULT_NAMESPACE
 
         for asic in self.asics:
@@ -2392,6 +2388,15 @@ class MultiAsicSonicHost(object):
             return cmd
         ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
         return ns_cmd
+    
+    def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
+        asic_id = self.get_asic_id_from_namespace(namespace)
+        if asic_id == DEFAULT_ASIC_ID:
+           ns_prefix = ''
+        else:
+           ns_prefix = '-n ' + str(asic_id)
+        cmd = 'show bgp ipv4' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show bgp ipv6'
+        return json.loads(self.shell('vtysh {} -c "{} {} json"'.format(ns_prefix, cmd, prefix))['stdout'])
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
@@ -2413,8 +2418,8 @@ class MultiAsicSonicHost(object):
             return getattr(self.sonichost, attr)  # For backward compatibility
 
     def get_asic(self, asic_id):
-        if self.sonichost.facts['num_asic'] == 1:
-            return self.asics[0]
+        if asic_id == DEFAULT_ASIC_ID:
+            return self.sonichost
         return self.asics[asic_id]
 
     def stop_service(self, service):

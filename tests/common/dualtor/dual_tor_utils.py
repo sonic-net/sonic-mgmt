@@ -10,6 +10,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
+__all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host']
+
 logger = logging.getLogger(__name__)
 
 UPPER_TOR = 'upper_tor'
@@ -76,7 +78,7 @@ def lower_tor_host(duthosts):
 
     Uses the convention that the second ToR listed in the testbed file is the lower ToR
     '''
-    dut = duthosts[1]
+    dut = duthosts[-1]
     logger.info("Using {} as lower ToR".format(dut.hostname))
     return dut
 
@@ -519,18 +521,20 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, targer_server_ip, ptf_portchannel_indices):
+def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, targer_server_ip, target_server_port, ptf_portchannel_indices):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
     active ToR. The running script will capture all traffic and verify if these packets are distributed evenly.
     Args:
-        ptfhost: The ptf host connectet to current testbed
+        ptfhost: The ptf host connected to current testbed
         active_tor_mac: MAC address of active ToR
         standby_tor_mac: MAC address of the standby ToR
+        vlan_mac: MAC address of Vlan (For verifying packet)
         active_tor_ip: IP Address of Loopback0 of active ToR (For verifying packet)
         standby_tor_ip: IP Address of Loopback0 of standby ToR (For verifying packet)
         target_server_ip: The IP address of server for testing. The mux cable connected to this server must be standby
+        target_server_port: PTF port indice on which server is connected
         ptf_portchannel_indices: A dict, the mapping from portchannel to ptf port indices
     Returns:
         None.
@@ -538,8 +542,10 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": targer_server_ip,
+        "server_port": target_server_port,
         "active_tor_mac": active_tor_mac,
         "standby_tor_mac": standby_tor_mac,
+        "vlan_mac": vlan_mac,
         "active_tor_ip": active_tor_ip,
         "standby_tor_ip": standby_tor_ip,
         "ptf_portchannel_indices": ptf_portchannel_indices,
@@ -557,3 +563,13 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
                log_file=log_file,
                qlen=2000,
                socket_recv_size=16384)
+
+
+def get_crm_nexthop_counter(host):
+    """
+    Get used crm nexthop counter
+    """
+    crm_facts = host.get_crm_facts()
+    return crm_facts['resources']['ipv4_nexthop']['used']
+
+

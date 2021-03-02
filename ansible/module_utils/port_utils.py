@@ -67,6 +67,25 @@ def get_port_alias_to_name_map(hwsku, asic_id):
     elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32":
         for i in range(1, 33):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+    elif hwsku == "Mellanox-SN2700-D40C8S8":
+        # 10G ports
+        s10G_ports = range(0, 4) + range(8, 12)
+
+        # 50G ports
+        s50G_ports = [x for x in range(16, 24, 2)] + [x for x in range(40, 88, 2)] + [x for x in range(104, 128, 2)]
+
+        # 100G ports
+        s100G_ports = [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
+
+        for i in s10G_ports:
+            alias = "etp%d" % (i / 4 + 1) + chr(ord('a') + i % 4)
+            port_alias_to_name_map[alias] = "Ethernet%d" % i
+        for i in s50G_ports:
+            alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
+            port_alias_to_name_map[alias] = "Ethernet%d" % i
+        for i in s100G_ports:
+            alias = "etp%d" % (i / 4 + 1)
+            port_alias_to_name_map[alias] = "Ethernet%d" % i
     elif hwsku == "Mellanox-SN2700-D48C8":
         # 50G ports
         s50G_ports = [x for x in range(0, 24, 2)] + [x for x in range(40, 88, 2)] + [x for x in range(104, 128, 2)]
