@@ -32,7 +32,7 @@ TESTPARAM_LOSSY_PG = None
 BUFFER_MODEL_DYNAMIC = True
 
 def detect_buffer_model(duthost):
-    """Detect the current buffer model (dynamic or traditional) and store it for futher use. Called only once when the module is initialized
+    """Detect the current buffer model (dynamic or traditional) and store it for further use. Called only once when the module is initialized
 
     Args:
         duthost: The DUT host object
@@ -43,7 +43,7 @@ def detect_buffer_model(duthost):
 
 
 def detect_ingress_pool_number(duthost):
-    """Detect the number of ingress buffer pools and store it for futher use. Called only once when the module is initialized
+    """Detect the number of ingress buffer pools and store it for further use. Called only once when the module is initialized
 
     Args:
         duthost: The DUT host object
@@ -75,7 +75,7 @@ def detect_shared_headroom_pool_mode(duthost):
 
 
 def detect_default_mtu(duthost, port_to_test):
-    """Detect the mtu and store it for futher use. Called only once when the module is initialized
+    """Detect the mtu and store it for further use. Called only once when the module is initialized
 
     Args:
         duthost: The DUT host object
@@ -179,7 +179,7 @@ def check_log_analyzer(loganalyzer, marker):
 
 
 def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
-    """Check whether the pool size has been updated correctedly
+    """Check whether the pool size has been updated correctly
 
     The expected pool size will be calculated based on the input arguments on a per-vendor basis
     After that, it will check the expected value against the buffer pool size in BUFFER_POOL_TABLE
@@ -588,7 +588,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
     The flow of the test case:
         1. Update the port configuration according to input parameters
-        2. Determine whether the profile removing behavior can be verifyed:
+        2. Determine whether the profile removing behavior can be verified:
            If neither mtu nor cable length is default value, they will be applied on the port_to_test only,
            and the generated profile will be removed after the configuration change because the profile is referenced by this port only.
            For example:
@@ -1063,7 +1063,7 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         if original_configured_shp_size and original_configured_shp_size != '0':
             duthost.shell('config buffer shared-headroom-pool size 0')
 
-        # Make sure the shp configuration has been deployed
+        # Make sure the shared headroom pool configuration has been deployed
         time.sleep(30)
 
         # Check whether the buffer profile for lossless PGs are correct
@@ -1154,7 +1154,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
 
     Test case to verify the static profile with non default dynamic th
     The buffer profile will be generated automatically after the profile has been applied to the port
-    The arguments required for the test are fetched from a predefiend json file on a per vendor basis.
+    The arguments required for the test are fetched from a predefined json file on a per vendor basis.
     Not providing any of the arguments results in the test case skipped.
 
     The flow of the test case:
