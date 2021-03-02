@@ -18,7 +18,7 @@ from sub_ports_helpers import remove_sub_port
 from sub_ports_helpers import remove_lag_port
 
 @pytest.fixture(params=['port', 'port_in_lag'])
-def define_sub_ports_configuration(request, duthost, ptfhost):
+def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
     """
     Define configuration of sub-ports for TC run
 

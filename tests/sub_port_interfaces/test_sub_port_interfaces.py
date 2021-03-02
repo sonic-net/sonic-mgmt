@@ -167,7 +167,7 @@ class TestSubPorts(object):
                                         pkt_action='fwd')
 
 
-    def test_mtu_inherited_from_parent_port(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+    def test_mtu_inherited_from_parent_port(self, duthost, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
         Validates that MTU settings of sub-ports inherited from parent port
 
