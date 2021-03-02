@@ -74,7 +74,7 @@ def create_maps(config):
         for idx, val in enumerate(port_name_list_sorted):
             port_index_map[val] = idx
 
-        port_name_to_alias_map = { name : v['alias'] for name, v in config["PORT"].iteritems()}
+        port_name_to_alias_map = { name : v['alias'] if 'alias' in v else '' for name, v in config["PORT"].iteritems()}
 
         # Create inverse mapping between port name and alias
         port_alias_to_name_map = {v: k for k, v in port_name_to_alias_map.iteritems()}

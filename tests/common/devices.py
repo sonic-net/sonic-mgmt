@@ -2156,21 +2156,21 @@ class SonicAsic(object):
             ).format(ns_docker_if_ipv4)
         )
 
-    def command(self, *args, **kwargs):
+    def command(self, cmdstr):
         """
             Prepend 'ip netns' option for commands meant for this ASIC
 
             Args:
-                *args and **kwargs
+                cmdstr
             Returns:
                 Output from the ansible command module
         """
-        if not self.sonichost.is_multi_asic:
-            return self.sonichost.command(*args, **kwargs)
+        if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
+            return self.sonichost.command(cmdstr)
 
-        ns_arg_list = ["ip", "netns", "exec", self.namespace]
-        kwargs["argv"] = ns_arg_list + kwargs["argv"]
-        return self.sonichost.command(*args, **kwargs)
+        cmdstr = "sudo ip netns exec {} ".format(self.namespace) + cmdstr
+
+        return self.sonichost.command(cmdstr)
 
     def run_redis_cmd(self, argv=[]):
         """
@@ -2326,7 +2326,7 @@ class MultiAsicSonicHost(object):
         return [asic.namespace for asic in self.asics]
 
     def get_asic_id_from_namespace(self, namespace):
-        if self.sonichost.facts['num_asic'] == 1:
+        if self.sonichost.facts['num_asic'] == 1 or namespace == DEFAULT_NAMESPACE:
             return DEFAULT_ASIC_ID
 
         for asic in self.asics:
@@ -2337,7 +2337,7 @@ class MultiAsicSonicHost(object):
         raise ValueError("Invalid namespace '{}' passed as input".format(namespace))
 
     def get_namespace_from_asic_id(self, asic_id):
-        if self.sonichost.facts['num_asic'] == 1:
+        if self.sonichost.facts['num_asic'] == 1 or asic_id == DEFAULT_ASIC_ID:
             return DEFAULT_NAMESPACE
 
         for asic in self.asics:
@@ -2384,7 +2384,7 @@ class MultiAsicSonicHost(object):
 
     def get_asic(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
-            return self.asics[0]
+            return self.sonichost
         return self.asics[asic_id]
 
     def stop_service(self, service):
