@@ -1,8 +1,8 @@
 import pytest
 import logging
 import time
-from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter, lower_tor_host
+from tests.common.helpers.assertions import pytest_assert as py_assert
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -27,5 +27,5 @@ def verify_crm_nexthop_counter_not_increased(lower_tor_host):
     original_counter = get_crm_nexthop_counter(lower_tor_host)
     yield
     diff = get_crm_nexthop_counter(lower_tor_host) - original_counter
-    pytest_assert(diff == 0, "crm nexthop counter is increased by {}.".format(diff))
+    py_assert(diff == 0, "crm nexthop counter is increased by {}.".format(diff))
 

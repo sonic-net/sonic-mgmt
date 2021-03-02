@@ -563,6 +563,7 @@ def get_crm_nexthop_counter(host):
     """
     Get used crm nexthop counter
     """
-    cmd = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_ipv4_nexthop_used"
-    output = host.shell(cmd)['stdout']
-    return int(output)
+    crm_facts = host.get_crm_facts()
+    return crm_facts['resources']['ipv4_nexthop']['used']
+
+
