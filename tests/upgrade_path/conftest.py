@@ -6,6 +6,12 @@ def pytest_addoption(parser):
     options_group = parser.getgroup("Upgrade_path test suite options")
 
     options_group.addoption(
+        "--upgrade_type",
+        default="warm",
+        help="Specify the type (warm/fast/cold) of upgrade that is needed from source to target image",
+    )
+
+    options_group.addoption(
         "--base_image_list",
         default="",
         help="Specify the base image(s) for upgrade (comma seperated list is allowed)",
@@ -33,7 +39,8 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture(scope="module")
 def upgrade_path_lists(request):
+    upgrade_type = request.config.getoption('upgrade_type')
     from_list = request.config.getoption('base_image_list')
     to_list = request.config.getoption('target_image_list')
     restore_to_image = request.config.getoption('restore_to_image')
-    return from_list, to_list, restore_to_image
+    return upgrade_type, from_list, to_list, restore_to_image

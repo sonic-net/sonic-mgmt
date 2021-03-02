@@ -4,6 +4,7 @@ import json
 import time
 import os
 
+from jinja2 import Template
 from common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,13 @@ pytestmark = [
     pytest.mark.topology('util'),
     pytest.mark.disable_loganalyzer
 ]
+
+
+def test_cleanup_cache():
+    folder = '_cache'
+    if os.path.exists(folder):
+        os.system('rm -rf {}'.format(folder))
+
 
 def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
     duthost = duthosts[enum_dut_hostname]
@@ -164,6 +172,50 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
+
+def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
+    '''
+    Inject the Y cable simulator client to both ToRs in a dualtor testbed
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    logger.info("Injecting Y cable simulator client to {}".format(enum_dut_hostname))
+    dut = duthosts[enum_dut_hostname]
+    mux_simulator_port = 8080
+    y_cable_sim_client_template_path = 'templates/y_cable_simulator_client.j2'
+
+    server_num = tbinfo['server'].split('_')[-1]
+    mux_simulator_server = dut.host.options['inventory_manager'] \
+                                    .get_hosts(pattern='vm_host_{}'.format(server_num))[0] \
+                                    .get_vars()['ansible_host']
+
+    template_args = {
+        'duts_map': json.dumps(tbinfo['duts_map'], sort_keys=True, indent=4),
+        'mux_simulator_server': mux_simulator_server,
+        'mux_simulator_port': mux_simulator_port,
+        'dut_name': enum_dut_hostname,
+        'group_name': tbinfo['group-name']
+    }
+
+    with open(y_cable_sim_client_template_path) as f:
+        template = Template(f.read())
+
+    rendered = template.render(template_args)
+
+    dut.copy(content=rendered, dest='/tmp/y_cable_simulator_client.py')
+    dut.shell('docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages/')
+    dut.shell('systemctl restart pmon')
+
+def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
+    '''
+     Stop pfcwd on dual tor testbeds
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        pytest.skip("Skip this test on non dualTOR testbeds")
+
+    dut = duthosts[enum_dut_hostname]
+    dut.command('pfcwd stop')
 
 """
     Separator for internal pretests.

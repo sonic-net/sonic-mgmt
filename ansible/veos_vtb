@@ -12,6 +12,7 @@ all:
           - t1
           - t1-lag
           - t1-64-lag
+          - t1-8-lag
           - t1-64-lag-clet
           - t0
           - t0-16
@@ -35,6 +36,7 @@ all:
         vlab-05:
         vlab-06:
         vlab-07:
+        vlab-08:
     ptf:
       hosts:
         ptf-01:
@@ -91,6 +93,8 @@ all:
           type: kvm
           hwsku: Force10-S6000
           serial_port: 9002
+          ansible_password: password
+          ansible_user: admin
         vlab-05:
           ansible_host: 10.250.0.110
           ansible_hostv6: fec0::ffff:afa:a
@@ -114,6 +118,15 @@ all:
           hwsku: msft_multi_asic_vs
           serial_port: 9005
           num_asics: 6
+          ansible_password: password
+          ansible_user: admin
+        vlab-08:
+          ansible_host: 10.250.0.112
+          ansible_hostv6: fec0::ffff:afa:c
+          type: kvm
+          hwsku: msft_four_asic_vs
+          serial_port: 9005
+          num_asics: 4
           ansible_password: password
           ansible_user: admin
         vlab-simx-01:

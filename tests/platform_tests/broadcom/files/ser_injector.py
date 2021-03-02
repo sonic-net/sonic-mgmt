@@ -236,6 +236,64 @@ SKIP_MEMORY_PER_ASIC = {
         u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0', u'ING_SNAT.ipipe0',
         u'MMU_THDM_MCQE_QUEUE_OFFSET_B_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0',
         u'ING_VP_VLAN_MEMBERSHIP.ipipe0', u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0', u'FP_GLOBAL_MASK_TCAM.ipipe0',
+        ],
+    'th3' : [
+        # cannot pass
+        u'L3_DEFIP_TCAM_LEVEL1.ipipe0',
+        u'MATCH_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE7.mmu_eb0',
+        u'L3_ENTRY_ONLY_SINGLE.ipipe0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE6.ipipe0',
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE3.mmu_eb0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE0.ipipe0',
+        u'L3_ENTRY_SINGLE.ipipe0',
+        u'L2_ENTRY.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE6.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE0.ipipe0',
+        u'L3_DEFIP_ALPM_LEVEL3.ipipe0',
+        u'L3_ENTRY_DOUBLE.ipipe0',
+        u'L3_TUNNEL_QUAD.ipipe0',
+        u'L3_DEFIP_PAIR_LEVEL1.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE3.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
+        u'L3_ENTRY_ONLY_DOUBLE.ipipe0',
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE0.mmu_eb0',
+        u'L3_DEFIP_ALPM_LEVEL2.ipipe0',
+        u'EGR_IP_TUNNEL_IPV6.epipe0',
+        u'EXACT_MATCH_ECC.ipipe0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE3.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE5.ipipe0',
+        u'L3_DEFIP_ALPM_LEVEL3_SINGLE.ipipe0',
+        u'IFP_LOGICAL_TABLE_SELECT.ipipe0',
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE5.mmu_eb0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE2.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE2.ipipe0',
+        u'L3_ENTRY_QUAD.ipipe0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
+        u'EGR_IP_TUNNEL_MPLS.epipe0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE5.ipipe0',
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE4.mmu_eb0',
+        u'L2_USER_ENTRY.ipipe0',
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE6.mmu_eb0',
+        u'MY_STATION_TCAM.ipipe0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE4.ipipe0',
+        u'L3_DEFIP_LEVEL1.ipipe0'        ,
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE2.mmu_eb0',
+        u'L3_DEFIP_ALPM_LEVEL2_SINGLE.ipipe0',
+        u'L3_TUNNEL_DOUBLE.ipipe0',
+        u'L3_ENTRY_ONLY_QUAD.ipipe0',
+        u'IFP_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
+        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE1.mmu_eb0',
+        u'MPLS_ENTRY_SINGLE.ipipe0',
+        u'CPU_COS_MAP.ipipe0',
+        u'L3_TUNNEL_SINGLE.ipipe0',
+        u'L3_DEFIP_ALPM_LEVEL2_HIT_ONLY.ipipe0',
+        u'L2_ENTRY_ONLY_SINGLE.ipipe0',
+        u'L3_DEFIP_LEVEL1_HIT_ONLY.ipipe0',
+        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE4.ipipe0',
+        u'L3_DEFIP_ALPM_LEVEL3_HIT_ONLY.ipipe0'
         ]
 }
 
@@ -273,6 +331,8 @@ def get_asic_name():
         asic = "td2"
     elif "Broadcom Limited Device b870" in output:
         asic = "td3"
+    elif "Broadcom Limited Device b980" in output:
+        asic = "th3"
 
     return asic
 
