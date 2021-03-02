@@ -258,6 +258,7 @@ def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_ver
         data.intf_counters_1, data.intf_counters_2 = output
     else:
         data.intf_counters_1 = intf_obj.show_interface_counters_all(dut)
+        st.log("RW: counters={}".format(data.intf_counters_1))
     data.intf_count_dict = {}
     for port in port_list:
         for counter_dict in data.intf_counters_1:
@@ -265,6 +266,7 @@ def verify_traffic_hashed_or_not(dut, port_list, pkts_per_port, traffic_loss_ver
                 try:
                     tx_ok_counter = counter_dict['tx_ok'].replace(',', '')
                     data.intf_count_dict[port] = int(tx_ok_counter) if tx_ok_counter.isdigit() else 0
+                    st.log("port={} value={}".format(port, data.intf_count_dict[port]))
                 except Exception:
                     st.report_fail('invalid_traffic_stats')
                 if not (data.intf_count_dict[port] >= pkts_per_port):
@@ -315,7 +317,7 @@ def get_intf_counters_using_thread(dut_list, thread=True):
     ensure_no_exception(exceptions)
     return output
 
-def verify_portchannel_cum_member_status(dut, portchannel, members_list, iter_count=10, iter_delay=2, state='up'):
+def verify_portchannel_cum_member_status(dut, portchannel, members_list, iter_count=10, iter_delay=10, state='up'):
     i = 1
     while i <= iter_count:
         st.log("Checking iteration {}".format(i))
@@ -422,13 +424,13 @@ def test_ft_portchannel_behavior_with_tagged_traffic():
     portchannel_members_counters1 = verify_traffic_hashed_or_not(vars.D1, data.members_dut1, 100)
     st.log('Test scenario-3: Successfully verified that L2 LAG hashing functionality working fine in Sonic')
 
-    verify_portchannel_cum_member_status(vars.D1, data.portchannel_name, temp_member_list1, iter_delay=1)
+    verify_portchannel_cum_member_status(vars.D1, data.portchannel_name, temp_member_list1, iter_delay=10)
     portchannel_members_counters2 = verify_traffic_hashed_or_not(vars.D1, data.members_dut1, 100)
     if not (portchannel_members_counters1[random_member1]+10 > portchannel_members_counters2[random_member1]):
         st.report_fail('portchannel_count_verification_fail', vars.D1, random_member1)
     if not portchannel_obj.add_portchannel_member(vars.D1, data.portchannel_name, random_member1):
         st.report_fail('add_members_to_portchannel_failed', random_member1, data.portchannel_name, vars.D1)
-    verify_portchannel_cum_member_status(vars.D1, data.portchannel_name, data.members_dut1, iter_delay=1)
+    verify_portchannel_cum_member_status(vars.D1, data.portchannel_name, data.members_dut1, iter_delay=10)
     st.wait(2)
     portchannel_members_counters3 = verify_traffic_hashed_or_not(vars.D1, data.members_dut1, 100)
     st.log('Test scenario-4: Verifying that adding ports to a LAG causes traffic to redistribute to new ports')

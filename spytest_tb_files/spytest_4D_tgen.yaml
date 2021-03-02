@@ -28,13 +28,13 @@ devices:
     SD3:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.104, port: 22}
-        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD4:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.105, port: 22}
-        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     stc-01:
