@@ -249,11 +249,8 @@ def action_pdu(parameters, action):
         if parameters['json']:
             data.append(status)
         else:
-            try:
-                data.append([status[x] for x in header])
-            except TypeError:
-                pass
-
+            data.append([status[x] for x in header])
+            
     return header, data
 
 
@@ -350,8 +347,7 @@ def main():
         return
     build_global_vars(args.concurrency, args.inventory)
     hosts = retrieve_hosts(args.group, args.limit)
-    g_conn_graph_facts = get_conn_graph_facts(hosts)
-    get_console_info_from_conn_graph("aa")
+    get_conn_graph_facts(hosts)
     actions = {'list': action_list,
                'ping': action_ping,
                'ssh': action_ssh,
