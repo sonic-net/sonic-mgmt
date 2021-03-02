@@ -40,14 +40,15 @@ class PduControllerBase():
         """
         raise NotImplementedError
 
-    def get_outlet_status(self, outlet=None):
+    def get_outlet_status(self, outlet=None, hostname=None):
         """
         @summary: Get current power status of PDU outlets
 
         @param outlet: Optional outlet ID, it could be integer or string digit. If no outlet is specified, power status of
                        all PDU outlets should be returned
+        @param hostname: Optional hostname used to partial match any label
         @return: Returns a list of dictionaries. For example:
-                     [{"outlet_id": 0, "outlet_on": True}, {"outlet_id": 1, "outlet_on": True}]
+                     [{"outlet_id": "0.0.1", "outlet_on": True}, {"outlet_id": "0.0.2", "outlet_on": True}]
                  If getting outlet(s) status failed, an empty list should be returned.
         """
         raise NotImplementedError

@@ -97,11 +97,11 @@ class PduManager():
         next_index = len(self.controllers)
         self.controllers.append(pdu)
         if not shared_pdu:
-            controller = get_pdu_controller(pdu_ip, self.dut_hostname, pdu_vars)
+            controller = get_pdu_controller(pdu_ip, pdu_vars)
             if not controller:
                 logger.warning('Failed creating pdu controller: {}'.format(psu_peer))
                 return
-            outlets = controller.get_outlet_status()
+            outlets = controller.get_outlet_status(hostname=self.dut_hostname)
             self._update_outlets(outlets, next_index)
             pdu['outlets'] = outlets
             pdu['controller'] = controller
@@ -158,14 +158,14 @@ class PduManager():
         if outlet is not None:
             pdu_index = outlet['pdu_index']
             controller = self._get_pdu_controller(pdu_index)
-            outlets = controller.get_outlet_status(outlet['outlet_id'])
+            outlets = controller.get_outlet_status(outlet=outlet['outlet_id'])
             self._update_outlets(outlets, pdu_index)
             status = status + outlets
         else:
             # collect all status
             for pdu_index, controller in enumerate(self.controllers):
                 if len(controller['outlets']) > 0:
-                    outlets = controller['controller'].get_outlet_status()
+                    outlets = controller['controller'].get_outlet_status(hostname=self.dut_hostname)
                     self._update_outlets(outlets, pdu_index)
                     status = status + outlets
 
