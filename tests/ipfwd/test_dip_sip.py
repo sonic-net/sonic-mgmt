@@ -37,9 +37,13 @@ def lag_facts(dut, mg_facts, enum_frontend_asic_index):
     logger.info("src_lag is {}, dst_lag is {}".format(src_lag, dst_lag))
 
     # lldp facts
-    lldp_facts = dut.lldpctl_facts(asic_instance_id=int(enum_frontend_asic_index),
-                                    skip_interface_pattern_list=["eth0", "Ethernet-BP"]
-                                    )['ansible_facts']['lldpctl']
+    # lldp facts
+    lldp_facts = dut.lldpctl_facts(asic_instance_id=enum_frontend_asic_index,
+                                   skip_interface_pattern_list=[
+                                            "eth0",
+                                            "Ethernet-BP"
+                                        ]
+                                   )['ansible_facts']['lldpctl']
 
     facts['dst_host_mac'] = lldp_facts[mg_facts['minigraph_portchannels'][dst_lag]['members'][0]]['chassis']['mac']
     facts['src_host_mac'] = lldp_facts[mg_facts['minigraph_portchannels'][src_lag]['members'][0]]['chassis']['mac']
@@ -80,9 +84,12 @@ def port_facts(dut, mg_facts, enum_frontend_asic_index):
     logger.info("src_port is {}, dst_port is {}".format(src_port, dst_port))
 
     # lldp facts
-    lldp_facts = dut.lldpctl_facts(asic_instance_id=int(enum_frontend_asic_index),
-                                    skip_interface_pattern_list=["eth0", "Ethernet-BP"]
-                                    )['ansible_facts']['lldpctl']
+    lldp_facts = dut.lldpctl_facts(asic_instance_id=enum_frontend_asic_index,
+                                   skip_interface_pattern_list=[
+                                            "eth0",
+                                            "Ethernet-BP"
+                                        ]
+                                   )['ansible_facts']['lldpctl']
     facts['dst_host_mac'] = lldp_facts[dst_port]['chassis']['mac']
     facts['src_host_mac'] = lldp_facts[src_port]['chassis']['mac']
 
