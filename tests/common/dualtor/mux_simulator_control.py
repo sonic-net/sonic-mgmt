@@ -5,6 +5,10 @@ import urllib2
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import utilities
 
+__all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
+           'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
+           'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor']
+
 logger = logging.getLogger(__name__)
 
 UPPER_TOR = "upper_tor"
@@ -19,7 +23,7 @@ NIC = "nic"
 DROP = "drop"
 OUTPUT = "output"
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope='session')
 def mux_server_url(request, tbinfo):
     """
     A session level fixture to retrieve the address of mux simulator address
@@ -36,7 +40,7 @@ def mux_server_url(request, tbinfo):
     port = utilities.get_group_visible_vars(inv_files, server, 'mux_simulator_port')
     return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def url(mux_server_url, duthost):
     """
     A helper function is returned to make fixture accept arguments
@@ -115,7 +119,7 @@ def _post(server_url, data):
         return False
     return True
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def set_drop(url):
     """
     A helper function is returned to make fixture accept arguments
@@ -135,7 +139,7 @@ def set_drop(url):
 
     return _set_drop
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def set_output(url):
     """
     A helper function is returned to make fixture accept arguments
@@ -155,7 +159,7 @@ def set_output(url):
 
     return _set_output
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def toggle_simulator_port_to_upper_tor(url):
     """
     Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
@@ -173,7 +177,7 @@ def toggle_simulator_port_to_upper_tor(url):
 
     return _toggle_simulator_port_to_upper_tor
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def toggle_simulator_port_to_lower_tor(url):
     """
     Returns _toggle_simulator_port_to_lower_tor to make fixture accept arguments
@@ -190,7 +194,7 @@ def toggle_simulator_port_to_lower_tor(url):
 
     return _toggle_simulator_port_to_lower_tor
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def recover_all_directions(url):
     """
     A function level fixture, will return _recover_all_directions to make fixture accept arguments
@@ -209,7 +213,7 @@ def recover_all_directions(url):
 
     return _recover_all_directions
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def check_simulator_read_side(url):
     """
     A function level fixture, will return _check_simulator_read_side
@@ -238,7 +242,7 @@ def check_simulator_read_side(url):
 
     return _check_simulator_read_side
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side):
     """
     A function level fixture which returns a helper function
@@ -313,7 +317,7 @@ def toggle_all_simulator_ports_to_random_side(mux_server_url):
     """
     _toggle_all_simulator_ports(mux_server_url, RANDOM)
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def simulator_server_down(set_drop, set_output):
     """
     A fixture to set drop on a given mux cable

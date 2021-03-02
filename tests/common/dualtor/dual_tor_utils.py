@@ -10,6 +10,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
+__all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host']
+
 logger = logging.getLogger(__name__)
 
 UPPER_TOR = 'upper_tor'
@@ -76,7 +78,7 @@ def lower_tor_host(duthosts):
 
     Uses the convention that the second ToR listed in the testbed file is the lower ToR
     '''
-    dut = duthosts[1]
+    dut = duthosts[-1]
     logger.info("Using {} as lower ToR".format(dut.hostname))
     return dut
 
