@@ -180,12 +180,17 @@ def cached(name):
                 raise Exception('Decorator is only applicable to bound method of class AnsibleHostBase and its sub-classes')
             zone = hostname
             arg_names = inspect.getargspec(target)[0]
+            # if the target function has namespace option and namespace is
+            # passed in the args then create a cache for that 
+            # specific namespace
             if 'namespace' in arg_names:
                 index = arg_names.index('namespace')
-                namespace = args[index]
-                if namespace and isinstance(namespace, str):
-                    zone = "{}-{}".format(hostname,namespace)
-            logger.info("Zone {}".format(zone))
+                try:
+                    namespace = args[index]
+                    if namespace and isinstance(namespace, str):
+                        zone = "{}-{}".format(hostname, namespace)
+                except IndexError:
+                    pass
             cached_facts = cache.read(zone, name)
             if cached_facts:
                 return cached_facts
