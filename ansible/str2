@@ -253,14 +253,20 @@ sonic_nexus_3164:
     str2-n3164-acs-4:
       ansible_host: 10.3.146.124
       pdu_host: pdu-113
+      num_asics: 6
+      frontend_asics: [0, 1, 2, 3]
     str2-n3164-acs-3:
       ansible_host: 10.3.146.132
       pdu_host: pdu-113
+      num_asics: 6
+      frontend_asics: [0, 1, 2, 3]
     str2-n3164-acs-1:
       ansible_host: 10.3.147.149
       ansible_hostv6: 2a01:111:e210:3000::12
       pdu_host: pdu-104
-
+      num_asics: 6
+      frontend_asics: [0, 1, 2, 3]
+ 
 sonic_arista:
   vars:
     iface_speed: 100000
