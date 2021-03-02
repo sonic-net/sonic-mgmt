@@ -2,7 +2,7 @@ import logging
 import pytest
 import re
 
-from tests.common.devices import AnsibleHostBase
+from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait
 from netaddr import IPAddress
 
