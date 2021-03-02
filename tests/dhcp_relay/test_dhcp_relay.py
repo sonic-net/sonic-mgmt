@@ -137,7 +137,7 @@ def restart_dhcp_service(duthost):
 
 def get_subtype_from_configdb(duthost):
     # HEXISTS returns 1 if the key exists, otherwise 0
-    subtype_exist = duthost.shell('redis-cli -n 4 HEXISTS "DEVICE_METADATA|localhost" "subtype"')["stdout"]
+    subtype_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "DEVICE_METADATA|localhost" "subtype"')["stdout"])
     subtype_value = ""
     if subtype_exist:
         subtype_value = duthost.shell('redis-cli -n 4 HGET "DEVICE_METADATA|localhost" "subtype"')["stdout"]
