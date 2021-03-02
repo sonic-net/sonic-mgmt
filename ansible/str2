@@ -146,11 +146,11 @@ fanout:
       pdu_host: pdu-117
     str2-7260cx3-fan-08:
       ansible_host: 10.3.146.245
-      pdu_host: pdu-121
+      pdu_host: pdu-112
     str2-7260cx3-acs-8:
       ansible_host: 10.3.146.220
-    str2-7260cx3-acs-fan-08:
-      ansible_host: 10.3.146.55
+    str2-7260cx3-acs-fan-15:
+      ansible_host: 10.3.146.213
       pdu_host: pdu-121
     str2-7260cx3-acs-fan-09:
       ansible_host: 10.3.146.157
