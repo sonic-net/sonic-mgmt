@@ -1,10 +1,8 @@
 import pytest
 import logging
-import random
 import time
 
 from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter, lower_tor_host # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers.assertions import pytest_assert as py_assert
 
 
