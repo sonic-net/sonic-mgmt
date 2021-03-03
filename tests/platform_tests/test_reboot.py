@@ -116,9 +116,26 @@ def test_cold_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
 
 
+def test_soft_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+    """
+    @summary: This test case is to perform soft reboot and check platform status
+    """
+
+    duthost = duthosts[rand_one_dut_hostname]
+
+    soft_reboot_supported = duthost.command('which soft-reboot', module_ignore_errors=True)["stdout"]
+    if "" == soft_reboot_supported:
+        pytest.skip("Soft-reboot is not supported on this DUT, skip this test case")
+
+    if duthost.is_multi_asic:
+        pytest.skip("Multi-ASIC devices not supporting soft reboot")
+
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT)
+
+
 def test_fast_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
-    @summary: This test case is to perform cold reboot and check platform status
+    @summary: This test case is to perform fast reboot and check platform status
     """
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -131,7 +148,7 @@ def test_fast_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
 
 def test_warm_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
-    @summary: This test case is to perform cold reboot and check platform status
+    @summary: This test case is to perform warm reboot and check platform status
     """
 
     duthost = duthosts[rand_one_dut_hostname]
