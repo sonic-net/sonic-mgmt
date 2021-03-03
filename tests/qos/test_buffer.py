@@ -1320,7 +1320,6 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
     original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
-    original_pg_xoff = int(duthost.shell('redis-cli hget "{}" xoff'.format(original_profile))['stdout']) if DEFAULT_OVER_SUBSCRIBE_RATIO else None
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
 
     new_cable_len = '15m'
