@@ -201,7 +201,7 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
             used_subnets = set()
             if mg_facts["minigraph_interfaces"]:
                 for intf in mg_facts["minigraph_interfaces"]:
-                    if _is_ipv4_address[intf["address"]]:
+                    if _is_ipv4_address[intf["addr"]]:
                         ipv4_interfaces.append(intf["attachto"])
                         used_subnets.add(ipaddress.ip_network(intf["subnet"]))
 
