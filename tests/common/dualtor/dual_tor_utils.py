@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import pytest
 import json
@@ -573,3 +574,27 @@ def get_crm_nexthop_counter(host):
     return crm_facts['resources']['ipv4_nexthop']['used']
 
 
+def show_arp(duthost, neighbor_addr):
+    """Show arp table entry for neighbor."""
+    command = "/usr/sbin/arp -n %s" % neighbor_addr
+    output = duthost.shell(command)["stdout_lines"]
+    if "no entry" in output[0]:
+        return {}
+    headers = ("address", "hwtype", "hwaddress", "flags", "iface")
+    return dict(zip(headers, output[1].split()))
+
+
+@contextlib.contextmanager
+def flush_neighbor(duthost, neighbor, restore=True):
+    """Flush neighbor entry for server in duthost."""
+    neighbor_info = show_arp(duthost, neighbor)
+    logging.info("neighbor entry for %s: %s", neighbor, neighbor_info)
+    assert neighbor_info, "No neighbor info for neighbor %s" % neighbor
+    logging.info("remove neighbor entry for %s", neighbor)
+    duthost.shell("ip -4 neighbor del %s dev %s" % (neighbor, neighbor_info["iface"]))
+    try:
+        yield
+    finally:
+        if restore:
+            logging.info("restore neighbor entry for %s", neighbor)
+            duthost.shell("ip -4 neighbor replace {address} lladdr {hwaddress} dev {iface}".format(**neighbor_info))
