@@ -245,6 +245,12 @@ class SetupPfcwdFunc(object):
          self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
 
     def update_queue(self, port):
+        """
+        Switch between queue 3 and 4 during the test
+
+        Args:
+            port(string) : DUT port
+        """
          if self.pfc_wd['queue_index'] == 4:
             self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] - 1
          else:
@@ -253,11 +259,31 @@ class SetupPfcwdFunc(object):
          self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
 
     def setup_mmu_params(self, port):
+        """
+        Retrieve the pg profile and alpha values of the port under test
+
+        Args:
+            port(string) : DUT port
+        """
          self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port)
 
     def update_mmu_params(self, mmu_action):
+        """
+        Update dynamic threshold value
+
+        Args:
+            mmu_action(string): for value "change", update within -6 and 3
+                                for value "restore", set back to original threshold
+        """
+        if int(self.alpha) <= -6:
+            new_alpha = -5
+        elif int(self.alpha) >= 3:
+            new_alpha = 2
+        else:
+            new_alpha = int(self.alpha) + 1
+
         if mmu_action == "change":
-            PfcCmd.update_alpha(self.dut, self.pg_profile, int(self.alpha) + 1)
+            PfcCmd.update_alpha(self.dut, self.pg_profile, new_alpha)
         elif mmu_action == "restore":
             PfcCmd.update_alpha(self.dut, self.pg_profile, self.alpha)
         time.sleep(2)
