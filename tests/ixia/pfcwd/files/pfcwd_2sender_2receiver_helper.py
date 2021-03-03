@@ -12,8 +12,7 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate, Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause,\
-    EthernetPause, Continuous
+    Size, Rate, Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -71,8 +70,8 @@ def run_pfcwd_2sender_2receiver_test(api,
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
 
     """ Rate percent must be an integer """
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list) / 2)
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list) / 2)
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / 2.0 / len(test_prio_list))
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / 2.0 / len(bg_prio_list))
 
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
