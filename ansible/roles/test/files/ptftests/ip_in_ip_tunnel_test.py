@@ -2,7 +2,7 @@
 Description:    This file contains the IPinIP test for dualtor testbed
 
 Usage:          Examples of how to start this script
-                /usr/bin/ptf --test-dir ptftests ip_in_ip_tunnel_test.IpinIPTunnelTest --platform-dir ptftests --qlen=2000 --platform remote -t hash_key_list=['src-port', 'dst-port', 'src-mac', 'dst-mac', 'src-ip'];server_ip='192.168.0.2';active_tor_ip='10.1.0.33';standby_tor_mac='d4:af:f7:4d:af:18';standby_tor_ip='10.1.0.32';active_tor_mac='d4:af:f7:4d:a4:44';ptf_portchannel_indices={u'PortChannel0001': [29], u'PortChannel0003': [33], u'PortChannel0002': [31], u'PortChannel0004': [35]} --relax --debug info --log-file /tmp/ip_in_ip_tunnel_test.2021-02-10-07:14:46.log --socket-recv-size 16384
+                /usr/bin/ptf --test-dir ptftests ip_in_ip_tunnel_test.IpinIPTunnelTest --platform-dir ptftests --qlen=2000 --platform remote -t hash_key_list=['src-port', 'dst-port', 'src-mac', 'dst-mac', 'src-ip'];server_ip='192.168.0.2';active_tor_ip='10.1.0.33';standby_tor_mac='d4:af:f7:4d:af:18';standby_tor_ip='10.1.0.32';ptf_portchannel_indices={u'PortChannel0001': [29], u'PortChannel0003': [33], u'PortChannel0002': [31], u'PortChannel0004': [35]} --relax --debug info --log-file /tmp/ip_in_ip_tunnel_test.2021-02-10-07:14:46.log --socket-recv-size 16384
 
 '''
 #---------------------------------------------------------------------
@@ -44,7 +44,6 @@ class IpinIPTunnelTest(BaseTest):
         self.server_ip = self.test_params['server_ip']
         self.server_port = int(self.test_params['server_port'])
         self.vlan_mac = self.test_params['vlan_mac']
-        self.active_tor_mac = self.test_params['active_tor_mac']
         self.standby_tor_mac = self.test_params['standby_tor_mac']
         self.active_tor_ip = self.test_params['active_tor_ip']
         self.standby_tor_ip = self.test_params['standby_tor_ip']
@@ -101,7 +100,7 @@ class IpinIPTunnelTest(BaseTest):
         """
         inner_pkt = inner_pkt.copy()
         inner_pkt.ttl = inner_pkt.ttl - 1
-        pkt = scapy.Ether(dst=self.active_tor_mac, src=self.standby_tor_mac) / \
+        pkt = scapy.Ether(dst="aa:aa:aa:aa:aa:aa", src=self.standby_tor_mac) / \
             scapy.IP(src=self.standby_tor_ip, dst=self.active_tor_ip) / inner_pkt[IP]
         exp_pkt = Mask(pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
