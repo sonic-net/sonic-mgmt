@@ -250,7 +250,7 @@ def action_pdu(parameters, action):
             data.append(status)
         else:
             data.append([status[x] for x in header])
-            
+    
     return header, data
 
 
