@@ -2,6 +2,7 @@
   - [Scope](#scope)
   - [Testbed](#testbed)
 - [Test setup](#test-setup)
+  - [Test configuration information file](#test-configuration-information-file)
 - [Test cases](#test-cases)
   - [Test case # 1 All expected daemons are running](#test-case-#-1-all-expected-daemons-are-running)
   - [Test case # 2 Data for chassisd daemon](#test-case-#-2-data-for-chassisd-daemon)
@@ -28,6 +29,7 @@ The purpose of the test is not to test specific api but to verify the platform d
    - /usr/share/sonic/platform/pmon_daemon_control.json
    - /etc/supervisor/conf.d/supervisord.conf
 3. check the expected data status for the daemon if it's running as expected
+4. check any db data gets cleared and the daemon stops when any exit signal is received
 
 ## Testbed
 The test will run on the all testbeds.
@@ -35,6 +37,100 @@ The test will run on the all testbeds.
 # Test setup
 No setup pre-configuration is required, test will configure and clean-up all the configuration.
 The sanity-check plugin needs to be run before running this test, which will cover the verification of pmon docker running on SONiC system.
+
+## Test configuration information file 
+To check the proper daemon running status along with the db keys and fields associated to the daemon based on the image version, 
+"pmon_daemons_info.json" will provide the exit signals, DB location, tables, keys, and fields information to check based on the daemon version.
+Each daemon needs to support `{daemon} -v` to show the version of daemon.
+If a daemon doesn't support the version command, then the test assums the version as 1.0 (default for all daemons in PMON).
+``` json
+{   
+   "chassisd": [
+      {
+         "version": "1.0",
+         "exits": [
+            { "signal": "SIGTERM" },
+            { "signal": "SIGINT" }
+         ],
+         "db": [
+            {
+               "CHASSIS_TABLE": [
+                  {
+                     "redis": "4",
+                     "key": "CHASSIS {}",
+                     "fields": [
+                        { "field": "module_num" }
+                     ]
+                  }
+               ]
+            },
+            {
+               "CHASSIS_INFO_TABLE": [
+                  {
+                     "redis": "6",
+                     "key": "CHASSIS {}",
+                     "fields": [
+                        { "field": "name" },
+                        { "field": "desc" },
+                        { "field": "slot" },
+                        { "field": "oper_status" }
+                     ],
+                  }
+               ]
+            }
+         ]
+      },
+      {
+         "version": "2.0",
+         "exits": [
+            { "signal": "SIGTERM" },
+            { "signal": "SIGINT" }
+         ],
+         "db": [
+            {
+               "CHASSIS_TABLE": [
+                  {
+                     "redis": "4",
+                     "key": "CHASSIS {}",
+                     "fields": [
+                        { "field": "module_num" }
+                     ]
+                  }
+               ]
+            },
+            {
+               "CHASSIS_MODULE_TABLE": [
+                  {
+                     "redis": "6",
+                     "key": "CHASSIS {}",
+                     "fields": [
+                        { "field": "name" },
+                        { "field": "desc" },
+                        { "field": "slot" },
+                        { "field": "oper_status" }
+                     ],
+                  }
+               ]
+            },
+            {
+               "CHASSIS_MIDPLANE_TABLE": [
+                  {
+                     "redis": "6",
+                     "key": "CHASSIS_MIDPLANE {}",
+                     "fields": [
+                        { "field": "name" },
+                        { "field": "ip_address" },
+                        { "field": "access" }
+                     ],
+                  }
+               ]
+            }
+         ]
+      },      
+   ],
+    ...
+}
+```
 
 # Test cases
 
@@ -114,15 +210,22 @@ Extend "check_pmon_daemon_status()" if there is any gap to follow the steps belo
       ```
 
 3. Perform the following steps for the list of the expected daemon
-	- Verify the daemon is running and report the daemon running status
+	a. Verify the daemon is running and check if all expected DB data is populated
+   b. Disable the critical process autorestart if it's enabled using [disable_and_enable_autorestart](https://github.com/Azure/sonic-mgmt/blob/73830827460750d88ba0a5de71bb5c79ad33c46e/tests/process_monitoring/test_critical_process_monitoring.py#L37)
+	c. Stop the daemon using `sudo docker exec pmon supervisorctl stop {daemon}`
+   d. Verify the daemon is not running using `sudo docker exec pmon supervisorctl status {daemon}` and check if all DB data is cleared 
+	e. Restart the daemon using `sudo docker exec pmon supervisorctl start {daemon}`
+   f. Verify the daemon is running using `sudo docker exec pmon supervisorctl status {daemon}` and check if all expected DB data is populated
+   h. Repeat from step c to step f for all exit signals which the daemon can exit with
+   i. Enable the critical process autorestart
 
 ## Test case # 2 Data for chassisd daemon
 ### Test objective
-Verify the expected data for chassisd daemon 
+Verify the expected data for chassisd daemon : This test is covered by [PMON-Chassis-Enhancements-test-plan](https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Chassis-Enhancements-test-plan.md)
    - condition to start : "skip_chassisd" != true and [ -e "/usr/share/sonic/platform/chassisdb.conf" ]
 ### Test steps
 1. Verify the chassisd running status
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
 2. Verify that module db data setting
    ```
    CHASSIS_INFO_TABLE = 'CHASSIS_TABLE'
@@ -136,14 +239,26 @@ Verify the expected data for chassisd daemon
    CHASSIS_MODULE_INFO_SLOT_FIELD = 'slot'
    CHASSIS_MODULE_INFO_OPERSTATUS_FIELD = 'oper_status'
    ```
+3. Stop chassisd daemon
+4. Verify the chassisd running status
+   - If it's running, report the error status
+5. Verify that module db data setting is cleared
+6. Restart chassisd daemon
+7. Verify the chassisd running status same as step #1
+8. Verify that module db data setting same as step #2
 
-## Test case # 3 Data for lm-sensors daemon
+## Test case # 3 Data for lm-sensors service
 ### Test objective
 Verify the expected data for lm-sensors daemon
    - condition to start : "skip_sensors" != true and [ -e "/usr/share/sonic/platform/sensors.conf" ]
 ### Test steps
 1. Verify the lm-sensors running status using "check_sensord_status()" in "tests/platform_tests/test_platform_info.py"
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
+2. Stop lm-sensors
+3. Verify the lm-sensors running status
+   - If it's running, report the error status
+4. Restart the lm-sensors service
+5. Verify the lm-sensors running status same as step #1
 
 ## Test case # 4 Data for fancontrol daemon
 ### Test objective
@@ -151,7 +266,12 @@ Verify the expected data for fancontrol daemon
    - condition to start : "skip_fancontrol" != true and [ -e "/usr/share/sonic/platform/fancontrol" ]
 ### Test steps
 1. Verify the fancontrol running status
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
+2. Stop fancontrol
+3. Verify the fancontrol running status
+   - If it's running, report the error status
+4. Restart the fancontrol service
+5. Verify the fancontrol running status same as step #1
 
 ## Test case # 5 Data for ledd daemon
 ### Test objective
@@ -159,7 +279,12 @@ Verify the expected data for ledd daemon
    - condition to start : "skip_ledd" != true
 ### Test steps
 1. Verify the ledd running status
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
+2. Stop ledd
+3. Verify the ledd running status
+   - If it's running, report the error status
+4. Restart the ledd service
+5. Verify the ledd running status same as step #1
 
 ## Test case # 6 Data for pcied daemon
 ### Test objective
@@ -167,12 +292,18 @@ Verify the expected data for pcied daemon
    - condition to start : "skip_pcied" != true
 ### Test steps
 1. Verify the pcied running status
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
 2. Verify the pcie config file "/usr/share/sonic/platform/pcie.yaml" exists
 3. Verify the "PCIE_DEVICES" has "status" field set to "PASSED" in state DB
    - If the "status" is not "PASSED", report the error status
    - Otherwise, report the passed status
-   - Go to the next 
+4. Stop pcied daemon
+5. Verify the pcied running status
+   - If it's running, report the error status
+6. Verify that all db data setting is cleared
+7. Restart pcied daemon
+8. Verify the pcied running status same as step #1
+9. Verify that all db data setting is populated same as step #3
 
 ## Test case # 7 Data for psud daemon
 ### Test objective
@@ -180,13 +311,20 @@ Verify the expected data for psud daemon
    - condition to start : "skip_psud" != true
 ### Test steps
 1. Verify the psud running status
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
 2. Verify the 'PSU_INFO|PSU {}' is/are available in State DB
 3. Verify if the data for each 'PSU {}' is expected to compare "/usr/share/sonic/platform/platform.json"
 4. Verify if the status of each PSU is "OK"
    - If any PSU status is not "OK", report the error status
    - Otherwise, report the success status
    - Go to the next 
+5. Stop psud daemon
+6. Verify the psud running status
+   - If it's running, report the error status
+7. Verify that all db data setting is cleared
+8. Restart psud daemon
+9. Verify the psud running status same as step #1
+10. Verify that all db data setting is populated same as steps #2~4
 
 ## Test case # 8 Data for syseepromd daemon
 ### Test objective
@@ -194,10 +332,17 @@ Verify the expected data for syseepromd daemon
    - condition to start : "skip_syseepromd" != true
 ### Test steps
 1. Verify the syseepromd running status
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
 2. Verify the 'EEPROM_INFO|State' in State DB has the 'Initialized' field set to '1'
 3. Verify the 'EEPROM_INFO|*' has valid pairs of key and value in State DB
    - Verify the data to check with the output of the platform api or cli command
+4. Stop syseepromd daemon
+5. Verify the syseepromd running status
+   - If it's running, report the error status
+6. Verify that all db data setting is cleared
+7. Restart syseepromd daemon
+8. Verify the syseepromd running status same as step #1
+9. Verify that all db data setting is populated same as step #2,3
 
 ## Test case # 9 Data for thermalctld daemon
 ### Test objective
@@ -205,10 +350,17 @@ Verify the expected data for thermalctld daemon
    - condition to start : "skip_thermalctld" != true
 ### Test steps
 1. Verify the thermalctld running status
-   - If it's not running, report the error status and go to the next 
+   - If it's not running, report the error status
 2. Verify the policy file "/usr/share/sonic/platform/thermal_policy.json" exists
 3. Verify the "FAN_INFO|{}", "PHYSICAL_ENTITY_INFO|{}" and "TEMPERATURE_INFO|{}" available in State DB
    - Verify the data to check with the output of the platform api or cli command
+4. Stop thermalctld daemon
+5. Verify the thermalctld running status
+   - If it's running, report the error status
+6. Verify that all db data setting is cleared
+7. Restart thermalctld daemon
+8. Verify the thermalctld running status same as step #1
+9. Verify that all db data setting is populated same as step #3
 
 ## Test case # 10 Data for xcvrd daemon
 ### Test objective
@@ -220,6 +372,13 @@ Verify the expected data for xcvrd daemon : This test can be covered by "test_xc
 2. Verify the 'TRANSCEIVER_INFO', 'TRANSCEIVER_DOM_SENSOR' and 'TRANSCEIVER_STATUS' in State DB
 3. Verify the information data for each 'TRANSCEIVER_INFO' is expected to compare "/usr/share/sonic/platform/platform.json"
    - Verify the data to check with the output of the platform api or cli command
+4. Stop xcvrd daemon
+5. Verify the xcvrd running status
+   - If it's running, report the error status
+6. Verify that all db data setting is cleared
+7. Restart xcvrd daemon
+8. Verify the xcvrd running status same as step #1
+9. Verify that all db data setting is populated same as step #2,3
 
 # Platform daemon test report
 ## Platform daemon test result table
