@@ -598,3 +598,13 @@ def flush_neighbor(duthost, neighbor, restore=True):
         if restore:
             logging.info("restore neighbor entry for %s", neighbor)
             duthost.shell("ip -4 neighbor replace {address} lladdr {hwaddress} dev {iface}".format(**neighbor_info))
+
+
+@pytest.fixture(scope="function")
+def rand_selected_interface(rand_selected_dut):
+    """Select a random interface to test."""
+    tor = rand_selected_dut
+    server_ips = mux_cable_server_ip(tor)
+    iface = str(random.choice(server_ips.keys()))
+    logging.info("select DUT interface %s to test.", iface)
+    return iface, server_ips[iface]

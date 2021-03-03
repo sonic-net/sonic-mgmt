@@ -200,6 +200,7 @@ def duthost(duthosts, request):
 
     return duthost
 
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
@@ -209,12 +210,14 @@ def rand_one_dut_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
 
+
 @pytest.fixture(scope="module")
 def rand_selected_dut(duthosts, rand_one_dut_hostname):
     """
     Return the randomly selected duthost
     """
     return duthosts[rand_one_dut_hostname]
+
 
 @pytest.fixture(scope="module")
 def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
