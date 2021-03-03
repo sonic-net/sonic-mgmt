@@ -40,7 +40,25 @@ def run_pfcwd_2sender_2receiver_test(api,
                                      bg_prio_list,
                                      prio_dscp_map,
                                      trigger_pfcwd):
+    """
+    Run PFC watchdog test in a 3-host topology with 2 senders and 2 receivers
 
+    Args:
+        api (obj): IXIA session
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        fanout_data (dict): the dictionary returned by fanout_graph_fact.
+        duthost (Ansible host instance): device under test
+        dut_port (str): DUT port to test
+        pause_prio_list (list): priorities to pause for PFC pause storm
+        test_prio_list (list): priorities of test flows
+        bg_prio_list (list): priorities of background flows
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
+
+    Returns:
+        N/A
+    """
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
     pytest_assert(len(testbed_config.devices) >= 3,
@@ -118,17 +136,47 @@ def run_pfcwd_2sender_2receiver_test(api,
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
+    """
+    Generate name for a data flow
+
+    Args:
+        name_prefix (str): name prefix
+        src_id (int): ID of the source port
+        dst_id (int): ID of the destination port
+        prio (int): priority of the flow
+
+    Returns:
+        Name of the flow (str)
+    """
     return "{} {} -> {} Prio {}".format(name_prefix, src_id, dst_id, prio)
 
 def __data_flow_src(flow_name):
+    """
+    Get the source ID from the data flow's name
+
+    Args:
+        flow_name (str): name of the data flow
+
+    Returns:
+        ID of the source port (str)
+    """
     words = flow_name.split()
     index = words.index('->')
-    return words[index-1]
+    return int(words[index-1])
 
 def __data_flow_dst(flow_name):
+    """
+    Get the destination ID from the data flow's name
+
+    Args:
+        flow_name (str): name of the data flow
+
+    Returns:
+        ID of the destination port (str)
+    """
     words = flow_name.split()
     index = words.index('->')
-    return words[index+1]
+    return int(words[index+1])
 
 def __gen_traffic(testbed_config,
                   port_id,
@@ -144,7 +192,31 @@ def __gen_traffic(testbed_config,
                   pfc_storm_dur_sec,
                   data_pkt_size,
                   prio_dscp_map):
+    """
+    Generate configurations of flows, including test flows, background flows and
+    pause storm. Test flows and background flows are also known as data flows.
 
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        port_id (int): ID of DUT port to test.
+        pause_flow_name (str): name of pause storm
+        pause_prio_list (list): priorities to pause for PFC frames
+        test_flow_name (str): name prefix of test flows
+        test_prio_list (list): priorities of test flows
+        test_flow_rate_percent (int): rate percentage for each test flow
+        bg_flow_name (str): name prefix of background flows
+        bg_prio_list (list): priorities of background flows
+        bg_flow_rate_percent (int): rate percentage for each background flow
+        data_flow_dur_sec (int): duration of data flows in second
+        pfc_storm_dur_sec (float): duration of the pause storm in second
+        data_pkt_size (int): packet size of data flows in byte
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        flows configurations (list): the list should have configurations of
+        4 * len(test_flow_prio_list) test flows, 4 * len(bg_flow_prio_list)
+        background flows and a pause storm.
+    """
     result = list()
 
     """ Generate a PFC pause storm """
@@ -157,7 +229,10 @@ def __gen_traffic(testbed_config,
 
     result.append(pause_flow)
 
-    """ Generate one-to-two and two-to-one data flows """
+    """
+    Generate bi-birectional data flows between [port_id-1] and
+    [port_id, port_id+1]
+    """
     one_port_id_list = [(port_id - 1) % len(testbed_config.devices)]
     two_port_id_list = [port_id, (port_id + 1) % len(testbed_config.devices)]
 
@@ -199,7 +274,25 @@ def __gen_data_flows(testbed_config,
                      flow_dur_sec,
                      data_pkt_size,
                      prio_dscp_map):
+    """
+    Generate the configuration for data flows
 
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        src_port_id_list (list): IDs of source ports
+        dst_port_id_list (list): IDs of destination ports
+        flow_name_prefix (str): prefix of flows' names
+        flow_prio_list (list): priorities of data flows
+        flow_rate_percent (int): rate percentage for each flow
+        flow_dur_sec (int): duration of each flow in second
+        data_pkt_size (int): packet size of data flows in byte
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        flows configurations (list): the list should have configurations of
+        len(src_port_id_list) * len(dst_port_id_list) * len(flow_prio_list)
+        data flows
+    """
     flows = []
 
     for src_port_id in src_port_id_list:
@@ -227,7 +320,23 @@ def __gen_data_flow(testbed_config,
                     flow_dur_sec,
                     data_pkt_size,
                     prio_dscp_map):
+    """
+    Generate the configuration for a data flow
 
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        src_port_id (int): ID of the source port
+        dst_port_id (int): ID of destination port
+        flow_name_prefix (str): prefix of flow' name
+        flow_prio_list (list): priorities of the flow
+        flow_rate_percent (int): rate percentage for the flow
+        flow_dur_sec (int): duration of the flow in second
+        data_pkt_size (int): packet size of the flow in byte
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+
+    Returns:
+        flow configuration (obj): including name, packet format, rate, ...
+    """
     data_endpoint = DeviceTxRx(
         tx_device_names=[testbed_config.devices[src_port_id].name],
         rx_device_names=[testbed_config.devices[dst_port_id].name],
@@ -262,7 +371,19 @@ def __gen_pause_flow(testbed_config,
                      flow_name,
                      pause_prio_list,
                      flow_dur_sec):
+    """
+    Generate the configuration for a PFC pause storm
 
+    Args:
+        testbed_config (obj): L2/L3 config of a T0 testbed
+        src_port_id (int): ID of the source port
+        flow_name (str): flow' name
+        pause_prio_list (list): priorities to pause for PFC frames
+        flow_dur_sec (float): duration of the flow in second
+
+    Returns:
+        flow configuration (obj): including name, packet format, rate, ...
+    """
     pause_time = []
     for x in range(8):
         if x in pause_prio_list:
@@ -291,6 +412,10 @@ def __gen_pause_flow(testbed_config,
     pause_src_point = PortTxRx(tx_port_name=testbed_config.ports[src_port_id].name,
                                rx_port_name=testbed_config.ports[dst_port_id].name)
 
+    """
+    The minimal fixed time duration in IXIA is 1 second.
+    To support smaller durations, we need to use # of packets
+    """
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
     pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
@@ -309,6 +434,18 @@ def __gen_pause_flow(testbed_config,
     return pause_flow
 
 def __run_traffic(api, config, all_flow_names, exp_dur_sec):
+    """
+    Run traffic and dump per-flow statistics
+
+    Args:
+        api (obj): IXIA session
+        config (obj): experiment config (testbed config + flow config)
+        all_flow_names (list): list of names of all the flows
+        exp_dur_sec (int): experiment duration in second
+
+    Returns:
+        per-flow statistics (list)
+    """
     api.set_state(State(ConfigState(config=config, state='set')))
     api.set_state(State(FlowTransmitState(state='start')))
     time.sleep(exp_dur_sec)
@@ -350,7 +487,26 @@ def __verify_results(rows,
                      trigger_pfcwd,
                      pause_port_id,
                      tolerance):
+    """
+    Verify if we get expected experiment results
 
+    Args:
+        rows (list): per-flow statistics
+        speed_gbps (int): link speed in Gbps
+        pause_flow_name (str): name of pause storm
+        test_flow_name (str): name of test flows
+        bg_flow_name (str): name of background flows
+        test_flow_rate_percent (int): rate percentage for each test flow
+        bg_flow_rate_percent (int): rate percentage for each background flow
+        data_pkt_size (int): packet size of data flows in byte
+        test_flow_pause (bool): if test flows are expected to be paused
+        trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
+        pause_port_id (int): ID of the port to send PFC pause frames
+        tolerance (float): maximum allowable deviation
+
+    Returns:
+        N/A
+    """
     for row in rows:
         flow_name = row['name']
         tx_frames = row['frames_tx']
@@ -375,8 +531,8 @@ def __verify_results(rows,
 
         elif test_flow_name in flow_name:
             """ Test flows """
-            src_port_id = int(__data_flow_src(flow_name))
-            dst_port_id = int(__data_flow_dst(flow_name))
+            src_port_id = __data_flow_src(flow_name)
+            dst_port_id = __data_flow_dst(flow_name)
 
             exp_test_flow_rx_pkts =  test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
