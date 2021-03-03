@@ -14,6 +14,7 @@ from ptf import testutils
 from scapy.all import Ether, IP
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
 
