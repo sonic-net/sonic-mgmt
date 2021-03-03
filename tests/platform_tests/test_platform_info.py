@@ -392,7 +392,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     @summary: Turn off PSUs, check all FAN speed are set to 100% according to thermal
               control policy file.
     """
-    logging.info("Turn off outlet %s" % str(outlet["psu_id"]))
+    logging.info("Turn off outlet %s" % str(outlet["outlet_id"]))
     pdu_ctrl.turn_off_outlet(outlet)
     time.sleep(5)
 
