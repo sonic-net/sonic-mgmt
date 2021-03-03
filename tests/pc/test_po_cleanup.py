@@ -57,7 +57,7 @@ def test_po_cleanup(duthosts, rand_one_dut_hostname, enum_asic_index):
     """
     duthost = duthosts[rand_one_dut_hostname]
     logging.info("Disable Teamd Feature")
-    duthost.shell("sudo systemctl stop teamd{}".format('@' + str(enum_asic_index) if enum_asic_index is not None else ''))
+    duthost.shell("sudo systemctl stop swss{}".format('@' + str(enum_asic_index) if enum_asic_index is not None else ''))
     # Check if Linux Kernel Portchannel Interface teamdev are clean up
     if not wait_until(10, 1, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
         fail_msg = "PortChannel interface still exists in kernel"
