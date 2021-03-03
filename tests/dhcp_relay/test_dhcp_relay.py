@@ -121,6 +121,7 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
 
 
 def restart_dhcp_service(duthost):
+    duthost.shell('systemctl reset-failed dhcp_relay')
     duthost.shell('systemctl restart dhcp_relay')
     duthost.shell('systemctl reset-failed dhcp_relay')
 
