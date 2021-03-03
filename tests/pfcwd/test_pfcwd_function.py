@@ -218,31 +218,31 @@ class SetupPfcwdFunc(object):
             self.storm_setup(init=init)
 
     def setup_port_params(self, port, init=False):
-         """
-         Gather all the parameters needed for storm generation and ptf test based off the DUT port
+        """
+        Gather all the parameters needed for storm generation and ptf test based off the DUT port
 
-         Args:
-             port(string) : DUT port
-         """
-         self.pfc_wd = dict()
-         self.pfc_wd['fake_storm'] = False if init else self.fake_storm
-         self.pfc_wd['test_pkt_count'] = 100
-         self.pfc_wd['queue_index'] = 4
-         self.pfc_wd['frames_number'] = 100000000
-         self.pfc_wd['test_port_ids'] = list()
-         self.peer_device = self.ports[port]['peer_device']
-         self.pfc_wd['test_port'] = port
-         self.pfc_wd['rx_port'] = self.ports[port]['rx_port']
-         self.pfc_wd['test_neighbor_addr'] = self.ports[port]['test_neighbor_addr']
-         self.pfc_wd['rx_neighbor_addr'] = self.ports[port]['rx_neighbor_addr']
-         self.pfc_wd['test_port_id'] = self.ports[port]['test_port_id']
-         self.pfc_wd['rx_port_id'] = self.ports[port]['rx_port_id']
-         self.pfc_wd['port_type'] = self.ports[port]['test_port_type']
-         if self.pfc_wd['port_type'] == "portchannel":
-             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
-         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
-             self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
-         self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+        Args:
+            port(string) : DUT port
+        """
+        self.pfc_wd = dict()
+        self.pfc_wd['fake_storm'] = False if init else self.fake_storm
+        self.pfc_wd['test_pkt_count'] = 100
+        self.pfc_wd['queue_index'] = 4
+        self.pfc_wd['frames_number'] = 100000000
+        self.pfc_wd['test_port_ids'] = list()
+        self.peer_device = self.ports[port]['peer_device']
+        self.pfc_wd['test_port'] = port
+        self.pfc_wd['rx_port'] = self.ports[port]['rx_port']
+        self.pfc_wd['test_neighbor_addr'] = self.ports[port]['test_neighbor_addr']
+        self.pfc_wd['rx_neighbor_addr'] = self.ports[port]['rx_neighbor_addr']
+        self.pfc_wd['test_port_id'] = self.ports[port]['test_port_id']
+        self.pfc_wd['rx_port_id'] = self.ports[port]['rx_port_id']
+        self.pfc_wd['port_type'] = self.ports[port]['test_port_type']
+        if self.pfc_wd['port_type'] == "portchannel":
+            self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
+        elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
+            self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
+        self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
 
     def update_queue(self, port):
         """
@@ -251,12 +251,12 @@ class SetupPfcwdFunc(object):
         Args:
             port(string) : DUT port
         """
-         if self.pfc_wd['queue_index'] == 4:
-            self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] - 1
-         else:
-            self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] + 1
-         logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
-         self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+        if self.pfc_wd['queue_index'] == 4:
+           self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] - 1
+        else:
+           self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] + 1
+        logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
+        self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
 
     def setup_mmu_params(self, port):
         """
@@ -265,7 +265,7 @@ class SetupPfcwdFunc(object):
         Args:
             port(string) : DUT port
         """
-         self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port)
+        self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port)
 
     def update_mmu_params(self, mmu_action):
         """
@@ -653,6 +653,15 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
         """
         Tests if mmu changes impact Pfcwd functionality
+
+        Test cycles through the following mmu actions (change, noop, restore, noop)
+           1. Select the lossless queue on 1st iteration. Switch the lossless queue (between 3 and 4) in the remaining iterations
+           2. Start pfcwd on the selected test port
+           3. Start pfc storm on selected test port/lossless queue and verify if the storm detected msg is seen in the logs
+           4. Send traffic with test port/lossless queue as ingress/egress port and ensure that packets are dropped
+              Send traffic with test port/other lossless queue as ingress/egress port and ensure that packets are forwarded
+           5. Update the dynamic threshold associated with the pg profile attached to the test port if the mmu action is 'change' or 'restore'
+           6. Stop pfc storm on selected test port/lossless queue and verify if the storm restored msg is seen in the logs
 
         Args:
             request(object) : pytest request object
