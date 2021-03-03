@@ -23,27 +23,12 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="module")
-def tor(duthosts, rand_one_dut_hostname):
-    """Select a tor as test target."""
-    return duthosts[rand_one_dut_hostname]
-
-
 @pytest.fixture(scope="function")
-def select_test_interface(tor):
-    """Select a random interface to test."""
-    config_facts = tor.get_running_config_facts()
-    muxcable_table = config_facts["MUX_CABLE"]
-    iface = str(random.choice(muxcable_table.keys()))
-    server_ipv4 = muxcable_table[iface]["server_ipv4"]
-    logging.info("select DUT interface %s to test.", iface)
-    return iface, server_ipv4.split("/")[0]
-
-
-@pytest.fixture(scope="function")
-def build_encapsulated_packet(select_test_interface, ptfadapter, tor, tunnel_traffic_monitor):
+def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected_dut, tunnel_traffic_monitor):
     """Build the encapsulated packet sent from T1 to ToR."""
-    _, server_ipv4 = select_test_interface
+    tor = rand_selected_dut
+    _, server_ips = rand_selected_interface
+    server_ipv4 = server_ips["server_ipv4"]
     config_facts = tor.get_running_config_facts()
     try:
         peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
@@ -99,11 +84,12 @@ def test_decap_active_tor(
     apply_mock_dual_tor_tables,
     apply_mock_dual_tor_kernel_configs,
     apply_active_state_to_orchagent,
-    build_encapsulated_packet, select_test_interface, ptfadapter,
-    tbinfo, tor, tunnel_traffic_monitor
+    build_encapsulated_packet, rand_selected_interface, ptfadapter,
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
+    tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_packet
-    iface, _ = select_test_interface
+    iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
@@ -127,11 +113,12 @@ def test_decap_standby_tor(
     apply_mock_dual_tor_tables,
     apply_mock_dual_tor_kernel_configs,
     apply_standby_state_to_orchagent,
-    build_encapsulated_packet, select_test_interface, ptfadapter,
-    tbinfo, tor, tunnel_traffic_monitor
+    build_encapsulated_packet, rand_selected_interface, ptfadapter,
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
+    tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_packet
-    iface, _ = select_test_interface
+    iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
