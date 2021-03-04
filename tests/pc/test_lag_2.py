@@ -5,7 +5,6 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
-from tests.common.devices import AnsibleHostBase
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
