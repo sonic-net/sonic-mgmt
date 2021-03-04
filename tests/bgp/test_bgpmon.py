@@ -8,7 +8,7 @@ from ptf.mask import Mask
 import json
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
-from tests.common.helpers.generators import generate_ips as generate_ips
+from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
@@ -21,23 +21,6 @@ BGP_CONNECT_TIMEOUT = 121
 ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
 
-def route_through_default_routes(host, ip_addr):
-    output = host.shell("show ip route {} json".format(ip_addr))['stdout']
-    routes_info = json.loads(output)
-    ret = True
-    for prefix in routes_info.keys():
-        if prefix != ZERO_ADDR:
-            ret = False
-            break
-    return ret
-
-def generate_ip_through_default_route(host):
-    # Generate an IP address routed through default routes
-    for leading in range(11, 255):
-        ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), [])[0]
-        if route_through_default_routes(host, ip_addr):
-            return ip_addr
-    return None
 
 def get_default_route_ports(host):
     mg_facts = host.minigraph_facts(host=host.hostname)['ansible_facts']

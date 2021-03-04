@@ -1,4 +1,7 @@
 from netaddr import IPNetwork
+import json
+
+ZERO_ADDR = r'0.0.0.0/0'
 
 def generate_ips(num, prefix, exclude_ips):
     """ Generate random ips within prefix """
@@ -18,3 +21,34 @@ def generate_ips(num, prefix, exclude_ips):
             break
 
     return generated_ips
+
+
+def route_through_default_routes(host, ip_addr):
+    """
+    @summary: Check if a given ip targets to default route
+    @param host: The duthost
+    @param ip_addr: The ip address to check
+    @return: True if the given up goes to default route, False otherwise
+    """
+    output = host.shell("show ip route {} json".format(ip_addr))['stdout']
+    routes_info = json.loads(output)
+    ret = True
+    
+    for prefix in routes_info.keys():
+        if prefix != ZERO_ADDR:
+            ret = False
+            break
+    return ret
+
+
+def generate_ip_through_default_route(host):
+    """
+    @summary: Generate a random IP address routed through default routes
+    @param host: The duthost
+    @return: A str, on None if non ip is found in given range
+    """
+    for leading in range(11, 255):
+        ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), [])[0]
+        if route_through_default_routes(host, ip_addr):
+            return ip_addr
+    return None
