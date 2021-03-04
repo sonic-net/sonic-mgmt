@@ -127,6 +127,12 @@
     delegate_to: localhost
     when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
+  - name: find downlink portchannel configuration for T0 topology
+    set_fact:
+      portchannel_config: "{{ vm_topo_config['DUT']['portchannel_config'] | default({})}}"
+    delegate_to: localhost
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
   - name: find any tunnel configurations
     tunnel_config:
       vm_topo_config: "{{ vm_topo_config }}"

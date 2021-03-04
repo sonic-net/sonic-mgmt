@@ -12,11 +12,16 @@ import jinja2
 
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8sMasterCluster
+from tests.common.devices.local import Localhost
+from tests.common.devices.ptf import PTFHost
+from tests.common.devices.eos import EosHost
+from tests.common.devices.fanout import FanoutHost
+from tests.common.devices.k8s import K8sMasterHost
+from tests.common.devices.k8s import K8sMasterCluster
+from tests.common.devices.duthosts import DutHosts
+
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
-from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
@@ -24,7 +29,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
-from tests.common.connections import ConsoleHost
+from tests.common.connections.console_host import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +46,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
+                  'tests.common.dualtor',
                   'tests.vxlan')
 
 
@@ -199,6 +205,7 @@ def duthost(duthosts, request):
 
     return duthost
 
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
@@ -207,6 +214,27 @@ def rand_one_dut_hostname(request):
     if len(dut_hostnames) > 1:
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
+
+
+@pytest.fixture(scope="module")
+def rand_selected_dut(duthosts, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost
+    """
+    return duthosts[rand_one_dut_hostname]
+
+
+@pytest.fixture(scope="module")
+def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
+    """
+    Return the left duthost after random selection.
+    Return None for non dualtor testbed
+    """
+    dut_hostnames = generate_params_dut_hostname(request)
+    if len(dut_hostnames) <= 1:
+        return None
+    idx = dut_hostnames.index(rand_one_dut_hostname)
+    return duthosts[dut_hostnames[1 - idx]]
 
 
 @pytest.fixture(scope="module")

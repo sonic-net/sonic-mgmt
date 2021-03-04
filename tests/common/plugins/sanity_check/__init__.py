@@ -18,8 +18,31 @@ from tests.common.plugins.sanity_check.checks import check_monit
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_CHECKS = [member[0].replace('check_', '') for member in getmembers(checks, isfunction)
-                    if member[0].startswith('check_')]
+def is_check_item(member):
+    '''
+    Function to filter for valid check items
+
+    Used in conjuction with inspect.getmembers to make sure that only valid check functions/fixtures executed 
+
+    Valid check items must meet the following criteria:
+    - Is a function
+    - Is defined directly in sanity_checks/checks.py, NOT imported from another file
+    - Begins with the string 'check_'
+
+    Args:
+        member (object): The object to checked
+    Returns:
+        (bool) True if 'member' is a valid check function, False otherwise
+    '''
+    if isfunction(member):
+        in_check_file = member.__module__ == 'tests.common.plugins.sanity_check.checks'
+        starts_with_check = member.__name__.startswith('check_')
+        return in_check_file and starts_with_check
+    else:
+        return False
+
+
+SUPPORTED_CHECKS = [member[0].replace('check_', '') for member in getmembers(checks, is_check_item)]
 
 
 def _item2fixture(item):
@@ -126,6 +149,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
     # ignore BGP check for particular topology type
     if tbinfo['topo']['type'] == 'ptf' and 'bgp' in check_items:
         check_items.remove('bgp')
+
+    if 'dualtor' not in tbinfo['topo']['name']:
+        check_items.remove('mux_simulator')
 
     logger.info("Sanity check settings: skip_sanity=%s, check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \
         (skip_sanity, check_items, allow_recover, recover_method, post_check))

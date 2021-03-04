@@ -92,23 +92,23 @@ def _apply_dual_tor_state_to_orchagent(dut, state):
 
 
 @pytest.fixture(scope='module')
-def apply_active_state_to_orchagent(duthosts, rand_one_dut_hostname):
-    dut = duthosts[rand_one_dut_hostname] 
+def apply_active_state_to_orchagent(rand_selected_dut):
+    dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'active'):
         yield func
 
 
 @pytest.fixture(scope='module')
-def apply_standby_state_to_orchagent(duthosts, rand_one_dut_hostname):
-    dut = duthosts[rand_one_dut_hostname]
+def apply_standby_state_to_orchagent(rand_selected_dut):
+    dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'standby'):
         yield func
 
 
 @pytest.fixture(scope='module')
-def mock_peer_switch_loopback_ip(duthosts, rand_one_dut_hostname):
+def mock_peer_switch_loopback_ip(rand_selected_dut):
     '''
     Returns the mocked peer switch loopback IP
 
@@ -118,7 +118,7 @@ def mock_peer_switch_loopback_ip(duthosts, rand_one_dut_hostname):
         IPv4Interface object
     '''
 
-    dut = duthosts[rand_one_dut_hostname]
+    dut = rand_selected_dut
     lo_facts = dut.get_running_config_facts()['LOOPBACK_INTERFACE']
     loopback_intf = list(lo_facts.keys())[0]
 
@@ -135,7 +135,7 @@ def mock_peer_switch_loopback_ip(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def mock_server_base_ip_addr(duthosts, rand_one_dut_hostname):
+def mock_server_base_ip_addr(rand_selected_dut):
     '''
     Calculates the IP address of the first server
 
@@ -144,7 +144,7 @@ def mock_server_base_ip_addr(duthosts, rand_one_dut_hostname):
     Returns:
         IPv4Interface and IPv6 interface objects reperesenting the first server addresses
     '''
-    dut = duthosts[rand_one_dut_hostname]
+    dut = rand_selected_dut
     vlan_interface = dut.get_running_config_facts()['VLAN_INTERFACE']
 
     vlan = list(vlan_interface.keys())[0]
@@ -165,13 +165,13 @@ def mock_server_base_ip_addr(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_neigh_entries(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, mock_server_base_ip_addr):
+def apply_dual_tor_neigh_entries(rand_selected_dut, ptfadapter, tbinfo, mock_server_base_ip_addr):
     '''
     Apply neighber table entries for servers
     '''
     logger.info("Applying dual ToR neighbor entries")
 
-    dut = duthosts[rand_one_dut_hostname]
+    dut = rand_selected_dut
 
     server_ipv4_base_addr, _ = mock_server_base_ip_addr
 
@@ -203,12 +203,12 @@ def apply_dual_tor_neigh_entries(duthosts, rand_one_dut_hostname, ptfadapter, tb
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_peer_switch_route(duthosts, rand_one_dut_hostname, mock_peer_switch_loopback_ip):
+def apply_dual_tor_peer_switch_route(rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Apply the tunnel route to reach the peer switch via the T1 switches
     '''
     logger.info("Applying dual ToR peer switch loopback route")
-    dut = duthosts[rand_one_dut_hostname]
+    dut = rand_selected_dut
     bgp_neighbors = dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
     
     ipv4_neighbors = []
@@ -235,29 +235,36 @@ def apply_dual_tor_peer_switch_route(duthosts, rand_one_dut_hostname, mock_peer_
 
 
 @pytest.fixture(scope='module')
-def apply_peer_switch_table_to_dut(duthosts, rand_one_dut_hostname, mock_peer_switch_loopback_ip):
+def apply_peer_switch_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
-    Adds the PEER_SWITCH table to config DB
+    Adds the PEER_SWITCH table to config DB and the peer_switch field to the device metadata
+    Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
     '''
     logger.info("Applying PEER_SWITCH table")
-    dut = duthosts[rand_one_dut_hostname]
-    peer_switch_key = 'PEER_SWITCH|switch_hostname'
+    dut = rand_selected_dut
+    peer_switch_hostname = 'switch_hostname'
+    peer_switch_key = 'PEER_SWITCH|{}'.format(peer_switch_hostname)
+    device_meta_key = 'DEVICE_METADATA|localhost'
 
-    dut.shell('redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip))
+    dut.shell('redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip))
+    dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'dualToR'))
+    dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname))
 
     yield 
     logger.info("Removing peer switch table")
 
     dut.shell('redis-cli -n 4 DEL "{}"'.format(peer_switch_key))
+    dut.shell('redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'dualToR'))
+    dut.shell('redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname))
 
 
 @pytest.fixture(scope='module')
-def apply_tunnel_table_to_dut(duthosts, rand_one_dut_hostname, mock_peer_switch_loopback_ip):
+def apply_tunnel_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Adds the TUNNEL table to config DB
     '''
     logger.info("Applying TUNNEL table")
-    dut = duthosts[rand_one_dut_hostname]
+    dut = rand_selected_dut
 
     dut_loopback = (mock_peer_switch_loopback_ip - 1).ip
 
@@ -281,12 +288,12 @@ def apply_tunnel_table_to_dut(duthosts, rand_one_dut_hostname, mock_peer_switch_
 
 
 @pytest.fixture(scope='module')
-def apply_mux_cable_table_to_dut(duthosts, rand_one_dut_hostname, mock_server_base_ip_addr):
+def apply_mux_cable_table_to_dut(rand_selected_dut, mock_server_base_ip_addr):
     '''
     Adds the MUX_CABLE table to config DB
     '''
     logger.info("Applying MUX_CABLE table")
-    dut = duthosts[rand_one_dut_hostname]
+    dut = rand_selected_dut
 
     server_ipv4_base_addr, server_ipv6_base_addr = mock_server_base_ip_addr
 
