@@ -46,7 +46,7 @@ def disable_teamd(duthosts, rand_one_dut_hostname, tbinfo):
     if len(mg_facts['minigraph_portchannels'].keys()) == 0:
         pytest.skip("Skip test due to there is no portchannel exists in current topology.")
     yield 
-    # Do config reload to restor everything back
+    # Do config reload to restore everything back
     logging.info("Reloading config..")
     config_reload(duthost)
 
@@ -56,8 +56,8 @@ def test_po_cleanup(duthosts, rand_one_dut_hostname, enum_asic_index):
     handle  SIGTERM gracefully
     """
     duthost = duthosts[rand_one_dut_hostname]
-    logging.info("Disable Teamd Feature")
-    duthost.shell("sudo systemctl stop swss{}".format('@' + str(enum_asic_index) if enum_asic_index is not None else ''))
+    logging.info("Disable swss/teamd Feature")
+    duthost.asic_instance(enum_asic_index).stop_service("swss")
     # Check if Linux Kernel Portchannel Interface teamdev are clean up
     if not wait_until(10, 1, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
         fail_msg = "PortChannel interface still exists in kernel"
