@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import pytest
 import json
@@ -9,6 +10,8 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
+
+__all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host']
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +79,7 @@ def lower_tor_host(duthosts):
 
     Uses the convention that the second ToR listed in the testbed file is the lower ToR
     '''
-    dut = duthosts[1]
+    dut = duthosts[-1]
     logger.info("Using {} as lower ToR".format(dut.hostname))
     return dut
 
@@ -519,18 +522,20 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, targer_server_ip, ptf_portchannel_indices):
+def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, targer_server_ip, target_server_port, ptf_portchannel_indices):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
     active ToR. The running script will capture all traffic and verify if these packets are distributed evenly.
     Args:
-        ptfhost: The ptf host connectet to current testbed
+        ptfhost: The ptf host connected to current testbed
         active_tor_mac: MAC address of active ToR
         standby_tor_mac: MAC address of the standby ToR
+        vlan_mac: MAC address of Vlan (For verifying packet)
         active_tor_ip: IP Address of Loopback0 of active ToR (For verifying packet)
         standby_tor_ip: IP Address of Loopback0 of standby ToR (For verifying packet)
         target_server_ip: The IP address of server for testing. The mux cable connected to this server must be standby
+        target_server_port: PTF port indice on which server is connected
         ptf_portchannel_indices: A dict, the mapping from portchannel to ptf port indices
     Returns:
         None.
@@ -538,8 +543,10 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": targer_server_ip,
+        "server_port": target_server_port,
         "active_tor_mac": active_tor_mac,
         "standby_tor_mac": standby_tor_mac,
+        "vlan_mac": vlan_mac,
         "active_tor_ip": active_tor_ip,
         "standby_tor_ip": standby_tor_ip,
         "ptf_portchannel_indices": ptf_portchannel_indices,
@@ -557,3 +564,47 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, active_tor_ip
                log_file=log_file,
                qlen=2000,
                socket_recv_size=16384)
+
+
+def get_crm_nexthop_counter(host):
+    """
+    Get used crm nexthop counter
+    """
+    crm_facts = host.get_crm_facts()
+    return crm_facts['resources']['ipv4_nexthop']['used']
+
+
+def show_arp(duthost, neighbor_addr):
+    """Show arp table entry for neighbor."""
+    command = "/usr/sbin/arp -n %s" % neighbor_addr
+    output = duthost.shell(command)["stdout_lines"]
+    if "no entry" in output[0]:
+        return {}
+    headers = ("address", "hwtype", "hwaddress", "flags", "iface")
+    return dict(zip(headers, output[1].split()))
+
+
+@contextlib.contextmanager
+def flush_neighbor(duthost, neighbor, restore=True):
+    """Flush neighbor entry for server in duthost."""
+    neighbor_info = show_arp(duthost, neighbor)
+    logging.info("neighbor entry for %s: %s", neighbor, neighbor_info)
+    assert neighbor_info, "No neighbor info for neighbor %s" % neighbor
+    logging.info("remove neighbor entry for %s", neighbor)
+    duthost.shell("ip -4 neighbor del %s dev %s" % (neighbor, neighbor_info["iface"]))
+    try:
+        yield
+    finally:
+        if restore:
+            logging.info("restore neighbor entry for %s", neighbor)
+            duthost.shell("ip -4 neighbor replace {address} lladdr {hwaddress} dev {iface}".format(**neighbor_info))
+
+
+@pytest.fixture(scope="function")
+def rand_selected_interface(rand_selected_dut):
+    """Select a random interface to test."""
+    tor = rand_selected_dut
+    server_ips = mux_cable_server_ip(tor)
+    iface = str(random.choice(server_ips.keys()))
+    logging.info("select DUT interface %s to test.", iface)
+    return iface, server_ips[iface]
