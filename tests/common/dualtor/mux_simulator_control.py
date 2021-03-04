@@ -2,8 +2,10 @@ import logging
 import pytest
 import json
 import urllib2
-from tests.common.helpers.assertions import pytest_assert
+
 from tests.common import utilities
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT
 
 __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
@@ -11,17 +13,8 @@ __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_di
 
 logger = logging.getLogger(__name__)
 
-UPPER_TOR = "upper_tor"
-LOWER_TOR = "lower_tor"
-TOGGLE = "toggle"
-RANDOM = "random"
-
 TOGGLE_SIDES = [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]
 
-NIC = "nic"
-
-DROP = "drop"
-OUTPUT = "output"
 
 @pytest.fixture(scope='session')
 def mux_server_url(request, tbinfo):
