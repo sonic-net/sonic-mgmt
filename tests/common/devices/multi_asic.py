@@ -43,6 +43,9 @@ class MultiAsicSonicHost(object):
 
         self.critical_services_tracking_list()
 
+    def __repr__(self):
+            return self.hostname
+
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
            The services on the sonic devices are:
