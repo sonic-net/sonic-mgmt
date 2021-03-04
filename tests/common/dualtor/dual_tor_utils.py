@@ -11,13 +11,11 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 
 __all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host']
 
 logger = logging.getLogger(__name__)
-
-UPPER_TOR = 'upper_tor'
-LOWER_TOR = 'lower_tor'
 
 
 @pytest.fixture(scope='session')
