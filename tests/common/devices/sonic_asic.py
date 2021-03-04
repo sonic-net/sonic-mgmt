@@ -146,7 +146,7 @@ class SonicAsic(object):
         if self.namespace != DEFAULT_NAMESPACE:
             redis_cli = "/usr/bin/redis-cli"
             cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli,redis_cmd)
-            return self.sonichost.command(cmd)
+            return self.sonichost.command(cmd, verbose=False)
         # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
         return self.sonichost.run_redis_cli_cmd(redis_cmd)
 
