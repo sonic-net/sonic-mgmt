@@ -166,9 +166,6 @@ def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
     if tbinfo["topo"]["type"] == "t0" and request.param == "ipv6":
         pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
-    if "201911" in duthosts[rand_one_dut_hostname].os_version and request.param == "ipv6":
-        pytest.skip("acl-loader does not handle IPV6 default drop rule correctly in 201911")
-
     return request.param
 
 
