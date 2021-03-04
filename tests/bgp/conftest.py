@@ -197,27 +197,44 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
     def _setup_interfaces_t1(mg_facts, peer_count):
         try:
             connections = []
-            ipv4_interfaces = [_ for _ in mg_facts["minigraph_interfaces"] if _is_ipv4_address(_['addr'])]
-            used_subnets = [ipaddress.ip_network(_["subnet"]) for _ in ipv4_interfaces]
-            subnet_prefixlen = used_subnets[0].prefixlen
-            used_subnets = set(used_subnets)
-            for pt in mg_facts["minigraph_portchannel_interfaces"]:
-                if _is_ipv4_address(pt["addr"]):
-                    used_subnets.add(ipaddress.ip_network(pt["subnet"]))
+            ipv4_interfaces = []
+            used_subnets = set()
+            if mg_facts["minigraph_interfaces"]:
+                for intf in mg_facts["minigraph_interfaces"]:
+                    if _is_ipv4_address(intf["addr"]):
+                        ipv4_interfaces.append(intf["attachto"])
+                        used_subnets.add(ipaddress.ip_network(intf["subnet"]))
+
+            ipv4_lag_interfaces = []
+            if mg_facts["minigraph_portchannel_interfaces"]:
+                for pt in mg_facts["minigraph_portchannel_interfaces"]:
+                    if _is_ipv4_address(pt["addr"]):
+                        pt_members = mg_facts["minigraph_portchannels"][pt["attachto"]]["members"]
+                        # Only use LAG with 1 member for bgpmon session between PTF,
+                        # It's because exabgp on PTF is bind to single interface
+                        if len(pt_members) == 1:
+                            ipv4_lag_interfaces.append(pt["attachto"])
+                        used_subnets.add(ipaddress.ip_network(pt["subnet"]))
+
+            subnet_prefixlen = list(used_subnets)[0].prefixlen
             _subnets = ipaddress.ip_network(u"10.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
             subnets = (_ for _ in _subnets if _ not in used_subnets)
 
-            for intf, subnet in zip(random.sample(ipv4_interfaces, peer_count), subnets):
+            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces, peer_count), subnets):
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
-                conn["local_intf"] = "%s" % intf["attachto"]
+                conn["local_intf"] = "%s" % intf
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
-                conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf["attachto"]]
+                if intf.startswith("PortChannel"):
+                    member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
+                else:
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf]
                 connections.append(conn)
 
             for conn in connections:
-                # bind the ip to the interface and notify bgpcfgd 
+                # bind the ip to the interface and notify bgpcfgd
                 duthost.shell("config interface ip add %s %s" % (conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
 
