@@ -43,7 +43,7 @@ def _dump_db(duthost, db, key_pattern):
     return json.loads(lines[0])
 
 
-def expect_db_values(duthost, db, intf_names='all', state, health=None):
+def expect_db_values(duthost, db, state, health=None, intf_names='all'):
     """
     Query db on `tor_host` and check if the mux-related fields match the expected values.
 
@@ -52,9 +52,9 @@ def expect_db_values(duthost, db, intf_names='all', state, health=None):
     Args:
         duthost: DUT host object (needs to be passed by calling function from duthosts fixture)
         db: Database number to check. Should be either 0 for APP_DB or 6 for STATE_DB
-        intf_names: A list of the PORTNAME to check in each table, or 'all' (by default) to check all MUX_CABLE interfaces
         state: The expected value for each of the `state` fields in both tables
         health: The expected value for the `state` field in the MUX_LINKMGR_TABLE table (only needed for STATE_DB)
+        intf_names: A list of the PORTNAME to check in each table, or 'all' (by default) to check all MUX_CABLE interfaces
 
     Raises:
         AssertionError if th mux cable fields don't match the given states.
