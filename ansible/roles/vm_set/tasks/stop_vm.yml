@@ -1,3 +1,14 @@
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}_hdd.vmdk"
+  when: (vm_type | lower) == "veos"
+
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
+  when: (vm_type | lower) == "sonic"
+
+- set_fact:
+    disk_image: "{{ disk_image_dir }}/{{ disk_image_name }}"
+
 - name: Destroy VM {{ vm_name }}
   virt: name={{ vm_name }}
         state=destroyed
@@ -12,6 +23,6 @@
   when: vm_name in vm_list_defined.list_vms
   become: yes
 
-- name: Remove arista disk image for {{ vm_name }}
+- name: Remove {{ vm_type }} disk image for {{ vm_name }}
   file: path={{ disk_image }} state=absent
 
