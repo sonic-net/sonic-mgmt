@@ -26,5 +26,3 @@ def get_conn_graph_facts(hostnames):
         print("Parse conn graph failes msg = {}".format(results))
         return {'device_pdu_info': {}, 'device_pdu_links': {}}
     return results
-
-    
