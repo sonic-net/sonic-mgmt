@@ -12,11 +12,16 @@ import jinja2
 
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8sMasterCluster
+from tests.common.devices.local import Localhost
+from tests.common.devices.ptf import PTFHost
+from tests.common.devices.eos import EosHost
+from tests.common.devices.fanout import FanoutHost
+from tests.common.devices.k8s import K8sMasterHost
+from tests.common.devices.k8s import K8sMasterCluster
+from tests.common.devices.duthosts import DutHosts
+
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
-from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
