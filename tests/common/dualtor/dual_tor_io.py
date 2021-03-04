@@ -234,7 +234,7 @@ class DualTorIO:
         else:
             self.from_server_src_port = random.choice(self.vlan_ports.values())
         self.from_server_src_addr  = random.choice(
-            self.vlan_host_map[self.from_server_src_port].keys())
+            self.vlan_host_map[self.from_server_src_port])
         self.from_server_dst_addr  = self.upstream_dst_ip if self.upstream_dst_ip\
             else self.random_host_ip()
         tcp_dport = TCP_DST_PORT

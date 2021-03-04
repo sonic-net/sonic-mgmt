@@ -68,7 +68,7 @@ def generate_test_report(tor_IO):
                 "total_lost_packets": tor_IO.get_total_lost_packets()
             }
     }
-    logger.info(pprint.pformat(data_plane_test_report))
+    logger.info("Data plane traffic test results: \n{}".format(pprint.pformat(data_plane_test_report)))
     return data_plane_test_report
 
 
