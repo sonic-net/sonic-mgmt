@@ -12,7 +12,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
-__all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host']
+__all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
 
 logger = logging.getLogger(__name__)
 
@@ -185,19 +185,31 @@ def update_mux_configs_and_config_reload(dut, state):
     dut.file(path=TMP_FILE, state='absent')
 
 
-def force_active_tor(dut, intf):
+@pytest.fixture
+def force_active_tor():
     """
     @summary: Manually set dut host to the active tor for intf
     @param dut: The duthost for which to toggle mux
     @param intf: One or a list of names of interface or 'all' for all interfaces
     """
-    if type(intf) == str:
-        cmds = ["config muxcable mode active {}".format(intf)]
-    else:
-        cmds = []
-        for i in intf:
-            cmds.append("config muxcable mode active {}".format(i))
-    dut.shell_cmds(cmds=cmds)
+    forced_intfs = []
+    def _force_active_tor(dut, intf):
+        if type(intf) == str:
+            cmds = ["config muxcable mode active {}; true".format(intf)]
+            forced_intfs.append((dut, intf))
+        else:
+            cmds = []
+            for i in intf:
+                forced_intfs.append((dut, i))
+                cmds.append("config muxcable mode active {}; true".format(i))
+        dut.shell_cmds(cmds=cmds, continue_on_fail=True)
+
+    yield _force_active_tor
+
+    if bool(forced_intfs):
+        for x in forced_intfs:
+            x[0].shell("config muxcable mode auto {}; true".format(x[1]))
+
 
 
 def _get_tor_fanouthosts(tor_host, fanouthosts):
