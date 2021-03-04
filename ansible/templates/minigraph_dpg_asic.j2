@@ -1,3 +1,6 @@
+{% macro port_channel_id(asic_idx, neigh_asic_idx) -%}
+{{ ((4000 + asic_idx + (10*neigh_asic_idx))|string) }}
+{%- endmacro -%}
 {% for asic in asic_topo_config %}
 {% set asic_index = asic.split('ASIC')[1]|int %}
     <DeviceDataPlaneInfo>
@@ -75,7 +78,7 @@
 {%- set port_channel_intf=pc_intfs|join(';') -%}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
         <PortChannel>
-          <Name>PortChannel{{ ((4000 + asic_index + (10*neigh_asic_index))|string).zfill(4) }}</Name>
+          <Name>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(4) }}</Name>
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
         </PortChannel>
@@ -114,7 +117,7 @@
           <Name i:nil="true"/>
 {%- if 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
-          <AttachTo>PortChannel{{ ((4000 + asic_index + (10*neigh_asic_index))|string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(4) }}</AttachTo>
 {% else %}
           <AttachTo>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][0] }}</AttachTo>
 {% endif %}
@@ -124,7 +127,7 @@
           <Name i:nil="true"/>
 {%- if 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
-          <AttachTo>PortChannel{{ ((4000 + asic_index + (10*neigh_asic_index))|string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(4) }}</AttachTo>
 {% else %}
           <AttachTo>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][0] }}</AttachTo>
 {% endif %}
@@ -168,7 +171,7 @@
 {% for neigh_asic in asic_topo_config %}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
 {%- if neigh_asic in asic_topo_config[asic]['neigh_asic'] and 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower -%}
-{% set a_intf = 'PortChannel' + ((4000 + asic_index + (10*neigh_asic_index))|string).zfill(4) %}
+{% set a_intf = 'PortChannel' + port_channel_id(asic_index, neigh_asic_index).zfill(4) %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endfor %}
