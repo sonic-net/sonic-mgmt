@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import pytest
+import random
 import json
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
