@@ -32,19 +32,19 @@ def validate_no_traffic_loss(tor_IO, allowed_disruption, delay):
     duplicated_packets = tor_IO.get_duplicated_packets_count()
 
     if received_counter:
-        pytest_assert(total_disruptions <= allowed_disruption, "Traffic was"\
+        pytest_assert(total_disruptions <= allowed_disruption, "Traffic was "\
             "disrupted {} times. Allowed number of disruption: {}"\
             .format(total_disruptions, allowed_disruption))
-        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s."\
+        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s. "\
             "Maximum allowed disruption: {}s".format(longest_disruption, delay))
     else:
-        pytest_assert(received_counter > 0, "Test failed to capture any meaningful"\
+        pytest_assert(received_counter > 0, "Test failed to capture any meaningful "\
             "received packet")
 
     if total_lost_packets:
         logging.warn("Packets were lost during the test. Total lost count: {}"\
             .format(total_lost_packets))
-    pytest_assert(duplicated_packets == 0, "Duplicated packets received."\
+    pytest_assert(duplicated_packets == 0, "Duplicated packets received. "\
         "Count: {}.".format(duplicated_packets))
 
 

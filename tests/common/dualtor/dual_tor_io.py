@@ -164,10 +164,10 @@ class DualTorIO:
             self.no_routing_stop, self.no_routing_start =\
                 datetime.datetime.fromtimestamp(self.no_routing_stop),\
                 datetime.datetime.fromtimestamp(self.no_routing_start)
-            logger.error("The longest disruption lasted %.3f seconds.\
-                %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-            logger.error("Total disruptions count is %d. All disruptions lasted\
-                %.3f seconds. Total %d packet(s) lost" % \
+            logger.error("The longest disruption lasted %.3f seconds."\
+                "%d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
+            logger.error("Total disruptions count is %d. All disruptions lasted "\
+                "%.3f seconds. Total %d packet(s) lost" % \
                 (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
 
 
