@@ -9,9 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 def arp_setup(ptfhost):
-    logger.info('Copy ARP responder to the PTF container  {}'.format(ptfhost.hostname))
+    logger.info('Copy ARP responder to the PTF container  {}'\
+        .format(ptfhost.hostname))
     ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
-    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
+    ptfhost.host.options["variable_manager"].extra_vars.update(
+        {"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2",
                      dest="/etc/supervisor/conf.d/arp_responder.conf")
     logging.info("Refreshing supervisorctl")
@@ -30,24 +32,29 @@ def validate_no_traffic_loss(tor_IO, allowed_disruption, delay):
     duplicated_packets = tor_IO.get_duplicated_packets_count()
 
     if received_counter:
-        pytest_assert(total_disruptions <= allowed_disruption, "Traffic was disrupted {} times. Allowed number of disruption: {}"\
+        pytest_assert(total_disruptions <= allowed_disruption, "Traffic was"\
+            "disrupted {} times. Allowed number of disruption: {}"\
             .format(total_disruptions, allowed_disruption))
-        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s. Maximum allowed disruption: {}s".\
-            format(longest_disruption, delay))
+        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s."\
+            "Maximum allowed disruption: {}s".format(longest_disruption, delay))
     else:
-        pytest_assert(received_counter > 0, "Test failed to capture any meaningful received packet")
+        pytest_assert(received_counter > 0, "Test failed to capture any meaningful"\
+            "received packet")
 
     if total_lost_packets:
-        logging.warn("Packets were lost during the test. Total lost count: {}".format(total_lost_packets))
-    pytest_assert(duplicated_packets == 0, "Duplicated packets received. Count: {}.".format(duplicated_packets))
+        logging.warn("Packets were lost during the test. Total lost count: {}"\
+            .format(total_lost_packets))
+    pytest_assert(duplicated_packets == 0, "Duplicated packets received."\
+        "Count: {}.".format(duplicated_packets))
 
 
 def generate_test_report(tor_IO):
     """
-    Generates a report (dictionary) of I/O metrics that were calculated as part of the dataplane test.
-    This report is to be used by testcases to verify the results as expected by test-specific scenarios
+    Generates a report (dictionary) of I/O metrics that were calculated as part
+    of the dataplane test. This report is to be used by testcases to verify the
+    results as expected by test-specific scenarios
     Returns:
-        data_plane_test_report (dict): Report of sent/received/lost/disrupted packet counters
+        data_plane_test_report (dict): sent/received/lost/disrupted packet counters
     """
     data_plane_test_report = {
             "total_received_packets": tor_IO.get_total_received_packets(),
@@ -70,14 +77,15 @@ def send_t1_to_server_with_action(ptfhost, ptfadapter, tbinfo):
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
-    As soon as sender and sniffer threads are in running state, a callback action is performed.
-    When action is finished, the sender and sniffer threads are given time to complete.
-    Finally, the collected packets are sniffed, and the disruptions are measured.
+    As soon as sender and sniffer threads are in running state, a callback
+    action is performed. When action is finished, the sender and sniffer threads
+    are given time to complete. Finally, the collected packets are sniffed,
+    and the disruptions are measured.
 
     As part of teardown, the ARP table is cleared and ptf dataplane is flushed.
     Args:
         ptfhost (fixture): Fixture for PTF instance to be used during the test
-        ptfadapter (fixture): Fixture which provides helper utility to use ptf ptf testutils
+        ptfadapter (fixture): Fixture to use ptf ptf testutils
         tbinfo (fixture): Fixture for testebd inventory information
 
     Yields:
@@ -86,28 +94,38 @@ def send_t1_to_server_with_action(ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
     
     duthosts = []
-    def t1_to_server_io_test(activehost, standbyhost=None, tor_port=None, delay=0, action=None, verify=False):
+    def t1_to_server_io_test(activehost, standbyhost=None, tor_port=None,
+                            delay=0, action=None, verify=False,
+                            downstream_dst_ip=None):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
 
         Args:
-            tor_port (int): Port index (as in minigraph_ptf_indices) which corresponds to PortChannel member port of the activehost.
-                default - None. If set to None, the test chooses random PortChannel member port for this test.
+            tor_port (int): Port index (as in minigraph_ptf_indices) which
+                corresponds to PortChannel member port of the activehost.
+                default - None. If set to None, the test chooses random PortChannel
+                member port for this test.
             delay (int): Maximum acceptable delay for traffic to continue flowing again.
-            action (function): A Lambda function (with optional args) which performs the desired action while the traffic is flowing from server to T1.
-                default - `None`: No action will be performed and traffic will run between server to T1 router.
-            verify (boolean): If set to True, test will automatically verify packet drops/duplication based on given qualification critera
+            action (function): A Lambda function (with optional args) which performs
+                the desired action while the traffic is flowing from server to T1.
+                default - `None`: No action will be performed and traffic will run
+                between server to T1 router.
+            verify (boolean): If set to True, test will automatically verify packet
+                drops/duplication based on given qualification critera
         """
         duthosts.append(activehost)
         io_ready = threading.Event()
-        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo, io_ready, tor_port=tor_port)
-        send_and_sniff = threading.Thread(target=tor_IO.start_io_test, kwargs={'traffic_generator': tor_IO.generate_from_t1_to_server})
+        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
+             io_ready, tor_port=tor_port, downstream_dst_ip=downstream_dst_ip)
+        send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
+            kwargs={'traffic_generator': tor_IO.generate_from_t1_to_server})
         send_and_sniff.start()
         if action:
             # do not perform the provided action until IO threads (sender and sniffer) are ready
             io_ready.wait()
-            logger.info("Sender and sniffer threads started, ready to execute the callback action")
+            logger.info("Sender and sniffer threads started, ready to execute "\
+                "the callback action")
             action()
 
         # Wait for the IO to complete before doing checks
@@ -116,7 +134,8 @@ def send_t1_to_server_with_action(ptfhost, ptfadapter, tbinfo):
         generate_test_report(tor_IO)
         if verify:
             allowed_disruption = 0 if delay == 0 else 1
-            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption, delay=delay)
+            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
+                delay=delay)
 
     yield t1_to_server_io_test
 
@@ -132,14 +151,16 @@ def send_server_to_t1_with_action(ptfhost, ptfadapter, tbinfo):
     """
     Starts IO test from server to T1 router.
     As part of IO test the background thread sends and sniffs packets.
-    As soon as sender and sniffer threads are in running state, a callback action is performed.
-    When action is finished, the sender and sniffer threads are given time to complete.
-    Finally, the collected packets are sniffed, and the disruptions are measured.
+    As soon as sender and sniffer threads are in running state, a callback
+    action is performed.
+    When action is finished, the sender and sniffer threads are given time to
+    complete. Finally, the collected packets are sniffed, and the disruptions
+    are measured.
 
     As part of teardown, the ARP, FDB tables are cleared and ptf dataplane is flushed.
     Args:
         ptfhost (fixture): Fixture for PTF instance to be used during the test
-        ptfadapter (fixture): Fixture which provides helper utility to use ptf testutils
+        ptfadapter (fixture): Fixture to use ptf testutils
         tbinfo (fixture): Fixture for testebd inventory information
 
     Yields:
@@ -148,29 +169,40 @@ def send_server_to_t1_with_action(ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
 
     duthosts = []
-    def server_to_t1_io_test(activehost, standbyhost=None, server_port=None, delay=0, action=None, verify=False):
+    def server_to_t1_io_test(activehost, standbyhost=None, server_port=None,
+                            delay=0, action=None, verify=False,
+                            upstream_dst_ip=None):
         """
         Helper method for `send_server_to_t1_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
 
         Args:
-            server_port (int): Port index (as in minigraph_ptf_indices) which corresponds to VLAN member port of the activehost.
-                default - None. If set to None, the test chooses random VLAN member port for this test.
+            server_port (int): Port index (as in minigraph_ptf_indices) which
+                corresponds to VLAN member port of the activehost.
+                default - None. If set to None, the test chooses random VLAN
+                 member port for this test.
             delay (int): Maximum acceptable delay for traffic to continue flowing again.
-            action (function): A Lambda function (with optional args) which performs the desired action while the traffic is flowing from server to T1.
-                default - `None`: No action will be performed and traffic will run between server to T1 router.
-            verify (boolean): If set to True, test will automatically verify packet drops/duplication based on given qualification critera
+            action (function): A Lambda function (with optional args) which
+                performs the desired action while the traffic flows from server to T1.
+                default - `None`: No action will be performed and traffic will run
+                between server to T1 router.
+            verify (boolean): If set to True, test will automatically verify packet
+                drops/duplication based on given qualification critera
         """
         duthosts.append(activehost)
         io_ready = threading.Event()
-        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo, io_ready, server_port=server_port)
-        send_and_sniff = threading.Thread(target=tor_IO.start_io_test, kwargs={'traffic_generator': tor_IO.generate_from_server_to_t1})
+        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
+            io_ready, server_port=server_port, upstream_dst_ip=upstream_dst_ip)
+        send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
+            kwargs={'traffic_generator': tor_IO.generate_from_server_to_t1})
         send_and_sniff.start()
 
         if action:
-            # do not perform the provided action until IO threads (sender and sniffer) are ready
+            # do not perform the provided action until
+            # IO threads (sender and sniffer) are ready
             io_ready.wait()
-            logger.info("Sender and sniffer threads started, ready to execute the callback action")
+            logger.info("Sender and sniffer threads started, ready to execute the "\
+                "callback action")
             action()
 
         # Wait for the IO to complete before doing checks
@@ -178,7 +210,8 @@ def send_server_to_t1_with_action(ptfhost, ptfadapter, tbinfo):
         generate_test_report(tor_IO)
         if verify:
             allowed_disruption = 0 if delay == 0 else 1
-            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption, delay=delay)
+            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
+                delay=delay)
 
     yield server_to_t1_io_test
 

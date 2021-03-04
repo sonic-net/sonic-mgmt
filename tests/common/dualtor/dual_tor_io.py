@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 class DualTorIO:
-    def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo, io_ready, server_port=None, tor_port=None):
+    def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
+                io_ready, server_port=None, tor_port=None,
+                downstream_dst_ip=None, upstream_dst_ip=None):
         self.tor_port = tor_port
         self.server_port = server_port
         self.duthost = activehost
@@ -33,6 +35,8 @@ class DualTorIO:
         self.ptfhost = ptfhost
         self.tbinfo = tbinfo
         self.io_ready_event = io_ready
+        self.downstream_dst_ip = downstream_dst_ip
+        self.upstream_dst_ip = upstream_dst_ip
         self.dut_mac = self.duthost.facts["router_mac"]
         self.active_mac = self.dut_mac
         if standbyhost:
@@ -41,7 +45,9 @@ class DualTorIO:
         self.time_to_listen = 180.0
         self.sniff_time_incr = 60
         self.send_interval = 0.0035 # Inter-packet interval
-        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent by sender thread
+        # How many packets to be sent by sender thread
+        self.packets_to_send = min(int(self.time_to_listen /
+            (self.send_interval + 0.0015)), 45000)
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
@@ -59,8 +65,11 @@ class DualTorIO:
 
         mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
         prefix_len = mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['prefixlen'] - 3
-        test_network = ipaddress.ip_address(mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['addr']) + (1 << (32 - prefix_len))
-        self.default_ip_range = str(ipaddress.ip_interface(unicode(str(test_network) + '/{0}'.format(prefix_len))).network)
+        test_network = ipaddress.ip_address(
+            mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['addr']) +\
+            (1 << (32 - prefix_len))
+        self.default_ip_range = str(ipaddress.ip_interface(unicode(
+            str(test_network) + '/{0}'.format(prefix_len))).network)
         self.src_addr, mask = self.default_ip_range.split('/')
         self.n_hosts = 2**(32 - int(mask))
         self.port_indices = mg_facts['minigraph_ptf_indices']
@@ -89,7 +98,8 @@ class DualTorIO:
 
     def _generate_vlan_servers(self):
         """
-        @summary: Generates physical port maps which is a set of IP address and their associated MAC addresses
+        @summary: Generates physical port maps which is a set of IP address and
+                their associated MAC addresses
                 - MACs are generated sequentially as offsets from VLAN_BASE_MAC_PATTERN
                 - IP addresses are randomly selected from the given VLAN network
                 - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
@@ -101,13 +111,12 @@ class DualTorIO:
 
         vlan_host_map = defaultdict(dict)
         addr_list = list(self.server_ip_list)
-        for counter, i in enumerate(range(2, len(self.server_ip_list) + 2)):
-            mac = VLAN_BASE_MAC_PATTERN.format(counter)
+        for _, i in enumerate(range(2, len(self.server_ip_list) + 2)):
             port = self.vlan_ports.values()[i % len(self.vlan_ports.values())]
             addr = random.choice(addr_list)
             # Ensure that we won't get a duplicate ip address
             addr_list.remove(addr)
-            vlan_host_map[port][str(addr)] = mac
+            vlan_host_map[port] = [str(addr)]
 
         return vlan_host_map
 
@@ -132,8 +141,10 @@ class DualTorIO:
         """
         @summary: The entry point to start the TOR dataplane I/O test.
         Args:
-            traffic_generator (function): A callback function to decide the traffic direction (T1 to server / server to T1)
-                Allowed values: self.generate_from_t1_to_server or self.generate_from_server_to_t1
+            traffic_generator (function): A callback function to decide the
+                traffic direction (T1 to server / server to T1)
+                Allowed values: self.generate_from_t1_to_server or
+                self.generate_from_server_to_t1
         """
         # Check in a conditional for better readability
         if traffic_generator == self.generate_from_t1_to_server:
@@ -144,14 +155,19 @@ class DualTorIO:
             logger.error("Traffic generator not provided or invalid")
             return
         # start and later join the sender and sniffer threads
-        self.send_and_sniff(sender=self.traffic_sender_thread, sniffer=self.traffic_sniffer_thread)
+        self.send_and_sniff(sender=self.traffic_sender_thread,
+            sniffer=self.traffic_sniffer_thread)
 
         # Sender and sniffer have finished the job. Start examining the collected flow
         self.examine_flow()
         if self.lost_packets:
-            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-            logger.error("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-            logger.error("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
+            self.no_routing_stop, self.no_routing_start =\
+                datetime.datetime.fromtimestamp(self.no_routing_stop),\
+                datetime.datetime.fromtimestamp(self.no_routing_start)
+            logger.error("The longest disruption lasted %.3f seconds.\
+                %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
+            logger.error("Total disruptions count is %d. All disruptions lasted\
+                %.3f seconds. Total %d packet(s) lost" % \
                 (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
 
 
@@ -176,8 +192,11 @@ class DualTorIO:
                 break
 
         if from_tor_src_port_name is None:
-            logger.error("Port name not found for port index {} in the list {}".format(self.from_tor_src_port, self.port_channel_ports.values()))
+            logger.error("Port name not found for port index {} in the list {}"\
+                .format(self.from_tor_src_port, self.port_channel_ports.values()))
 
+        server_ip_list = [self.downstream_dst_ip] if self.downstream_dst_ip\
+            else self.server_ip_list
         logger.info("-"*20 + "T1 to server packet" + "-"*20)
         logger.info("Source port: {}".format(self.from_tor_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(eth_dst, eth_src))
@@ -192,7 +211,7 @@ class DualTorIO:
             tcp_tx_packet = testutils.simple_tcp_packet(
                 eth_dst=eth_dst,
                 eth_src=eth_src,
-                ip_dst=random.choice(self.server_ip_list),
+                ip_dst=random.choice(server_ip_list),
                 ip_src=self.random_host_ip(),
                 ip_ttl=ip_ttl,
                 tcp_dport=tcp_dport)
@@ -214,8 +233,10 @@ class DualTorIO:
             self.from_server_src_port = self.server_port
         else:
             self.from_server_src_port = random.choice(self.vlan_ports.values())
-        self.from_server_src_addr  = random.choice(self.vlan_host_map[self.from_server_src_port].keys())
-        self.from_server_dst_addr  = self.random_host_ip()
+        self.from_server_src_addr  = random.choice(
+            self.vlan_host_map[self.from_server_src_port].keys())
+        self.from_server_dst_addr  = self.upstream_dst_ip if self.upstream_dst_ip\
+            else self.random_host_ip()
         tcp_dport = TCP_DST_PORT
         tcp_tx_packet = testutils.simple_tcp_packet(
                       eth_dst=self.vlan_mac,
@@ -228,9 +249,11 @@ class DualTorIO:
         logger.info("-"*20 + "Server to T1 packet" + "-"*20)
         logger.info("Source port: {}".format(self.from_server_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(self.vlan_mac, eth_src))
-        logger.info("IP address: dst: {} src: {}".format(self.from_server_dst_addr, self.from_server_src_addr))
+        logger.info("IP address: dst: {} src: {}".format(self.from_server_dst_addr,
+            self.from_server_src_addr))
         logger.info("TCP port: dst: {} src: 1234".format(tcp_dport))
-        logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac, self.standby_mac))
+        logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac,
+            self.standby_mac))
         logger.info("VLAN MAC: {}".format(self.vlan_mac))
         logger.info("-"*50)
 
@@ -253,7 +276,9 @@ class DualTorIO:
         """
         host_number = random.randint(2, self.n_hosts - 2)
         if host_number > (self.n_hosts - 2):
-            raise Exception("host number {} is greater than number of hosts {} in the network {}".format(host_number, self.n_hosts - 2, self.default_ip_range))
+            raise Exception("host number {} is greater than number of hosts {}\
+                in the network {}".format(
+                    host_number, self.n_hosts - 2, self.default_ip_range))
         src_addr_n = struct.unpack(">I", socket.inet_aton(self.src_addr))[0]
         net_addr_n = src_addr_n & (2**32 - self.n_hosts)
         host_addr_n = net_addr_n + host_number
@@ -295,7 +320,8 @@ class DualTorIO:
             time.sleep(self.send_interval)
             testutils.send_packet(self.ptfadapter, *entry)
 
-        logger.info("Sender has been running for {}".format(str(datetime.datetime.now() - sender_start)))
+        logger.info("Sender has been running for {}".format(
+            str(datetime.datetime.now() - sender_start)))
 
 
     def traffic_sniffer_thread(self):
@@ -308,7 +334,8 @@ class DualTorIO:
         logger.info("Sniffer started at {}".format(str(sniffer_start)))
         sniff_filter = "tcp and tcp dst port {} and tcp src port 1234 and not icmp".format(TCP_DST_PORT)
 
-        scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'sniff_timeout': wait, 'sniff_filter': sniff_filter})
+        scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'sniff_timeout': wait,
+            'sniff_filter': sniff_filter})
         scapy_sniffer.start()
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
@@ -322,8 +349,9 @@ class DualTorIO:
         @summary: PTF runner -  runs a sniffer in PTF container.
         Running sniffer in sonic-mgmt container has missing SOCKET problem
         and permission issues (scapy and tcpdump require root user)
-        The remote function listens on all ports. Once found, all packets are dumped to local pcap file,
-        and all packets are saved to self.all_packets as scapy type.
+        The remote function listens on all ports. Once found, all packets
+        are dumped to local pcap file, and all packets are saved to
+        self.all_packets as scapy type.
 
         Args:
             sniff_timeout (int): Duration in seconds to sniff the traffic
@@ -343,7 +371,8 @@ class DualTorIO:
                 "sniff_filter" : sniff_filter,
                 "capture_pcap": capture_pcap,
                 "sniffer_log": sniffer_log,
-                "port_filter_expression": 'not (arp and ether src {}) and not tcp'.format(self.dut_mac)
+                "port_filter_expression": 'not (arp and ether src {})\
+                    and not tcp'.format(self.dut_mac)
             },
             log_file=sniffer_log,
             module_ignore_errors=False
@@ -399,7 +428,8 @@ class DualTorIO:
         """
         @summary: This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.TCP].payload).replace('X','')) in self.unique_id) and (packet[scapyall.Ether].src in self.received_pkt_src_mac):
+        if (not int(str(packet[scapyall.TCP].payload).replace('X',''))in self.unique_id)\
+            and (packet[scapyall.Ether].src in self.received_pkt_src_mac):
             # This is a unique (no flooded) received packet.
             self.unique_id.add(int(str(packet[scapyall.TCP].payload).replace('X','')))
             return True
@@ -413,10 +443,12 @@ class DualTorIO:
     def examine_flow(self):
         """
         @summary: This method examines packets collected by sniffer thread
-            The method compares TCP payloads of the packets one by one (assuming all payloads are consecutive integers),
-            and the losses if found - are treated as disruptions in Dataplane forwarding.
-            All disruptions are saved to self.lost_packets dictionary, in format:
-            disrupt_start_id = (missing_packets_count, disrupt_time, disrupt_start_timestamp, disrupt_stop_timestamp)
+            The method compares TCP payloads of the packets one by one (assuming all
+            payloads are consecutive integers), and the losses if found - are treated
+            as disruptions in Dataplane forwarding. All disruptions are saved to
+            self.lost_packets dictionary, in format:
+            disrupt_start_id = (missing_packets_count, disrupt_time,
+            disrupt_start_timestamp, disrupt_stop_timestamp)
         """
         examine_start = datetime.datetime.now()
         logger.info("Packet flow examine started {}".format(str(examine_start)))
@@ -436,7 +468,8 @@ class DualTorIO:
         logger.info("Number of filtered packets captured: {}".format(len(filtered_packets)))
 
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
-        packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.TCP].payload).replace('X','')), packet.time ))
+        packets = sorted(filtered_packets, key = lambda packet: (
+            int(str(packet[scapyall.TCP].payload).replace('X','')), packet.time ))
         self.max_disrupt, self.total_disruption = 0, 0
 
         if not packets or len(packets) == 0:
@@ -453,7 +486,8 @@ class DualTorIO:
         self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
         if self.lost_packets:
             # Find the longest loss with the longest time:
-            _, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
+            _, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start,
+                self.no_routing_stop) = \
                 max(self.lost_packets.items(), key = lambda item:item[1][0:2])
             self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
             self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
@@ -464,9 +498,12 @@ class DualTorIO:
             self.total_disrupt_time = 0
             logger.info("Gaps in forwarding not found.")
 
-        logger.info("Packet flow examine finished after {}".format(str(datetime.datetime.now() - examine_start)))
-        logger.info("Total number of filtered incoming packets captured {}".format(self.received_counter))
-        logger.info("Number of duplicated packets received: {}".format(self.duplicated_packets_count))
+        logger.info("Packet flow examine finished after {}".format(
+            str(datetime.datetime.now() - examine_start)))
+        logger.info("Total number of filtered incoming packets captured {}".format(
+            self.received_counter))
+        logger.info("Number of duplicated packets received: {}".format(
+            self.duplicated_packets_count))
         logger.info("Number of packets lost: {}".format(self.total_lost_packets))
 
 
@@ -489,7 +526,8 @@ class DualTorIO:
                 received_time = packet.time
                 received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
                 if received_payload == prev_payload:
-                    # make account for packet duplication, and keep looking for a new and unique received packet
+                    # make account for packet duplication, and keep looking for a
+                    # new and unique received packet
                     duplicated_packets_count = duplicated_packets_count + 1
                     continue
                 received_counter += 1
@@ -501,10 +539,12 @@ class DualTorIO:
             if received_payload - prev_payload > 1:
                 # Packets in a row are missing, a disruption.
                 lost_id = (received_payload - 1) - prev_payload # How many packets lost in a row.
-                disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
+                # How long disrupt lasted.
+                disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1])
                 # Add disruption to the lost_packets dict:
                 lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
-                logger.info("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
+                logger.info("Disruption between packet ID %d and %d. For %.4f " % (
+                    prev_payload, received_payload, disrupt))
                 if not disruption_start:
                     disruption_start = datetime.datetime.fromtimestamp(prev_time)
                 disruption_stop = datetime.datetime.fromtimestamp(received_time)
@@ -519,17 +559,20 @@ class DualTorIO:
         if self.received_counter == 0:
             logger.error("Sniffer failed to filter any traffic from DUT")
         if self.lost_packets:
-            logger.info("Disruptions happen between {} and {}.".format(str(disruption_start), str(disruption_stop)))
+            logger.info("Disruptions happen between {} and {}.".format(
+                str(disruption_start), str(disruption_stop)))
 
 
     def check_tcp_payload(self, packet):
         """
         @summary: Helper method
 
-        Returns: Bool: True if a packet is not corrupted and has a valid TCP sequential TCP Payload
+        Returns: Bool: True if a packet is not corrupted and has a valid TCP
+            sequential TCP Payload
         """
         try:
-            int(str(packet[scapyall.TCP].payload).replace('X','')) in range(self.packets_to_send)
+            int(str(packet[scapyall.TCP].payload).replace('X','')) in range(
+                self.packets_to_send)
             return True
         except Exception as err:
             return False
