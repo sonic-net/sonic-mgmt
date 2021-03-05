@@ -11,23 +11,33 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 
-__all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
+__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
 
 logger = logging.getLogger(__name__)
 
-UPPER_TOR = 'upper_tor'
-LOWER_TOR = 'lower_tor'
+
+def get_tor_mux_intfs(duthost):
+    return sorted(duthost.get_vlan_intfs(), key=lambda intf: int(intf.replace('Ethernet', '')))
 
 
 @pytest.fixture(scope='session')
-def tor_mux_intf(duthosts):
+def tor_mux_intfs(duthosts):
     '''
-    Returns the server-facing interface on the ToR to be used for testing
+    Returns the server-facing interfaces on the ToR to be used for testing
     '''
     # The same ports on both ToRs should be connected to the same PTF port
-    dut = duthosts[0]
-    return sorted(dut.get_vlan_intfs(), key=lambda intf: int(intf.replace('Ethernet', '')))[0]
+    return get_tor_mux_intfs(duthosts[0])
+
+
+@pytest.fixture(scope='session')
+def tor_mux_intf(tor_mux_intfs):
+    '''
+    Returns the first server-facing interface on the ToR to be used for testing
+    '''
+    # The same ports on both ToRs should be connected to the same PTF port
+    return tor_mux_intfs[0]
 
 
 @pytest.fixture(scope='session')
