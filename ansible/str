@@ -296,8 +296,6 @@ sonic_dell32_40:
       serial: 8RTBY42
       base_mac: F4:8E:38:16:BC:8B
       pdu_host: pdu-103
-    str-s6000-acs-3po:
-      ansible_host: 10.3.147.8
   vars:
     hwsku: Force10-S6000
     iface_speed: 40000
@@ -561,8 +559,6 @@ sonic_mlnx_40:
         "0x2B": "Mellanox"
         "0xFE": "0xDD17BF2E"
       pdu_host: pdu-98
-    str-msn2700-11-3po:
-      ansible_host: 10.3.147.54
   vars:
     hwsku: Mellanox-SN2700
     iface_speed: 40000
