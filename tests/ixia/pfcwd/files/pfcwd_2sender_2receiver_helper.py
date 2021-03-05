@@ -2,7 +2,7 @@ import time
 from math import ceil
 from itertools import permutations
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
@@ -61,8 +61,8 @@ def run_pfcwd_2sender_2receiver_test(api,
     """
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    pytest_assert(len(testbed_config.devices) >= 3,
-                  "This test requires at least 3 hosts")
+    pytest_require(len(testbed_config.devices) >= 3,
+                   "This test requires at least 3 hosts")
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
@@ -81,7 +81,6 @@ def run_pfcwd_2sender_2receiver_test(api,
 
     if trigger_pfcwd:
         pfc_storm_dur_sec = poll_interval_sec + detect_time_sec
-
     else:
         pfc_storm_dur_sec = 0.5 * detect_time_sec
 
@@ -230,10 +229,10 @@ def __gen_traffic(testbed_config,
     result.append(pause_flow)
 
     """
-    Generate bi-birectional data flows between [port_id-1] and
+    Generate bi-birectional data flows between [port_id+2] and
     [port_id, port_id+1]
     """
-    one_port_id_list = [(port_id - 1) % len(testbed_config.devices)]
+    one_port_id_list = [(port_id + 2) % len(testbed_config.devices)]
     two_port_id_list = [port_id, (port_id + 1) % len(testbed_config.devices)]
 
     perm = permutations([one_port_id_list, two_port_id_list])
