@@ -98,6 +98,7 @@ VM_SET_NAME_MAX_LEN = 8  # used in interface names. So restricted
 MGMT_PORT_NAME = 'mgmt'
 BP_PORT_NAME = 'backplane'
 CMD_DEBUG_FNAME = "/tmp/vmtopology.cmds.%s.txt"
+DEBUG_FNAME = "/vmtopology.cmds.%s.txt"
 EXCEPTION_DEBUG_FNAME = "/tmp/vmtopology.exception.%s.txt"
 
 OVS_FP_BRIDGE_REGEX = 'br-%s-\d+'
@@ -115,7 +116,6 @@ PTF_FP_IFACE_TEMPLATE = 'eth%d'
 RETRIES = 10
 
 cmd_debug_fname = None
-
 
 class HostInterfaces(object):
     """Data descriptor that supports multi-DUTs interface definition."""
@@ -923,7 +923,7 @@ def main():
             cmd=dict(required=True, choices=['create', 'bind', 'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
-            vm_names=dict(required=True, type='list'),
+            vm_names=dict(required=False, type='list'),
             vm_base=dict(required=False, type='str'),
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
             ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
@@ -941,10 +941,13 @@ def main():
         supports_check_mode=False)
 
     cmd = module.params['cmd']
-    vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     duts_mgmt_port = []
+    if 'vm_names' not in module.params:
+        vm_names = []
+    else:
+        vm_names = module.params['vm_names']
 
     curtime = datetime.datetime.now().isoformat()
 
