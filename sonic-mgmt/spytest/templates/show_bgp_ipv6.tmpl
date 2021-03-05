@@ -34,6 +34,10 @@ Bgp_table
   ^\s*${STATUS_CODE}\s+${NEXT_HOP}\s+${METRIC}\s+${WEIGHT}\s+${AS_PATH}\s+${INTERNAL}\s*$$ -> Record
   ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${AS_PATH}\s*$$ -> Record
   ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${INTERNAL}\s*$$ -> Record
+  ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s*$$ -> Continue
+  ^\s{10,20}\s*${METRIC}\s+${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s+${INTERNAL}\s*$$ -> Record
+
+
 
 EOF
 

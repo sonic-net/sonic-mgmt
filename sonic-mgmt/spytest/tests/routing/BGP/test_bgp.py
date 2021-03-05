@@ -284,7 +284,7 @@ class TestBGPCommon:
             st.report_fail("bgp_aggregation_pass", aggr_route)
         bgpapi.create_bgp_aggregate_address(leaf_name, local_asn=info['D2_as'], address_range=aggr_route,
                                             family="ipv4", config="delete", cli_type=bgp_cli_type)
-        tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='remove', num_routes='4',
+        tg_ob.tg_emulation_bgp_route_config(handle=bgp_route['handle'], mode='remove', num_routes='4',
                                             prefix='122.1.1.0', as_path='as_seq:1')
         st.report_pass("test_case_passed")
 
@@ -346,7 +346,7 @@ class TestBGPCommon:
             utils.exec_all(True, [[st.generate_tech_support, leaf_name, 'ft_bgp_ipv4_route_aggregation_atomic_aggregate'], [st.generate_tech_support, spine_name, 'ft_bgp_ipv4_route_aggregation_atomic_aggregate']])
         bgpapi.create_bgp_aggregate_address(leaf_name, local_asn=info['D2_as'], address_range=aggr_route,
                                             summary="summary-only", family="ipv4", config="delete", cli_type=bgp_cli_type)
-        tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='remove', num_routes='4',
+        tg_ob.tg_emulation_bgp_route_config(handle=bgp_route['handle'], mode='remove', num_routes='4',
                                             prefix='123.1.1.0', as_path='as_seq:1')
         if not log_msg:
             st.report_fail("bgp_aggregation_fail", aggr_route)
@@ -417,7 +417,7 @@ class TestBGPCommon:
         bgpapi.create_bgp_aggregate_address(leaf_name, local_asn=info['D2_as'], address_range=aggr_route,
                                             summary="summary-only", as_set="as-set", family="ipv6",
                                             config="delete", cli_type=bgp_cli_type)
-        tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='remove',
+        tg_ob.tg_emulation_bgp_route_config(handle=bgp_route_ipv6['handle'], mode='remove',
                                             ip_version='6', num_routes='4', prefix='6002:1::0',
                                             as_path='as_seq:1')
         st.report_pass("test_case_passed")
@@ -2184,7 +2184,6 @@ def bgp_ve_lag_pre_config():
     st.banner("BGP VE LAG CLASS CONFIG - START")
 
     # underlay config - configure ve over lag
-    #import pdb;pdb.set_trace()
     bgplib.l3tc_underlay_config_unconfig(config='yes', config_type='veLag')
 
     # config ip on underlay interface
