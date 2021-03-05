@@ -246,8 +246,6 @@ sonic_dell32_40:
     str-s6000-on-2:
       ansible_host: 10.3.147.142
       pdu_host: pdu-97
-    str-s6000-on-3:
-      ansible_host: 10.3.146.112
     str-s6000-on-4:
       ansible_host: 10.3.146.113
       pdu_host: pdu-97
