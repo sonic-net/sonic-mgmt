@@ -738,6 +738,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     servers = mux_cable_server_ip(standby_tor)
     random_server_iface = random.choice(servers.keys())
 
+    res['selected_port'] = random_server_iface
     res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
 
