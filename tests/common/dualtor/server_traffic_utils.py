@@ -12,12 +12,23 @@ from scapy.packet import ls
 
 
 @contextlib.contextmanager
-def dump_intf_packets(ansible_host, iface, pcap_save_path, dumped_packets, pcap_filter=None):
-    """Dump packets of the interface and save to a file."""
+def dump_intf_packets(ansible_host, iface, pcap_save_path, dumped_packets,
+                      pcap_filter=None, cleanup_pcap=True):
+    """
+    @summary: Dump packets of the interface and save to a file.
+
+    @ansible_host: the ansible host object.
+    @iface: interface to be sniffed on.
+    @pcap_save_path: packet capture file save path.
+    @dumped_packets: a list to store the dumped packets.
+    @pcap_filter: pcap filter used by tcpdump.
+    @cleanup_pcap: True to remove packet capture file.
+    """
+
     start_pcap = "tcpdump --immediate-mode -i %s -w %s" % (iface, pcap_save_path)
     if pcap_filter:
         start_pcap += (" " + pcap_filter)
-    start_pcap = "nohup %s  > /dev/null 2>&1 & echo $!" % start_pcap
+    start_pcap = "nohup %s > /dev/null 2>&1 & echo $!" % start_pcap
     pid = ansible_host.shell(start_pcap)["stdout"]
     # sleep to let tcpdump starts to capture
     time.sleep(1)
@@ -29,14 +40,28 @@ def dump_intf_packets(ansible_host, iface, pcap_save_path, dumped_packets, pcap_
             ansible_host.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             packets = sniff(offline=temp_pcap.name)
             dumped_packets.extend(packets)
+        if cleanup_pcap:
+            ansible_host.file(path=pcap_save_path, state="absent")
 
 
 class ServerTrafficMonitor(object):
-    """Monit traffic between ToR and server."""
+    """Monit traffic between DUT and server."""
 
     VLAN_INTERFACE_TEMPLATE = "{external_port}.{vlan_id}"
 
     def __init__(self, duthost, vmhost, dut_iface, conn_graph_facts, exp_pkt, existing=True):
+        """
+        @summary: Initialize the monitor.
+
+        @duthost: duthost object.
+        @vmhost: vmhost object that represent the vm host server.
+        @dut_iface: the interface on duthost selected to be monitored.
+        @conn_graph_facts: connection graph data.
+        @exp_pkt: the expected packet to be matched with packets monitored,
+                  should be a `ptf.mask.Mask` object.
+        @existing: True to expect to find a match for `exp_pkt` while False to
+                   expect to not find a match for `exp_pkt`.
+        """
         self.duthost = duthost
         self.dut_iface = dut_iface
         self.exp_pkt = exp_pkt
