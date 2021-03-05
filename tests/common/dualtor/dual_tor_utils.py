@@ -193,7 +193,7 @@ def force_active_tor():
     @param intf: One or a list of names of interface or 'all' for all interfaces
     """
     forced_intfs = []
-    def _force_active_tor(dut, intf):
+    def force_active_tor_fn(dut, intf):
         if type(intf) == str:
             cmds = ["config muxcable mode active {}; true".format(intf)]
             forced_intfs.append((dut, intf))
@@ -204,11 +204,10 @@ def force_active_tor():
                 cmds.append("config muxcable mode active {}; true".format(i))
         dut.shell_cmds(cmds=cmds, continue_on_fail=True)
 
-    yield _force_active_tor
+    yield force_active_tor_fn
 
-    if bool(forced_intfs):
-        for x in forced_intfs:
-            x[0].shell("config muxcable mode auto {}; true".format(x[1]))
+    for x in forced_intfs:
+        x[0].shell("config muxcable mode auto {}; true".format(x[1]))
 
 
 
