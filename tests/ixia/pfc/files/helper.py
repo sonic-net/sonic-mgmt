@@ -353,7 +353,7 @@ def __verify_results(rows,
     Args:
         rows (list): per-flow statistics
         duthost (Ansible host instance): device under test
-        pause_flow_name: name of pause storm
+        pause_flow_name (str): name of pause storm
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
         test_flow_rate_percent (int): rate percentage for each test flow
