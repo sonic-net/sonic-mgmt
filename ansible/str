@@ -417,7 +417,7 @@ sonic_nexus_3132GE_40:
       ansible_host: 10.3.147.247
       pdu_host: pdu-97
     str-n3132-acs-3:
-      ansible_host: 10.3.147.251
+      ansible_host: 10.3.147.19
       pdu_host: pdu-103
   vars:
     hwsku: Nexus-3132-GE-Q32
