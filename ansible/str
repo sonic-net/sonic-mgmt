@@ -234,7 +234,6 @@ sonic:
     sonic_arista32_100:
     sonic_dell32_100:
     sonic_e1031:
-    sonic_marvell:
     sonic_dx010_100:
     sonic_agc7648:
     sonic_nexus_3164:
@@ -689,15 +688,6 @@ sonic_e1031:
     hwsku: Celestica-E1031-T48S4
     iface_speed: 1000
 
-sonic_marvell:
-  hosts:
-    str-marvell-acs-1:
-      ansible_host: 10.3.146.154
-      pdu_host: pdu-115
-  vars:
-    hwsku: et6448m
-    iface_speed: 1000
-
 sonic_dx010_100:
   hosts:
     str-dx010-acs-1:
@@ -922,10 +912,6 @@ fanout:
       ansible_host: 10.64.247.25
       os: sonic
       pdu_host: pdu-107
-    str-marvell-acs-2:
-      ansible_host: 10.3.146.155
-      os: sonic
-      pdu_host: pdu-115
     str-7260cx3-acs-fan-05:
       ansible_host: 10.64.246.76
       pdu_host: pdu-109,pdu-110
