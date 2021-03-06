@@ -121,12 +121,6 @@ all:
           ansible_host: 10.64.246.90
         vms12-8:
           ansible_host: 10.64.246.112
-        vms13-1:
-          ansible_host: 10.64.247.29
-        vms13-2:
-          ansible_host: 10.64.247.28
-        vms13-3:
-          ansible_host: 10.64.246.49
         vms13-4:
           ansible_host: 10.64.246.75
         vms13-5:
@@ -224,8 +218,6 @@ sonic:
     sonic_dell64_40:
     sonic_nexus_3132GX_40:
     sonic_nexus_3132GE_40:
-    sonic_nexus_9232_40:
-    sonic_nexus_9232_100:
     sonic_arista_40:
     sonic_mlnx_40:
     sonic_mlnx_100:
@@ -418,27 +410,6 @@ sonic_nexus_3132GE_40:
   vars:
     hwsku: Nexus-3132-GE-Q32
     iface_speed: 40000
-
-sonic_nexus_9232_40:
-  hosts:
-    str-n9232-acs-2:
-      ansible_host: 10.3.147.254
-      pdu_host: pdu-97
-  vars:
-    hwsku: Nexus-9232-Q32
-    iface_speed: 40000
-
-sonic_nexus_9232_100:
-  hosts:
-    str-n9232-acs-1:
-      ansible_host: 10.3.147.189
-      pdu_host: pdu-106
-    str-n9232-acs-3:
-      ansible_host: 10.64.247.241
-      pdu_host: pdu-108
-  vars:
-    hwsku: Nexus-9232-C32
-    iface_speed: 100000
 
 sonic_arista_40:
   hosts:
