@@ -26,21 +26,27 @@ logger = logging.getLogger(__name__)
 
 class DualTorIO:
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-                io_ready, server_port=None, tor_port=None,
-                downstream_dst_ip=None, upstream_dst_ip=None):
-        self.tor_port = tor_port
-        self.server_port = server_port
+                io_ready, tor_vlan_port=None):
+        self.tor_port = None
+        self.tor_vlan_port = tor_vlan_port
         self.duthost = activehost
         self.ptfadapter = ptfadapter
         self.ptfhost = ptfhost
         self.tbinfo = tbinfo
         self.io_ready_event = io_ready
-        self.downstream_dst_ip = downstream_dst_ip
-        self.upstream_dst_ip = upstream_dst_ip
         self.dut_mac = self.duthost.facts["router_mac"]
         self.active_mac = self.dut_mac
         if standbyhost:
             self.standby_mac = standbyhost.facts["router_mac"]
+
+        self.mux_cable_table = self.duthost.get_running_config_facts()['MUX_CABLE']
+        if tor_vlan_port:
+            if tor_vlan_port in self.mux_cable_table:
+                self.downstream_dst_ip = self.mux_cable_table[tor_vlan_port]['server_ipv4'].split("/")[0]
+            else:
+                logger.error("Port {} not found in MUX cable table".format(tor_vlan_port))
+        else:
+            self.downstream_dst_ip = None
 
         self.time_to_listen = 180.0
         self.sniff_time_incr = 60
@@ -104,8 +110,7 @@ class DualTorIO:
                 - IP addresses are randomly selected from the given VLAN network
                 - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
         """
-        mux_cable_table = self.duthost.get_running_config_facts()['MUX_CABLE']
-        for _, config in mux_cable_table.items():
+        for _, config in self.mux_cable_table.items():
             self.server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
         logger.info("ALL server address:\n {}".format(self.server_ip_list))
 
@@ -181,26 +186,29 @@ class DualTorIO:
         tcp_dport = TCP_DST_PORT
 
         if self.tor_port:
-            self.from_tor_src_port = self.tor_port
+            from_tor_src_port = self.tor_port
         else:
-            self.from_tor_src_port = random.choice(self.port_channel_ports.values())
+            from_tor_src_port = random.choice(self.port_channel_ports.keys())
 
-        from_tor_src_port_name = None
+        from_tor_src_port_index = None
         for port_name, ptf_port_index in self.port_channel_ports.items():
-            if ptf_port_index == self.from_tor_src_port:
-                from_tor_src_port_name = port_name
+            if port_name == from_tor_src_port:
+                from_tor_src_port_index = ptf_port_index
                 break
 
-        if from_tor_src_port_name is None:
-            logger.error("Port name not found for port index {} in the list {}"\
-                .format(self.from_tor_src_port, self.port_channel_ports.values()))
+        if from_tor_src_port_index is None:
+            logger.error("Port index {} not found in the list of port channel ports {}"\
+                .format(from_tor_src_port, self.port_channel_ports.values()))
 
-        server_ip_list = [self.downstream_dst_ip] if self.downstream_dst_ip\
-            else self.server_ip_list
         logger.info("-"*20 + "T1 to server packet" + "-"*20)
-        logger.info("Source port: {}".format(self.from_tor_src_port))
+        logger.info("Source port: {}".format(from_tor_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(eth_dst, eth_src))
-        logger.info("IP address: dst: random src: random")
+        if self.downstream_dst_ip:
+            server_ip_list = [self.downstream_dst_ip]
+            logger.info("IP address: dst: {} src: random".format(self.downstream_dst_ip))
+        else:
+             server_ip_list = self.server_ip_list
+             logger.info("IP address: dst: random src: random")
         logger.info("TCP port: dst: {}".format(tcp_dport))
         logger.info("DUT mac: {}".format(self.dut_mac))
         logger.info("VLAN mac: {}".format(self.vlan_mac))
@@ -218,7 +226,7 @@ class DualTorIO:
             payload =  str(i) + 'X' * 60
             packet = scapyall.Ether(str(tcp_tx_packet))
             packet.load = payload
-            self.packets_list.append((self.from_tor_src_port, str(packet)))
+            self.packets_list.append((from_tor_src_port_index, str(packet)))
 
         self.sent_pkt_dst_mac = self.dut_mac
         self.received_pkt_src_mac = [self.vlan_mac]
@@ -229,14 +237,13 @@ class DualTorIO:
         @summary: Generate (not send) the packets to be sent from server to T1
         """
         eth_src = self.ptfadapter.dataplane.get_mac(0, 0)
-        if self.server_port:
-            self.from_server_src_port = self.server_port
+        if self.tor_vlan_port:
+            from_server_src_port = self.tor_vlan_port
         else:
-            self.from_server_src_port = random.choice(self.vlan_ports.values())
+            from_server_src_port = random.choice(self.vlan_ports.values())
         self.from_server_src_addr  = random.choice(
-            self.vlan_host_map[self.from_server_src_port])
-        self.from_server_dst_addr  = self.upstream_dst_ip if self.upstream_dst_ip\
-            else self.random_host_ip()
+            self.vlan_host_map[from_server_src_port])
+        self.from_server_dst_addr = self.random_host_ip()
         tcp_dport = TCP_DST_PORT
         tcp_tx_packet = testutils.simple_tcp_packet(
                       eth_dst=self.vlan_mac,
@@ -245,9 +252,8 @@ class DualTorIO:
                       ip_dst=self.from_server_dst_addr,
                       tcp_dport=tcp_dport
                  )
-
         logger.info("-"*20 + "Server to T1 packet" + "-"*20)
-        logger.info("Source port: {}".format(self.from_server_src_port))
+        logger.info("Source port: {}".format(from_server_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(self.vlan_mac, eth_src))
         logger.info("IP address: dst: {} src: {}".format(self.from_server_dst_addr,
             self.from_server_src_addr))
@@ -262,7 +268,7 @@ class DualTorIO:
             payload =  str(i) + 'X' * 60
             packet = scapyall.Ether(str(tcp_tx_packet))
             packet.load = payload
-            self.packets_list.append((self.from_server_src_port, str(packet)))
+            self.packets_list.append((from_server_src_port, str(packet)))
 
         self.sent_pkt_dst_mac = self.vlan_mac
         self.received_pkt_src_mac = [self.active_mac, self.standby_mac]

@@ -1,11 +1,18 @@
 import pytest
-import pprint
+import json
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 import threading
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_standbyhost(duthosts, activehost):
+    if duthosts[0] == activehost:
+        return duthosts[1]
+    else:
+        return duthosts[0]
 
 
 def arp_setup(ptfhost):
@@ -68,12 +75,12 @@ def generate_test_report(tor_IO):
                 "total_lost_packets": tor_IO.get_total_lost_packets()
             }
     }
-    logger.info("Data plane traffic test results: \n{}".format(pprint.pformat(data_plane_test_report)))
+    logger.info("Data plane traffic test results: \n{}".format(json.dumps(data_plane_test_report, indent=4)))
     return data_plane_test_report
 
 
 @pytest.fixture
-def send_t1_to_server_with_action(ptfhost, ptfadapter, tbinfo):
+def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -93,19 +100,19 @@ def send_t1_to_server_with_action(ptfhost, ptfadapter, tbinfo):
     """
     arp_setup(ptfhost)
     
-    duthosts = []
-    def t1_to_server_io_test(activehost, standbyhost=None, tor_port=None,
-                            delay=0, action=None, verify=False,
-                            downstream_dst_ip=None):
+    duthosts_list = []
+    def t1_to_server_io_test(activehost, tor_vlan_port=None,
+                            delay=0, action=None, verify=False):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
 
         Args:
-            tor_port (int): Port index (as in minigraph_ptf_indices) which
-                corresponds to PortChannel member port of the activehost.
-                default - None. If set to None, the test chooses random PortChannel
-                member port for this test.
+            tor_vlan_port (str): Port name (as in minigraph_portchannels) which
+                corresponds to VLAN member port of the activehost. This is used to
+                select the downstream server IP to send the packets to.
+                default - None. If set to None, the test sends traffic to randomly
+                selected downstream server addresses.
             delay (int): Maximum acceptable delay for traffic to continue flowing again.
             action (function): A Lambda function (with optional args) which performs
                 the desired action while the traffic is flowing from server to T1.
@@ -114,10 +121,11 @@ def send_t1_to_server_with_action(ptfhost, ptfadapter, tbinfo):
             verify (boolean): If set to True, test will automatically verify packet
                 drops/duplication based on given qualification critera
         """
-        duthosts.append(activehost)
+        duthosts_list.append(activehost)
         io_ready = threading.Event()
+        standbyhost = get_standbyhost(duthosts, activehost)
         tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-             io_ready, tor_port=tor_port, downstream_dst_ip=downstream_dst_ip)
+            io_ready, tor_vlan_port=tor_vlan_port)
         send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
             kwargs={'traffic_generator': tor_IO.generate_from_t1_to_server})
         send_and_sniff.start()
@@ -141,13 +149,13 @@ def send_t1_to_server_with_action(ptfhost, ptfadapter, tbinfo):
 
     # cleanup torIO
     ptfadapter.dataplane.flush()
-    for duthost in duthosts:
+    for duthost in duthosts_list:
         logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
         duthost.shell('sonic-clear arp')
 
 
 @pytest.fixture
-def send_server_to_t1_with_action(ptfhost, ptfadapter, tbinfo):
+def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     """
     Starts IO test from server to T1 router.
     As part of IO test the background thread sends and sniffs packets.
@@ -168,19 +176,18 @@ def send_server_to_t1_with_action(ptfhost, ptfadapter, tbinfo):
     """
     arp_setup(ptfhost)
 
-    duthosts = []
-    def server_to_t1_io_test(activehost, standbyhost=None, server_port=None,
-                            delay=0, action=None, verify=False,
-                            upstream_dst_ip=None):
+    duthosts_list = []
+    def server_to_t1_io_test(activehost, tor_vlan_port=None,
+                            delay=0, action=None, verify=False):
         """
         Helper method for `send_server_to_t1_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
 
         Args:
-            server_port (int): Port index (as in minigraph_ptf_indices) which
+            tor_vlan_port (str): Port name (as in minigraph_portchannels) which
                 corresponds to VLAN member port of the activehost.
                 default - None. If set to None, the test chooses random VLAN
-                 member port for this test.
+                member port for this test.
             delay (int): Maximum acceptable delay for traffic to continue flowing again.
             action (function): A Lambda function (with optional args) which
                 performs the desired action while the traffic flows from server to T1.
@@ -189,10 +196,11 @@ def send_server_to_t1_with_action(ptfhost, ptfadapter, tbinfo):
             verify (boolean): If set to True, test will automatically verify packet
                 drops/duplication based on given qualification critera
         """
-        duthosts.append(activehost)
+        duthosts_list.append(activehost)
         io_ready = threading.Event()
+        standbyhost = get_standbyhost(duthosts, activehost)
         tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-            io_ready, server_port=server_port, upstream_dst_ip=upstream_dst_ip)
+            io_ready, tor_vlan_port=tor_vlan_port)
         send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
             kwargs={'traffic_generator': tor_IO.generate_from_server_to_t1})
         send_and_sniff.start()
@@ -217,6 +225,6 @@ def send_server_to_t1_with_action(ptfhost, ptfadapter, tbinfo):
 
     # cleanup torIO
     ptfadapter.dataplane.flush()
-    for duthost in duthosts:
+    for duthost in duthosts_list:
        logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
        duthost.shell('sonic-clear arp')
