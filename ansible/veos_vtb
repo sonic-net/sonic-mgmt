@@ -18,6 +18,7 @@ all:
           - t0-16
           - t0-56
           - t0-52
+          - t0-56-po2vlan
           - ptf32
           - ptf64
           - t0-64
@@ -67,7 +68,7 @@ all:
           ansible_host: 10.250.0.101
           ansible_hostv6: fec0::ffff:afa:1
           type: kvm
-          hwsku: Force10-S6000
+          hwsku: Mellanox-SN2700-D40C8S8
           serial_port: 9000
           ansible_password: password
           ansible_user: admin
@@ -152,7 +153,7 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: use_own_value
+      ansible_user: zegan
 
 vms_1:
   hosts:

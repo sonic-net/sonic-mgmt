@@ -60,8 +60,8 @@
   - name: Create ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
-      image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-      pull: yes
+      image: "{{ ptf_imagename }}"
+      pull: no
       state: started
       restart: no
       network_mode: none

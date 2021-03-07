@@ -24,7 +24,7 @@ function setup_local_image() {
 FROM {{ IMAGE_ID }}
 
 RUN sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
-RUN sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
+# RUN sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
 
 RUN sudo sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
 
