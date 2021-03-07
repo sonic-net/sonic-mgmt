@@ -78,6 +78,48 @@ import time
 
 
 def validate_datetime_after_read(facts, function, func_args, func_kargs):
+    if facts is not Facts.NOEXIST:
+        timestamp = facts.get("cached_timestamp")
+        if timestamp:
+            delta = datetime.datetime.now() - datetime.datetime.fromtimestamp(timestamp)
+            if delta.days == 0:
+                return facts["cached_facts"]
+    # if exceeds 24h, force the get the result from calling the decorated function
+    return FactsCache.NOTEXIST
+
+
+def add_datetime_before_write(facts, function, func_args, func_kargs):
+    return {"cached_timestamp": time.time(), "cached_facts": facts}
+
+
+class SonicHost(AnsibleHostBase):
+
+    ...
+
+    @cached(name='basic_facts')
+    def _gather_facts(self):
+```
+2. have custome zone getter function to retrieve zone from the argument `hostname` defined in the decorated function.
+```python
+import inspect
+
+
+def get_hostname(function, func_args, func_kargs)
+    args_binding = inspect.getcallargs(function, *func_args, **func_kargs)
+    return args_binding.get("hostname") or args_binding.get("kargs").get("hostname")
+
+
+@cached(name="host_variable", zone_getter=get_hostname)
+def get_host_visible_variable(inv_files, hostname):
+    pass
+```
+3. have custome `after_read` and `before_write` to validate that cached facts are within 24h.
+```python
+import datetime
+import time
+
+
+def validate_datetime_after_read(facts, function, func_args, func_kargs):
     timestamp = facts.get("cached_timestamp")
     if timestamp:
         delta = datetime.datetime.now() - datetime.datetime.fromtimestamp(timestamp)
@@ -95,7 +137,7 @@ class SonicHost(AnsibleHostBase):
 
     ...
 
-    @cached(name='basic_facts')
+    @cached(name='basic_facts', after_read=validate_datetime_after_read, before_write=add_datetime_before_write)
     def _gather_facts(self):
 ```
 

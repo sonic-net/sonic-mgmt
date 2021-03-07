@@ -10,8 +10,6 @@ from collections import defaultdict
 from threading import Lock
 from six import with_metaclass
 
-from tests.common.devices.base import AnsibleHostBase
-
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +165,7 @@ class FactsCache(with_metaclass(Singleton, object)):
 def _get_hostname_as_zone(function, func_args, func_kargs):
     """Default zone getter used for decorator cached."""
     hostname = None
-    if func_args and isinstance(func_args[0], AnsibleHostBase):
+    if func_args:
         hostname = getattr(func_args[0], "hostname", None)
     if not hostname or not isinstance(hostname, str):
         raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
@@ -210,8 +208,10 @@ def cached(name, zone_getter=None, after_read=None, before_write=None):
             else:
                 facts = target(*args, **kargs)
                 if before_write:
-                    facts = before_write(facts, target, args, kargs)
-                cache.write(zone, name, facts)
+                    _facts = before_write(facts, target, args, kargs)
+                    cache.write(zone, name, _facts)
+                else:
+                    cache.write(zone, name, facts)
                 return facts
         return wrapper
     return decorator
