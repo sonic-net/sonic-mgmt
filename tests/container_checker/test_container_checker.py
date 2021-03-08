@@ -30,8 +30,11 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
+    bgp_neighbors = duthost.get_bgp_neighbors()
+    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
     yield
     config_reload(duthost)
+    postcheck_critical_processes_status(duthost, up_bgp_neighbors)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -200,40 +203,6 @@ def get_expected_alerting_messages(stopped_container_list):
     return expected_alerting_messages
 
 
-def check_containers_status(duthost, stopped_container_list):
-    """Checks whether the stopped containers were started.
-
-    This function will check whether the stopped containers were restarted or not.
-    If the container was not restarted by the function 'config_reload(...)', then this function
-    will start it and then check its status.
-
-    Args:
-        duthost: Hostname of DUT.
-        stopped_container_list: names of stopped containers.
-
-    Returns:
-        None.
-    """
-    for container_name in stopped_container_list:
-        logger.info("Checking the running status of container '{}'".format(container_name))
-        if is_container_running(duthost, container_name):
-            logger.info("Container '{}' is running.".format(container_name))
-        else:
-            logger.info("Container '{}' is not running and restart it...".format(container_name))
-            duthost.shell("sudo systemctl restart {}".format(container_name))
-            logger.info("Waiting until container '{}' is restarted...".format(container_name))
-            restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                                   CONTAINER_CHECK_INTERVAL_SECS,
-                                   check_container_state, duthost, container_name, True)
-            if not restarted:
-                if is_hiting_start_limit(duthost, container_name):
-                    clear_failed_flag_and_restart(duthost, container_name)
-                else:
-                    pytest.fail("Failed to restart container '{}'".format(container_name))
-
-            logger.info("Container '{}' was restarted".format(container_name))
-
-
 def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     """Tests the feature of container checker.
 
@@ -277,13 +246,3 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
-
-    logger.info("Executing the config reload...")
-    config_reload(duthost)
-    logger.info("Executing the config reload was done!")
-
-    check_containers_status(duthost, stopped_container_list)
-
-    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the container checker!")
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
