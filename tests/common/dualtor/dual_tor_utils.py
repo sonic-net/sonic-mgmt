@@ -12,7 +12,6 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.dualtor.dual_tor_mock import mock_peer_switch_loopback_ip # lgtm[py/unused-import]
 import ipaddress
 
 from ptf import mask
@@ -318,7 +317,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
             Defaults to None.
 
     Returns:
-        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down 
+        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down
                                  on that host device.
     """
     if not dut_intfs:
@@ -702,14 +701,13 @@ def get_crm_nexthop_counter(host):
 
 
 @pytest.fixture
-def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, mock_peer_switch_loopback_ip):
+def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     @summary: A helper function for collecting info of dualtor testbed.
     @param ptfhost: The ptf host fixture
     @param rand_selected_dut: The randomly selected dut host, will be set as standby ToR
     @param rand_unselected_dut: The other dut in dualtor testbed, will be set as active ToR
     @param tbinfo: The tbinfo fixture
-    @param mock_peer_switch_loopback_ip: The mock fixture
     @return: A dict, can be used as the argument of check_tunnel_balance
     """
     active_tor = rand_unselected_dut
@@ -730,7 +728,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, mock_p
 
     if tbinfo["topo"]["name"] == "t0":
         # For mocked dualtor
-        res['active_tor_ip'] = mock_peer_switch_loopback_ip()
+        res['active_tor_ip'] = str(ipaddress.ip_address(res['standby_tor_ip']) + 1)
     else:
         active_tor_mg_facts = active_tor.get_extended_minigraph_facts(tbinfo)
         res['active_tor_ip'] = _get_iface_ip(active_tor_mg_facts, 'Loopback0')
@@ -780,4 +778,5 @@ def rand_selected_interface(rand_selected_dut):
     iface = str(random.choice(server_ips.keys()))
     logging.info("select DUT interface %s to test.", iface)
     return iface, server_ips[iface]
+
 
