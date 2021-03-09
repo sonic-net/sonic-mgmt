@@ -23,6 +23,7 @@ all:
           - ptf64
           - t0-64
           - t0-64-32
+          - t0-80
           - t0-116
           - dualtor
           - dualtor-56
