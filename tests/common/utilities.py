@@ -319,6 +319,59 @@ def get_test_server_vars(inv_files, server, variable=None):
         return None
 
 
+def get_test_server_visible_vars(inv_files, server, variable=None):
+    """Use ansible's VariableManager and InventoryManager to get value of variables visible to the specified server
+    group.
+
+    In testbed.csv file, we can get the server name of each test setup under the 'server' column. For example
+    'server_1', 'server_2', etc. This server name is indeed a group name in used ansible inventory files. This group
+    contains children groups for test server and VMs. This function is try to just return the variables visible to
+    the server group.
+
+    Args:
+        inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
+            it can be get from request.config.getoption("ansible_inventory").
+        server (string): Server of test setup in testbed.csv file.
+        variable (string or None): Variable name. Defaults to None.
+
+    Returns:
+        string or dict or None: If variable name is specified, return the variable value. If variable is not found,
+            return None. If variable name is not specified, return all variables in a dictionary. If the group is not
+            found or there is no host in the group, return None.
+    """
+    cached_vars = cache.read(server, 'test_server_visible_vars')
+    if cached_vars and cached_vars['inv_files'] == inv_files:
+        test_server_visible_vars = cached_vars['vars']
+    else:
+        test_server_visible_vars = None
+
+        vm = get_variable_manager(inv_files)
+        im = vm._inventory
+        group = im.groups.get(server, None)
+        if not group:
+            logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
+            return None
+        for host in group.get_hosts():
+            if not re.match(r'VM\d+', host.name):   # This must be the test server host
+                test_server = host.name
+        test_server_host = im.get_host(test_server)
+        if not test_server_host:
+            logger.error("Unable to find host %s in %s", test_server_host, inv_files)
+            return None
+
+        test_server_visible_vars = vm.get_vars(host=test_server_host)
+        cache.write(server, 'test_server_visible_vars', {'inv_files': inv_files, 'vars': test_server_visible_vars})
+
+    if test_server_visible_vars:
+        if variable:
+            return test_server_visible_vars.get(variable, None)
+        else:
+            return test_server_visible_vars
+    else:
+        logger.error("Unable to find test server host under group {}".format(server))
+        return None
+
+
 def is_ipv4_address(ip_address):
     """Check if ip address is ipv4."""
     try:
