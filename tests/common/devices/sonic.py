@@ -1082,7 +1082,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         return self.command(cmd)
 
     def get_docker_cmd(self, cmd, container_name):
-        return cmd
+        return "sudo docker exec {} {}".format(container_name, cmd)
 
     def get_asic_name(self):
         asic = "unknown"
