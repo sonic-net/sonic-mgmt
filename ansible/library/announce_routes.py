@@ -405,6 +405,9 @@ def main():
     elif topo_type == "t1":
         fib_t1_lag(topo, ptf_ip)
         module.exit_json(changed=True)
+    elif topo_type == "t2":
+        fib_t2_lag(topo, ptf_ip)
+        module.exit_json(changed=True)
     else:
         module.fail_json(msg='Unsupported topology "{}"'.format(topo_name))
 
