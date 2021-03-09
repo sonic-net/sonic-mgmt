@@ -272,6 +272,20 @@ def get_group_visible_vars(inv_files, group_name, variable=None):
         return group_visible_vars
 
 
+def get_test_server_host(inv_files, server):
+    """Get test server ansible host from the 'server' column in testbed file."""
+    vm = get_variable_manager(inv_files)
+    im = vm._inventory
+    group = im.groups.get(server, None)
+    if not group:
+        logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
+        return None
+    for host in group.get_hosts():
+        if not re.match(r'VM\d+', host.name):   # This must be the test server host
+            return host
+    return None
+
+
 def get_test_server_vars(inv_files, server, variable=None):
     """Use ansible's VariableManager and InventoryManager to get value of variables of test server belong to specified
     server group.
@@ -297,17 +311,10 @@ def get_test_server_vars(inv_files, server, variable=None):
         test_server_vars = cached_vars['vars']
     else:
         test_server_vars = None
-
-        vm = get_variable_manager(inv_files)
-        im = vm._inventory
-        group = im.groups.get(server, None)
-        if not group:
-            logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
-            return None
-        for host in group.get_hosts():
-            if not re.match(r'VM\d+', host.name):   # This must be the test server host
-                test_server_vars = host.vars
-                cache.write(server, 'test_server_vars', {'inv_files': inv_files, 'vars': test_server_vars})
+        host = get_test_server_host(inv_files, server)
+        if host:
+            test_server_vars = host.vars
+            cache.write(server, 'test_server_vars', {'inv_files': inv_files, 'vars': test_server_vars})
 
     if test_server_vars:
         if variable:
