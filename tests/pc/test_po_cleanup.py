@@ -38,7 +38,7 @@ def check_kernel_po_interface_cleaned(duthost, asic_index):
     return res == '0'
 
 @pytest.fixture(scope="module", autouse=True)
-def disable_teamd(duthosts, rand_one_dut_hostname, tbinfo):
+def check_topo_and_restore(duthosts, rand_one_dut_hostname, tbinfo):
     
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
