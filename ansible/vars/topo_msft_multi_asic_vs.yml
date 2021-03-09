@@ -1,0 +1,659 @@
+ASIC0:
+  topology:
+    NEIGH_ASIC:
+      ASIC4:
+        asic_intfs:
+          - Eth16-ASIC0
+          - Eth17-ASIC0
+          - Eth18-ASIC0
+          - Eth19-ASIC0
+          - Eth20-ASIC0
+          - Eth21-ASIC0
+          - Eth22-ASIC0
+          - Eth23-ASIC0
+      ASIC5:
+        asic_intfs:
+          - Eth24-ASIC0
+          - Eth25-ASIC0
+          - Eth26-ASIC0
+          - Eth27-ASIC0
+          - Eth28-ASIC0
+          - Eth29-ASIC0
+          - Eth30-ASIC0
+          - Eth31-ASIC0
+  configuration_properties:
+    common:
+      dut_asn: 65100
+      asic_type: FrontEnd 
+      Loopback4096:
+        - 8.0.0.0/32
+        - 2603:10e2:400::/128
+  configuration:
+    ASIC4:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.1
+          - 2603:10e2:400:1::2
+      interfaces:
+        Eth0-ASIC4:
+          lacp: 1
+        Eth1-ASIC4:
+          lacp: 1
+        Eth2-ASIC4:
+          lacp: 1
+        Eth3-ASIC4:
+          lacp: 1
+        Eth4-ASIC4:
+          lacp: 1
+        Eth5-ASIC4:
+          lacp: 1
+        Eth6-ASIC4:
+          lacp: 1
+        Eth7-ASIC4:
+          lacp: 1
+        Port-Channel1:
+          ipv4: 10.1.0.0/31
+          ipv6: 2603:10e2:400:1::1/126
+    ASIC5:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.3
+          - 2603:10e2:400:1::6
+      interfaces:
+        Eth0-ASIC5:
+          lacp: 2
+        Eth1-ASIC5:
+          lacp: 2
+        Eth2-ASIC5:
+          lacp: 2
+        Eth3-ASIC5:
+          lacp: 2
+        Eth4-ASIC5:
+          lacp: 2
+        Eth5-ASIC5:
+          lacp: 2
+        Eth6-ASIC5:
+          lacp: 2
+        Eth7-ASIC5:
+          lacp: 2
+        Port-Channel2:
+          ipv4: 10.1.0.2/31
+          ipv6: 2603:10e2:400:1::5/126
+ASIC1:
+  topology:
+    NEIGH_ASIC:
+      ASIC4:
+        asic_intfs:
+          - Eth16-ASIC1
+          - Eth17-ASIC1
+          - Eth18-ASIC1
+          - Eth19-ASIC1
+          - Eth20-ASIC1
+          - Eth21-ASIC1
+          - Eth22-ASIC1
+          - Eth23-ASIC1
+      ASIC5:
+        asic_intfs:
+          - Eth24-ASIC1
+          - Eth25-ASIC1
+          - Eth26-ASIC1
+          - Eth27-ASIC1
+          - Eth28-ASIC1
+          - Eth29-ASIC1
+          - Eth30-ASIC1
+          - Eth31-ASIC1
+  configuration_properties:
+    common:
+      dut_asn: 65100
+      asic_type: FrontEnd
+      Loopback4096:
+        - 8.0.0.1/32
+        - 2603:10e2:400::1/128
+  configuration:
+    ASIC4:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.5
+          - 2603:10e2:400:1::a
+      interfaces:
+        Eth8-ASIC4:
+          lacp: 1
+        Eth9-ASIC4:
+          lacp: 1
+        Eth10-ASIC4:
+          lacp: 1
+        Eth11-ASIC4:
+          lacp: 1
+        Eth12-ASIC4:
+          lacp: 1
+        Eth13-ASIC4:
+          lacp: 1
+        Eth14-ASIC4:
+          lacp: 1
+        Eth15-ASIC4:
+          lacp: 1
+        Port-Channel1:
+          ipv4: 10.1.0.4/31
+          ipv6: 2603:10e2:400:1::9/126
+    ASIC5:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.7
+          - 2603:10e2:400:1::e
+      interfaces:
+        Eth8-ASIC5:
+          lacp: 2
+        Eth9-ASIC5:
+          lacp: 2
+        Eth10-ASIC5:
+          lacp: 2
+        Eth11-ASIC5:
+          lacp: 2
+        Eth12-ASIC5:
+          lacp: 2
+        Eth13-ASIC5:
+          lacp: 2
+        Eth14-ASIC5:
+          lacp: 2
+        Eth15-ASIC5:
+          lacp: 2
+        Port-Channel2:
+          ipv4: 10.1.0.6/31
+          ipv6: 2603:10e2:400:1::d/126
+ASIC2:
+  topology:
+    NEIGH_ASIC:
+      ASIC4:
+        asic_intfs:
+          - Eth16-ASIC2
+          - Eth17-ASIC2
+          - Eth18-ASIC2
+          - Eth19-ASIC2
+          - Eth20-ASIC2
+          - Eth21-ASIC2
+          - Eth22-ASIC2
+          - Eth23-ASIC2
+      ASIC5:
+        asic_intfs:
+          - Eth24-ASIC2
+          - Eth25-ASIC2
+          - Eth26-ASIC2
+          - Eth27-ASIC2
+          - Eth28-ASIC2
+          - Eth29-ASIC2
+          - Eth30-ASIC2
+          - Eth31-ASIC2
+  configuration_properties:
+    common:
+      dut_asn: 65100
+      asic_type: FrontEnd
+      Loopback4096:
+        - 8.0.0.2/32
+        - 2603:10e2:400::2/128
+  configuration:
+    ASIC4:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.9
+          - 2603:10e2:400:1::11
+      interfaces:
+        Eth24-ASIC4:
+          lacp: 1
+        Eth25-ASIC4:
+          lacp: 1
+        Eth26-ASIC4:
+          lacp: 1
+        Eth27-ASIC4:
+          lacp: 1
+        Eth28-ASIC4:
+          lacp: 1
+        Eth29-ASIC4:
+          lacp: 1
+        Eth30-ASIC4:
+          lacp: 1
+        Eth31-ASIC4:
+          lacp: 1
+        Port-Channel1:
+          ipv4: 10.1.0.8/31
+          ipv6: 2603:10e2:400:1::12/126
+    ASIC5:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.11
+          - 2603:10e2:400:1::16
+      interfaces:
+        Eth24-ASIC5:
+          lacp: 2
+        Eth25-ASIC5:
+          lacp: 2
+        Eth26-ASIC5:
+          lacp: 2
+        Eth27-ASIC5:
+          lacp: 2
+        Eth28-ASIC5:
+          lacp: 2
+        Eth29-ASIC5:
+          lacp: 2
+        Eth30-ASIC5:
+          lacp: 2
+        Eth31-ASIC5:
+          lacp: 2
+        Port-Channel2:
+          ipv4: 10.1.0.10/31
+          ipv6: 2603:10e2:400:1::15/126
+ASIC3:
+  topology:
+    NEIGH_ASIC:
+      ASIC4:
+        asic_intfs:
+          - Eth16-ASIC3
+          - Eth17-ASIC3
+          - Eth18-ASIC3
+          - Eth19-ASIC3
+          - Eth20-ASIC3
+          - Eth21-ASIC3
+          - Eth22-ASIC3
+          - Eth23-ASIC3
+      ASIC5:
+        asic_intfs:
+          - Eth24-ASIC3
+          - Eth25-ASIC3
+          - Eth26-ASIC3
+          - Eth27-ASIC3
+          - Eth28-ASIC3
+          - Eth29-ASIC3
+          - Eth30-ASIC3
+          - Eth31-ASIC3
+  configuration_properties:
+    common:
+      dut_asn: 65100
+      asic_type: FrontEnd
+      Loopback4096:
+        - 8.0.0.3/32
+        - 2603:10e2:400::3/128
+  configuration:
+    ASIC4:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.13
+          - 2603:10e2:400:1::1a
+      interfaces:
+        Eth24-ASIC4:
+          lacp: 1
+        Eth25-ASIC4:
+          lacp: 1
+        Eth26-ASIC4:
+          lacp: 1
+        Eth27-ASIC4:
+          lacp: 1
+        Eth28-ASIC4:
+          lacp: 1
+        Eth29-ASIC4:
+          lacp: 1
+        Eth30-ASIC4:
+          lacp: 1
+        Eth31-ASIC4:
+          lacp: 1
+        Port-Channel1:
+          ipv4: 10.1.0.12/31
+          ipv6: 2603:10e2:400:1::19/126
+    ASIC5:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.15
+          - 2603:10e2:400:1::1e
+      interfaces:
+        Eth24-ASIC5:
+          lacp: 2
+        Eth25-ASIC5:
+          lacp: 2
+        Eth26-ASIC5:
+          lacp: 2
+        Eth27-ASIC5:
+          lacp: 2
+        Eth28-ASIC5:
+          lacp: 2
+        Eth29-ASIC5:
+          lacp: 2
+        Eth30-ASIC5:
+          lacp: 2
+        Eth31-ASIC5:
+          lacp: 2
+        Port-Channel2:
+          ipv4: 10.1.0.14/31
+          ipv6: 2603:10e2:400:1::1d/126
+ASIC4:
+  topology:
+    NEIGH_ASIC:
+      ASIC0:
+        asic_intfs:
+          - Eth0-ASIC4
+          - Eth1-ASIC4
+          - Eth2-ASIC4
+          - Eth3-ASIC4
+          - Eth4-ASIC4
+          - Eth5-ASIC4
+          - Eth6-ASIC4
+          - Eth7-ASIC4
+      ASIC1:
+        asic_intfs:
+          - Eth8-ASIC4
+          - Eth9-ASIC4
+          - Eth10-ASIC4
+          - Eth11-ASIC4
+          - Eth12-ASIC4
+          - Eth13-ASIC4
+          - Eth14-ASIC4
+          - Eth15
+      ASIC2:
+        asic_intfs:
+          - Eth16-ASIC4
+          - Eth17-ASIC4
+          - Eth18-ASIC4
+          - Eth19-ASIC4
+          - Eth20-ASIC4
+          - Eth21-ASIC4
+          - Eth22-ASIC4
+          - Eth23-ASIC4
+      ASIC3:
+        asic_intfs:
+          - Eth24-ASIC4
+          - Eth25-ASIC4
+          - Eth26-ASIC4
+          - Eth27-ASIC4
+          - Eth28-ASIC4
+          - Eth29-ASIC4
+          - Eth30-ASIC4
+          - Eth31-ASIC4
+  configuration_properties:
+    common:
+      dut_asn: 65100
+      asic_type: BackEnd
+      Loopback4096:
+        - 8.0.0.4/32
+        - 2603:10e2:400::4/128
+  configuration:
+    ASIC0:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.0
+          - 2603:10e2:400:1::1
+      interfaces:
+        Eth16-ASIC0:
+          lacp: 1
+        Eth17-ASIC0:
+          lacp: 1
+        Eth18-ASIC0:
+          lacp: 1
+        Eth19-ASIC0:
+          lacp: 1
+        Eth20-ASIC0:
+          lacp: 1
+        Eth21-ASIC0:
+          lacp: 1
+        Eth22-ASIC0:
+          lacp: 1
+        Eth23-ASIC0:
+          lacp: 1
+        Port-Channel1:
+          ipv4: 10.1.0.1/31
+          ipv6: 2603:10e2:400:1::2/126
+    ASIC1:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.4
+          - 2603:10e2:400:1::9
+      interfaces:
+        Eth16-ASIC1:
+          lacp: 2
+        Eth17-ASIC1:
+          lacp: 2
+        Eth18-ASIC1:
+          lacp: 2
+        Eth19-ASIC1:
+          lacp: 2
+        Eth20-ASIC1:
+          lacp: 2
+        Eth21-ASIC1:
+          lacp: 2
+        Eth22-ASIC1:
+          lacp: 2
+        Eth23-ASIC1:
+          lacp: 2
+        Port-Channel2:
+          ipv4: 10.1.0.5/31
+          ipv6: 2603:10e2:400:1::a/126
+    ASIC2:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.8
+          - 2603:10e2:400:1::11
+      interfaces:
+        Eth16-ASIC2:
+          lacp: 3
+        Eth17-ASIC2:
+          lacp: 3
+        Eth18-ASIC2:
+          lacp: 3
+        Eth19-ASIC2:
+          lacp: 3
+        Eth20-ASIC2:
+          lacp: 3
+        Eth21-ASIC2:
+          lacp: 3
+        Eth22-ASIC2:
+          lacp: 3
+        Eth23-ASIC2:
+          lacp: 3
+        Port-Channel3:
+          ipv4: 10.1.0.9/31
+          ipv6: 2603:10e2:400:1::12/126
+    ASIC3:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.12
+          - 2603:10e2:400:1::19
+      interfaces:
+        Eth16-ASIC3:
+          lacp: 4
+        Eth17-ASIC3:
+          lacp: 4
+        Eth18-ASIC3:
+          lacp: 4
+        Eth19-ASIC3:
+          lacp: 4
+        Eth20-ASIC3:
+          lacp: 4
+        Eth21-ASIC3:
+          lacp: 4
+        Eth22-ASIC3:
+          lacp: 4
+        Eth23-ASIC3:
+          lacp: 4
+        Port-Channel4:
+          ipv4: 10.1.0.13/31
+          ipv6: 2603:10e2:400:1::1a/126
+ASIC5:
+  topology:
+    NEIGH_ASIC:
+      ASIC0:
+        asic_intfs:
+          - Eth0-ASIC5
+          - Eth1-ASIC5
+          - Eth2-ASIC5
+          - Eth3-ASIC5
+          - Eth4-ASIC5
+          - Eth5-ASIC5
+          - Eth6-ASIC5
+          - Eth7-ASIC5
+      ASIC1:
+        asic_intfs:
+          - Eth8-ASIC5
+          - Eth9-ASIC5
+          - Eth10-ASIC5
+          - Eth11-ASIC5
+          - Eth12-ASIC5
+          - Eth13-ASIC5
+          - Eth14-ASIC5
+          - Eth15-ASIC5
+      ASIC2:
+        asic_intfs:
+          - Eth16-ASIC5
+          - Eth17-ASIC5
+          - Eth18-ASIC5
+          - Eth19-ASIC5
+          - Eth20-ASIC5
+          - Eth21-ASIC5
+          - Eth22-ASIC5
+          - Eth23-ASIC5
+      ASIC3:
+        asic_intfs:
+          - Eth24-ASIC5
+          - Eth25-ASIC5
+          - Eth26-ASIC5
+          - Eth27-ASIC5
+          - Eth28-ASIC5
+          - Eth29-ASIC5
+          - Eth30-ASIC5
+          - Eth31-ASIC5
+  configuration_properties:
+    common:
+      dut_asn: 65100
+      asic_type: BackEnd
+      Loopback4096:
+        - 8.0.0.5/32
+        - 2603:10e2:400::5/128
+  
+  configuration:
+    ASIC0:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.2
+          - 2603:10e2:400:1::5
+      interfaces:
+        Eth24-ASIC0:
+          lacp: 1
+        Eth25-ASIC0:
+          lacp: 1
+        Eth26-ASIC0:
+          lacp: 1
+        Eth27-ASIC0:
+          lacp: 1
+        Eth28-ASIC0:
+          lacp: 1
+        Eth29-ASIC0:
+          lacp: 1
+        Eth30-ASIC0:
+          lacp: 1
+        Eth31-ASIC0:
+          lacp: 1
+        Port-Channel1:
+          ipv4: 10.1.0.3/31
+          ipv6: 2603:10e2:400:1::6/126
+    ASIC1:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.6
+          - 2603:10e2:400:1::d
+      interfaces:
+        Eth24-ASIC1:
+          lacp: 2
+        Eth25-ASIC1:
+          lacp: 2
+        Eth26-ASIC1:
+          lacp: 2
+        Eth27-ASIC1:
+          lacp: 2
+        Eth28-ASIC1:
+          lacp: 2
+        Eth29-ASIC1:
+          lacp: 2
+        Eth30-ASIC1:
+          lacp: 2
+        Eth31-ASIC1:
+          lacp: 2
+        Port-Channel2:
+          ipv4: 10.1.0.7/31
+          ipv6: 2603:10e2:400:1::e/126
+    ASIC2:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.10
+          - 2603:10e2:400:1::15
+      interfaces:
+        Eth24-ASIC2:
+          lacp: 3
+        Eth25-ASIC2:
+          lacp: 3
+        Eth26-ASIC2:
+          lacp: 3
+        Eth27-ASIC2:
+          lacp: 3
+        Eth28-ASIC2:
+          lacp: 3
+        Eth29-ASIC2:
+          lacp: 3
+        Eth30-ASIC2:
+          lacp: 3
+        Eth31-ASIC2:
+          lacp: 3
+        Port-Channel3:
+          ipv4: 10.1.0.11/31
+          ipv6: 2603:10e2:400:1::16/126
+    ASIC3:
+      bgp:
+        asn: 65100
+        peers:
+          65100:
+          - 10.1.0.14
+          - 2603:10e2:400:1::1d
+      interfaces:
+        Eth24-ASIC3:
+          lacp: 4
+        Eth25-ASIC3:
+          lacp: 4
+        Eth26-ASIC3:
+          lacp: 4
+        Eth27-ASIC3:
+          lacp: 4
+        Eth28-ASIC3:
+          lacp: 4
+        Eth29-ASIC3:
+          lacp: 4
+        Eth30-ASIC3:
+          lacp: 4
+        Eth31-ASIC3:
+          lacp: 4
+        Port-Channel4:
+          ipv4: 10.1.0.15/31
+          ipv6: 2603:10e2:400:1::1e/126
