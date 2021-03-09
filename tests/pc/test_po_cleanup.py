@@ -43,7 +43,7 @@ def check_topo_and_restore(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    if len(mg_facts['minigraph_portchannels'].keys()) == 0:
+    if len(mg_facts['minigraph_portchannels'].keys()) == 0 and not duthost.is_multi_asic:
         pytest.skip("Skip test due to there is no portchannel exists in current topology.")
     yield 
     # Do config reload to restore everything back
