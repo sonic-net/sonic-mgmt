@@ -2466,53 +2466,53 @@ vms_21:
 vms_svc_1:
   hosts:
     VM1000:
-      ansible_host: 172.16.139.32
+      ansible_host: 10.206.144.22
     VM1001:
-      ansible_host: 172.16.139.33
+      ansible_host: 10.206.144.23
     VM1002:
-      ansible_host: 172.16.139.34
+      ansible_host: 10.206.144.24
     VM1003:
-      ansible_host: 172.16.139.35
+      ansible_host: 10.206.144.25
     VM1004:
-      ansible_host: 172.16.139.36
+      ansible_host: 10.206.144.26
     VM1005:
-      ansible_host: 172.16.139.37
+      ansible_host: 10.206.144.27
     VM1006:
-      ansible_host: 172.16.139.38
+      ansible_host: 10.206.144.28
     VM1007:
-      ansible_host: 172.16.139.39
+      ansible_host: 10.206.144.29
     VM1008:
-      ansible_host: 172.16.139.40
+      ansible_host: 10.206.144.30
     VM1009:
-      ansible_host: 172.16.139.41
+      ansible_host: 10.206.144.31
     VM1010:
-      ansible_host: 172.16.139.42
+      ansible_host: 10.206.144.32
     VM1011:
-      ansible_host: 172.16.139.43
+      ansible_host: 10.206.144.33
     VM1012:
-      ansible_host: 172.16.139.44
+      ansible_host: 10.206.144.34
     VM1013:
-      ansible_host: 172.16.139.45
+      ansible_host: 10.206.144.35
     VM1014:
-      ansible_host: 172.16.139.46
+      ansible_host: 10.206.144.36
     VM1015:
-      ansible_host: 172.16.139.47
+      ansible_host: 10.206.144.37
     VM1016:
-      ansible_host: 172.16.139.48
+      ansible_host: 10.206.144.38
     VM1017:
-      ansible_host: 172.16.139.49
+      ansible_host: 10.206.144.39
     VM1018:
-      ansible_host: 172.16.139.50
+      ansible_host: 10.206.144.40
     VM1019:
-      ansible_host: 172.16.139.51
+      ansible_host: 10.206.144.41
     VM1020:
-      ansible_host: 172.16.139.52
+      ansible_host: 10.206.144.42
     VM1021:
-      ansible_host: 172.16.139.53
+      ansible_host: 10.206.144.43
     VM1022:
-      ansible_host: 172.16.139.54
+      ansible_host: 10.206.144.44
     VM1023:
-      ansible_host: 172.16.139.55
+      ansible_host: 10.206.144.45
     VM1024:
       ansible_host: 172.16.139.56
     VM1025:
