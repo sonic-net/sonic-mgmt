@@ -1081,6 +1081,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd)
 
+    def get_docker_cmd(self, cmd, container_name):
+        return cmd
+
     def get_asic_name(self):
         asic = "unknown"
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]

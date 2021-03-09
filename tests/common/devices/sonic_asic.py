@@ -76,7 +76,7 @@ class SonicAsic(object):
     def get_docker_cmd(self, cmd, container_name):
         if self.sonichost.is_multi_asic:
             return "sudo docker exec {}{} {}".format(container_name, self.asic_index, cmd)
-        return cmd
+        return self.sonichost.get_docker_cmd(cmd, container_name)
 
     def get_asic_namespace(self):
         if self.sonichost.is_multi_asic:
