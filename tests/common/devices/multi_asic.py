@@ -204,7 +204,7 @@ class MultiAsicSonicHost(object):
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
 
-    def get_asic(self, asic_id):
+    def get_asic_or_sonic_host(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
             return self.sonichost
         return self.asics[asic_id]

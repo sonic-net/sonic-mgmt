@@ -106,7 +106,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     * sfputil lpmode on
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asichost = duthost.get_asic(enum_frontend_asic_index)
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
 
     # Get the interface pertaining to that asic
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
