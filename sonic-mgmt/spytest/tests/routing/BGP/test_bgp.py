@@ -317,7 +317,7 @@ class TestBGPCommon:
         slog_obj.clear_logging(spine_name)
         # Enable zebra logs
         bgpapi.bgp_debug_config(spine_name, message="updates", prefix=aggr_route)
-        string = "bgp#supervisord:"
+        string = "bgp#/supervisord:"
 
         tg_ob=info['T1{}P1_tg_obj'.format(TG_D2)]
         bgp_handle = info['T1{}P1_ipv4_tg_bh'.format(TG_D2)]
