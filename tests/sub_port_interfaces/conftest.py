@@ -17,6 +17,20 @@ from sub_ports_helpers import get_port
 from sub_ports_helpers import remove_sub_port
 from sub_ports_helpers import remove_lag_port
 
+
+def pytest_addoption(parser):
+    """
+    Adds options to pytest that are used by the sub-ports tests.
+    """
+    parser.addoption(
+        "--max_numbers_of_sub_ports",
+        action="store",
+        type=int,
+        default=4,
+        help="Max numbers of sub-ports for test_max_numbers_of_sub_ports test case",
+    )
+
+
 @pytest.fixture(params=['port', 'port_in_lag'])
 def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
     """
@@ -44,6 +58,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
         }
     """
     sub_ports_config = {}
+    max_numbers_of_sub_ports = request.config.getoption("--max_numbers_of_sub_ports")
     vlan_ranges_dut = range(10, 30, 10)
     vlan_ranges_ptf = range(10, 30, 10)
 
@@ -51,16 +66,17 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
         vlan_ranges_ptf = range(11, 31, 10)
 
     if 'max_numbers' in request.node.name:
-        vlan_ranges_dut = range(1, 257, 64)
-        vlan_ranges_ptf = range(1, 257, 64)
+        vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
+        vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
 
         # Linux has the limitation of 15 characters on an interface name,
         # but name of LAG port should have prefix 'PortChannel' and suffix
         # '<0-9999>' on SONiC. So max length of LAG port suffix have be 3 characters
-        # For example: 'PortChannel1.96'
+        # For example: 'PortChannel1.99'
         if request.param == 'port_in_lag':
-            vlan_ranges_dut = range(1, 97, 24)
-            vlan_ranges_ptf = range(1, 97, 24)
+            max_numbers_of_sub_ports = max_numbers_of_sub_ports if max_numbers_of_sub_ports <= 99 else 99
+            vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
+            vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
 
     interface_ranges = range(1, 3)
     ip_subnet = u'172.16.0.0/16'
