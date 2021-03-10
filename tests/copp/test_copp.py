@@ -114,7 +114,6 @@ def copp_testbed(
     ptfhost,
     tbinfo,
     request,
-    disable_lldp_for_testing  # usefixtures not supported on fixtures
 ):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
@@ -230,6 +229,13 @@ def _setup_testbed(dut, creds, ptf, test_params):
        dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
        ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
        dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
+       http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+       https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+       dut.command("sudo ip -n {} rule add from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
+       if http_proxy != https_proxy:
+           dut.command("sudo ip -n {} rule add from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+
+
 
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params.nn_target_port)
@@ -253,17 +259,6 @@ def _setup_testbed(dut, creds, ptf, test_params):
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, wait=180)
 
-    # Shutdown BGP (needed on multi-asic for http connection. keeping generic as of now as it does not imapct testcase functionality) 
-    # and LLDP 
-    logging.info("Disable BGP and LLDP for COPP tests")
-    dut.command("sudo config bgp shutdown all")
-    asichost = dut.get_asic_from_namespace(test_params.nn_target_namespace)
-
-    lldp_docker_name = asichost.get_docker_name("lldp")
-
-    dut.command("docker exec {} supervisorctl stop lldp-syncd".format(lldp_docker_name))
-    dut.command("docker exec {} supervisorctl stop lldpd".format(lldp_docker_name))
-
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface, 
                                test_params.nn_target_namespace, creds)
@@ -282,6 +277,14 @@ def _teardown_testbed(dut, creds, ptf, test_params):
 
        ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
        dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
+
+       http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+       https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+       dut.command("sudo ip -n {} rule delete from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
+       if http_proxy != https_proxy:
+           dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+
+
    
     logging.info("Restore PTF post COPP test")
     copp_utils.restore_ptf(ptf)
@@ -292,35 +295,7 @@ def _teardown_testbed(dut, creds, ptf, test_params):
     if test_params.swap_syncd and not dut.is_multi_asic:
         logging.info("Restore default syncd docker...")
         docker.restore_default_syncd(dut, creds)
-
-        asichost = dut.get_asic_from_namespace(test_params.nn_target_namespace)
-        lldp_docker_name = asichost.get_docker_name("lldp")
-
-        dut.command("docker exec {} supervisorctl start lldp-syncd".format(lldp_docker_name))
-        dut.command("docker exec {} supervisorctl ssraer lldpd".format(lldp_docker_name))
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut)
-
-
-@pytest.fixture(scope="class")
-def disable_lldp_for_testing(
-    duthosts,
-    rand_one_dut_hostname,
-    disable_container_autorestart,
-    enable_container_autorestart
-):
-    """Disables LLDP during testing so that it doesn't interfere with the policer."""
-    duthost = duthosts[rand_one_dut_hostname]
-
-    logging.info("Disabling LLDP Container auto-restart for the COPP tests")
-
-    feature_list = ['lldp']
-    disable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
-
-    yield
-
-    logging.info("Restoring LLDP after the COPP tests")
-
-    enable_container_autorestart(duthost, testcase="test_copp", feature_list=feature_list)
