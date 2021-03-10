@@ -24,6 +24,7 @@ from apis.system.reboot import config_save
 from apis.system.basic import get_ps_aux
 from apis.switching.portchannel import create_portchannel, add_portchannel_member
 from apis.switching.vlan import create_vlan, add_vlan_member
+import apis.system.logging as slog_obj
 
 data = SpyTestDict()
 global test_vars
@@ -176,14 +177,31 @@ def test_mtu_basic_3(afamily):
           msg = "Setting mtu:{} on {}:{}".format(mtu, dut, intf)
           if not check_orchagent(dut):
             st.report_fail("The orchagent is not running even before setting MTU, pls check.")
+          default = get_mtu(dut, intf)
           set_mtu(dut, intf, mtu)
-          if check_orchagent(dut):
-            st.report_fail("{} seems to work, not expected".format(msg))
-          else:
-            st.log("The orchagent crashed as expected when we configure too big values for MTU.")
-            st.reboot(dut)
+          slog_obj.clear_logging(dut)
+          try:
+            if check_logs_for_mtu_message(dut):
+              st.log("The orchagent gives error as expected when we configure too big values for MTU.")
+            else:
+              st.report_fail("mtu_test_status", "{} seems to work, not expected".format(msg))
+          finally:
+            set_mtu(dut, intf, default)
 
   st.report_pass('mtu_test_status', "Everything above the max value failed as expected")
+
+def check_logs_for_mtu_message(dut):
+  """ 
+    Check for the error message "Failed to set MTU" in the log and return true if found.
+  """ 
+  global test_vars
+  error_msg = ["Failed to set MTU"]
+  msglist = slog_obj.show_logging(dut, severity='ERR', filter_list=error_msg)
+  if msglist:
+    st.log("Found the required error message in the logfile, continuing")
+    return 1
+  else:
+    raise RuntimeError("Didnot observe the required error message({}) in the logfile.".format(error_msg))
 
 def set_mtu_ping_verify(dut, dut2, intf, neigh_intf, mtu, afamily, sizes=[64, 1500, 8192]):
   '''
