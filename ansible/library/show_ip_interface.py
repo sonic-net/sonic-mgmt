@@ -63,7 +63,7 @@ class ShowIpInterfaceModule(object):
         self.ip_int = {}
         try:
             rc, self.out, err = self.module.run_command(
-                    "{}show ip interfaces".format(self.ns),
+                    "show ip interfaces{}".format(self.ns),
                     executable='/bin/bash',
                     use_unsafe_shell=True
                 )
