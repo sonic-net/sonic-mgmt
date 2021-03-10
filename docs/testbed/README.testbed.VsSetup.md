@@ -19,8 +19,8 @@ sudo ./setup-management-network.sh
 
 3. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
 
-## Download an EOS VM image
-We currently use EOS-based VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
+## Download an VM image
+We currently support EOS-based or SONiC VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
 
 ### Option 1: vEOS (KVM-based) image
 1. Download the [vEOS image from Arista](https://www.arista.com/en/support/software-download)
@@ -46,6 +46,9 @@ ceosimage                                      4.23.2F             d53c28e38448 
 2. If a SAS key is required for downloading the cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
 
 If you want to skip downloading the image when the cEOS image is not imported locally, set `skip_ceos_image_downloading` to `true` in `sonic-mgmt/ansible/group_vars/all/ceos.yml`. Then, when the cEOS image is not locally available, the scripts will not try to download it and will fail with an error message. Please use option 1 to download and import the cEOS image manually.
+
+#### Option 3: Use SONiC image as neighboring devices 
+You need to prepare a sound SONiC image `sonic-vs.img` in `~/veos-vm/images/`. We don't support to download sound sonic image right now, but for testing, you can also follow the section [Download the sonic-vs image](##download-the-sonic-vs-image) to download an available image and put it into the directory `~/veos-vm/images`
 
 ## Download the sonic-vs image
 To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download a public build from Jenkins.
@@ -127,7 +130,7 @@ foo ALL=(ALL) NOPASSWD:ALL
 
 5. Verify that you can use `sudo` without a password prompt inside the host (e.g. `sudo bash`).
 
-## Setup Arista VMs on the server
+## Setup VMs on the server
 **(Skip this step if you are using cEOS - the containers will be automatically setup in a later step.)**
 
 Now we need to spin up some VMs on the host to act as neighboring devices to our virtual SONiC switch.
@@ -136,11 +139,13 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 ```
 $ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
+If you use SONiC image as the VMs, you need to add extract parameters `-k sonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k sonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
 
 
-2. Check that all VMs are up and running. **Note:** The passwd is `123456`.
+2. Check that all VMs are up and running.
+For the EOS-based VMs **Note:** The passwd is `123456`.
 ```
 $ ansible -m ping -i veos_vtb server_1 -u root -k
 VM0102 | SUCCESS => {
@@ -164,7 +169,30 @@ VM0100 | SUCCESS => {
                 "ping": "pong"
 }
 ```
-
+For the SONiC VMs **Note:** The passwd is `password`.
+```
+$ ansible -m ping -i veos_vtb server_1 -u admin -k
+VM0102 | SUCCESS => {
+        "changed": false,
+                "ping": "pong"
+}
+VM0101 | SUCCESS => {
+        "changed": false,
+                "ping": "pong"
+}
+STR-ACS-VSERV-01 | SUCCESS => {
+        "changed": false,
+                "ping": "pong"
+}
+VM0103 | SUCCESS => {
+        "changed": false,
+                "ping": "pong"
+}
+VM0100 | SUCCESS => {
+        "changed": false,
+                "ping": "pong"
+}
+```
 
 ## Deploy T0 topology
 Now we're finally ready to deploy the topology for our testbed! Run the following command, depending on what type of EOS image you are using for your setup:
