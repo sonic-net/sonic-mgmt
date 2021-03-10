@@ -129,13 +129,13 @@ Verify that when a LAG is dynamically deleted via CLI on an ASIC, it is removed 
 
 ### Pass/Fail Criteria
 *  Verify on THE line card that the  LAG is deleted from LAG in local ASIC_DB and APPL_DB
-*  Verify on ANY line card the LAG is removed from SYSTEM_LAG_MEMBER_TABLE in CHASSIS_APPL_DB
+*  Verify on ANY line card the LAG is removed from SYSTEM_LAG_TABLE in CHASSIS_APP_DB
 *  Verify on ALL line cards that the LAG is deleted from the ASIC_DB
 
 ## Test Case 3. Dynamic addition of a LAG MEMBER via CLI
 
 ### Test Objective
-Verify that when a LAG MEMBER is dynamically added via CLI on an ASIC to an existing LAG, new member is populated in remote ASIC_DB.
+Verify that when a LAG MEMBER is dynamically added via CLI on an ASIC, new member is populated in remote ASIC_DB.
 
 ### Test Steps
 * On any ASIC, add a LAG and LAG_MEMBERS (We can use existing portchannel members to add in new LAG)
@@ -143,7 +143,7 @@ Verify that when a LAG MEMBER is dynamically added via CLI on an ASIC to an exis
 
 ### Pass/Fail Criteria
 *  Verify on THE line card that the new member info is added to LAG in local ASIC_DB and APPL_DB
-*  Verify on ANY line card the SYSTEM_LAG_MEMBER_TABLE is synced in CHASSIS_APPL_DB
+*  Verify on ANY line card the SYSTEM_LAG_MEMBER_TABLE is synced in CHASSIS_APP_DB
 *  Verify on ALL line cards that the new member info is added to LAG in ASIC_DB
 
 ### Sample output
