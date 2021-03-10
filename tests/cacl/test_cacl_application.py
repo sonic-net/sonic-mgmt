@@ -403,7 +403,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index)
 
     
-    stdout = duthost.get_asic(asic_index).command("iptables -S")["stdout"]
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
 
     # Ensure all expected iptables rules are present on the DuT
@@ -422,7 +422,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     #for i in range(len(expected_iptables_rules)):
     #    pytest_assert(actual_iptables_rules[i] == expected_iptables_rules[i], "iptables rules not in expected order")
 
-    stdout = duthost.get_asic(asic_index).command("ip6tables -S")["stdout"]
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"]
     actual_ip6tables_rules = stdout.strip().split("\n")
 
     # Ensure all expected ip6tables rules are present on the DuT
@@ -444,7 +444,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
 def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     expected_iptables_rules, expected_ip6tables_rules = generate_nat_expected_rules(duthost, docker_network, asic_index)
 
-    stdout = duthost.get_asic(asic_index).command("iptables -t nat -S")["stdout"]
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -t nat -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
 
     # Ensure all expected iptables rules are present on the DuT
@@ -455,7 +455,7 @@ def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables nat rules: {}".format(repr(unexpected_iptables_rules)))
 
-    stdout = duthost.get_asic(asic_index).command("ip6tables -t nat -S")["stdout"]
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -t nat -S")["stdout"]
     actual_ip6tables_rules = stdout.strip().split("\n")
 
     # Ensure all expected ip6tables rules are present on the DuT
