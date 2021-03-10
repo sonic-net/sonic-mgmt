@@ -13,6 +13,7 @@ from collections import defaultdict
 import scapy.all as scapyall
 import ptf.testutils as testutils
 from tests.ptf_runner import ptf_runner
+from natsort import natsorted
 
 DOWNSTREAM_DST_IP = "192.168.0.2"
 UPSTREAM_DST_IP = "192.168.128.1"
@@ -93,17 +94,15 @@ class DualTorIO:
                 - IP addresses are randomly selected from the given VLAN network
                 - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
         """
-        vlan_host_map = defaultdict(dict)
+        for _, config in natsorted(self.mux_cable_table.items()):
+            self.server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
+        logger.info("ALL server address:\n {}".format(self.server_ip_list))
 
-        addr_list = list(IPNetwork(self.vlan_network))
-        for counter, i in enumerate(range(2, VLAN_HOSTS + 2)):
-            mac = VLAN_BASE_MAC_PATTERN.format(counter)
-            port = self.vlan_ports[i % len(self.vlan_ports)]
-            addr = random.choice(addr_list)
-            # Ensure that we won't get a duplicate ip address
-            addr_list.remove(addr)
-
-            vlan_host_map[port][str(addr)] = mac
+        vlan_host_map = dict()
+        addr_list = list(self.server_ip_list)
+        for i, port in enumerate(sorted(self.vlan_ports.values())):
+            addr = addr_list[i]
+            vlan_host_map[port] = [str(addr)]
 
         return vlan_host_map
 
