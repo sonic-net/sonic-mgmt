@@ -118,5 +118,5 @@ def verify_tor_states(expected_active_host, expected_standby_host,
                      'healthy', intf_names=intf_names)
     expect_db_values(expected_standby_host, APP_DB,
                      'standby', intf_names=intf_names)
-    expect_db_values(expected_active_host, STATE_DB, 'active',
+    expect_db_values(expected_standby_host, STATE_DB, 'standby',
                      expected_standby_health, intf_names=intf_names)
