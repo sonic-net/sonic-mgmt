@@ -22,7 +22,7 @@ def is_check_item(member):
     '''
     Function to filter for valid check items
 
-    Used in conjuction with inspect.getmembers to make sure that only valid check functions/fixtures executed 
+    Used in conjuction with inspect.getmembers to make sure that only valid check functions/fixtures executed
 
     Valid check items must meet the following criteria:
     - Is a function
@@ -82,7 +82,7 @@ def print_logs(duthosts):
         logger.info("Run commands to print logs, logs to be collected on {}:\n{}"\
             .format(dut.hostname, json.dumps(constants.PRINT_LOGS, indent=4)))
         for cmd in constants.PRINT_LOGS.values():
-            res = dut.shell(cmd, module_ignore_errors=True)
+            res = dut.shell(cmd, module_ignore_errors=True, verbose=False)
             logger.info("cmd='%s', output:\n%s" % (cmd, json.dumps(res["stdout_lines"], indent=4)))
 
 
