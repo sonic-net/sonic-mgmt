@@ -1,4 +1,6 @@
 import logging
+import json
+from tests.common.devices import DEFAULT_NAMESPACE, SonicAsic
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,7 @@ class RedisCli(object):
         self.host = host
         self.database = database
         self.pid = pid
+        self.ip = None
 
     def _cli_prefix(self):
         """Builds opening of redis CLI command for other methods."""
@@ -220,21 +223,33 @@ class AsicDbCli(RedisCli):
         super(AsicDbCli, self).__init__(host, 1)
         # cache this to improve speed
         self.hostif_portidlist = []
+        self.hostif_table = []
+        self.system_port_key_list = []
+        self.port_key_list = []
 
     def get_switch_key(self):
         """Returns a list of keys in the switch table"""
         cmd = self._cli_prefix() + "KEYS %s*" % AsicDbCli.ASIC_SWITCH_TABLE
         return self._run_and_raise(cmd)["stdout_lines"][0]
 
-    def get_system_port_key_list(self):
+    def get_system_port_key_list(self, refresh=False):
         """Returns a list of keys in the system port table"""
-        cmd = self._cli_prefix() + "KEYS %s*" % AsicDbCli.ASIC_SYSPORT_TABLE
-        return self._run_and_raise(cmd)["stdout_lines"]
+        if self.system_port_key_list != [] and refresh is False:
+            return self.system_port_key_list
 
-    def get_port_key_list(self):
+        cmd = self._cli_prefix() + "KEYS %s*" % AsicDbCli.ASIC_SYSPORT_TABLE
+        self.system_port_key_list = self._run_and_raise(cmd)["stdout_lines"]
+        return self.system_port_key_list
+
+    def get_port_key_list(self, refresh=False):
         """Returns a list of keys in the local port table"""
+
+        if self.port_key_list != [] and refresh is False:
+            return self.port_key_list
+
         cmd = self._cli_prefix() + "KEYS %s*" % AsicDbCli.ASIC_PORT_TABLE
-        return self._run_and_raise(cmd)["stdout_lines"]
+        self.port_key_list = self._run_and_raise(cmd)["stdout_lines"]
+        return self.port_key_list
 
     def get_hostif_list(self):
         """Returns a list of keys in the host interface table"""
@@ -298,6 +313,27 @@ class AsicDbCli(RedisCli):
         logger.debug("neigh result: %s", result['stdout'])
         return result['stdout']
 
+    def get_hostif_table(self, refresh=False):
+        """
+        Returns the a fresh hostif table if refresh is true, else returns the entry from cache.  Initializes instance
+        table on first run.
+
+        Args:
+            refresh: If True, get a fresh copy from the DUT.
+
+        Returns:
+            The table dump of ASIC_HOSTIF_TABLE
+
+        """
+
+        if self.hostif_table != [] and refresh is False:
+            hostif_table = self.hostif_table
+        else:
+            hostif_table = self.dump("%s:" % AsicDbCli.ASIC_HOSTIF_TABLE)
+            self.hostif_table = hostif_table
+
+        return hostif_table
+
     def get_hostif_portid_oidlist(self, refresh=False):
         """
         Returns a list of portids associated with the hostif entries on the asics.
@@ -306,45 +342,49 @@ class AsicDbCli(RedisCli):
         is saved so it can be returned directly in subsequent calls.
 
         Args:
-            refresh: Forces the redis DB to be requeried after the first time.
+            refresh: Forces the redis DB to be queried after the first time.
 
 
         """
         if self.hostif_portidlist != [] and refresh is False:
             return self.hostif_portidlist
 
-        hostif_keylist = self.get_hostif_list()
+        hostif_table = self.get_hostif_table(refresh)
+
         return_list = []
-        for hostif_key in hostif_keylist:
-            hostif_portid = self.hget_key_value(hostif_key, 'SAI_HOSTIF_ATTR_OBJ_ID')
+        for hostif_key in hostif_table.keys():
+            hostif_portid = hostif_table[hostif_key]['value']['SAI_HOSTIF_ATTR_OBJ_ID']
             return_list.append(hostif_portid)
         self.hostif_portidlist = return_list
         return return_list
 
-    def find_hostif_by_portid(self, portid):
+    def find_hostif_by_portid(self, portid, refresh=False):
         """
         Returns an HOSTIF table key for the port specified.
 
         Args:
             portid: A port OID (oid:0x1000000000004)
+            refresh: Forces the redis DB to be queried after the first time.
 
         Raises:
             RedisKeyNotFound: If no hostif exists with the portid provided.
         """
-        hostif_keylist = self.get_hostif_list()
-        for hostif_key in hostif_keylist:
-            hostif_portid = self.hget_key_value(hostif_key, 'SAI_HOSTIF_ATTR_OBJ_ID')
+        hostif_table = self.get_hostif_table(refresh)
+
+        for hostif_key in hostif_table:
+            hostif_portid = hostif_table[hostif_key]['value']['SAI_HOSTIF_ATTR_OBJ_ID']
             if hostif_portid == portid:
                 return hostif_key
 
         raise RedisKeyNotFound("Can't find hostif in asicdb with portid: %s", portid)
 
-    def get_rif_porttype(self, portid):
+    def get_rif_porttype(self, portid, refresh=False):
         """
         Determines whether a specific port OID referenced in a router interface entry is a local port or a system port.
 
         Args:
             portid: the port oid from SAI_ROUTER_INTERFACE_ATTR_PORT_ID (oid:0x6000000000c4d)
+            refresh: Forces the redis DB to be queried after the first time.
 
         Returns:
             "hostif" if the port ID has a host interface
@@ -353,18 +393,28 @@ class AsicDbCli(RedisCli):
             "other" if it is not found in any port table
         """
         # could be a localport
+
+        port_key_list = self.get_port_key_list(refresh=refresh)
+        system_port_keylist = self.get_system_port_key_list(refresh=refresh)
+
         if "%s:%s" % (
                 AsicDbCli.ASIC_PORT_TABLE,
-                portid) in self.get_port_key_list() and portid in self.get_hostif_portid_oidlist():
+                portid) in port_key_list and portid in self.get_hostif_portid_oidlist():
             return "hostif"
         # could be a system port
-        elif "%s:%s" % (AsicDbCli.ASIC_SYSPORT_TABLE, portid) in self.get_system_port_key_list():
+        elif "%s:%s" % (AsicDbCli.ASIC_SYSPORT_TABLE, portid) in system_port_keylist:
             return "sysport"
         # could be something else
-        elif "%s:%s" % (AsicDbCli.ASIC_PORT_TABLE, portid) in self.get_port_key_list():
+        elif "%s:%s" % (AsicDbCli.ASIC_PORT_TABLE, portid) in port_key_list:
             return "port"
         else:
             return "other"
+
+    def dump_neighbor_table(self):
+        """
+        Dumps out the ASIC neighbor table and returns the parsed dictionary.
+        """
+        return self.dump(AsicDbCli.ASIC_NEIGH_ENTRY_TABLE)
 
 
 class AppDbCli(RedisCli):
@@ -412,6 +462,12 @@ class AppDbCli(RedisCli):
         result = self._run_and_raise(self._cli_prefix() + "KEYS *{}:*".format(AppDbCli.APP_LAG_MEMBER_TABLE))
         return result["stdout_lines"]
 
+    def dump_neighbor_table(self):
+        """
+        Dumps out the APP DB neighbor table and returns the parsed dictionary.
+        """
+        return self.dump(AppDbCli.APP_NEIGH_TABLE)
+
 
 class VoqDbCli(RedisCli):
     """
@@ -423,6 +479,7 @@ class VoqDbCli(RedisCli):
     """
     SYSTEM_LAG_TABLE = "SYSTEM_LAG_TABLE"
     SYSTEM_LAG_MEMBER_TABLE = "SYSTEM_LAG_MEMBER_TABLE"
+    SYSTEM_NEIGHBOR_TABLE = "SYSTEM_NEIGH"
 
     def __init__(self, host):
         """Initializes the class with the database parameters and finds the IP address of the database"""
@@ -443,7 +500,7 @@ class VoqDbCli(RedisCli):
             ipaddr: The IP address to search for in the neighbor table.
 
         """
-        cmd = self._cli_prefix() + 'KEYS "SYSTEM_NEIGH|*%s"' % ipaddr
+        cmd = self._cli_prefix() + 'KEYS "%s|*%s"' % (VoqDbCli.SYSTEM_NEIGHBOR_TABLE, ipaddr)
         result = self._run_and_raise(cmd)
         neighbor_key = None
         for key in result["stdout_lines"]:
@@ -487,6 +544,12 @@ class VoqDbCli(RedisCli):
         """Returns a list of keys in the ststem lag member table"""
         cmd = self._cli_prefix() + "KEYS *{}*".format(VoqDbCli.SYSTEM_LAG_MEMBER_TABLE)
         return self._run_and_raise(cmd)["stdout_lines"]
+
+    def dump_neighbor_table(self):
+        """
+        Dumps out the Chassis APP DB neighbor table and returns the parsed dictionary.
+        """
+        return self.dump(VoqDbCli.SYSTEM_NEIGHBOR_TABLE)
 
 
 class RedisKeyNotFound(KeyError):

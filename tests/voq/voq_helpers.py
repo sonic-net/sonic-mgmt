@@ -4,12 +4,12 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli, RedisNoCommandOutput, RedisKeyNotFound
+from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli
 
 logger = logging.getLogger(__name__)
 
 
-def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state):
+def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state, arptable=None):
     """
     Validates the ARP table of a host by running ip neigh for a single neighbor.
 
@@ -19,9 +19,12 @@ def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state):
         neighbor_mac: MAC address expected in the show command output.
         interface: Port expected in the show command output.
         state: ARP entry state expected in the show command output.
+        arptable: Optional arptable output to run validation on without rerunning CLI.
 
     """
-    arptable = host.switch_arptable()['ansible_facts']
+
+    if arptable is None:
+        arptable = host.switch_arptable()['ansible_facts']
 
     if ':' in neighbor_ip:
         table = arptable['arptable']['v6']
@@ -38,16 +41,18 @@ def check_host_arp_table(host, neighbor_ip, neighbor_mac, interface, state):
                   "table state %s is not %s" % (table[neighbor_ip]['state'].lower(), state.lower()))
 
 
-def check_host_arp_table_deleted(host, neighbor_ip):
+def check_host_arp_table_deleted(host, neighbor_ip, arptable=None):
     """
     Verifies the ARP entry is deleted.
 
     Args:
         host: instance of SonicHost to run the arp show.
         neighbor_ip: IP address of the neighbor to verify.
+        arptable: Optional arptable output, if not provided it will be fetched from host.
 
     """
-    arptable = host.switch_arptable()['ansible_facts']
+    if arptable is None:
+        arptable = host.switch_arptable()['ansible_facts']
     logger.debug("ARP: %s", arptable)
     if ':' in neighbor_ip:
         table = arptable['arptable']['v6']
@@ -55,8 +60,6 @@ def check_host_arp_table_deleted(host, neighbor_ip):
         table = arptable['arptable']['v4']
     if neighbor_ip in table:
         raise AssertionError("ip %s is still in table: %s" % (neighbor_ip, table[neighbor_ip]))
-    else:
-        logger.info("IP %s is not in %s ARP table" % (neighbor_ip, host.hostname))
 
 
 def check_local_neighbor_asicdb(asic, neighbor_ip, neighbor_mac):
@@ -125,7 +128,7 @@ def check_local_neighbor(host, asic, neighbor_ip, neighbor_mac, interface):
     return {'neighbor_key': neighbor_key, 'encap_index': asic_dict['encap_index']}
 
 
-def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True):
+def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True, parsed=None):
     """
     Checks the kernel route is installed from the bgp container.
 
@@ -136,6 +139,7 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         ipver: ip or ipv6.
         interface: Attached interface for the neighbor route.
         present: Optional; Check whether route is installed or removed.
+        parsed: Optional; Output from BGP docker to run validation against without rerunning CLI.
 
     Raises:
         Pytest Failed exception when assertions fail.
@@ -145,8 +149,9 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
     if host.facts["num_asic"] > 1:
         docker = "bgp" + str(asicnum)
 
-    output = host.command("docker exec " + docker + " vtysh -c \"show {} route {} json\"".format(ipver, prefix))
-    parsed = json.loads(output["stdout"])
+    if parsed is None:
+        output = host.command("docker exec " + docker + " vtysh -c \"show {} route {} json\"".format(ipver, prefix))
+        parsed = json.loads(output["stdout"])
     if present is True:
         pytest_assert(prefix in parsed.keys(), "Prefix: %s not in route list: %s" % (prefix, parsed.keys()))
         found = False
@@ -162,7 +167,7 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
                           "Prefix: %s out interface is not correct" % prefix)
             break
         pytest_assert(found, "Kernel route is not present in bgp output: %s" % parsed[prefix])
-        logger.info("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
+        logger.debug("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
     if present is False:
         logger.info("outout: %s", parsed)
         pytest_assert(parsed == {}, "Prefix: %s still in route list: %s" % (prefix, parsed.keys()))
@@ -194,6 +199,7 @@ def check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present=Tru
     output = host.command(cmd)['stdout']
     logger.info("host ip route output: %s", output)
     if present is True:
+        logger.info("host ip route output: %s", output)
         pytest_assert(output.startswith(ipaddr), "Address: %s not in netstat output list: %s" % (ipaddr, output))
         pytest_assert("dev %s" % interface in output, "Interface is not %s: %s" % (interface, output))
     if present is False:
@@ -379,7 +385,7 @@ def get_sonic_mac(host, asicnum, port):
         cmd = "sudo ip netns exec {} ip link show {}".format(ns, port)
     output = host.command(cmd)
     mac = output['stdout_lines'][1].split()[1]
-    logger.info("host: %s, asic: %d, port: %s, mac: %s", host.hostname, asicnum, port, mac)
+    logger.debug("host: %s, asic: %d, port: %s, mac: %s", host.hostname, asicnum, port, mac)
     return mac
 
 
@@ -417,19 +423,20 @@ def get_inband_info(cfg_facts):
     Returns:
         A dictionary with the inband port and IP addresses.
     """
-
-    intf = cfg_facts['VOQ_INBAND_INTERFACE']
     ret = {}
-    for a_intf in intf:
-        for addrs in intf[a_intf]:
-            ret['port'] = a_intf
-            intf_ip = addrs.split('/')
-            if ':' in intf_ip[0]:
-                ret['ipv6_addr'] = intf_ip[0]
-                ret['ipv6_mask'] = intf_ip[1]
-            elif ':' not in intf_ip[0]:
-                ret['ipv4_addr'] = intf_ip[0]
-                ret['ipv4_mask'] = intf_ip[1]
+
+    if 'VOQ_INBAND_INTERFACE' in cfg_facts:
+        intf = cfg_facts['VOQ_INBAND_INTERFACE']
+        for a_intf in intf:
+            for addrs in intf[a_intf]:
+                ret['port'] = a_intf
+                intf_ip = addrs.split('/')
+                if ':' in intf_ip[0]:
+                    ret['ipv6_addr'] = intf_ip[0]
+                    ret['ipv6_mask'] = intf_ip[1]
+                elif ':' not in intf_ip[0]:
+                    ret['ipv4_addr'] = intf_ip[0]
+                    ret['ipv4_mask'] = intf_ip[1]
     return ret
 
 
@@ -617,9 +624,15 @@ def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all
     logger.info("Local_dict: %s", local_dict)
 
     # Check the same neighbor entry on the supervisor nodes
-    sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, local_port)
+    if "portchannel" in local_port.lower():
+        slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
+        asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
+    else:
+        sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, local_port)
+        slotname = sysport_info['slot']
+        asicname = sysport_info['asic']
     for sup in duthosts.supervisor_nodes:
-        check_voq_neighbor_on_sup(sup, sysport_info['slot'], sysport_info['asic'], local_port,
+        check_voq_neighbor_on_sup(sup, slotname, asicname, local_port,
                                   neighbor, local_dict['encap_index'], neigh_mac)
 
     # Check the neighbor entry on each remote linecard
@@ -636,7 +649,7 @@ def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all
                                       local_dict['encap_index'], remote_inband_mac)
 
 
-def check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts):
+def check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts, nbr_macs):
     """
     Verifies all neighbors for all sonic hosts in a voq system.
 
@@ -644,6 +657,7 @@ def check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts):
         duthosts: The duthost fixture.
         nbrhosts: The nbrhosts fixture.
         all_cfg_facts: The config facts fixture from voq/conftest.py
+        nbr_macs: The nbr_macs fixture from voq/conftest.py
 
     """
     for per_host in duthosts.frontend_nodes:
@@ -653,9 +667,310 @@ def check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts):
             cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
             neighs = cfg_facts['BGP_NEIGHBOR']
 
-            # Check each neighbor in table
-            for neighbor in neighs:
-                check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
+            dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs.keys(),
+                                              nbrhosts, all_cfg_facts, nbr_macs)
+
+
+def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_cfg_facts, nbrhosts, nbr_macs):
+    """
+    Dumps out data from redis and CLI and validates all local neighbors at once.
+
+    Args:
+        duthosts: The duthosts fixture
+        per_host: Instance of MultiAsicSonicHost to check.
+        asic: Instance of SonicAsic to test.
+        neighbors: Neighbors to check, list if IP addresses.
+        all_cfg_facts: all_cfg_facts fixture from voq/conftest.py
+        nbrhosts: nbrhosts fixture
+        nbr_macs: nbr_macs fixture from voq/conftest.py
+
+    Returns:
+        Dictionary with encap IDs and total of any non-fatal failures.
+    """
+    cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+    neighs = cfg_facts['BGP_NEIGHBOR']
+    dev_sysports = get_device_system_ports(cfg_facts)
+    fail_cnt = 0
+
+    # Grab dumps of the asicdb, appdb, voqdb, and arp table
+    asicdb = AsicDbCli(asic)
+    asic_dump = asicdb.dump_neighbor_table()
+
+    appdb = AppDbCli(asic)
+    app_dump = appdb.dump_neighbor_table()
+
+    encaps = {}
+    arptable = per_host.switch_arptable()['ansible_facts']
+
+    if len(duthosts.supervisor_nodes) == 1:
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+        voq_dump = voqdb.dump_neighbor_table()
+    else:
+        voq_dump = {}
+
+    for neighbor in neighbors:
+        nbr_vm = get_vm_with_ip(neighbor, nbrhosts)
+        neigh_mac = nbr_macs[nbr_vm['vm']][nbr_vm['port']]
+        local_ip = neighs[neighbor]['local_addr']
+        local_port = get_port_by_ip(cfg_facts, local_ip)
+        sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, local_port)
+
+        # Validate the asic db entries
+        for entry in asic_dump:
+            matchstr = '"%s",' % neighbor
+            if matchstr in entry:
+
+                if neigh_mac.lower() != asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower():
+                    logger.error("Asic neighbor macs for %s do not match: %s != %s", neighbor, neigh_mac.lower(),
+                                 asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
+                    fail_cnt += 1
+                else:
+                    logger.debug("Asic neighbor macs for %s match: %s == %s", neighbor, neigh_mac.lower(),
+                                asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
+                encaps[neighbor] = asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX']
+                break
+        else:
+            logger.error("Did not find neighbor in asictable for IP: %s" % neighbor)
+            fail_cnt += 1
+
+        # Validate the APP db entries
+        for entry in app_dump:
+            matchstr = ':%s' % neighbor
+            if entry.endswith(matchstr):
+                if neigh_mac.lower() != app_dump[entry]['value']['neigh'].lower():
+                    logger.error("App neighbor macs for %s do not match: %s != %s", neighbor, neigh_mac.lower(),
+                                 app_dump[entry]['value']['neigh'].lower())
+                    fail_cnt += 1
+                else:
+                    logger.debug("App neighbor macs for %s match: %s == %s", neighbor, neigh_mac.lower(),
+                                app_dump[entry]['value']['neigh'].lower())
+
+                pytest_assert(":{}:".format(local_port) in entry, "Port for %s does not match" % entry)
+                break
+        else:
+            logger.error("Did not find neighbor in app for IP: %s" % neighbor)
+            fail_cnt += 1
+
+        # Validate the arp table entries
+        check_host_arp_table(per_host, neighbor, neigh_mac, local_port, 'REACHABLE', arptable=arptable)
+
+        # supervisor checks
+        for entry in voq_dump:
+            matchstr = ':%s' % neighbor
+            if entry.endswith(matchstr):
+
+                if "portchannel" in local_port.lower():
+                    slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
+                    asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
+                else:
+                    slotname = sysport_info['slot']
+                    asicname = sysport_info['asic']
+
+                logger.debug("Neigh key: %s, slotnum: %s", entry, slotname)
+                pytest_assert("|%s|" % slotname in entry,
+                              "Slot for %s does not match %s" % (entry, slotname))
+                pytest_assert("|%s:" % local_port in entry,
+                              "Port for %s does not match %s" % (entry, local_port))
+                pytest_assert("|%s|" % asicname in entry,
+                              "Asic for %s does not match %s" % (entry, asicname))
+
+                pytest_assert(voq_dump[entry]['value']['neigh'].lower() == neigh_mac.lower(),
+                              "Voq: neighbor: %s mac does not match: %s" % (neighbor,
+                                                                            voq_dump[entry]['value']['neigh'].lower()))
+                pytest_assert(voq_dump[entry]['value']['encap_index'].lower() == encaps[neighbor],
+                              "Voq: encap: %s mac does not match: %s" % (neighbor,
+                                                                         voq_dump[entry]['value']['encap_index'].lower()))
+                break
+        else:
+            logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq", neighbor, sysport_info['slot'])
+            fail_cnt += 1
+
+        logger.info("Local %s/%s and chassisdb neighbor validation of %s is successful",
+                    per_host.hostname, asic.asic_index, neighbor)
+
+    return {'encaps': encaps, 'fail_cnt': fail_cnt}
+
+
+def check_all_neighbors_present_remote(rem_host, rem_asic, neighs, encaps, all_cfg_facts, nbrhosts, nbr_macs):
+    """
+    Dumps and verifies all neighbors on a remote host.
+
+    Args:
+        rem_host: MultiAsicSonicHost instance to check.
+        rem_asic: SonicAsic instance to check.
+        neighs: List of neighbors to verify.  (IP address strings)
+        encaps: Encap ID dictionary from check_all_neighbors_present_local.  Dict of encap IDs indexed by neighbor.
+        all_cfg_facts: all_cfg_facts fixture from voq/conftest.py
+        nbrhosts: nbrhosts fixture
+        nbr_macs: nbr_macs fixture from voq/conftest.py
+
+    Returns:
+        Dictionary with total of any non-fatal failures.
+
+    """
+
+    rem_cfg_facts = all_cfg_facts[rem_host.hostname][rem_asic.asic_index]['ansible_facts']
+    remote_inband_info = get_inband_info(rem_cfg_facts)
+    remote_inband_mac = get_sonic_mac(rem_host, rem_asic.asic_index, remote_inband_info['port'])
+    fail_cnt = 0
+
+    # Grab dumps of the asicdb, appdb, routing table, and arp table
+
+    # bgp routes
+    docker = "bgp"
+    if rem_host.facts["num_asic"] > 1:
+        docker = "bgp" + str(rem_asic.asic_index)
+    v4_output = rem_host.command("docker exec " + docker + " vtysh -c \"show ip route kernel json\"")
+    v6_output = rem_host.command("docker exec " + docker + " vtysh -c \"show ipv6 route kernel json\"")
+    v4_parsed = json.loads(v4_output["stdout"])
+    v6_parsed = json.loads(v6_output["stdout"])
+
+    # kernel routes
+    if rem_host.facts["num_asic"] == 1:
+        v4cmd = "ip -4 route show scope link"
+        v6cmd = "ip -6 route show"
+    else:
+        v4cmd = "ip netns exec asic{} ip -4 route show scope link"
+        v6cmd = "ip netns exec asic{} ip -6 route show"
+
+    v4_kern = rem_host.command(v4cmd)['stdout_lines']
+    v6_kern = rem_host.command(v6cmd)['stdout_lines']
+
+    # databases and ARP table
+    asicdb = AsicDbCli(rem_asic)
+    asic_dump = asicdb.dump_neighbor_table()
+
+    appdb = AppDbCli(rem_asic)
+    app_dump = appdb.dump_neighbor_table()
+
+    arptable = rem_host.switch_arptable()['ansible_facts']
+
+    for neighbor in neighs:
+        logger.info("Check remote host: %s, asic: %s, for neighbor %s", rem_host.hostname, rem_asic.asic_index,
+                    neighbor)
+        nbr_vm = get_vm_with_ip(neighbor, nbrhosts)
+        neigh_mac = nbr_macs[nbr_vm['vm']][nbr_vm['port']]
+        encap_id = encaps[neighbor]
+
+        # Verify ASIC DB entries
+        for entry in asic_dump:
+            matchstr = '"%s",' % neighbor
+            if matchstr in entry:
+
+                if neigh_mac.lower() != asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower():
+                    logger.error("Asic neighbor macs for %s do not match: %s != %s", neighbor, neigh_mac.lower(),
+                                 asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
+                    fail_cnt += 1
+                else:
+                    logger.debug("Asic neighbor macs for %s match: %s == %s", neighbor, neigh_mac.lower(),
+                                asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
+
+                if encap_id != asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX']:
+                    logger.error("Asic neighbor encap for %s do not match: %s != %s", neighbor, encap_id,
+                                 asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX'])
+                    fail_cnt += 1
+                else:
+                    logger.debug("Asic neighbor encap for %s match: %s == %s", neighbor, encap_id,
+                                asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX'])
+
+                pytest_assert(asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_IMPOSE_INDEX'] == "true",
+                              "Encap impose is not true in asicDB")
+                pytest_assert(asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_IS_LOCAL'] == "false",
+                              "is local is not false in asicDB")
+
+                break
+        else:
+            logger.error("Did not find neighbor in asictable for IP: %s on remote %s", neighbor, rem_host.hostname)
+            fail_cnt += 1
+
+        # Verify APP DB entries
+        for entry in app_dump:
+            matchstr = ':%s' % neighbor
+            if entry.endswith(matchstr):
+                if remote_inband_mac.lower() != app_dump[entry]['value']['neigh'].lower():
+                    logger.error("App neighbor macs for %s do not match: %s != %s", neighbor, remote_inband_mac.lower(),
+                                 app_dump[entry]['value']['neigh'].lower())
+                    fail_cnt += 1
+                else:
+                    logger.debug("App neighbor macs for %s match: %s == %s", neighbor, remote_inband_mac.lower(),
+                                app_dump[entry]['value']['neigh'].lower())
+
+                pytest_assert(":{}:".format(remote_inband_info['port']) in entry, "Port for %s does not match" % entry)
+                break
+        else:
+            logger.error("Did not find neighbor in appdb for IP: %s on remote %s", neighbor, rem_host.hostname)
+            fail_cnt += 1
+
+        # Verify ARP table
+        check_host_arp_table(rem_host, neighbor, remote_inband_mac, remote_inband_info['port'], 'PERMANENT',
+                             arptable=arptable)
+
+        # Verify routing tables
+        if ":" in neighbor:
+            ipver = "ipv6"
+            prefix = neighbor + "/128"
+            bgp_parse = v6_parsed
+            kern_route = v6_kern
+        else:
+            ipver = "ip"
+            prefix = neighbor + "/32"
+            bgp_parse = v4_parsed
+            kern_route = v4_kern
+
+        # bgp routing table
+        check_bgp_kernel_route(rem_host, rem_asic.asic_index, prefix, ipver, remote_inband_info['port'], present=True,
+                               parsed=bgp_parse)
+
+        # kernel routing table
+        for route in kern_route:
+            if route.startswith("%s " % neighbor):
+                pytest_assert("dev %s" % remote_inband_info['port'] in route,
+                              "Neigbor: %s, Route device not inband port: %s" % (neighbor, remote_inband_info['port']))
+                break
+        else:
+            logger.error("Neighbor: %s not in kernel table" % neighbor)
+            fail_cnt += 1
+
+        logger.info("Check remote host: %s, asic: %s, check for neighbor %s successful",
+                    rem_host.hostname, rem_asic.asic_index, neighbor)
+    return {'fail_cnt': fail_cnt}
+
+
+def dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs, nbrhosts, all_cfg_facts, nbr_macs):
+    """
+    Verifies all neighbors for all sonic hosts in a voq system.
+
+    Args:
+        duthosts: The duthost fixture.
+        per_host: Instance of MultiAsicSonicHost to check.
+        asic: Instance of SonicAsic to check.
+        neighs: List of neighbors to check, IP address strings.
+        nbrhosts: The nbrhosts fixture.
+        all_cfg_facts: The config facts fixture from voq/conftest.py
+        nbr_macs: The nbr_macs fixture from voq/conftest.py
+
+    """
+
+    logger.info("Checking local neighbors on host: %s, asic: %s", per_host.hostname, asic.asic_index)
+    ret = check_all_neighbors_present_local(duthosts, per_host, asic, neighs, all_cfg_facts, nbrhosts, nbr_macs)
+    encaps = ret['encaps']
+    fail_cnt = ret['fail_cnt']
+
+    # Check the neighbor entry on each remote linecard
+    for rem_host in duthosts.frontend_nodes:
+
+        for rem_asic in rem_host.asics:
+            if rem_host == per_host and rem_asic == asic:
+                # skip remote check on local host
+                continue
+            ret = check_all_neighbors_present_remote(rem_host, rem_asic, neighs, encaps,
+                                                     all_cfg_facts, nbrhosts, nbr_macs)
+            fail_cnt += ret['fail_cnt']
+
+    if fail_cnt > 1:
+        pytest.fail("Test failed because of previous errors.")
+    else:
+        logger.info("Verification of all neighbors succeeded.")
 
 
 def asic_cmd(asic, cmd, module_ignore_errors=False):
@@ -677,7 +992,7 @@ def asic_cmd(asic, cmd, module_ignore_errors=False):
         return asic.sonichost.command(cmd, module_ignore_errors=module_ignore_errors)
 
 
-def sonic_ping(asic, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=None, verbose=False):
+def sonic_ping(asic, ipaddr, count=1, timeout=3, interface=None, size=None, ttl=None, verbose=False):
     """
     Sends a ping from a sonic asic instance.
 
@@ -717,7 +1032,7 @@ def sonic_ping(asic, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=
     return output
 
 
-def check_neighbor_is_gone(duthosts, all_cfg_facts, per_host, asic, neighbor):
+def check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors):
     """
     Verifies a neighbor has been deleted from local and remote sonic instances, and the supervisor.
 
@@ -726,25 +1041,41 @@ def check_neighbor_is_gone(duthosts, all_cfg_facts, per_host, asic, neighbor):
         all_cfg_facts: Instance of fixture from voq/conftest.py
         per_host: Instance of MultiAsicSonicHost where neighbor is attached.
         asic: Instance of SonicAsic where neighbor is attached.
-        neighbor: IP of the neighbor.
+        neighbors: List of IPs of the neighbors to check.
 
     """
     asicdb = AsicDbCli(asic)
     appdb = AppDbCli(asic)
-    logger.info("Checking ARP/NDP for %s is deleted from host: %s, asic: %s", neighbor, per_host.hostname,
-                asic.asic_index)
-    # check local host
-    check_host_arp_table_deleted(per_host, neighbor)
-    with pytest.raises((RedisNoCommandOutput, RedisKeyNotFound)):
-        asicdb.get_neighbor_key_by_ip(neighbor)
-    with pytest.raises(RedisNoCommandOutput):
-        appdb.get_neighbor_key_by_ip(neighbor)
+    asicdb_neigh_table = asicdb.dump_neighbor_table()
+    app_neigh_table = appdb.dump_neighbor_table()
 
-    # check supervisor
-    for sup in duthosts.supervisor_nodes:
-        voqdb = VoqDbCli(sup)
-        with pytest.raises(RedisNoCommandOutput):
-            voqdb.get_neighbor_key_by_ip(neighbor)
+    arptable = per_host.switch_arptable()['ansible_facts']
+
+    if len(duthosts.supervisor_nodes) == 1:
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+        voq_dump = voqdb.dump_neighbor_table()
+    else:
+        voq_dump = {}
+
+    for neighbor in neighbors:
+        logger.info("Checking ARP/NDP for %s is deleted from host: %s, asic: %s", neighbor, per_host.hostname,
+                    asic.asic_index)
+        # check local host
+        check_host_arp_table_deleted(per_host, neighbor, arptable)
+
+        for entry in asicdb_neigh_table.keys():
+            search = '"ip":"%s"' % neighbor
+            if search in entry:
+                raise AssertionError("Found neighbor %s in asicdb: %s", search, entry)
+
+        for entry in app_neigh_table.keys():
+            if entry.endswith(":" + neighbor):
+                raise AssertionError("Found neighbor %s in app: %s", neighbor, entry)
+
+        # check supervisor
+        for entry in voq_dump.keys():
+            if entry.endswith(":" + neighbor):
+                raise AssertionError("Found neighbor %s in voq: %s", neighbor, entry)
 
     # check remote hosts
     for rem_host in duthosts.frontend_nodes:
@@ -753,20 +1084,32 @@ def check_neighbor_is_gone(duthosts, all_cfg_facts, per_host, asic, neighbor):
             if rem_host == per_host and rem_asic == asic:
                 # skip remote check on local host
                 continue
-            logger.info("Remote host checks of ARP/NDP for %s are deleted from host: %s, asic: %s", neighbor,
-                        rem_host.hostname,
-                        rem_asic.asic_index)
-            asicdb = AsicDbCli(rem_asic)
-            appdb = AppDbCli(rem_asic)
-            with pytest.raises((RedisNoCommandOutput, RedisKeyNotFound)):
-                asicdb.get_neighbor_key_by_ip(neighbor)
-            with pytest.raises(RedisNoCommandOutput):
-                appdb.get_neighbor_key_by_ip(neighbor)
-            check_host_arp_table_deleted(rem_host, neighbor)
-            rem_cfg_facts = all_cfg_facts[rem_host.hostname][rem_asic.asic_index]['ansible_facts']
-            remote_inband_info = get_inband_info(rem_cfg_facts)
-            check_neighbor_kernel_route(per_host, rem_asic.asic_index, neighbor, remote_inband_info['port'],
-                                        present=False)
+            for neighbor in neighbors:
+                logger.info("Remote host checks of ARP/NDP for %s are deleted from host: %s, asic: %s", neighbor,
+                            rem_host.hostname,
+                            rem_asic.asic_index)
+
+                asicdb = AsicDbCli(rem_asic)
+                appdb = AppDbCli(rem_asic)
+                asicdb_neigh_table = asicdb.dump_neighbor_table()
+                app_neigh_table = appdb.dump_neighbor_table()
+                arptable = per_host.switch_arptable()['ansible_facts']
+
+                check_host_arp_table_deleted(rem_host, neighbor, arptable)
+
+                for entry in asicdb_neigh_table.keys():
+                    search = '"ip":"%s"' % neighbor
+                    if search in entry:
+                        raise AssertionError("Found neighbor %s in asicdb: %s", search, entry)
+
+                for entry in app_neigh_table.keys():
+                    if entry.endswith(":" + neighbor):
+                        raise AssertionError("Found neighbor %s in app: %s", neighbor, entry)
+
+                rem_cfg_facts = all_cfg_facts[rem_host.hostname][rem_asic.asic_index]['ansible_facts']
+                remote_inband_info = get_inband_info(rem_cfg_facts)
+                check_neighbor_kernel_route(rem_host, rem_asic.asic_index, neighbor, remote_inband_info['port'],
+                                            present=False)
 
 
 def parse_ping(stdout):

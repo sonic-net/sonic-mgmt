@@ -4,11 +4,11 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 
-from tests.common.helpers.redis import AsicDbCli, RedisKeyNotFound
+from tests.common.helpers.redis import AsicDbCli
 from voq_helpers import check_voq_remote_neighbor, get_sonic_mac
 from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
 from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup, find_system_port
-from voq_helpers import check_one_neighbor_present
+from voq_helpers import dump_and_verify_neighbors_on_asic
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,8 @@ def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
 
     dev_ports = get_device_system_ports(cfg_facts)
     asicdb = AsicDbCli(asic)
-    keylist = asicdb.get_system_port_key_list()
+    sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
+    keylist = sys_port_table.keys()
     pytest_assert(len(keylist) == len(dev_ports.keys()),
                   "Found %d system port keys, %d entries in cfg_facts, not matching" % (
                       len(keylist), len(dev_ports.keys())))
@@ -71,12 +72,13 @@ def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
                 len(keylist), len(dev_ports.keys()))
     for portkey in keylist:
         try:
-            port_output = asicdb.hget_key_value(portkey, field="SAI_SYSTEM_PORT_ATTR_CONFIG_INFO")
-        except RedisKeyNotFound:
+            port_config_info = sys_port_table[portkey]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
+        except KeyError:
             # TODO: Need to check on behavior here.
             logger.warning("System port: %s had no SAI_SYSTEM_PORT_ATTR_CONFIG_INFO", portkey)
             continue
-        port_data = json.loads(port_output)
+
+        port_data = json.loads(port_config_info)
         for cfg_port in dev_ports:
             if dev_ports[cfg_port]['system_port_id'] == port_data['port_id']:
                 #             "switch_id": "0",
@@ -113,8 +115,9 @@ def test_voq_local_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_i
     dev_ports = cfg_facts['PORT']
 
     asicdb = AsicDbCli(asic)
+    hostif_table = asicdb.get_hostif_table(refresh=True)
 
-    keylist = asicdb.get_hostif_list()
+    keylist = hostif_table.keys()
     pytest_assert(len(keylist) == len(dev_ports.keys()),
                   "Found %d hostif keys, %d entries in cfg_facts" % (len(keylist), len(dev_ports.keys())))
     logger.info("Found %s ports to check on host:%s, asic: %s.", len(dev_ports.keys()), per_host.hostname,
@@ -122,9 +125,11 @@ def test_voq_local_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_i
 
     show_intf = asic.show_interface(command="status", include_internal_intfs=True)['ansible_facts']
     for portkey in keylist:
-        port_name = asicdb.hget_key_value(portkey, "SAI_HOSTIF_ATTR_NAME")
-        port_state = asicdb.hget_key_value(portkey, "SAI_HOSTIF_ATTR_OPER_STATUS")
-        port_type = asicdb.hget_key_value(portkey, "SAI_HOSTIF_ATTR_TYPE")
+        portkey = portkey.decode('unicode-escape')  # need to handle the hyphen in the inband port name
+        port_name = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_NAME"].decode('unicode-escape')
+        port_state = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_OPER_STATUS"]
+        port_type = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_TYPE"]
+
         logger.info("Checking port: %s, state: %s", port_name, port_state)
         # "SAI_HOSTIF_ATTR_NAME": "Ethernet0",
         # "SAI_HOSTIF_ATTR_OBJ_ID": "oid:0x1000000000002",
@@ -177,17 +182,19 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
 
     # intf_list = get_router_interface_list(dev_intfs)
     asicdb = AsicDbCli(asic)
-
-    asicdb_intf_key_list = asicdb.get_router_if_list()
+    asicdb_rif_table = asicdb.dump(asicdb.ASIC_ROUTERINTF_TABLE)
+    sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
+    vidtorid_table = asicdb.dump("VIDTORID")
+    # asicdb_intf_key_list = asicdb.get_router_if_list()
     # Check each rif in the asicdb, if it is local port, check VOQ DB for correct RIF.
     # If it is on system port, verify slot/asic/port and OID match a RIF in VoQDB
-    for rif in asicdb_intf_key_list:
-        rif_type = asicdb.hget_key_value(rif, "SAI_ROUTER_INTERFACE_ATTR_TYPE")
+    for rif in asicdb_rif_table.keys():
+        rif_type = asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_TYPE"]
         if rif_type != "SAI_ROUTER_INTERFACE_TYPE_PORT":
             logger.info("Skip this rif: %s, it is not on a port: %s", rif, rif_type)
             continue
         else:
-            portid = asicdb.hget_key_value(rif, "SAI_ROUTER_INTERFACE_ATTR_PORT_ID")
+            portid = asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_PORT_ID"]
             logger.info("Process RIF %s, Find port with ID: %s", rif, portid)
 
         porttype = asicdb.get_rif_porttype(portid)
@@ -202,21 +209,21 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
                 pytest.fail("Port: %s has a router interface, but it isn't in configdb." % portid)
 
             # check MTU and ethernet address
-            asicdb.get_and_check_key_value(rif, cfg_facts['PORT'][hostif]['mtu'],
-                                           field="SAI_ROUTER_INTERFACE_ATTR_MTU")
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][hostif]['mtu'],
+                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][hostif]['mtu']))
             intf_mac = get_sonic_mac(per_host, asic.asic_index, hostif)
-            asicdb.get_and_check_key_value(rif, intf_mac, field="SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS")
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                          "MAC for rif %s is not %s" % (rif, intf_mac))
 
-            sup_rif = asicdb.hget_key_value("VIDTORID", "oid:" + rif.split(":")[3])
+            sup_rif = vidtorid_table["VIDTORID"]['value']["oid:" + rif.split(":")[3]]
             sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, hostif)
             for sup in duthosts.supervisor_nodes:
                 check_rif_on_sup(sup, sup_rif, sysport_info['slot'], sysport_info['asic'], hostif)
 
         elif porttype == 'sysport':
             try:
-                port_output = asicdb.hget_key_value("ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid,
-                                                    field="SAI_SYSTEM_PORT_ATTR_CONFIG_INFO")
-            except RedisKeyNotFound:
+                port_output = sys_port_table["ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
+            except KeyError:
                 # not a hostif or system port, log error and continue
                 logger.error("Did not find OID %s in local or system tables" % portid)
                 continue
@@ -229,7 +236,7 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
                 raise AssertionError("Did not find OID %s in local or system tables" % portid)
 
             sys_slot, sys_asic, sys_port = cfg_port.split("|")
-            sup_rif = asicdb.hget_key_value("VIDTORID", "oid:" + rif.split(":")[3])
+            sup_rif = vidtorid_table["VIDTORID"]['value']["oid:" + rif.split(":")[3]]
             for sup in duthosts.supervisor_nodes:
                 check_rif_on_sup(sup, sup_rif, sys_slot, sys_asic, sys_port)
 
@@ -239,15 +246,18 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
             logger.info("RIF: %s is on local port: %s", rif, inband['port'])
 
             # check MTU and ethernet address
-            asicdb.get_and_check_key_value(rif, cfg_facts['PORT'][inband['port']]['mtu'],
-                                           field="SAI_ROUTER_INTERFACE_ATTR_MTU")
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][inband['port']]['mtu'],
+                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][inband['port']]['mtu']))
             intf_mac = get_sonic_mac(per_host, asic.asic_index, inband['port'])
-            asicdb.get_and_check_key_value(rif, intf_mac, field="SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS")
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                          "MAC for rif %s is not %s" % (rif, intf_mac))
 
-            sup_rif = asicdb.hget_key_value("VIDTORID", "oid:" + rif.split(":")[3])
+            sup_rif = vidtorid_table["VIDTORID"]['value']["oid:" + rif.split(":")[3]]
             sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, inband['port'])
             for sup in duthosts.supervisor_nodes:
                 check_rif_on_sup(sup, sup_rif, sysport_info['slot'], sysport_info['asic'], inband['port'])
+
+        # TODO: Could be on a LAG
 
     # Verify each RIF in config had a corresponding local port RIF in the asicDB.
     for rif in dev_intfs:
@@ -256,7 +266,7 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
 
 
 def test_voq_neighbor_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, nbrhosts,
-                             all_cfg_facts):
+                             all_cfg_facts, nbr_macs):
     """
     Verify neighbor entries are created on linecards for local and remote VMS.
 
@@ -296,9 +306,7 @@ def test_voq_neighbor_create(duthosts, enum_frontend_dut_hostname, enum_asic_ind
     logger.info("Checking local neighbors on host: %s, asic: %s", per_host.hostname, asic.asic_index)
     neighs = cfg_facts['BGP_NEIGHBOR']
 
-    # Check each neighbor in table
-    for neighbor in neighs:
-        check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
+    dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs, nbrhosts, all_cfg_facts, nbr_macs)
 
 
 def test_voq_inband_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):

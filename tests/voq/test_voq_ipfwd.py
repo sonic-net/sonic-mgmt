@@ -9,13 +9,11 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 from tests.common.utilities import wait_until
-from tests.common.helpers.parallel import parallel_run
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 
-from ptf.testutils import simple_udp_packet, simple_icmp_packet, simple_udpv6_packet, simple_icmpv6_packet
-from ptf.testutils import send, dp_poll, verify_no_packet_any
-from ptf.mask import Mask
-import ptf.packet as scapy
+from tests.ptf_runner import ptf_runner
+from datetime import datetime
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
 
 from test_voq_nbr import LinkFlap
 
@@ -26,7 +24,7 @@ from voq_helpers import get_vm_with_ip
 from voq_helpers import asic_cmd
 from voq_helpers import get_port_by_ip
 from voq_helpers import get_sonic_mac
-from voq_helpers import get_eos_mac
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +37,7 @@ pytestmark = [
 LOG_PING = True
 DEFAULT_EOS_TTL = 64
 DEFAULT_SONIC_TTL = 64
+MAX_MTU = 9100
 
 
 # Analyze logs at the beginning and end of all tests in the module, instead of each test.
@@ -70,40 +69,6 @@ def loganalyzer(duthosts, request):
 
     for dut_hostname, dut_analyzer in analyzers.items():
         dut_analyzer.analyze(markers[dut_hostname])
-
-
-def _get_nbr_macs(nbrhosts, node=None, results=None):
-    vm = nbrhosts[node]
-    node_results = {}
-
-    for intf in vm['conf']['interfaces'].keys():
-        logger.info("Get MAC on vm %s for intf: %s", node, intf)
-        mac = get_eos_mac(vm, intf)
-        logger.info("Found MAC on vm %s for intf: %s, mac: %s", node, intf, mac['mac'])
-        node_results[intf] = mac['mac']
-
-    results[node] = node_results
-
-
-@pytest.fixture(scope="module")
-def nbr_macs(nbrhosts):
-    """
-    Fixture to get all the neighbor mac addresses in parallel.
-
-    Args:
-        nbrhosts:
-
-    Returns:
-
-    """
-    results = {}
-
-    parallel_run(_get_nbr_macs, [nbrhosts], results, nbrhosts.keys(), timeout=120)
-
-    for res in results['results']:
-        logger.info("parallel_results %s = %s", res, results['results'][res])
-
-    return results['results']
 
 
 def log_port_info(ports):
@@ -253,7 +218,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
     # Lets try to find portC and portD on other asics/linecards.
     for a_dut in other_duts:
         for a_asic_index, a_asic_cfg in enumerate(all_cfg_facts[a_dut.hostname]):
-            if a_dut == dutA and a_asic_index == intfs_to_test['portA']['asic']:
+            if a_dut == dutA and a_asic_index == intfs_to_test['portA']['asic'].asic_index:
                 # Ignore the asic we used for portA
                 continue
             cfg_facts = a_asic_cfg['ansible_facts']
@@ -357,6 +322,7 @@ def check_packet(function, ports, dst_port, src_port, dev=None, dst_ip_fld='my_i
                 pytest_assert(exc.value[0][0]['ttl_exceed'] is True, "Packet with ttl 1 should not have arrived")
 
 
+@pytest.mark.express
 class TestTableValidation(object):
     """
     Verify the kernel route table is correct based on the topology.
@@ -400,6 +366,7 @@ class TestTableValidation(object):
 
         for port in intfs:
             for address in intfs[port]:
+                # self.check_is_connected(address, port, ipv4_routes, ipv6_routes)
                 ip_intf = ipaddress.ip_interface(address)
                 logger.info("Network %s v%s, is connected via: %s", str(ip_intf.network), ip_intf.network.version, port)
                 if ip_intf.network.version == 6:
@@ -436,9 +403,14 @@ class TestTableValidation(object):
         ipv4_routes = asic_cmd(asic, "ip -4 route")["stdout_lines"]
         ipv6_routes = asic_cmd(asic, "ip -6 route")["stdout_lines"]
 
+        if 'VOQ_INBAND_INTERFACE' not in cfg_facts:
+            # There are no inband interfaces, this must be an asic not connected to fabric
+            pytest.skip("Asic {} on {} has no inband interfaces, so must not be connected to fabric")
+
         intf = cfg_facts['VOQ_INBAND_INTERFACE']
         for port in intf:
             for address in cfg_facts['BGP_INTERNAL_NEIGHBOR'].keys():
+                # self.check_is_connected(address, port, ipv4_routes, ipv6_routes)
                 ip_intf = ipaddress.ip_interface(address)
                 logger.info("Network %s v%s, is connected via: %s", str(ip_intf.network), ip_intf.network.version, port)
                 if ip_intf.network.version == 6:
@@ -470,8 +442,11 @@ class TestTableValidation(object):
         asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
         cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
-        bgp_facts = per_host.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+        if 'BGP_INTERNAL_NEIGHBOR' not in cfg_facts:
+            # There are no inband interfaces, this must be an asic not connected to fabric
+            pytest.skip("Asic {} on {} has no inband interfaces, so must not be connected to fabric")
 
+        bgp_facts = per_host.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
         for address in cfg_facts['BGP_INTERNAL_NEIGHBOR'].keys():
             pytest_assert(bgp_facts['bgp_neighbors'][address]['state'] == "established",
                           "BGP internal neighbor: %s is not established: %s" % (
@@ -499,6 +474,9 @@ class TestTableValidation(object):
         ipv6_routes = asic_cmd(asic, "ip -6 route")["stdout_lines"]
 
         inband = get_inband_info(cfg_facts)
+        if len(inband) == 0:
+            # There are no inband interfaces, this must be an asic not connected to fabric
+            pytest.skip("Asic {} on {} has no inband interfaces, so must not be connected to fabric")
         for rem_host in duthosts.frontend_nodes:
             for rem_asic in rem_host.asics:
                 if rem_host == per_host and rem_asic == asic:
@@ -533,7 +511,7 @@ class TestTableValidation(object):
                         else:
                             pytest.fail("Did not find route for: %s" % str(ip_intf.network))
 
-    def test_host_route_table_nbr_lb_addr(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
+    def test_host_route_table_nbr_lb_addr(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                           all_cfg_facts, nbrhosts):
         """
         Verify all learned prefixes from neighbors have their neighbors as next hop.
@@ -541,17 +519,25 @@ class TestTableValidation(object):
         Args:
             duthosts: duthosts fixture
             enum_rand_one_per_hwsku_frontend_hostname: linecard enum fixture.
-            enum_asic_index: asic enum fixture.
             all_cfg_facts: all_cfg_facts fixture from voq/conftest.py
             nbrhosts: nbrhosts fixture.
 
         """
         per_host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
-        cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+        # Pick an asic that has BGP_NEIGHBOR
+        asic_to_use = None
+        for a_asic in per_host.asics:
+            asic_cfg_facts = all_cfg_facts[per_host.hostname][a_asic.asic_index]['ansible_facts']
+            if 'BGP_NEIGHBOR' in asic_cfg_facts:
+                asic_to_use = a_asic
+                break
 
-        ipv4_routes = asic_cmd(asic, "ip -4 route")["stdout_lines"]
-        ipv6_routes = asic_cmd(asic, "ip -6 route")["stdout_lines"]
+        pytest_assert(asic_to_use is not None, "Did not find any asic on '{}' that has BGP_NEIGHBORS".format(per_host.hostname))
+
+        cfg_facts = all_cfg_facts[per_host.hostname][asic_to_use.asic_index]['ansible_facts']
+
+        ipv4_routes = asic_cmd(asic_to_use, "ip -4 route")["stdout_lines"]
+        ipv6_routes = asic_cmd(asic_to_use, "ip -6 route")["stdout_lines"]
 
         # get attached neighbors
         neighs = cfg_facts['BGP_NEIGHBOR']
@@ -583,7 +569,7 @@ class TestTableValidation(object):
 
 class TestVoqIPFwd(object):
 
-    @pytest.mark.parametrize('ttl, size', [(2, 1500), (255, 1500), (128, 64), (128, 9000)])
+    @pytest.mark.parametrize('ttl, size', [(2, 1500), (255, 1500), (128, 64), (128,9000)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["portchannel", "ethernet"])
     def test_voq_local_interface_ping(self, duthosts, nbrhosts, all_cfg_facts, ttl, size, version, porttype):
@@ -951,155 +937,63 @@ class TestVoqIPFwd(object):
                      size=size, ttl=ttl)
 
 
-def build_ttl0_pkts(ports, nbr_macs, version, dst_mac, dst_ip):
+@pytest.mark.parametrize('version', [4, 6])
+@pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
+def test_ipforwarding_ttl0(duthosts, all_cfg_facts, tbinfo, ptfhost, version, porttype, nbrhosts, nbr_macs):
     """
-    Builds ttl0 packet to send and ICMP TTL exceeded packet to expect back.
+    Verifies that TTL0 packets are dropped and that ICMP time expired message is received
 
     Args:
-        ports: ports structure from pick_ports
-        nbr_macs: nbr_macs fixture
+        duthosts: The duthosts fixture
+        all_cfg_facts: The all_cfg_facts fixture from voq/conftest.py
+        tbinfo: The tbinfo fixture.
+        ptfhost: The ptfhost fixture
         version: IP version, 4 or 6
-        dst_mac: Destination MAC, of DUT port.
-        dst_ip: Destination IP, a farend VM interface.
-
-    Returns:
-        3 packets, one with ttl0 to send, one as the ICMP expected packet, and one to check for TTL wrapping.
+        porttype: Port type to test, ethernet or portchannel.
+        nbrhosts: The nbrhosts fixture.
+        nbr_macs: The nbr_macs fixture
 
     """
-    if version == 4:
-        send_pkt = simple_udp_packet(eth_dst=dst_mac,  # mac address of dut
-                                     eth_src=nbr_macs[ports['portA']['nbr_vm']][ports['portA']['nbr_port']],
-                                     # mac address of vm1
-                                     ip_src=str(ports['portA']['nbr_lb']),
-                                     ip_dst=str(dst_ip),
-                                     ip_ttl=0,
-                                     pktlen=100)
 
-        exp_pkt255 = simple_udp_packet(eth_dst=dst_mac,  # mac address of dut
-                                       eth_src=nbr_macs[ports['portA']['nbr_vm']][ports['portA']['nbr_port']],
-                                       # mac address of vm1
-                                       ip_src=str(ports['portA']['nbr_lb']),
-                                       ip_dst=str(dst_ip),
-                                       ip_ttl=255,
-                                       pktlen=100)
-        V4_PKTSZ = 128
-        exp_pkt = simple_icmp_packet(eth_dst=nbr_macs[ports['portA']['nbr_vm']][ports['portA']['nbr_port']],
-                                     # mac address of vm1
-                                     eth_src=dst_mac,  # mac address of dut
-                                     ip_src=str(ports['portA']['my_lb_ip']),
-                                     ip_dst=str(ports['portA']['nbr_lb']),
-                                     ip_ttl=64,
-                                     icmp_code=0,
-                                     icmp_type=11,
-                                     pktlen=V4_PKTSZ,
-                                     )
+    devices = {}
+    for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
+        devices[k] = {'vlans': v['vlans']}
 
-        masked_pkt = Mask(exp_pkt)
-        masked_pkt.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_pkt.set_do_not_care_scapy(scapy.IP, "len")
-        masked_pkt.set_do_not_care_scapy(scapy.IP, "id")
-        masked_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_pkt.set_do_not_care_scapy(scapy.ICMP, "chksum")
-        masked_pkt.set_do_not_care(304, V4_PKTSZ * 8 - 304)  # ignore icmp data
+    ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
 
-    else:
-        send_pkt = simple_udpv6_packet(eth_dst=dst_mac,  # mac address of dut
-                                       eth_src=nbr_macs[ports['portA']['nbr_vm']][ports['portA']['nbr_port']],
-                                       # mac address of vm1
-                                       ipv6_src=str(ports['portA']['nbr_lb']),
-                                       ipv6_dst=str(dst_ip),
-                                       ipv6_hlim=0,
-                                       pktlen=100)
+    for dst_rtr, dst_ip in [(ports['portB']['nbr_vm'], ports['portB']['nbr_lb']),
+                            (ports['portD']['nbr_vm'], ports['portD']['nbr_lb'])]:
+        logger.info("Send TTL 0 packet from %s => %s", ports['portA']['nbr_lb'], str(dst_ip))
+        # 0.1@1 = dut_index.dut_port@ptfport
+        src_port = devices[ports['portA']['nbr_vm']]['vlans'][0].split("@")[1]
 
-        exp_pkt255 = simple_udpv6_packet(eth_dst=dst_mac,  # mac address of dut
-                                         eth_src=nbr_macs[ports['portA']['nbr_vm']][ports['portA']['nbr_port']],
-                                         # mac address of vm1
-                                         ipv6_src=str(ports['portA']['nbr_lb']),
-                                         ipv6_dst=str(dst_ip),
-                                         ipv6_hlim=255,
-                                         pktlen=100)
+        src_rx_ports = []
+        for item in devices[ports['portA']['nbr_vm']]['vlans']:
+            src_rx_ports.append(item.split("@")[1])
+        logger.info("PTF source ports: %s", src_rx_ports)
 
-        V6_PKTSZ = 148
-        exp_pkt = simple_icmpv6_packet(eth_dst=nbr_macs[ports['portA']['nbr_vm']][ports['portA']['nbr_port']],
-                                       # mac address of vm1
-                                       eth_src=dst_mac,  # mac address of dut
-                                       ipv6_src=str(ports['portA']['my_lb_ip']),
-                                       ipv6_dst=str(ports['portA']['nbr_lb']),
-                                       ipv6_hlim=64,
-                                       icmp_code=0,
-                                       icmp_type=3,
-                                       pktlen=V6_PKTSZ,
-                                       )
+        dst_rx_ports = []
+        for item in devices[dst_rtr]['vlans']:
+            dst_rx_ports.append(item.split("@")[1])
+        logger.info("PTF destination ports: %s", dst_rx_ports)
 
-        masked_pkt = Mask(exp_pkt)
-        masked_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
-        masked_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
-        masked_pkt.set_do_not_care_scapy(scapy.IPv6, "plen")
-        masked_pkt.set_do_not_care_scapy(scapy.ICMPv6Unknown, "cksum")
-        masked_pkt.set_do_not_care(456, V6_PKTSZ * 8 - 456)  # ignore icmp data
+        dst_mac = get_sonic_mac(ports['portA']['dut'], ports['portA']['asic'].asic_index, ports['portA']['port'])
 
-    return send_pkt, masked_pkt, exp_pkt255
+        params = {'dst_mac': dst_mac,
+                  'version': version,
+                  'dst_ip': str(dst_ip),
+                  'src_port': src_port,
+                  'src_rx_ports': src_rx_ports,
+                  'dst_rx_ports': dst_rx_ports,
+                  'vm_mac': nbr_macs[ports['portA']['nbr_vm']][ports['portA']['nbr_port']],
+                  'vm_ip': str(ports['portA']['nbr_lb']),
+                  'dut_lb': str(ports['portA']['my_lb_ip'])}
 
-
-class TestVoqIPFwdTTL0(object):
-
-    @pytest.mark.parametrize('version', [4, 6])
-    @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
-    def test_ipforwarding_ttl0(self, duthosts, all_cfg_facts, tbinfo, ptfadapter, version, porttype, nbrhosts,
-                               nbr_macs):
-        """
-        Verifies that TTL0 packets are dropped and that ICMP time expired message is received
-
-        Args:
-            duthosts: The duthosts fixture
-            all_cfg_facts: The all_cfg_facts fixture from voq/conftest.py
-            tbinfo: The tbinfo fixture.
-            ptfadapter: The ptfadapter fixture
-            version: IP version, 4 or 6
-            porttype: Port type to test, ethernet or portchannel.
-            nbrhosts: The nbrhosts fixture.
-            nbr_macs: The nbr_macs fixture
-
-        """
-
-        devices = {}
-        for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
-            devices[k] = {'vlans': v['vlans']}
-
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
-
-        for dst_rtr, dst_ip in [(ports['portB']['nbr_vm'], ports['portB']['nbr_lb']),
-                                (ports['portD']['nbr_vm'], ports['portD']['nbr_lb'])]:  # (self.rtrD['vm'], self.lbD.ip)
-            logger.info("Send TTL 0 packet from %s => %s", ports['portA']['nbr_lb'], str(dst_ip))
-            # 0.1@1 = dut_index.dut_port@ptfport
-            src_port = devices[ports['portA']['nbr_vm']]['vlans'][0].split("@")[1]
-
-            src_rx_ports = []
-            for item in devices[ports['portA']['nbr_vm']]['vlans']:
-                src_rx_ports.append(item.split("@")[1])
-            logger.info("PTF source ports: %s", src_rx_ports)
-
-            dst_rx_ports = []
-            for item in devices[dst_rtr]['vlans']:
-                dst_rx_ports.append(item.split("@")[1])
-            logger.info("PTF destination ports: %s", dst_rx_ports)
-
-            dst_mac = get_sonic_mac(ports['portA']['dut'], ports['portA']['asic'].asic_index, ports['portA']['port'])
-
-            send_pkt, masked_pkt, exp_pkt255 = build_ttl0_pkts(ports, nbr_macs, version, dst_mac, dst_ip)
-
-            send(ptfadapter, src_port, send_pkt)
-            logger.info("masked packet matched port: %s", src_port)
-
-            result = dp_poll(ptfadapter, device_number=0, exp_pkt=masked_pkt, timeout=2)
-            ptfadapter.at_receive(result.packet, device_number=result.device, port_number=result.port)
-
-            logger.info("Found %s ICMP ttl expired packets on ports: %s", result, str(src_rx_ports))
-            logger.info("port: %s", result.port)
-            pytest_assert(str(result.port) in src_rx_ports, "Port %s not in %s" % (result.port, src_rx_ports))
-
-            verify_no_packet_any(ptfadapter, send_pkt, dst_rx_ports)
-            verify_no_packet_any(ptfadapter, exp_pkt255, dst_rx_ports)
+        log_file = "/tmp/voq.ttl0.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
+        logger.info("Call TTL0 PTF runner")
+        ptf_runner(ptfhost, 'ptftests', "voq.TTL0", '/root/ptftests', params=params,
+                   log_file=log_file, timeout=10)
+        logger.info("TTL0 PTF runner completed")
 
 
 def bgp_established(host, asic):
@@ -1160,7 +1054,8 @@ class TestFPLinkFlap(LinkFlap):
             nbrhosts: The nbrhosts fixture.
 
         """
-        pytest_assert(fanouthosts != {}, "Fanouthosts fixture did not return anything, this test case has no hope.")
+        if fanouthosts == {}:
+            pytest.skip("Fanouthosts fixture did not return anything, this test case can not run.")
         logger.info("Fanouthosts: %s", fanouthosts)
 
         ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
@@ -1290,3 +1185,70 @@ class TestFPLinkFlap(LinkFlap):
                          dev=vm_host_to_A, size=size, ttl=ttl)
             check_packet(eos_ping, ports, 'portD', 'portA', dst_ip_fld='my_lb_ip', src_ip_fld='nbr_lb',
                          dev=vm_host_to_A, size=size, ttl=ttl)
+
+
+@pytest.mark.parametrize('port, ip', [('portA', 'my_ip'), ('portA', 'my_lb_ip'), ('portA', 'inband'),
+                                      ('portD', 'my_ip'), ('portD', 'my_lb_ip'), ('portD', 'inband')])
+@pytest.mark.parametrize('version', [4, 6])
+@pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
+def test_ipforwarding_jumbo_to_dut(duthosts, all_cfg_facts, tbinfo, ptfhost, porttype, version, port, ip,
+                                   nbrhosts, nbr_macs):
+    """
+    Verifies that jumbo packets are forwarded through system and jumbo ICMP packets are answered by
+    linecard host CPU.
+
+    Args:
+        duthosts: The duthosts fixture
+        all_cfg_facts: The all_cfg_facts fixture from voq/conftest.py
+        tbinfo: The tbinfo fixture.
+        ptfhost: The ptfhost fixture
+        version: IP version, 4 or 6
+        porttype: Port type to test, ethernet or portchannel.
+        nbrhosts: The nbrhosts fixture.
+        nbr_macs: The nbr_macs fixture
+
+    """
+
+    devices = {}
+    for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
+        devices[k] = {'vlans': v['vlans']}
+
+    ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+
+    dst_ip = ports[port][ip]
+
+    logger.info("Send Max MTU packet from %s => %s", ports['portA']['nbr_lb'], str(dst_ip))
+
+    # 0.1@1 = dut_index.dut_port@ptfport
+    src_rx_ports = []
+    dst_rx_ports = []
+    for item in devices[ports['portA']['nbr_vm']]['vlans']:
+        src_rx_ports.append(int(item.split("@")[1]))
+        dst_rx_ports.append(int(item.split("@")[1]))
+    logger.info("PTF source ports: %s", src_rx_ports)
+
+    for item in devices[ports['portD']['nbr_vm']]['vlans']:
+        dst_rx_ports.append(int(item.split("@")[1]))
+    logger.info("PTF destination ports: %s", dst_rx_ports)
+
+    dst_mac = get_sonic_mac(ports['portA']['dut'], ports['portA']['asic'].asic_index, ports['portA']['port'])
+    dst_mac_far = get_sonic_mac(ports['portD']['dut'], ports['portD']['asic'].asic_index, ports['portD']['port'])
+
+    # this will send jumbo ICMP to DUT and jumbo IP through to portD
+
+    params = {'router_mac_src_side': dst_mac,
+              'router_mac_dst_side': dst_mac_far,
+              'pktlen': MAX_MTU,
+              'src_host_ip': str(ports['portA']['nbr_lb']),
+              'src_router_ip': str(dst_ip),
+              'dst_host_ip': str(ports['portD']['nbr_lb']),
+              'src_ptf_port_list': src_rx_ports,
+              'dst_ptf_port_list': dst_rx_ports,
+              'version': version,
+              }
+
+    log_file = "/tmp/voq.mtu.v{}.{}.{}.log".format(version, porttype, datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
+    logger.info("Call MTU PTF runner")
+    ptf_runner(ptfhost, 'ptftests', "voq.MtuTest", '/root/ptftests', params=params,
+               log_file=log_file, timeout=10, socket_recv_size=16384)
+    logger.info("MTU PTF runner completed")
