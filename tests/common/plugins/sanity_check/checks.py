@@ -125,7 +125,7 @@ def check_interfaces(duthosts):
             for asic in dut.asics:
                 ip_interfaces = []
                 cfg_facts = asic.config_facts(host=dut.hostname,
-                                            source="persistent")['ansible_facts']
+                                            source="persistent", verbose=False)['ansible_facts']
                 phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if "admin_status" in v and v["admin_status"] == "up"]
                 if "PORTCHANNEL_INTERFACE" in cfg_facts:
                     ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
@@ -340,7 +340,7 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
                                                         ip_snd=lower_tor_mgmt_ip,
                                                         ip_tgt=lower_tor_ping_tgt_ip,
                                                         hw_snd=lower_tor_intf_mac)
-        
+
         ptf_arp_pkt = testutils.simple_arp_packet(ip_tgt=ptf_arp_tgt_ip,
                                                 ip_snd=ptf_arp_tgt_ip,
                                                 arp_op=2)
