@@ -21,6 +21,7 @@
 import ipaddr
 import logging
 import pytest
+import re
 import json
 from collections import namedtuple
 
@@ -229,8 +230,8 @@ def _setup_testbed(dut, creds, ptf, test_params):
        dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
        ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
        dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
-       http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
-       https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+       http_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('http_proxy', ''))[0]
+       https_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('https_proxy', ''))[0]
        dut.command("sudo ip -n {} rule add from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
        if http_proxy != https_proxy:
            dut.command("sudo ip -n {} rule add from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
@@ -277,9 +278,8 @@ def _teardown_testbed(dut, creds, ptf, test_params):
 
        ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
        dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
-
-       http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
-       https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+       http_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('http_proxy', ''))[0]
+       https_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('https_proxy', ''))[0]
        dut.command("sudo ip -n {} rule delete from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
        if http_proxy != https_proxy:
            dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
