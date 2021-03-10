@@ -23,6 +23,7 @@ import os
 import pytest
 
 from tests.common.utilities import wait
+from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
 from tests.common.dualtor.dual_tor_mock import *
@@ -108,7 +109,7 @@ def _swss_path(filename):
     return os.path.join('/', os.path.basename(filename))
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='module', autouse=True)
 def swss_config_files(rand_selected_dut, tor_mux_intfs):
     """This fixture is to generate/cleanup the swss config files in the swss docker.
 
@@ -145,53 +146,9 @@ def config_crm_polling_interval(rand_selected_dut):
     dut.shell('crm config polling interval 300')
 
 
-def compare_crm_facts(left, right):
-    """Compare the crm facts
-
-    Args:
-        left (dict): crm facts returned by dut.get_crm_facts()
-        right (dict): crm facts returned by dut.get_crm_facts()
-
-    Returns:
-        list: List of unmatched items.
-    """
-    unmatched = []
-
-    for k, v in left['resources'].items():
-        lv = v
-        rv = right['resources'][k]
-        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
-            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
-
-    left_acl_group = {}
-    for ag in left['acl_group']:
-        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
-        left_acl_group[key] = {
-            'available': ag['available count'],
-            'used': ag['used count']
-        }
-
-    right_acl_group = {}
-    for ag in left['acl_group']:
-        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
-        right_acl_group[key] = {
-            'available': ag['available count'],
-            'used': ag['used count']
-        }
-
-    for k, v in left_acl_group.items():
-        lv = v
-        rv = right_acl_group[k]
-        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
-            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
-
-    return unmatched
-
-
 def test_change_mux_state(
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
-        swss_config_files,
         rand_selected_dut,
         request):
 
@@ -257,7 +214,6 @@ def add_neighbors(dut, neighbors, interface):
 def test_flap_neighbor_entry_active(
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
-        swss_config_files,
         rand_selected_dut,
         tbinfo,
         request,
@@ -291,7 +247,6 @@ def test_flap_neighbor_entry_active(
 def test_flap_neighbor_entry_standby(
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
-        swss_config_files,
         rand_selected_dut,
         tbinfo,
         request,
