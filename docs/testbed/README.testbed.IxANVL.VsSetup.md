@@ -43,10 +43,10 @@
 	 ```
  
   - Download Keysight IxANVL container image from the below location
-    - [IxANVL](ftp://10.66.44.254/anvl_container.tar). The path is not of ixia webserver as IxANVL container is not released yet. Once released the path will be properly updated. 
+    - [IxANVL](https://downloads.ixiacom.com/support/downloads_and_updates/eb/1558879/anvl_docker_image.tar). The path is not of ixia webserver as IxANVL container is not released yet. Once released the path will be properly updated. 
  
      Downloaded files would be like below - 
-     - `anvl_container.tar` 
+     - `anvl_docker_image.tar` 
  
    - Place the downloaded file in a folder say `~/keysight_images`. This location needs to be mounted on `/images` inside the *sonic-mgmt* container. 
      > **Note** If you load the *IxANVL* docker image in your docker registry then you need not place `anvl_container.tar` inside the `~/keysight_images` folder. In that case you need to consider the `docker_registry_host` in `ansible/vars/docker_registry.yml` file. If local file is used it will not pull from the docker registry. 
