@@ -333,7 +333,7 @@ class SonicHost(AnsibleHostBase):
         """
         monit_services_status = {}
 
-        services_status_result = self.shell("sudo monit status", module_ignore_errors=True)
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=False)
 
         exit_code = services_status_result["rc"]
         if exit_code != 0:
@@ -1079,7 +1079,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
-        return self.command(cmd)
+        return self.command(cmd, verbose=False)
 
     def get_asic_name(self):
         asic = "unknown"
@@ -1099,7 +1099,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         return asic
 
     def get_running_config_facts(self):
-        return self.config_facts(host=self.hostname, source='running')['ansible_facts']
+        return self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
 
     def get_vlan_intfs(self):
         '''
