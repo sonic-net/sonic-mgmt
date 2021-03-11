@@ -8,6 +8,7 @@ all:
       children:
         sonic:
         fanout:
+        server:
     ptf:
       vars:
         ansible_ssh_user: root
@@ -375,3 +376,24 @@ sonic_dell_z9332f:
     str2-z9332f-02:
       ansible_host: 10.3.146.84
       hwsku: DellEMC-Z9332f-M-O16C64
+
+server:
+  hosts:
+    str2-acs-serv-16:
+      ansible_host: 10.64.246.95
+      pdu_host: pdu-117
+    str2-acs-serv-17:
+      ansible_host: 10.64.246.96
+      pdu_host: pdu-118
+    str2-acs-serv-18:
+      ansible_host: 10.64.246.97
+      pdu_host: pdu-117
+    str2-acs-serv-19:
+      ansible_host: 10.64.246.111
+      pdu_host: pdu-117
+    str2-acs-serv-20:
+      ansible_host: 10.64.246.119
+      pdu_host: pdu-118
+    str2-acs-serv-21:
+      ansible_host: 10.64.246.133
+      pdu_host: pdu-118

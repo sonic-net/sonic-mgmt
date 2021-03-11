@@ -10,6 +10,7 @@ all:
         sonic:
         acs_ixia_dscp:
         fanout:
+        server:
 
     ptf:
       hosts:
@@ -891,3 +892,36 @@ fanout:
     str-7260-26:
       ansible_host: 10.3.146.160
       pdu_host: pdu-105
+
+server:
+  hosts:
+    str-acs-serv-01:
+      ansible_host: 10.3.147.245
+      pdu_host: pdu-101
+    str-acs-serv-02:
+      ansible_host: 10.3.147.192
+      pdu_host: pdu-101
+    str-acs-serv-03:
+      ansible_host: 10.3.147.244
+      pdu_host: pdu-100
+    str-acs-serv-06:
+      ansible_host: 10.3.147.1
+      pdu_host: pdu-100
+    str-acs-serv-07:
+      ansible_host: 10.64.246.28
+      pdu_host: pdu-100
+    str-acs-serv-11:
+      ansible_host: 10.64.247.244
+      pdu_host: pdu-100
+    str-acs-serv-12:
+      ansible_host: 10.64.247.245
+      pdu_host: pdu-101
+    str-acs-serv-13:
+      ansible_host: 10.64.247.246
+      pdu_host: pdu-100
+    str-acs-serv-14:
+      ansible_host: 10.64.247.30
+      pdu_host: pdu-118
+    str-acs-serv-15:
+      ansible_host: 10.64.247.31
+      pdu_host: pdu-118
