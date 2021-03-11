@@ -129,6 +129,15 @@ class MultiAsicSonicHost(object):
             return self.asics[0]
         return self.asics[asic_index]
 
+    def asic_instance_from_namespace(self, namespace=DEFAULT_NAMESPACE):
+        if not namespace:
+            return self.asics[0]
+
+        for asic in self.asics:
+            if asic.namespace == namespace:
+                return asic
+        return None
+
     def get_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
@@ -208,16 +217,6 @@ class MultiAsicSonicHost(object):
         if asic_id == DEFAULT_ASIC_ID:
             return self.sonichost
         return self.asics[asic_id]
-
-    def get_asic_from_namespace(self, namespace=DEFAULT_NAMESPACE):
-        if not namespace:
-            return self.sonichost
-
-        for asic in self.asics:
-            if asic.namespace == namespace:
-                return asic
-
-        return None
 
     def stop_service(self, service):
         if service in self._DEFAULT_SERVICES:

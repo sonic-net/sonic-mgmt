@@ -38,7 +38,7 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
             pps_limit (int): The rate limit for COPP to enforce on ALL trap groups.
     """
 
-    asichost = dut.get_asic_from_namespace(nn_target_namespace)
+    asichost = dut.asic_instance_from_namespace(nn_target_namespace)
 
     swss_docker_name = asichost.get_docker_name("swss")
 
@@ -77,7 +77,7 @@ def restore_policer(dut, nn_target_namespace):
 
             The SWSS container must be restarted for the config change to take effect.
     """
-    asichost = dut.get_asic_from_namespace(nn_target_namespace)
+    asichost = dut.asic_instance_from_namespace(nn_target_namespace)
 
     swss_docker_name = asichost.get_docker_name("swss")
 
@@ -142,7 +142,7 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     facts = {"nn_target_port": nn_target_port, "nn_target_interface": nn_target_interface}
     dut.host.options["variable_manager"].extra_vars.update(facts)
 
-    asichost = dut.get_asic_from_namespace(nn_target_namespace)
+    asichost = dut.asic_instance_from_namespace(nn_target_namespace)
 
     syncd_docker_name = asichost.get_docker_name("syncd")
 
@@ -156,7 +156,7 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
 
 def restore_syncd(dut, nn_target_namespace):
-    asichost = dut.get_asic_from_namespace(nn_target_namespace)
+    asichost = dut.asic_instance_from_namespace(nn_target_namespace)
 
     syncd_docker_name = asichost.get_docker_name("syncd")
 
@@ -200,3 +200,14 @@ def _map_port_number_to_interface(dut, nn_target_port):
 
     interfaces = dut.command("portstat")["stdout_lines"][2:]
     return interfaces[nn_target_port].split()[0]
+
+def _get_http_and_https_proxy_ip(creds):
+    """
+       Get the http and https proxy ip.
+
+       Args:
+           creds (dict): Credential information according to the dut inventory
+    """
+
+    return (re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('http_proxy', ''))[0],
+            re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('https_proxy', ''))[0])

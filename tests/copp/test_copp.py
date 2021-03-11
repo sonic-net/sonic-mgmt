@@ -126,10 +126,10 @@ def copp_testbed(
         pytest.skip("Topology not supported by COPP tests")
 
     try:
-        _setup_testbed(duthost, creds, ptfhost, test_params)
+        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo)
         yield test_params
     finally:
-        _teardown_testbed(duthost, creds, ptfhost, test_params)
+        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
@@ -144,10 +144,6 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
             loganalyzer: Loganalyzer utility fixture
     """
     ignoreRegex = [
-        ".*ERR monit.*'lldpd_monitor' process is not running.*",
-        ".*ERR monit.* 'lldp\|lldpd_monitor' status failed.*-- 'lldpd:' is not running.*",
-        ".*ERR monit.*'lldp_syncd' process is not running.*",
-        ".*ERR monit.*'lldp\|lldp_syncd' status failed.*'python2 -m lldp_syncd' is not running.*",
         ".*snmp#snmp-subagent.*",
         ".*kernel reports TIME_ERROR: 0x4041: Clock Unsynchronized.*"
     ]
@@ -208,7 +204,9 @@ def _gather_test_params(tbinfo, duthost, request):
             peerip = bgp_peer["peer_addr"]
             break
 
-    logging.info("nn_target_port {} nn_target_interface {}".format(nn_target_port, nn_target_interface))
+    nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
+
+    logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {}".format(nn_target_port, nn_target_interface, nn_target_namespace))
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                swap_syncd=swap_syncd,
@@ -216,25 +214,27 @@ def _gather_test_params(tbinfo, duthost, request):
                                myip=myip,
                                peerip = peerip,
                                nn_target_interface=nn_target_interface,
-                               nn_target_namespace=mg_facts["minigraph_neighbors"][nn_target_interface]['namespace'])
+                               nn_target_namespace=nn_target_namespace)
 
-def _setup_testbed(dut, creds, ptf, test_params):
+def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Sets up the testbed to run the COPP tests.
     """
     if dut.is_multi_asic:
        logging.info("Adding iptables rules and enabling eth0 port forwarding")
+       http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
        # IP Table rule for http and ptf nn_agent traffic.
        dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=1")
        mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+       # Rule to communicate to http/s proxy from namespace
        dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-       ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
-       dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
-       http_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('http_proxy', ''))[0]
-       https_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('https_proxy', ''))[0]
        dut.command("sudo ip -n {} rule add from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
        if http_proxy != https_proxy:
            dut.command("sudo ip -n {} rule add from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+       # Rule to communicate to ptf nn agent client from namespace
+       ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
+       dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
+       dut.command("sudo ip -n {} rule add from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
 
 
 
@@ -258,33 +258,31 @@ def _setup_testbed(dut, creds, ptf, test_params):
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut, wait=180)
+        config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface, 
                                test_params.nn_target_namespace, creds)
 
-def _teardown_testbed(dut, creds, ptf, test_params):
+def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Tears down the testbed, returning it to its initial state.
     """
     if dut.is_multi_asic:
        logging.info("Removing iptables rules and disabling eth0 port forwarding")
+       http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
        
        dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=0")
        
        mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
        dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-
-       ip_ifs = dut.show_ip_interface(namespace = test_params.nn_target_namespace)["ansible_facts"]
-       dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ip_ifs["ip_interfaces"]["eth0"]["ipv4"]))
-       http_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('http_proxy', ''))[0]
-       https_proxy =  re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('https_proxy', ''))[0]
        dut.command("sudo ip -n {} rule delete from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
        if http_proxy != https_proxy:
            dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
 
-
+       ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
+       dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
+       dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
    
     logging.info("Restore PTF post COPP test")
     copp_utils.restore_ptf(ptf)
