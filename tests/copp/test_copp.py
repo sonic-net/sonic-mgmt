@@ -21,7 +21,6 @@
 import ipaddr
 import logging
 import pytest
-import re
 import json
 from collections import namedtuple
 
