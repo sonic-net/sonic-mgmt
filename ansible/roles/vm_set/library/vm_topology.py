@@ -98,7 +98,6 @@ VM_SET_NAME_MAX_LEN = 8  # used in interface names. So restricted
 MGMT_PORT_NAME = 'mgmt'
 BP_PORT_NAME = 'backplane'
 CMD_DEBUG_FNAME = "/tmp/vmtopology.cmds.%s.txt"
-DEBUG_FNAME = "/vmtopology.cmds.%s.txt"
 EXCEPTION_DEBUG_FNAME = "/tmp/vmtopology.exception.%s.txt"
 
 OVS_FP_BRIDGE_REGEX = 'br-%s-\d+'
