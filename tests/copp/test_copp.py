@@ -221,7 +221,6 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Sets up the testbed to run the COPP tests.
     """
-
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params.nn_target_port)
 
@@ -252,7 +251,6 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Tears down the testbed, returning it to its initial state.
     """
-  
     logging.info("Restore PTF post COPP test")
     copp_utils.restore_ptf(ptf)
 
@@ -268,7 +266,9 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
         config_reload(dut)
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
-
+    """
+        Sets up the testbed to run the COPP tests on multi-asic platfroms via setting proxy.
+    """
     if not dut.is_multi_asic:
         return
 
@@ -288,7 +288,9 @@ def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     dut.command("sudo ip -n {} rule add from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
 
 def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
-
+    """
+        Tears down multi asic proxy settings, returning it to its initial state.
+    """
     if not dut.is_multi_asic:
         return
 
