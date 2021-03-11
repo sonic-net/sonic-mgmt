@@ -68,29 +68,29 @@ class ParseTestbedTopoinfo():
         self.vm_topo_config = {}
         self.asic_topo_config = {}
 
-    def parse_topo_defintion(self, topo_definition, po_map, dut_num, type='VMs'):
+    def parse_topo_defintion(self, topo_definition, po_map, dut_num, neigh_type='VMs'):
         dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
         vmconfig = dict()
-        for vm in topo_definition['topology'][type]:
+        for vm in topo_definition['topology'][neigh_type]:
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
             if 'properties' in vmconfig[vm]:
                 vmconfig[vm]['properties']=topo_definition['configuration'][vm]['properties']
-            if type == 'VMs':
+            if neigh_type == 'VMs':
                 vmconfig[vm]['interface_indexes'] = [[] for i in range(dut_num)]
-                for vlan in topo_definition['topology'][type][vm]['vlans']:
+                for vlan in topo_definition['topology'][neigh_type][vm]['vlans']:
                     (dut_index, vlan_index, _) = parse_vm_vlan_port(vlan)
                     vmconfig[vm]['interface_indexes'][dut_index].append(vlan_index)
-            if type == 'NEIGH_ASIC':
+            if neigh_type == 'NEIGH_ASIC':
                 vmconfig[vm]['asic_intfs'] = [[] for i in range(dut_num)]
                 dut_index = 0
-                for asic_intf in topo_definition['topology'][type][vm]['asic_intfs']:
+                for asic_intf in topo_definition['topology'][neigh_type][vm]['asic_intfs']:
                     vmconfig[vm]['asic_intfs'][dut_index].append(asic_intf)
         
             # physical interface
             for intf in topo_definition['configuration'][vm]['interfaces']:
-                if (type == 'VMs' and 'Ethernet' in intf) or \
-                   (type == 'NEIGH_ASIC' and re.match("Eth(\d+)-", intf)):
+                if (neigh_type == 'VMs' and 'Ethernet' in intf) or \
+                   (neigh_type == 'NEIGH_ASIC' and re.match("Eth(\d+)-", intf)):
                     dut_index = 0
                     if 'dut_index' in topo_definition['configuration'][vm]['interfaces'][intf]:
                         dut_index = topo_definition['configuration'][vm]['interfaces'][intf]['dut_index']
@@ -109,8 +109,8 @@ class ParseTestbedTopoinfo():
         
             for intf in topo_definition['configuration'][vm]['interfaces']:
                 dut_index = 0
-                if (type == 'VMs' and 'Ethernet' in intf) or \
-                   (type == 'NEIGH_ASIC' and re.match("Eth(\d+)-", intf)):
+                if (neigh_type == 'VMs' and 'Ethernet' in intf) or \
+                   (neigh_type == 'NEIGH_ASIC' and re.match("Eth(\d+)-", intf)):
                     if 'dut_index' in topo_definition['configuration'][vm]['interfaces'][intf]:
                         dut_index = topo_definition['configuration'][vm]['interfaces'][intf]['dut_index']
                 elif 'Port-Channel' in intf:
