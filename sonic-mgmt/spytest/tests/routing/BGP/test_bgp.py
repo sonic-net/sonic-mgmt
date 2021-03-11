@@ -1752,6 +1752,11 @@ class TestBGPIPvxRouteAdvertisementFilter:
     @pytest.mark.community
     @pytest.mark.community_pass
     def test_route_map_in_ipv6(self, bgp_ipvx_route_adv_filter_fixture, bgp_ipvx_route_adv_func_hook):
+        
+        bgpapi.config_bgp(dut=self.local_topo['dut1'], local_as=self.local_topo['dut1_as'], addr_family='ipv6',
+                          config='no',
+                          neighbor=self.local_topo['dut2_addr_ipv6'],
+                          config_type_list=['import-check'], cli_type=bgp_cli_type)
 
         bgpapi.fetch_ip_bgp_route(self.local_topo['dut2'], family='ipv6',
                                            match={'next_hop': self.local_topo['dut1_addr_ipv6']},
