@@ -1,6 +1,5 @@
 import time
 from math import ceil
-from itertools import permutations
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
