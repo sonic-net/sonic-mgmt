@@ -26,10 +26,10 @@ def get_port_alias_to_name_map(hwsku):
             port_alias_to_name_map["hundredGigE1/%d" % (i / 4 + 1)] = "Ethernet%d" % i
     elif hwsku == "DellEMC-Z9332f-M-O16C64":
         # 100G ports
-        s100G_ports = [x for x in range(0, 32, 2)] + [x for x in range(64, 96, 2)] + [x for x in range(160, 192, 2)] + [x for x in range(224, 256, 2)]
+        s100G_ports = [x for x in range(0, 96, 2)] + [x for x in range(128, 160, 2)]
 
         # 400G ports
-        s400G_ports = [x for x in range(32, 64, 8)] + [x for x in range(96, 160, 8)] + [x for x in range(192, 224, 8)]
+        s400G_ports = [x for x in range(96, 128, 8)] + [x for x in range(160, 256, 8)]
 
         # 10G ports
         s10G_ports = [x for x in range(256, 258)]
