@@ -113,7 +113,7 @@ def copp_testbed(
     creds,
     ptfhost,
     tbinfo,
-    request,
+    request
 ):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
@@ -125,9 +125,11 @@ def copp_testbed(
         pytest.skip("Topology not supported by COPP tests")
 
     try:
+        _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
         _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo)
         yield test_params
     finally:
+        _teardown_multi_asic_proxy(duthost, creds, test_params, tbinfo)
         _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo)
 
 @pytest.fixture(autouse=True)
@@ -219,23 +221,6 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Sets up the testbed to run the COPP tests.
     """
-    if dut.is_multi_asic:
-       logging.info("Adding iptables rules and enabling eth0 port forwarding")
-       http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
-       # IP Table rule for http and ptf nn_agent traffic.
-       dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=1")
-       mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
-       # Rule to communicate to http/s proxy from namespace
-       dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-       dut.command("sudo ip -n {} rule add from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
-       if http_proxy != https_proxy:
-           dut.command("sudo ip -n {} rule add from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
-       # Rule to communicate to ptf nn agent client from namespace
-       ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
-       dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
-       dut.command("sudo ip -n {} rule add from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
-
-
 
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params.nn_target_port)
@@ -267,22 +252,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Tears down the testbed, returning it to its initial state.
     """
-    if dut.is_multi_asic:
-       logging.info("Removing iptables rules and disabling eth0 port forwarding")
-       http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
-       
-       dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=0")
-       
-       mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
-       dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-       dut.command("sudo ip -n {} rule delete from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
-       if http_proxy != https_proxy:
-           dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
-
-       ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
-       dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
-       dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
-   
+  
     logging.info("Restore PTF post COPP test")
     copp_utils.restore_ptf(ptf)
 
@@ -296,3 +266,43 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut)
+
+def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
+
+    if not dut.is_multi_asic:
+        return
+
+    logging.info("Adding iptables rules and enabling eth0 port forwarding")
+    http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
+    # Add IP Table rule for http and ptf nn_agent traffic.
+    dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=1")
+    mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+    # Add Rule to communicate to http/s proxy from namespace
+    dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
+    dut.command("sudo ip -n {} rule add from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
+    if http_proxy != https_proxy:
+        dut.command("sudo ip -n {} rule add from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+    # Add Rule to communicate to ptf nn agent client from namespace
+    ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
+    dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
+    dut.command("sudo ip -n {} rule add from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
+
+def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
+
+    if not dut.is_multi_asic:
+        return
+
+    logging.info("Removing iptables rules and disabling eth0 port forwarding")
+    http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
+    dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=0")
+    # Delete IP Table rule for http and ptf nn_agent traffic.
+    mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+    # Delete Rule to communicate to http/s proxy from namespace
+    dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
+    dut.command("sudo ip -n {} rule delete from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
+    if http_proxy != https_proxy:
+        dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+    # Delete Rule to communicate to ptf nn agent client from namespace
+    ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
+    dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
+    dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
