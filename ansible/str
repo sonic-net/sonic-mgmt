@@ -272,7 +272,7 @@ sonic_dell32_40:
       model: 00NX1V
       serial: BQBRX42
       base_mac: EC:F4:BB:FE:80:9F
-      pdu_host: pdu-99
+      pdu_host: pdu-99,pdu-98
     str-s6000-acs-12:
       ansible_host: 10.3.147.252
       model: 07VJDK
