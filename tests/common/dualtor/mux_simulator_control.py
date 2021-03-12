@@ -29,8 +29,8 @@ def mux_server_url(request, tbinfo):
     server = tbinfo['server']
     vmset_name = tbinfo['group-name']
     inv_files = request.config.option.ansible_inventory
-    ip = utilities.get_test_server_vars(inv_files, server, 'ansible_host')
-    port = utilities.get_group_visible_vars(inv_files, server, 'mux_simulator_port')
+    ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
+    port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_port')
     return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
 @pytest.fixture(scope='module')
