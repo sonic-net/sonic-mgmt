@@ -237,7 +237,6 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, src_port)
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
-        exp_router_mac = self.router_macs[self.ptf_test_port_map[str(src_port)]['target_dut']]
 
         pkt = simple_tcp_packet(
                             pktlen=self.pktlen,
@@ -253,7 +252,6 @@ class FibTest(BaseTest):
                             vlan_vid=self.src_vid or 0)
         exp_pkt = simple_tcp_packet(
                             self.pktlen,
-                            eth_src=exp_router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
@@ -264,6 +262,7 @@ class FibTest(BaseTest):
                             vlan_vid=self.dst_vid or 0)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
@@ -281,7 +280,7 @@ class FibTest(BaseTest):
                     dport,
                     src_port))
         logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'\
-            .format(exp_router_mac,
+            .format('any',
                     'any',
                     ip_src,
                     ip_dst,
@@ -289,7 +288,13 @@ class FibTest(BaseTest):
                     dport))
 
         if self.pkt_action == self.ACTION_FWD:
-            return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt,dst_port_list)
+            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            actual_src_mac = Ether(rcvd_pkt).src
+            if exp_src_mac != actual_src_mac:
+                logging.warn("Rcvd pkt on {} which is one of the expected ports, but the src mac doesn't match, expected {}, got {}".format(dst_port_list[rcvd_port],exp_src_mac, actual_src_mac))
+                return (0, None)
+            return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
             return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
@@ -309,7 +314,6 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, src_port)
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
-        exp_router_mac = self.router_macs[self.ptf_test_port_map[str(src_port)]['target_dut']]
 
         pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
@@ -324,7 +328,6 @@ class FibTest(BaseTest):
                                 vlan_vid=self.src_vid or 0)
         exp_pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
-                                eth_src=exp_router_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
@@ -334,6 +337,7 @@ class FibTest(BaseTest):
                                 vlan_vid=self.dst_vid or 0)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"src")
 
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
@@ -350,7 +354,7 @@ class FibTest(BaseTest):
                     sport,
                     dport))
         logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
-            .format(exp_router_mac,
+            .format('any',
                     'any',
                     ip_src,
                     ip_dst,
@@ -358,7 +362,13 @@ class FibTest(BaseTest):
                     dport))
 
         if self.pkt_action == self.ACTION_FWD:
-            return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            actual_src_mac = Ether(rcvd_pkt).src
+            if actual_src_mac != exp_src_mac:
+                logging.warning("Rcvd packet on {} which is one of the expected ports, but src mac doesn't match. Expected {}, got {}".format(dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+                return (0, None)
+            return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
             return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
 

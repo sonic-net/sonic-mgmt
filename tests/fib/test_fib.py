@@ -18,7 +18,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't0-52')
 ]
 
 # Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
@@ -52,6 +52,89 @@ def config_facts(duthosts):
 @pytest.fixture(scope='module')
 def minigraph_facts(duthosts, tbinfo):
     return duthosts.get_extended_minigraph_facts(tbinfo)
+
+
+def get_t2_fib_info(duthosts, ptfhost, all_duts_config_facts, all_duts_mg_facts):
+    # We need to first get the fib_info based on front-panel ports on all the DUTs.
+    # store a dictionary of all prefixes in the chassis, key being the prefix and value is a dictionary with key dut_index and value outgoing intf and nh
+    all_prefix_dict = {}
+    for dut_index, duthost in enumerate(duthosts.frontend_nodes):
+        timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+        duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
+        duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
+        with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
+            redis_dump = json.load(fp)
+            for k, v in redis_dump.items():
+                prefix = k.split(':', 1)[1]
+                ifnames = v['value']['ifname'].split(',')
+                nh = v['value']['nexthop']
+
+                if prefix not in all_prefix_dict:
+                    all_prefix_dict[prefix] = {}
+                prefix_dict = all_prefix_dict[prefix]
+                prefix_dict[dut_index] = { 'ifnames': ifnames, 'nexthop': nh }
+
+    fib_infos = {}
+
+    for prefix, prefix_info in all_prefix_dict.items():
+        for dut_index, dut_prefix_route in prefix_info.items():
+            dutname = duthosts.frontend_nodes[dut_index].hostname
+            dut_cfg_facts = all_duts_config_facts[dutname]
+            dut_mg_facts = all_duts_mg_facts[dutname]
+            po = dut_cfg_facts.get('PORTCHANNEL', {})
+            ports = dut_cfg_facts.get('PORT', {})
+
+            if dut_index not in fib_infos:
+                fib_infos[dut_index] = {}
+            skip = False
+            ifnames = dut_prefix_route['ifnames']
+            nh = dut_prefix_route['nexthop']
+            oports = []
+            for ifname in ifnames:
+                # There are no port-channels across the fabric, so we can add ptf ports to po's as is.
+                if po.has_key(ifname):
+                    oports.append([str(dut_mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                elif 'Ethernet-IB' in ifname:
+                    for other_dut_index, other_dut_prefix_route in prefix_info.items():
+                        if other_dut_index == dut_index:
+                            continue
+                        if other_dut_index not in prefix_info:
+                            # This DUT (linecard) doesn't have this prefix.
+                            continue
+                        other_dutname = duthosts.frontend_nodes[other_dut_index].hostname
+                        other_dut_po = all_duts_config_facts[other_dutname].get('PORTCHANNEL', {})
+                        other_dut_ports = all_duts_config_facts[other_dutname].get('PORT', {})
+                        for other_dut_ifname in prefix_info[other_dut_index]['ifnames']:
+                            if 'Ethernet-IB' not in other_dut_ifname:
+                                # Other DUT has this learnt over front-end ports
+                                other_dut_mg_facts = all_duts_mg_facts[other_dutname]
+                                if other_dut_po.has_key(other_dut_ifname):
+                                    oports.append([str(other_dut_mg_facts['minigraph_ptf_indices'][x]) for x in other_dut_po[other_dut_ifname]['members']])
+                                elif other_dut_ports.has_key(ifname) and other_dut_ifname in other_dut_mg_facts['minigraph_ptf_indices']:
+                                    oports.append([str(other_dut_mg_facts['minigraph_ptf_indices'][other_dut_ifname])])
+                elif ports.has_key(ifname) and ifname in dut_mg_facts['minigraph_ptf_indices']:
+                    oports.append([str(dut_mg_facts['minigraph_ptf_indices'][ifname])])
+                else:
+                    logger.info("Route on {} points to non front panel port and non fabric port {}:{}".format(dutname, prefix, dut_prefix_route ))
+                    skip = True
+
+            # skip direct attached subnet
+            if nh == '0.0.0.0' or nh == '::' or nh == "":
+                skip = True
+
+            if not skip:
+                fib_infos[dut_index][prefix] = oports
+            else:
+                fib_infos[dut_index][prefix] = []
+
+    # Write the file for each DUT and return the files
+    files = []
+    for dut_index, dut_fib in fib_infos.items():
+        filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+        gen_fib_info_file(ptfhost, dut_fib, filename)
+        files.append(filename)
+
+    return files
 
 
 def get_fib_info(duthost, cfg_facts, mg_facts):
@@ -143,15 +226,19 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
 
 
 @pytest.fixture(scope='module')
-def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts):
-    files = []
-    for dut_index, duthost in enumerate(duthosts):
-        fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
-        filename = '/root/fib_info_dut{}.txt'.format(dut_index)
-        gen_fib_info_file(ptfhost, fib_info, filename)
-        files.append(filename)
+def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo):
+    if tbinfo['topo']['type'] != "t2":
+        files = []
+        for dut_index, duthost in enumerate(duthosts):
+            fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
+            filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+            gen_fib_info_file(ptfhost, fib_info, filename)
+            files.append(filename)
 
-    return files
+        return files
+    else:
+        return get_t2_fib_info(duthosts, ptfhost, config_facts, minigraph_facts)
+
 
 
 @pytest.fixture(scope='module')
@@ -291,7 +378,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_ma
                 "ptftests",
                 "fib_test.FibTest",
                 platform_dir="ptftests",
-                params={"fib_info_files": fib_info_files[:2],  # Test at most 2 DUTs
+                params={"fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs
                         "ptf_test_port_map": ptf_test_port_map,
                         "router_macs": router_macs,
                         "ipv4": ipv4,
@@ -418,7 +505,7 @@ def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs
             "ptftests",
             "hash_test.HashTest",
             platform_dir="ptftests",
-            params={"fib_info_files": fib_info_files[:2],   # Test at most 2 DUTs
+            params={"fib_info_files": fib_info_files[:3],   # Test at most 3 DUTs
                     "ptf_test_port_map": ptf_test_port_map,
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),
