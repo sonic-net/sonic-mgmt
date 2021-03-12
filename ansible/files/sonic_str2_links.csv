@@ -1303,7 +1303,7 @@ str2-z9332f-02,Ethernet216,str2-z9332f-04,fourhundredGigE1/28,400000,3719,Access
 str2-z9332f-02,Ethernet224,str2-z9332f-04,fourhundredGigE1/29,400000,3720,Access
 str2-z9332f-02,Ethernet232,str2-z9332f-04,fourhundredGigE1/30,400000,3721,Access
 str2-z9332f-02,Ethernet240,str2-z9332f-04,fourhundredGigE1/31,400000,3722,Access
-str2-z9332f-02,Ethernet258,str2-z9332f-04,fourhundredGigE1/32,400000,3723,Access
+str2-z9332f-02,Ethernet248,str2-z9332f-04,fourhundredGigE1/32,400000,3723,Access
 str2-z9332f-02,Ethernet256,str2-z9332f-04,tenGigE1/33,10000,3724,Access
 str2-z9332f-01,Ethernet0,str2-z9332f-03,fourhundredGigE1/1,400000,3725,Access
 str2-z9332f-01,Ethernet8,str2-z9332f-03,fourhundredGigE1/2,400000,3726,Access
