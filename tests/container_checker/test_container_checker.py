@@ -224,10 +224,8 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     container_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
-    bgp_neighbors = duthost.get_bgp_neighbors()
-    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
-
     skip_containers = disabled_containers[:]
+    skip_containers.append("gbsyncd")
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
