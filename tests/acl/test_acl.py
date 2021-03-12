@@ -245,54 +245,15 @@ def stage(request, duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def acl_table_config(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
-    """Generate ACL table configuration files and deploy them to the DUT.
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_and_restore_config_db_module):
+    """Apply ACL table configuration and remove after tests.
 
     Args:
         duthosts: All DUTs belong to the testbed.
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
         setup: Parameters for the ACL tests.
         stage: The ACL stage under test.
-
-    Returns:
-        A dictionary containing the table name and the corresponding configuration file.
-
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    acl_table_name = "DATA_{}_{}_TEST".format(stage.upper(), ip_version.upper())
-
-    acl_table_vars = {
-        "acl_table_name": acl_table_name,
-        "acl_table_ports": setup["acl_table_ports"],
-        "acl_table_stage": stage,
-        "acl_table_type": "L3" if ip_version == "ipv4" else "L3V6"
-    }
-
-    logger.info("ACL table configuration:\n{}".format(pprint.pformat(acl_table_vars)))
-
-    acl_table_config_file = "acl_table_{}.json".format(acl_table_name)
-    acl_table_config_path = os.path.join(DUT_TMP_DIR, acl_table_config_file)
-
-    logger.info("Generating DUT config for ACL table \"{}\"".format(acl_table_name))
-    duthost.host.options["variable_manager"].extra_vars.update(acl_table_vars)
-    duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_TABLE_TEMPLATE),
-                     dest=acl_table_config_path)
-
-    return {
-        "table_name": acl_table_name,
-        "config_file": acl_table_config_path
-    }
-
-
-@pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_restore_config_db_module):
-    """Apply ACL table configuration and remove after tests.
-
-    Args:
-        duthosts: All DUTs belong to the testbed.
-        rand_one_dut_hostname: hostname of a random chosen dut to run test.
-        acl_table_config: A dictionary describing the ACL table configuration to apply.
+        ip_version: The IP version under test.
         backup_and_restore_config_db_module: A fixture that handles restoring Config DB
                 after the tests are over.
 
@@ -301,8 +262,16 @@ def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_rest
 
     """
     duthost = duthosts[rand_one_dut_hostname]
-    table_name = acl_table_config["table_name"]
-    config_file = acl_table_config["config_file"]
+    table_name = "DATA_{}_{}_TEST".format(stage.upper(), ip_version.upper())
+
+    acl_table_config = {
+        "table_name": table_name,
+        "table_ports": ",".join(setup["acl_table_ports"]),
+        "table_stage": stage,
+        "table_type": "L3" if ip_version == "ipv4" else "L3V6"
+    }
+
+    logger.info("Generated ACL table configuration:\n{}".format(pprint.pformat(acl_table_config)))
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
     loganalyzer.load_common_config()
@@ -310,10 +279,15 @@ def acl_table(duthosts, rand_one_dut_hostname, acl_table_config, backup_and_rest
     try:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
         with loganalyzer:
-            logger.info("Creating ACL table from config file: \"{}\"".format(config_file))
-
-            # TODO: Use `config` CLI to create ACL table
-            duthost.command("sonic-cfggen -j {} --write-to-db".format(config_file))
+            logger.info("Creating ACL table: \"{}\"".format(table_name))
+            duthost.command(
+                "config acl add table {} {} -s {} -p {}".format(
+                    table_name,
+                    acl_table_config["table_type"],
+                    acl_table_config["table_stage"],
+                    acl_table_config["table_ports"]
+                )
+            )
     except LogAnalyzerError as err:
         # Cleanup Config DB if table creation failed
         logger.error("ACL table creation failed, attempting to clean-up...")
@@ -406,7 +380,7 @@ class BaseAclTest(object):
             self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
-            logger.error("ACL table creation failed, attempting to clean-up...")
+            logger.error("ACL rule application failed, attempting to clean-up...")
             self.teardown_rules(duthost)
             raise err
 
@@ -784,9 +758,11 @@ class TestBasicAcl(BaseAclTest):
 
         """
         table_name = acl_table["table_name"]
-        dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}.json".format(table_name))
+        dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
 
         logger.info("Generating basic ACL rules config for ACL table \"{}\"".format(table_name))
+
+        dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}.json".format(table_name))
         dut.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE[ip_version]),
                      dest=dut_conf_file_path)
 
@@ -810,6 +786,7 @@ class TestIncrementalAcl(BaseAclTest):
 
         """
         table_name = acl_table["table_name"]
+        dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
 
         logger.info("Generating incremental ACL rules config for ACL table \"{}\""
                     .format(table_name))
