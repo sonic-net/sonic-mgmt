@@ -1,7 +1,6 @@
 import os
 import ptf
 import ptf.packet as scapy
-import ptf.dataplane as dataplane
 from ptf.testutils import *
 from ptf.mask import Mask
 from ptf import config
