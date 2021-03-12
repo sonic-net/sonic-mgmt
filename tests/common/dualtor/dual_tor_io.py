@@ -12,6 +12,7 @@ from collections import defaultdict
 import scapy.all as scapyall
 import ptf.testutils as testutils
 from tests.ptf_runner import ptf_runner
+from natsort import natsorted
 
 TCP_DST_PORT = 5000
 SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
@@ -110,17 +111,14 @@ class DualTorIO:
                 - IP addresses are randomly selected from the given VLAN network
                 - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
         """
-        for _, config in self.mux_cable_table.items():
+        for _, config in natsorted(self.mux_cable_table.items()):
             self.server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
         logger.info("ALL server address:\n {}".format(self.server_ip_list))
 
-        vlan_host_map = defaultdict(dict)
+        vlan_host_map = dict()
         addr_list = list(self.server_ip_list)
-        for _, i in enumerate(range(2, len(self.server_ip_list) + 2)):
-            port = self.vlan_ports.values()[i % len(self.vlan_ports.values())]
-            addr = random.choice(addr_list)
-            # Ensure that we won't get a duplicate ip address
-            addr_list.remove(addr)
+        for i, port in enumerate(sorted(self.vlan_ports.values())):
+            addr = addr_list[i]
             vlan_host_map[port] = [str(addr)]
 
         return vlan_host_map
