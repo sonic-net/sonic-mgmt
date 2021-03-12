@@ -162,7 +162,7 @@ def get_tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = cache.read(tbname, 'tbinfo')
-    if not testbedinfo:
+    if testbedinfo is cache.NOTEXIST:
         testbedinfo = TestbedInfo(tbfile)
         cache.write(tbname, 'tbinfo', testbedinfo)
 
