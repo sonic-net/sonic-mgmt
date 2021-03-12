@@ -56,6 +56,8 @@ all:
           ansible_host: 10.64.246.147
         vms21-4:
           ansible_host: 10.64.246.148
+        vms21-5:
+          ansible_host: 10.64.246.149
 
     pdu:
       hosts:
@@ -186,6 +188,9 @@ fanout:
       ansible_host: 10.3.146.160
     str2-z9332f-04:
       ansible_host: 10.3.146.230
+      os: sonic
+    str2-z9332f-03:
+      ansible_host: 10.3.146.229
       os: sonic
 
 sonic:
@@ -376,6 +381,9 @@ sonic_dell_z9332f:
     str2-z9332f-02:
       ansible_host: 10.3.146.84
       hwsku: DellEMC-Z9332f-M-O16C64
+    str2-z9332f-01:
+      ansible_host: 10.3.146.228
+      hwsku: DellEMC-Z9332f-O32
 
 server:
   hosts:
