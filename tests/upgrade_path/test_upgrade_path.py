@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD, REBOOT_TYPE_SOFT
 
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -139,6 +139,12 @@ def get_reboot_command(duthost, upgrade_type):
         next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
         current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         # warm-reboot has to be forced for an upgrade from 201811 to 201811+ to bypass ASIC config changed error
+        if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201811' not in next_os_version:
+            reboot_command = "warm-reboot -f"
+    if upgrade_type == REBOOT_TYPE_SOFT:
+        next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
+        current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        # soft-reboot has to be forced for an upgrade from 201811 to 201811+ to bypass ASIC config changed error
         if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201811' not in next_os_version:
             reboot_command = "warm-reboot -f"
     return reboot_command
