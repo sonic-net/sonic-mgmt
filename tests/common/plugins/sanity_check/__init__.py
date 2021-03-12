@@ -195,7 +195,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
     logger.info("Sanity check settings: skip_sanity=%s, pre_check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s, post_check_items=%s" % \
         (skip_sanity, pre_check_items, allow_recover, recover_method, post_check, post_check_items))
 
-    for item in SUPPORTED_CHECKS:
+    for item in pre_check_items.union(post_check_items):
         request.fixturenames.append(_item2fixture(item))
 
         # Workaround for pytest requirement.
