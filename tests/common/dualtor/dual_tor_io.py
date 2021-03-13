@@ -60,9 +60,7 @@ class DualTorIO:
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
-        self.total_disrupt_time = None
         self.disrupts_count = None
-        self.total_disrupt_packets = None
         self.max_lost_id = None
         self.max_disrupt_time = None
         self.received_counter = int()
@@ -71,6 +69,7 @@ class DualTorIO:
         self.total_lost_packets = None
         self.servers_with_disruptions = dict()
         self.servers_with_transmissions = dict()
+        self.per_server_report = dict()
         # This list will contain all unique Payload ID, to filter out received floods.
         self.unique_id = set()
 
@@ -169,14 +168,8 @@ class DualTorIO:
         # Sender and sniffer have finished the job. Start examining the collected flow
         self.examine_flow()
         if self.lost_packets:
-            self.no_routing_stop, self.no_routing_start =\
-                datetime.datetime.fromtimestamp(self.no_routing_stop),\
-                datetime.datetime.fromtimestamp(self.no_routing_start)
             logger.error("The longest disruption lasted %.3f seconds."\
                 "%d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-            logger.error("Total disruptions count is %d. All disruptions lasted "\
-                "%.3f seconds. Total %d packet(s) lost" % \
-                (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
 
 
     def generate_from_t1_to_server(self):
@@ -434,10 +427,6 @@ class DualTorIO:
         return self.max_disrupt_time
 
 
-    def get_total_disrupted_packets(self):
-        return self.total_disrupt_packets
-
-
     def get_total_sent_packets(self):
         return len(self.packets_list)
 
@@ -450,12 +439,12 @@ class DualTorIO:
         return self.total_lost_packets
 
 
-    def get_total_disrupt_time(self):
-        return self.total_disrupt_time
-
-
     def get_duplicated_packets_count(self):
         return self.duplicated_packets_count
+
+
+    def get_per_server_report(self):
+        return self.per_server_report
 
 
     def no_flood(self, packet):
@@ -517,19 +506,13 @@ class DualTorIO:
 
         self.examine_each_packet(packets)
 
-        self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
         if self.lost_packets:
             # Find the longest loss with the longest time:
-            _, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start,
-                self.no_routing_stop) = \
+            _, (self.max_lost_id, self.max_disrupt_time) = \
                 max(self.lost_packets.items(), key = lambda item:item[1][0:2])
-            self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
-            self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
         elif self.total_lost_packets == 0:
             self.max_lost_id = 0
             self.max_disrupt_time = 0
-            self.total_disrupt_packets = 0
-            self.total_disrupt_time = 0
             logger.info("Gaps in forwarding not found.")
 
         logger.info("Packet flow examine finished after {}".format(
@@ -577,10 +560,19 @@ class DualTorIO:
                 self.servers_with_transmissions[server_addr]["received"] += 1
                 # The new received packet may mark an end of disruption for some server
                 server_history = self.servers_with_disruptions.get(server_addr)
-                if server_history and server_history[-1][-1] != "end":
-                    # The server which received this packet had experienced lost packet before
-                    # This marks an end of one disruptive cycle for received_server_addr
-                    server_history[-1] = server_history[-1] + (received_time,"end")
+                if server_history and "end" not in server_history[-1]:
+                    '''
+                    The server which received this packet had experienced lost packet earlier.
+                    This marks an end of one disruptive cycle for received_server_addr
+                    The count of ["start",start-time, end-time, "end"] combinations
+                    account for number of disruptions seen for that server
+                    Example disruption cycle for one server:
+                    {"192.168.0.6": [{
+                           "start": prev_time, "start_id": lost_id,
+                            "end": received_time, "end_id": received_payload
+                        }]}
+                    '''
+                    server_history[-1].update({"end": received_time, "end_id": received_payload})
                 received_counter += 1
 
             if not (received_payload and received_time):
@@ -591,11 +583,11 @@ class DualTorIO:
 
             if received_payload - prev_payload > 1:
                 # Packets in a row are missing, a disruption.
-                lost_id = (received_payload - 1) - prev_payload # How many packets lost in a row.
+                consecutive_loss = (received_payload - 1) - prev_payload # How many packets lost in a row.
                 # How long disrupt lasted.
                 disrupt = (sent_packets[received_payload][0] - sent_packets[prev_payload + 1][0])
                 # Add disruption to the lost_packets dict:
-                lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
+                lost_packets[prev_payload] = (consecutive_loss, disrupt)
                 # Consecutive packet is lost, find which server started experiencing disruption
                 # packets are lost from prev_payload+1 to received_payload-1
                 for lost_id in range(prev_payload + 1, received_payload):
@@ -603,8 +595,8 @@ class DualTorIO:
                     # save the previous packet to the history - this marks the beginning of disruption for server_losing_packet
                     dropped_server_history = self.servers_with_disruptions.get(server_losing_packet)
                     if not dropped_server_history or (
-                        dropped_server_history[-1][0] == "start" and dropped_server_history[-1][-1] == "end"):
-                        dropped_server_history.append(("start", prev_time,))
+                        "start" in dropped_server_history[-1] and "end" in dropped_server_history[-1]):
+                        dropped_server_history.append({"start": prev_time, "start_id": lost_id})
                 if not disruption_start:
                     disruption_start = datetime.datetime.fromtimestamp(prev_time)
                 disruption_stop = datetime.datetime.fromtimestamp(received_time)
@@ -620,7 +612,7 @@ class DualTorIO:
                 # save the previous packet to the history - this marks the beginning of disruption for server_losing_packet
                 dropped_server_history = self.servers_with_disruptions.get(server_losing_packet)
                 if not dropped_server_history or (
-                    dropped_server_history[-1][0] == "start" and dropped_server_history[-1][-1] == "end"):
+                    "start" in dropped_server_history[-1] and "end" in dropped_server_history[-1]):
                     dropped_server_history.append(("start", prev_time,))
 
         self.total_lost_packets = len(sent_packets) - received_counter
@@ -635,11 +627,21 @@ class DualTorIO:
                 str(disruption_start), str(disruption_stop)))
 
         logger.info("Traffic summary:")
-        for server_addr, stats in self.servers_with_transmissions.items():
-            self.servers_with_disruptions
-            disruption_count = len(self.servers_with_disruptions[server_addr])
+        for server_addr, stats  in self.servers_with_disruptions.items():
+            losstime = sum(stat["end"] - stat["start"]
+                for stat in stats if "end" in stat)
+            packets_lost = sum(stat["end_id"] - stat["start_id"]
+                for stat in stats if "end" in stat)
+            disruption_lost = sum( 1 for stat in stats if "end" not in stat)
+            disruptions = len(stats)
+            self.per_server_report.update({server_addr:{
+                "packets_lost": packets_lost,
+                "disruptions": disruptions,
+                "disruptions_time": losstime,
+                "disruption_lost": disruption_lost}})
             logger.info("Server {}, stats: {}, disruptions count: {}".format(
-                server_addr, stats, disruption_count))
+                server_addr, self.servers_with_transmissions[server_addr], disruptions))
+
         logger.info("Detailed disruption summary: {}".format(json.dumps(self.servers_with_disruptions, indent=4)))
 
 

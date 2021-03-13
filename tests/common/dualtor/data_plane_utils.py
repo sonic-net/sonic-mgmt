@@ -69,11 +69,10 @@ def generate_test_report(tor_IO):
             "duplicated_packets_count": tor_IO.get_duplicated_packets_count(),
             "disruptions": {
                 "total_disruptions": tor_IO.get_total_disruptions(),
-                "total_disrupted_packets": tor_IO.get_total_disrupted_packets(),
-                "total_disruption_time": tor_IO.get_total_disrupt_time(),
                 "longest_disruption": tor_IO.get_longest_disruption(),
                 "total_lost_packets": tor_IO.get_total_lost_packets()
-            }
+            },
+            "per_server_report": tor_IO.get_per_server_report()
     }
     logger.info("Data plane traffic test results: \n{}".format(json.dumps(data_plane_test_report, indent=4)))
     return data_plane_test_report
@@ -163,7 +162,9 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 default - `None`: No action will be performed and traffic will run
                 between server to T1 router.
             verify (boolean): If set to True, test will automatically verify packet
-                drops/duplication based on given qualification critera
+                drops/duplication based on given qualification criteria
+        Returns:
+            data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
         duthosts_list.append(activehost)
 
@@ -219,6 +220,8 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 between server to T1 router.
             verify (boolean): If set to True, test will automatically verify packet
                 drops/duplication based on given qualification critera
+        Returns:
+            data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
         duthosts_list.append(activehost)
 
