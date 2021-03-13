@@ -79,6 +79,50 @@ def generate_test_report(tor_IO):
     return data_plane_test_report
 
 
+def verify_and_report(tor_IO, verify, delay):
+    # Wait for the IO to complete before doing checks
+    report = generate_test_report(tor_IO)
+    if verify:
+        allowed_disruption = 0 if delay == 0 else 1
+        validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
+            delay=delay)
+    return report
+
+
+def run_test(duthosts, activehost, ptfhost, ptfadapter, action, tbinfo, tor_vlan_port, send_interval, traffic_direction):
+    io_ready = threading.Event()
+    standbyhost = get_standbyhost(duthosts, activehost)
+    tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
+        io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval)
+    if traffic_direction == "server_to_t1":
+        traffic_generator = tor_IO.generate_from_server_to_t1
+    elif traffic_direction == "t1_to_server":
+        traffic_generator = tor_IO.generate_from_t1_to_server
+
+    send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
+        kwargs={'traffic_generator': traffic_generator})
+
+    send_and_sniff.start()
+    if action:
+        # do not perform the provided action until
+        # IO threads (sender and sniffer) are ready
+        io_ready.wait()
+        logger.info("Sender and sniffer threads started, ready to execute the "\
+            "callback action")
+        action()
+    # Wait for the IO to complete before doing checks
+    send_and_sniff.join()
+    return tor_IO
+
+
+def cleanup(ptfadapter, duthosts_list):
+    # cleanup torIO
+    ptfadapter.dataplane.flush()
+    for duthost in duthosts_list:
+        logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
+        duthost.shell('sonic-clear arp')
+
+
 @pytest.fixture
 def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     """
@@ -102,7 +146,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     
     duthosts_list = []
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
-                            delay=0, action=None, verify=False):
+                            delay=0, action=None, verify=False, send_interval=None):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -122,36 +166,16 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 drops/duplication based on given qualification critera
         """
         duthosts_list.append(activehost)
-        io_ready = threading.Event()
-        standbyhost = get_standbyhost(duthosts, activehost)
-        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-            io_ready, tor_vlan_port=tor_vlan_port)
-        send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
-            kwargs={'traffic_generator': tor_IO.generate_from_t1_to_server})
-        send_and_sniff.start()
-        if action:
-            # do not perform the provided action until IO threads (sender and sniffer) are ready
-            io_ready.wait()
-            logger.info("Sender and sniffer threads started, ready to execute "\
-                "the callback action")
-            action()
 
-        # Wait for the IO to complete before doing checks
-        logger.info("Waiting for sender and sniffer threads to finish..")
-        send_and_sniff.join()
-        generate_test_report(tor_IO)
-        if verify:
-            allowed_disruption = 0 if delay == 0 else 1
-            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
-                delay=delay)
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+                        action, tbinfo, tor_vlan_port, send_interval,
+                        traffic_direction="t1_to_server")
+
+        return verify_and_report(tor_IO, verify, delay)
 
     yield t1_to_server_io_test
 
-    # cleanup torIO
-    ptfadapter.dataplane.flush()
-    for duthost in duthosts_list:
-        logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
-        duthost.shell('sonic-clear arp')
+    cleanup(ptfadapter, duthosts_list)
 
 
 @pytest.fixture
@@ -178,7 +202,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
 
     duthosts_list = []
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
-                            delay=0, action=None, verify=False):
+                            delay=0, action=None, verify=False, send_interval=None):
         """
         Helper method for `send_server_to_t1_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -197,34 +221,13 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 drops/duplication based on given qualification critera
         """
         duthosts_list.append(activehost)
-        io_ready = threading.Event()
-        standbyhost = get_standbyhost(duthosts, activehost)
-        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-            io_ready, tor_vlan_port=tor_vlan_port)
-        send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
-            kwargs={'traffic_generator': tor_IO.generate_from_server_to_t1})
-        send_and_sniff.start()
 
-        if action:
-            # do not perform the provided action until
-            # IO threads (sender and sniffer) are ready
-            io_ready.wait()
-            logger.info("Sender and sniffer threads started, ready to execute the "\
-                "callback action")
-            action()
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+                        action, tbinfo, tor_vlan_port, send_interval,
+                        traffic_direction="server_to_t1")
 
-        # Wait for the IO to complete before doing checks
-        send_and_sniff.join()
-        generate_test_report(tor_IO)
-        if verify:
-            allowed_disruption = 0 if delay == 0 else 1
-            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
-                delay=delay)
+        return verify_and_report(tor_IO, verify, delay)
 
     yield server_to_t1_io_test
 
-    # cleanup torIO
-    ptfadapter.dataplane.flush()
-    for duthost in duthosts_list:
-       logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
-       duthost.shell('sonic-clear arp')
+    cleanup(ptfadapter, duthosts_list)
