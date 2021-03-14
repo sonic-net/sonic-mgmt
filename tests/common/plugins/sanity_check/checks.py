@@ -25,7 +25,8 @@ __all__ = [
     'check_dbmemory',
     'check_monit',
     'check_processes',
-    'check_mux_simulator']
+    'check_mux_simulator',
+    'check_secureboot']
 
 
 @pytest.fixture(scope="module")
@@ -579,34 +580,36 @@ def check_secureboot(duthosts, request):
 
         # Check if secure boot enabled
         check_secureboot_cmd = r"grep -q 'secure_boot_enable=y' /proc/cmdline && echo y"
-        shell_result = duthost.shell_cmds(cmds=[check_secureboot_cmd])
-        if shell_result['results'][0]['stdout'] != 'y':
+        shell_result = duthost.shell_cmds(cmds=[check_secureboot_cmd], continue_on_fail=False)
+        if not shell_result or shell_result['results'][0]['stdout'].strip() != 'y':
             logger.info("Skipped to check secure boot for dut %s, since the secure boot is not enabled" % duthost.sonichost.hostname)
             return results
 
         # Call the shell commands to get the allowlist and the rw files
-        read_allowlist_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf"
-        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \;"
+        read_allowlist_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf || true"
+        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \; | sed -E 's#/host/[^/]+/rw##g'"
         cmds = [read_allowlist_cmd, ls_rw_files_cmd]
-        shell_result = duthost.shell_cmds(cmds=cmds)
+        shell_result = duthost.shell_cmds(cmds=cmds, continue_on_fail=False)
 
         # Read the allowlist
         allowlist = []
-        result['allowlist'] = allowlist
+        results['allowlist'] = allowlist
         stdout = shell_result['results'][0]['stdout']
         for line in stdout.split('\n'):
             line = line.strip()
-            allowlist.append(line)
+            if len(line) > 0:
+                allowlist.append(line)
         logger.info("Read %d allowlist settings from dut %s" % (len(allowlist), duthost.sonichost.hostname))
 
         # Read the rw files
         rw_files = {}
-        result['rw'] = rw_files
+        results['rw'] = rw_files
         stdout = shell_result['results'][1]['stdout']
         for line in stdout.split('\n'):
             line = line.strip()
-            filename = line[33:].strip()
-            rw_files[filename] = line[:32]
+            if len(line) > 33:
+                filename = line[33:].strip()
+                rw_files[filename] = line[:32] #md5sum
         logger.info("Read %d rw files from dut %s" % (len(rw_files), duthost.sonichost.hostname))
 
         return results
@@ -664,7 +667,7 @@ def check_secureboot(duthosts, request):
                 reason = 'Unexpected change files: %s in %s' % (','.join(conflicts), hostname)
                 check_result["failed_reason"] = reason
                 return check_result
-        return check_results = []
+        return check_results
 
     def _check(*args, **kwargs):
         check_results = []
