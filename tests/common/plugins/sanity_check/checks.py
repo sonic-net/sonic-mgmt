@@ -568,13 +568,10 @@ def check_secureboot(duthosts, request):
     If the file change is only for test, not for product, please add the change in the default_allowlist below
     """
 
-    default_allowlist = []
+    default_allowlist = [ r".*\.pyc" ]
     module_cache_config = 'module_cache_config'
-    module = request.module
-    def _get_secureboot_allowlist_cmd():
-        # Only support Aboot secure boot now
-        cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf"
-        return cmd
+    module = request.module.__name__
+
     def _read_config_by_dut(duthost):
         results = {}
 
