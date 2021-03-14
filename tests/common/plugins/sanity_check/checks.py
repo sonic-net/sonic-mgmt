@@ -657,7 +657,7 @@ def check_secureboot(duthosts, request):
                     change_files[filename] = hostname
 
             # Check if the file change is expected
-            check_result = {"failed": False, "check_item": "secureboot", , "host": hostname}
+            check_result = {"failed": False, "check_item": "secureboot", "host": hostname}
             conflicts = _do_check(allowlist, change_files, hostname)
             if conflicts:
                 return conflicts
