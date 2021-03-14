@@ -10,11 +10,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import *
 from tests.common.dualtor.dual_tor_utils import *
+from tests.common.cache import FactsCache
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
 MONIT_STABILIZE_MAX_TIME = 420
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
+cache = FactsCache()
 
 __all__ = [
     'check_services',
@@ -557,3 +559,121 @@ def check_processes(duthosts):
 
         return check_results
     return _check
+
+@pytest.fixture(scope="module")
+def check_secureboot(duthosts, request):
+    """
+    Check if the file change in rw folder is as expected when secureboot feature enabled
+    If the file change is only for test, not for product, please add the change in the default_allowlist below
+    """
+
+    default_allowlist = []
+    module_cache_config = 'module_cache_config'
+    module = request.module
+    def _get_secureboot_allowlist_cmd():
+        # Only support Aboot secure boot now
+        cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf"
+        return cmd
+    def _read_config_by_dut(duthost):
+        results = {}
+
+        # Check if secure boot enabled
+        check_secureboot_cmd = r"grep -q 'secure_boot_enable=y' /proc/cmdline && echo y"
+        shell_result = duthost.shell_cmds(cmds=[check_secureboot_cmd])
+        if shell_result['results'][0]['stdout'] != 'y':
+            logger.info("Skipped to check secure boot for dut %s, since the secure boot is not enabled" % duthost.sonichost.hostname)
+            return results
+
+        # Call the shell commands to get the allowlist and the rw files
+        read_allowlist_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf"
+        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \;"
+        cmds = [read_allowlist_cmd, ls_rw_files_cmd]
+        shell_result = duthost.shell_cmds(cmds=cmds)
+
+        # Read the allowlist
+        allowlist = []
+        result['allowlist'] = allowlist
+        stdout = shell_result['results'][0]['stdout']
+        for line in stdout.split('\n'):
+            line = line.strip()
+            allowlist.append(line)
+        logger.info("Read %d allowlist settings from dut %s" % (len(allowlist), duthost.sonichost.hostname))
+
+        # Read the rw files
+        rw_files = {}
+        result['rw'] = rw_files
+        stdout = shell_result['results'][1]['stdout']
+        for line in stdout.split('\n'):
+            line = line.strip()
+            filename = line[33:].strip()
+            rw_files[filename] = line[:32]
+        logger.info("Read %d rw files from dut %s" % (len(rw_files), duthost.sonichost.hostname))
+
+        return results
+
+    def _read_configs():
+        results = {}
+        for duthost in duthosts:
+            config = _read_config_by_dut(duthost)
+            if config:
+              results[duthost.sonichost.hostname] = config
+        return results
+
+    def _do_check(allowlist, filenames, hostname):
+        default_test_allowlist = []
+        conflicts = []
+        allowlist_all = default_allowlist + allowlist
+        for item in allowlist_all:
+            pattern = '^{0}$'.format(item)
+            match = False
+            for filename in filenames:
+                if re.match(pattern, filename):
+                    match = True
+            if not match:
+                logger.error('Unexpected change file found: %s' % filename)
+                conflicts.append(filename)
+
+        return conflicts
+
+    def _pre_check():
+        configs = _read_configs()
+        cache.write(module_cache_config, module, configs)
+
+    def _post_check():
+        check_results = []
+        old_configs = cache.read(module_cache_config, module)
+        if not old_configs:
+            old_configs = {}
+        new_configs = _read_configs()
+        for hostname in new_configs:
+            new_config = new_configs[hostname]
+            new_files = new_config['rw']
+            allowlist = new_config['allowlist']
+            old_config = old_configs.get(hostname, {})
+            old_files = old_config.get('rw', {})
+            change_files = {}
+            for filename in new_files:
+                if filename not in old_files or old_files[filename] != new_files[filename]:
+                    change_files[filename] = hostname
+
+            # Check if the file change is expected
+            conflicts = _do_check(allowlist, change_files, hostname)
+            if conflicts:
+                return conflicts
+                check_result["failed"] = True
+                reason = 'Unexpected change files: %s in %s' % (','.join(conflicts), hostname)
+                check_result["failed_reason"] = reason
+                return check_result
+        return check_results = []
+
+    def _check(*args, **kwargs):
+        check_results = []
+        stage = kwargs.get('stage', None)
+
+        if stage == 'stage_pre_test':
+            _pre_check()
+        elif stage == 'stage_post_test':
+            check_results = _post_check()
+
+        return check_results
+    return _check 
