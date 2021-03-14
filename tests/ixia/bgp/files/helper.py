@@ -80,39 +80,39 @@ def config_setup(duthost,
     duthost.shell(intf2_v6_config)
 
     logger.info("|--BGP Configuration On DUT--|")
-    bgp_config_501 = (
+    bgp_config = (
         "vtysh "
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'no bgp default ipv4-unicast' "
         "-c 'no bgp ebgp-requires-policy' "
-        "-c 'neighbor LC501 peer-group' "
-        "-c 'neighbor LC501 remote-as %s' "
-        "-c 'neighbor %s peer-group LC501' "
+        "-c 'neighbor LC peer-group' "
+        "-c 'neighbor LC remote-as %s' "
+        "-c 'neighbor %s peer-group LC' "
         "-c 'address-family ipv4 unicast' "
         "-c 'neighbor %s activate' "
     )
-    bgp_config_501 %= (DUT_AS_NUM,
-                       TGEN_AS_NUM,
-                       tgen_ports[0]['ip'],
-                       tgen_ports[0]['ip'])
-    duthost.shell(bgp_config_501)
+    bgp_config %= (DUT_AS_NUM,
+                   TGEN_AS_NUM,
+                   tgen_ports[0]['ip'],
+                   tgen_ports[0]['ip'])
+    duthost.shell(bgp_config)
 
-    bgpv6_config_501 = (
+    bgpv6_config = (
         "vtysh "
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
-        "-c 'neighbor LC501v6 peer-group' "
-        "-c 'neighbor LC501v6 remote-as %s' "
-        "-c 'neighbor %s peer-group LC501v6' "
+        "-c 'neighbor LCv6 peer-group' "
+        "-c 'neighbor LCv6 remote-as %s' "
+        "-c 'neighbor %s peer-group LCv6' "
         "-c 'address-family ipv6 unicast' "
         "-c 'neighbor %s activate' "
     )
-    bgpv6_config_501 %= (DUT_AS_NUM,
-                         TGEN_AS_NUM,
-                         tgen_ports[0]['ipv6'],
-                         tgen_ports[0]['ipv6'])
-    duthost.shell(bgpv6_config_501)
+    bgpv6_config %= (DUT_AS_NUM,
+                     TGEN_AS_NUM,
+                     tgen_ports[0]['ipv6'],
+                     tgen_ports[0]['ipv6'])
+    duthost.shell(bgpv6_config)
 
     # ipv6 next hop route-map
     next_hop = (
@@ -123,7 +123,7 @@ def config_setup(duthost,
         "-c 'set ipv6 next-hop prefer-global' "
         "-c 'router bgp %s' "
         "-c 'address-family ipv6 unicast' "
-        "-c 'neighbor LC501v6 route-map NEXTHOP in' "
+        "-c 'neighbor LCv6 route-map NEXTHOP in' "
     )
     next_hop %= (DUT_AS_NUM)
     duthost.shell(next_hop)
@@ -198,17 +198,13 @@ def run_bgp_prefix_list_test(snappi_api,
     tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         tgen_ports)
 
-    logger.info("|--Updating TGEN Config with with Prefix Lists--|")
-    tgen_bgp_prefix_list_config = __tgen_bgp_prefix_list_config(
-        tgen_bgp_config)
-
     logger.info("|--BGP Prefix List Route Map Configuration on DUT--|")
     __bgp_prefix_list_route_map_config(duthost)
 
     logger.info("|--Verify Test--|")
     __verify_test(duthost,
                   snappi_api,
-                  tgen_bgp_prefix_list_config)
+                  tgen_bgp_config)
 
 
 def run_bgp_metric_filter(snappi_api,
@@ -339,11 +335,11 @@ def __tgen_bgp_config(snappi_api,
     ip2.prefix = tgen_ports[1]['prefix']
 
     # BGPv4
-    bgp501 = ip1.bgpv4
-    bgp501.name = "bgp501"
-    bgp501.dut_address = tgen_ports[0]['peer_ip']
-    bgp501.as_number = TGEN_AS_NUM
-    bgp501.as_type = BGP_TYPE
+    bgp = ip1.bgpv4
+    bgp.name = "bgp"
+    bgp.dut_address = tgen_ports[0]['peer_ip']
+    bgp.as_number = TGEN_AS_NUM
+    bgp.as_type = BGP_TYPE
 
     # v6 config
     ip1v6, ip2v6 = eth1.ipv6, eth2.ipv6
@@ -358,89 +354,40 @@ def __tgen_bgp_config(snappi_api,
     ip2v6.prefix = tgen_ports[1]['ipv6_prefix']
 
     # BGPv6
-    bgp501v6 = ip1v6.bgpv6
-    bgp501v6.name = "bgp501v6"
-    bgp501v6.dut_address = tgen_ports[0]['peer_ipv6']
-    bgp501v6.as_number = TGEN_AS_NUM
-    bgp501v6.as_type = BGP_TYPE
-
-    return config
-
-
-def __tgen_bgp_policies_config(config):
-    """
-    BGP Attributes Config on TGEN
-    Args:
-        config : tgen config
-    """
-
-    bgp501 = config.devices[0].ethernet.ipv4.bgpv4
+    bgpv6 = ip1v6.bgpv6
+    bgpv6.name = "bgpv6"
+    bgpv6.dut_address = tgen_ports[0]['peer_ipv6']
+    bgpv6.as_number = TGEN_AS_NUM
+    bgpv6.as_type = BGP_TYPE
 
     # Routes Config
-    bgp501_rr_with_policies, bgp501_rr2 = (
-        bgp501.bgpv4_routes
-        .bgpv4route(name="bgp501_rr_with_policies")
-        .bgpv4route(name="bgp501_rr2")
+    bgp_route1, bgp_route2 = (
+        bgp.bgpv4_routes
+        .bgpv4route(name="bgp_route1")
+        .bgpv4route(name="bgp_route2")
     )
 
-    # Advertise one route("200.1.0.0") from AS 501 attributes
-    bgp501_rr_with_policies.addresses.bgpv4routeaddress(address="200.1.0.0",
-                                                        prefix=16)
-
-    # Community
-    manual_as_community = (
-        bgp501_rr_with_policies.communities.bgpcommunity()[-1])
-    manual_as_community.community_type = manual_as_community.MANUAL_AS_NUMBER
-    manual_as_community.as_number = int(COMMUNITY.split(":")[0])
-    manual_as_community.as_custom = int(COMMUNITY.split(":")[1])
-    # Metric
-    bgp501_rr_with_policies.advanced.multi_exit_discriminator = MED
-    # AS PATH
-    as_path = bgp501_rr_with_policies.as_path
-    as_path_segment = as_path.as_path_segments.bgpaspathsegment()[-1]
-    as_path_segment.segment_type = as_path_segment.AS_SEQ
-    as_path_segment.as_numbers = GROUP_AS
-    # Origin
-    bgp501_rr_with_policies.advanced.origin = (
-        bgp501_rr_with_policies.advanced.EGP)
-
-    # Advertise another route("20.1.0.0") from AS 501
-    bgp501_rr2.addresses.bgpv4routeaddress(address="20.1.0.0",
+    # Advertise one route("200.1.0.0")
+    bgp_route1.addresses.bgpv4routeaddress(address="200.1.0.0",
                                            prefix=16)
 
-    # ipv6
-    bgp501v6 = config.devices[0].ethernet.ipv6.bgpv6
+    # Advertise another route("20.1.0.0")
+    bgp_route2.addresses.bgpv4routeaddress(address="20.1.0.0",
+                                           prefix=16)
 
     # Routes Config
-    bgp501v6_rr_with_policies, bgp501v6_rr2 = (
-        bgp501v6.bgpv6_routes
-        .bgpv6route(name="bgp501v6_rr_with_policies")
-        .bgpv6route(name="bgp501v6_rr2")
+    bgpv6_route1, bgpv6_route2 = (
+        bgpv6.bgpv6_routes
+        .bgpv6route(name="bgpv6_route1")
+        .bgpv6route(name="bgpv6_route2")
     )
 
-    # Advertise one route("4000::1") from AS 501 with Attributes
-    bgp501v6_rr_with_policies.addresses.bgpv6routeaddress(address="4000::1",
-                                                          prefix=64)
+    # Advertise one route("4000::1") with Attributes
+    bgpv6_route1.addresses.bgpv6routeaddress(address="4000::1",
+                                             prefix=64)
 
-    # Community
-    manual_as_community = (
-        bgp501v6_rr_with_policies.communities.bgpcommunity()[-1])
-    manual_as_community.community_type = manual_as_community.MANUAL_AS_NUMBER
-    manual_as_community.as_number = int(COMMUNITY.split(":")[0])
-    manual_as_community.as_custom = int(COMMUNITY.split(":")[1])
-    # Metric
-    bgp501v6_rr_with_policies.advanced.multi_exit_discriminator = MED
-    # AS PATH
-    as_path = bgp501v6_rr_with_policies.as_path
-    as_path_segment = as_path.as_path_segments.bgpaspathsegment()[-1]
-    as_path_segment.segment_type = as_path_segment.AS_SEQ
-    as_path_segment.as_numbers = GROUP_AS
-    # Origin
-    bgp501v6_rr_with_policies.advanced.origin = (
-        bgp501v6_rr_with_policies.advanced.EGP)
-
-    # Advertise another route("6000::1") from AS 501
-    bgp501v6_rr2.addresses.bgpv6routeaddress(address="6000::1",
+    # Advertise another route("6000::1")
+    bgpv6_route2.addresses.bgpv6routeaddress(address="6000::1",
                                              prefix=64)
 
     # Create four flows
@@ -452,11 +399,11 @@ def __tgen_bgp_policies_config(config):
         .flow(name='deny_ipv6')
     )
 
-    permit.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    permit.tx_rx.device.rx_names = [bgp501_rr_with_policies.name]
+    permit.tx_rx.device.tx_names = [ip2.name]
+    permit.tx_rx.device.rx_names = [bgp_route1.name]
 
-    deny.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    deny.tx_rx.device.rx_names = [bgp501_rr2.name]
+    deny.tx_rx.device.tx_names = [ip2.name]
+    deny.tx_rx.device.rx_names = [bgp_route2.name]
 
     permit.rate.percentage = LINE_RATE
     permit.duration.fixed_packets.packets = PACKETS
@@ -464,17 +411,69 @@ def __tgen_bgp_policies_config(config):
     deny.rate.percentage = LINE_RATE
     deny.duration.fixed_packets.packets = PACKETS
 
-    permit_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    permit_ipv6.tx_rx.device.rx_names = [bgp501v6_rr_with_policies.name]
+    permit_ipv6.tx_rx.device.tx_names = [ip2v6.name]
+    permit_ipv6.tx_rx.device.rx_names = [bgpv6_route1.name]
 
-    deny_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    deny_ipv6.tx_rx.device.rx_names = [bgp501v6_rr2.name]
+    deny_ipv6.tx_rx.device.tx_names = [ip2v6.name]
+    deny_ipv6.tx_rx.device.rx_names = [bgpv6_route2.name]
 
     permit_ipv6.rate.percentage = LINE_RATE
     permit_ipv6.duration.fixed_packets.packets = PACKETS
 
     deny_ipv6.rate.percentage = LINE_RATE
     deny_ipv6.duration.fixed_packets.packets = PACKETS
+
+    return config
+
+
+def __tgen_bgp_policies_config(config):
+    """
+    BGP Attributes Config on TGEN
+    Args:
+        config : tgen config
+    """
+
+    # update route("200.1.0.0") with attributes
+    bgp_route_with_policies = (
+        config.devices[0].ethernet.ipv4.bgpv4.bgpv4_routes[0])
+
+    # Community
+    manual_as_community = (
+        bgp_route_with_policies.communities.bgpcommunity()[-1])
+    manual_as_community.community_type = manual_as_community.MANUAL_AS_NUMBER
+    manual_as_community.as_number = int(COMMUNITY.split(":")[0])
+    manual_as_community.as_custom = int(COMMUNITY.split(":")[1])
+    # Metric
+    bgp_route_with_policies.advanced.multi_exit_discriminator = MED
+    # AS PATH
+    as_path = bgp_route_with_policies.as_path
+    as_path_segment = as_path.as_path_segments.bgpaspathsegment()[-1]
+    as_path_segment.segment_type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = GROUP_AS
+    # Origin
+    bgp_route_with_policies.advanced.origin = (
+        bgp_route_with_policies.advanced.EGP)
+
+    # update route("4000::1") with attributes
+    bgpv6_route_with_policies = (
+        config.devices[0].ethernet.ipv6.bgpv6.bgpv6_routes[0])
+
+    # Community
+    manual_as_community = (
+        bgpv6_route_with_policies.communities.bgpcommunity()[-1])
+    manual_as_community.community_type = manual_as_community.MANUAL_AS_NUMBER
+    manual_as_community.as_number = int(COMMUNITY.split(":")[0])
+    manual_as_community.as_custom = int(COMMUNITY.split(":")[1])
+    # Metric
+    bgpv6_route_with_policies.advanced.multi_exit_discriminator = MED
+    # AS PATH
+    as_path = bgpv6_route_with_policies.as_path
+    as_path_segment = as_path.as_path_segments.bgpaspathsegment()[-1]
+    as_path_segment.segment_type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = GROUP_AS
+    # Origin
+    bgpv6_route_with_policies.advanced.origin = (
+        bgpv6_route_with_policies.advanced.EGP)
 
     return config
 
@@ -540,85 +539,25 @@ def __tgen_bgp_community_config(config):
         config : tgen config
     """
 
-    bgp501 = config.devices[0].ethernet.ipv4.bgpv4
-
-    # Routes Config
-    bgp501_rr_with_community, bgp501_rr2 = (
-        bgp501.bgpv4_routes
-        .bgpv4route(name="bgp501_rr_with_community")
-        .bgpv4route(name="bgp501_rr2")
-    )
-
-    # Advertise one route("200.1.0.0") from AS 501 with community 1:2
-    bgp501_rr_with_community.addresses.bgpv4routeaddress(address="200.1.0.0",
-                                                         prefix=16)
+    # update route("200.1.0.0") with community 1:2
+    bgp_route_with_community = (
+        config.devices[0].ethernet.ipv4.bgpv4.bgpv4_routes[0])
 
     manual_as_community = (
-        bgp501_rr_with_community.communities.bgpcommunity()[-1])
+        bgp_route_with_community.communities.bgpcommunity()[-1])
     manual_as_community.community_type = manual_as_community.MANUAL_AS_NUMBER
     manual_as_community.as_number = int(COMMUNITY.split(":")[0])
     manual_as_community.as_custom = int(COMMUNITY.split(":")[1])
 
-    # Advertise another route("20.1.0.0") from AS 501 without community
-    bgp501_rr2.addresses.bgpv4routeaddress(address="20.1.0.0",
-                                           prefix=16)
-
-    # ipv6
-    bgp501v6 = config.devices[0].ethernet.ipv6.bgpv6
-
-    # Routes Config
-    bgp501v6_rr_with_community, bgp501v6_rr2 = (
-        bgp501v6.bgpv6_routes
-        .bgpv6route(name="bgp501v6_rr_with_community")
-        .bgpv6route(name="bgp501v6_rr2")
-    )
-
-    # Advertise one route("4000::1") from AS 501 with community 1:2
-    bgp501v6_rr_with_community.addresses.bgpv6routeaddress(address="4000::1",
-                                                           prefix=64)
+    # update route("4000::1") with community 1:2
+    bgpv6_route_with_community = (
+        config.devices[0].ethernet.ipv6.bgpv6.bgpv6_routes[0])
 
     manual_as_community = (
-        bgp501v6_rr_with_community.communities.bgpcommunity()[-1])
+        bgpv6_route_with_community.communities.bgpcommunity()[-1])
     manual_as_community.community_type = manual_as_community.MANUAL_AS_NUMBER
     manual_as_community.as_number = int(COMMUNITY.split(":")[0])
     manual_as_community.as_custom = int(COMMUNITY.split(":")[1])
-
-    # Advertise another route("6000::1") from AS 501 without community
-    bgp501v6_rr2.addresses.bgpv6routeaddress(address="6000::1",
-                                             prefix=64)
-
-    # Create four flows
-    permit, deny, permit_ipv6, deny_ipv6 = (
-        config.flows
-        .flow(name='permit')
-        .flow(name='deny')
-        .flow(name='permit_ipv6')
-        .flow(name='deny_ipv6')
-    )
-
-    permit.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    permit.tx_rx.device.rx_names = [bgp501_rr_with_community.name]
-
-    deny.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    deny.tx_rx.device.rx_names = [bgp501_rr2.name]
-
-    permit.rate.percentage = LINE_RATE
-    permit.duration.fixed_packets.packets = PACKETS
-
-    deny.rate.percentage = LINE_RATE
-    deny.duration.fixed_packets.packets = PACKETS
-
-    permit_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    permit_ipv6.tx_rx.device.rx_names = [bgp501v6_rr_with_community.name]
-
-    deny_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    deny_ipv6.tx_rx.device.rx_names = [bgp501v6_rr2.name]
-
-    permit_ipv6.rate.percentage = LINE_RATE
-    permit_ipv6.duration.fixed_packets.packets = PACKETS
-
-    deny_ipv6.rate.percentage = LINE_RATE
-    deny_ipv6.duration.fixed_packets.packets = PACKETS
 
     return config
 
@@ -635,10 +574,10 @@ def __bgp_community_route_map_config(duthost):
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'address-family ipv4 unicast' "
-        "-c 'no neighbor LC501 route-map LA in' "
+        "-c 'no neighbor LC route-map LA in' "
         "-c 'address-family ipv6 unicast' "
-        "-c 'no neighbor LC501v6 route-map LAv6 in' "
-        "-c 'neighbor LC501v6 route-map NEXTHOP in' "
+        "-c 'no neighbor LCv6 route-map LAv6 in' "
+        "-c 'neighbor LCv6 route-map NEXTHOP in' "
         "-c 'no route-map LA' "
         "-c 'no route-map LAv6' "
     )
@@ -668,84 +607,6 @@ def __bgp_community_route_map_config(duthost):
     duthost.shell(community_config)
 
 
-def __tgen_bgp_prefix_list_config(config):
-    """
-    BGP Prefix Config on TGEN
-    Args:
-        config : tgen config
-    """
-
-    bgp501 = config.devices[0].ethernet.ipv4.bgpv4
-
-    # Routes Config
-    bgp501_rr1, bgp501_rr2 = (
-        bgp501.bgpv4_routes
-        .bgpv4route(name="bgp501_rr1")
-        .bgpv4route(name="bgp501_rr2")
-    )
-
-    # Advertise one route("200.1.0.0")
-    bgp501_rr1.addresses.bgpv4routeaddress(address="200.1.0.0",
-                                           prefix=16)
-
-    # Advertise another route("20.1.0.0")
-    bgp501_rr2.addresses.bgpv4routeaddress(address="20.1.0.0",
-                                           prefix=16)
-
-    # ipv6
-    bgp501v6 = config.devices[0].ethernet.ipv6.bgpv6
-
-    # Routes Config
-    bgp501v6_rr1, bgp501v6_rr2 = (
-        bgp501v6.bgpv6_routes
-        .bgpv6route(name="bgp501v6_rr1")
-        .bgpv6route(name="bgp501v6_rr2")
-    )
-
-    # Advertise one route("4000::1")
-    bgp501v6_rr1.addresses.bgpv6routeaddress(address="4000::1",
-                                             prefix=64)
-
-    # Advertise another route("6000::1")
-    bgp501v6_rr2.addresses.bgpv6routeaddress(address="6000::1",
-                                             prefix=64)
-
-    # Create four flows
-    permit, deny, permit_ipv6, deny_ipv6 = (
-        config.flows
-        .flow(name='permit')
-        .flow(name='deny')
-        .flow(name='permit_ipv6')
-        .flow(name='deny_ipv6')
-    )
-
-    permit.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    permit.tx_rx.device.rx_names = [bgp501_rr1.name]
-
-    deny.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    deny.tx_rx.device.rx_names = [bgp501_rr2.name]
-
-    permit.rate.percentage = LINE_RATE
-    permit.duration.fixed_packets.packets = PACKETS
-
-    deny.rate.percentage = LINE_RATE
-    deny.duration.fixed_packets.packets = PACKETS
-
-    permit_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    permit_ipv6.tx_rx.device.rx_names = [bgp501v6_rr1.name]
-
-    deny_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    deny_ipv6.tx_rx.device.rx_names = [bgp501v6_rr2.name]
-
-    permit_ipv6.rate.percentage = LINE_RATE
-    permit_ipv6.duration.fixed_packets.packets = PACKETS
-
-    deny_ipv6.rate.percentage = LINE_RATE
-    deny_ipv6.duration.fixed_packets.packets = PACKETS
-
-    return config
-
-
 def __bgp_prefix_list_route_map_config(duthost):
     """
     BGP Prefix List Route MAP Config on duthost
@@ -759,10 +620,10 @@ def __bgp_prefix_list_route_map_config(duthost):
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'address-family ipv4 unicast' "
-        "-c 'no neighbor LC501 route-map LA in' "
+        "-c 'no neighbor LC route-map LA in' "
         "-c 'address-family ipv6 unicast' "
-        "-c 'no neighbor LC501v6 route-map LAv6 in' "
-        "-c 'neighbor LC501v6 route-map NEXTHOP in' "
+        "-c 'no neighbor LCv6 route-map LAv6 in' "
+        "-c 'neighbor LCv6 route-map NEXTHOP in' "
         "-c 'no route-map LA' "
         "-c 'no route-map LAv6' "
     )
@@ -792,77 +653,15 @@ def __tgen_bgp_metric_config(config):
         config : tgen config
     """
 
-    bgp501 = config.devices[0].ethernet.ipv4.bgpv4
+    # update route("200.1.0.0") with metric/MED 100
+    bgp_route_metric_100 = (
+        config.devices[0].ethernet.ipv4.bgpv4.bgpv4_routes[0])
+    bgp_route_metric_100.advanced.multi_exit_discriminator = MED
 
-    # Routes Config
-    bgp501_rr_metric_100, bgp501_rr2 = (
-        bgp501.bgpv4_routes
-        .bgpv4route(name="bgp501_rr_metric_100")
-        .bgpv4route(name="bgp501_rr2")
-    )
-
-    # Advertise one route("200.1.0.0") from AS 501 with metric/MED 100
-    bgp501_rr_metric_100.addresses.bgpv4routeaddress(address="200.1.0.0",
-                                                     prefix=16)
-
-    bgp501_rr_metric_100.advanced.multi_exit_discriminator = MED
-
-    # Advertise another route("20.1.0.0")
-    bgp501_rr2.addresses.bgpv4routeaddress(address="20.1.0.0",
-                                           prefix=16)
-
-    # ipv6
-    bgp501v6 = config.devices[0].ethernet.ipv6.bgpv6
-
-    # Routes Config
-    bgp501v6_rr_metric_100, bgp501v6_rr2 = (
-        bgp501v6.bgpv6_routes
-        .bgpv6route(name="bgp501v6_rr_metric_100")
-        .bgpv6route(name="bgp501v6_rr2")
-    )
-
-    # Advertise one route("4000::1") from AS 501 with additional AS 100
-    bgp501v6_rr_metric_100.addresses.bgpv6routeaddress(address="4000::1",
-                                                       prefix=64)
-
-    bgp501v6_rr_metric_100.advanced.multi_exit_discriminator = MED
-
-    # Advertise another route("6000::1")
-    bgp501v6_rr2.addresses.bgpv6routeaddress(address="6000::1",
-                                             prefix=64)
-
-    # Create four flows
-    permit, deny, permit_ipv6, deny_ipv6 = (
-        config.flows
-        .flow(name='permit')
-        .flow(name='deny')
-        .flow(name='permit_ipv6')
-        .flow(name='deny_ipv6')
-    )
-
-    permit.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    permit.tx_rx.device.rx_names = [bgp501_rr_metric_100.name]
-
-    deny.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    deny.tx_rx.device.rx_names = [bgp501_rr2.name]
-
-    permit.rate.percentage = LINE_RATE
-    permit.duration.fixed_packets.packets = PACKETS
-
-    deny.rate.percentage = LINE_RATE
-    deny.duration.fixed_packets.packets = PACKETS
-
-    permit_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    permit_ipv6.tx_rx.device.rx_names = [bgp501v6_rr_metric_100.name]
-
-    deny_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    deny_ipv6.tx_rx.device.rx_names = [bgp501v6_rr2.name]
-
-    permit_ipv6.rate.percentage = LINE_RATE
-    permit_ipv6.duration.fixed_packets.packets = PACKETS
-
-    deny_ipv6.rate.percentage = LINE_RATE
-    deny_ipv6.duration.fixed_packets.packets = PACKETS
+    # update route("4000::1") with metric/MED 100
+    bgpv6_route_metric_100 = (
+        config.devices[0].ethernet.ipv6.bgpv6.bgpv6_routes[0])
+    bgpv6_route_metric_100.advanced.multi_exit_discriminator = MED
 
     return config
 
@@ -879,10 +678,10 @@ def __bgp_metric_route_map_config(duthost):
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'address-family ipv4 unicast' "
-        "-c 'no neighbor LC501 route-map LA in' "
+        "-c 'no neighbor LC route-map LA in' "
         "-c 'address-family ipv6 unicast' "
-        "-c 'no neighbor LC501v6 route-map LAv6 in' "
-        "-c 'neighbor LC501v6 route-map NEXTHOP in' "
+        "-c 'no neighbor LCv6 route-map LAv6 in' "
+        "-c 'neighbor LCv6 route-map NEXTHOP in' "
         "-c 'no route-map LA' "
         "-c 'no route-map LAv6' "
     )
@@ -908,83 +707,23 @@ def __tgen_bgp_as_path_modified_config(config):
         config : tgen config
     """
 
-    bgp501 = config.devices[0].ethernet.ipv4.bgpv4
+    # update route("200.1.0.0") with additional AS 100
+    bgp_route_with_as_100 = (
+        config.devices[0].ethernet.ipv4.bgpv4.bgpv4_routes[0])
 
-    # Routes Config
-    bgp501_rr_with_as_100, bgp501_rr2 = (
-        bgp501.bgpv4_routes
-        .bgpv4route(name="bgp501_rr_with_as_100")
-        .bgpv4route(name="bgp501_rr2")
-    )
-
-    # Advertise one route("200.1.0.0") from AS 501 with additional AS 100
-    bgp501_rr_with_as_100.addresses.bgpv4routeaddress(address="200.1.0.0",
-                                                      prefix=16)
-
-    as_path = bgp501_rr_with_as_100.as_path
+    as_path = bgp_route_with_as_100.as_path
     as_path_segment = as_path.as_path_segments.bgpaspathsegment()[-1]
     as_path_segment.segment_type = as_path_segment.AS_SEQ
     as_path_segment.as_numbers = GROUP_AS
 
-    # Advertise another route("20.1.0.0")
-    bgp501_rr2.addresses.bgpv4routeaddress(address="20.1.0.0",
-                                           prefix=16)
+    # update route("4000::1") with additional AS 100
+    bgpv6_route_with_as_100 = (
+        config.devices[0].ethernet.ipv6.bgpv6.bgpv6_routes[0])
 
-    # ipv6
-    bgp501v6 = config.devices[0].ethernet.ipv6.bgpv6
-
-    # Routes Config
-    bgp501v6_rr_with_as_100, bgp501v6_rr2 = (
-        bgp501v6.bgpv6_routes
-        .bgpv6route(name="bgp501v6_rr_with_as_100")
-        .bgpv6route(name="bgp501v6_rr2")
-    )
-
-    # Advertise one route("4000::1") from AS 501 with additional AS 100
-    bgp501v6_rr_with_as_100.addresses.bgpv6routeaddress(address="4000::1",
-                                                        prefix=64)
-
-    as_path = bgp501v6_rr_with_as_100.as_path
+    as_path = bgpv6_route_with_as_100.as_path
     as_path_segment = as_path.as_path_segments.bgpaspathsegment()[-1]
     as_path_segment.segment_type = as_path_segment.AS_SEQ
     as_path_segment.as_numbers = GROUP_AS
-
-    # Advertise another route("6000::1")
-    bgp501v6_rr2.addresses.bgpv6routeaddress(address="6000::1",
-                                             prefix=64)
-
-    # Create four flows
-    permit, deny, permit_ipv6, deny_ipv6 = (
-        config.flows
-        .flow(name='permit')
-        .flow(name='deny')
-        .flow(name='permit_ipv6')
-        .flow(name='deny_ipv6')
-    )
-
-    permit.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    permit.tx_rx.device.rx_names = [bgp501_rr_with_as_100.name]
-
-    deny.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    deny.tx_rx.device.rx_names = [bgp501_rr2.name]
-
-    permit.rate.percentage = LINE_RATE
-    permit.duration.fixed_packets.packets = PACKETS
-
-    deny.rate.percentage = LINE_RATE
-    deny.duration.fixed_packets.packets = PACKETS
-
-    permit_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    permit_ipv6.tx_rx.device.rx_names = [bgp501v6_rr_with_as_100.name]
-
-    deny_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    deny_ipv6.tx_rx.device.rx_names = [bgp501v6_rr2.name]
-
-    permit_ipv6.rate.percentage = LINE_RATE
-    permit_ipv6.duration.fixed_packets.packets = PACKETS
-
-    deny_ipv6.rate.percentage = LINE_RATE
-    deny_ipv6.duration.fixed_packets.packets = PACKETS
 
     return config
 
@@ -1001,10 +740,10 @@ def __bgp_as_path_route_map_config(duthost):
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'address-family ipv4 unicast' "
-        "-c 'no neighbor LC501 route-map LA in' "
+        "-c 'no neighbor LC route-map LA in' "
         "-c 'address-family ipv6 unicast' "
-        "-c 'no neighbor LC501v6 route-map LAv6 in' "
-        "-c 'neighbor LC501v6 route-map NEXTHOP in' "
+        "-c 'no neighbor LCv6 route-map LAv6 in' "
+        "-c 'neighbor LCv6 route-map NEXTHOP in' "
         "-c 'no route-map LA' "
         "-c 'no route-map LAv6' "
     )
@@ -1041,78 +780,18 @@ def __tgen_bgp_origin_config(config):
         config : tgen config
     """
 
-    bgp501 = config.devices[0].ethernet.ipv4.bgpv4
+    # update route("200.1.0.0") with ORIGIN EGP
+    bgp_route_origin_egp = (
+        config.devices[0].ethernet.ipv4.bgpv4.bgpv4_routes[0])
 
-    # Routes Config
-    bgp501_rr_origin_egp, bgp501_rr2 = (
-        bgp501.bgpv4_routes
-        .bgpv4route(name="bgp501_rr_origin_egp")
-        .bgpv4route(name="bgp501_rr2")
-    )
+    bgp_route_origin_egp.advanced.origin = bgp_route_origin_egp.advanced.EGP
 
-    # Advertise one route("200.1.0.0") from AS 501 with ORIGIN EGP
-    bgp501_rr_origin_egp.addresses.bgpv4routeaddress(address="200.1.0.0",
-                                                     prefix=16)
+    # update route("4000::1") with with ORIGIN EGP
+    bgpv6_route_origin_egp = (
+        config.devices[0].ethernet.ipv6.bgpv6.bgpv6_routes[0])
 
-    bgp501_rr_origin_egp.advanced.origin = bgp501_rr_origin_egp.advanced.EGP
-
-    # Advertise another route("20.1.0.0")
-    bgp501_rr2.addresses.bgpv4routeaddress(address="20.1.0.0",
-                                           prefix=16)
-
-    # ipv6
-    bgp501v6 = config.devices[0].ethernet.ipv6.bgpv6
-
-    # Routes Config
-    bgp501v6_rr_origin_egp, bgp501v6_rr2 = (
-        bgp501v6.bgpv6_routes
-        .bgpv6route(name="bgp501v6_rr_origin_egp")
-        .bgpv6route(name="bgp501v6_rr2")
-    )
-
-    # Advertise one route("4000::1") from AS 501 with ORIGIN EGP
-    bgp501v6_rr_origin_egp.addresses.bgpv6routeaddress(address="4000::1",
-                                                       prefix=64)
-
-    bgp501v6_rr_origin_egp.advanced.origin = (
-        bgp501v6_rr_origin_egp.advanced.EGP)
-
-    # Advertise another route("6000::1")
-    bgp501v6_rr2.addresses.bgpv6routeaddress(address="6000::1",
-                                             prefix=64)
-
-    # Create four flows
-    permit, deny, permit_ipv6, deny_ipv6 = (
-        config.flows
-        .flow(name='permit')
-        .flow(name='deny')
-        .flow(name='permit_ipv6')
-        .flow(name='deny_ipv6')
-    )
-
-    permit.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    permit.tx_rx.device.rx_names = [bgp501_rr_origin_egp.name]
-
-    deny.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv4.name]
-    deny.tx_rx.device.rx_names = [bgp501_rr2.name]
-
-    permit.rate.percentage = LINE_RATE
-    permit.duration.fixed_packets.packets = PACKETS
-
-    deny.rate.percentage = LINE_RATE
-    deny.duration.fixed_packets.packets = PACKETS
-
-    permit_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    permit_ipv6.tx_rx.device.rx_names = [bgp501v6_rr_origin_egp.name]
-
-    deny_ipv6.tx_rx.device.tx_names = [config.devices[1].ethernet.ipv6.name]
-    deny_ipv6.tx_rx.device.rx_names = [bgp501v6_rr2.name]
-
-    permit_ipv6.rate.percentage = LINE_RATE
-    permit_ipv6.duration.fixed_packets.packets = PACKETS
-
-    deny_ipv6.rate.percentage = LINE_RATE
-    deny_ipv6.duration.fixed_packets.packets = PACKETS
+    bgpv6_route_origin_egp.advanced.origin = (
+        bgpv6_route_origin_egp.advanced.EGP)
 
     return config
 
@@ -1130,10 +809,10 @@ def __bgp_origin_route_map_config(duthost):
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'address-family ipv4 unicast' "
-        "-c 'no neighbor LC501 route-map LA in' "
+        "-c 'no neighbor LC route-map LA in' "
         "-c 'address-family ipv6 unicast' "
-        "-c 'no neighbor LC501v6 route-map LAv6 in' "
-        "-c 'neighbor LC501v6 route-map NEXTHOP in' "
+        "-c 'no neighbor LCv6 route-map LAv6 in' "
+        "-c 'neighbor LCv6 route-map NEXTHOP in' "
         "-c 'no route-map LA' "
         "-c 'no route-map LAv6' "
     )
@@ -1189,9 +868,9 @@ def __verify_test(duthost,
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'address-family ipv4 unicast' "
-        "-c 'neighbor LC501 route-map LA in' "
+        "-c 'neighbor LC route-map LA in' "
         "-c 'address-family ipv6 unicast' "
-        "-c 'neighbor LC501v6 route-map LAv6 in' "
+        "-c 'neighbor LCv6 route-map LAv6 in' "
     )
     route_map %= (DUT_AS_NUM)
     duthost.shell(route_map)
