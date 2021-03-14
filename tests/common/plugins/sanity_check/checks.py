@@ -657,13 +657,15 @@ def check_secureboot(duthosts, request):
                     change_files[filename] = hostname
 
             # Check if the file change is expected
+            check_result = {"failed": False, "check_item": "secureboot", , "host": hostname}
             conflicts = _do_check(allowlist, change_files, hostname)
             if conflicts:
                 return conflicts
                 check_result["failed"] = True
                 reason = 'Unexpected change files: %s in %s' % (','.join(conflicts), hostname)
                 check_result["failed_reason"] = reason
-                return check_result
+            check_results.append(check_result)
+
         return check_results
 
     def _check(*args, **kwargs):
@@ -674,6 +676,9 @@ def check_secureboot(duthosts, request):
             _pre_check()
         elif stage == 'stage_post_test':
             check_results = _post_check()
+        if not check_results:
+            check_result = {"failed": False, "check_item": "secureboot"}
+            check_results.append(check_result)
 
         return check_results
     return _check 
