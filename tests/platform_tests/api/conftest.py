@@ -10,7 +10,7 @@ IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACC
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost.mgmt_ip
 
