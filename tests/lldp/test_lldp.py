@@ -23,8 +23,7 @@ def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport, e
 
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     config_facts = duthost.config_facts(host=duthost.hostname, source="running",namespace=namespace)['ansible_facts']
-    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=int(enum_frontend_asic_index), skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
- 
+    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
     for k, v in lldpctl_facts['lldpctl'].items():
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
         assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
@@ -48,7 +47,7 @@ def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
 
     res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
-    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=int(enum_frontend_asic_index), skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
+    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
     host_facts  = duthost.setup()['ansible_facts']
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     config_facts = duthost.config_facts(host=duthost.hostname, source="running",namespace=namespace)['ansible_facts']
