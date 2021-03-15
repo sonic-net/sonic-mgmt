@@ -744,6 +744,8 @@ sonic_nexus_3164:
     str-n3164-acs-2:
       ansible_host: 10.3.147.150
       pdu_host: pdu-106
+      num_asics: 6
+      frontend_asics: [0, 1, 2, 3]
   vars:
     hwsku: Nexus-3164
     iface_speed: 40000
