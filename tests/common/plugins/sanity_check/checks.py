@@ -11,6 +11,7 @@ from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import *
 from tests.common.dualtor.dual_tor_utils import *
 from tests.common.cache import FactsCache
+from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -569,7 +570,7 @@ def check_secureboot(duthosts, request):
     """
 
     default_allowlist = [ r".*\.pyc" ]
-    module_cache_config = 'module_cache_config'
+    cache_location = 'secureboot_sanity_check'
     module = request.module.__name__
 
     def _read_config_by_dut(duthost):
@@ -577,37 +578,35 @@ def check_secureboot(duthosts, request):
 
         # Check if secure boot enabled
         check_secureboot_cmd = r"grep -q 'secure_boot_enable=y' /proc/cmdline && echo y"
-        shell_result = duthost.shell_cmds(cmds=[check_secureboot_cmd], continue_on_fail=False)
-        if not shell_result or shell_result['results'][0]['stdout'].strip() != 'y':
-            logger.info("Skipped to check secure boot for dut %s, since the secure boot is not enabled" % duthost.sonichost.hostname)
+        shell_result = duthost.shell(check_secureboot_cmd)
+        if shell_result['stdout'].strip() != 'y':
+            logger.info("Skipped to check secure boot for dut %s, since the secure boot is not enabled" % duthost.hostname)
             return results
-
-        # Call the shell commands to get the allowlist and the rw files
-        read_allowlist_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf || true"
-        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \; | sed -E 's#/host/[^/]+/rw##g'"
-        cmds = [read_allowlist_cmd, ls_rw_files_cmd]
-        shell_result = duthost.shell_cmds(cmds=cmds, continue_on_fail=False)
 
         # Read the allowlist
         allowlist = []
         results['allowlist'] = allowlist
-        stdout = shell_result['results'][0]['stdout']
+        read_allowlist_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf"
+        shell_result = duthost.shell(read_allowlist_cmd)
+        stdout = shell_result['stdout']
         for line in stdout.split('\n'):
             line = line.strip()
             if len(line) > 0:
                 allowlist.append(line)
-        logger.info("Read %d allowlist settings from dut %s" % (len(allowlist), duthost.sonichost.hostname))
+        logger.info("Read %d allowlist settings from dut %s" % (len(allowlist), duthost.hostname))
 
         # Read the rw files
         rw_files = {}
         results['rw'] = rw_files
-        stdout = shell_result['results'][1]['stdout']
+        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \; | sed -E 's#/host/[^/]+/rw##g'"
+        shell_result = duthost.shell(ls_rw_files_cmd)
+        stdout = shell_result['stdout']
         for line in stdout.split('\n'):
             line = line.strip()
             if len(line) > 33:
                 filename = line[33:].strip()
                 rw_files[filename] = line[:32] #md5sum
-        logger.info("Read %d rw files from dut %s" % (len(rw_files), duthost.sonichost.hostname))
+        logger.info("Read %d rw files from dut %s" % (len(rw_files), duthost.hostname))
 
         return results
 
@@ -616,7 +615,7 @@ def check_secureboot(duthosts, request):
         for duthost in duthosts:
             config = _read_config_by_dut(duthost)
             if config:
-              results[duthost.sonichost.hostname] = config
+              results[duthost.hostname] = config
         return results
 
     def _do_check(allowlist, filenames, hostname):
@@ -637,11 +636,11 @@ def check_secureboot(duthosts, request):
 
     def _pre_check():
         configs = _read_configs()
-        cache.write(module_cache_config, module, configs)
+        cache.write(cache_location, module, configs)
 
     def _post_check():
         check_results = []
-        old_configs = cache.read(module_cache_config, module)
+        old_configs = cache.read(cache_location, module)
         if not old_configs:
             old_configs = {}
         new_configs = _read_configs()
@@ -660,7 +659,6 @@ def check_secureboot(duthosts, request):
             check_result = {"failed": False, "check_item": "secureboot", "host": hostname}
             conflicts = _do_check(allowlist, change_files, hostname)
             if conflicts:
-                return conflicts
                 check_result["failed"] = True
                 reason = 'Unexpected change files: %s in %s' % (','.join(conflicts), hostname)
                 check_result["failed_reason"] = reason
@@ -672,9 +670,9 @@ def check_secureboot(duthosts, request):
         check_results = []
         stage = kwargs.get('stage', None)
 
-        if stage == 'stage_pre_test':
+        if stage == STAGE_PRE_TEST:
             _pre_check()
-        elif stage == 'stage_post_test':
+        elif stage == STAGE_POST_TEST:
             check_results = _post_check()
         if not check_results:
             check_result = {"failed": False, "check_item": "secureboot"}
