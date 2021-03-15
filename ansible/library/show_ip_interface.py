@@ -40,7 +40,7 @@ class ShowIpInterfaceModule(object):
         self.ns = ""
         ns = self.m_args["namespace"]
         if ns is not None:
-            self.ns = " -n {} ".format(ns)
+            self.ns = " -n {} -d all  ".format(ns)
         
     def run(self):
         """
