@@ -178,10 +178,13 @@ def _get_default_zone(function, func_args, func_kargs):
     zone = hostname
     arg_names = inspect.getargspec(function)[0]
     if 'namespace' in arg_names:
-        index = arg_names.index('namespace')
-        namespace = func_args[index]
-        if namespace and isinstance(namespace, str):
-            zone = "{}-{}".format(hostname,namespace)
+        try:
+            index = arg_names.index('namespace')
+            namespace = func_args[index]
+            if namespace and isinstance(namespace, str):
+                zone = "{}-{}".format(hostname,namespace)
+        except IndexError:
+            pass
     return zone
 
 
