@@ -30,6 +30,7 @@ KLISH
 Bgp_table
   ^${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NETWORK}\s+${NEXT_HOP}\s*$$ -> Continue
   ^\s{20}\s+${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
+  ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s{1,6}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s+${INTERNAL}\s*$$ -> Record
   ^${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NETWORK}\s+${NEXT_HOP}\s{1,18}${METRIC}\s{1,15}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*\s+${ORIGIN}\s*$$ -> Record
   ^${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NEXT_HOP}\s+${METRIC}\s{1,15}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*\s+${ORIGIN}\s*$$ -> Record
   ^${STATUS_CODE}\s+${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s+\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
