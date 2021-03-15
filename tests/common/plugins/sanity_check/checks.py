@@ -578,7 +578,7 @@ def check_secureboot(duthosts, request):
 
         # Check if secure boot enabled
         check_secureboot_cmd = r"grep -q 'secure_boot_enable=y' /proc/cmdline && echo y"
-        shell_result = duthost.shell(check_secureboot_cmd)
+        shell_result = duthost.shell(check_secureboot_cmd, module_ignore_errors=True)
         if shell_result['stdout'].strip() != 'y':
             logger.info("Skipped to check secure boot for dut %s, since the secure boot is not enabled" % duthost.hostname)
             return results
@@ -587,7 +587,7 @@ def check_secureboot(duthosts, request):
         allowlist = []
         results['allowlist'] = allowlist
         read_allowlist_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf"
-        shell_result = duthost.shell(read_allowlist_cmd)
+        shell_result = duthost.shell(read_allowlist_cmd, module_ignore_errors=True)
         stdout = shell_result['stdout']
         for line in stdout.split('\n'):
             line = line.strip()
@@ -599,7 +599,7 @@ def check_secureboot(duthosts, request):
         rw_files = {}
         results['rw'] = rw_files
         ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \; | sed -E 's#/host/[^/]+/rw##g'"
-        shell_result = duthost.shell(ls_rw_files_cmd)
+        shell_result = duthost.shell(ls_rw_files_cmd, module_ignore_errors=True)
         stdout = shell_result['stdout']
         for line in stdout.split('\n'):
             line = line.strip()
