@@ -27,6 +27,46 @@
     delay: 10
     ignore_errors: true
 
+  - name: Respin failed vm
+    include_tasks: respin_vm.yml
+    vars:
+      src_disk_image: "{{ home_path }}/{{ root_path }}/images/{{ hdd_image_filename }}"
+      disk_image: "{{ home_path }}/{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+      cdrom_image: "{{ home_path }}/{{ root_path }}/images/{{ cd_image_filename }}"
+    when: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code != 0'
+    ignore_errors: true
+
+  - name: Kickstart gives error after respin vm {{ vm_name }}
+    set_fact:
+      kickstart_failed_vms: "{{ kickstart_failed_vms + [vm_name] }}"
+    when: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code != 0'
+
+  - name: Set VM to autostart
+    command: "virsh autostart {{ vm_name }}"
+    become: yes
+    when: autostart|bool == true
+
+  when: not skip_this_vm and (vm_type | lower) == "veos"
+
+- block:
+  - set_fact:
+      num_asic: "{{ hostvars[vm_name]['num_asics'] | default(1) }}"
+
+  - name: Wait until vm {{ vm_name }} is loaded
+    sonic_kickstart: telnet_port={{ serial_port }}
+              login={{ sonic_login }}
+              passwords={{ sonic_default_passwords }}
+              hostname={{ hostname }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+              new_password={{ sonic_password }}
+              num_asic={{ num_asic }}
+    register: kickstart_output
+    until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+    retries: 5
+    delay: 10
+    ignore_errors: true
+
   - name: Destroy vm {{ vm_name }} if it hangs
     virt: name={{ vm_name }}
           command=destroy
@@ -44,15 +84,14 @@
     ignore_errors: true
 
   - name: Wait until vm {{ vm_name }} is loaded
-    kickstart: telnet_port={{ serial_port }}
-              login={{ eos_default_login }}
-              password={{ eos_default_password }}
+    sonic_kickstart: telnet_port={{ serial_port }}
+              login={{ sonic_login }}
+              passwords={{ sonic_default_passwords }}
               hostname={{ hostname }}
               mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
               mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
-              new_login={{ eos_login }}
-              new_password={{ eos_password }}
-              new_root_password={{ eos_root_password }}
+              new_password={{ sonic_password }}
+              num_asic={{ num_asic }}
     register: kickstart_output_final
     until: '"kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code == 0'
     retries: 5
@@ -70,4 +109,4 @@
     become: yes
     when: autostart|bool == true
 
-  when: not skip_this_vm
+  when: not skip_this_vm and (vm_type | lower) == "sonic"

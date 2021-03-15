@@ -326,6 +326,9 @@ def __run_traffic(api,
             time.sleep(1)
             attempts += 1
 
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts))
+
     """ Dump per-flow statistics """
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
     api.set_state(State(FlowTransmitState(state='stop')))
@@ -350,7 +353,7 @@ def __verify_results(rows,
     Args:
         rows (list): per-flow statistics
         duthost (Ansible host instance): device under test
-        pause_flow_name: name of pause storm
+        pause_flow_name (str): name of pause storm
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
         test_flow_rate_percent (int): rate percentage for each test flow

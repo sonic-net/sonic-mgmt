@@ -69,6 +69,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
             expected_fan_drawers = self.chassis_facts.get("fan_drawers")
             if expected_fan_drawers:
                 expected_value = expected_fan_drawers[fan_drawer_idx].get(key)
+                if key == "num_fans" and not expected_value:
+                    expected_value = len(expected_fan_drawers[fan_drawer_idx].get("fans"))
 
         if self.expect(expected_value is not None,
                        "Unable to get expected value for '{}' from platform.json file for fan drawer {}".format(key, fan_drawer_idx)):

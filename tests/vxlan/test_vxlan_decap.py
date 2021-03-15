@@ -149,6 +149,8 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
 def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds):
     duthost = duthosts[rand_one_dut_hostname]
 
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
+
     vxlan_enabled, scenario = vxlan_status
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
@@ -161,6 +163,7 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfho
                         "count": COUNT,
                         "sonic_admin_user": creds.get('sonicadmin_user'),
                         "sonic_admin_password": creds.get('sonicadmin_password'),
-                        "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
+                        "sonic_admin_alt_password": sonic_admin_alt_password,
+                        "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
                 qlen=10000,
                 log_file=log_file)

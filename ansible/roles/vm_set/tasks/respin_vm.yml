@@ -1,0 +1,52 @@
+---
+# This playbook will respin a specific vm
+
+- name: Destroy VM {{ vm_name }}
+  virt: name={{ vm_name }}
+        state=destroyed
+        uri=qemu:///system
+  become: yes
+  ignore_errors: true
+
+- name: Undefine VM {{ vm_name }}
+  virt: name={{ vm_name }}
+        command=undefine
+        uri=qemu:///system
+  become: yes
+  ignore_errors: true
+
+- name: Remove arista disk image for {{ vm_name }}
+  file: path={{ disk_image }} state=absent
+
+- name: Copy arista disk image for {{ vm_name }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
+
+- name: Define vm {{ vm_name }}
+  virt: name={{ vm_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/arista.xml.j2') }}"
+        uri=qemu:///system
+  become: yes
+
+- name: Start vm {{ vm_name }}
+  virt: name={{ vm_name }}
+        state=running
+        uri=qemu:///system
+  become: yes
+  ignore_errors: true
+
+- name: Wait until vm {{ vm_name }} is loaded
+  kickstart: telnet_port={{ serial_port }}
+            login={{ eos_default_login }}
+            password={{ eos_default_password }}
+            hostname={{ hostname }}
+            mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+            mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+            new_login={{ eos_login }}
+            new_password={{ eos_password }}
+            new_root_password={{ eos_root_password }}
+  register: kickstart_output
+  until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+  retries: 5
+  delay: 10
+  ignore_errors: true

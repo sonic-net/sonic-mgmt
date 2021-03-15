@@ -32,7 +32,7 @@ from tests.common.reboot import reboot
 """
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)
@@ -534,7 +534,7 @@ class TestVrfFib():
 
             for info in bgp_summary:
                 for peer, attr in bgp_summary[info]['peers'].iteritems():
-                    prefix_count = attr['prefixReceivedCount']
+                    prefix_count = attr['pfxRcd']
                     # skip ipv6 peers under 'ipv4Unicast' and compare only ipv4 peers under 'ipv4Unicast', and ipv6 peers under 'ipv6Unicast'
                     if info == "ipv4Unicast" and attr['idType'] == 'ipv6':
                         continue
@@ -886,7 +886,7 @@ class TestVrfLoopbackIntf():
             assert bgp_info['ipv4Unicast']['peers'][str(ptf_speaker_ip.ip)]['state'] == 'Established', \
                    "Bgp peer {} should be Established!".format(ptf_speaker_ip.ip)
             # Verify accepted prefixes of the dynamic neighbors are correct
-            assert bgp_info['ipv4Unicast']['peers'][str(ptf_speaker_ip.ip)]['prefixReceivedCount'] == 1
+            assert bgp_info['ipv4Unicast']['peers'][str(ptf_speaker_ip.ip)]['pfxRcd'] == 1
 
 
 class TestVrfWarmReboot():

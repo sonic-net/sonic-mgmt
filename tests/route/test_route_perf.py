@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -38,7 +38,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 @pytest.fixture(params=[4, 6])
 def ip_versions(request):
@@ -126,12 +126,12 @@ def generate_route_file(duthost, prefixes, str_intf_nexthop, dir, op):
         route_data.append(route_command)
 
     # Copy json file to DUT
-    duthost.copy(content=json.dumps(route_data, indent=4), dest=dir)
+    duthost.copy(content=json.dumps(route_data, indent=4), dest=dir, verbose=False)
 
 def count_routes(host):
     num = host.shell(
         'sonic-db-cli ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME),
-        module_ignore_errors=True)['stdout']
+        module_ignore_errors=True, verbose=True)['stdout']
     return int(num)
 
 def exec_routes(duthost, prefixes, str_intf_nexthop, op):
@@ -174,7 +174,8 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     end_time = datetime.now()
 
     # Check route entries are correct
-    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME))['stdout_lines']
+    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'\
+        .format(ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
     asic_prefixes = []
     for key in asic_route_keys:
         json_obj = key[len(ROUTE_TABLE_NAME) + 1 : ]
@@ -189,8 +190,8 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthosts, rand_one_dut_hostname, request, ip_versions):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
 

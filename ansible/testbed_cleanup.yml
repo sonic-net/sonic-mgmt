@@ -1,0 +1,17 @@
+---
+# This playbook will cleanup a vm_host, including removing all veos, containers and net bridges.
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  tasks:
+    - name: run apt update and upgrade
+      include_tasks: update_reboot.yml
+
+    - name: run apt update and upgrade again
+      include_tasks: update_reboot.yml
+      when:  '"0 upgraded" not in apt_update_res.stdout'
+      with_items: '{{ range(0,3)|list }}'
+
+    - name: run cleanup script
+      shell: bash /home/azure/veos-vm/cleanup.sh
+      become: yes

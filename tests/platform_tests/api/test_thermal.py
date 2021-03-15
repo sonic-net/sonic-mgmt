@@ -141,9 +141,7 @@ class TestThermalApi(PlatformApiTestBase):
             temperature = thermal.get_temperature(platform_api_conn, i)
 
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
-                if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
-                                "Thermal {} temperature {} reading is not within range".format(i, temperature))
+                self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_low_threshold(self, duthost, localhost, platform_api_conn):
@@ -152,9 +150,7 @@ class TestThermalApi(PlatformApiTestBase):
             low_threshold = thermal.get_low_threshold(platform_api_conn, i)
 
             if self.expect(low_threshold is not None, "Unable to retrieve Thermal {} low threshold".format(i)):
-                if self.expect(isinstance(low_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(low_threshold > 0 and low_threshold <= 100,
-                                "Thermal {} low threshold {} reading is not within range".format(i, low_threshold))
+                self.expect(isinstance(low_threshold, float), "Thermal {} low threshold appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_high_threshold(self, duthost, localhost, platform_api_conn):
@@ -163,9 +159,7 @@ class TestThermalApi(PlatformApiTestBase):
             high_threshold = thermal.get_high_threshold(platform_api_conn, i)
 
             if self.expect(high_threshold is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
-                if self.expect(isinstance(high_threshold, float), "Thermal {} high threshold appears incorrect".format(i)):
-                    self.expect(high_threshold > 0 and high_threshold <= 100,
-                                "Thermal {} high threshold {} reading is not within range".format(i, high_threshold))
+                self.expect(isinstance(high_threshold, float), "Thermal {} high threshold appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_low_critical_threshold(self, duthost, localhost, platform_api_conn):
@@ -174,9 +168,7 @@ class TestThermalApi(PlatformApiTestBase):
             low_critical_threshold = thermal.get_low_critical_threshold(platform_api_conn, i)
 
             if self.expect(low_critical_threshold is not None, "Unable to retrieve Thermal {} low critical threshold".format(i)):
-                if self.expect(isinstance(low_critical_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(low_critical_threshold > 0 and low_critical_threshold <= 110,
-                                "Thermal {} low critical threshold {} reading is not within range".format(i, low_critical_threshold))
+                self.expect(isinstance(low_critical_threshold, float), "Thermal {} low threshold appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_high_critical_threshold(self, duthost, localhost, platform_api_conn):
@@ -185,9 +177,7 @@ class TestThermalApi(PlatformApiTestBase):
             high_critical_threshold = thermal.get_high_critical_threshold(platform_api_conn, i)
 
             if self.expect(high_critical_threshold is not None, "Unable to retrieve Thermal {} high critical threshold".format(i)):
-                if self.expect(isinstance(high_critical_threshold, float), "Thermal {} high threshold appears incorrect".format(i)):
-                    self.expect(high_critical_threshold > 0 and high_critical_threshold <= 110,
-                                "Thermal {} high critical threshold {} reading is not within range".format(i, high_critical_threshold))
+                self.expect(isinstance(high_critical_threshold, float), "Thermal {} high threshold appears incorrect".format(i))
         self.assert_expectations()
 
     def test_set_low_threshold(self, duthost, localhost, platform_api_conn):

@@ -12,6 +12,7 @@ SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_COLD = "cold"
+REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
@@ -42,6 +43,13 @@ reboot_ctrl_dict = {
         # We are searching two types of reboot cause.
         # This change relates to changes of PR #6130 in sonic-buildimage repository
         "cause": r"'reboot'|Non-Hardware \(reboot",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_SOFT: {
+        "command": "soft-reboot",
+        "timeout": 300,
+        "wait": 120,
+        "cause": "soft-reboot",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_FAST: {
@@ -161,7 +169,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         logger.info('waiting for warmboot-finalizer service to become activating')
         finalizer_state = get_warmboot_finalizer_state(duthost)
         while finalizer_state != 'activating':
-            dut_datetime_after_ssh = duthost.get_up_time()
+            dut_datetime_after_ssh = duthost.get_now_time()
             time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
             if time_passed > wait:
                 raise Exception('warmboot-finalizer never reached state "activating"')
