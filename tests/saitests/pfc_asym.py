@@ -70,6 +70,10 @@ class PfcAsymBaseTest(ThriftInterfaceDataPlane):
         self.setUpArpResponder(self.server_ports)
         self.shell(["supervisorctl", "start", "arp_responder"])
 
+        attr_value = sai_thrift_attribute_value_t(mac=self.router_mac)
+        attr = sai_thrift_attribute_t(id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
+        self.client.sai_thrift_set_switch_attribute(attr)
+
     def tearDown(self):
         ThriftInterfaceDataPlane.tearDown(self)
 
