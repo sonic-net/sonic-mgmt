@@ -615,7 +615,7 @@ def check_secureboot(duthosts, request):
         for duthost in duthosts:
             config = _read_config_by_dut(duthost)
             if config:
-              results[duthost.hostname] = config
+                results[duthost.hostname] = config
         return results
 
     def _do_check(allowlist, filenames, hostname):
