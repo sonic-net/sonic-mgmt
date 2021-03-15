@@ -619,7 +619,6 @@ def check_secureboot(duthosts, request):
         return results
 
     def _do_check(allowlist, filenames, hostname):
-        default_test_allowlist = []
         conflicts = []
         allowlist_all = default_allowlist + allowlist
         for item in allowlist_all:
