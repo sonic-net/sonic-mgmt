@@ -69,7 +69,7 @@ class TestPsuFans(PlatformApiTestBase):
         expected_value = None
 
         if self.chassis_facts:
-            expected_psus = self.chassis_facts.get("psu")
+            expected_psus = self.chassis_facts.get("psus")
             if expected_psus:
                 expected_fans = expected_psus[psu_idx].get("fans")
                 if expected_fans:
