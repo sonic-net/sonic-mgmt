@@ -129,9 +129,9 @@ def config_setup(duthost,
     duthost.shell(next_hop)
 
 
-def run_bgp_peer_routing_policies_test(snappi_api,
-                                       duthost,
-                                       tgen_ports):
+def run_peer_routing_policies_test(snappi_api,
+                                   duthost,
+                                   tgen_ports):
     """
     Run BGP Peer Routing Policies Test
 
@@ -145,20 +145,20 @@ def run_bgp_peer_routing_policies_test(snappi_api,
                                         tgen_ports)
 
     logger.info("|--Updating TGEN Config with BGP Route Attributes--|")
-    tgen_bgp_policies_config = __tgen_bgp_policies_config(tgen_bgp_config)
+    tgen_policies_config = __tgen_policies_config(tgen_bgp_config)
 
     logger.info("|--BGP Policy Route Map Configuration on DUT--|")
-    __bgp_policies_route_map_config(duthost)
+    __policies_route_map_config(duthost)
 
     logger.info("|--Verify Test--|")
     __verify_test(duthost,
                   snappi_api,
-                  tgen_bgp_policies_config)
+                  tgen_policies_config)
 
 
-def run_bgp_community_test(snappi_api,
-                           duthost,
-                           tgen_ports):
+def run_community_list_filtering_test(snappi_api,
+                                      duthost,
+                                      tgen_ports):
     """
     Run BGP Community List Filtering Test
 
@@ -172,20 +172,20 @@ def run_bgp_community_test(snappi_api,
                                         tgen_ports)
 
     logger.info("|--Updating TGEN Config with BGP Community Attribute--|")
-    tgen_bgp_community_config = __tgen_bgp_community_config(tgen_bgp_config)
+    tgen_community_config = __tgen_community_config(tgen_bgp_config)
 
     logger.info("|--BGP Community Route Map Configuration on DUT--|")
-    __bgp_community_route_map_config(duthost)
+    __community_route_map_config(duthost)
 
     logger.info("|--Verify Test--|")
     __verify_test(duthost,
                   snappi_api,
-                  tgen_bgp_community_config)
+                  tgen_community_config)
 
 
-def run_bgp_prefix_list_test(snappi_api,
-                             duthost,
-                             tgen_ports):
+def run_prefix_list_filtering_test(snappi_api,
+                                   duthost,
+                                   tgen_ports):
     """
     Run BGP Prefix List Filtering Test
 
@@ -199,7 +199,7 @@ def run_bgp_prefix_list_test(snappi_api,
                                         tgen_ports)
 
     logger.info("|--BGP Prefix List Route Map Configuration on DUT--|")
-    __bgp_prefix_list_route_map_config(duthost)
+    __prefix_list_route_map_config(duthost)
 
     logger.info("|--Verify Test--|")
     __verify_test(duthost,
@@ -207,9 +207,9 @@ def run_bgp_prefix_list_test(snappi_api,
                   tgen_bgp_config)
 
 
-def run_bgp_metric_filter(snappi_api,
-                          duthost,
-                          tgen_ports):
+def run_test_metric_filter(snappi_api,
+                           duthost,
+                           tgen_ports):
     """
     Run BGP Metric Filter Test
 
@@ -224,20 +224,20 @@ def run_bgp_metric_filter(snappi_api,
                                         tgen_ports)
 
     logger.info("|--Updating TGEN Config with Metric/MED Attribute--|")
-    tgen_bgp_metric_config = __tgen_bgp_metric_config(tgen_bgp_config)
+    tgen_metric_config = __tgen_metric_config(tgen_bgp_config)
 
     logger.info("|--BGP Metric Route Map Configuration on DUT--|")
-    __bgp_metric_route_map_config(duthost)
+    __metric_route_map_config(duthost)
 
     logger.info("|--Verify Test--|")
     __verify_test(duthost,
                   snappi_api,
-                  tgen_bgp_metric_config)
+                  tgen_metric_config)
 
 
-def run_bgp_group_as_path_modified(snappi_api,
-                                   duthost,
-                                   tgen_ports):
+def run_group_as_path_modified(snappi_api,
+                               duthost,
+                               tgen_ports):
     """
     Run BGP group-as-path Modified Test
 
@@ -251,11 +251,11 @@ def run_bgp_group_as_path_modified(snappi_api,
                                         tgen_ports)
 
     logger.info("|--Updating TGEN Config with Group AS-PATH Attribute--|")
-    tgen_as_path_modified_config = __tgen_bgp_as_path_modified_config(
+    tgen_as_path_modified_config = __tgen_as_path_modified_config(
         tgen_bgp_config)
 
     logger.info("|--BGP AS-PATH Route Map Configuration on DUT--|")
-    __bgp_as_path_route_map_config(duthost)
+    __as_path_route_map_config(duthost)
 
     logger.info("|--Verify Test--|")
     __verify_test(duthost,
@@ -263,9 +263,9 @@ def run_bgp_group_as_path_modified(snappi_api,
                   tgen_as_path_modified_config)
 
 
-def run_bgp_origin_code_modification(snappi_api,
-                                     duthost,
-                                     tgen_ports):
+def run_origin_code_modification(snappi_api,
+                                 duthost,
+                                 tgen_ports):
     """
     Run BGP Origin Code Modification Test
 
@@ -279,15 +279,15 @@ def run_bgp_origin_code_modification(snappi_api,
                                         tgen_ports)
 
     logger.info("|--Updating TGEN Config with Origin Attribute--|")
-    tgen_bgp_origin_config = __tgen_bgp_origin_config(tgen_bgp_config)
+    tgen_origin_config = __tgen_origin_config(tgen_bgp_config)
 
     logger.info("|--BGP Origin Route Map Configuration on DUT--|")
-    __bgp_origin_route_map_config(duthost)
+    __origin_route_map_config(duthost)
 
     logger.info("|--Verify Test--|")
     __verify_test(duthost,
                   snappi_api,
-                  tgen_bgp_origin_config)
+                  tgen_origin_config)
 
 
 # Common TGEN BGP Config
@@ -426,7 +426,7 @@ def __tgen_bgp_config(snappi_api,
     return config
 
 
-def __tgen_bgp_policies_config(config):
+def __tgen_policies_config(config):
     """
     BGP Attributes Config on TGEN
     Args:
@@ -478,7 +478,7 @@ def __tgen_bgp_policies_config(config):
     return config
 
 
-def __bgp_policies_route_map_config(duthost):
+def __policies_route_map_config(duthost):
     """
     BGP Policy Route MAP Config on duthost
     Args:
@@ -532,7 +532,7 @@ def __bgp_policies_route_map_config(duthost):
     duthost.shell(policy_route_map_config)
 
 
-def __tgen_bgp_community_config(config):
+def __tgen_community_config(config):
     """
     BGP Community Config on TGEN
     Args:
@@ -562,7 +562,7 @@ def __tgen_bgp_community_config(config):
     return config
 
 
-def __bgp_community_route_map_config(duthost):
+def __community_route_map_config(duthost):
     """
     BGP Community Route MAP Config on duthost
     Args:
@@ -607,7 +607,7 @@ def __bgp_community_route_map_config(duthost):
     duthost.shell(community_config)
 
 
-def __bgp_prefix_list_route_map_config(duthost):
+def __prefix_list_route_map_config(duthost):
     """
     BGP Prefix List Route MAP Config on duthost
     Args:
@@ -646,7 +646,7 @@ def __bgp_prefix_list_route_map_config(duthost):
     duthost.shell(prefix_list_config)
 
 
-def __tgen_bgp_metric_config(config):
+def __tgen_metric_config(config):
     """
     BGP Metric config on TGEN
     Args:
@@ -666,7 +666,7 @@ def __tgen_bgp_metric_config(config):
     return config
 
 
-def __bgp_metric_route_map_config(duthost):
+def __metric_route_map_config(duthost):
     """
     BGP Metric Route MAP Config on duthost
     Args:
@@ -700,7 +700,7 @@ def __bgp_metric_route_map_config(duthost):
     duthost.shell(metric_config)
 
 
-def __tgen_bgp_as_path_modified_config(config):
+def __tgen_as_path_modified_config(config):
     """
     BGP group AS config on duthost and TGEN
     Args:
@@ -728,7 +728,7 @@ def __tgen_bgp_as_path_modified_config(config):
     return config
 
 
-def __bgp_as_path_route_map_config(duthost):
+def __as_path_route_map_config(duthost):
     """
     BGP AS PATH Route MAP Config on duthost
     Args:
@@ -773,7 +773,7 @@ def __bgp_as_path_route_map_config(duthost):
     duthost.shell(as_path_route_map)
 
 
-def __tgen_bgp_origin_config(config):
+def __tgen_origin_config(config):
     """
     BGP Origin config on TGEN
     Args:
@@ -796,7 +796,7 @@ def __tgen_bgp_origin_config(config):
     return config
 
 
-def __bgp_origin_route_map_config(duthost):
+def __origin_route_map_config(duthost):
     """
     BGP Origin Route MAP Config on duthost
     Args:
