@@ -239,10 +239,6 @@ class DualTorIO:
         @summary: Generate (not send) the packets to be sent from server to T1
         """
         eth_src = self.ptfadapter.dataplane.get_mac(0, 0)
-        if self.tor_vlan_port:
-            from_server_src_port = self.tor_vlan_port
-        else:
-            from_server_src_port = random.choice(self.vlan_ports.values())
         tcp_dport = TCP_DST_PORT
 
         for server_src_addr in self.server_ip_list:
@@ -250,19 +246,16 @@ class DualTorIO:
             self.servers_with_disruptions.update({server_src_addr: list()})
 
         if self.tor_vlan_port:
-            from_server_src_port = self.tor_vlan_port
-            server_port_ip_list = cycle([self.tor_vlan_port, random.choice(self.vlan_host_map[from_server_src_port])])
+            server_port_ip_list = cycle([self.tor_vlan_port, random.choice(self.vlan_host_map[self.tor_vlan_port])])
         else:
             server_ip_list = cycle(self.server_ip_list)
-            from_server_src_port = None
             server_port_ip_list = list()
             for tor_vlan_port in self.vlan_host_map.keys():
                 from_server_src_addr = next(server_ip_list)
                 # find out the selected server is connected to which tor port
                 if from_server_src_addr in self.vlan_host_map[tor_vlan_port]:
-                    from_server_src_port = tor_vlan_port
                     # add tuple of (tor_vlan_port, server_to_that_vlan) to server_ip_list
-                    server_port_ip_list.append((from_server_src_port, from_server_src_addr))
+                    server_port_ip_list.append((tor_vlan_port, from_server_src_addr))
             server_port_ip_list = cycle(server_port_ip_list)
 
         logger.info("-"*20 + "Server to T1 packet" + "-"*20)
