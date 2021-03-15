@@ -28,7 +28,7 @@ __all__ = [
 
 @pytest.fixture(scope="module")
 def check_services(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking services status on %s..." % dut.hostname)
@@ -109,7 +109,7 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
 
 @pytest.fixture(scope="module")
 def check_interfaces(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts.frontend_nodes:
             logger.info("Checking interfaces status on %s..." % dut.hostname)
@@ -125,7 +125,7 @@ def check_interfaces(duthosts):
             for asic in dut.asics:
                 ip_interfaces = []
                 cfg_facts = asic.config_facts(host=dut.hostname,
-                                            source="persistent")['ansible_facts']
+                                            source="persistent", verbose=False)['ansible_facts']
                 phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if "admin_status" in v and v["admin_status"] == "up"]
                 if "PORTCHANNEL_INTERFACE" in cfg_facts:
                     ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
@@ -164,7 +164,7 @@ def check_interfaces(duthosts):
 
 @pytest.fixture(scope="module")
 def check_bgp(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts.frontend_nodes:
             def _check_bgp_status_helper():
@@ -242,7 +242,7 @@ def _is_db_omem_over_threshold(command_output):
 
 @pytest.fixture(scope="module")
 def check_dbmemory(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking database memory on %s..." % dut.hostname)
@@ -302,7 +302,7 @@ def get_arp_pkt_info(dut):
 def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
                         recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
 
-    def _check():
+    def _check(*args, **kwargs):
         """
         @summary: Checks if the OVS bridge mux simulator is functioning correctly
         @return: A dictionary containing the testing result of the PTF interface tested:
@@ -340,7 +340,7 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
                                                         ip_snd=lower_tor_mgmt_ip,
                                                         ip_tgt=lower_tor_ping_tgt_ip,
                                                         hw_snd=lower_tor_intf_mac)
-        
+
         ptf_arp_pkt = testutils.simple_arp_packet(ip_tgt=ptf_arp_tgt_ip,
                                                 ip_snd=ptf_arp_tgt_ip,
                                                 arp_op=2)
@@ -454,7 +454,7 @@ def check_monit(duthosts):
               in the correct status or not.
     @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking status of each Monit service...")
@@ -512,7 +512,7 @@ def check_monit(duthosts):
 
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking process status on %s..." % dut.hostname)

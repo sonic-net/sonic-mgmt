@@ -12,6 +12,7 @@ SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_COLD = "cold"
+REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
@@ -42,6 +43,13 @@ reboot_ctrl_dict = {
         # We are searching two types of reboot cause.
         # This change relates to changes of PR #6130 in sonic-buildimage repository
         "cause": r"'reboot'|Non-Hardware \(reboot",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_SOFT: {
+        "command": "soft-reboot",
+        "timeout": 300,
+        "wait": 120,
+        "cause": "soft-reboot",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_FAST: {

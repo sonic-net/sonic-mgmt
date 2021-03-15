@@ -48,7 +48,7 @@ class BGPNeighbor(object):
 
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
-                 dut_ip, dut_asn, port, is_quagga=False):
+                 dut_ip, dut_asn, port, neigh_type, is_quagga=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -58,6 +58,7 @@ class BGPNeighbor(object):
         self.peer_ip = dut_ip
         self.peer_asn = dut_asn
         self.port = port
+        self.type = neigh_type
         self.is_quagga = is_quagga
 
     def start_session(self):
@@ -84,7 +85,7 @@ class BGPNeighbor(object):
             neighbor_lo_addr=self.ip,
             neighbor_mgmt_addr=self.ip,
             neighbor_hwsku=None,
-            neighbor_type="ToRRouter"
+            neighbor_type=self.type
         )
 
         _write_variable_from_j2_to_configdb(
@@ -166,6 +167,17 @@ def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     conn0, conn1 = setup_interfaces
     dut_asn = mg_facts["minigraph_bgp_asn"]
+
+    dut_type = ''
+    for k,v in mg_facts['minigraph_devices'].iteritems():
+        if k == duthost.hostname:
+            dut_type = v['type']
+
+    if dut_type == 'ToRRouter':
+        neigh_type = 'LeafRouter'
+    else:
+        neigh_type = 'ToRRouter'
+
     bgp_neighbors = (
         BGPNeighbor(
             duthost,
@@ -176,6 +188,7 @@ def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
             conn0["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT0,
+            neigh_type,
             is_quagga=is_quagga
         ),
         BGPNeighbor(
@@ -187,6 +200,7 @@ def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
             conn1["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT1,
+            neigh_type,
             is_quagga=is_quagga
         )
     )

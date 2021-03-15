@@ -18,7 +18,7 @@ def test_arp_unicast_reply(common_setup_teardown, intfs_for_test, enum_frontend_
     duthost, ptfhost, router_mac = common_setup_teardown
     intf1, intf2, intf1_indice, intf2_indice = intfs_for_test
     
-    asichost = duthost.get_asic(enum_frontend_asic_index)
+    asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
     # Start PTF runner and send correct unicast arp packets
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     params = {
@@ -38,7 +38,7 @@ def test_arp_expect_reply(common_setup_teardown, intfs_for_test, enum_frontend_a
     duthost, ptfhost, router_mac = common_setup_teardown
     intf1, intf2, intf1_indice, intf2_indice = intfs_for_test
     
-    asichost = duthost.get_asic(enum_frontend_asic_index)
+    asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
         'port': intf1_indice
@@ -58,7 +58,7 @@ def test_arp_no_reply_other_intf(common_setup_teardown, intfs_for_test, enum_fro
     duthost, ptfhost, router_mac = common_setup_teardown
     intf1, intf2, intf1_indice, intf2_indice = intfs_for_test
     
-    asichost = duthost.get_asic(enum_frontend_asic_index)
+    asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
 
     # Check DUT won't reply ARP and install ARP entry when ARP request coming from other interfaces
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
@@ -78,7 +78,7 @@ def test_arp_no_reply_src_out_range(common_setup_teardown, intfs_for_test, enum_
     duthost, ptfhost, router_mac = common_setup_teardown
     intf1, intf2, intf1_indice, intf2_indice = intfs_for_test
     
-    asichost = duthost.get_asic(enum_frontend_asic_index)
+    asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
         'port': intf1_indice
@@ -98,7 +98,7 @@ def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend
     duthost, ptfhost, router_mac = common_setup_teardown
     intf1, intf2, intf1_indice, intf2_indice = intfs_for_test
     
-    asichost = duthost.get_asic(enum_frontend_asic_index)
+    asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
         'port': intf1_indice

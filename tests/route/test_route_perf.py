@@ -126,12 +126,12 @@ def generate_route_file(duthost, prefixes, str_intf_nexthop, dir, op):
         route_data.append(route_command)
 
     # Copy json file to DUT
-    duthost.copy(content=json.dumps(route_data, indent=4), dest=dir)
+    duthost.copy(content=json.dumps(route_data, indent=4), dest=dir, verbose=False)
 
 def count_routes(host):
     num = host.shell(
         'sonic-db-cli ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME),
-        module_ignore_errors=True)['stdout']
+        module_ignore_errors=True, verbose=True)['stdout']
     return int(num)
 
 def exec_routes(duthost, prefixes, str_intf_nexthop, op):
@@ -174,7 +174,8 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     end_time = datetime.now()
 
     # Check route entries are correct
-    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME))['stdout_lines']
+    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'\
+        .format(ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
     asic_prefixes = []
     for key in asic_route_keys:
         json_obj = key[len(ROUTE_TABLE_NAME) + 1 : ]

@@ -12,15 +12,22 @@ import jinja2
 
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8sMasterCluster
+from tests.common.devices.local import Localhost
+from tests.common.devices.ptf import PTFHost
+from tests.common.devices.eos import EosHost
+from tests.common.devices.fanout import FanoutHost
+from tests.common.devices.k8s import K8sMasterHost
+from tests.common.devices.k8s import K8sMasterCluster
+from tests.common.devices.duthosts import DutHosts
+from tests.common.devices.vmhost import VMHost
+
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
-from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_test_server_host
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
@@ -86,6 +93,10 @@ def pytest_addoption(parser):
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
+    parser.addoption("--post_check", action="store_true", default=False,
+                     help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--post_check_items", action="store", default=False,
+                     help="Change (add|remove) post test check items based on pre test check items")
 
     ########################
     #   pre-test options   #
@@ -155,7 +166,7 @@ def get_tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = cache.read(tbname, 'tbinfo')
-    if not testbedinfo:
+    if testbedinfo is cache.NOTEXIST:
         testbedinfo = TestbedInfo(tbfile)
         cache.write(tbname, 'tbinfo', testbedinfo)
 
@@ -200,6 +211,7 @@ def duthost(duthosts, request):
 
     return duthost
 
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
@@ -208,6 +220,27 @@ def rand_one_dut_hostname(request):
     if len(dut_hostnames) > 1:
         dut_hostnames = random.sample(dut_hostnames, 1)
     return dut_hostnames[0]
+
+
+@pytest.fixture(scope="module")
+def rand_selected_dut(duthosts, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost
+    """
+    return duthosts[rand_one_dut_hostname]
+
+
+@pytest.fixture(scope="module")
+def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
+    """
+    Return the left duthost after random selection.
+    Return None for non dualtor testbed
+    """
+    dut_hostnames = generate_params_dut_hostname(request)
+    if len(dut_hostnames) <= 1:
+        return None
+    idx = dut_hostnames.index(rand_one_dut_hostname)
+    return duthosts[dut_hostnames[1 - idx]]
 
 
 @pytest.fixture(scope="module")
@@ -346,6 +379,15 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     except:
         pass
     return fanout_hosts
+
+
+@pytest.fixture(scope="session")
+def vmhost(ansible_adhoc, request, tbinfo):
+    server = tbinfo["server"]
+    inv_files = request.config.option.ansible_inventory
+    vmhost = get_test_server_host(inv_files, server)
+    return VMHost(ansible_adhoc, vmhost.name)
+
 
 @pytest.fixture(scope='session')
 def eos():

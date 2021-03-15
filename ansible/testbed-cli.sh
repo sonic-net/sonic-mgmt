@@ -12,13 +12,14 @@ function usage
   echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] config-vm <topo-name> <vm-name> <vault-password-file>"
+  echo "    $0 [options] announce-routes <topo-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos) (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|sonic) (default: 'veos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -51,6 +52,7 @@ function usage
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
   echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
+  echo "To announce routes to DUT: $0 announce-routes 'topo-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
   echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
@@ -98,6 +100,7 @@ function read_csv
   vm_base=${line_arr[8]}
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
+  inventory=${line_arr[10]}
 }
 
 function read_yaml
@@ -138,6 +141,7 @@ function read_yaml
   vm_base=${line_arr[8]}
   dut=${line_arr[9]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
+  inventory=${line_arr[10]}
 }
 
 function read_file
@@ -161,7 +165,7 @@ function start_vms
   shift
   echo "Starting VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" testbed_start_VMs.yml \
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" -e vm_type="$vm_type" testbed_start_VMs.yml \
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
@@ -173,7 +177,7 @@ function stop_vms
   shift
   echo "Stopping VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e vm_type="$vm_type" testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function start_topo_vms
@@ -339,6 +343,23 @@ function disconnect_vms
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_disconnect_vms.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$vm_set_name"
 
   echo Done
+}
+
+function announce_routes
+{
+  topology=$1
+  passfile=$2
+  shift
+  shift
+
+  echo "Announce routes '$topology'"
+
+  read_file $topology
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "$inventory" testbed_announce_routes.yml --vault-password-file="$passfile" \
+      -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
+
+  echo done
 }
 
 function generate_minigraph
@@ -520,6 +541,8 @@ case "${subcmd}" in
   disconnect-vms) disconnect_vms $@
                ;;
   config-vm)   config_vm $@
+               ;;
+  announce-routes) announce_routes $@
                ;;
   gen-mg)      generate_minigraph $@
                ;;

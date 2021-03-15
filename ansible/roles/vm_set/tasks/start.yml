@@ -1,3 +1,8 @@
+- name: Require VMs as VEOS by default
+  set_fact:
+    vm_type: "veos"
+  when: vm_type is not defined
+
 - name: Load topo variables
   include_vars: "vars/topo_{{ topo }}.yml"
   when: topo is defined
@@ -12,29 +17,51 @@
     - "{{ root_path }}/images"
     - "{{ root_path }}/disks"
 
-- name: Check hdd image
-  stat: path={{ root_path }}/images/{{ hdd_image_filename }}
-  register: hdd_stat
+- block:
 
-- name: Fail if there are no hdd image and skip image downloading is active
-  fail: msg="Please put {{ hdd_image_filename }} to {{ root_path }}/images"
-  when: not hdd_stat.stat.exists and skip_image_downloading
+    - name: Check hdd image
+      stat: path={{ root_path }}/images/{{ hdd_image_filename }}
+      register: hdd_stat
 
-- name: Download hdd image
-  get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimage_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
-  when: not hdd_stat.stat.exists and not skip_image_downloading
+    - name: Fail if there are no hdd image and skip image downloading is active
+      fail: msg="Please put {{ hdd_image_filename }} to {{ root_path }}/images"
+      when: not hdd_stat.stat.exists and skip_image_downloading
 
-- name: Check cd image
-  stat: path={{ root_path }}/images/{{ cd_image_filename }}
-  register: cd_stat
+    - name: Download hdd image
+      get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimage_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
+      when: not hdd_stat.stat.exists and not skip_image_downloading
 
-- name: Fail if there are no cd image and skip image downloading is active
-  fail: msg="Please put {{ cd_image_filename }} to {{ root_path }}/images"
-  when: not cd_stat.stat.exists and skip_image_downloading
+    - name: Check cd image
+      stat: path={{ root_path }}/images/{{ cd_image_filename }}
+      register: cd_stat
 
-- name: Download cd image
-  get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ cdimage_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
-  when: not cd_stat.stat.exists and not skip_image_downloading
+    - name: Fail if there are no cd image and skip image downloading is active
+      fail: msg="Please put {{ cd_image_filename }} to {{ root_path }}/images"
+      when: not cd_stat.stat.exists and skip_image_downloading
+
+    - name: Download cd image
+      get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ cdimage_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
+      when: not cd_stat.stat.exists and not skip_image_downloading
+
+    - set_fact:
+        src_image_name: "{{ hdd_image_filename }}"
+
+  when: (vm_type | lower) == "veos"
+
+- block:
+
+    - name: Check SONiC image
+      stat: path={{ root_path }}/images/{{ sonic_image_filename }}
+      register: img_stat
+
+    - name: Fail if there are no SONiC image and skip image downloading is active
+      fail: msg="Please put {{ sonic_image_filename }} to {{ root_path }}/images"
+      when: not img_stat.stat.exists
+
+    - set_fact:
+        src_image_name: "{{ sonic_image_filename }}"
+
+  when: (vm_type | lower) == "sonic"
 
 - name: Create VMs network
   become: yes
@@ -66,8 +93,8 @@
     hostname: "{{ vm_name }}"
     mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
     serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
-    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
-    disk_image: "{{ home_path }}/{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    src_disk_image: "{{ root_path }}/images/{{ src_image_name }}"
+    disk_image_dir: "{{ home_path }}/{{ root_path }}/disks"
     cdrom_image: "{{ home_path }}/{{ root_path }}/images/{{ cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     backplane_tap: "{{ vm_name }}-back"
@@ -83,8 +110,8 @@
     hostname: "{{ vm_name }}"
     mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
     serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
-    src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
-    disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
+    src_disk_image: "{{ root_path }}/images/{{ src_image_name }}"
+    disk_image_dir: "{{ root_path }}/disks"
     cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     backplane_tap: "{{ vm_name }}-back"

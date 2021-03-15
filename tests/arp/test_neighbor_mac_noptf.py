@@ -167,7 +167,7 @@ class TestNeighborMacNoPtf:
                 None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        asichost = duthost.get_asic(enum_frontend_asic_index)
+        asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
         routedInterface = routedInterfaces[asichost.asic_index]
         self.__updateInterfaceIp(asichost, routedInterface, ipVersion, action="add")
         self.__updateNeighborIp(asichost, routedInterface, ipVersion, 0, action="add")
@@ -195,7 +195,7 @@ class TestNeighborMacNoPtf:
                 arpTableMac (str): ARP MAC entry of neighbor IP
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        asichost = duthost.get_asic(enum_frontend_asic_index)
+        asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
         dutArpTable = asichost.switch_arptable()["ansible_facts"]["arptable"]
         yield dutArpTable["v{0}".format(ipVersion)][self.TEST_INTF[ipVersion]["NeighborIp"]]["macaddress"]
 
@@ -213,7 +213,7 @@ class TestNeighborMacNoPtf:
                 redisNeighborMac (str): Redis MAC entry of neighbor IP
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        asichost = duthost.get_asic(enum_frontend_asic_index)
+        asichost = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
         redis_cmd = "{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*\"".format(asichost.sonic_db_cli)
         result = duthost.shell(redis_cmd)
         neighborKey = None
