@@ -243,9 +243,6 @@ class DualTorIO:
             from_server_src_port = self.tor_vlan_port
         else:
             from_server_src_port = random.choice(self.vlan_ports.values())
-        # self.from_server_src_addr = random.choice(
-        #     self.vlan_host_map[from_server_src_port])
-        # self.from_server_dst_addr = self.random_host_ip()
         tcp_dport = TCP_DST_PORT
 
         for server_src_addr in self.server_ip_list:
@@ -269,10 +266,7 @@ class DualTorIO:
             server_port_ip_list = cycle(server_port_ip_list)
 
         logger.info("-"*20 + "Server to T1 packet" + "-"*20)
-        # logger.info("Source port: {}".format(from_server_src_port))
         logger.info("Ethernet address: dst: {} src: {}".format(self.vlan_mac, eth_src))
-        # logger.info("IP address: dst: {} src: {}".format(self.from_server_dst_addr,
-        #     self.from_server_src_addr))
         logger.info("TCP port: dst: {} src: 1234".format(tcp_dport))
         logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac,
             self.standby_mac))
