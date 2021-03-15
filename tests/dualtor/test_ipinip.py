@@ -29,7 +29,7 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected
     """Build the encapsulated packet sent from T1 to ToR."""
     tor = rand_selected_dut
     _, server_ips = rand_selected_interface
-    server_ipv4 = server_ips["server_ipv4"]
+    server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
         peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
