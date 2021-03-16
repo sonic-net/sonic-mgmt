@@ -598,7 +598,7 @@ def check_secureboot(duthosts, request):
         # Read the rw files
         rw_files = {}
         results['rw'] = rw_files
-        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \; | sed -E 's#/host/[^/]+/rw##g'"
+        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \; | sed -E 's#/host/[^/]+/rw/##g'"
         shell_result = duthost.shell(ls_rw_files_cmd, module_ignore_errors=True)
         stdout = shell_result['stdout']
         for line in stdout.split('\n'):
@@ -621,13 +621,10 @@ def check_secureboot(duthosts, request):
     def _do_check(allowlist, filenames, hostname):
         conflicts = []
         allowlist_all = default_allowlist + allowlist
-        for item in allowlist_all:
-            pattern = '^{0}$'.format(item)
-            match = False
-            for filename in filenames:
-                if re.match(pattern, filename):
-                    match = True
-            if not match:
+        pattern = '|'.join(allowlist_all)
+        pattern = '^%s$' % pattern
+        for filename in filenames:
+            if not re.match(pattern, filename):
                 logger.error('Unexpected change file found: %s' % filename)
                 conflicts.append(filename)
 
