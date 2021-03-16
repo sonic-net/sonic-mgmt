@@ -9,6 +9,7 @@ import pytest
 from nat_helpers import DIRECTION_PARAMS
 from nat_helpers import POOL_RANGE_START_PORT
 from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
+from nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
 from nat_helpers import POOL_RANGE_END_PORT
 from nat_helpers import TCP_GLOBAL_PORT
 from nat_helpers import configure_dynamic_nat_rule
@@ -723,9 +724,10 @@ class TestDynamicNat(object):
         # Define network data and L4 ports
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         # Perform series of TCP handshakes (host-tor -> leaf-tor)
+        source_port, dst_port = get_l4_default_ports(protocol_type)
         for src_port in ex_ports:
             perform_handshake(ptfhost, setup_data, protocol_type, direction,
-                              network_data.ip_dst, POOL_RANGE_START_PORT,
+                              network_data.ip_dst, dst_port,
                               network_data.ip_src, src_port,
                               network_data.public_ip)
         # Checking numbers
@@ -735,6 +737,7 @@ class TestDynamicNat(object):
         entries_no = [int(s) for s in output.split() if s.isdigit()]
         fail_msg = "Unexpected number of translations. Got {} while {} expected".format(entries_no[0], exp_entries)
         pytest_assert(exp_entries == entries_no[0], fail_msg)
+        duthost.command("sudo sonic-clear nat translations")
         mylogger.info('--- TEST FINISHED ---')
 
     @pytest.mark.nat_dynamic
@@ -745,7 +748,8 @@ class TestDynamicNat(object):
         direction = 'host-tor'
         nat_type = 'dynamic'
         n_c = 10
-        scale_range = [POOL_RANGE_START_PORT, POOL_RANGE_START_PORT + n_c]
+        source_port, dst_port = get_l4_default_ports(protocol_type)
+        scale_range = [dst_port, dst_port + n_c]
         p_range_conf = "{}-{}".format(scale_range[0], scale_range[1])
         exp_entries = scale_range[1] - scale_range[0] + 1
         # Configure default rules for Dynamic NAT
@@ -759,7 +763,7 @@ class TestDynamicNat(object):
         # Perform series of TCP handshakes (host-tor -> leaf-tor)
         for src_port in range(scale_range[0], scale_range[1]):
             perform_handshake(ptfhost, setup_data, protocol_type, direction,
-                              network_data.ip_dst, POOL_RANGE_START_PORT,
+                              network_data.ip_dst, dst_port,
                               network_data.ip_src, src_port,
                               network_data.public_ip)
         # Checking numbers
@@ -769,6 +773,10 @@ class TestDynamicNat(object):
         entries_no = [int(s) for s in output.split() if s.isdigit()]
         fail_msg = "Unexpected number of translations. Got {} while {} expected".format(entries_no[0], exp_entries)
         pytest_assert(exp_entries == entries_no[0], fail_msg)
+        # Restore default config
+        duthost.command('sudo config nat set tcp-timeout {}'.format(GLOBAL_TCP_NAPT_TIMEOUT))
+        duthost.command('sudo config nat set udp-timeout {}'.format(GLOBAL_UDP_NAPT_TIMEOUT))
+        duthost.command("sudo sonic-clear nat translations")
         mylogger.info('--- TEST FINISHED ---')
 
     @pytest.mark.nat_dynamic

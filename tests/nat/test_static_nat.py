@@ -692,7 +692,7 @@ class TestStaticNat(object):
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Add static rule with overlapping global IP
         output = exec_command(duthost, ["sudo config nat add static tcp {} 100 12.12.12.12 200 -nat_type dnat".format(network_data.public_ip)])
-        # Check that NAT entries are present in iptables after adding
+        # Confirm that expected error occured
         pattern = r"Error: Given entry is overlapping with existing NAT entry"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
                                             format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
@@ -831,9 +831,9 @@ class TestStaticNat(object):
             iptables_output = dut_nat_iptables_status(duthost)
             pytest_assert(iptables_rules == iptables_output,
                           "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
-            # Readd interface IP
+            # Readd interface
             dut_interface_control(duthost, "enable", setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"])
-            # Check that NAT entries are present in iptables after readding interface IP
+            # Check that NAT entries are present in iptables after enabling interface
             time.sleep(90)
             iptables_output = dut_nat_iptables_status(duthost)
             pytest_assert(iptables_rules == iptables_output,
