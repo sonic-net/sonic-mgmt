@@ -726,12 +726,15 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     res['vlan_mac'] = standby_tor.get_dut_iface_mac(vlan_name)
     res['standby_tor_ip'] = _get_iface_ip(standby_tor_mg_facts, 'Loopback0')
 
-    if tbinfo["topo"]["name"] == "t0":
+    if 't0' in tbinfo["topo"]["name"]:
         # For mocked dualtor
         res['active_tor_ip'] = str(ipaddress.ip_address(res['standby_tor_ip']) + 1)
+        # For mocked dualtor, routes to peer switch is static 
+        res['ptf_portchannel_indices'] = get_t1_active_ptf_ports(standby_tor, tbinfo)
     else:
         active_tor_mg_facts = active_tor.get_extended_minigraph_facts(tbinfo)
         res['active_tor_ip'] = _get_iface_ip(active_tor_mg_facts, 'Loopback0')
+        res['ptf_portchannel_indices'] = get_t1_bgp_up_ptf_ports(standby_tor, tbinfo)
 
     servers = mux_cable_server_ip(standby_tor)
     random_server_iface = random.choice(servers.keys())
@@ -739,7 +742,6 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
 
-    res['ptf_portchannel_indices'] = get_t1_bgp_up_ptf_ports(standby_tor, tbinfo)
     logger.debug("dualtor info is generated {}".format(res))
     return res
 

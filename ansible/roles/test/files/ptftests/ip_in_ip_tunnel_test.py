@@ -39,6 +39,7 @@ class IpinIPTunnelTest(BaseTest):
         '''
         BaseTest.__init__(self)
         self.test_params = test_params_get()
+        self.logger = logging.getLogger("IPinIPTunnel")
 
     def setUp(self):
         self.server_ip = self.test_params['server_ip']
@@ -153,11 +154,11 @@ class IpinIPTunnelTest(BaseTest):
         expect_packet_num = PACKET_NUM / portchannel_num
         pkt_num_lo = expect_packet_num * (1.0 - DIFF)
         pkt_num_hi = expect_packet_num * (1.0 + DIFF)
-        logging.info("hash key = {}".format(hash_key))
-        logging.info("%-10s \t %10s \t %10s \t" % ("port(s)", "exp_cnt", "act_cnt"))
+        self.logger.info("hash key = {}".format(hash_key))
+        self.logger.info("%-10s \t %10s \t %10s \t" % ("port(s)", "exp_cnt", "act_cnt"))
         balance = True
         for portchannel, count in pkt_distribution.items():
-            logging.info("%-10s \t %10s \t %10s \t" % (portchannel, str(expect_packet_num), str(count)))
+            self.logger.info("%-10s \t %10s \t %10s \t" % (portchannel, str(expect_packet_num), str(count)))
             if count < pkt_num_lo or count > pkt_num_hi:
                 balance = False
         if not balance:
@@ -180,12 +181,16 @@ class IpinIPTunnelTest(BaseTest):
                              port_id=self.server_port,
                              pkt=unexpected_packet,
                              timeout=TIMEOUT)
+
         # Step 2. verify packet is received from IPinIP tunnel and check balance
         for hash_key in self.hash_key_list:
+            self.logger.info("Verifying traffic balance for hash key {}".format(hash_key))
             pkt_distribution = {}
             for i in range(0, PACKET_NUM):
                 inner_pkt = self.generate_packet_to_server(hash_key)
                 tunnel_pkt = self.generate_expected_packet(inner_pkt)
+                self.logger.info("Sending packet dst_mac = {} src_mac = {} dst_ip = {} src_ip = {} from port {}" \
+                    .format(inner_pkt[Ether].dst, inner_pkt[Ether].src, inner_pkt[IP].dst, inner_pkt[IP].src, src_port))
                 send_packet(self, src_port, inner_pkt)
                 # Verify packet is received from IPinIP tunnel
                 idx, count = verify_packet_any_port(test=self,
