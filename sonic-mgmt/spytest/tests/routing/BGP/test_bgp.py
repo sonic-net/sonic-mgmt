@@ -1010,6 +1010,12 @@ class TestBGPRif(TestBGPCommon):
         bgpapi.config_bgp(topo.dut_list[0], local_as=spine_as, config='no', neighbor=info['D2D1P1_ipv4'],
                           config_type_list=["routeMap"], routeMap='confed-rmap', diRection='out',cli_type=vtysh_cli_type)
         bgpapi.create_bgp_next_hop_self(topo.dut_list[0], spine_as, 'ipv4', info['D2D1P1_ipv4'], 'no', 'no')
+        bgpapi.config_bgp(leaf_name, config='no', config_type_list='', local_as=leaf_as,
+                          conf_identf=confed_identifier,cli_type=vtysh_cli_type)
+        bgpapi.config_bgp(leaf_name, config='no', config_type_list='', local_as=leaf_as, conf_peers=spine_as,cli_type=vtysh_cli_type)
+        bgpapi.config_bgp(spine_name, config='no', config_type_list='', local_as=spine_as,
+                          conf_identf=confed_identifier,cli_type=vtysh_cli_type)
+        bgpapi.config_bgp(spine_name, config='no', config_type_list='', local_as=spine_as, conf_peers=leaf_as,cli_type=vtysh_cli_type)
 
         if tc_fail_flag:
             st.report_fail('test_case_failed')
@@ -1709,6 +1715,11 @@ class TestBGPIPvxRouteAdvertisementFilter:
 
     def test_default_originate_ipv6(self, bgp_ipvx_route_adv_filter_fixture):
 
+        bgpapi.config_bgp(dut=self.local_topo['dut1'], local_as=self.local_topo['dut1_as'], addr_family='ipv6',
+                          config='yes',
+                          neighbor=self.local_topo['dut2_addr_ipv6'],
+                          config_type_list=['import-check'], cli_type=bgp_cli_type)
+
         output = bgpapi.fetch_ip_bgp_route(self.local_topo['dut1'], family='ipv6',
                                            match={'next_hop': self.local_topo['dut2_addr_ipv6']},
                                            select=['network', 'as_path'])
@@ -1926,10 +1937,18 @@ class TestBGPIPvxRouteAdvertisementFilter:
         TG_D2 = topo.tg_dut_list_name[1]
         tg_ob = topo['T1{}P1_tg_obj'.format(TG_D1)]
         bgp_handle = topo['T1{}P1_ipv6_tg_bh'.format(TG_D1)]
-        #tg_d1_ip = topo['T1{}P1_ipv6'.format(TG_D1)]
-        #tg_d2_ip = topo['T1{}P1_ipv6'.format(TG_D2)]
+        tg_d1_ip = topo['T1{}P1_ipv6'.format(TG_D1)]
+        tg_d2_ip = topo['T1{}P1_ipv6'.format(TG_D2)]
         tc_fail_flag = 0
-        #spine_as = int(bgplib.data['spine_as'])
+        spine_as = int(bgplib.data['spine_as'])
+        leaf_as = int(bgplib.data['leaf_as'])
+        #configuring route-map for spirent links
+        bgpapi.config_bgp(dut=topo.dut_list[0],local_as=spine_as,addr_family='ipv6', 
+                config='yes', neighbor=tg_d1_ip, config_type_list=["routeMap"], 
+                routeMap='UseGlobal', diRection='in')
+        bgpapi.config_bgp(dut=topo.dut_list[1],local_as=leaf_as,addr_family='ipv6', 
+                config='yes', neighbor=tg_d2_ip, config_type_list=["routeMap"], 
+                routeMap='UseGlobal', diRection='in')
         st.log("Advertising 500 IPv6 Routes from TG connected to DUT1")
         bgp_route = tg_ob.tg_emulation_bgp_route_config(handle=bgp_handle['handle'], mode='add', ip_version='6',
                                                         num_routes='500', prefix='1001::1', as_path='as_seq:1')
