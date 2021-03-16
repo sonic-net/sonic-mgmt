@@ -188,7 +188,7 @@
     veos_vm_required: false
   when:
     - ptf_imagename is defined
-    - ptf_imagename == "anvl-docker-image"
+    - ptf_imagename == "docker-ptf-anvl"
 
 - name: Retrieve a list of the defined VMs
   virt: command=list_vms

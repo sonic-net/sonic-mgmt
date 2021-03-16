@@ -4,7 +4,7 @@
  
  ### Testbed server 
  The schematic diagram below provides an overview of the setup. 
- ![](img\keysight-ixanvl-testbed-topology.png) 
+ ![](img\keysight_ixanvl_testbed_topology.png) 
  
  ### Network connections 
  - The testbed server has 1 network port: 
@@ -48,9 +48,21 @@
      Downloaded files would be like below - 
      - `anvl_docker_image.tar` 
  
-   - Place the downloaded file in a folder say `~/keysight_images`. This location needs to be mounted on `/images` inside the *sonic-mgmt* container. 
+   - Place the downloaded file in a folder say `~/keysight_images`.
+     Setup a local docker registry for IxANVL container image.  
      > **Note** If you load the *IxANVL* docker image in your docker registry then you need not place `anvl_container.tar` inside the `~/keysight_images` folder. In that case you need to consider the `docker_registry_host` in `ansible/vars/docker_registry.yml` file. If local file is used it will not pull from the docker registry. 
      > **Note** For setting up local docker registry please follow the instructions from the link: (https://docs.docker.com/registry/deploying/)
+     To setup local docker registry in docker host below are the commands that need to be run:
+
+	```
+	$ docker image load < anvl_docker_image.tar
+	$ docker run -d -p 5000:5000 --restart=always --name registry registry:2
+	$ docker tag anvl_container:latest localhost:5000/docker-ptf-anvl
+	$ docker push localhost:5000/docker-ptf-anvl
+
+	```
+     docker-ptf-anvl is the ptf-imagename in testbed.csv in sonic-mgmt/ansible
+
   - Download the sonic-vs image
 	To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download a public build from Jenkins.
 
@@ -75,7 +87,6 @@
 	```
 	$ cd sonic-mgmt
 	$ ./setup-container.sh -n <container name> -d /data
-     	$ ./setup-container.sh -n <container name> -d /data -v <path to the keysight images folder> 
 	```
 
 	From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
@@ -97,7 +108,7 @@
    - Setup host public key in sonic-mgmt docker
 	In order to configure the testbed on your host automatically, Ansible needs to be able to SSH into it without a password prompt. The `setup-container` script from the previous step will setup all the necessary SSH keys for you, but there are a few more modifications needed to make Ansible work:
 
-	Modify `veos_vtb` to use the user name (e.g. `foo`) you want to use to login to the host machine (this can be your username on the host)
+	Modify `veos_vtb` to use the user name and password (e.g. `foo`) you want to use to login to the host machine (this can be your username on the host)
 
 	```
 	foo@sonic:/data/sonic-mgmt/ansible$ git diff
@@ -111,6 +122,7 @@
        	       ansible_host: 172.17.0.1
 	-      ansible_user: use_own_value
 	+      ansible_user: foo
+	+      ansible_password: foo
 
  	vms_1:
    	hosts:
@@ -121,7 +133,7 @@
 
       	By default, the testbed scripts require a password file. If you are not using Ansible Vault, you can create a file with a dummy password (e.g. `abc`) and pass the filename to the command line. The file name and location is created and maintained by the user.
 
-	**On the host,** run `sudo visudo` and add the following line at the end:
+	**On the host,** after doing ssh from sonic-mgmt container, run `sudo visudo` and add the following line at the end:
 
 	```
 	foo ALL=(ALL) NOPASSWD:ALL

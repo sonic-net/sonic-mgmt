@@ -10,7 +10,7 @@
 - name: set "IxANVL-CONF-TESTER" container type if Keysight IxANVL is used
   set_fact:
     container_type: "IxANVL-CONF-TESTER"
-  when: ptf_imagename is defined and ptf_imagename == "anvl-docker-image"
+  when: ptf_imagename is defined and ptf_imagename == "docker-ptf-anvl"
 
 - block:
 
