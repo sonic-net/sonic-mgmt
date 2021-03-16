@@ -1,7 +1,9 @@
+import logging
 import pytest
 import time
 from tests.common import config_reload
 import urllib3
+from urlparse import urlunparse
 
 RESTAPI_SERVER_START_WAIT_TIME = 15
 
@@ -121,3 +123,18 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
                         restapiserver.* \
                         restapiclient.*"
     localhost.shell(local_command)
+
+@pytest.fixture
+def construct_url(duthosts, rand_one_dut_hostname):
+    def get_endpoint(path):
+        duthost = duthosts[rand_one_dut_hostname]
+        RESTAPI_PORT = "8081"
+        netloc = duthost.mgmt_ip+":"+RESTAPI_PORT
+        try:
+            tup = ('https', netloc, path, '', '', '')
+            endpoint = urlunparse(tup)
+        except:
+            logging.error("Invalid URL: "+endpoint)
+            return None
+        return endpoint
+    return get_endpoint
