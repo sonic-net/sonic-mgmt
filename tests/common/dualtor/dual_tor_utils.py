@@ -282,12 +282,9 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
             Defaults to None.
 
     Returns:
-        list of tuple: Return a list of tuple. Each tuple has two items. The first item is the host object for fanout.
-            The second item is the fanout interface that has been shutdown. The returned list makes it easy to recover
-            the interfaces.
+        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down 
+                                 on that host device.
     """
-    down_intfs = []
-
     if not dut_intfs:
         # If no interface is specified, shutdown all VLAN ports
         vlan_intfs = []
