@@ -64,7 +64,7 @@ def detect_shared_headroom_pool_mode(duthost):
     global DEFAULT_OVER_SUBSCRIBE_RATIO
 
     over_subscribe_ratio = duthost.shell('redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
-    if over_subscribe_ratio and  over_subscribe_ratio != '0':
+    if over_subscribe_ratio and over_subscribe_ratio != '0':
         DEFAULT_SHARED_HEADROOM_POOL_ENABLED = True
         DEFAULT_OVER_SUBSCRIBE_RATIO = int(over_subscribe_ratio)
 
@@ -139,14 +139,34 @@ def load_test_parameters(duthost):
         TESTPARAM_LOSSY_PG = vendor_specific_param['lossy_pg']
 
 
+def configure_shared_headroom_pool(duthost, enable):
+    """Enable or disable the shared headroom pool according to the argument
+
+    Args:
+        duthost: The DUT host object
+        enable: True to enable and false to disable the shared headroom pool
+    """
+    if enable:
+        duthost.shell("config buffer shared-headroom-pool over-subscribe-ratio 2")
+    else:
+        duthost.shell("config buffer shared-headroom-pool over-subscribe-ratio 0")
+
+    time.sleep(20)
+
+
 @pytest.fixture(scope="module", autouse=True)
-def setup_module(duthost):
+def setup_module(duthosts, rand_one_dut_hostname, request):
     """Set up module. Called only once when the module is initialized
 
     Args:
         duthost: The DUT host object
     """
+    global DEFAULT_SHARED_HEADROOM_POOL_ENABLED
+
+    duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
+    enable_shared_headroom_pool = request.config.getoption("--enable_shared_headroom_pool")
+    need_to_disable_shared_headroom_pool_after_test = False
     if BUFFER_MODEL_DYNAMIC:
         detect_ingress_pool_number(duthost)
         detect_shared_headroom_pool_mode(duthost)
@@ -156,10 +176,18 @@ def setup_module(duthost):
         logging.info("Cable length: default {}".format(DEFAULT_CABLE_LENGTH_LIST))
         logging.info("Ingress pool number {}".format(DEFAULT_INGRESS_POOL_NUMBER))
         logging.info("Lossless headroom data {}".format(DEFAULT_LOSSLESS_HEADROOM_DATA))
+
+        if enable_shared_headroom_pool and not DEFAULT_SHARED_HEADROOM_POOL_ENABLED:
+            configure_shared_headroom_pool(duthost, True)
+            logging.info("Shared headroom pool enabled according to test option")
+            need_to_disable_shared_headroom_pool_after_test = True
     else:
         pytest.skip("Dynamic buffer isn't enabled, skip the test")
 
     yield
+
+    if need_to_disable_shared_headroom_pool_after_test:
+        configure_shared_headroom_pool(duthost, False)
 
 
 def init_log_analyzer(duthost, marker, expected):
