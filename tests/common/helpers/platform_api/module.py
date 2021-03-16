@@ -159,5 +159,3 @@ def get_maximum_consumed_power(conn, mod_idx):
 
 def reboot(conn, mod_idx, reboot_type):
     return module_api(conn, mod_idx, 'reboot', [reboot_type])
-
-
