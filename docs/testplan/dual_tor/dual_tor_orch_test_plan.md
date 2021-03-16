@@ -68,16 +68,19 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     |-|-|-|
     | All ports to T1s are up; Loopback route configured | ECMP hashing | Verify tunnel traffic to Active ToR is distributed equally across nexthops; Verify no traffic is forwarded to downlink in case of standby mux |
     | Shutdown one uplink to T1 | ECMP hashing/CRM | Verify traffic is shifted to the active links and no traffic drop observed; Verify CRM that no new nexthop created|
-    | Bring back the uplink to T1 | ECMP hashing/CRM | Verify traffic is now equally distributed; Verify CRM that no new nexthop created |
+    | Bring back the uplink to T1; Note: For static route to peer, this would require reprogramming route | ECMP hashing/CRM | Verify traffic is now equally distributed; Verify CRM that no new nexthop created |
     ||||
     | Shutdown one BGP session to T1 | ECMP hashing/CRM | Verify traffic is shifted to the active links and no traffic drop observed; Verify CRM that no new nexthop created|
     | Bring back BGP session to T1 | ECMP hashing/CRM | Verify traffic is now equally distributed; Verify CRM that no new entries created |
     ||||
-    | Server Neighbor entry flushed/relearnt | Standby Forwarding | Verify no impact to tunnel traffic and no traffic fwded to neighbor directly; Verify CRM for neighbor |
+    | Server Neighbor entry flushed | Standby Dropping | Verify traffic is dropped; No tunnel traffic and no traffic fwded to neighbor directly; Verify CRM for neighbor |
+    | Server Neighbor entry relearnt | Standby Forwarding | Verify traffic is restored to tunnel and no traffic fwded to neighbor directly; Verify CRM for neighbor |
     ||||
-    | Remove Loopback route | ECMP hashing | Verify traffic is  equally distributed via default route|
+    | Remove Loopback route; Note: This requires extra SAI setting (sai_tunnel_underlay_route_mode=1) | ECMP hashing | Verify traffic is  equally distributed via default route |
     | Re-add Loopback route | ECMP hashing | Verify traffic is  equally distributed via loopback route|
-
+    | Add route to a nexthop which is a standby Neighbor | Standby Forwarding | Verify traffic to this route dst is forwarded to Active ToR and equally distributed|
+    | Simulate Mux state change to active | Active Forwarding | Verify traffic to this route dst is forwarded directly to server |
+    | Simulate Mux state change to standby | Standby Forwarding | Verify traffic to this route dst is now redirected back to Active ToR and equally distributed|
 
 2. Server -> Standby ToR
 
@@ -98,6 +101,8 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Neighbor learnt | Forwarding | Verify no tunnel traffic for Active mux. All traffic to server should be directly forwarded; Verify CRM for neighbor |
     | Neighbor flushed | Drop | Verify no tunnel traffic but packets are dropped; Verify CRM for neighbor |
     | Neighbor re-learnt | Forwarding | Verify no tunnel traffic and packets are fwded |
+    | Neighbor within subnet learnt; Note: This new neighbor must not be one configured for Server IPs in MUX_CABLE | Active Forwarding | Verify no tunnel traffic. All traffic to server should be directly forwarded; Verify CRM for neighbor |
+    | Simulate MAC move by sending same ARP req/reply from another port which is standby | Standby Forwarding | Verify that traffic to this neighbor is now forwarded to Active ToR via tunnel nexthop |
     
 4. T1 -> Tor (IPinIP packet)
 
@@ -105,9 +110,9 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     
     | Step | Goal | Expected results |
     |-|-|-|
-    | Outer IP as loopback, Inner Dst IP as Active Server IP | Decap | Verify traffic is decapsulated and fwded to Server port |
+    | Outer srcIP as peer IP, dstIP as loopback0, Inner Dst IP as Active Server IP | Decap | Verify traffic is decapsulated and fwded to Server port |
     ||||
-    | Outer IP as loopback, Inner Dst IP as Standby Server IP | Decap | Verify traffic is not fwded to Server port or re-encapsulated to T1s |
+    | Outer srcIP as peer IP, dstIP as loopback0, Inner Dst IP as Standby Server IP | Decap | Verify traffic is not fwded to Server port or re-encapsulated to T1s |
 
 5. Stress test
 
@@ -121,3 +126,15 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     ||||
     | Flush and re-learn Neighbor entry 'N' times in Active state | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |
 
+5. ECMP Route test
+
+    Send packets to route destinations with ECMP nexthops.
+
+    | Step | Goal | Expected results |
+    |-|-|-|
+    | Add route with four nexthops, where four muxes are active| ECMP  | Verify traffic to this route destination is distributed to four server ports |
+    | Simulate nexthop1 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to three server ports and one tunnel nexthop |
+    | Simulate nexthop2 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop |
+    | Simulate nexthop3 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to one server port and three tunnel nexthop |
+    | Simulate nexthop4 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to four tunnel nexthops |
+    ||||
