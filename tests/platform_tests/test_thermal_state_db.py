@@ -64,6 +64,8 @@ def test_thermal_state_db(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
      This test case will verify thermal local state db data on each hwsku type in chassis
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.facts['modular_chassis'] == "False":
+        pytest.skip("Test skipped applicable to modular chassis only")
     num_thermals = get_expected_num_thermals(duthosts, enum_rand_one_per_hwsku_hostname)
     thermal_out = duthost.command("redis-dump -d 6 -y -k \"*TEMP*\"")
     out_dict = json.loads(thermal_out['stdout'])
@@ -79,6 +81,8 @@ def test_thermal_global_state_db(duthosts, enum_supervisor_dut_hostname, tbinfo)
      Verify data for all sensors from line cards and fabric cards present in global state db
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+    if duthost.facts['modular_chassis'] == "False":
+        pytest.skip("Test skipped applicable to modular chassis only")
     chassis_db_ip = get_chassis_db_ip(duthost)
     expected_num_thermals = get_expected_num_thermals(duthosts)
     thermal_out = duthost.command("redis-dump -H {} -p 6380 -d 13 -y -k \"*TEMP*\"".format(chassis_db_ip))
