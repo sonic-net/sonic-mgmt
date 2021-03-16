@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import *
-from collections import defaultdict
 import re
-import json
 
 DOCUMENTATION = '''
 ---

@@ -610,7 +610,7 @@ def parse_xml(filename, hostname, asic_name=None):
     port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
 
     for child in root:
-        if asic_name == None:
+        if asic_name is None:
             if child.tag == str(QName(ns, "DpgDec")):
                 (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
             elif child.tag == str(QName(ns, "CpgDec")):
@@ -691,7 +691,7 @@ def parse_xml(filename, hostname, asic_name=None):
     results['minigraph_as_xml'] = mini_graph_path
     results['minigraph_hostname'] = hostname
     results['inventory_hostname'] = hostname
-    if asic_name == None:
+    if asic_name is None:
         if devices != None:
             results['minigraph_console'] = get_console_info(devices, console_dev, console_port)
             results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)

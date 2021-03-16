@@ -405,6 +405,4 @@ class SonicAsic(object):
     def shell(self, *module_args, **complex_args):
         return self.sonichost.shell(*module_args, **complex_args)
 
-    def get_ip_route_info(self, dstip):
-        return self.sonichost.get_ip_route_info(dstip, self.cli_ns_option)
 
