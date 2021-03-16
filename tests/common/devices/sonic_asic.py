@@ -53,10 +53,6 @@ class SonicAsic(object):
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
-    def get_service_name(self, service):
-        service_name = "{}{}".format(service, "@{}".format(self.asic_index) if self.sonichost.is_multi_asic else "")
-        return service_name
-
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
@@ -146,7 +142,7 @@ class SonicAsic(object):
         if self.namespace != DEFAULT_NAMESPACE:
             redis_cli = "/usr/bin/redis-cli"
             cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli,redis_cmd)
-            return self.sonichost.command(cmd)
+            return self.sonichost.command(cmd, verbose=False)
         # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
         return self.sonichost.run_redis_cli_cmd(redis_cmd)
 

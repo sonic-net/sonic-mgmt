@@ -43,6 +43,9 @@ class MultiAsicSonicHost(object):
 
         self.critical_services_tracking_list()
 
+    def __repr__(self):
+        return '<MultiAsicSonicHost> {}'.format(self.hostname)
+
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
            The services on the sonic devices are:
@@ -126,6 +129,15 @@ class MultiAsicSonicHost(object):
             return self.asics[0]
         return self.asics[asic_index]
 
+    def asic_instance_from_namespace(self, namespace=DEFAULT_NAMESPACE):
+        if not namespace:
+            return self.asics[0]
+
+        for asic in self.asics:
+            if asic.namespace == namespace:
+                return asic
+        return None
+
     def get_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
@@ -166,6 +178,12 @@ class MultiAsicSonicHost(object):
             return cmd
         ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
         return ns_cmd
+    
+    def get_linux_ip_cmd_for_namespace(self, cmd, namespace):
+        if not namespace:
+            return cmd
+        ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
+        return ns_cmd
 
     def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
         asic_id = self.get_asic_id_from_namespace(namespace)
@@ -195,7 +213,7 @@ class MultiAsicSonicHost(object):
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
 
-    def get_asic(self, asic_id):
+    def get_asic_or_sonic_host(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
             return self.sonichost
         return self.asics[asic_id]

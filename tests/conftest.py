@@ -19,6 +19,7 @@ from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
+from tests.common.devices.vmhost import VMHost
 
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
@@ -26,6 +27,7 @@ from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_test_server_host
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
@@ -91,6 +93,10 @@ def pytest_addoption(parser):
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
+    parser.addoption("--post_check", action="store_true", default=False,
+                     help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--post_check_items", action="store", default=False,
+                     help="Change (add|remove) post test check items based on pre test check items")
 
     ########################
     #   pre-test options   #
@@ -160,7 +166,7 @@ def get_tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = cache.read(tbname, 'tbinfo')
-    if not testbedinfo:
+    if testbedinfo is cache.NOTEXIST:
         testbedinfo = TestbedInfo(tbfile)
         cache.write(tbname, 'tbinfo', testbedinfo)
 
@@ -373,6 +379,15 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     except:
         pass
     return fanout_hosts
+
+
+@pytest.fixture(scope="session")
+def vmhost(ansible_adhoc, request, tbinfo):
+    server = tbinfo["server"]
+    inv_files = request.config.option.ansible_inventory
+    vmhost = get_test_server_host(inv_files, server)
+    return VMHost(ansible_adhoc, vmhost.name)
+
 
 @pytest.fixture(scope='session')
 def eos():

@@ -20,3 +20,6 @@ RECOVER_METHODS = {
     "fast_reboot": {"cmd": "fast_reboot", "reboot": True, "adaptive": False, 'recover_wait': 120},
     "adaptive": {"cmd": None, "reboot": False, "adaptive": True, 'recover_wait': 30},
 }       # All supported recover methods
+
+STAGE_PRE_TEST = 'stage_pre_test'
+STAGE_POST_TEST = 'stage_post_test'
