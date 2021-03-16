@@ -83,7 +83,7 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'sudo pcieutil check',
             # 'sudo psuutil *',
             # 'sudo sfputil show *',
-            'sudo ip netns identify 1'
+            'sudo ip netns identify 1',
     ]
 
     # Some newer commands may not be available in 201911 or 202012
@@ -92,7 +92,7 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'sudo ipintutil',
             'sudo ipintutil -a ipv6',
             'sudo ipintutil -n asic0 -d all',
-            'sudo ipintutil -n asic0 -d all -a ipv6'
+            'sudo ipintutil -n asic0 -d all -a ipv6',
         ]
 
     # Run as readonly use the commands allowed indirectly based on sudoers file
@@ -103,7 +103,7 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'show ip bgp summary',
             'show ip interface',
             'show ipv6 interface',
-            'show lldp table'
+            'show lldp table',
     ]
 
     for command in commands_direct + commands_indirect:
