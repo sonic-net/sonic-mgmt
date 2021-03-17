@@ -21,7 +21,11 @@ def ssh_remote_allow_run(localhost, remote_ip, username, password, cmd):
     res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
     # Verify that the command is allowed
     logger.info("check command \"{}\" rc={}".format(cmd, res['rc']))
-    return res['rc'] == 0 or (res['rc'] != 0 and "Make sure your account has RW permission to current device" not in res['stderr'])
+    expected = res['rc'] == 0 or (res['rc'] != 0 and "Make sure your account has RW permission to current device" not in res['stderr'])
+    if not expected:
+        logger.error("error output=\"{}\"".format(res["stderr"]))
+    return expected
+
 
 def ssh_remote_ban_run(localhost, remote_ip, username, password, cmd):
     res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
@@ -74,18 +78,24 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             '"sudo vtysh -c \'show ip bgp su\'"',
             '"sudo vtysh -n 0 -c \'show ip bgp su\'"',
             'sudo decode-syseeprom',
-            'sudo generate_dump',
+            'sudo generate_dump -s "5 secs ago"',
             'sudo lldpshow',
             'sudo pcieutil check',
             # 'sudo psuutil *',
             # 'sudo sfputil show *',
             'sudo ip netns identify 1',
+    ]
+
+    # Some newer commands may not be available in 201911 or 202012
+    if not any(version in duthost.os_version for version in ("201911", "202012")):
+        commands_direct += [
             'sudo ipintutil',
             'sudo ipintutil -a ipv6',
             'sudo ipintutil -n asic0 -d all',
-            'sudo ipintutil -n asic0 -d all -a ipv6'
-    ]
-        # Run as readonly use the commands allowed indirectly based on sudoers file
+            'sudo ipintutil -n asic0 -d all -a ipv6',
+        ]
+
+    # Run as readonly use the commands allowed indirectly based on sudoers file
     commands_indirect = [
             'show version',
             'show interface status',
@@ -93,7 +103,7 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'show ip bgp summary',
             'show ip interface',
             'show ipv6 interface',
-            'show lldp table'
+            'show lldp table',
     ]
 
     for command in commands_direct + commands_indirect:
