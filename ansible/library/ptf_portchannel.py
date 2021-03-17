@@ -27,6 +27,7 @@ EXAMPLES = '''
 
 import os
 import re
+import traceback
 
 import jinja2
 from ansible.module_utils.basic import *
@@ -182,9 +183,8 @@ def main():
             disable_portchannel(module, teamd_config)
             remove_supervisor_conf(module, teamd_config)
             remove_teamd_conf(module, teamd_config)
-    except:
-        err = str(sys.exc_info())
-        module.fail_json(msg="Error: %s" % err)
+    except Exception as e:
+        module.fail_json(msg=traceback.format_exc())
 
     module.exit_json(**result)
 
