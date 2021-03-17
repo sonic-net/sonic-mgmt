@@ -622,7 +622,7 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
     random_ip = generate_ip_through_default_route(host).split('/')[0]
     vlan_table = host.get_running_config_facts()['VLAN']
     vlan_name = list(vlan_table.keys())[0]
-    vlan_mac = vlan_table[vlan_name]['mac']
+    vlan_mac = host.get_dut_iface_mac(vlan_name)
     router_mac = host.facts['router_mac']
     # Generate packets from server to a random IP address, which goes default routes
     pkt = testutils.simple_ip_packet(eth_dst=vlan_mac,

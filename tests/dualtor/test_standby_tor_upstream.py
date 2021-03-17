@@ -58,7 +58,7 @@ def test_standby_tor_upstream(rand_selected_dut, tbinfo, ptfadapter, clear_ports
                 "RX_DRP for {} is expected to increase by {} actually {}".format(itfs, PKT_NUM, drop_counter))
 
 
-def test_standby_tor_upstream_toggle_to_active(ptfadapter, rand_selected_dut, mux_server_url, tbinfo, rand_selected_interface, apply_active_state_to_orchagent):
+def test_standby_tor_upstream_toggle_to_active(ptfadapter, rand_selected_dut, tbinfo, rand_selected_interface, apply_active_state_to_orchagent):
     """
     Verify traffic is not dropped by ACL and fwd-ed to uplinks; Verify CRM show and no nexthop objects are stale
     """
