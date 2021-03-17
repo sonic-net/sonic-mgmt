@@ -162,6 +162,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
         duthost: The DUT host object
     """
     global DEFAULT_SHARED_HEADROOM_POOL_ENABLED
+    global DEFAULT_OVER_SUBSCRIBE_RATIO
 
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
@@ -179,6 +180,8 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
         if enable_shared_headroom_pool and not DEFAULT_SHARED_HEADROOM_POOL_ENABLED:
             configure_shared_headroom_pool(duthost, True)
+            DEFAULT_SHARED_HEADROOM_POOL_ENABLED = True
+            DEFAULT_OVER_SUBSCRIBE_RATIO = 2
             logging.info("Shared headroom pool enabled according to test option")
             need_to_disable_shared_headroom_pool_after_test = True
     else:
