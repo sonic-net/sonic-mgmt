@@ -120,6 +120,9 @@ all:
           num_asics: 6
           ansible_password: password
           ansible_user: admin
+          iface_speed: 40000
+          start_topo_service: True
+          frontend_asics: [0,1,2,3]
         vlab-08:
           ansible_host: 10.250.0.112
           ansible_hostv6: fec0::ffff:afa:c
@@ -129,6 +132,9 @@ all:
           num_asics: 4
           ansible_password: password
           ansible_user: admin
+          iface_speed: 40000
+          start_topo_service: True
+          frontend_asics: [0,1]
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3
