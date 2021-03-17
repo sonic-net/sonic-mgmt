@@ -1,6 +1,7 @@
 # PTF test contains the test cases for fine grained ecmp, the scenarios of test are as follows:
 # create_flows: Sends NUM_FLOWS flows with varying src_Ip and creates a tuple to port map
 # initial_hash_check: Checks the the flows from create_flows still end up at the same port
+# hash_check_warm_boot: Similar to initial hash check but this is run during warm boot, accounts for possible flooding during warm boot
 # bank_check: Check that the flows end up on the same bank as before
 # withdraw_nh: Withdraw next-hop in one fg nhg bank, and make sure flow redistributes to ports in the fg nhg bank
 # add_nh: Add next-hop in one fg nhg bank, and make sure flow redistributes to from ports in same fg nhg bank to added port
@@ -110,8 +111,12 @@ class FgEcmpTest(BaseTest):
         self.log(self.inner_hashing)
         self.log(self.exp_flow_count)
 
-        self.trigger_mac_learning(self.serv_ports)
-        time.sleep(3)
+        if self.test_case != 'hash_check_warm_boot':
+            # We send bi-directional traffic during warm boot due to
+            # fdb clear, so no need to trigger mac learning
+            # during warm boot.
+            self.trigger_mac_learning(self.serv_ports)
+            time.sleep(3)
 
 
     #---------------------------------------------------------------------
@@ -183,6 +188,23 @@ class FgEcmpTest(BaseTest):
                 (port_idx, _) = self.send_rcv_ip_pkt(
                     in_port, src_port, dst_port, src_ip, dst_ip, self.serv_ports, ipv4)
                 assert port_idx == port
+            return
+
+        elif self.test_case == 'hash_check_warm_boot':
+            self.log("Ensure that flow to port map is maintained when the same flow is re-sent...")
+            total_flood_pkts = 0
+            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+                if self.inner_hashing:
+                    in_port = random.choice(self.net_ports)
+                else:
+                    in_port = self.net_ports[0]
+                (port_idx, _) = self.send_rcv_ip_pkt_warm(
+                    in_port, src_port, dst_port, src_ip, dst_ip, self.serv_ports, ipv4, port)
+                if port_idx == -1:
+                    total_flood_pkts = total_flood_pkts + 1
+            # Ensure that flooding duration in warm reboot is less than 10% of total packet count
+            self.log("Number of flood packets were: " + str(total_flood_pkts))
+            assert (total_flood_pkts < (0.1 * len(tuple_to_port_map[self.dst_ip])))
             return
 
         elif self.test_case == 'bank_check':
@@ -311,8 +333,54 @@ class FgEcmpTest(BaseTest):
         return
 
 
+    def verify_packet_warm(test, pkt, port, device_number=0, timeout=None, n_timeout=None):
+        # This packet verification function accounts for possible flood during warm boot
+        # We ensure that packets are received on the expected port, and return a special
+        # return value of -1 to denote that a flood had occured. The caller can use the 
+        # special return value to identify how many packets were flooded. 
+
+        if timeout==None:
+            timeout = ptf.ptfutils.default_timeout
+        if n_timeout==None:
+            n_timeout = ptf.ptfutils.default_negative_timeout
+        logging.debug("Checking for pkt on device %d, port %r", device_number, port)
+        result = dp_poll(test, device_number=device_number, timeout=timeout, exp_pkt=pkt)
+        verify_no_other_packets(test, device_number=device_number, timeout=n_timeout)
+
+        if isinstance(result, test.dataplane.PollSuccess):
+            if result.port != port:
+                # Flood case, check if packet rcvd on expected port as well
+                verify_packet(test, pkt, port)
+                return (-1, None)
+            else:
+                return (port, result.packet)
+
+        assert(isinstance(result, test.dataplane.PollFailure))
+        test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
+                    % (ports, device_number, result.format()))
+        return (0, None)
+
+
+    def send_rcv_ip_pkt_warm(self, in_port, sport, dport, src_ip_addr, dst_ip_addr,
+                       dst_port_list, ipv4=True, exp_port=None):
+
+        # Simulate bidirectional traffic for mac learning, since mac learning(fdb) is flushed
+        # as part of warm reboot
+        self.trigger_mac_learning([exp_port])
+
+        if ipv4:
+            (matched_index, received) = self.send_rcv_ipv4_pkt(in_port, sport, dport,
+                    src_ip_addr, dst_ip_addr, dst_port_list, exp_port)
+        else:
+            (matched_index, received) = self.send_rcv_ipv6_pkt(in_port, sport, dport,
+                    src_ip_addr, dst_ip_addr, dst_port_list, exp_port)
+
+        return (matched_index, received)
+
+
     def send_rcv_ip_pkt(self, in_port, sport, dport, src_ip_addr, dst_ip_addr,
                        dst_port_list, ipv4=True):
+
         if ipv4:
             (matched_index, received) = self.send_rcv_ipv4_pkt(in_port, sport, dport,
                     src_ip_addr, dst_ip_addr, dst_port_list)
@@ -329,7 +397,7 @@ class FgEcmpTest(BaseTest):
 
 
     def send_rcv_ipv4_pkt(self, in_port, sport, dport,
-                         ip_src, ip_dst, dst_port_list):
+                         ip_src, ip_dst, dst_port_list, exp_port=None):
         src_mac = self.dataplane.get_mac(0, in_port)
         rand_int = random.randint(1, 254)
 
@@ -351,7 +419,7 @@ class FgEcmpTest(BaseTest):
                     ip_ttl=64,
                     udp_sport=rand_int,
                     udp_dport=4789,
-                    vxlan_vni=rand_int,
+                    vxlan_vni=20000+rand_int,
                     with_udp_chksum=False,
                     inner_frame=pkt)
 
@@ -363,14 +431,16 @@ class FgEcmpTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
-        return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        if exp_port == None:
+            return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        else:
+            return self.verify_packet_warm(masked_exp_pkt, exp_port)
 
 
     def send_rcv_ipv6_pkt(self, in_port, sport, dport,
-                         ip_src, ip_dst, dst_port_list):
+                         ip_src, ip_dst, dst_port_list, exp_port=None):
         src_mac = self.dataplane.get_mac(0, in_port)
         rand_int = random.randint(1, 254)
-
 
         if self.inner_hashing:
             pkt = simple_tcp_packet(
@@ -388,7 +458,7 @@ class FgEcmpTest(BaseTest):
                     ipv6_dst=self.dst_ip,
                     udp_sport=rand_int,
                     udp_dport=4789,
-                    vxlan_vni=rand_int,
+                    vxlan_vni=20000+rand_int,
                     with_udp_chksum=False,
                     inner_frame=pkt)
         else:
@@ -408,7 +478,10 @@ class FgEcmpTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
-        return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        if exp_port == None:
+            return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        else:
+            return self.verify_packet_warm(masked_exp_pkt, exp_port)
 
 
     def runTest(self):
