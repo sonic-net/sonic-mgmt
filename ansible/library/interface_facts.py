@@ -314,14 +314,14 @@ def main():
     cmd = '/usr/bin/python {}'.format(INTF_IP_GET_INFO_SCRIPT)
 
     for namespace in multi_asic.get_front_end_namespaces():
-        if namespace_passed is not None and namespace != namespace_passed:
+        if namespace_passed and namespace != namespace_passed:
             continue
         # If the user passed a namespace parameter invoke that script with the cmd_prefix
-        if namespace is not None:
+        if namespace:
             cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
         rc, output, err = module.run_command(cmd_prefix + cmd, use_unsafe_shell=True)
         if rc != 0:
-            module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, stderr))
+            module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, err))
 
         # Get the output from the gather interface info script.
         if output:

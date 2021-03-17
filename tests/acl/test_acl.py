@@ -266,7 +266,6 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
                     acl_table_config["table_type"],
                     acl_table_config["table_stage"],
                     ",".join(setup["acl_table_ports"][namespace]),
-                    acl_table_config["table_ports"]
                 )
             )
         else:
