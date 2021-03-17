@@ -650,6 +650,16 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface shutdown {}".format(ifname))
 
+    def shutdown_multiple(self, ifnames):
+        """
+            Shutdown multiple interfaces
+
+            Args:
+                ifnames (list): the interface names to shutdown
+        """
+        intf_str = ','.join(ifnames)
+        return self.shutdown(intf_str)
+
     def no_shutdown(self, ifname):
         """
             Bring up interface specified by ifname
@@ -658,6 +668,16 @@ class SonicHost(AnsibleHostBase):
                 ifname: the interface to bring up
         """
         return self.command("sudo config interface startup {}".format(ifname))
+
+    def no_shutdown_multiple(self, ifnames):
+        """
+            Bring up multiple interfaces
+
+            Args:
+                ifnames (list): the interface names to bring up
+        """
+        intf_str = ','.join(ifnames)
+        return self.no_shutdown(intf_str)
 
     def get_ip_route_info(self, dstip, ns=""):
         """

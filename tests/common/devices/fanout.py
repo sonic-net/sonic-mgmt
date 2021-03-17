@@ -48,9 +48,41 @@ class FanoutHost(object):
         return self.type
 
     def shutdown(self, interface_name):
+        """
+        Shuts down the given interface.
+
+        If a list of interfaces is provided, checks if the host object has
+        a method that can shut down multiple interfaces at once. If no
+        such method is found, an AttributeError is raised
+        """
+        if isinstance(interface_name, list):
+            shutdown_multiple = getattr(self.host, "shutdown_multiple", None)
+            if callable(shutdown_multiple):
+                return shutdown_multiple(interface_name)
+            else:
+                raise AttributeError("Host of type {} does not contain a"
+                                     "'shutdown_multiple' method"
+                                     .format(type(self.host)))
+
         return self.host.shutdown(interface_name)
 
     def no_shutdown(self, interface_name):
+        """
+        Starts up the given interface.
+
+        If a list of interfaces is provided, checks if the host object has
+        a method that can startup multiple interfaces at once. If no
+        such method is found, an AttributeError is raised
+        """
+        if isinstance(interface_name, list):
+            no_shutdown_multiple = getattr(self.host, "no_shutdown_multiple", None)
+            if callable(no_shutdown_multiple):
+                return no_shutdown_multiple(interface_name)
+            else:
+                raise AttributeError("Host of type {} does not contain a"
+                                     "'no_shutdown_multiple' method"
+                                     .format(type(self.host)))
+
         return self.host.no_shutdown(interface_name)
 
     def __str__(self):
