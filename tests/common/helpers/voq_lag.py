@@ -191,7 +191,7 @@ def delete_lag_members_ip(duthost, asic, portchannel_members,
     """
     deletes lag members and ip
     """
-    logging.info('Deleting lag members {} from lag on dut {}'
+    logging.info('Deleting lag members {} from lag {} on dut {}'
                  .format(portchannel_members, portchannel, duthost.hostname))
     for member in portchannel_members:
         duthost.shell("config portchannel {} member del {} {}"
