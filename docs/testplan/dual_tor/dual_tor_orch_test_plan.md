@@ -78,6 +78,7 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     ||||
     | Remove Loopback route; Note: This requires extra SAI setting (sai_tunnel_underlay_route_mode=1) | ECMP hashing | Verify traffic is  equally distributed via default route |
     | Re-add Loopback route | ECMP hashing | Verify traffic is  equally distributed via loopback route|
+    ||||
     | Add route to a nexthop which is a standby Neighbor | Standby Forwarding | Verify traffic to this route dst is forwarded to Active ToR and equally distributed|
     | Simulate Mux state change to active | Active Forwarding | Verify traffic to this route dst is forwarded directly to server |
     | Simulate Mux state change to standby | Standby Forwarding | Verify traffic to this route dst is now redirected back to Active ToR and equally distributed|
@@ -101,8 +102,12 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Neighbor learnt | Forwarding | Verify no tunnel traffic for Active mux. All traffic to server should be directly forwarded; Verify CRM for neighbor |
     | Neighbor flushed | Drop | Verify no tunnel traffic but packets are dropped; Verify CRM for neighbor |
     | Neighbor re-learnt | Forwarding | Verify no tunnel traffic and packets are fwded |
-    | Neighbor within subnet learnt; Note: This new neighbor must not be one configured for Server IPs in MUX_CABLE | Active Forwarding | Verify no tunnel traffic. All traffic to server should be directly forwarded; Verify CRM for neighbor |
+    ||||
+    | Neighbor within subnet learnt on an active mux port; Note: This new neighbor must not be one configured for Server IPs in MUX_CABLE | Active Forwarding | Verify no tunnel traffic. All traffic to server should be directly forwarded; Verify CRM for neighbor |
     | Simulate MAC move by sending same ARP req/reply from another port which is standby | Standby Forwarding | Verify that traffic to this neighbor is now forwarded to Active ToR via tunnel nexthop |
+    | Simulate FDB ageout/flush on this mac | Standby Forwarding | Verify that tunnel traffic is not impacted by fdb del event |
+    | Simulate MAC move by sending same ARP req/reply from another port which is active | Active Forwarding | Verify that traffic to this neighbor is now forwarded directly and no tunnel traffic |
+    | Simulate FDB ageout/flush on this mac | Active Dropping | Verify that traffic to this neighbor is now dropped |
     
 4. T1 -> Tor (IPinIP packet)
 
@@ -110,9 +115,9 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     
     | Step | Goal | Expected results |
     |-|-|-|
-    | Outer srcIP as peer IP, dstIP as loopback0, Inner Dst IP as Active Server IP | Decap | Verify traffic is decapsulated and fwded to Server port |
+    | Outer srcIP as peer IP, dstIP as loopback0, Inner Dst IP as Active Server IP; Ensure ARP/MAC is learnt for this Server IP | Decap | Verify traffic is decapsulated and fwded to Server port |
     ||||
-    | Outer srcIP as peer IP, dstIP as loopback0, Inner Dst IP as Standby Server IP | Decap | Verify traffic is not fwded to Server port or re-encapsulated to T1s |
+    | Outer srcIP as peer IP, dstIP as loopback0, Inner Dst IP as Standby Server IP; Ensure ARP/MAC is learnt for this Server IP | Decap | Verify traffic is not fwded to Server port or re-encapsulated to T1s |
 
 5. Stress test
 
@@ -138,3 +143,24 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Simulate nexthop3 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to one server port and three tunnel nexthop |
     | Simulate nexthop4 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to four tunnel nexthops |
     ||||
+
+
+5. SLB test
+
+    This test requires a dual-tor setup as outlined in dual_tor_test_hld.md. Testing requires enhancement to BGP speaker test to simulate SLB creating peering session, one to Active ToR and another to Standby ToR.
+
+    | Step | Goal | Expected results |
+    |-|-|-|
+    | Create peering session from the SLB to Active ToR | SLB  | Verify session is established |
+    | Create peering session from the SLB to Standby ToR | SLB  | Verify session is established |
+    ||||
+    | Announce routes from SLB to Active ToR | SLB  | Verify routes in Active ToR |
+    | Announce routes from SLB to Standby ToR | SLB  | Verify routes in Standby ToR |
+    ||||
+    | Run PTF tests on Active ToR | SLB  | Verify packets forwarded directly to active SLB port |
+    | Run PTF tests on Standby ToR | SLB  | Verify packets forwarded via tunnel to Active ToR |
+    ||||
+    | Withdraw routes from SLB to Active ToR | SLB  | Verify routes removed in Active ToR |
+    | Withdraw routes from SLB to Standby ToR | SLB  | Verify routes removed in Standby ToR |
+    ||||
+    | Repeat PTF tests as above | SLB  | Verify no packets forwarded |
