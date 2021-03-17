@@ -10,9 +10,12 @@ import json
 import scapy.all as scapyall
 import ptf.testutils as testutils
 from itertools import cycle
+from operator import itemgetter
+from itertools import groupby
 
 from tests.ptf_runner import ptf_runner
 from natsort import natsorted
+from collections import defaultdict
 
 TCP_DST_PORT = 5000
 SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
@@ -27,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 class DualTorIO:
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-                io_ready, tor_vlan_port=None, send_interval=0.0035):
-        self.tor_port = None
-        self.tor_vlan_port = tor_vlan_port
+                io_ready, tor_vlan_port=None, send_interval=None):
+        self.tor_pc_intf = None
+        self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
         self.ptfadapter = ptfadapter
         self.ptfhost = ptfhost
@@ -37,41 +40,13 @@ class DualTorIO:
         self.io_ready_event = io_ready
         self.dut_mac = self.duthost.facts["router_mac"]
         self.active_mac = self.dut_mac
-        if standbyhost:
-            self.standby_mac = standbyhost.facts["router_mac"]
-
-        self.mux_cable_table = self.duthost.get_running_config_facts()['MUX_CABLE']
-        if tor_vlan_port:
-            if tor_vlan_port in self.mux_cable_table:
-                self.downstream_dst_ip = self.mux_cable_table[tor_vlan_port]['server_ipv4'].split("/")[0]
-            else:
-                logger.error("Port {} not found in MUX cable table".format(tor_vlan_port))
-        else:
-            self.downstream_dst_ip = None
-
-        self.time_to_listen = 180.0
-        self.sniff_time_incr = 60
-        # Inter-packet send-interval (minimum interval 3.5ms)
-        if send_interval < 0.0035:
-            logger.warn("Minimum packet send-interval is .0035s. \
-                Ignoring user-provided interval {}".format(send_interval))
-            self.send_interval = 0.0035
-        else:
-            self.send_interval = send_interval
-        # How many packets to be sent by sender thread
-        self.packets_to_send = min(int(self.time_to_listen /
-            (self.send_interval + 0.0015)), 45000)
+        self.standby_mac = standbyhost.facts["router_mac"]
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
-        self.received_counter = int()
-        self.lost_packets = dict()
-        self.total_lost_packets = None
-        self.servers_with_disruptions = dict()
-        self.servers_with_transmissions = dict()
-        # This list will contain all unique Payload ID, to filter out received floods.
-        self.unique_id = set()
+        self.test_results = dict()
 
+        # Calculate valid range for T1 src/dst addresses
         mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
         prefix_len = mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['prefixlen'] - 3
         test_network = ipaddress.ip_address(
@@ -81,50 +56,60 @@ class DualTorIO:
             str(test_network) + '/{0}'.format(prefix_len))).network)
         self.src_addr, mask = self.default_ip_range.split('/')
         self.n_hosts = 2**(32 - int(mask))
-        self.port_indices = mg_facts['minigraph_ptf_indices']
+
+        self.tor_to_ptf_intf_map = mg_facts['minigraph_ptf_indices']
+
         portchannel_info = mg_facts['minigraph_portchannels']
-        self.port_channel_ports = dict()
+        self.tor_pc_intfs = list()
         for pc in portchannel_info.values():
             for member in pc['members']:
-                self.port_channel_ports.update({member: self.port_indices[member]})
+                self.tor_pc_intfs.append(member)
 
-        self.server_ip_list = list()
-        self.vlan_interfaces = mg_facts["minigraph_vlan_interfaces"][VLAN_INDEX]
-        self.vlan_network = self.vlan_interfaces["subnet"]
-        self.vlan_ports = dict()
-        for ifname in mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]:
-            self.vlan_ports.update({ifname: self.port_indices[ifname]})
-        self.vlan_host_map = self._generate_vlan_servers()
-        self.__configure_arp_responder()
+        self.vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
 
-        vlan_table = self.duthost.get_running_config_facts()['VLAN']
+        config_facts = self.duthost.get_running_config_facts()
+        vlan_table = config_facts['VLAN']
         vlan_name = list(vlan_table.keys())[0]
         self.vlan_mac = vlan_table[vlan_name]['mac']
+        self.mux_cable_table = config_facts['MUX_CABLE']
 
-        logger.info("VLAN ports: {}".format(str(self.vlan_ports.keys())))
-        logger.info("PORTCHANNEL ports: {}".format(str(self.port_channel_ports.keys())))
+        self.ptf_intf_to_server_ip_map = self._generate_vlan_servers()
+        self.__configure_arp_responder()
 
+        logger.info("VLAN interfaces: {}".format(str(self.vlan_interfaces)))
+        logger.info("PORTCHANNEL interfaces: {}".format(str(self.tor_pc_intfs)))
+
+        self.time_to_listen = 180.0
+        self.sniff_time_incr = 0
+        # Inter-packet send-interval (minimum interval 3.5ms)
+        self.send_interval = send_interval if send_interval and send_interval > 0.0035 else 0.0035
+        # How many packets to be sent by sender thread
+        self.packets_to_send = min(int(self.time_to_listen /
+            (self.send_interval + 0.0015)), 45000)
+
+        if self.tor_vlan_intf:
+            self.packets_per_server = self.packets_to_send
+        else:
+            self.packets_per_server = self.packets_to_send // len(self.vlan_interfaces)
 
     def _generate_vlan_servers(self):
         """
-        @summary: Generates physical port maps which is a set of IP address and
-                their associated MAC addresses
-                - MACs are generated sequentially as offsets from VLAN_BASE_MAC_PATTERN
-                - IP addresses are randomly selected from the given VLAN network
-                - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
+        Create mapping of server IPs to PTF interfaces
         """
+        server_ip_list = []
+
         for _, config in natsorted(self.mux_cable_table.items()):
-            self.server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
-        logger.info("ALL server address:\n {}".format(self.server_ip_list))
+            server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
+        logger.info("ALL server address:\n {}".format(server_ip_list))
 
-        vlan_host_map = dict()
-        addr_list = list(self.server_ip_list)
-        for i, port in enumerate(sorted(self.vlan_ports.values())):
-            addr = addr_list[i]
-            vlan_host_map[port] = [str(addr)]
+        ptf_to_server_map = dict()
+        for i, vlan_intf in enumerate(natsorted(self.vlan_interfaces)):
+            ptf_intf = self.tor_to_ptf_intf_map[vlan_intf]
+            addr = server_ip_list[i]
+            ptf_to_server_map[ptf_intf] = [str(addr)]
 
-        return vlan_host_map
-
+        logger.debug('VLAN intf to server IP map: {}'.format(json.dumps(ptf_to_server_map, indent=4, sort_keys=True)))
+        return ptf_to_server_map
 
     def __configure_arp_responder(self):
         """
@@ -132,15 +117,14 @@ class DualTorIO:
         Copy this configuration to PTF and restart arp_responder
         """
         arp_responder_conf = {}
-        for port in self.vlan_host_map:
-            arp_responder_conf['eth{}'.format(port)] = self.vlan_host_map[port]
+        for intf, ip in self.ptf_intf_to_server_ip_map.items():
+            arp_responder_conf['eth{}'.format(intf)] = ip
         with open("/tmp/from_t1.json", "w") as fp:
-            json.dump(arp_responder_conf, fp)
+            json.dump(arp_responder_conf, fp, indent=4, sort_keys=True)
         self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
         self.ptfhost.shell("supervisorctl reread && supervisorctl update")
         self.ptfhost.shell("supervisorctl restart arp_responder")
         logger.info("arp_responder restarted")
-
 
     def start_io_test(self, traffic_generator=None):
         """
@@ -164,122 +148,154 @@ class DualTorIO:
         self.send_and_sniff(sender=self.traffic_sender_thread,
             sniffer=self.traffic_sniffer_thread)
 
-        # Sender and sniffer have finished the job. Start examining the collected flow
-        self.examine_flow()
-
-
     def generate_from_t1_to_server(self):
         """
         @summary: Generate (not send) the packets to be sent from T1 to server
         """
+        logger.info("Generating T1 to server packets")
         eth_dst = self.dut_mac
-        eth_src = self.ptfadapter.dataplane.get_mac(0, 0)
         ip_ttl = 255
-        tcp_dport = TCP_DST_PORT
 
-        if self.tor_port:
-            self.from_tor_src_port = self.tor_port
+        if self.tor_pc_intf and self.tor_pc_intf in self.tor_pc_intfs:
+            # If a source portchannel intf is specified,
+            # get the corresponding PTF info
+            ptf_t1_src_intf = self.tor_to_ptf_intf_map[self.tor_pc_intf]
+            eth_src = self.ptfadapter.dataplane.get_mac(0, ptf_t1_src_intf)
+            random_source = False
         else:
-            self.from_tor_src_port = random.choice(self.port_channel_ports.values())
+            # If no source portchannel specified, randomly choose one
+            # during packet generation
+            logger.info('Using random T1 source intf')
+            ptf_t1_src_intf = None
+            eth_src = None
+            random_source = True
 
-        from_tor_src_port_name = None
-        for port_name, ptf_port_index in self.port_channel_ports.items():
-            if ptf_port_index == self.from_tor_src_port:
-                from_tor_src_port_name = port_name
-                break
+        if self.tor_vlan_intf:
+            # If destination VLAN intf is specified,
+            # use only the connected server
+            server_ip_list = [self.ptf_intf_to_server_ip_map[
+                self.tor_vlan_intf
+                ]]
+        else:
+            # Otherwise send packets to all servers
+            server_ip_list = self.ptf_intf_to_server_ip_map.values()
 
-        if from_tor_src_port_name is None:
-            logger.error("Port name not found for port index {} in the list {}"\
-                .format(self.from_tor_src_port, self.port_channel_ports.values()))
-
-        for server_dst_addr in self.server_ip_list:
-            self.servers_with_transmissions.update({server_dst_addr:
-            {"sent": int(), "received": int(), "duplicated": int()}})
-            self.servers_with_disruptions.update({server_dst_addr: list()})
-
-        server_ip_list = cycle([self.downstream_dst_ip]) if self.downstream_dst_ip\
-            else cycle(self.server_ip_list)
         logger.info("-"*20 + "T1 to server packet" + "-"*20)
-        logger.info("Source port: {}".format(self.from_tor_src_port))
-        logger.info("Ethernet address: dst: {} src: {}".format(eth_dst, eth_src))
-        logger.info("IP address: dst: random src: random")
-        logger.info("TCP port: dst: {}".format(tcp_dport))
+        logger.info("PTF source intf: {}"
+                    .format('random' if random_source else ptf_t1_src_intf)
+                   )
+        logger.info("Ethernet address: dst: {} src: {}"
+                    .format(eth_dst, 'random' if random_source else eth_src)
+                   )
+        logger.info("IP address: dst: {} src: random"
+                    .format('all' if len(server_ip_list) > 1
+                                  else server_ip_list[0]
+                           )
+                   )
+        logger.info("TCP port: dst: {}".format(TCP_DST_PORT))
         logger.info("DUT mac: {}".format(self.dut_mac))
         logger.info("VLAN mac: {}".format(self.vlan_mac))
         logger.info("-"*50)
 
         self.packets_list = []
-        for i in range(self.packets_to_send):
-            tcp_tx_packet = testutils.simple_tcp_packet(
-                eth_dst=eth_dst,
-                eth_src=eth_src,
-                ip_dst=next(server_ip_list),
-                ip_src=self.random_host_ip(),
-                ip_ttl=ip_ttl,
-                tcp_dport=tcp_dport)
-            payload =  str(i) + 'X' * 60
-            packet = scapyall.Ether(str(tcp_tx_packet))
-            packet.load = payload
-            self.packets_list.append((ptf_port_index, str(packet)))
+
+        # Create packet #1 for each server and append to the list,
+        # then packet #2 for each server, etc.
+        # This way, when sending packets we continuously send for all servers
+        # instead of sending all packets for server #1, then all packets for 
+        # server #2, etc.
+        for i in range(self.packets_per_server):
+            for server_ip in server_ip_list:
+                if random_source:
+                    tor_pc_src_intf = random.choice(
+                        self.tor_pc_intfs
+                    )
+                    ptf_t1_src_intf = self.tor_to_ptf_intf_map[tor_pc_src_intf]
+                    eth_src = self.ptfadapter.dataplane.get_mac(
+                        0, ptf_t1_src_intf
+                    )
+                tcp_tx_packet = testutils.simple_tcp_packet(
+                    eth_dst=eth_dst,
+                    eth_src=eth_src,
+                    ip_dst=server_ip,
+                    ip_src=self.random_host_ip(),
+                    ip_ttl=ip_ttl,
+                    tcp_dport=TCP_DST_PORT
+                )
+                payload = str(i) + 'X' * 60
+                packet = scapyall.Ether(str(tcp_tx_packet))
+                packet.load = payload
+                self.packets_list.append((ptf_t1_src_intf, str(packet)))
 
         self.sent_pkt_dst_mac = self.dut_mac
         self.received_pkt_src_mac = [self.vlan_mac]
-
 
     def generate_from_server_to_t1(self):
         """
         @summary: Generate (not send) the packets to be sent from server to T1
         """
-        eth_src = self.ptfadapter.dataplane.get_mac(0, 0)
-        tcp_dport = TCP_DST_PORT
-
-        for server_src_addr in self.server_ip_list:
-            self.servers_with_transmissions.update({server_src_addr:
-                {"sent": int(), "received": int(), "duplicated": int()}})
-            self.servers_with_disruptions.update({server_src_addr: list()})
-
-        if self.tor_vlan_port:
-            server_port_ip_list = cycle([self.tor_vlan_port, random.choice(
-                self.vlan_host_map[self.tor_vlan_port])])
+        logger.info("Generating server to T1 packets")
+        if self.tor_vlan_intf:
+            vlan_src_intfs = [self.tor_vlan_intf]
+            # If destination VLAN intf is specified,
+            # use only the connected server
         else:
-            server_ip_list = cycle(self.server_ip_list)
-            server_port_ip_list = list()
-            for tor_vlan_port in self.vlan_host_map.keys():
-                from_server_src_addr = next(server_ip_list)
-                # find out the selected server is connected to which tor port
-                if from_server_src_addr in self.vlan_host_map[tor_vlan_port]:
-                    # add tuple of (tor_vlan_port, server_to_that_vlan) to server_ip_list
-                    server_port_ip_list.append((tor_vlan_port, from_server_src_addr))
-            server_port_ip_list = cycle(server_port_ip_list)
+            # Otherwise send packets to all servers
+            vlan_src_intfs = self.vlan_interfaces
+
+        ptf_intf_to_mac_map = {}
+
+        for ptf_intf in self.ptf_intf_to_server_ip_map.keys():
+            ptf_intf_to_mac_map[ptf_intf] = self.ptfadapter.dataplane.get_mac(0, ptf_intf)
 
         logger.info("-"*20 + "Server to T1 packet" + "-"*20)
-        logger.info("Ethernet address: dst: {} src: {}".format(self.vlan_mac, eth_src))
-        logger.info("TCP port: dst: {} src: 1234".format(tcp_dport))
+        logger.info("Ethernet address: dst: {} src: {}"
+                    .format(self.vlan_mac,
+                            'random' if self.tor_vlan_intf is None
+                                     else ptf_intf_to_mac_map[
+                                         self.tor_to_ptf_intf_map[self.tor_vlan_intf]
+                                         ]
+                           )
+                    )
+        logger.info("IP address: dst: {} src: {}"
+                    .format('random',
+                            'random' if self.tor_vlan_intf is None
+                                     else self.ptf_intf_to_server_ip_map[
+                                                   self.tor_vlan_intf
+                                               ]
+                           )
+                   )
+        logger.info("TCP port: dst: {} src: 1234".format(TCP_DST_PORT))
         logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac,
             self.standby_mac))
         logger.info("VLAN MAC: {}".format(self.vlan_mac))
         logger.info("-"*50)
 
         self.packets_list = []
-        for i in range(self.packets_to_send):
-            payload =  str(i) + 'X' * 60
-            from_server_src_port, from_server_src_addr = next(server_port_ip_list)
-            from_server_dst_addr = self.random_host_ip()
-            tcp_tx_packet = testutils.simple_tcp_packet(
-                        eth_dst=self.vlan_mac,
-                        eth_src=eth_src,
-                        ip_src=from_server_src_addr,
-                        ip_dst=from_server_dst_addr,
-                        tcp_dport=tcp_dport
-                    )
 
-            packet = scapyall.Ether(str(tcp_tx_packet))
-            packet.load = payload
-            self.packets_list.append((from_server_src_port, str(packet)))
-
+        # Create packet #1 for each server and append to the list,
+        # then packet #2 for each server, etc.
+        # This way, when sending packets we continuously send for all servers
+        # instead of sending all packets for server #1, then all packets for 
+        # server #2, etc.
+        for i in range(self.packets_per_server):
+            for vlan_intf in vlan_src_intfs:
+                ptf_src_intf = self.tor_to_ptf_intf_map[vlan_intf]
+                server_ip = self.ptf_intf_to_server_ip_map[ptf_src_intf]
+                eth_src = ptf_intf_to_mac_map[ptf_src_intf]
+                payload =  str(i) + 'X' * 60
+                tcp_tx_packet = testutils.simple_tcp_packet(
+                    eth_dst=self.vlan_mac,
+                    eth_src=eth_src,
+                    ip_src=server_ip,
+                    ip_dst=self.random_host_ip(),
+                    tcp_dport=TCP_DST_PORT
+                )
+                packet = scapyall.Ether(str(tcp_tx_packet))
+                packet.load = payload
+                self.packets_list.append((ptf_src_intf, str(packet)))
         self.sent_pkt_dst_mac = self.vlan_mac
         self.received_pkt_src_mac = [self.active_mac, self.standby_mac]
-
 
     def random_host_ip(self):
         """
@@ -319,7 +335,6 @@ class DualTorIO:
         Waits for a signal from the `traffic_sniffer_thread` before actually starting.
         This is to make sure that that packets are not sent before they are ready to be captured.
         """
-
         logger.info("Sender waiting to send {} packets".format(len(self.packets_list)))
 
         self.sniffer_started.wait(timeout=10)
@@ -333,7 +348,7 @@ class DualTorIO:
             time.sleep(self.send_interval)
             testutils.send_packet(self.ptfadapter, *entry)
 
-        logger.info("Sender has been running for {}".format(
+        logger.info("Sender finished running after {}".format(
             str(datetime.datetime.now() - sender_start)))
 
 
@@ -353,8 +368,7 @@ class DualTorIO:
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
         scapy_sniffer.join()
-        logger.info("Sniffer has been running for {}".format(
-            str(datetime.datetime.now() - sniffer_start)))
+        logger.info("Sniffer finshed running after {}".format(str(datetime.datetime.now() - sniffer_start)))
         self.sniffer_started.clear()
 
 
@@ -363,7 +377,7 @@ class DualTorIO:
         @summary: PTF runner -  runs a sniffer in PTF container.
         Running sniffer in sonic-mgmt container has missing SOCKET problem
         and permission issues (scapy and tcpdump require root user)
-        The remote function listens on all ports. Once found, all packets
+        The remote function listens on all intfs. Once found, all packets
         are dumped to local pcap file, and all packets are saved to
         self.all_packets as scapy type.
 
@@ -406,25 +420,8 @@ class DualTorIO:
         logger.info("Number of all packets captured: {}".format(len(self.all_packets)))
 
 
-    def get_total_sent_packets(self):
-        return len(self.packets_list)
-
-
-    def get_total_received_packets(self):
-        return self.received_counter
-
-
-    def get_total_lost_packets(self):
-        return self.total_lost_packets
-
-
-    def get_servers_with_disruptions(self):
-        return self.servers_with_disruptions
-
-
-    def get_servers_with_transmissions(self):
-        return self.servers_with_transmissions
-
+    def get_test_results(self):
+        return self.test_results
 
     def examine_flow(self):
         """
@@ -442,142 +439,147 @@ class DualTorIO:
         if not self.all_packets:
             logger.error("self.all_packets not defined.")
             return None
-        # Filter out packets and remove floods:
+
+        # Filter out packets:
         filtered_packets = [ pkt for pkt in self.all_packets if
             scapyall.TCP in pkt and
             not scapyall.ICMP in pkt and
             pkt[scapyall.TCP].sport == 1234 and
             pkt[scapyall.TCP].dport == TCP_DST_PORT and
-            self.check_tcp_payload(pkt)
-            ]
-        logger.info("Number of filtered packets captured: {}".format(
-            len(filtered_packets)))
-
-        # Re-arrange packets, if delayed, by Payload ID and Timestamp:
-        packets = sorted(filtered_packets, key = lambda packet: (
-            int(str(packet[scapyall.TCP].payload).replace('X','')), packet.time ))
-        self.max_disrupt, self.total_disruption = 0, 0
-
-        if not packets or len(packets) == 0:
+            self.check_tcp_payload(pkt) and 
+            (
+                pkt[scapyall.Ether].dst == self.sent_pkt_dst_mac or
+                pkt[scapyall.Ether].src in self.received_pkt_src_mac
+            )
+        ]
+        logger.info("Number of filtered packets captured: {}".format(len(filtered_packets)))
+        if not filtered_packets or len(filtered_packets) == 0:
             logger.error("Sniffer failed to capture any traffic")
             return
-        else:
-            logger.info("Measuring traffic disruptions..")
-            filename = '/tmp/capture_filtered.pcap'
-            scapyall.wrpcap(filename, packets)
+
+        server_to_packet_map = defaultdict(list)
+
+        # Split packets into separate lists based on server IP
+        for packet in filtered_packets:
+            if self.traffic_generator == self.generate_from_t1_to_server:
+                server_addr = packet[scapyall.IP].dst
+            elif self.traffic_generator == self.generate_from_server_to_t1:
+                server_addr = packet[scapyall.IP].src
+            server_to_packet_map[server_addr].append(packet)
+
+        # For each server's packet list, sort by payload then timestamp
+        # (in case of duplicates)
+        for server in server_to_packet_map.keys():
+            server_to_packet_map[server].sort(
+                key=lambda packet: (int(str(packet[scapyall.TCP].payload)
+                                        .replace('X','')),
+                                    packet.time)
+            )
+
+        logger.info("Measuring traffic disruptions...")
+        for server_ip, packet_list in server_to_packet_map.items():
+            filename = '/tmp/capture_filtered_{}.pcap'.format(server_ip)
+            scapyall.wrpcap(filename, packet_list)
             logger.info("Filtered pcap dumped to {}".format(filename))
 
-        self.examine_each_packet(packets)
+        self.test_results = {} 
 
-        if self.total_lost_packets == 0:
-            logger.info("Gaps in forwarding not found.")
-
-        logger.info("Packet flow examine finished after {}".format(
-            str(datetime.datetime.now() - examine_start)))
-        logger.info("Total number of filtered incoming packets captured {}".format(
-            self.received_counter))
-        logger.info("Number of packets lost: {}".format(self.total_lost_packets))
+        for server_ip in natsorted(server_to_packet_map.keys()):
+            result = self.examine_each_packet(server_to_packet_map[server_ip])
+            logger.info("Server {} results:\n{}"
+                        .format(server_ip, json.dumps(result, indent=4)))
+            self.test_results[server_ip] = result
 
 
     def examine_each_packet(self, packets):
-        lost_packets = dict()
-        sent_packets = dict()
-        last_packet_received = True
-        prev_payload, prev_time = None, None
-        sent_payload = 0
-        disruption_start, disruption_stop = None, None
-        received_counter = 0    # Counts packets from dut.
+        num_sent_packets = 0
+        received_packet_list = list()
+        duplicate_packet_list = list()
+        disruption_ranges = list()
+        disruption_before_traffic = False
+        disruption_after_traffic = False
+        duplicate_ranges = []
+
         for packet in packets:
+            if packet[scapyall.Ether].dst == self.sent_pkt_dst_mac:
+                # This is a sent packet
+                num_sent_packets += 1
+                continue
+            if packet[scapyall.Ether].src in self.received_pkt_src_mac:
+                # This is a received packet.
+                curr_time = packet.time
+                curr_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
+
+                # Look back at the previous received packet to check for gaps/duplicates
+                # Only if we've already received some packets
+                if len(received_packet_list) > 0:
+                    prev_payload, prev_time = received_packet_list[-1]
+
+                    if prev_payload == curr_payload:
+                        # Duplicate packet detected, increment the counter
+                        duplicate_packet_list.append((curr_payload, curr_time))
+                    if prev_payload + 1 < curr_payload:
+                        # Non-sequential packets indicate a disruption
+                        disruption_dict = {
+                            'start_time': prev_time,
+                            'end_time': curr_time,
+                            'start_id': prev_payload,
+                            'end_id': curr_payload
+                        }
+                        disruption_ranges.append(disruption_dict)
+                    
+                # Save packets as (payload_id, timestamp) tuples
+                # for easier timing calculations later
+                received_packet_list.append((curr_payload, curr_time))
+
+        if len(received_packet_list) == 0:
+            logger.error("Sniffer failed to filter any traffic from DUT")
+        else:
+            # Find ranges of consecutive packets that have been duplicated
+            # All packets within the same consecutive range will have the same
+            # difference between the packet index and the sequence number
+            for _, grouper in groupby(enumerate(duplicate_packet_list), lambda (i,x): i - x[0]):
+                group = map(itemgetter(1), grouper)
+                duplicate_start, duplicate_end = group[0], group[-1]
+                duplicate_dict = {
+                    'start_time': duplicate_start[1],
+                    'end_time': duplicate_end[1],
+                    'start_id': duplicate_start[0],
+                    'end_id': duplicate_end[0]
+                }
+                duplicate_ranges.append(duplicate_dict)
+
+            # If the first packet we received is not #0, some disruption started
+            # before traffic started. Store the id of the first received packet
+            if received_packet_list[0][0] != 0:
+                disruption_before_traffic = received_packet_list[0][0]
+            # If the last packet we received does not match the number of packets
+            # sent, some disruption continued after the traffic finished.
+            # Store the id of the last received packet
+            if received_packet_list[-1][0] != self.packets_per_server - 1:
+                disruption_after_traffic = received_packet_list[-1][0]
+        
+        result = {
+            'sent_packets': num_sent_packets,
+            'received_packets': len(received_packet_list),
+            'disruption_before_traffic': disruption_before_traffic,
+            'disruption_after_traffic': disruption_after_traffic,
+            'duplications': duplicate_ranges,
+            'disruptions': disruption_ranges
+        }
+        
+        if num_sent_packets < self.packets_per_server:
             if self.traffic_generator == self.generate_from_t1_to_server:
                 server_addr = packet[scapyall.IP].dst
             elif self.traffic_generator == self.generate_from_server_to_t1:
                 server_addr = packet[scapyall.IP].src
 
-            if packet[scapyall.Ether].dst == self.sent_pkt_dst_mac:
-                # This is a sent packet - keep track of it as payload_id:timestamp.
-                last_packet_received = False
-                sent_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
-                sent_packets[sent_payload] = (packet.time, server_addr)
-                self.servers_with_transmissions[server_addr]["sent"] += 1
-                continue
+            logger.error('Not all sent packets were captured. '
+                         'Something went wrong!')
+            logger.error('Dumping server {} results and continuing:\n{}'
+                         .format(server_addr, json.dumps(result, indent=4)))
 
-            if packet[scapyall.Ether].src in self.received_pkt_src_mac:
-                # This is a received packet.
-                last_packet_received = True
-                received_time = packet.time
-                received_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
-                if received_payload == prev_payload:
-                    # make account for packet duplication, and keep looking for a
-                    # new and unique received packet
-                    self.servers_with_transmissions[server_addr]["duplicated"] += 1
-                    continue
-                self.servers_with_transmissions[server_addr]["received"] += 1
-                # The new received packet may mark an end of disruption for some server
-                server_history = self.servers_with_disruptions.get(server_addr)
-                if server_history and "end" not in server_history[-1]:
-                    '''
-                    The server which received this packet had experienced lost packet earlier.
-                    This marks an end of one disruptive cycle for received_server_addr
-                    The count of ["start",start-time, end-time, "end"] combinations
-                    account for number of disruptions seen for that server
-                    Example disruption cycle for one server:
-                    {"192.168.0.6": [{
-                           "start": prev_time, "start_id": lost_id,
-                            "end": received_time, "end_id": received_payload
-                        }]}
-                    '''
-                    server_history[-1].update({"end": received_time, "end_id": received_payload})
-                received_counter += 1
-
-            if not (received_payload and received_time):
-                # This is the first valid received packet.
-                prev_payload = received_payload
-                prev_time = received_time
-                continue
-
-            if received_payload - prev_payload > 1:
-                # Packets in a row are missing, a disruption.
-                consecutive_loss = (received_payload - 1) - prev_payload # How many packets lost in a row.
-                # How long disrupt lasted.
-                disrupt = (sent_packets[received_payload][0] - sent_packets[prev_payload + 1][0])
-                # Add disruption to the lost_packets dict:
-                lost_packets[prev_payload] = (consecutive_loss, disrupt)
-                # Consecutive packet is lost, find which server started experiencing disruption
-                # packets are lost from prev_payload+1 to received_payload-1
-                for lost_id in range(prev_payload + 1, received_payload):
-                    server_losing_packet = sent_packets[lost_id][1]
-                    # save the previous packet to the history -
-                    # this marks the beginning of disruption for server_losing_packet
-                    dropped_server_history = self.servers_with_disruptions.get(server_losing_packet)
-                    if not dropped_server_history or (
-                        "start" in dropped_server_history[-1] and "end" in dropped_server_history[-1]):
-                        dropped_server_history.append({"start": prev_time, "start_id": lost_id})
-                if not disruption_start:
-                    disruption_start = datetime.datetime.fromtimestamp(prev_time)
-                disruption_stop = datetime.datetime.fromtimestamp(received_time)
-            prev_payload = received_payload
-            prev_time = received_time
-
-        if not last_packet_received:
-            # The last packet in the list was a tx packet. This indicates that
-            # packets are lost starting after the last-received packet to the last sent packet
-            # TODO - calculate lost packet number when disruption never ended.
-            for lost_id in range(prev_payload + 1, sent_payload + 1):
-                server_losing_packet = sent_packets[lost_id][1]
-                dropped_server_history = self.servers_with_disruptions.get(server_losing_packet)
-                if not dropped_server_history or (
-                    "start" in dropped_server_history[-1] and "end" in dropped_server_history[-1]):
-                    dropped_server_history.append(("start", prev_time,))
-
-        self.total_lost_packets = len(sent_packets) - received_counter
-        self.received_counter = received_counter
-        self.lost_packets = lost_packets
-
-        if self.received_counter == 0:
-            logger.error("Sniffer failed to filter any traffic from DUT")
-        if self.lost_packets:
-            logger.info("Disruptions happen between {} and {}.".format(
-                str(disruption_start), str(disruption_stop)))
+        return result
 
     def check_tcp_payload(self, packet):
         """

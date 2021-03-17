@@ -1,3 +1,4 @@
+from collections import defaultdict
 import pytest
 import json
 from tests.common.dualtor.dual_tor_io import DualTorIO
@@ -28,7 +29,7 @@ def arp_setup(ptfhost):
     ptfhost.shell("supervisorctl reread && supervisorctl update")
 
 
-def generate_test_report(tor_IO, verify, delay):
+def validate_traffic_results(tor_IO, allowed_disruption, delay):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -36,60 +37,76 @@ def generate_test_report(tor_IO, verify, delay):
     Returns:
         data_plane_test_report (dict): sent/received/lost/disrupted packet counters
     """
-    received_counter = tor_IO.get_total_received_packets()
-    pytest_assert(received_counter > 0, "Test failed to capture any meaningful "\
-                "received packet")
-    total_lost_packets = tor_IO.get_total_lost_packets()
-    if total_lost_packets:
-        logging.warn("Packets were lost during the test. Total lost count: {}"\
-            .format(total_lost_packets))
+    results = tor_IO.get_test_results()
 
-    allowed_disruption = 0 if delay == 0 else 1
-    servers_with_disruptions = tor_IO.get_servers_with_disruptions()
-    servers_with_transmissions = tor_IO.get_servers_with_transmissions()
-    per_server_report = dict()
-    logger.info("Traffic summary:")
+    pytest_assert(results is not None, "No traffic test results found")
+    server_summaries = dict()
+
     failures = list()
-    for server_addr, stats  in natsorted(servers_with_disruptions.items()):
-        losstime = packets_lost = disruption_lost = 0
-        for stat in stats:
-            if "end" in stat:
-                losstime += stat["end"] - stat["start"]
-                packets_lost += (stat["end_id"] -
-                    stat["start_id"])/len(servers_with_transmissions)
-            else:
-                disruption_lost += sum( 1 for stat in stats if "end" not in stat)
-        disruptions = len(stats)
-        per_server_report.update({server_addr:{
-            "packets_lost": packets_lost,
-            "disruptions": disruptions,
-            "disruptions_time": losstime,
-            "disruption_lost": disruption_lost}})
-        logger.info("Server {}, stats: {}, disruptions count: {}".format(
-            server_addr, servers_with_transmissions[server_addr], disruptions))
-        if verify and disruptions > allowed_disruption:
-            failures.append("Server: {}: Traffic disruption count: {}. "\
-                "Allowed number of disruption: {}"\
-                    .format(server_addr, disruptions, allowed_disruption))
-        if verify and losstime > delay:
-            failures.append("Traffic was disrupted for {}s for {}. "\
-                "Maximum allowed disruption: {}s".format(losstime, server_addr, delay))
+    # Calculate and log test summaries
+    for server_ip, result in natsorted(results.items()):
+        total_received_packets = result['received_packets']
+        received_packet_diff = result['received_packets'] - result['sent_packets']
+        total_disruptions = len(result['disruptions'])
+        
+        longest_disruption = 0
+        for disruption in result['disruptions']:
+            disruption_length = disruption['end_time'] - disruption['start_time']
+            if disruption_length > longest_disruption:
+                longest_disruption = disruption_length
 
-    data_plane_test_report = {
-            "total_received_packets": tor_IO.get_total_received_packets(),
-            "total_sent_packets": tor_IO.get_total_sent_packets(),
-            "total_lost_packets": tor_IO.get_total_lost_packets(),
-            "per_server_report": per_server_report
-    }
-    logger.debug("Detailed disruption summary: {}".format(
-        json.dumps(servers_with_disruptions, indent=4)))
-    logger.debug("Data plane traffic test results: \n{}".format(
-        json.dumps(data_plane_test_report, indent=4)))
+        total_duplications = len(result['duplications'])
+        longest_duplication = 0
+        for duplication in result['duplications']:
+            duplication_length = duplication['end_time'] - duplication['start_time']
+            if duplication_length > longest_duplication:
+                longest_duplication = duplication_length
 
+        server_summary = {
+            'received_packets': total_received_packets,
+            'received_packet_diff': received_packet_diff,
+            'total_disruptions': total_disruptions,
+            'longest_disruption': longest_disruption,
+            'total_duplications': total_duplications,
+            'longest_duplication': longest_duplication
+        }
+        logger.info('Server {} summary:\n{}'.format(server_ip, json.dumps(server_summary, indent=4, sort_keys=True)))
+        server_summaries[server_ip] = server_summary
+
+        # Assert test results separately so all server results are logged
+        if total_received_packets <= 0:
+            failures.append("Test failed to capture any meaningful received " 
+                            "packets for server {}".format(server_ip))
+        
+        if total_disruptions > allowed_disruption:
+            failures.append("Traffic to server {} was "
+                            "disrupted {} times. Allowed number of disruptions: {}"\
+                            .format(server_ip, total_disruptions, allowed_disruption))
+
+        if longest_disruption > delay:
+            failures.append("Traffic on server {} was disrupted for {}s. "
+                            "Maximum allowed disruption: {}s"
+                            .format(server_ip, longest_disruption, delay))
+
+        if total_duplications > allowed_disruption:
+            failures.append("Traffic to server {} was duplicated {} times. " 
+                            "Allowed number of duplications: {}"
+                            .format(server_ip, total_duplications, allowed_disruption))
+
+        if longest_duplication > delay:
+            failures.append("Traffic on server {} was duplicated for {}s. "
+                            "Maximum allowed duplication: {}s"
+                            .format(server_ip, longest_duplication, delay))
+
+    pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
+
+def verify_and_report(tor_IO, verify, delay):
+    # Wait for the IO to complete before doing checks
     if verify:
-        pytest_assert(len(failures) == 0, "\n".join(failures))
-
-    return data_plane_test_report
+        allowed_disruption = 0 if delay == 0 else 1
+        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption,
+            delay=delay)
+    return tor_IO.get_test_results()
 
 
 def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
@@ -116,6 +133,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         action()
     # Wait for the IO to complete before doing checks
     send_and_sniff.join()
+    tor_IO.examine_flow()
     return tor_IO
 
 
@@ -177,7 +195,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                         action, tbinfo, tor_vlan_port, send_interval,
                         traffic_direction="t1_to_server")
 
-        return generate_test_report(tor_IO, verify, delay)
+        return verify_and_report(tor_IO, verify, delay)
 
     yield t1_to_server_io_test
 
@@ -234,7 +252,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                         action, tbinfo, tor_vlan_port, send_interval,
                         traffic_direction="server_to_t1")
 
-        return generate_test_report(tor_IO, verify, delay)
+        return verify_and_report(tor_IO, verify, delay)
 
     yield server_to_t1_io_test
 
