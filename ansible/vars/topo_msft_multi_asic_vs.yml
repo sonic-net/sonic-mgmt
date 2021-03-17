@@ -360,7 +360,7 @@ ASIC4:
           - Eth12-ASIC4
           - Eth13-ASIC4
           - Eth14-ASIC4
-          - Eth15
+          - Eth15-ASIC4
       ASIC2:
         asic_intfs:
           - Eth16-ASIC4
