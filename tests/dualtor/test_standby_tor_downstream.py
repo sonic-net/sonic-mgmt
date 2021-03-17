@@ -6,6 +6,7 @@ import ipaddress
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import dualtor_info, check_tunnel_balance, flush_neighbor
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
+from tests.common.helpers.assertions import pytest_require as pt_require
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -116,21 +117,19 @@ def test_standby_tor_downstream(dualtor_info):
     check_tunnel_balance(**params)
 
 
-def test_standby_tor_downstream_one_t1_link_down(request, rand_selected_dut, shutdown_one_uplink):
+def test_standby_tor_downstream_one_t1_link_down(request, shutdown_one_uplink):
     """
     Verify traffic is shifted to the active links and no traffic drop observed; 
     Verify CRM that no new nexthop created
     """
     # This is to ensure that dualtor_info is called after shutdown_one_uplink
     PAUSE_TIME = 30
-    down_link = shutdown_random_one_t1_link(rand_selected_dut)
     time.sleep(PAUSE_TIME)
     params = request.getfixturevalue("dualtor_info")
     check_tunnel_balance(**params)
-    no_shutdown_t1_link(rand_selected_dut, down_link)
 
 
-def test_standby_tor_downstream_t1_link_recovered(request, rand_selected_dut, verify_crm_nexthop_counter_not_increased):
+def test_standby_tor_downstream_t1_link_recovered(request, rand_selected_dut, verify_crm_nexthop_counter_not_increased, tbinfo):
     """
     Verify traffic is distributed evenly after t1 link is recovered; 
     Verify CRM that no new nexthop created
@@ -142,6 +141,10 @@ def test_standby_tor_downstream_t1_link_recovered(request, rand_selected_dut, ve
     time.sleep(PAUSE_TIME)
     # This is to ensure that dualtor_info is called after link is recovered
     params = request.getfixturevalue("dualtor_info")
+    # For mocked dualtor, we should update static route manually after link recovered
+    if 't0' in tbinfo['topo']['name']:
+        remove_loopback_routes(rand_selected_dut, params['active_tor_ip'])
+        add_loopback_routes(rand_selected_dut, params['active_tor_ip'])
     check_tunnel_balance(**params)
 
 def test_standby_tor_downstream_bgp_down(request, shutdown_one_bgp_session, verify_crm_nexthop_counter_not_increased):
@@ -168,20 +171,22 @@ def test_standby_tor_downstream_bgp_recovered(request, rand_selected_dut, verify
     check_tunnel_balance(**params)
 
     
-def test_standby_tor_downstream_loopback_route_removed(rand_selected_dut, dualtor_info):
+def test_standby_tor_downstream_loopback_route_removed(rand_selected_dut, dualtor_info, tbinfo):
     """
     Verify traffic is equally distributed via default route
     """
+    pt_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
     params = dualtor_info
     active_tor_loopback0 = params['active_tor_ip']
     remove_loopback_routes(rand_selected_dut, active_tor_loopback0)
     check_tunnel_balance(**params)
 
 
-def test_standby_tor_downstream_loopback_route_readded(rand_selected_dut, dualtor_info):
+def test_standby_tor_downstream_loopback_route_readded(rand_selected_dut, dualtor_info, tbinfo):
     """
     Verify traffic is equally distributed via loopback route
     """
+    pt_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
     params = dualtor_info
     active_tor_loopback0 = params['active_tor_ip']
     add_loopback_routes(rand_selected_dut, active_tor_loopback0)
