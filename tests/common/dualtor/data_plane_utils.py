@@ -4,6 +4,7 @@ from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 import threading
 import logging
+from natsort import natsorted
 
 logger = logging.getLogger(__name__)
 
@@ -27,35 +28,7 @@ def arp_setup(ptfhost):
     ptfhost.shell("supervisorctl reread && supervisorctl update")
 
 
-def validate_no_traffic_loss(tor_IO, allowed_disruption, delay):
-    """
-    Validates traffic loss is as expected:
-
-    """
-    received_counter = tor_IO.get_total_received_packets()
-    total_disruptions = tor_IO.get_total_disruptions()
-    longest_disruption = tor_IO.get_longest_disruption()
-    total_lost_packets = tor_IO.get_total_lost_packets()
-    duplicated_packets = tor_IO.get_duplicated_packets_count()
-
-    if received_counter:
-        pytest_assert(total_disruptions <= allowed_disruption, "Traffic was "\
-            "disrupted {} times. Allowed number of disruption: {}"\
-            .format(total_disruptions, allowed_disruption))
-        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s. "\
-            "Maximum allowed disruption: {}s".format(longest_disruption, delay))
-    else:
-        pytest_assert(received_counter > 0, "Test failed to capture any meaningful "\
-            "received packet")
-
-    if total_lost_packets:
-        logging.warn("Packets were lost during the test. Total lost count: {}"\
-            .format(total_lost_packets))
-    pytest_assert(duplicated_packets == 0, "Duplicated packets received. "\
-        "Count: {}.".format(duplicated_packets))
-
-
-def generate_test_report(tor_IO):
+def generate_test_report(tor_IO, verify, delay):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -63,32 +36,64 @@ def generate_test_report(tor_IO):
     Returns:
         data_plane_test_report (dict): sent/received/lost/disrupted packet counters
     """
+    received_counter = tor_IO.get_total_received_packets()
+    pytest_assert(received_counter > 0, "Test failed to capture any meaningful "\
+                "received packet")
+    total_lost_packets = tor_IO.get_total_lost_packets()
+    if total_lost_packets:
+        logging.warn("Packets were lost during the test. Total lost count: {}"\
+            .format(total_lost_packets))
+
+    allowed_disruption = 0 if delay == 0 else 1
+    servers_with_disruptions = tor_IO.get_servers_with_disruptions()
+    servers_with_transmissions = tor_IO.get_servers_with_transmissions()
+    per_server_report = dict()
+    logger.info("Traffic summary:")
+    failures = list()
+    for server_addr, stats  in natsorted(servers_with_disruptions.items()):
+        losstime = packets_lost = disruption_lost = 0
+        for stat in stats:
+            if "end" in stat:
+                losstime += stat["end"] - stat["start"]
+                packets_lost += (stat["end_id"] -
+                    stat["start_id"])/len(servers_with_transmissions)
+            else:
+                disruption_lost += sum( 1 for stat in stats if "end" not in stat)
+        disruptions = len(stats)
+        per_server_report.update({server_addr:{
+            "packets_lost": packets_lost,
+            "disruptions": disruptions,
+            "disruptions_time": losstime,
+            "disruption_lost": disruption_lost}})
+        logger.info("Server {}, stats: {}, disruptions count: {}".format(
+            server_addr, servers_with_transmissions[server_addr], disruptions))
+        if verify and disruptions > allowed_disruption:
+            failures.append("Server: {}: Traffic disruption count: {}. "\
+                "Allowed number of disruption: {}"\
+                    .format(server_addr, disruptions, allowed_disruption))
+        if verify and losstime > delay:
+            failures.append("Traffic was disrupted for {}s for {}. "\
+                "Maximum allowed disruption: {}s".format(losstime, server_addr, delay))
+
     data_plane_test_report = {
             "total_received_packets": tor_IO.get_total_received_packets(),
             "total_sent_packets": tor_IO.get_total_sent_packets(),
-            "duplicated_packets_count": tor_IO.get_duplicated_packets_count(),
-            "disruptions": {
-                "total_disruptions": tor_IO.get_total_disruptions(),
-                "longest_disruption": tor_IO.get_longest_disruption(),
-                "total_lost_packets": tor_IO.get_total_lost_packets()
-            },
-            "per_server_report": tor_IO.get_per_server_report()
+            "total_lost_packets": tor_IO.get_total_lost_packets(),
+            "per_server_report": per_server_report
     }
-    logger.info("Data plane traffic test results: \n{}".format(json.dumps(data_plane_test_report, indent=4)))
+    logger.debug("Detailed disruption summary: {}".format(
+        json.dumps(servers_with_disruptions, indent=4)))
+    logger.debug("Data plane traffic test results: \n{}".format(
+        json.dumps(data_plane_test_report, indent=4)))
+
+    if verify:
+        pytest_assert(len(failures) == 0, "\n".join(failures))
+
     return data_plane_test_report
 
 
-def verify_and_report(tor_IO, verify, delay):
-    # Wait for the IO to complete before doing checks
-    report = generate_test_report(tor_IO)
-    if verify:
-        allowed_disruption = 0 if delay == 0 else 1
-        validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
-            delay=delay)
-    return report
-
-
-def run_test(duthosts, activehost, ptfhost, ptfadapter, action, tbinfo, tor_vlan_port, send_interval, traffic_direction):
+def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
+            tbinfo, tor_vlan_port, send_interval, traffic_direction):
     io_ready = threading.Event()
     standbyhost = get_standbyhost(duthosts, activehost)
     tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
@@ -172,7 +177,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                         action, tbinfo, tor_vlan_port, send_interval,
                         traffic_direction="t1_to_server")
 
-        return verify_and_report(tor_IO, verify, delay)
+        return generate_test_report(tor_IO, verify, delay)
 
     yield t1_to_server_io_test
 
@@ -229,7 +234,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                         action, tbinfo, tor_vlan_port, send_interval,
                         traffic_direction="server_to_t1")
 
-        return verify_and_report(tor_IO, verify, delay)
+        return generate_test_report(tor_IO, verify, delay)
 
     yield server_to_t1_io_test
 
