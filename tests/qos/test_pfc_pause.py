@@ -29,7 +29,7 @@ PTF_PASS_RATIO_THRESH = 0.6
 MAX_TEST_INTFS_COUNT = 4
 
 @pytest.fixture(scope="module", autouse=True)
-def pfc_test_setup(duthosts, rand_one_dut_hostname):
+def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Generate configurations for the tests
 
@@ -73,7 +73,8 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname):
                 }
 
     """ Enable DUT's PFC wd """
-    duthost.shell('sudo pfcwd start_default')
+    if 'dualtor' not in tbinfo['topo']['name']:
+        duthost.shell('sudo pfcwd start_default')
 
 def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
              fanout_info, traffic_params, pause_prio=None, queue_paused=True,

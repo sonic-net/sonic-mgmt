@@ -11,6 +11,7 @@ all:
             sonic_s6100:
             sonic_a7260:
             sonic_multi_asic:
+            sonic_multi_asic_2:
         fanout:
           hosts:
             str-7260-10:
@@ -118,7 +119,22 @@ sonic_multi_asic:
   vars:
     hwsku: msft_multi_asic_vs
     iface_speed: 40000
+    num_asics: 6
+    start_topo_service: True
+    frontend_asics: [0,1,2,3]
   hosts:
     vlab-07:
       ansible_host: 10.250.0.109
-      ansible_hostv6: fec0::ffff:afa:7
+      ansible_hostv6: fec0::ffff:afa:9
+
+sonic_multi_asic_2:
+  vars:
+    hwsku: msft_four_asic_vs
+    iface_speed: 40000
+    num_asics: 4
+    start_topo_service: True
+    frontend_asics: [0,1]
+  hosts:
+    vlab-08:
+      ansible_host: 10.250.0.112
+      ansible_hostv6: fec0::ffff:afa:c

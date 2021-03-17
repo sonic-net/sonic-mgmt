@@ -12,11 +12,24 @@
 # be removed and deployed again.
 
 - set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}_hdd.vmdk"
+    vm_xml_template: "arista.xml.j2"
+  when: (vm_type | lower) == "veos"
+
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
+    vm_xml_template: "sonic_vm.xml.j2"
+  when: (vm_type | lower) == "sonic"
+
+- set_fact:
+    disk_image: "{{ disk_image_dir }}/{{ disk_image_name }}"
+
+- set_fact:
     respin_vms: []
   when: respin_vms is not defined
 
 - name: Device debug output
-  debug: msg="hostname = {{ hostname }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}"
+  debug: msg="hostname = {{ hostname }} vm_type = {{ vm_type }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}"
 
 - name: Check destination file existance
   stat: path={{ disk_image }}
@@ -29,7 +42,7 @@
 - name: Define vm {{ vm_name }}
   virt: name={{ vm_name }}
         command=define
-        xml="{{ lookup('template', 'templates/arista.xml.j2') }}"
+        xml="{{ lookup('template', 'templates/{{ vm_xml_template }}') }}"
         uri=qemu:///system
   when: vm_name not in vm_list_defined.list_vms
   become: yes

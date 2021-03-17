@@ -118,6 +118,7 @@ test_t0() {
     snmp/test_snmp_pfc_counters.py \
     snmp/test_snmp_queue.py \
     snmp/test_snmp_loopback.py \
+    snmp/test_snmp_default_route.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
@@ -127,7 +128,8 @@ test_t0() {
     test_procdockerstatsd.py \
     iface_namingmode/test_iface_namingmode.py \
     platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py"
+    bgp/test_bgpmon.py \
+    process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -163,7 +165,8 @@ test_t1_lag() {
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py"
+    bgp/test_bgpmon.py \
+    process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname

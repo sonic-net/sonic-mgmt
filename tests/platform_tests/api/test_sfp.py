@@ -60,7 +60,20 @@ class TestSfpApi(PlatformApiTestBase):
         'cable_length',
         'specification_compliance',
         'nominal_bit_rate',
-        'application_advertisement'
+    ]
+
+    # These are fields which have been added in the common parsers
+    # in sonic-platform-common/sonic_sfp, but since some vendors are
+    # using their own custom parsers, they do not yet provide these
+    # fields. So we treat them differently. Rather than failing the test
+    # if these fields are not present or 'N/A', we will simply log warnings
+    # until all vendors utilize the common parsers. At that point, we should
+    # add these into EXPECTED_XCVR_INFO_KEYS.
+    NEWLY_ADDED_XCVR_INFO_KEYS = [
+        'type_abbrv_name',
+        'application_advertisement',
+        'is_replaceable',
+        'dom_capability'
     ]
 
     EXPECTED_XCVR_BULK_STATUS_KEYS = [
@@ -219,7 +232,14 @@ class TestSfpApi(PlatformApiTestBase):
                     for key in missing_keys:
                         self.expect(False, "Transceiver {} info does not contain field: '{}'".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_INFO_KEYS)
+                    # TODO: Remove this once we can include these keys in EXPECTED_XCVR_INFO_KEYS
+                    for key in self.NEWLY_ADDED_XCVR_INFO_KEYS:
+                        if key not in actual_keys:
+                            logger.warning("test_get_transceiver_info: Transceiver {} info missing field '{}'. Vendor needs to add support.".format(i, key))
+                        elif info_dict[key] == "N/A":
+                            logger.warning("test_get_transceiver_info: Transceiver {} info value for '{}' is 'N/A'. Vendor needs to add support.".format(i, key))
+
+                    unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()

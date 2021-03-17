@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import json
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -9,6 +10,14 @@ BGP_PLAIN_TEMPLATE = 'bgp_plain.j2'
 BGP_NO_EXPORT_TEMPLATE = 'bgp_no_export.j2'
 BGP_CONFIG_BACKUP = 'backup_bgpd.conf.j2'
 DEFAULT_BGP_CONFIG = 'bgp:/usr/share/sonic/templates/bgpd/bgpd.conf.j2'
+DUMP_FILE = "/tmp/bgp_monitor_dump.log"
+CUSTOM_DUMP_SCRIPT = "bgp/bgp_monitor_dump.py"
+CUSTOM_DUMP_SCRIPT_DEST = "/usr/share/exabgp/bgp_monitor_dump.py"
+BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
+BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
+BGP_MONITOR_NAME = "bgp_monitor"
+BGP_MONITOR_PORT = 7000
+BGP_ANNOUNCE_TIME = 30 #should be enough to receive and parse bgp updates
 
 
 def apply_bgp_config(duthost, template_name):
@@ -74,3 +83,38 @@ def apply_default_bgp_config(duthost, copy=False):
         # Skip 'start-limit-hit' threshold
         duthost.shell('systemctl reset-failed bgp')
         restart_bgp(duthost)
+
+def parse_exabgp_dump(host):
+    """
+    Parse the dump file of exabgp, and build a set for checking routes
+    """
+    routes = set()
+    output_lines = host.shell("cat {}".format(DUMP_FILE), verbose=False)['stdout_lines']
+    for line in output_lines:
+        routes.add(line)
+    return routes
+
+def parse_rib(host, ip_ver):
+    """
+    Parse output of 'show bgp ipv4/6' and parse into a dict for checking routes
+    """
+    routes = {}
+    cmd = "vtysh -c \"show bgp ipv%d json\"" % ip_ver
+    route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
+    for ip, nexthops in route_data['routes'].iteritems():
+        aspath = set()
+        for nexthop in nexthops:
+            aspath.add(nexthop['path'])
+        routes[ip] = aspath
+    return routes
+
+def verify_all_routes_announce_to_bgpmon(duthost, ptfhost):
+    time.sleep(BGP_ANNOUNCE_TIME)
+    bgpmon_routes = parse_exabgp_dump(ptfhost)
+    rib_v4 = parse_rib(duthost, 4)
+    rib_v6 = parse_rib(duthost, 6)
+    routes_dut = dict(rib_v4.items() + rib_v6.items())
+    for route in routes_dut.keys():
+        if route not in bgpmon_routes:
+            return False
+    return True

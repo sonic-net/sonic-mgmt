@@ -12,8 +12,10 @@ import ipaddr as ipaddress
 from jinja2 import Template
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
+from bgp_helpers import verify_all_routes_announce_to_bgpmon 
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -92,8 +94,16 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     tor1_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + tor1_offset
 
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    tor1_namespace = DEFAULT_NAMESPACE
+    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+        if tor1 == neigh['name'] and neigh['namespace']:
+            tor1_namespace = neigh['namespace'] 
+            break
+
     setup_info = {
         'tor1': tor1,
+        'tor1_namespace': tor1_namespace,
         'tor1_exabgp_port': tor1_exabgp_port,
         'tor1_exabgp_port_v6': tor1_exabgp_port_v6,
         'other_neighbors': other_neighbors,
@@ -122,23 +132,25 @@ def update_routes(action, ptfip, port, route):
 
 
 @pytest.fixture
-def load_remove_allow_list(duthosts, rand_one_dut_hostname, request):
+def load_remove_allow_list(duthosts, setup, rand_one_dut_hostname, request):
     duthost = duthosts[rand_one_dut_hostname]
     
     allowed_list_prefixes = ALLOW_LIST['BGP_ALLOWED_PREFIXES']
     
     for k,v in allowed_list_prefixes.items():
         v['default_action'] = request.param
-    
+
+    namespace = setup['tor1_namespace']
     duthost.copy(content=json.dumps(ALLOW_LIST, indent=3), dest=ALLOW_LIST_PREFIX_JSON_FILE)
-    duthost.shell('sonic-cfggen -j {} -w'.format(ALLOW_LIST_PREFIX_JSON_FILE))
+    duthost.shell('sonic-cfggen {} -j {} -w'.format('-n ' + namespace if namespace else '', ALLOW_LIST_PREFIX_JSON_FILE))
     time.sleep(3)
 
     yield request.param
 
-    allow_list_keys = duthost.shell('redis-cli --raw -n 4 keys "BGP_ALLOWED_PREFIXES*"')['stdout_lines']
+    allow_list_keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format('-n ' + namespace if namespace else ''))['stdout_lines']
     for key in allow_list_keys:
-        duthost.shell('redis-cli -n 4 del "{}"'.format(key))
+        duthost.shell('sonic-db-cli {} CONFIG_DB del "{}"'.format('-n ' + namespace if namespace else '', key))
+
     duthost.shell('rm -rf {}'.format(ALLOW_LIST_PREFIX_JSON_FILE))
 
 
@@ -209,10 +221,10 @@ class TestBGPAllowListBase(object):
                 route_entries = tor1_route['vrfs']['default']['bgpRouteEntries']
                 pytest_assert(prefix in route_entries, 'Announced route {} not found on {}'.format(prefix, tor1))
 
-    def check_routes_on_dut(self, duthost):
+    def check_routes_on_dut(self, duthost, namespace):
         for prefixes in PREFIX_LISTS.values():
             for prefix in prefixes:
-                dut_route = duthost.get_route(prefix)
+                dut_route = duthost.get_route(prefix, namespace)
                 pytest_assert(dut_route, 'Route {} is not found on DUT'.format(prefix))
 
     def check_results(self, results):
@@ -355,20 +367,24 @@ class TestBGPAllowListBase(object):
         results = parallel_run(check_other_neigh, (nbrhosts, permit), {}, other_neighbors, timeout=180)
         self.check_results(results)
 
-    def test_default_allow_list_preconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts):
+    def test_default_allow_list_preconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
         permit = True if DEFAULT_ACTION == "permit" else False
         duthost = duthosts[rand_one_dut_hostname]
         self.check_routes_on_tor1(setup, nbrhosts)
-        self.check_routes_on_dut(duthost)
+        self.check_routes_on_dut(duthost, setup['tor1_namespace'])
         self.check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit)
-
+        pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
+                      "Not all routes are announced to bgpmon")
+ 
     @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
-    def test_allow_list(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list):
+    def test_allow_list(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
         permit = True if load_remove_allow_list == "permit" else False
         duthost = duthosts[rand_one_dut_hostname]
         self.check_routes_on_tor1(setup, nbrhosts)
-        self.check_routes_on_dut(duthost)
+        self.check_routes_on_dut(duthost, setup['tor1_namespace'])
         self.check_routes_on_neighbors(nbrhosts, setup, permit)
+        pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
+                      "Not all routes are announced to bgpmon")
     
-    def test_default_allow_list_postconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts):
-        self.test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, setup, nbrhosts)
+    def test_default_allow_list_postconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
+        self.test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown)
