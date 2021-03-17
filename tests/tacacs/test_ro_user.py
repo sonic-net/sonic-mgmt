@@ -80,7 +80,6 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'sudo decode-syseeprom',
             'sudo generate_dump -s "5 secs ago"',
             'sudo lldpshow',
-            'sudo pcieutil check',
             # 'sudo psuutil *',
             # 'sudo sfputil show *',
             'sudo ip netns identify 1',
@@ -94,6 +93,10 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
             'sudo ipintutil -n asic0 -d all',
             'sudo ipintutil -n asic0 -d all -a ipv6',
         ]
+
+    # pcieutil may not be available in 201911
+    if '201911' not in duthost.os_version:
+        commands_direct += ['sudo pcieutil check']
 
     # Run as readonly use the commands allowed indirectly based on sudoers file
     commands_indirect = [
