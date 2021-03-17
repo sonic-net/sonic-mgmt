@@ -8,7 +8,7 @@ pytestmark = [
 
 @pytest.fixture(scope='module')
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                   enum_rand_one_asic_index , tbinfo):
+                   enum_rand_one_asic_index):
     """
      Prepares dut for the testcase by deleting the existing port channel members and ip,
      adds a new portchannel and assignes port channel members and ip
@@ -19,7 +19,6 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
          enum_rand_one_per_hwsku_frontend_hostname <int>:
           random per fromtend per hwsku duthost
          enum_rand_one_asic_index<int>: random asic index
-         tbinfo <object>: testbed info object
 
     Returns:
         portchannel_ip <str> : portchannel ip address
@@ -62,7 +61,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
 
 def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                       enum_rand_one_asic_index, tbinfo):
+                       enum_rand_one_asic_index):
     """
     test to verify when a LAG is added/deleted via CLI on an ASIC,
      It is populated in remote ASIC_DB.
