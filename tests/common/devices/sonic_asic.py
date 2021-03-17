@@ -241,7 +241,7 @@ class SonicAsic(object):
                     mg_facts["minigraph_portchannels"][port_channel]["members"]
                 )
             )
-            if "BP" not in port_name:
+            if "Ethernet-BP" not in port_name:
                 return False
         return True
 
