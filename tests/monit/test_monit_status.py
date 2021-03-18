@@ -14,6 +14,7 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer
 ]
+
 @pytest.fixture
 def disable_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -43,7 +44,5 @@ def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_hostname, disable_lldp):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if '201911' not in duthost.os_version:
-        pytest.skip("Skip test as monit might not being used for process monitoring.")
     if not wait_until(180, 60, check_monit_last_output, duthost):
         pytest.fail("Expected Monit reporting message not found")
