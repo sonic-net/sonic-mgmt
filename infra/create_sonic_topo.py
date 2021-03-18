@@ -483,10 +483,10 @@ def main():
         vEOS_count = 32
 
     if clean_sim:
-        os.system("/auto/vxr/pyvxr/pyvxr-1.0.4/vxr.py clean")
+        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
     
-    os.system("/auto/vxr/pyvxr/pyvxr-1.0.4/vxr.py start {}".format(topo_yaml))
-    os.system("/auto/vxr/pyvxr/pyvxr-1.0.4/vxr.py ports > vxr_ports.yaml")
+    os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py start {}".format(topo_yaml))
+    os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
     input_file = args['input_file']
     
     if input_file is None:
