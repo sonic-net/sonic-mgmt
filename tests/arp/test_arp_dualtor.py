@@ -99,7 +99,7 @@ def test_proxy_arp(common_setup_teardown, setup_ptf_arp, intfs_for_test, ptfhost
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
     '''
     duthost, _, router_mac = common_setup_teardown
-    intf1, _, _, = intfs_for_test
+
 
     ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name = setup_ptf_arp
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
