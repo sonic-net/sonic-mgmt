@@ -107,6 +107,10 @@ def get_port_alias_to_name_map(hwsku):
     elif hwsku == "newport":
         for i in range(0, 256, 8):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "32x100Gb":
+        # Cisco 8000 - Mathilda 32 Ports
+        for i in range(0, 31):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i            
     elif hwsku == "36x100Gb":
         # Cisco 8000 - 1 Rack Unit
         for i in range(0, 37):
