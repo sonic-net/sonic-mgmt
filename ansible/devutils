@@ -159,8 +159,9 @@ def action_ping(parameters):
     header = ['Host', 'Hostname', 'Ping result']
     data = []
     for name, vars in hosts.items():
-        cmd = 'timeout 1 ping -q -c 1 -w 1 {}'.format(vars['ansible_host'])
-        g_task_runner.submit_task(name + '|' + vars['ansible_host'], run_cmd, cmd=cmd)
+        if 'ansible_host' in vars:
+            cmd = 'timeout 1 ping -q -c 1 -w 1 {}'.format(vars['ansible_host'])
+            g_task_runner.submit_task(name + '|' + vars['ansible_host'], run_cmd, cmd=cmd)
     if parameters['json']:
         for name, result in g_task_runner.task_results():
             data.append(
