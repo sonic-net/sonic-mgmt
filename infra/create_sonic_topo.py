@@ -161,14 +161,14 @@ def vEOS_inital_cfg(data,vEOS_count):
         add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout)
 
 
-def create_testbed_file(data,base_topo_file,vEOS_count):    
+def create_testbed_file(data,base_topo_file,vEOS_count, dut_name):    
     input_file = base_topo_file
     with open(input_file) as f:
         tdata = yaml.load(f, Loader=yaml.FullLoader)
         f.close()
 
-    tdata['devices']['sherman-01']['ansible']['ansible_host'] = data['sonic_dut']['xr_mgmt_ip']
-    tdata['devices']['sherman-01']['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
+    tdata['devices'][dut_name]['ansible']['ansible_host'] = data['sonic_dut']['xr_mgmt_ip']
+    tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
     tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['ptf']['xr_mgmt_ip'] + '/24'
     base = 100
@@ -320,12 +320,12 @@ def add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout):
     time.sleep(1)
     tn.close()
 
-def download_mg(data,topo_type):
+def download_mg(data,topo_type,dut_name):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
-    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/sherman-01.{}.xml'.format(topo_type), 'minigraph.xml')
+    ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/{}.{}.xml'.format(dut_name,topo_type), 'minigraph.xml')
     ftp_client.close()
     ssh.close()
 
@@ -468,15 +468,17 @@ def main():
     if topo_type == 't0':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
+            dut_name = 'sherman-01'
         else:
-            base_topo_file = 'testbed-math32-t0.yaml'
+            base_topo_file = 'testbed-mth32-t0.yaml'
+            dut_name = 'mathilda-01'
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
     else:
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
         else:
-            base_topo_file = 'testbed-math32-t1.yaml'
+            base_topo_file = 'testbed-mth32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 32
 
@@ -505,7 +507,7 @@ def main():
 
     # Create testbed file based on vxr_ports 
     print("****** Create testbed file based on vxr_ports *******")
-    create_testbed_file(data,base_topo_file,vEOS_count)
+    create_testbed_file(data,base_topo_file,vEOS_count,dut_name)
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
@@ -521,7 +523,7 @@ def main():
 
     # Start docker container, deploy DUT minigraph
     #print("********** Download DUT minigraph ***********")
-    #download_mg(data,topo_type)
+    #download_mg(data,topo_type,,dut_name)
 
     # Replace DUT Mgmt Address
     #print("********** Replace DUT Mgmt Address ***********")
