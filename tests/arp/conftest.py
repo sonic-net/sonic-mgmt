@@ -31,7 +31,7 @@ def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 @pytest.fixture(scope="module")
 def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asic = duthost.get_asic_or_sonic_host(enum_frontend_asic_index)
+    asic = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asic.get_extended_minigraph_facts(tbinfo)
     external_ports = [p for p in mg_facts['minigraph_ports'].keys() if 'BP' not in p]
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
