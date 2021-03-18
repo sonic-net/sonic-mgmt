@@ -10,11 +10,14 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import *
 from tests.common.dualtor.dual_tor_utils import *
+from tests.common.cache import FactsCache
+from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
 MONIT_STABILIZE_MAX_TIME = 420
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
+cache = FactsCache()
 
 __all__ = [
     'check_services',
@@ -23,12 +26,13 @@ __all__ = [
     'check_dbmemory',
     'check_monit',
     'check_processes',
-    'check_mux_simulator']
+    'check_mux_simulator',
+    'check_secureboot']
 
 
 @pytest.fixture(scope="module")
 def check_services(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking services status on %s..." % dut.hostname)
@@ -109,7 +113,7 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
 
 @pytest.fixture(scope="module")
 def check_interfaces(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts.frontend_nodes:
             logger.info("Checking interfaces status on %s..." % dut.hostname)
@@ -125,7 +129,7 @@ def check_interfaces(duthosts):
             for asic in dut.asics:
                 ip_interfaces = []
                 cfg_facts = asic.config_facts(host=dut.hostname,
-                                            source="persistent")['ansible_facts']
+                                            source="persistent", verbose=False)['ansible_facts']
                 phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if "admin_status" in v and v["admin_status"] == "up"]
                 if "PORTCHANNEL_INTERFACE" in cfg_facts:
                     ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
@@ -164,7 +168,7 @@ def check_interfaces(duthosts):
 
 @pytest.fixture(scope="module")
 def check_bgp(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts.frontend_nodes:
             def _check_bgp_status_helper():
@@ -242,7 +246,7 @@ def _is_db_omem_over_threshold(command_output):
 
 @pytest.fixture(scope="module")
 def check_dbmemory(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking database memory on %s..." % dut.hostname)
@@ -302,7 +306,7 @@ def get_arp_pkt_info(dut):
 def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
                         recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
 
-    def _check():
+    def _check(*args, **kwargs):
         """
         @summary: Checks if the OVS bridge mux simulator is functioning correctly
         @return: A dictionary containing the testing result of the PTF interface tested:
@@ -340,7 +344,7 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
                                                         ip_snd=lower_tor_mgmt_ip,
                                                         ip_tgt=lower_tor_ping_tgt_ip,
                                                         hw_snd=lower_tor_intf_mac)
-        
+
         ptf_arp_pkt = testutils.simple_arp_packet(ip_tgt=ptf_arp_tgt_ip,
                                                 ip_snd=ptf_arp_tgt_ip,
                                                 arp_op=2)
@@ -454,7 +458,7 @@ def check_monit(duthosts):
               in the correct status or not.
     @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking status of each Monit service...")
@@ -512,7 +516,7 @@ def check_monit(duthosts):
 
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
-    def _check():
+    def _check(*args, **kwargs):
         check_results = []
         for dut in duthosts:
             logger.info("Checking process status on %s..." % dut.hostname)
@@ -557,3 +561,118 @@ def check_processes(duthosts):
 
         return check_results
     return _check
+
+@pytest.fixture(scope="module")
+def check_secureboot(duthosts, request):
+    """
+    Check if the file change in rw folder is as expected when secureboot feature enabled
+    If the file change is only for test, not for product, please add the change in the default_allowlist below
+    """
+
+    default_allowlist = [ r".*\.pyc" ]
+    cache_location = 'secureboot_sanity_check'
+    module = request.module.__name__
+
+    def _read_config_by_dut(duthost):
+        results = {}
+
+        # Check if secure boot enabled
+        check_secureboot_cmd = r"grep -q 'secure_boot_enable=y' /proc/cmdline && echo y"
+        shell_result = duthost.shell(check_secureboot_cmd, module_ignore_errors=True)
+        if shell_result['stdout'].strip() != 'y':
+            logger.info("Skipped to check secure boot for dut %s, since the secure boot is not enabled" % duthost.hostname)
+            return results
+
+        # Read the allowlist
+        allowlist = []
+        results['allowlist'] = allowlist
+        read_allowlist_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); unzip -p /host/$IMAGE/sonic.swi allowlist_paths.conf"
+        shell_result = duthost.shell(read_allowlist_cmd, module_ignore_errors=True)
+        stdout = shell_result['stdout']
+        for line in stdout.split('\n'):
+            line = line.strip()
+            if len(line) > 0:
+                allowlist.append(line)
+        logger.info("Read %d allowlist settings from dut %s" % (len(allowlist), duthost.hostname))
+
+        # Read the rw files
+        rw_files = {}
+        results['rw'] = rw_files
+        ls_rw_files_cmd = r"IMAGE=$(sed 's#.* loop=\(.*\)/.*#\1#' /proc/cmdline); find /host/$IMAGE/rw -type f -exec md5sum {} \; | sed -E 's#/host/[^/]+/rw/##g'"
+        shell_result = duthost.shell(ls_rw_files_cmd, module_ignore_errors=True)
+        stdout = shell_result['stdout']
+        for line in stdout.split('\n'):
+            line = line.strip()
+            if len(line) > 33:
+                filename = line[33:].strip()
+                rw_files[filename] = line[:32] #md5sum
+        logger.info("Read %d rw files from dut %s" % (len(rw_files), duthost.hostname))
+
+        return results
+
+    def _read_configs():
+        results = {}
+        for duthost in duthosts:
+            config = _read_config_by_dut(duthost)
+            if config:
+                results[duthost.hostname] = config
+        return results
+
+    def _do_check(allowlist, filenames, hostname):
+        conflicts = []
+        allowlist_all = default_allowlist + allowlist
+        pattern = '|'.join(allowlist_all)
+        pattern = '^%s$' % pattern
+        for filename in filenames:
+            if not re.match(pattern, filename):
+                logger.error('Unexpected change file found: %s' % filename)
+                conflicts.append(filename)
+
+        return conflicts
+
+    def _pre_check():
+        configs = _read_configs()
+        cache.write(cache_location, module, configs)
+
+    def _post_check():
+        check_results = []
+        old_configs = cache.read(cache_location, module)
+        if not old_configs:
+            old_configs = {}
+        new_configs = _read_configs()
+        for hostname in new_configs:
+            new_config = new_configs[hostname]
+            new_files = new_config['rw']
+            allowlist = new_config['allowlist']
+            old_config = old_configs.get(hostname, {})
+            old_files = old_config.get('rw', {})
+            change_files = {}
+            for filename in new_files:
+                if filename not in old_files or old_files[filename] != new_files[filename]:
+                    change_files[filename] = hostname
+
+            # Check if the file change is expected
+            check_result = {"failed": False, "check_item": "secureboot", "host": hostname}
+            conflicts = _do_check(allowlist, change_files, hostname)
+            if conflicts:
+                check_result["failed"] = True
+                reason = 'Unexpected change files: %s in %s' % (','.join(conflicts), hostname)
+                check_result["failed_reason"] = reason
+            check_results.append(check_result)
+
+        return check_results
+
+    def _check(*args, **kwargs):
+        check_results = []
+        stage = kwargs.get('stage', None)
+
+        if stage == STAGE_PRE_TEST:
+            _pre_check()
+        elif stage == STAGE_POST_TEST:
+            check_results = _post_check()
+        if not check_results:
+            check_result = {"failed": False, "check_item": "secureboot"}
+            check_results.append(check_result)
+
+        return check_results
+    return _check 

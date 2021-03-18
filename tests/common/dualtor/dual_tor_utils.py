@@ -6,28 +6,39 @@ import json
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
 
+from collections import defaultdict
 from natsort import natsorted
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 
-__all__ = ['tor_mux_intf', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host']
+__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
 
 logger = logging.getLogger(__name__)
 
-UPPER_TOR = 'upper_tor'
-LOWER_TOR = 'lower_tor'
+
+def get_tor_mux_intfs(duthost):
+    return sorted(duthost.get_vlan_intfs(), key=lambda intf: int(intf.replace('Ethernet', '')))
 
 
 @pytest.fixture(scope='session')
-def tor_mux_intf(duthosts):
+def tor_mux_intfs(duthosts):
     '''
-    Returns the server-facing interface on the ToR to be used for testing
+    Returns the server-facing interfaces on the ToR to be used for testing
     '''
     # The same ports on both ToRs should be connected to the same PTF port
-    dut = duthosts[0]
-    return sorted(dut.get_vlan_intfs(), key=lambda intf: int(intf.replace('Ethernet', '')))[0]
+    return get_tor_mux_intfs(duthosts[0])
+
+
+@pytest.fixture(scope='session')
+def tor_mux_intf(tor_mux_intfs):
+    '''
+    Returns the first server-facing interface on the ToR to be used for testing
+    '''
+    # The same ports on both ToRs should be connected to the same PTF port
+    return tor_mux_intfs[0]
 
 
 @pytest.fixture(scope='session')
@@ -185,19 +196,30 @@ def update_mux_configs_and_config_reload(dut, state):
     dut.file(path=TMP_FILE, state='absent')
 
 
-def force_active_tor(dut, intf):
+@pytest.fixture
+def force_active_tor():
     """
     @summary: Manually set dut host to the active tor for intf
     @param dut: The duthost for which to toggle mux
     @param intf: One or a list of names of interface or 'all' for all interfaces
     """
-    if type(intf) == str:
-        cmds = ["config muxcable mode active {}".format(intf)]
-    else:
-        cmds = []
-        for i in intf:
-            cmds.append("config muxcable mode active {}".format(i))
-    dut.shell_cmds(cmds=cmds)
+    forced_intfs = []
+    def force_active_tor_fn(dut, intf):
+        if type(intf) == str:
+            cmds = ["config muxcable mode active {}; true".format(intf)]
+            forced_intfs.append((dut, intf))
+        else:
+            cmds = []
+            for i in intf:
+                forced_intfs.append((dut, i))
+                cmds.append("config muxcable mode active {}; true".format(i))
+        dut.shell_cmds(cmds=cmds, continue_on_fail=True)
+
+    yield force_active_tor_fn
+
+    for x in forced_intfs:
+        x[0].shell("config muxcable mode auto {}; true".format(x[1]))
+
 
 
 def _get_tor_fanouthosts(tor_host, fanouthosts):
@@ -256,20 +278,21 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
         tbinfo (dict): Testbed info from the tbinfo fixture.
         dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All the
             fanout interfaces that are connected to the specified DUT interfaces will be shutdown. If dut_intfs is not
-            specified, the function will shutdown all the fanout interfaces that are connected to the tor_host DUT.
+            specified, the function will shutdown all the fanout interfaces that are connected to the tor_host DUT and in a VLAN.
             Defaults to None.
 
     Returns:
-        list of tuple: Return a list of tuple. Each tuple has two items. The first item is the host object for fanout.
-            The second item is the fanout interface that has been shutdown. The returned list makes it easy to recover
-            the interfaces.
+        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down 
+                                 on that host device.
     """
-    down_intfs = []
-
     if not dut_intfs:
-        # If no interface is specified, shutdown all ports
-        mg_facts = tor_host.get_extended_minigraph_facts(tbinfo)
-        dut_intfs = mg_facts['minigraph_ports'].keys()
+        # If no interface is specified, shutdown all VLAN ports
+        vlan_intfs = []
+        vlan_member_table = tor_host.get_running_config_facts()['VLAN_MEMBER']
+        for vlan_members in vlan_member_table.values():
+            vlan_intfs.extend(list(vlan_members.keys()))
+
+        dut_intfs = vlan_intfs
 
     dut_intfs = natsorted(dut_intfs)
 
@@ -283,22 +306,27 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
     logger.debug('full_dut_fanout_port_map: {}'.format(full_dut_fanout_port_map))
 
+    fanout_shut_intfs = defaultdict(list)
+
     for dut_intf in dut_intfs:
         encoded_dut_intf = encode_dut_port_name(tor_host.hostname, dut_intf)
         if encoded_dut_intf in full_dut_fanout_port_map:
             fanout_host = full_dut_fanout_port_map[encoded_dut_intf]['fanout_host']
             fanout_intf = full_dut_fanout_port_map[encoded_dut_intf]['fanout_intf']
-            fanout_host.shutdown(fanout_intf)
-            down_intfs.append((fanout_host, fanout_intf))
+            fanout_shut_intfs[fanout_host].append(fanout_intf)
         else:
             logger.error('No dut intf "{}" in full_dut_fanout_port_map'.format(encoded_dut_intf))
 
-    return down_intfs
+    for fanout_host, intf_list in fanout_shut_intfs.items():
+        fanout_host.shutdown(intf_list)
+
+    return fanout_shut_intfs
 
 
 @pytest.fixture
 def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo):
-    """Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
+    """
+    Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
 
     Args:
         upper_tor_host (object): Host object for upper_tor.
@@ -308,22 +336,25 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
     Yields:
         function: A function for shutting down fanout interfaces connected to specified upper_tor interfaces
     """
-    down_intfs = []
+    shut_fanouts = []
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
-        down_intfs.extend(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
     logger.info('Recover fanout ports connected to upper_tor')
-    for fanout_host, fanout_intf in down_intfs:
-        fanout_host.no_shutdown(fanout_intf)
+
+    for instance in shut_fanouts:
+        for fanout_host, intf_list in instance.items():
+            fanout_host.no_shutdown(intf_list)
 
 
 @pytest.fixture
 def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo):
-    """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
+    """
+    Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
     Args:
         lower_tor_host (object): Host object for lower_tor.
@@ -333,17 +364,19 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
     Yields:
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
-    down_intfs = []
+    shut_fanouts = []
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
-        down_intfs.extend(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
     logger.info('Recover fanout ports connected to lower_tor')
-    for fanout_host, fanout_intf in down_intfs:
-        fanout_host.no_shutdown(fanout_intf)
+
+    for instance in shut_fanouts:
+        for fanout_host, intf_list in instance.items():
+            fanout_host.no_shutdown(intf_list)
 
 
 @pytest.fixture

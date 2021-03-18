@@ -2,8 +2,10 @@ import logging
 import pytest
 import json
 import urllib2
-from tests.common.helpers.assertions import pytest_assert
+
 from tests.common import utilities
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT
 
 __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
@@ -11,17 +13,8 @@ __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_di
 
 logger = logging.getLogger(__name__)
 
-UPPER_TOR = "upper_tor"
-LOWER_TOR = "lower_tor"
-TOGGLE = "toggle"
-RANDOM = "random"
-
 TOGGLE_SIDES = [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]
 
-NIC = "nic"
-
-DROP = "drop"
-OUTPUT = "output"
 
 @pytest.fixture(scope='session')
 def mux_server_url(request, tbinfo):
@@ -36,8 +29,8 @@ def mux_server_url(request, tbinfo):
     server = tbinfo['server']
     vmset_name = tbinfo['group-name']
     inv_files = request.config.option.ansible_inventory
-    ip = utilities.get_test_server_vars(inv_files, server, 'ansible_host')
-    port = utilities.get_group_visible_vars(inv_files, server, 'mux_simulator_port')
+    ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
+    port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_port')
     return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
 @pytest.fixture(scope='module')
@@ -274,21 +267,21 @@ def toggle_all_simulator_ports(mux_server_url):
         _toggle_all_simulator_ports(mux_server_url, side)
     return _toggle
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_upper_tor(mux_server_url):
     """
     A module level fixture to toggle all ports to upper_tor
     """
     _toggle_all_simulator_ports(mux_server_url, UPPER_TOR)
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
     """
     A module level fixture to toggle all ports to lower_tor
     """
     _toggle_all_simulator_ports(mux_server_url, LOWER_TOR)
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
     """
     A module level fixture to toggle all ports to randomly selected tor
@@ -301,7 +294,7 @@ def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand
 
     pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
     """
     A module level fixture to toggle all ports to another side
@@ -310,14 +303,14 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url):
     """
     _toggle_all_simulator_ports(mux_server_url, TOGGLE)
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_random_side(mux_server_url):
     """
     A module level fixture to toggle all ports to a random side.
     """
     _toggle_all_simulator_ports(mux_server_url, RANDOM)
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def simulator_server_down(set_drop, set_output):
     """
     A fixture to set drop on a given mux cable
