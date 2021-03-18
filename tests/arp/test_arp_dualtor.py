@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture
 def setup_ptf_arp(config_facts, ptfhost, intfs_for_test):
-    _, intf1_index, _, _, _, _, _ = intfs_for_test
+    _, _, intf1_index, _, = intfs_for_test
     ip_addr_config_cmd = 'ip addr {} {}/{} dev {}'
 
     # Calculate the IPv6 address to assign to the PTF port
