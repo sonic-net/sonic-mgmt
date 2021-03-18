@@ -161,7 +161,7 @@ class TestBGPRrTraffic():
             st.error('Received ZERO stats.')
             tc_fail_flag = 1
         else:
-            percent_rx = float(int(tg1_stats.rx.total_packets) - int(tg2_stats.tx.total_packets)) / int(
+            percent_rx = float(int(tg1_stats.tx.total_packets) - int(tg2_stats.rx.total_packets)) / int(
                 tg2_stats.tx.total_packets) * 100
             st.log('tg1_stats.rx.total_packets : {}'.format(tg1_stats.rx.total_packets))
             st.log('tg2_stats.tx.total_packets : {}'.format(tg2_stats.tx.total_packets))
