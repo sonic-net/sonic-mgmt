@@ -16,6 +16,7 @@ class QosSaiBase:
         QosSaiBase contains collection of pytest fixtures that ready the tesbed for QoS SAI test cases.
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116"]
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3"]
     TARGET_QUEUE_WRED = 3
@@ -24,89 +25,89 @@ class QosSaiBase:
     buffer_model_initialized = False
     buffer_model = None
 
-    def isBufferInApplDb(self, duthost):
+    def isBufferInApplDb(self, dut_asic):
         if not self.buffer_model_initialized:
-            self.buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')["stdout"]
+            self.buffer_model = dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "hget",
+                    "DEVICE_METADATA|localhost", "buffer_model"
+                ]
+            )
+
             self.buffer_model_initialized = True
-            logger.info("Buffer model is {}, buffer tables will be fetched from {}".
-                        format(self.buffer_model or "not defined", "APPL_DB" if self.buffer_model else "CONFIG_DB"))
+            logger.info(
+                "Buffer model is {}, buffer tables will be fetched from {}".
+                format(
+                    self.buffer_model or "not defined",
+                    "APPL_DB" if self.buffer_model else "CONFIG_DB"
+                )
+            )
         return self.buffer_model
 
-    def __runRedisCommandOrAssert(self, duthost, argv=[]):
-        """
-            Runs Redis command on DUT host.
-
-            The method asserts if the command fails.
-
-            Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
-                argv (list): List of commands to run on duthost
-
-            Returns:
-                stdout (list): List of stdout lines spewed by the invoked command
-        """
-        result = duthost.shell(argv=argv)
-        pytest_assert(result["rc"] == 0,
-                      "Failed to run Redis command '{0}' with error '{1}'".format(" ".join(map(str, argv)), result["stderr"]))
-
-        return result["stdout_lines"]
-
-    def __computeBufferThreshold(self, duthost, bufferProfile):
+    def __computeBufferThreshold(self, dut_asic, bufferProfile):
         """
             Computes buffer threshold for dynamic threshold profiles
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                dut_asic (SonicAsic): Device ASIC Under Test (DUT)
                 bufferProfile (dict, inout): Map of puffer profile attributes
 
             Returns:
                 Updates bufferProfile with computed buffer threshold
         """
-        db = "0" if self.isBufferInApplDb(duthost) else "4"
+        db = "0" if self.isBufferInApplDb(dut_asic) else "4"
         pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
-        bufferSize = int(self.__runRedisCommandOrAssert(
-            duthost,
-            argv = ["redis-cli", "-n", db, "HGET", pool, "size"]
-        )[0])
+        bufferSize = int(
+            dut_asic.run_redis_cmd(
+                argv = ["redis-cli", "-n", db, "HGET", pool, "size"]
+            )[0]
+        )
         bufferScale = 2**float(bufferProfile["dynamic_th"])
         bufferScale /= (bufferScale + 1)
-        bufferProfile.update({"static_th": int(bufferProfile["size"]) + int(bufferScale * bufferSize)})
+        bufferProfile.update(
+            {"static_th": int(bufferProfile["size"]) + int(bufferScale * bufferSize)}
+        )
 
-    def __updateVoidRoidParams(self, duthost, bufferProfile):
+    def __updateVoidRoidParams(self, dut_asic, bufferProfile):
         """
             Updates buffer profile with VOID/ROID params
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                dut_asic (SonicAsic): Device Under Test (DUT)
                 bufferProfile (dict, inout): Map of puffer profile attributes
 
             Returns:
                 Updates bufferProfile with VOID/ROID obtained from Redis db
         """
-        if self.isBufferInApplDb(duthost):
-            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(None, "[]").replace("BUFFER_POOL_TABLE:",'')
+        if self.isBufferInApplDb(dut_asic):
+            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                None, "[]").replace("BUFFER_POOL_TABLE:",''
+            )
         else:
-            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(None, "[]").replace("BUFFER_POOL|",'')
+            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                None, "[]").replace("BUFFER_POOL|",''
+            )
 
-        bufferPoolVoid = self.__runRedisCommandOrAssert(
-            duthost,
-            argv = ["redis-cli", "-n", "2", "HGET", "COUNTERS_BUFFER_POOL_NAME_MAP", bufferPoolName]
+        bufferPoolVoid = dut_asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "2", "HGET",
+                "COUNTERS_BUFFER_POOL_NAME_MAP", bufferPoolName
+            ]
         )[0].encode("utf-8")
         bufferProfile.update({"bufferPoolVoid": bufferPoolVoid})
 
-        bufferPoolRoid = self.__runRedisCommandOrAssert(
-            duthost,
+        bufferPoolRoid = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "1", "HGET", "VIDTORID", bufferPoolVoid]
         )[0].encode("utf-8").replace("oid:",'')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
-    def __getBufferProfile(self, request, duthost, table, port, priorityGroup):
+    def __getBufferProfile(self, request, dut_asic, table, port, priorityGroup):
         """
             Get buffer profile attribute from Redis db
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                dut_asic(SonicAsic): Device Under Test (DUT)
                 table (str): Redis table name
                 port (str): DUT port alias
                 priorityGroup (str): QoS priority group
@@ -114,20 +115,18 @@ class QosSaiBase:
             Returns:
                 bufferProfile (dict): Map of buffer profile attributes
         """
-        
-        if self.isBufferInApplDb(duthost):
+
+        if self.isBufferInApplDb(dut_asic):
             db = "0"
             keystr = "{0}:{1}:{2}".format(table, port, priorityGroup)
         else:
             db = "4"
             keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
-        bufferProfileName = self.__runRedisCommandOrAssert(
-            duthost,
+        bufferProfileName = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
         )[0].encode("utf-8").translate(None, "[]")
 
-        result = self.__runRedisCommandOrAssert(
-            duthost,
+        result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", db, "HGETALL", bufferProfileName]
         )
         it = iter(result)
@@ -136,55 +135,63 @@ class QosSaiBase:
 
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in bufferProfile.keys():
-            self.__computeBufferThreshold(duthost, bufferProfile)
+            self.__computeBufferThreshold(dut_asic, bufferProfile)
 
         if "pg_lossless" in bufferProfileName:
-            pytest_assert("xon" in bufferProfile.keys() and "xoff" in bufferProfile.keys(),
-                          "Could not find xon and/or xoff values for profile '{0}'".format(bufferProfileName))
+            pytest_assert(
+                "xon" in bufferProfile.keys() and "xoff" in bufferProfile.keys(),
+                "Could not find xon and/or xoff values for profile '{0}'".format(
+                    bufferProfileName
+                )
+            )
 
-        self.__updateVoidRoidParams(duthost, bufferProfile)
+        self.__updateVoidRoidParams(dut_asic, bufferProfile)
 
         return bufferProfile
 
-    def __getSharedHeadroomPoolSize(self, request, duthost):
+    def __getSharedHeadroomPoolSize(self, request, dut_asic):
         """
             Get shared headroom pool size from Redis db
 
             Args:
                 request (Fixture): pytest request object
-                duthost (AnsibleHost): Device Under Test (DUT)
+                dut_asic (SonicAsic): Device Under Test (DUT)
 
             Returns:
                 size (str) size of shared headroom pool
                 None if shared headroom pool isn't enabled
         """
-        result = self.__runRedisCommandOrAssert(
-            duthost,
-            argv = ["redis-cli", "-n", "4", "HGETALL", "BUFFER_POOL|ingress_lossless_pool"]
+        result = dut_asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HGETALL",
+                "BUFFER_POOL|ingress_lossless_pool"
+            ]
         )
         it = iter(result)
         ingressLosslessPool = dict(zip(it, it))
         return ingressLosslessPool.get("xoff")
 
-    def __getEcnWredParam(self, duthost, table, port):
+    def __getEcnWredParam(self, dut_asic, table, port):
         """
             Get ECN/WRED parameters from Redis db
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                dut_asic (SonicAsic): Device Under Test (DUT)
                 table (str): Redis table name
                 port (str): DUT port alias
 
             Returns:
                 wredProfile (dict): Map of ECN/WRED attributes
         """
-        wredProfileName = self.__runRedisCommandOrAssert(
-            duthost,
-            argv = ["redis-cli", "-n", "4", "HGET", "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED), "wred_profile"]
+        wredProfileName = dut_asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HGET",
+                "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                "wred_profile"
+            ]
         )[0].encode("utf-8").translate(None, "[]")
 
-        result = self.__runRedisCommandOrAssert(
-            duthost,
+        result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGETALL", wredProfileName]
         )
         it = iter(result)
@@ -192,42 +199,45 @@ class QosSaiBase:
 
         return wredProfile
 
-    def __getWatermarkStatus(self, duthost):
+    def __getWatermarkStatus(self, dut_asic):
         """
             Get watermark status from Redis db
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                dut_asic (SonicAsic): Device Under Test (DUT)
 
             Returns:
                 watermarkStatus (str): Watermark status
         """
-        watermarkStatus = self.__runRedisCommandOrAssert(
-            duthost,
-            argv = ["redis-cli", "-n", "4", "HGET", "FLEX_COUNTER_TABLE|QUEUE_WATERMARK", "FLEX_COUNTER_STATUS"]
+        watermarkStatus = dut_asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HGET",
+                "FLEX_COUNTER_TABLE|QUEUE_WATERMARK", "FLEX_COUNTER_STATUS"
+            ]
         )[0].encode("utf-8")
 
         return watermarkStatus
 
-    def __getSchedulerParam(self, duthost, port, queue):
+    def __getSchedulerParam(self, dut_asic, port, queue):
         """
             Get scheduler parameters from Redis db
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                dut_asic (SonicAsic): Device Under Test (DUT)
                 port (str): DUT port alias
                 queue (str): QoS queue
 
             Returns:
                 SchedulerParam (dict): Map of scheduler parameters
         """
-        schedProfile = self.__runRedisCommandOrAssert(
-            duthost,
-            argv = ["redis-cli", "-n", "4", "HGET", "QUEUE|{0}|{1}".format(port, queue), "scheduler"]
+        schedProfile = dut_asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HGET",
+                "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+            ]
         )[0].encode("utf-8").translate(None, "[]")
 
-        schedWeight = self.__runRedisCommandOrAssert(
-            duthost,
+        schedWeight = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
         )[0].encode("utf-8")
 
@@ -277,11 +287,30 @@ class QosSaiBase:
         dstPorts = request.config.getoption("--qos_dst_ports")
         srcPorts = request.config.getoption("--qos_src_ports")
 
-        pytest_assert(len(set(dstPorts).intersection(set(srcPorts))) == 0,
-                      "Duplicate destination and source ports '{0}'".format(set(dstPorts).intersection(set(srcPorts))))
+        if dstPorts is None:
+            if len(testPortIds) >= 4:
+                dstPorts = [0, 2, 3]
+            elif len(testPortIds) == 3:
+                dstPorts = [0, 2, 2]
+            else:
+                dstPorts = [0, 0, 0]
 
-        pytest_assert(len(dstPorts) == 3 and len(srcPorts) == 1,
-                      "Invalid number of ports provided, qos_dst_ports:{0}, qos_src_ports:{1}".format(len(dstPorts), len(srcPorts)))
+        if srcPorts is None:
+            srcPorts = [1]
+
+        pytest_assert(len(testPortIds) >= 2, "Provide at least 2 test ports")
+        logging.debug(
+            "Test Port IDs:{} IPs:{}".format(testPortIds, testPortIps)
+        )
+        logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
+
+        pytest_assert(
+            len(set(dstPorts).intersection(set(srcPorts))) == 0,
+            "Duplicate destination and source ports '{0}'".format(
+                set(dstPorts).intersection(set(srcPorts))
+            )
+        )
+
 
         #TODO: Randomize port selection
         return {
@@ -336,6 +365,7 @@ class QosSaiBase:
                       chdir = "/root",
                       )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
+
     @pytest.fixture(scope='class')
     def swapSyncd(self, request, duthosts, rand_one_dut_hostname, creds):
         """
@@ -360,7 +390,10 @@ class QosSaiBase:
                 docker.restore_default_syncd(duthost, creds)
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutConfig(self, request, duthosts, rand_one_dut_hostname, tbinfo):
+    def dutConfig(
+        self, request, duthosts, rand_one_dut_hostname, tbinfo,
+        enum_frontend_asic_index
+    ):
         """
             Build DUT host config pertaining to QoS SAI tests
 
@@ -369,46 +402,92 @@ class QosSaiBase:
                 duthost (AnsibleHost): Device Under Test (DUT)
 
             Returns:
-                dutConfig (dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs, and
-                    test ports
+                dutConfig (dict): Map of DUT config containing dut interfaces,
+                test port IDs, test port IPs, and test ports
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dutLagInterfaces = []
-        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
-
-        for _, lag in mgFacts["minigraph_portchannels"].items():
-            for intf in lag["members"]:
-                dutLagInterfaces.append(mgFacts["minigraph_ptf_indices"][intf])
-
-        testPortIds = set(mgFacts["minigraph_ptf_indices"][port] for port in mgFacts["minigraph_ports"].keys())
-        testPortIds -= set(dutLagInterfaces)
-        if isMellanoxDevice(duthost):
-            # The last port is used for up link from DUT switch
-            testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
-        testPortIds = sorted(testPortIds)
-
-        # get current DUT port IPs
         dutPortIps = {}
-        for portConfig in mgFacts["minigraph_interfaces"]:
-            if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
-                portIndex = mgFacts["minigraph_ptf_indices"][portConfig["attachto"]]
-                if portIndex in testPortIds:
-                    dutPortIps.update({portIndex: portConfig["peer_addr"]})
+        testPortIps = {}
 
-        testPortIps = self.__assignTestPortIps(mgFacts)
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        topo = tbinfo["topo"]["name"]
+
+        testPortIds = []
+        # LAG ports in T1 TOPO need to be removed in Mellanox devices
+        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
+            pytest_assert(
+                not duthost.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
+            )
+            for _, lag in mgFacts["minigraph_portchannels"].items():
+                for intf in lag["members"]:
+                    dutLagInterfaces.append(mgFacts["minigraph_ptf_indices"][intf])
+
+            testPortIds = set(mgFacts["minigraph_ptf_indices"][port]
+                                for port in mgFacts["minigraph_ports"].keys())
+            testPortIds -= set(dutLagInterfaces)
+            if isMellanoxDevice(duthost):
+                # The last port is used for up link from DUT switch
+                testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
+            testPortIds = sorted(testPortIds)
+
+            # get current DUT port IPs
+            dutPortIps = {}
+            for portConfig in mgFacts["minigraph_interfaces"]:
+                if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
+                    portIndex = mgFacts["minigraph_ptf_indices"][portConfig["attachto"]]
+                    if portIndex in testPortIds:
+                        dutPortIps.update({portIndex: portConfig["peer_addr"]})
+
+            testPortIps = self.__assignTestPortIps(mgFacts)
+
+        elif topo in self.SUPPORTED_T1_TOPOS:
+            for iface,addr in dut_asic.get_active_ip_interfaces().items():
+                if iface.startswith("Ethernet"):
+                    portIndex = mgFacts["minigraph_ptf_indices"][iface]
+                    dutPortIps.update({portIndex: addr["peer_ipv4"]})
+                elif iface.startswith("PortChannel"):
+                    portName = next(
+                        iter(mgFacts["minigraph_portchannels"][iface]["members"])
+                    )
+                    portIndex = mgFacts["minigraph_ptf_indices"][portName]
+                    dutPortIps.update({portIndex: addr["peer_ipv4"]})
+
+            testPortIds = sorted(dutPortIps.keys())
+        else:
+            raise Exception("Unsupported testbed type - {}".format(topo))
+
         # restore currently assigned IPs
         testPortIps.update(dutPortIps)
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps)
         yield {
-            "dutInterfaces" : {index: port for port, index in mgFacts["minigraph_ptf_indices"].items()},
+            "dutInterfaces" : {
+                index: port for port, index in mgFacts["minigraph_ptf_indices"].items()
+            },
             "testPortIds": testPortIds,
             "testPortIps": testPortIps,
             "testPorts": testPorts,
         }
 
     @pytest.fixture(scope='class')
-    def updateIptables(self, duthosts, rand_one_dut_hostname, swapSyncd):
+    def ssh_tunnel_to_syncd_rpc(
+        self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
+        swapSyncd
+    ):
+        duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        dut_asic.create_ssh_tunnel_sai_rpc()
+
+        yield
+
+        dut_asic.remove_ssh_tunnel_sai_rpc()
+
+    @pytest.fixture(scope='class')
+    def updateIptables(
+        self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index, swapSyncd
+    ):
         """
             Update iptables on DUT host with drop rule for BGP SYNC packets
 
@@ -420,34 +499,25 @@ class QosSaiBase:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
-        def updateIptablesDropRule(duthost, ipVersion,  state='present'):
-            duthost.iptables(
-                ip_version=ipVersion,
-                action="insert",
-                rule_num="1",
-                chain="INPUT",
-                jump="DROP",
-                protocol="tcp",
-                destination_port="bgp",
-                state=state
-            )
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
 
-
-        ipVersions  = [{"ipVersion": "ipv4"}, {"ipVersion": "ipv6"}]
+        ipVersions  = [{"ip_version": "ipv4"}, {"ip_version": "ipv6"}]
 
         logger.info("Add ip[6]tables rule to drop BGP SYN Packet from peer so that we do not ACK back")
         for ipVersion in ipVersions:
-            updateIptablesDropRule(duthost, state="present", **ipVersion)
+            dut_asic.bgp_drop_rule(state="present", **ipVersion)
 
         yield
 
         logger.info("Remove ip[6]tables rule to drop BGP SYN Packet from Peer")
         for ipVersion in ipVersions:
-            updateIptablesDropRule(duthost, state="absent", **ipVersion)
+            dut_asic.bgp_drop_rule(state="absent", **ipVersion)
 
     @pytest.fixture(scope='class')
-    def stopServices(self, duthosts, rand_one_dut_hostname, swapSyncd, \
-        enable_container_autorestart, disable_container_autorestart):
+    def stopServices(
+        self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
+        swapSyncd, enable_container_autorestart, disable_container_autorestart
+    ):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -459,6 +529,7 @@ class QosSaiBase:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         def updateDockerService(host, docker="", action="", service=""):
             """
                 Helper function to update docker services
@@ -479,24 +550,23 @@ class QosSaiBase:
                     service=service
                 )
             )
+            logger.info("{}ed {}".format(action, service))
 
         services = [
-            {"docker": "lldp", "service": "lldp-syncd"},
-            {"docker": "lldp", "service": "lldpd"},
-            {"docker": "bgp",  "service": "bgpd"},
-            {"docker": "bgp",  "service": "bgpmon"}
+            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
+            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
+            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpd"},
+            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpmon"},
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         disable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
-        logger.info("Stop lldp, lldp-syncd, and bgpd services")
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
         yield
 
         enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
-        logger.info("Start lldp, lldp-syncd, and bgpd services")
         for service in services:
             updateDockerService(duthost, action="start", **service)
 
@@ -530,13 +600,18 @@ class QosSaiBase:
 
                 ".*ERR monit.*'bgp\|bgpmon' status failed.*'/usr/bin/python.* /usr/local/bin/bgpmon' is not running.*",
                 ".*ERR monit.*bgp\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
+                ".*WARNING syncd#SDK:.*check_attribs_metadata: Not implemented attribute.*",
+                ".*WARNING syncd#SDK:.*sai_set_attribute: Failed attribs check, key:Switch ID.*",
+                ".*WARNING syncd#SDK:.*check_rate: Set max rate to 0.*"
             ]
             loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
         yield
 
     @pytest.fixture(scope='class', autouse=True)
-    def disablePacketAging(self, duthosts, rand_one_dut_hostname, stopServices):
+    def disablePacketAging(
+        self, duthosts, rand_one_dut_hostname, stopServices
+    ):
         """
             disable packet aging on DUT host
 
@@ -548,6 +623,7 @@ class QosSaiBase:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
+
         if isMellanoxDevice(duthost):
             logger.info("Disable Mellanox packet aging")
             duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
@@ -562,7 +638,12 @@ class QosSaiBase:
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutQosConfig(self, duthosts, rand_one_dut_hostname, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, tbinfo):
+    def dutQosConfig(
+        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
+        dutConfig, ingressLosslessProfile, ingressLossyProfile,
+        egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
+        tbinfo
+    ):
         """
             Prepares DUT host QoS configuration
 
@@ -575,11 +656,12 @@ class QosSaiBase:
                 QoSConfig (dict): Map containing DUT host QoS configuration
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         pytest_assert("minigraph_hwsku" in mgFacts, "Could not find DUT SKU")
 
         profileName = ingressLosslessProfile["profileName"]
-        if self.isBufferInApplDb(duthost):
+        if self.isBufferInApplDb(dut_asic):
             profile_pattern = "^BUFFER_PROFILE_TABLE\:pg_lossless_(.*)_profile$"
         else:
             profile_pattern = "^BUFFER_PROFILE\|pg_lossless_(.*)_profile"
@@ -656,7 +738,10 @@ class QosSaiBase:
         }
 
     @pytest.fixture(scope='class')
-    def releaseAllPorts(self, ptfhost, dutTestParams, updateIptables):
+    def releaseAllPorts(
+        self, duthosts, rand_one_dut_hostname, ptfhost, dutTestParams,
+        updateIptables, ssh_tunnel_to_syncd_rpc
+    ):
         """
             Release all paused ports prior to running QoS SAI test cases
 
@@ -671,10 +756,16 @@ class QosSaiBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        self.runPtfTest(ptfhost, testCase="sai_qos_tests.ReleaseAllPorts", testParams=dutTestParams["basicParams"])
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
+            testParams=dutTestParams["basicParams"]
+        )
 
     @pytest.fixture(scope='class', autouse=True)
-    def populateArpEntries(self, duthosts, rand_one_dut_hostname, ptfhost, dutTestParams, dutConfig, releaseAllPorts):
+    def populateArpEntries(
+        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts,
+    ):
         """
             Update ARP entries of QoS SAI test ports
 
@@ -693,13 +784,14 @@ class QosSaiBase:
                 RunAnsibleModuleFail if ptf test fails
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulate"
         elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulatePTF"
         else:
-            result = duthost.command(argv = ["arp", "-n"])
+            result = dut_asic.command("arp -n")
             pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(duthost.hostname))
             if result["stdout"].find("incomplete") == -1:
                 saiQosTest = "sai_qos_tests.ARPpopulate"
@@ -707,10 +799,15 @@ class QosSaiBase:
         if saiQosTest:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
-            self.runPtfTest(ptfhost, testCase=saiQosTest, testParams=testParams)
+            self.runPtfTest(
+                ptfhost, testCase=saiQosTest, testParams=testParams
+            )
 
     @pytest.fixture(scope='class', autouse=True)
-    def sharedHeadroomPoolSize(self, request, duthosts, rand_one_dut_hostname):
+    def sharedHeadroomPoolSize(
+        self, request, duthosts, enum_frontend_asic_index,
+        rand_one_dut_hostname
+    ):
         """
             Retreives shared headroom pool size
 
@@ -725,11 +822,14 @@ class QosSaiBase:
         duthost = duthosts[rand_one_dut_hostname]
         yield self.__getSharedHeadroomPoolSize(
             request,
-            duthost
+            duthost.asic_instance(enum_frontend_asic_index)
         )
 
     @pytest.fixture(scope='class', autouse=True)
-    def ingressLosslessProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def ingressLosslessProfile(
+        self, request, duthosts, enum_frontend_asic_index,
+        rand_one_dut_hostname, dutConfig
+    ):
         """
             Retreives ingress lossless profile
 
@@ -743,16 +843,20 @@ class QosSaiBase:
                 ingressLosslessProfile (dict): Map of ingress lossless buffer profile attributes
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
-            duthost,
-            "BUFFER_PG_TABLE" if self.isBufferInApplDb(duthost) else "BUFFER_PG",
+            dut_asic,
+            "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
         )
 
     @pytest.fixture(scope='class', autouse=True)
-    def ingressLossyProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def ingressLossyProfile(
+        self, request, duthosts, enum_frontend_asic_index,
+        rand_one_dut_hostname, dutConfig
+    ):
         """
             Retreives ingress lossy profile
 
@@ -766,16 +870,20 @@ class QosSaiBase:
                 ingressLossyProfile (dict): Map of ingress lossy buffer profile attributes
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
-            duthost,
-            "BUFFER_PG_TABLE" if self.isBufferInApplDb(duthost) else "BUFFER_PG",
+            dut_asic,
+            "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0"
         )
 
     @pytest.fixture(scope='class', autouse=True)
-    def egressLosslessProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def egressLosslessProfile(
+        self, request, duthosts, enum_frontend_asic_index,
+        rand_one_dut_hostname, dutConfig
+    ):
         """
             Retreives egress lossless profile
 
@@ -789,79 +897,93 @@ class QosSaiBase:
                 egressLosslessProfile (dict): Map of egress lossless buffer profile attributes
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
-            duthost,
-            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(duthost) else "BUFFER_QUEUE",
+            dut_asic,
+            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
         )
 
     @pytest.fixture(scope='class', autouse=True)
-    def egressLossyProfile(self, request, duthosts, rand_one_dut_hostname, dutConfig):
+    def egressLossyProfile(
+        self, request, duthosts, enum_frontend_asic_index,
+        rand_one_dut_hostname, dutConfig
+    ):
         """
             Retreives egress lossy profile
 
             Args:
                 request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)
-                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
-                    and test ports
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces,
+                test port IDs, test port IPs, and test ports
 
             Returns:
                 egressLossyProfile (dict): Map of egress lossy buffer profile attributes
         """
         duthost = duthosts[rand_one_dut_hostname]
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
-            duthost,
-            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(duthost) else "BUFFER_QUEUE",
+            dut_asic,
+            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0-2"
         )
 
     @pytest.fixture(scope='class')
-    def losslessSchedProfile(self, duthosts, rand_one_dut_hostname, dutConfig):
+    def losslessSchedProfile(
+            self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
+            dutConfig
+        ):
         """
             Retreives lossless scheduler profile
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
-                    and test ports
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces,
+                test port IDs, test port IPs, and test ports
 
             Returns:
                 losslessSchedProfile (dict): Map of scheduler parameters
         """
         duthost = duthosts[rand_one_dut_hostname]
         yield self.__getSchedulerParam(
-            duthost,
+            duthost.asic_instance(enum_frontend_asic_index),
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             self.TARGET_LOSSLESS_QUEUE_SCHED
         )
 
     @pytest.fixture(scope='class')
-    def lossySchedProfile(self, duthosts, rand_one_dut_hostname, dutConfig):
+    def lossySchedProfile(
+        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
+        dutConfig
+    ):
         """
             Retreives lossy scheduler profile
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
-                    and test ports
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces,
+                test port IDs, test port IPs, and test ports
 
             Returns:
                 lossySchedProfile (dict): Map of scheduler parameters
         """
         duthost = duthosts[rand_one_dut_hostname]
         yield self.__getSchedulerParam(
-            duthost,
+            duthost.asic_instance(enum_frontend_asic_index),
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             self.TARGET_LOSSY_QUEUE_SCHED
         )
 
     @pytest.fixture
-    def updateSchedProfile(self, duthosts, rand_one_dut_hostname, dutQosConfig, losslessSchedProfile, lossySchedProfile):
+    def updateSchedProfile(
+        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
+        dutQosConfig, losslessSchedProfile, lossySchedProfile
+    ):
         """
             Updates lossless/lossy scheduler profiles
 
@@ -885,8 +1007,7 @@ class QosSaiBase:
                 Returns:
                     None
             """
-            self.__runRedisCommandOrAssert(
-                duthost,
+            duthost.asic_instance(enum_frontend_asic_index).run_redis_cmd(
                 argv = [
                     "redis-cli",
                     "-n",
@@ -899,8 +1020,14 @@ class QosSaiBase:
             )
 
         wrrSchedParams = [
-            {"profile": lossySchedProfile["schedProfile"], "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossy_weight"]},
-            {"profile": losslessSchedProfile["schedProfile"], "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossless_weight"]},
+            {
+                "profile": lossySchedProfile["schedProfile"],
+                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossy_weight"]
+            },
+            {
+                "profile": losslessSchedProfile["schedProfile"],
+                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossless_weight"]
+            },
         ]
 
         for schedParam in wrrSchedParams:
@@ -909,15 +1036,23 @@ class QosSaiBase:
         yield
 
         schedProfileParams = [
-            {"profile": lossySchedProfile["schedProfile"], "qosConfig": lossySchedProfile["schedWeight"]},
-            {"profile": losslessSchedProfile["schedProfile"], "qosConfig": losslessSchedProfile["schedWeight"]},
+            {
+                "profile": lossySchedProfile["schedProfile"],
+                "qosConfig": lossySchedProfile["schedWeight"]
+            },
+            {
+                "profile": losslessSchedProfile["schedProfile"],
+                "qosConfig": losslessSchedProfile["schedWeight"]
+            },
         ]
 
         for schedParam in schedProfileParams:
             updateRedisSchedParam(schedParam)
 
     @pytest.fixture
-    def resetWatermark(self, duthosts, rand_one_dut_hostname):
+    def resetWatermark(
+        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname
+    ):
         """
             Reset queue watermark
 
@@ -928,6 +1063,7 @@ class QosSaiBase:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.shell("counterpoll watermark enable")
-        duthost.shell("sleep 20")
-        duthost.shell("counterpoll watermark disable")
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        dut_asic.command("counterpoll watermark enable")
+        dut_asic.command("sleep 20")
+        dut_asic.command("counterpoll watermark disable")

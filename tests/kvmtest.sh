@@ -97,6 +97,7 @@ test_t0() {
     monit/test_monit_status.py \
     platform_tests/test_advanced_reboot.py \
     test_interfaces.py \
+    arp/test_arp_dualtor.py \
     bgp/test_bgp_fact.py \
     bgp/test_bgp_gr_helper.py \
     bgp/test_bgp_speaker.py \
@@ -117,15 +118,18 @@ test_t0() {
     snmp/test_snmp_pfc_counters.py \
     snmp/test_snmp_queue.py \
     snmp/test_snmp_loopback.py \
+    snmp/test_snmp_default_route.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
     test_procdockerstatsd.py \
     iface_namingmode/test_iface_namingmode.py \
     platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py"
+    bgp/test_bgpmon.py \
+    process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -161,7 +165,8 @@ test_t1_lag() {
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py"
+    bgp/test_bgpmon.py \
+    process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -193,9 +198,6 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
-
-# clear cache from previous test runs
-rm -rf $SONIC_MGMT_DIR/tests/_cache
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs

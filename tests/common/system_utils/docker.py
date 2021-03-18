@@ -56,17 +56,6 @@ def load_docker_registry_info(duthost, creds):
     return DockerRegistryInfo(host, username, password)
 
 
-def delete_container(duthost, container_name):
-    """Attempts to delete the specified container from the duthost.
-
-    Args:
-        duthost (SonicHost): The target device.
-        container_name (str): The name of the container to delete.
-    """
-    duthost.command("docker stop {}".format(container_name), module_ignore_errors=True)
-    duthost.command("docker rm {}".format(container_name), module_ignore_errors=True)
-
-
 def download_image(duthost, registry, image_name, image_version="latest"):
     """Attempts to download the specified image from the registry.
 
@@ -112,7 +101,8 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
 def swap_syncd(duthost, creds):
     """Replaces the running syncd container with the RPC version of it.
 
-    This will download a new Docker image to the duthost and restart the swss service.
+    This will download a new Docker image to the duthost and restart the swss 
+    service.
 
     Args:
         duthost (SonicHost): The target device.
@@ -123,9 +113,10 @@ def swap_syncd(duthost, creds):
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
-    duthost.command("config bgp shutdown all")  # Force image download to go through mgmt network
-    duthost.command("systemctl stop swss", module_ignore_errors=True)
-    delete_container(duthost, "syncd")
+    # Force image download to go through mgmt network
+    duthost.command("config bgp shutdown all")  
+    duthost.stop_service("swss")
+    duthost.delete_container("syncd")
 
     # Set sysctl RCVBUF parameter for tests
     duthost.command("sysctl -w net.core.rmem_max=609430500")
@@ -164,8 +155,8 @@ def restore_default_syncd(duthost, creds):
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
 
-    duthost.command("systemctl stop swss", module_ignore_errors=True)
-    delete_container(duthost, "syncd")
+    duthost.stop_service("swss")
+    duthost.delete_container("syncd")
 
     tag_image(
         duthost,
@@ -188,52 +179,24 @@ def restore_default_syncd(duthost, creds):
 
 def _perform_swap_syncd_shutdown_check(duthost):
     def ready_for_swap():
-        syncd_status = duthost.command("docker ps -f name=syncd")["stdout_lines"]
-        if len(syncd_status) > 1:
+        if any([
+            duthost.is_container_running("syncd"),
+            duthost.is_container_running("swss"),
+            not duthost.is_bgp_state_idle()
+        ]):
             return False
 
-        swss_status = duthost.command("docker ps -f name=swss")["stdout_lines"]
-        if len(swss_status) > 1:
-            return False
-
-        bgp_summary = duthost.command("show ip bgp summary")["stdout_lines"]
-        idle_count = 0
-        expected_idle_count = 0
-        for line in bgp_summary:
-            if "Idle (Admin)" in line:
-                idle_count += 1
-
-            if "Total number of neighbors" in line:
-                tokens = line.split()
-                expected_idle_count = int(tokens[-1])
-
-        return idle_count == expected_idle_count
+        return True
 
     shutdown_check = wait_until(30, 3, ready_for_swap)
-
-    logging.info("syncd status:\n%s", duthost.command("docker ps -f name=syncd", module_ignore_errors=True)["stdout"])
-    logging.info("swss status:\n%s", duthost.command("docker ps -f name=swss", module_ignore_errors=True)["stdout"])
-    logging.info("bgp status:\n%s", duthost.command("show ip bgp summary", module_ignore_errors=True)["stdout"])
-
     pytest_assert(shutdown_check, "Docker and/or BGP failed to shut down in 30s")
 
 
 def _perform_syncd_liveness_check(duthost):
     def check_liveness():
-        syncd_status = duthost.command(
-            "docker exec syncd supervisorctl status syncd",
-            module_ignore_errors=True
-        )["stdout"]
+        return duthost.is_service_running("syncd")
 
-        return "RUNNING" in syncd_status
-
-    liveness_check = wait_until(10, 1, check_liveness)
-
-    logging.info(
-        "syncd status:\n%s",
-        duthost.command("docker exec syncd supervisorctl status syncd", module_ignore_errors=True)["stdout"]
-    )
-
+    liveness_check = wait_until(30, 1, check_liveness)
     pytest_assert(liveness_check, "syncd crashed after swap_syncd")
 
 

@@ -4,6 +4,7 @@ import os
 import sys
 import socket
 import struct
+import traceback
 import json
 import copy
 import ipaddr as ipaddress
@@ -222,7 +223,6 @@ def parse_dpg(dpg, hname):
             mgmt_intf = {'addr': ipaddr, 'alias': intfname, 'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
 
         pcintfs = child.find(str(QName(ns, "PortChannelInterfaces")))
-        pc_intfs = []
         pcs = {}
         for pcintf in pcintfs.findall(str(QName(ns, "PortChannel"))):
             pcintfname = pcintf.find(str(QName(ns, "Name"))).text
@@ -233,12 +233,11 @@ def parse_dpg(dpg, hname):
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list}
             fallback_node = pcintf.find(str(QName(ns, "Fallback")))
-            if  fallback_node is not None:
+            if fallback_node is not None:
                 pcs[pcintfname]['fallback'] = fallback_node.text
-            ports.pop(pcintfname)
+            ports.pop(pcintfname, None)
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
-        vlan_intfs = []
         dhcp_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
@@ -253,6 +252,9 @@ def parse_dpg(dpg, hname):
                 vlandhcpservers = ""
             dhcp_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
+                # Skip PortChannel inside Vlan
+                if member in pcs:
+                    continue
                 vmbr_list[i] = port_alias_to_name_map[member]
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             vlan_attributes = {'name': vintfname, 'members': vmbr_list, 'vlanid': vlanid}
@@ -590,8 +592,9 @@ def main():
         results_clean = json.loads(json.dumps(results, cls=minigraph_encoder))
         module.exit_json(ansible_facts=results_clean)
     except Exception as e:
+        tb = traceback.format_exc()
         # all attempts to find a minigraph failed.
-        module.fail_json(msg=e.message)
+        module.fail_json(msg=e.message + "\n" + tb)
 
 
 def print_parse_xml(hostname):

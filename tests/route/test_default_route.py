@@ -16,7 +16,7 @@ def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostna
 
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asichost = duthost.get_asic(enum_asic_index)
+    asichost = duthost.asic_instance(enum_asic_index)
 
     config_facts = asichost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
@@ -52,7 +52,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_
 
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asichost = duthost.get_asic(enum_asic_index)
+    asichost = duthost.asic_instance(enum_asic_index)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
     pytest_assert(rtinfo['nexthops'] > 0, "cannot find ipv6 nexthop for default route")

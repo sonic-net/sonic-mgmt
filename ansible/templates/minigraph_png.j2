@@ -36,6 +36,36 @@
 {% endfor %}
 {% endif %}
 {% endif %}
+{% for asic in asic_topo_config %}
+{% for neigh_asic in  asic_topo_config[asic]['neigh_asic'] %}
+{% for intf in asic_topo_config[asic]['neigh_asic'][neigh_asic]['intfs'][0] | sort %}
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <Bandwidth>40000</Bandwidth>
+        <ChassisInternal>true</ChassisInternal>
+        <EndDevice>{{ neigh_asic }}</EndDevice>
+        <EndPort>{{ intf }}</EndPort>
+        <FlowControl>true</FlowControl>
+        <StartDevice>{{ asic }}</StartDevice>
+        <StartPort>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][loop.index-1] }}</StartPort>
+        <Validate>true</Validate>
+      </DeviceLinkBase>
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% for asic_intf in front_panel_asic_ifnames %}
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <Bandwidth>40000</Bandwidth>
+        <ChassisInternal>true</ChassisInternal>
+        <EndDevice>{{ asic_intf.split('-')[1] }}</EndDevice>
+        <EndPort>{{ asic_intf }}</EndPort>
+        <FlowControl>true</FlowControl>
+        <StartDevice>{{ inventory_hostname }}</StartDevice>
+        <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
+        <Validate>true</Validate>
+      </DeviceLinkBase>
+{% endfor %}
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
@@ -113,10 +143,13 @@
 {% endif %}
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
+{% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
 {% if 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
+{% elif 'T3' in dev %}
+{% set dev_type = 'CoreRouter' %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
 {% else %}
@@ -129,8 +162,36 @@
          </ManagementAddress>
          <HwSku>Arista-VM</HwSku>
       </Device>
+{% endif %}
 {% endfor %}
 {% endif %}
+{% for asic in asic_topo_config %}
+      <Device i:type="Asic">
+        <ElementType>Asic</ElementType>
+        <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>0.0.0.0/0</a:IPPrefix>
+        </Address>
+        <AddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>::/0</a:IPPrefix>
+        </AddressV6>
+        <AssociatedClustersStr/>
+        <AssociatedSliceStr/>
+        <AssociatedTagsStr/>
+        <ClusterName/>
+        <DeploymentId i:nil="true"/>
+        <DeviceLocation i:nil="true"/>
+        <HomeDatacenter i:nil="true"/>
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>0.0.0.0/0</a:IPPrefix>
+        </ManagementAddress>
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>::/0</a:IPPrefix>
+        </ManagementAddressV6>
+        <SerialNumber i:nil="true"/>
+        <Hostname>{{ asic }}</Hostname>
+        <HwSku>Broadcom-Trident2</HwSku>
+      </Device>
+{% endfor %}
     </Devices>
   </PngDec>
 

@@ -1,0 +1,208 @@
+{% macro port_channel_id(asic_idx, neigh_asic_idx) -%}
+{{ ((4000 + asic_idx + (10*neigh_asic_idx))|string) }}
+{%- endmacro -%}
+{% for asic in asic_topo_config %}
+{% set asic_index = asic.split('ASIC')[1]|int %}
+    <DeviceDataPlaneInfo>
+      <IPSecTunnels/>
+      <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:LoopbackIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ lp_ipv4 }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ lp_ipv4 }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ lp_ipv6 }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+{% for lo4096 in asic_topo_config[asic]['Loopback4096'] %}
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback4096</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ lo4096 }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ lo4096 }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+{% endfor %}
+      </LoopbackIPInterfaces>
+      <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:ManagementIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
+        </a:ManagementIPInterface>
+        <a:ManagementIPInterface>
+          <Name>V6HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</a:PrefixStr>
+        </a:ManagementIPInterface>
+      </ManagementIPInterfaces>
+      <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+      <MplsInterfaces/>
+      <MplsTeInterfaces/>
+      <RsvpInterfaces/>
+      <Hostname>{{ asic }}</Hostname>
+      <PortChannelInterfaces>
+{% for index in range(vms_number) %}
+{% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+{% set port_channel_intf=';'.join(vm_asic_ifnames[vms[index]])  %}
+        <PortChannel>
+          <Name>PortChannel{{ ((index+1)|string).zfill(4) }}</Name>
+          <AttachTo>{{ port_channel_intf }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endif %}
+{% endif %}
+{% endfor %}
+{% for neigh_asic in asic_topo_config %}
+{%- set pc_intfs = [] -%}
+{%- if neigh_asic in asic_topo_config[asic]['neigh_asic'] and 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower -%}
+{%- for intf in asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0] %}
+{{- pc_intfs.append(intf) }} 
+{%- endfor -%}
+{%- set port_channel_intf=pc_intfs|join(';') -%}
+{% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+        <PortChannel>
+          <Name>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(4) }}</Name>
+          <AttachTo>{{ port_channel_intf }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endif %}
+{% endfor %}
+      </PortChannelInterfaces>
+      <SubInterfaces/>
+      <VlanInterfaces/>
+      <IPInterfaces>
+{% for index in range(vms_number) %}
+{% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
+{% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
+        <IPInterface>
+          <Name i:nil="true"/>
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int] }}</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endif %}
+{% endfor %}
+{% for neigh_asic in asic_topo_config[asic]['neigh_asic'] %}
+        <IPInterface>
+          <Name i:nil="true"/>
+{%- if 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower %}
+{%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+          <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(4) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][0] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}/{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['ipv4mask'][0] }}</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:nil="true"/>
+{%- if 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower %}
+{%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+          <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(4) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][0] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
+        </IPInterface>
+{% endfor %}
+      </IPInterfaces>
+      <DataAcls/>
+      <AclInterfaces>
+        <AclInterface>
+          <InAcl>SNMP_ACL</InAcl>
+          <AttachTo>SNMP</AttachTo>
+          <Type>SNMP</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>ERSPAN</AttachTo>
+          <InAcl>Everflow</InAcl>
+          <Type>Everflow</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>ERSPANV6</AttachTo>
+          <InAcl>EverflowV6</InAcl>
+          <Type>EverflowV6</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>VTY_LINE</AttachTo>
+          <InAcl>ssh-only</InAcl>
+          <Type>SSH</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>
+{%- set acl_intfs = [] -%}
+{%- for index in range(vms_number) %}
+{% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
+{% set a_intf = 'PortChannel' + ((index+1) |string).zfill(4) %}
+{{- acl_intfs.append(a_intf) -}}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% for neigh_asic in asic_topo_config %}
+{% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+{%- if neigh_asic in asic_topo_config[asic]['neigh_asic'] and 'port-channel' in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower -%}
+{% set a_intf = 'PortChannel' + port_channel_id(asic_index, neigh_asic_index).zfill(4) %}
+{{- acl_intfs.append(a_intf) -}}
+{% endif %}
+{% endfor %}
+
+{%- for index in range(vms_number) -%}
+{% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
+{% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
+{% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
+{% set a_intf = front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+{{- acl_intfs.append(a_intf) -}}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endfor -%}
+{%- for neigh_asic in asic_topo_config -%}
+{%- if neigh_asic in asic_topo_config[asic]['neigh_asic'] and 'port-channel' not in asic_topo_config[asic]['neigh_asic'][neigh_asic]['ip_intf'][0]|lower -%}
+{% if asic_topo_config[asic]['neigh_asic'][neigh_asic]['intfs'][0]|length %}
+{% set a_intf = asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][0] %}
+{{- acl_intfs.append(a_intf) -}}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+{{- acl_intfs|join(';') -}}
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+          <Type>DataPlane</Type>
+        </AclInterface>
+      </AclInterfaces>
+      <DownstreamSummaries/>
+      <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    </DeviceDataPlaneInfo>
+{% endfor %}
+

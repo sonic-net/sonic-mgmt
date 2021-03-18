@@ -5,7 +5,7 @@ function show_help_and_exit()
     echo "Usage ${SCRIPT} [options]"
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
-    echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
+    echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
@@ -90,6 +90,8 @@ function setup_environment()
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+
+    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 function setup_test_options()

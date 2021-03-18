@@ -1,7 +1,6 @@
 """
 SONiC Dataplane Qos tests
 """
-
 import time
 import logging
 import ptf.packet as scapy
@@ -15,7 +14,8 @@ from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
                            simple_tcp_packet,
-                           simple_qinq_tcp_packet)
+                           simple_qinq_tcp_packet,
+                           simple_ip_packet)
 from ptf.mask import Mask
 from switch import (switch_init,
                     sai_thrift_create_scheduler_profile,
@@ -59,6 +59,41 @@ STOP_PORT_MAX_RATE = 1
 RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53 # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52 # Fits the ptf hex_dump_buffer() parse function
+
+def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip):
+    ip_id = 0xBABE
+    tos = (0 << 2) | 1
+    src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
+    pkt = simple_ip_packet(pktlen=64,
+                            eth_dst=dst_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_ip,
+                            ip_dst=dst_ip,
+                            ip_tos=tos,
+                            ip_id=ip_id)
+
+    send_packet(dp, src_port_id, pkt, 1)
+
+    exp_pkt = simple_ip_packet(pktlen=48,
+                            eth_dst=dst_mac,
+                            eth_src=src_port_mac,
+                            ip_src=src_ip,
+                            ip_dst=dst_ip,
+                            ip_tos=tos,
+                            ip_id=ip_id)
+
+    masked_exp_pkt = Mask(exp_pkt, ignore_extra_bytes=True)
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
+    result = dp.dataplane.poll(device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+    if isinstance(result, dp.dataplane.PollFailure):
+        dp.fail("Expected packet was not received. Received on port:{} {}".format(result.port, result.format()))
+
+    return result.port
 
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
@@ -154,22 +189,33 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
 
 # DSCP to queue mapping
 class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
+
     def runTest(self):
         switch_init(self.client)
 
-        router_mac = self.test_params['router_mac']        
+        router_mac = self.test_params['router_mac']
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
-        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
         exp_ip_id = 101
         exp_ttl = 63
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
 
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+        print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
+        print >> sys.stderr, "port list {}".format(port_list)
         # Get a snapshot of counter values
+
+        time.sleep(10)
         # port_results is not of our interest here
         port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
@@ -178,8 +224,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             for dscp in range(0, 64):
                 tos = (dscp << 2)
                 tos |= 1
-                pkt = simple_tcp_packet(pktlen=64,
-                                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                pkt = simple_ip_packet(pktlen=64,
+                                        eth_dst=pkt_dst_mac,
                                         eth_src=src_port_mac,
                                         ip_src=src_port_ip,
                                         ip_dst=dst_port_ip,
@@ -222,7 +268,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dscp 48 -> queue 6
             # So for the 64 pkts sent the mapping should be -> 58 queue 1, and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
             # Check results
-            assert(queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
+            # LAG ports can have LACP packets on queue 0, hence using >= comparison
+            assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
             assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
             assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
@@ -559,7 +606,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         max_buffer_size = int(self.test_params['buffer_max_size'])
-        max_queue_size = int(self.test_params['queue_max_size']) 
+        max_queue_size = int(self.test_params['queue_max_size'])
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
@@ -568,18 +615,31 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
         pkts_num_trig_ingr_drp = int(self.test_params['pkts_num_trig_ingr_drp'])
 
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
         ttl = 64
         default_packet_length = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                                eth_dst=pkt_dst_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
                                 ip_tos=tos,
                                 ip_ttl=ttl)
+
+        print >> sys.stderr, "test dst_port_id: {}, src_port_id: {}".format(
+            dst_port_id, src_port_id
+        )
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
+
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -876,7 +936,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         if self.pkts_num_trig_pfc:
             print >> sys.stderr, ("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d, pkt_size %d" % (self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))
         elif self.pkts_num_trig_pfc_shp:
-            print >> sys.stderr, ("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))            
+            print >> sys.stderr, ("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size))
 
         # used only for headroom pool watermark
         if all(key in self.test_params for key in ['hdrm_pool_wm_multiplier', 'buf_pool_roid', 'cell_size', 'max_headroom']):
@@ -1222,11 +1282,11 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
 
 class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
-        switch_init(self.client)        
+        switch_init(self.client)
 
         # Parse input parameters
         ecn = int(self.test_params['ecn'])
-        router_mac = self.test_params['router_mac']       
+        router_mac = self.test_params['router_mac']
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)

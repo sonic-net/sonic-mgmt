@@ -1,5 +1,6 @@
 import re
 import copy
+import time
 
 import pytest
 
@@ -24,6 +25,32 @@ def protocol_type(request):
     :return: protocol type
     """
     return request.param
+
+
+def pytest_addoption(parser):
+    """
+    Adds options to pytest that are used by the NAT tests.
+    """
+    parser.addoption(
+        "--enable_nat_feature",
+        action="store_true",
+        default=False,
+        help="Enable NAT feature on DUT",
+    )
+
+
+@pytest.fixture(scope='module')
+def config_nat_feature_enabled(request, duthost):
+    """
+    Enable NAT feature if optional argument was provided
+    :param request: pytest request object
+    :param duthost: DUT host object
+    """
+    if request.config.getoption("--enable_nat_feature"):
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status['nat'] == 'disabled':
+            duthost.shell("sudo config feature state nat enabled")
+            time.sleep(2)
 
 
 @pytest.fixture(autouse=True)
@@ -145,12 +172,16 @@ def nat_global_config(duthost):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def apply_global_nat_config(duthost):
+def apply_global_nat_config(duthost, config_nat_feature_enabled):
     """
     applies DUT's global NAT configuration;
     after test run cleanup DUT's NAT configration
     :param duthost: DUT host object
     """
+    status, _ = duthost.get_feature_status()
+    if 'nat' not in status or status['nat'] == 'disabled':
+        pytest.skip('nat feature is not enabled with image version {}'.format(duthost.os_version))
+
     nat_global_config(duthost)
     yield
     # reload config on teardown

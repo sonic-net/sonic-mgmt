@@ -36,7 +36,9 @@ THERMAL_NAMING_RULE = {
     },
     "gearbox": {
         "name": "Gearbox {} Temp",
-        "temperature": "gearbox{}_temp_input"
+        "temperature": "gearbox{}_temp_input",
+        "high_threshold": "mlxsw-gearbox{}/temp_trip_hot",
+        "high_critical_threshold": "mlxsw-gearbox{}/temp_trip_crit"
     },
     "asic_ambient": {
         "name": "ASIC",
@@ -61,6 +63,11 @@ THERMAL_NAMING_RULE = {
 ASIC_THERMAL_RULE_201911 = {
     "name": "Ambient ASIC Temp",
     "temperature": "asic"
+}
+
+GEARBOX_THERMAL_RULE_201911 = {
+    "name": "Gearbox {} Temp",
+    "temperature": "gearbox{}_temp_input"
 }
 
 FAN_NAMING_RULE = {
@@ -547,9 +554,11 @@ class TemperatureData:
         :param index: Thermal index.
         """
         self.helper = mock_helper
-        if 'ASIC' in naming_rule['name']:
-            if self.helper.is_201911():
+        if self.helper.is_201911():
+            if 'ASIC' in naming_rule['name']:
                 naming_rule = ASIC_THERMAL_RULE_201911
+            elif 'Gearbox' in naming_rule['name']:
+                naming_rule = GEARBOX_THERMAL_RULE_201911
 
         self.name = naming_rule['name']
         self.temperature_file = naming_rule['temperature']

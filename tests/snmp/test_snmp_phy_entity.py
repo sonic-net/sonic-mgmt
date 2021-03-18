@@ -428,36 +428,36 @@ def _get_transceiver_sensor_data(duthost, name):
 
 
 @pytest.mark.disable_loganalyzer
-def test_turn_off_psu_and_check_psu_info(duthost, localhost, creds, psu_controller):
+def test_turn_off_pdu_and_check_psu_info(duthost, localhost, creds, pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
     :param duthost: DUT host object
     :param localhost: localhost object
     :param creds: Credential for snmp
-    :param psu_controller: PSU controller
+    :param pdu_controller: PDU controller
     :return:
     """
-    if not psu_controller:
-        pytest.skip('psu_controller is None, skipping this test')
-    psu_status = psu_controller.get_psu_status()
-    if len(psu_status) < 2:
-        pytest.skip('At least 2 PSUs required for rest of the testing in this case')
+    if not pdu_controller:
+        pytest.skip('pdu_controller is None, skipping this test')
+    outlet_status = pdu_controller.get_outlet_status()
+    if len(outlet_status) < 2:
+        pytest.skip('At least 2 outlets required for rest of the testing in this case')
 
     # turn on all PSU
-    for item in psu_status:
-        if not item['psu_on']:
-            psu_controller.turn_on_psu(item["psu_id"])
+    for outlet in outlet_status:
+        if not outlet['outlet_on']:
+            pdu_controller.turn_on_outlet(outlet)
     time.sleep(5)
 
-    psu_status = psu_controller.get_psu_status()
-    for item in psu_status:
-        if not item['psu_on']:
-            pytest.skip('Not all PSU are powered on, skip rest of the testing in this case')
+    outlet_status = pdu_controller.get_outlet_status()
+    for outlet in outlet_status:
+        if not outlet['outlet_on']:
+            pytest.skip('Not all outlet are powered on, skip rest of the testing in this case')
 
     # turn off the first PSU
-    first_psu_id = psu_status[0]['psu_id']
-    psu_controller.turn_off_psu(first_psu_id)
-    assert wait_until(30, 5, check_psu_status, psu_controller, first_psu_id, False)
+    first_outlet = outlet_status[0]
+    pdu_controller.turn_off_outlet(first_outlet)
+    assert wait_until(30, 5, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
     assert wait_until(120, 20, _check_psu_status_after_power_off, duthost, localhost, creds)
 
@@ -581,13 +581,13 @@ def is_null_str(value):
     return not value or value == str(None) or value == 'N/A'
 
 
-def check_psu_status(psu_controller, psu_id, expect_status):
+def check_outlet_status(pdu_controller, outlet, expect_status):
     """
     Check if a given PSU is at expect status
-    :param psu_controller: PSU controller
-    :param psu_id: PSU id
+    :param pdu_controller: PDU controller
+    :param outlet: PDU outlet
     :param expect_status: Expect bool status, True means on, False means off
     :return: True if a given PSU is at expect status
     """
-    status = psu_controller.get_psu_status(psu_id)
-    return 'psu_on' in status[0] and status[0]['psu_on'] == expect_status
+    status = pdu_controller.get_outlet_status(outlet)
+    return 'outlet_on' in status[0] and status[0]['outlet_on'] == expect_status
