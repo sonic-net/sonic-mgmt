@@ -2264,10 +2264,10 @@ def get_tgen(port, name=None):
 
 def is_soft_tgen(name=None):
     tg = get_chassis(name)
-    return (tg.tg_type == "scapy")
+    return (tg and tg.tg_type == "scapy")
 
 if __name__ == "__main__":
-    tg_ixia_load("8.42", None, None)
+    tg_ixia_load("9.10", None, None)
     code = \
         "from ixiatcl import IxiaTcl \n" + \
         "from ixiahlt import IxiaHlt \n" + \
