@@ -15,7 +15,7 @@ from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_PO
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
-MONIT_STABILIZE_MAX_TIME = 420
+MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 cache = FactsCache()
 
