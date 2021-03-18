@@ -35,9 +35,8 @@ RUN bash ./IxNetworkAPI9.10.2007.7Linux64.bin -i silent
 
 RUN pip install -r /opt/ixia/ixnetwork/9.10.2007.7/lib/PythonApi/requirements.txt
 
-ENV SCID_TCL85_BIN=/opt
 ENV SCID_TGEN_PATH=/opt
-
+ENV SCID_TCL85_BIN=/opt
 ENV IXNETWORK_VERSION=9.10.2007.7
 ENV HLAPI_VERSION=9.10.2007.43
 
