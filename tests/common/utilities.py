@@ -368,3 +368,46 @@ def is_ipv4_address(ip_address):
         return True
     except ipaddress.AddressValueError:
         return False
+
+
+def compare_crm_facts(left, right):
+    """Compare CRM facts
+
+    Args:
+        left (dict): crm facts returned by dut.get_crm_facts()
+        right (dict): crm facts returned by dut.get_crm_facts()
+
+    Returns:
+        list: List of unmatched items.
+    """
+    unmatched = []
+
+    for k, v in left['resources'].items():
+        lv = v
+        rv = right['resources'][k]
+        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+
+    left_acl_group = {}
+    for ag in left['acl_group']:
+        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
+        left_acl_group[key] = {
+            'available': ag['available count'],
+            'used': ag['used count']
+        }
+
+    right_acl_group = {}
+    for ag in left['acl_group']:
+        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
+        right_acl_group[key] = {
+            'available': ag['available count'],
+            'used': ag['used count']
+        }
+
+    for k, v in left_acl_group.items():
+        lv = v
+        rv = right_acl_group[k]
+        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+
+    return unmatched
