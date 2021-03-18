@@ -4270,13 +4270,13 @@ class Net(object):
 
         for _ in range(0,3):
             delay_factor = 3 # so that --faster-cli is not used
-            prompt_terminator = r"Enter new UNIX password:\s*$|{}\s*$".format(cli_prompt)
+            prompt_terminator = r"(Enter)?\s*[Nn]ew\s*(UNIX)?\s*password:\s*$|{}\s*$".format(cli_prompt)
             output = self._send_command(access, "sudo passwd {}".format(username), prompt_terminator, delay_factor=delay_factor)
             self.logger.debug("OUTPUT: {}".format(output))
-            if re.search("Enter new UNIX password:", output):
-                output = self._send_command(access, password, r"Retype new UNIX password:\s*$", delay_factor=delay_factor)
+            if re.search("(Enter)?[Nn]ew\s*(UNIX)?\s*password:", output):
+                output = self._send_command(access, password, r"Retype [Nn]ew\s*(UNIX)?password:\s*$", delay_factor=delay_factor)
                 self.logger.debug("OUTPUT: {}".format(output))
-                if re.search(".*NIX password:", output):
+                if re.search(".*password:", output):
                     output = self._send_command(access, password, cli_prompt, delay_factor=delay_factor)
                     self.logger.debug("OUTPUT: {}".format(output))
                     if not re.search("password updated successfully", output):

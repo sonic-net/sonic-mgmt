@@ -208,14 +208,15 @@ def test_ft_ssh_add_user_verify():
         user_ssh = + 1
 
     #add default route to download ssh pass
-    ip_obj.create_static_route(vars.D2, ssh_data.default_gw, "default", "sonic")
+    # we are commenting this part as SONIC not supporting wget  download
+    """ip_obj.create_static_route(vars.D2, ssh_data.default_gw, "default", "sonic")
 
     output = verify_ssh_connection(vars.D2, ssh_data.ipv4_address_D1D2P2, ssh_data.usr_default, ssh_data.pwd_final)
     if not output:
         user_ssh = + 1
 
     #delete default route to download ssh pass
-    ip_obj.delete_static_route(vars.D2, ssh_data.default_gw, "default", shell="sonic")
+    ip_obj.delete_static_route(vars.D2, ssh_data.default_gw, "default", shell="sonic")"""
 
     IPAddr = ensure_service_params(vars.D1, "snmptrap", "ip") + "/32"
     change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_1", "SRC_IP", IPAddr)
@@ -232,7 +233,6 @@ def test_ft_ssh_add_user_verify():
     if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_SSH", "RULE_1"):
         st.error("Failed to create ACL rule '{}' ".format("SNMP_SSH"))
         acl_snmp =+ 1
-
     if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_SSH", "RULE_2"):
         st.error("Failed to create ACL rule '{}' ".format("SNMP_SSH"))
         acl_sshv4 =+ 1
@@ -288,7 +288,7 @@ def test_ft_ssh_add_user_verify():
         acl_snmp =+ 1
 
     ipaddress = st.get_mgmt_ip(vars.D1)
-    if not ipaddress or not ip_obj.ping(vars.D1, IPAddr.strip('/32')):
+    if not ipaddress or not ip_obj.ping(vars.D1, IPAddr.replace('/32',"")):
         st.error("Ping to SNMP server or getting ip address to the dut is failed after reload")
         acl_obj.acl_delete(vars.D1)
         config_nondefault_user(config='remove')
