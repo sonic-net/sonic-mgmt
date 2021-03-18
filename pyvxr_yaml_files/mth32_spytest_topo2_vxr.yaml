@@ -1,0 +1,81 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    hours: 120
+          
+          
+devices:
+
+  SD1:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.29.93.10/sonic-images/devpatha/sonic-cisco-8000.bin
+    linecard_types: [matilda32]
+    vxr_sim_config:
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.38.1_NPS1.74.6/npl
+            ConfigS1NpsuiteVer: 1.74.6
+
+
+  SD2:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.29.93.10/sonic-images/devpatha/sonic-cisco-8000.bin
+    linecard_types: [matilda32]
+    vxr_sim_config:
+        shelf:
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.38.1_NPS1.74.6/npl
+            ConfigS1NpsuiteVer: 1.74.6
+
+
+  spt:
+    platform: spirent_cafy1
+    os_type: spirent
+    linux_username: admin
+    linux_password: spt_admin
+    linux_prompt: 'admin>>'
+    spirent_images:
+        windows: /auto/vxr/vxr_images/spirent/WindowsWithTestCenter_5_05
+        api: /auto/vxr/vxr_images/spirent/Spirent_TestCenter_LabServer-5.05-dhcp.img
+        port: /auto/vxr/vxr_images/spirent/sptvm-5_05-dhcp.img
+    data_ports:
+    - data0
+    - data1
+    - data2
+    - data3
+    - data4
+    - data5
+    - data6
+    - data7
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0:
+      - SD1.Ethernet[0..3]
+      - SD2.Ethernet[0..3]
+    hub1:
+      - SD1.Ethernet[4..7]
+      - spt.data[0..3]
+    hub2:
+      - SD2.Ethernet[4..7]
+      - spt.data[4..7]
+      
+

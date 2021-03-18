@@ -86,6 +86,7 @@ function setup_environment()
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
+    TSTAMP=$(date +"%Y-%m-%d-%H-%M-%S")
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -138,9 +139,9 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
     done
 
-    if [[ -d ${LOG_PATH} ]]; then
-        rm -rf ${LOG_PATH}
-    fi
+    #if [[ -d ${LOG_PATH} ]]; then
+    #    rm -rf ${LOG_PATH}
+    #fi
 
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
         PRET_LOGGING_OPTIONS=""
@@ -151,7 +152,7 @@ function setup_test_options()
 
         PRET_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/pretest.xml --log-file=${LOG_PATH}/pretest.log"
         POST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/posttest.xml --log-file=${LOG_PATH}/posttest.log"
-        TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --log-file=${LOG_PATH}/test.log"
+        TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr_${TSTAMP}.xml --log-file=${LOG_PATH}/test_${TSTAMP}.log"
     fi
     UTIL_TOPOLOGY_OPTIONS="--topology util"
     if [[ -z ${TOPOLOGY} ]]; then
@@ -233,7 +234,7 @@ function run_individual_tests()
             if [[ ${test_dir} != "." ]]; then
                 mkdir -p ${LOG_PATH}/${test_dir}
             fi
-            TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
+            TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}_${TSTAMP}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}_${TSTAMP}.xml"
         fi
 
         pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}

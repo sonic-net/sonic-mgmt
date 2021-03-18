@@ -40,6 +40,8 @@ def _create_parser():
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
+    parser.add_argument('-d', '--device_type', action='store_true', help='options are sherman, mth32',
+                      required=True,default='mth32')
     return parser
 
 def git_update(data):
@@ -462,12 +464,19 @@ def main():
     dut_passwd = args['dut_passwd']
     dut_uname = args['dut_uname']
     topo_type = args['topo_type']
+    device_type = args['device_type']
     if topo_type == 't0':
-        base_topo_file = 'testbed-sherman-t0.yaml'
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t0.yaml'
+        else:
+            base_topo_file = 'testbed-math32-t0.yaml'
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
     else:
-        base_topo_file = 'testbed-sherman-t1.yaml'
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t1.yaml'
+        else:
+            base_topo_file = 'testbed-math32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 32
 
