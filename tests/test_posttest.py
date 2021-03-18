@@ -62,16 +62,29 @@ def test_unblock_rsyslog_server(duthosts, enum_dut_hostname):
     """
     Unblock rsyslog server 10.20.6.16:514
     """
+
+    """
+    FIXME: we shouldn't restore configuration until spamer is stopped
+
     # Recover to backup file
     RSYS_CONF = "/etc/rsyslog.conf"
     RSYS_CONF_BAK = RSYS_CONF + ".bak"
+    RSYS_TEMPL = "/usr/share/sonic/templates/rsyslog.conf.j2"
+    RSYS_TEMPL_BAK = RSYS_TEMPL + ".bak"
 
     duthost = duthosts[enum_dut_hostname]
-    if not duthost.stat(path=RSYS_CONF_BAK)['stat']['exists']:
-        return
 
-    cmds = [
-        "mv {} {}".format(RSYS_CONF_BAK, RSYS_CONF),
-        "systemctl restart rsyslog"
-    ]
-    duthost.shell_cmds(cmds=cmds)
+    if duthost.stat(path=RSYS_TEMPL_BAK)['stat']['exists']:
+        cmds = [
+            "mv {} {}".format(RSYS_TEMPL_BAK, RSYS_TEMPL),
+        ]
+        duthost.shell_cmds(cmds=cmds)
+
+    if duthost.stat(path=RSYS_CONF_BAK)['stat']['exists']:
+        cmds = [
+            "mv {} {}".format(RSYS_CONF_BAK, RSYS_CONF),
+            "systemctl restart rsyslog"
+        ]
+        duthost.shell_cmds(cmds=cmds)
+    """
+    pass

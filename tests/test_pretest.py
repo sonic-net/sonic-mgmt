@@ -276,11 +276,14 @@ def test_block_rsyslog_server(duthosts, enum_dut_hostname):
     """
     # Make a backup file
     RSYS_CONF = "/etc/rsyslog.conf"
-    PATTERN=r"*.* @10.20.6.16:514"
+    RSYS_TEMPL = "/usr/share/sonic/templates/rsyslog.conf.j2"
+    PATTERN = r"*.* @10.20.6.16:514"
 
     cmds = [
         "cp {} {}".format(RSYS_CONF, RSYS_CONF + ".bak"),
+        "cp {} {}".format(RSYS_TEMPL, RSYS_TEMPL + ".bak"),
         r"sed -i 's/" + PATTERN + r"/#" + PATTERN + r"/g' " + RSYS_CONF,
+        r"sed -i 's/" + PATTERN + r"/#" + PATTERN + r"/g' " + RSYS_TEMPL,
         "systemctl restart rsyslog"
     ]
 
