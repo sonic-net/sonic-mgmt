@@ -82,7 +82,12 @@ class DualTorIO:
         self.time_to_listen = 180.0
         self.sniff_time_incr = 0
         # Inter-packet send-interval (minimum interval 3.5ms)
-        self.send_interval = send_interval if send_interval and send_interval > 0.0035 else 0.0035
+        if send_interval < 0.0035:
+            logger.warn("Minimum packet send-interval is .0035s. \
+                Ignoring user-provided interval {}".format(send_interval))
+            self.send_interval = 0.0035
+        else:
+            self.send_interval = send_interval
         # How many packets to be sent by sender thread
         self.packets_to_send = min(int(self.time_to_listen /
             (self.send_interval + 0.0015)), 45000)
