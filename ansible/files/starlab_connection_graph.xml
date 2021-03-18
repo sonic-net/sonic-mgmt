@@ -4553,8 +4553,8 @@
       <DevicePowerControlInfo Hostname="pdu-122" HwSku="Sentry" ManagementIp="10.3.155.122" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
-      <PowerControlLinkInfo EndDevice="str-7260cx3-acs-1" EndPort="PSU1" StartDevice="pdu-107" StartPort="39"/>
-      <PowerControlLinkInfo EndDevice="str-7260cx3-acs-1" EndPort="PSU2" StartDevice="pdu-107" StartPort="38"/>
+      <PowerControlLinkInfo EndDevice="str-7260cx3-acs-1" EndPort="PSU1" StartDevice="pdu-107" StartPort="36"/>
+      <PowerControlLinkInfo EndDevice="str-7260cx3-acs-1" EndPort="PSU2" StartDevice="pdu-108" StartPort="36"/>
     </PowerControlLinksInfo>
   </PowerControlGraphDeclaration>
 </LabConnectionGraph>
