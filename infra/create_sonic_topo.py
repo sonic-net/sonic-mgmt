@@ -40,8 +40,8 @@ def _create_parser():
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', action='store_true', help='options are sherman, mth32',
-                      required=True,default='mth32')
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
+                      required=False,default="mth32")
     return parser
 
 def git_update(data):
