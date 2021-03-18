@@ -302,7 +302,7 @@ def get_cli_show_nat_config_output(duthost, command):
     :return: dict, dictionary with values
     """
     output_list = duthost.command("show nat config {}".format(command))['stdout_lines']
-    keys = [key.strip() for key in output_list[1].split("    ") if key]
+    keys = [key.strip() for key in output_list[1].split("  ") if key]
     output_dict = dict()
     for entry in output_list[3:]:
         values = entry.split()
@@ -667,7 +667,7 @@ def get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type
 
 
 def perform_handshake(ptfhost, setup_info, protocol_type, direction,
-                      ip_dst, dest_l4_port, ip_src, source_l4_port, public_ip, second_port=False, n_perf=0):
+                      ip_dst, dest_l4_port, ip_src, source_l4_port, public_ip, second_port=False):
     """
     Performs TCP handshake to initiate NAT translation
 
@@ -691,21 +691,18 @@ def perform_handshake(ptfhost, setup_info, protocol_type, direction,
         dst_vrf = setup_info["outer_vrf"][1]
 
     if direction == "host-tor":
-        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} None {} &".format(protocol_type.lower(),
+        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} None &".format(protocol_type.lower(),
                                                                                     ip_dst, dest_l4_port,
                                                                                     ip_src, source_l4_port,
-                                                                                    dst_vrf, src_vrf, n_perf)
+                                                                                    dst_vrf, src_vrf)
     else:
-        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} {} {} &".format(protocol_type.lower(),
+        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} {} &".format(protocol_type.lower(),
                                                                                   ip_src, source_l4_port,
                                                                                   ip_dst, dest_l4_port,
                                                                                   dst_vrf, src_vrf,
-                                                                                  public_ip, n_perf)
+                                                                                  public_ip)
     ptfhost.copy(src="./scripts/nat_ptf_echo.py", dest="/tmp")
-    s_time = time.time()
     ptfhost.command(echo_cmd)
-    ex_time = time.time() - s_time
-    return ex_time
 
 
 def generate_and_verify_traffic(duthost, ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type, second_port=False,

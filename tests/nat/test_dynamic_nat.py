@@ -748,7 +748,7 @@ class TestDynamicNat(object):
         direction = 'host-tor'
         nat_type = 'dynamic'
         n_c = 10
-        source_port, dst_port = get_l4_default_ports(protocol_type)
+        dst_port = get_l4_default_ports(protocol_type)[1]
         scale_range = [dst_port, dst_port + n_c]
         p_range_conf = "{}-{}".format(scale_range[0], scale_range[1])
         exp_entries = scale_range[1] - scale_range[0] + 1

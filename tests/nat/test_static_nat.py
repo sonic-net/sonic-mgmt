@@ -633,7 +633,6 @@ class TestStaticNat(object):
                       "Unexpected iptables output for nat table")
         # Set NAT configuration for test
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
-        src_port, dst_port = get_l4_default_ports(protocol_type)
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Create with CLI
@@ -682,7 +681,6 @@ class TestStaticNat(object):
                       "Unexpected iptables output for nat table")
         # Set NAT configuration for test
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
-        src_port, dst_port = get_l4_default_ports(protocol_type)
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
                                 network_data.public_ip, network_data.private_ip, protocol_type=protocol_type, nat_entry=nat_type, handshake=True)
         # Create with CLI
@@ -887,7 +885,7 @@ class TestStaticNat(object):
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Confirm that CONFIG_DB and APP_DB is set properly before any changes
         # Pool CONFIG_DB
-        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip = network_data.public_ip)
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip=network_data.public_ip)
         output = get_redis_val(duthost, 4, "POOL")
         pytest_assert(db_rules == output['NAT_POOL|test_pool']['value'],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_POOL|test_pool']['value'], db_rules))
@@ -907,21 +905,21 @@ class TestStaticNat(object):
         duthost.command("sudo config acl add table test_acl_2 L3")
         duthost.command("sudo config nat add binding test_binding test_pool_2 test_acl_2")
         # Pool CONFIG_DB
-        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip = network_data.public_ip, start_port = test_pool_range_start_port, end_port = test_pool_range_end_port)
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip=network_data.public_ip, start_port=test_pool_range_start_port, end_port=test_pool_range_end_port)
         output = get_redis_val(duthost, 4, "POOL")
         pytest_assert(db_rules == output['NAT_POOL|test_pool']['value'],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_POOL|test_pool']['value'], db_rules))
-        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip = test_public_ip, start_port = test_pool_range_start_port + 1, end_port = test_pool_range_end_port + 1)
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip=test_public_ip, start_port=test_pool_range_start_port + 1, end_port=test_pool_range_end_port + 1)
         output = get_redis_val(duthost, 4, "POOL")
         pytest_assert(db_rules == output['NAT_POOL|test_pool_2']['value'],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_POOL|test_pool_2']['value'], db_rules))
         # Pool APP_DB
-        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool APP_DB', start_port = test_pool_range_start_port + 1, end_port = test_pool_range_end_port + 1)
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool APP_DB', start_port=test_pool_range_start_port + 1, end_port=test_pool_range_end_port + 1)
         output = get_redis_val(duthost, 0, "POOL")
         pytest_assert(db_rules == output['NAPT_POOL_IP_TABLE:{}'.format(test_public_ip)]['value'],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAPT_POOL_IP_TABLE:{}'.format(test_public_ip)]['value'], db_rules))
         # Binding CONFIG_DB
-        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Binding CONFIG_DB', access_list = "test_acl_2", nat_pool = "test_pool_2")
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Binding CONFIG_DB', access_list="test_acl_2", nat_pool="test_pool_2")
         output = get_redis_val(duthost, 4, "BINDING")
         pytest_assert(db_rules == output['NAT_BINDINGS|test_binding']['value'],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_BINDINGS|test_binding']['value'], db_rules))
@@ -935,7 +933,7 @@ class TestStaticNat(object):
         duthost.command("sudo config nat add binding test_binding test_pool test_acl_table")
         duthost.command("sudo config acl remove table test_acl_2")
         # Pool CONFIG_DB
-        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip = network_data.public_ip)
+        db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'Pool CONFIG_DB', public_ip=network_data.public_ip)
         output = get_redis_val(duthost, 4, "POOL")
         pytest_assert(db_rules == output['NAT_POOL|test_pool']['value'],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output['NAT_POOL|test_pool']['value'], db_rules))
@@ -980,12 +978,12 @@ class TestStaticNat(object):
         configure_nat_over_cli(duthost, 'add', 'static_napt', test_public_ip, test_private_ip, 'udp', test_public_port, test_private_port)
         # NAPT APP_DB
         db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'NAPT APP_DB POST',
-                                public_ip = test_public_ip, private_ip = test_private_ip, public_port = test_public_port, private_port = test_private_port)
+                                public_ip=test_public_ip, private_ip=test_private_ip, public_port=test_public_port, private_port=test_private_port)
         output = get_redis_val(duthost, 0, "NAPT")
         pytest_assert(db_rules == output, "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output, db_rules))
         # NAPT CONFIG_DB
         db_rules = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'NAPT CONFIG_DB POST',
-                                public_ip = test_public_ip, private_ip = test_private_ip, public_port = test_public_port, private_port = test_private_port)
+                                public_ip=test_public_ip, private_ip=test_private_ip, public_port=test_public_port, private_port=test_private_port)
         output = get_redis_val(duthost, 4, "NAPT")
         pytest_assert(db_rules == output, "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output, db_rules))
 
@@ -1025,7 +1023,7 @@ class TestStaticNat(object):
 
     @pytest.mark.nat_static
     def test_nat_same_static_and_dynamic_rule(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
-                                                protocol_type):
+                                              protocol_type):
 
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
@@ -1047,14 +1045,14 @@ class TestStaticNat(object):
         for entry in translations_static:
             if entry == nat_source:
                 pytest_assert(nat_translated_source == translations_static[entry]["Translated Source"],
-                            "Unexpected source translation rule for {}".format(entry))
+                              "Unexpected source translation rule for {}".format(entry))
                 pytest_assert(nat_source == translations_static[entry]["Source"],
-                            "Unexpected source translation rule for {}".format(entry))
+                              "Unexpected source translation rule for {}".format(entry))
             elif entry == nat_destination:
                 pytest_assert(nat_translated_destination == translations_static[entry]["Translated Destination"],
-                            "Unexpected destination translation rule for {}".format(entry))
+                              "Unexpected destination translation rule for {}".format(entry))
                 pytest_assert(nat_destination == translations_static[entry]["Destination"],
-                            "Unexpected source translation rule for {}".format(entry))
+                              "Unexpected source translation rule for {}".format(entry))
 
         # Send bidirectional traffic
         for path in DIRECTION_PARAMS:
@@ -1067,7 +1065,7 @@ class TestStaticNat(object):
         # make sure static NAT translations are only one present
         translations_after_dynamic_cfg = nat_translations(duthost, show=True)
         pytest_assert(translations_static == translations_after_dynamic_cfg,
-                                        "Unexpected NAT translation found:\n{}\nexpected:\n{}".format(translations_after_dynamic_cfg, translations_static))
+                      "Unexpected NAT translation found:\n{}\nexpected:\n{}".format(translations_after_dynamic_cfg, translations_static))
 
         # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
         # static config takes precedence so verify as static
@@ -1078,7 +1076,7 @@ class TestStaticNat(object):
         # make sure static NAT translations are only one present even after traffic
         translations_after_traffic = nat_translations(duthost, show=True)
         pytest_assert(translations_static == translations_after_traffic,
-                                        "Unexpected NAT translation found:\n{}\nexpected:\n{}".format(translations_after_traffic, translations_static))
+                      "Unexpected NAT translation found:\n{}\nexpected:\n{}".format(translations_after_traffic, translations_static))
 
         # make sure NAT counters have incremented
         nat_counters = nat_statistics(duthost, show=True)
