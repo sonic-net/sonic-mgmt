@@ -230,8 +230,17 @@ def constants(is_quagga, setup_interfaces):
         )
     return _constants
 
+# disable Dynamic neighbors for the test to let in configure neighbors byself
+@pytest.fixture
+def turn_off_on_dynamic_neighbor_feature(duthost, tbinfo):
+    if tbinfo["topo"]["type"] == "t0":
+        duthost.shell("vtysh -c 'configure' -c 'router bgp' -c 'neighbor BGPVac shutdown'")
+        yield
+        duthost.shell("vtysh -c 'configure' -c 'router bgp' -c 'no neighbor BGPVac shutdown'")
+    else:
+        yield
 
-def test_bgp_update_timer(common_setup_teardown, constants, duthost):
+def test_bgp_update_timer(common_setup_teardown, constants, duthost, turn_off_on_dynamic_neighbor_feature):
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
