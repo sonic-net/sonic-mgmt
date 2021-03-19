@@ -205,6 +205,7 @@ def force_active_tor():
     """
     forced_intfs = []
     def force_active_tor_fn(dut, intf):
+        logger.info('Setting {} as active for intfs {}'.format(dut, intf))
         if type(intf) == str:
             cmds = ["config muxcable mode active {}; true".format(intf)]
             forced_intfs.append((dut, intf))
