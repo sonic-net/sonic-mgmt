@@ -329,11 +329,15 @@ def download_mg(data,topo_type,dut_name):
     ftp_client.close()
     ssh.close()
 
-def upload_tb_files(data,topo_type,base_topo_file):
+def upload_tb_files(data,topo_type,base_topo_file,dut_name):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
+    if dut_name == 'mth32':
+        ftp_client.put('lab_connection_graph_mth32.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('sonic_lab_links_mth32.csv ','sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
+        ftp_client.put('sonic_lab_devices_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     if topo_type == 't0':
         ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
         ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
@@ -511,7 +515,7 @@ def main():
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
-    upload_tb_files(data,topo_type,base_topo_file)
+    upload_tb_files(data,topo_type,base_topo_file,dut_name)
 
     # Change DUT password and set mgmt ip address
     print("********** Change DUT password and set mgmt ip address ***********")
