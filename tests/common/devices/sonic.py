@@ -149,9 +149,25 @@ class SonicHost(AnsibleHostBase):
         facts.update(self._get_platform_info())
         facts["num_asic"] = self._get_asic_count(facts["platform"])
         facts["router_mac"] = self._get_router_mac()
+        facts["modular_chassis"] = self._get_modular_chassis()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
+
+    def _get_modular_chassis(self):
+        py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
+        if py_res["failed"]:
+            out = self.shell(
+                "python3 -c \"import sonic_platform.platform as P; print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
+                module_ignore_errors=True)
+        else:
+            out = self.shell(
+                "python -c \"import sonic_platform.platform as P; print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
+                module_ignore_errors=True)
+        res = "False" if out["failed"] else out["stdout"]
+        return res
+
+
 
     def _get_asic_count(self, platform):
         """
