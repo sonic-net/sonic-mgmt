@@ -439,7 +439,7 @@ def test_thermal_control_fan_status(duthosts, rand_one_dut_hostname, mocker_fact
         single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
         time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
 
-        _fan_log_supported = duthost.command('docker exec pmon grep -E "{}" /usr/bin/thermalctld'\
+        _fan_log_supported = duthost.command('docker exec pmon grep -E "{}" /usr/local/bin/thermalctld'\
                 .format(LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE), module_ignore_errors=True)
 
         if single_fan_mocker.is_fan_removable():
