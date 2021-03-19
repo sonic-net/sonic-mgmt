@@ -14,18 +14,20 @@
   - [test_max_numbers_of_sub_ports](#Test-case-test_max_numbers_of_sub_ports)
   - [test_mtu_inherited_from_parent_port](#Test-case-test_mtu_inherited_from_parent_port)
   - [test_vlan_config_impact](#Test-case-test_vlan_config_impact)
-
+  - [test_routing_between_sub_ports](#Test-case-test_routing_between_sub_ports)
 
 ## Revision
 
 | Rev |     Date    |       Author             | Change Description                 |
 |:---:|:-----------:|:-------------------------|:-----------------------------------|
-| 0.3 |  02/23/2021 | Intel: Oleksandr Kozodoi |          Initial version           |
+| 0.1 |  11/30/2020 | Intel: Oleksandr Kozodoi |          Initial version           |
+| 0.2 |  02/23/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
+| 0.3 |  03/18/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 
 
 ## Overview
 
-The purpose is to test the functionality of sub-port interfaces feature on the SONIC switch DUT. The tests expecting that
+The purpose is to test the functionality of sub-port interfaces feature on the SONiC switch DUT. The tests expecting that
 all necessary configuration for sub-ports are pre-configured on SONiC switch before test runs.
 
 ## Scope
@@ -40,7 +42,7 @@ Supported topologies: t0, t1
 ## Setup configuration
 
 Each sub-ports test case needs traffic transmission.
-Traffic starts transmission, if DUT and PTF directly connected interfaces have the same VLAN IDs. So we need configure correct sub-ports on the DUT and PTF. 
+Expected traffic transmission is possible only if DUT and PTF directly connected interfaces have the same VLAN IDs. So we need configure correct sub-ports on the DUT and PTF.
 
 For example the customized testbed with applied T0 topo for test_packet_routed test case looks as follows:
 
@@ -52,7 +54,7 @@ For example the customized testbed with applied T0 topo for test_packet_routed t
       |   _________   DUT   _________   |
       |  [Ethernet4]       [Ethernet8]  |
       |__[_.10_.20_]_______[_.10_.20_]__|
-         [  |   |  ]       [  |   |  ] 
+         [  |   |  ]       [  |   |  ]
          [  |   |  ]       [  |   |  ]
          [  |   |  ]       [  |   |  ]
        __[__|___|__]_______[__|___|__]__
@@ -84,7 +86,7 @@ After end of the test session teardown procedure turns testbed to the initial st
 
 ## Python scripts to setup and run test
 
-Sub-ports test suite is located in tests/sub_port_interfaces folder. There is one files test_sub_port_interfaces.py
+Sub-ports test suite is located in tests/sub_port_interfaces folder.
 
 ### Setup of DUT switch
 
@@ -250,10 +252,87 @@ Validates that removal of VLAN doesn't impact sub-port RIF with same VLAN ID.
 
 - Setup correct configuration of sub-ports on the DUT.
 - Create a VLAN RIF with the same VLAN ID of sub-port.
-- Added PortChannel interface to VLAN members 
+- Added PortChannel interface to VLAN members
 - Delete a VLAN RIF.
 - Make sure sub-port is available in redis-db.
 - Verify that DUT sends ICMP reply packet to PTF.
+- Clear configuration of sub-ports on the DUT.
+- Clear configuration of sub-ports on the PTF.
+
+### Test teardown
+
+- reload_dut_config function: reload DUT configuration
+- reload_ptf_config function: remove all sub-ports configuration
+
+
+## Test case test_routing_between_sub_ports
+
+### Test objective
+
+Validates that packets are routed between sub-ports.
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+- apply_config_on_the_ptf fixture(scope="function"): enable and configures sub-port interfaces on the PTF
+- apply_route_config fixture(scope="function"): setup static routes between sub-ports on the PTF
+
+Example the customized testbed with applied T0 topo for test_routing_between_sub_ports test case:
+##### Routing between sub-ports on the same port
+```
+              VM    VM    VM    VM
+              []    []    []    []
+       _______[]____[]____[]____[]______
+  ╔═══|══════════╗                      |
+  ║   |   _______║    DUT   _________   |
+  ║   |  [Ethernet4]       [Ethernet8]  |
+  ║   |__[_.10_.20_]_______[_.10_.20_]__|
+  ║      [  |   |║ ]       [  |   |  ]
+  ║      [  |   |║ ]       [  |   |  ]
+  ║ ┌────[──|─┐ |║ ]  ┌────[──|─┐ |  ]
+  ║ │  __[__|_│_|V_]__│____[__|_│_|__]__
+  ╚═│═|══[>.10│.20 ]  │    [.10 │.20 ]  |
+    │ |  [__eth1___]  │    [__eth2___]  |
+    │ |       │       │         │       |
+    │ |netns4 │       │  netns8 │       |
+    └─|───────┘       └─────────┘       |
+      |                                 |
+      |              PTF                |
+      |_________________________________|
+
+```
+##### Routing between sub-ports on the different ports
+```
+              VM    VM    VM    VM
+              []    []    []    []
+       _______[]____[]____[]____[]______
+  ╔═══|════════════════════════════╗    |
+  ║   |   _________   DUT   _______║_   |
+  ║   |  [Ethernet4]       [Ethernet8]  |
+  ║   |__[_.10_.20_]_______[_.10_.20_]__|
+  ║      [  |   |  ]       [  |   |║ ]
+  ║      [  |   |  ]       [  |   |║ ]
+  ║ ┌────[──|─┐ |  ]  ┌────[──|─┐ |║ ]
+  ║ │  __[__|_│_| _]__│____[__|_│_|V_]__
+  ╚═│═|══[>.10│.20 ]  │    [.10 │.20 ]  |
+    │ |  [__eth1___]  │    [__eth2___]  |
+    │ |       │       │         │       |
+    │ |netns4 │       │  netns8 │       |
+    └─|───────┘       └─────────┘       |
+      |                                 |
+      |              PTF                |
+      |_________________________________|
+
+```
+### Test steps
+- Setup configuration of sub-ports on the DUT.
+- Setup configuration of sub-ports on the PTF.
+- Add one of the sub-ports to namespace on the PTF.
+- Setup static routes between sub-port and sub-port in namespace on the PTF
+- Create ICMP packet.
+- Send ICMP request packet from sub-port to sub-port in namespace on the PTF.
+- Verify that sub-port in namespace sends ICMP reply packet to sub-port on the PTF.
+- Remove static routes from PTF
+- Remove namespaces from PTF
 - Clear configuration of sub-ports on the DUT.
 - Clear configuration of sub-ports on the PTF.
 
