@@ -142,6 +142,8 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Simulate nexthop2 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop |
     | Simulate nexthop3 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to one server port and three tunnel nexthop |
     | Simulate nexthop4 mux state change to Standby| ECMP  | Verify traffic to this route destination is distributed to four tunnel nexthops |
+    | Simulate nexthop4 mux state change to Active | ECMP  | Verify traffic to this route destination is distributed to one server port and three tunnel nexthop |
+    | Simulate nexthop3 mux state change to Active | ECMP  | Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop |
     ||||
 
 
@@ -164,3 +166,12 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Withdraw routes from SLB to Standby ToR | SLB  | Verify routes removed in Standby ToR |
     ||||
     | Repeat PTF tests as above | SLB  | Verify no packets forwarded |
+    ||||
+    | Simulate a mux state change for the SLB port | SLB  | Verify both sessions stays established and not disrupted |
+    ||||
+    | Announce routes from SLB to new Active ToR | SLB  | Verify routes in Active ToR |
+    | Announce routes from SLB to new Standby ToR | SLB  | Verify routes in Standby ToR |
+    ||||
+    | Repeat PTF tests as above | SLB  | Verify packet forwarding based on mux state|
+    ||||
+    | Verify teardown by shutting peering session one by one | SLB  | After one session is down, verify other peering session is active and routes present|
