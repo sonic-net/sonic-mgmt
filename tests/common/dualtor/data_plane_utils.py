@@ -62,14 +62,20 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
             if duplication_length > longest_duplication:
                 longest_duplication = duplication_length
 
+        disruption_before_traffic = result['disruption_before_traffic']
+        disruption_after_traffic = result['disruption_after_traffic']
+
         server_summary = {
             'received_packets': total_received_packets,
             'received_packet_diff': received_packet_diff,
             'total_disruptions': total_disruptions,
             'longest_disruption': longest_disruption,
             'total_duplications': total_duplications,
-            'longest_duplication': longest_duplication
+            'longest_duplication': longest_duplication,
+            'disruption_before_traffic': disruption_before_traffic,
+            'disruption_after_traffic': disruption_after_traffic
         }
+
         logger.info('Server {} summary:\n{}'.format(server_ip, json.dumps(server_summary, indent=4, sort_keys=True)))
         server_summaries[server_ip] = server_summary
 
@@ -97,6 +103,16 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
             failures.append("Traffic on server {} was duplicated for {}s. "
                             "Maximum allowed duplication: {}s"
                             .format(server_ip, longest_duplication, delay))
+
+        if bool(disruption_before_traffic):
+            failures.append("Traffic on server {} was disrupted prior to test start, "
+                            "missing {} packets from the start of the packet flow"
+                            .format(server_ip, disruption_before_traffic))
+
+        if bool(disruption_after_traffic):
+            failures.append("Traffic on server {} was disrupted after test end, "
+                            "missing {} packets from the end of the packet flow"
+                            .format(server_ip, disruption_after_traffic))
 
     pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
 
