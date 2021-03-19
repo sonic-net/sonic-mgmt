@@ -34,8 +34,8 @@ MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
 
 
 @pytest.fixture(scope="module", autouse=True)
-def teardown_module(duthosts, rand_one_dut_hostname, conn_graph_facts, xcvr_skip_list):
-    duthost = duthosts[rand_one_dut_hostname]
+def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts, xcvr_skip_list):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
 
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
@@ -81,20 +81,24 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
             logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
             return
 
-    logging.info("Wait %d seconds for all the transceivers to be detected" % MAX_WAIT_TIME_FOR_INTERFACES)
-    assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces, xcvr_skip_list), \
-        "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
+    if dut.is_supervisor_node():
+        logging.info("skipping interfaces related check for supervisor")
+    else:
+        logging.info("Wait %d seconds for all the transceivers to be detected" % MAX_WAIT_TIME_FOR_INTERFACES)
+        assert wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces,
+                          xcvr_skip_list), \
+            "Not all transceivers are detected or interfaces are up in %d seconds" % MAX_WAIT_TIME_FOR_INTERFACES
 
 
-    logging.info("Check transceiver status")
-    for asic_index in dut.get_frontend_asic_ids():
-        # Get the interfaces pertaining to that asic
-        interface_list = get_port_map(dut, asic_index)
-        interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
-        check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
+        logging.info("Check transceiver status")
+        for asic_index in dut.get_frontend_asic_ids():
+            # Get the interfaces pertaining to that asic
+            interface_list = get_port_map(dut, asic_index)
+            interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
+            check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
-    logging.info("Check pmon daemon status")
-    assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
+        logging.info("Check pmon daemon status")
+        assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
 
@@ -108,20 +112,20 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         check_sysfs(dut)
 
 
-def test_cold_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
 
 
-def test_soft_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to perform soft reboot and check platform status
     """
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     soft_reboot_supported = duthost.command('which soft-reboot', module_ignore_errors=True)["stdout"]
     if "" == soft_reboot_supported:
@@ -133,12 +137,12 @@ def test_soft_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT)
 
 
-def test_fast_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to perform fast reboot and check platform status
     """
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
@@ -146,12 +150,12 @@ def test_fast_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_fact
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_FAST)
 
 
-def test_warm_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to perform warm reboot and check platform status
     """
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting warm reboot")
@@ -226,11 +230,11 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                          _power_off_reboot_helper, poweroff_reboot_kwargs)
 
 
-def test_watchdog_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     test_watchdog_supported = "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog(); exit()\""
 
     watchdog_supported = duthost.command(test_watchdog_supported,module_ignore_errors=True)["stderr"]
@@ -240,10 +244,10 @@ def test_watchdog_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
 
 
-def test_continuous_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     for i in range(3):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
