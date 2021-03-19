@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 
-import os
-import argparse
-import json
-import sys
-import traceback
 import subprocess
 import re
 
-from sonic_py_common import device_info, logger
-from swsscommon.swsscommon import SonicV2Connector, ConfigDBConnector, SonicDBConfig
+from swsscommon.swsscommon import ConfigDBConnector
 
 lossless_profile_name_pattern = 'pg_lossless_([1-9][0-9]*000)_([1-9][0-9]*m)_profile'
 
