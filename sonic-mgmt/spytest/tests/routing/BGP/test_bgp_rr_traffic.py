@@ -151,6 +151,16 @@ class TestBGPRrTraffic():
                                       mode='create', high_speed_result_analysis='1', 
                                       pkts_per_burst='2000', transmit_mode='single_burst', length_mode='fixed',
                                       rate_pps=10000)
+        import sth
+        from sth import StcPython
+        stc=StcPython()
+        sth.emulation_bgp_config(handle = bgp_handle['handle'], mode = 'inactive')
+        stc.apply()
+        st.wait(10)
+        sth.emulation_bgp_config(handle = bgp_handle['handle'], mode = 'active')
+        stc.apply()
+        sth.start_devices()
+        st.wait(10)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
         st.tg_wait(20)
@@ -161,7 +171,7 @@ class TestBGPRrTraffic():
             st.error('Received ZERO stats.')
             tc_fail_flag = 1
         else:
-            percent_rx = float(int(tg1_stats.rx.total_packets) - int(tg2_stats.tx.total_packets)) / int(
+            percent_rx = float(int(tg1_stats.tx.total_packets) - int(tg2_stats.rx.total_packets)) / int(
                 tg2_stats.tx.total_packets) * 100
             st.log('tg1_stats.rx.total_packets : {}'.format(tg1_stats.rx.total_packets))
             st.log('tg2_stats.tx.total_packets : {}'.format(tg2_stats.tx.total_packets))
@@ -223,6 +233,16 @@ class TestBGPRrTraffic():
                                       mode='create', high_speed_result_analysis='1',
                                       transmit_mode='single_burst', pkts_per_burst='2000', length_mode='fixed',
                                       rate_pps=10000)
+        import sth
+        from sth import StcPython
+        stc=StcPython()
+        sth.emulation_bgp_config(handle = bgp_handle['handle'], mode = 'inactive')
+        stc.apply()
+        st.wait(10)
+        sth.emulation_bgp_config(handle = bgp_handle['handle'], mode = 'active')
+        stc.apply()
+        sth.start_devices()
+        st.wait(10)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
         st.tg_wait(20)
