@@ -469,15 +469,18 @@ def main():
     dut_uname = args['dut_uname']
     topo_type = args['topo_type']
     device_type = args['device_type']
+    if device_type == 'sherman':
+        dut_name = 'sherman-01'
+    else:
+        dut_name = 'mathilda-01'
+    
     if topo_type == 't0':
-        if device_type == 'sherman':
-            base_topo_file = 'testbed-sherman-t0.yaml'
-            dut_name = 'sherman-01'
-        else:
-            base_topo_file = 'testbed-mth32-t0.yaml'
-            dut_name = 'mathilda-01'
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t0.yaml'
+        else:
+            base_topo_file = 'testbed-mth32-t0.yaml'
     else:
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
