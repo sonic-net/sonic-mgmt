@@ -125,11 +125,13 @@ class DefineOid(object):
         # From IF-MIB
         self.ifIndex       = dp + "1.3.6.1.2.1.2.2.1.1"
         self.ifDescr       = dp + "1.3.6.1.2.1.2.2.1.2"
+        self.ifType        = dp + "1.3.6.1.2.1.2.2.1.3"
         self.ifMtu         = dp + "1.3.6.1.2.1.2.2.1.4"
         self.ifSpeed       = dp + "1.3.6.1.2.1.2.2.1.5"
         self.ifPhysAddress = dp + "1.3.6.1.2.1.2.2.1.6"
         self.ifAdminStatus = dp + "1.3.6.1.2.1.2.2.1.7"
         self.ifOperStatus  = dp + "1.3.6.1.2.1.2.2.1.8"
+        self.ifHighSpeed   = dp + "1.3.6.1.2.1.31.1.1.1.15"
         self.ifAlias       = dp + "1.3.6.1.2.1.31.1.1.1.18"
 
         self.ifInDiscards  = dp + "1.3.6.1.2.1.2.2.1.13"
@@ -411,11 +413,13 @@ def main():
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.ifIndex,),
         cmdgen.MibVariable(p.ifDescr,),
+        cmdgen.MibVariable(p.ifType,),
         cmdgen.MibVariable(p.ifMtu,),
         cmdgen.MibVariable(p.ifSpeed,),
         cmdgen.MibVariable(p.ifPhysAddress,),
         cmdgen.MibVariable(p.ifAdminStatus,),
         cmdgen.MibVariable(p.ifOperStatus,),
+        cmdgen.MibVariable(p.ifHighSpeed,),
         cmdgen.MibVariable(p.ipAdEntAddr,),
         cmdgen.MibVariable(p.ipAdEntIfIndex,),
         cmdgen.MibVariable(p.ipAdEntNetMask,),
@@ -442,6 +446,9 @@ def main():
             if v.ifDescr in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['name'] = current_val
+            if v.ifType in current_oid:
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_interfaces'][ifIndex]['type'] = current_val
             if v.ifMtu in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['mtu'] = current_val
@@ -457,6 +464,9 @@ def main():
             if v.ifOperStatus in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(int(current_val))
+            if v.ifHighSpeed in current_oid:
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
             if v.ipAdEntAddr in current_oid:
                 curIPList = current_oid.rsplit('.', 4)[-4:]
                 curIP = ".".join(curIPList)
