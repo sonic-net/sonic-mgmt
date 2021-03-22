@@ -150,9 +150,25 @@ class SonicHost(AnsibleHostBase):
         facts.update(self._get_platform_info())
         facts["num_asic"] = self._get_asic_count(facts["platform"])
         facts["router_mac"] = self._get_router_mac()
+        facts["modular_chassis"] = self._get_modular_chassis()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
+
+    def _get_modular_chassis(self):
+        py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
+        if py_res["failed"]:
+            out = self.shell(
+                "python3 -c \"import sonic_platform.platform as P; print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
+                module_ignore_errors=True)
+        else:
+            out = self.shell(
+                "python -c \"import sonic_platform.platform as P; print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
+                module_ignore_errors=True)
+        res = "False" if out["failed"] else out["stdout"]
+        return res
+
+
 
     def _get_asic_count(self, platform):
         """
@@ -651,6 +667,16 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface shutdown {}".format(ifname))
 
+    def shutdown_multiple(self, ifnames):
+        """
+            Shutdown multiple interfaces
+
+            Args:
+                ifnames (list): the interface names to shutdown
+        """
+        intf_str = ','.join(ifnames)
+        return self.shutdown(intf_str)
+
     def no_shutdown(self, ifname):
         """
             Bring up interface specified by ifname
@@ -659,6 +685,16 @@ class SonicHost(AnsibleHostBase):
                 ifname: the interface to bring up
         """
         return self.command("sudo config interface startup {}".format(ifname))
+
+    def no_shutdown_multiple(self, ifnames):
+        """
+            Bring up multiple interfaces
+
+            Args:
+                ifnames (list): the interface names to bring up
+        """
+        intf_str = ','.join(ifnames)
+        return self.no_shutdown(intf_str)
 
     def get_ip_route_info(self, dstip, ns=""):
         """
@@ -1339,6 +1375,14 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             return False
         return True
 
+    def is_backend_portchannel(self, port_channel):
+        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+        ports = mg_facts["minigraph_portchannels"].get(port_channel)
+        # minigraph facts does not have backend portchannel IFs
+        if ports is None:
+            return True
+        return False if "Ethernet-BP" not in ports["members"][0] else True
+
     def active_ip_interfaces(self, ip_ifs, ns_arg=""):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -1350,7 +1394,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         ip_ifaces = {}
         for k,v in ip_ifs.items():
             if (k.startswith("Ethernet") or
-                (k.startswith("PortChannel") and k.find("400") == -1)
+               (k.startswith("PortChannel") and not
+                self.is_backend_portchannel(k))
             ):
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
                         self.ping_v4(v["peer_ipv4"], ns_arg=ns_arg)

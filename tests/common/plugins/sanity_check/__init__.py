@@ -12,17 +12,17 @@ from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *
 from tests.common.plugins.sanity_check.recover import recover
+from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
-from tests.common.plugins.sanity_check.checks import check_monit
-
 logger = logging.getLogger(__name__)
+
 
 def is_check_item(member):
     '''
     Function to filter for valid check items
 
-    Used in conjuction with inspect.getmembers to make sure that only valid check functions/fixtures executed
+    Used in conjunction with inspect.getmembers to make sure that only valid check functions/fixtures executed
 
     Valid check items must meet the following criteria:
     - Is a function
@@ -60,7 +60,7 @@ def _update_check_items(old_items, new_items, supported_items):
     for new_item in new_items:
         if not new_item:
             continue
-        if new_item[0] in ["_", "-"]:      # Remove default check item
+        if new_item[0] in ["_", "-"]:      # Skip a check item
             new_item = new_item[1:]
             if new_item in updated_items:
                 logger.info("Skip checking '%s'" % new_item)
@@ -79,18 +79,36 @@ def _update_check_items(old_items, new_items, supported_items):
 
 def print_logs(duthosts):
     for dut in duthosts:
-        logger.info("Run commands to print logs, logs to be collected on {}:\n{}"\
-            .format(dut.hostname, json.dumps(constants.PRINT_LOGS, indent=4)))
-        for cmd in constants.PRINT_LOGS.values():
-            res = dut.shell(cmd, module_ignore_errors=True, verbose=False)
-            logger.info("cmd='%s', output:\n%s" % (cmd, json.dumps(res["stdout_lines"], indent=4)))
+        logger.info("Run commands to print logs")
+
+        cmds = constants.PRINT_LOGS.values()
+        results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
+        outputs = []
+        for res in results:
+            res.pop('stdout')
+            res.pop('stderr')
+            outputs.append(res)
+        logger.info(json.dumps(outputs, indent=4))
 
 
-def do_checks(request, check_items):
+def filter_check_items(tbinfo, check_items):
+    filtered_check_items = copy.deepcopy(check_items)
+
+    # ignore BGP check for particular topology type
+    if tbinfo['topo']['type'] == 'ptf' and 'bgp' in filtered_check_items:
+        filtered_check_items.remove('bgp')
+
+    if 'dualtor' not in tbinfo['topo']['name'] and 'mux_simulator' in filtered_check_items:
+        filtered_check_items.remove('mux_simulator')
+
+    return filtered_check_items
+
+
+def do_checks(request, check_items, *args, **kwargs):
     check_results = []
     for item in check_items:
         check_fixture = request.getfixturevalue(_item2fixture(item))
-        results = check_fixture()
+        results = check_fixture(*args, **kwargs)
         if results and isinstance(results, list):
             check_results.extend(results)
         elif results:
@@ -100,12 +118,12 @@ def do_checks(request, check_items):
 
 @pytest.fixture(scope="module", autouse=True)
 def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
-    logger.info("Prepare pre-test sanity check")
+    logger.info("Prepare sanity check")
 
     skip_sanity = False
     allow_recover = False
     recover_method = "adaptive"
-    check_items = set(copy.deepcopy(SUPPORTED_CHECKS))  # Default check items
+    pre_check_items = set(copy.deepcopy(SUPPORTED_CHECKS))  # Default check items
     post_check = False
 
     customized_sanity_check = None
@@ -126,9 +144,11 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
             logger.info("Fall back to use default recover method 'config_reload'")
             recover_method = "config_reload"
 
-        check_items = _update_check_items(check_items,
-                                          customized_sanity_check.kwargs.get("check_items", []),
-                                          SUPPORTED_CHECKS)
+        pre_check_items = _update_check_items(
+            pre_check_items,
+            customized_sanity_check.kwargs.get("check_items", []),
+            SUPPORTED_CHECKS)
+
         post_check = customized_sanity_check.kwargs.get("post_check", False)
 
     if request.config.option.skip_sanity:
@@ -141,60 +161,84 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
     if request.config.option.allow_recover:
         allow_recover = True
 
-    cli_items = request.config.getoption("--check_items")
-    if cli_items:
-        cli_items_list=str(cli_items).split(',')
-        check_items = _update_check_items(check_items, cli_items_list, SUPPORTED_CHECKS)
+    if request.config.option.post_check:
+        post_check = True
 
-    # ignore BGP check for particular topology type
-    if tbinfo['topo']['type'] == 'ptf' and 'bgp' in check_items:
-        check_items.remove('bgp')
+    cli_check_items = request.config.getoption("--check_items")
+    cli_post_check_items = request.config.getoption("--post_check_items")
 
-    if 'dualtor' not in tbinfo['topo']['name']:
-        check_items.remove('mux_simulator')
+    if cli_check_items:
+        logger.info('Fine tune pre-test check items based on CLI option --check_items')
+        cli_items_list=str(cli_check_items).split(',')
+        pre_check_items = _update_check_items(pre_check_items, cli_items_list, SUPPORTED_CHECKS)
 
-    logger.info("Sanity check settings: skip_sanity=%s, check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s" % \
-        (skip_sanity, check_items, allow_recover, recover_method, post_check))
+    pre_check_items = filter_check_items(tbinfo, pre_check_items)  # Filter out un-supported checks.
 
-    if not check_items:
-        logger.info("No sanity check item is specified, no pre-test sanity check")
-        yield
-        logger.info("No sanity check item is specified, no post-test sanity check")
-        return
+    if post_check:
+        # Prepare post test check items based on the collected pre test check items.
+        post_check_items = copy.copy(pre_check_items)
+        if customized_sanity_check:
+            post_check_items = _update_check_items(
+                post_check_items,
+                customized_sanity_check.kwargs.get("post_check_items", []),
+                SUPPORTED_CHECKS)
 
-    # Dynamically attach selected check fixtures to node
-    for item in check_items:
+        if cli_post_check_items:
+            logger.info('Fine tune post-test check items based on CLI option --post_check_items')
+            cli_post_items_list = str(cli_post_check_items).split(',')
+            post_check_items = _update_check_items(post_check_items, cli_post_items_list, SUPPORTED_CHECKS)
+
+        post_check_items = filter_check_items(tbinfo, post_check_items)  # Filter out un-supported checks.
+    else:
+        post_check_items = set()
+
+    logger.info("Sanity check settings: skip_sanity=%s, pre_check_items=%s, allow_recover=%s, recover_method=%s, post_check=%s, post_check_items=%s" % \
+        (skip_sanity, pre_check_items, allow_recover, recover_method, post_check, post_check_items))
+
+    for item in pre_check_items.union(post_check_items):
         request.fixturenames.append(_item2fixture(item))
 
-    print_logs(duthosts)
+        # Workaround for pytest requirement.
+        # Each possibly used check fixture must be executed in setup phase. Otherwise there could be teardown error.
+        request.getfixturevalue(_item2fixture(item))
 
-    logger.info("Start pre-test sanity checks")
-    check_results = do_checks(request, check_items)
-    logger.debug("Pre-test sanity check results:\n%s" % json.dumps(check_results, indent=4))
+    if pre_check_items:
+        logger.info("Start pre-test sanity checks")
 
-    failed_results = [result for result in check_results if result['failed']]
-    if failed_results:
-        if not allow_recover:
-            pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"\
-                .format(json.dumps(failed_results, indent=4)))
-        else:
-            dut_failed_results = defaultdict(list)
-            for failed_result in failed_results:
-                if 'host' in failed_result:
-                    dut_failed_results[failed_result['host']].append(failed_result)
-            for dut_name, dut_results in dut_failed_results.items():
-                recover(duthosts[dut_name], localhost, fanouthosts, dut_results, recover_method)
+        # Dynamically attach selected check fixtures to node
+        for item in set(pre_check_items):
+            request.fixturenames.append(_item2fixture(item))
 
-            logger.info("Run sanity check again after recovery")
-            new_check_results = do_checks(request, check_items)
-            logger.debug("Pre-test sanity check after recovery results:\n%s" % json.dumps(new_check_results, indent=4))
+        print_logs(duthosts)
 
-            new_failed_results = [result for result in new_check_results if result['failed']]
-            if new_failed_results:
-                pt_assert(False, "!!!!!!!!!!!!!!!! Pre-test sanity check after recovery failed: !!!!!!!!!!!!!!!!\n{}"\
-                    .format(json.dumps(new_failed_results, indent=4)))
+        check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST)
+        logger.debug("Pre-test sanity check results:\n%s" % json.dumps(check_results, indent=4))
 
-    logger.info("Done pre-test sanity check")
+        failed_results = [result for result in check_results if result['failed']]
+        if failed_results:
+            if not allow_recover:
+                pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"\
+                    .format(json.dumps(failed_results, indent=4)))
+            else:
+                dut_failed_results = defaultdict(list)
+                for failed_result in failed_results:
+                    if 'host' in failed_result:
+                        dut_failed_results[failed_result['host']].append(failed_result)
+                for dut_name, dut_results in dut_failed_results.items():
+                    recover(duthosts[dut_name], localhost, fanouthosts, dut_results, recover_method)
+
+                logger.info("Run sanity check again after recovery")
+                new_check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST, after_recovery=True)
+                logger.debug("Pre-test sanity check after recovery results:\n%s" % json.dumps(new_check_results, indent=4))
+
+                new_failed_results = [result for result in new_check_results if result['failed']]
+                if new_failed_results:
+                    pt_assert(False, "!!!!!!!!!!!!!!!! Pre-test sanity check after recovery failed: !!!!!!!!!!!!!!!!\n{}"\
+                        .format(json.dumps(new_failed_results, indent=4)))
+
+        logger.info("Done pre-test sanity check")
+    else:
+        logger.info('No pre-test sanity check item, skip pre-test sanity check.')
 
     yield
 
@@ -202,14 +246,16 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
         logger.info("No post-test check is required. Done post-test sanity check")
         return
 
-    logger.info("Start post-test sanity check")
-    post_check_results = do_checks(request, check_items)
-    logger.debug("Post-test sanity check results:\n%s" % json.dumps(post_check_results, indent=4))
+    if post_check_items:
+        logger.info("Start post-test sanity check")
+        post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+        logger.debug("Post-test sanity check results:\n%s" % json.dumps(post_check_results, indent=4))
 
-    post_failed_results = [result for result in post_check_results if result['failed']]
-    if post_failed_results:
-        pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"\
-            .format(json.dumps(post_failed_results, indent=4)))
+        post_failed_results = [result for result in post_check_results if result['failed']]
+        if post_failed_results:
+            pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"\
+                .format(json.dumps(post_failed_results, indent=4)))
 
-    logger.info("Done post-test sanity check")
-    return
+        logger.info("Done post-test sanity check")
+    else:
+        logger.info('No post-test sanity check item, skip post-test sanity check.')
