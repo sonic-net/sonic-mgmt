@@ -1,6 +1,7 @@
 import logging
 import json
-from tests.common.devices import DEFAULT_NAMESPACE, SonicAsic
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.devices.sonic_asic import SonicAsic
 
 logger = logging.getLogger(__name__)
 
