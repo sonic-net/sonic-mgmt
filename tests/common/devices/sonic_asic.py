@@ -231,6 +231,20 @@ class SonicAsic(object):
             return False
         return True
 
+    def is_backend_portchannel(self, port_channel):
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+        if port_channel in mg_facts["minigraph_portchannels"]:
+            port_name = next(
+                iter(
+                    mg_facts["minigraph_portchannels"][port_channel]["members"]
+                )
+            )
+            if "Ethernet-BP" not in port_name:
+                return False
+        return True
+
     def get_active_ip_interfaces(self):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -243,7 +257,7 @@ class SonicAsic(object):
         ip_ifaces = {}
         for k,v in ip_ifs["ip_interfaces"].items():
             if (k.startswith("Ethernet") or
-                (k.startswith("PortChannel") and k.find("400") == -1)
+                (k.startswith("PortChannel") and not self.is_backend_portchannel(k))
             ):
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
                         self.ping_v4(v["peer_ipv4"])
