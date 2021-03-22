@@ -8,6 +8,7 @@ from tests.common.dualtor.dual_tor_mock import *
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface, verify_upstream_traffic
 from tests.common.dualtor.mux_simulator_control import mux_server_url
+from tests.common.utilities import compare_crm_facts
 
 logger = logging.getLogger(__file__)
 
@@ -64,6 +65,7 @@ def test_standby_tor_upstream_toggle_to_active(ptfadapter, rand_selected_dut, tb
     """
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
+    crm_facts1 = rand_selected_dut.get_crm_facts()
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     # Verify packets are not go up
@@ -74,7 +76,9 @@ def test_standby_tor_upstream_toggle_to_active(ptfadapter, rand_selected_dut, tb
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
                             drop=False)
-    # TODO: Verify CRM and nexthop
+    crm_facts2 = rand_selected_dut.get_crm_facts()
+    unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
+    pt_assert(len(unmatched_crm_facts)==0, 'Unmatched CRM facts: {}'.format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
 def test_standby_tor_upstream_toggle_to_standby(ptfadapter, rand_selected_dut, tbinfo, rand_selected_interface, apply_standby_state_to_orchagent):
@@ -83,6 +87,7 @@ def test_standby_tor_upstream_toggle_to_standby(ptfadapter, rand_selected_dut, t
     """
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
+    crm_facts1 = rand_selected_dut.get_crm_facts()
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     # Verify packets are not go up again
@@ -93,6 +98,8 @@ def test_standby_tor_upstream_toggle_to_standby(ptfadapter, rand_selected_dut, t
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
                             drop=True)
-    # TODO: Verify CRM and nexthop
+    crm_facts2 = rand_selected_dut.get_crm_facts()
+    unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
+    pt_assert(len(unmatched_crm_facts)==0, 'Unmatched CRM facts: {}'.format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
