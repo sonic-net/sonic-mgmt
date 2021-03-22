@@ -79,7 +79,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
         # but name of LAG port should have prefix 'PortChannel' and suffix
         # '<0-9999>' on SONiC. So max length of LAG port suffix have be 3 characters
         # For example: 'PortChannel1.99'
-        if request.param == 'port_in_lag':
+        if 'port_in_lag' in request.param:
             max_numbers_of_sub_ports = max_numbers_of_sub_ports if max_numbers_of_sub_ports <= 99 else 99
             vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
             vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
