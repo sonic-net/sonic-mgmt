@@ -125,6 +125,7 @@
 
   - name: Announce routes
     include_tasks: announce_routes.yml
+    when: topo != 'fullmesh'
 
   - name: Start mux simulator
     include_tasks: control_mux_simulator.yml
