@@ -237,7 +237,6 @@ class ReloadTest(BaseTest):
             self.kvm_test = True
         else:
             self.kvm_test = False
-
         return
 
     def read_json(self, name):
@@ -813,10 +812,12 @@ class ReloadTest(BaseTest):
         self.log('waiting for warmboot-finalizer service to become activating')
         finalizer_state = self.get_warmboot_finalizer_state()
         warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
+        finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
+
         while finalizer_state != 'activating':
             dut_datetime_after_ssh = self.get_now_time()
             time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
-            if time_passed > 90:
+            if time_passed > finalizer_timeout:
                 self.fails['dut'].add('warmboot-finalizer never reached state "activating"')
                 raise TimeoutError
             time.sleep(1)
