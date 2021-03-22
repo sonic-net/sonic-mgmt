@@ -40,7 +40,9 @@ sonic_nexus_3164:
   hosts:
     svcstr-n3164-acs-1:
       ansible_host: 10.206.144.15
+      num_asics: 6
       frontend_asics: [0, 1, 2, 3]
     svcstr-n3164-acs-2:
       ansible_host: 10.206.144.14
+      num_asics: 6
       frontend_asics: [0, 1, 2, 3]
