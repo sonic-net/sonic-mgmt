@@ -2,7 +2,6 @@
 
 DOCUMENTATION = '''
 module:  ptf_portchannel
-version_added:  "1.0"
 
 short_description: manage portchannel interface in PTF container
 description: start/stop portchannel interface in PTF container with certain configurations
@@ -173,7 +172,6 @@ def main():
 
     setup_portchannel_conf()
 
-    result = {}
     try:
         if cmd == 'start':
             create_teamd_conf(module, teamd_config)
@@ -186,7 +184,7 @@ def main():
     except Exception as e:
         module.fail_json(msg=traceback.format_exc())
 
-    module.exit_json(**result)
+    module.exit_json()
 
 
 if __name__ == '__main__':
