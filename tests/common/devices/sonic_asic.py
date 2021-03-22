@@ -37,6 +37,15 @@ class SonicAsic(object):
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
             self.cli_ns_option = ""
+        
+        self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
+        self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
+
+    def get_extended_minigraph_facts(self, tbinfo):
+          return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
+
+    def shell(self, cmd):
+        return self.sonichost.shell(cmd)
 
     def get_critical_services(self):
         """This function returns the list of the critical services
