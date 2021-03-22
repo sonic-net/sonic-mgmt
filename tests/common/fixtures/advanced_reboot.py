@@ -257,11 +257,11 @@ class AdvancedReboot:
         '''
         if self.rebootType == 'soft-reboot':
             if 'SONiC-OS-2018' in self.currentImage or 'SONiC-OS-2019' in self.currentImage:
-                result = self.duthost.shell('stat /usr/bin/soft-reboot')
+                result = self.duthost.shell('stat /usr/bin/soft-reboot', module_ignore_errors=True)
                 if len(result['stderr_lines']) != 0:
                     self.duthost.copy(src='scripts/soft-reboot-2019', dest='/usr/bin/soft-reboot')
             else:
-                result = self.duthost.shell('stat /usr/local/bin/soft-reboot')
+                result = self.duthost.shell('stat /usr/local/bin/soft-reboot', module_ignore_errors=True)
                 if len(result['stderr_lines']) != 0:
                     self.duthost.copy(src='scripts/soft-reboot', dest='/usr/local/bin/soft-reboot')
 
