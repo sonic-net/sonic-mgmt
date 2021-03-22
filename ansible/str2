@@ -46,6 +46,8 @@ all:
           ansible_host: 10.64.246.105
         vms20-2:
           ansible_host: 10.64.246.58
+        vms20-3:
+          ansible_host: 10.64.246.144
         vms20-9:
           ansible_host: 10.64.246.134
         vms21-1:
@@ -192,6 +194,8 @@ fanout:
     str2-z9332f-03:
       ansible_host: 10.3.146.229
       os: sonic
+    str2-7260cx3-acs-fan-17:
+      ansible_host: 10.3.146.77
 
 sonic:
   vars:

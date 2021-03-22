@@ -59,6 +59,7 @@ vms18-t0-7215-acs-1,vms18-2,t0-52,docker-ptf,vms18-2,10.64.246.143/23,,server_18
 vms20-t1-dx010-6,vms20-6,t1-lag,docker-ptf,vms20-6,10.64.246.120/23,,server_20,VM2000,str2-dx010-acs-6,Jenkins
 vms20-t1-7050cx3-3,vms20-8,t1-lag,docker-ptf,vms20-8,10.64.246.126/23,,server_20,VM2024,str2-7050cx3-acs-03,lawlee
 vms20-t1-n3164-acs-4,vms20-9,t1-64-lag,docker-ptf,vms20-9,10.64.246.134/23,,server_20,VM2048,str2-n3164-acs-4,suvarna
+vms20-t0-7170-azd,vms20-3,t0,docker-ptf-brcm,vms20-3,10.64.246.144/23,,server_20,VM2076,str2-7170-azd,v-llucy
 vms20-t0-7050cx3-1,vms20-5,t0,docker-ptf,vms20-5,10.64.246.118/23,,server_20,VM2080,str2-7050cx3-acs-01,lawlee
 vms20-t0-7050cx3-2,vms20-7,t0,docker-ptf,vms20-7,10.64.246.125/23,,server_20,VM2084,str2-7050cx3-acs-02,lawlee
 vms20-t0-sn3800-2,vms20-1,t0-120,docker-ptf,vms20-1,10.64.246.105/23,,server_20,VM2088,str2-sn3800-02,stumkurv
