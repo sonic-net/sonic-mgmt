@@ -200,7 +200,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     ptfhost.shell("supervisorctl stop icmp_responder")
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses):
 
     garp_config = {}

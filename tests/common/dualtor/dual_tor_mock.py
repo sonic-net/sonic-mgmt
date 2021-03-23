@@ -5,12 +5,24 @@ import pytest
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
-
+from tests.common import config_reload
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
 
-__all__ = ['apply_active_state_to_orchagent', 'apply_dual_tor_neigh_entries', 'apply_dual_tor_peer_switch_route', 'apply_mock_dual_tor_kernel_configs',
-           'apply_mock_dual_tor_tables', 'apply_mux_cable_table_to_dut', 'apply_peer_switch_table_to_dut', 'apply_standby_state_to_orchagent', 'apply_tunnel_table_to_dut',
-           'mock_peer_switch_loopback_ip', 'mock_server_base_ip_addr', 'mock_server_ip_mac_map']
+__all__ = [
+    'apply_active_state_to_orchagent',
+    'apply_dual_tor_neigh_entries',
+    'apply_dual_tor_peer_switch_route',
+    'apply_mock_dual_tor_kernel_configs',
+    'apply_mock_dual_tor_tables',
+    'apply_mux_cable_table_to_dut',
+    'apply_peer_switch_table_to_dut',
+    'apply_standby_state_to_orchagent',
+    'apply_tunnel_table_to_dut',
+    'cleanup_mocked_configs',
+    'mock_peer_switch_loopback_ip',
+    'mock_server_base_ip_addr',
+    'mock_server_ip_mac_map'
+]
 
 logger = logging.getLogger(__name__)
 
@@ -347,3 +359,14 @@ def apply_mock_dual_tor_kernel_configs(request, tbinfo):
         request.getfixturevalue("apply_dual_tor_peer_switch_route")
         request.getfixturevalue("apply_dual_tor_neigh_entries")
         logger.info("Done applying kernel configs for dual ToR mock")
+
+
+@pytest.fixture(scope="module")
+def cleanup_mocked_configs(duthost, tbinfo):
+    """Config reload to reset the mocked configs applied to DUT."""
+
+    yield
+
+    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+        logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
+        config_reload(duthost, config_source="minigraph")

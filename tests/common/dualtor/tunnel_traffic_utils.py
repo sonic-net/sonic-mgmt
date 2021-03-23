@@ -105,12 +105,12 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.ptfadapter = ptfadapter
 
             standby_tor_cfg_facts = self.standby_tor.config_facts(
-                host=self.standby_tor.hostname, source="persistent"
+                host=self.standby_tor.hostname, source="running"
             )["ansible_facts"]
             self.standby_tor_lo_addr = self._find_ipv4_lo_addr(standby_tor_cfg_facts)
             if self.active_tor:
                 active_tor_cfg_facts = self.active_tor.config_facts(
-                    host=self.active_tor.hostname, source="persistent"
+                    host=self.active_tor.hostname, source="running"
                 )["ansible_facts"]
                 self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
             else:
