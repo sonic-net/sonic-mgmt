@@ -850,7 +850,7 @@ class TestStaticNat(object):
         setup_data = copy.deepcopy(setup_info)
         test_pool_range_start_port = 1000
         test_pool_range_end_port = 2000
-        test_public_ip = "10.0.0.58"
+        test_public_ip = exec_command(duthost, ["/sbin/ifconfig PortChannel0002 | grep 'inet ' | awk -F'[: ]+' '{ print $3 }'"])['stdout']
         nat_type = 'static_napt'
         direction = 'host-tor'
         # Set static NAT configuration for test
@@ -952,8 +952,8 @@ class TestStaticNat(object):
     def test_nat_static_redis_napt(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
-        test_private_ip = "10.0.0.62"
-        test_public_ip = "10.0.0.58"
+        test_private_ip = exec_command(duthost, ["/sbin/ifconfig PortChannel0003 | grep 'inet ' | awk -F'[: ]+' '{ print $3 }'"])['stdout']
+        test_public_ip = exec_command(duthost, ["/sbin/ifconfig PortChannel0002 | grep 'inet ' | awk -F'[: ]+' '{ print $3 }'"])['stdout']
         test_private_port = 8000
         test_public_port = 6000
         nat_type = 'static_napt'
