@@ -17,11 +17,22 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
-
+from tests.common.fixtures.ptfhost_utils import run_garp_service
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 
 pytestmark = [
     pytest.mark.topology("t0")
 ]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_common_setup_teardown(
+    apply_mock_dual_tor_tables,
+    apply_mock_dual_tor_kernel_configs,
+    cleanup_mocked_configs,
+    request
+):
+    request.getfixturevalue("run_garp_service")
 
 
 @pytest.fixture(scope="function")
@@ -82,10 +93,9 @@ def build_expected_packet_to_server(encapsulated_packet):
 
 
 def test_decap_active_tor(
-    apply_mock_dual_tor_tables,
-    apply_mock_dual_tor_kernel_configs,
     apply_active_state_to_orchagent,
-    build_encapsulated_packet, rand_selected_interface, ptfadapter,
+    build_encapsulated_packet,
+    rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
     tor = rand_selected_dut
@@ -98,7 +108,7 @@ def test_decap_active_tor(
     ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=1)
+    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
     _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
     rec_pkt = Ether(rec_pkt)
     logging.info("received decap packet:\n%s", tunnel_traffic_monitor._dump_show_str(rec_pkt))
@@ -111,10 +121,9 @@ def test_decap_active_tor(
 
 
 def test_decap_standby_tor(
-    apply_mock_dual_tor_tables,
-    apply_mock_dual_tor_kernel_configs,
     apply_standby_state_to_orchagent,
-    build_encapsulated_packet, rand_selected_interface, ptfadapter,
+    build_encapsulated_packet,
+    rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
     tor = rand_selected_dut
@@ -127,6 +136,6 @@ def test_decap_standby_tor(
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
     with tunnel_traffic_monitor(tor, existing=False):
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=1)
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
 
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
