@@ -112,6 +112,7 @@ class SonicAsic(object):
             complex_args['namespace'] = self.namespace
         return self.sonichost.config_facts(*module_args, **complex_args)
 
+
     def show_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_interface'
 
