@@ -78,6 +78,12 @@ def get_t2_fib_info(duthosts, ptfhost, all_duts_config_facts, all_duts_mg_facts)
 
     for prefix, prefix_info in all_prefix_dict.items():
         for dut_index, dut_prefix_route in prefix_info.items():
+            #Ignore directly connected networks
+            if prefix.startswith('10.0.0') or prefix.startswith('100.1.0'):
+                continue
+            # Ignore directly connected IPv6 networks
+            if prefix.startswith('2064:100') or prefix.startswith("fc00::"):
+                continue
             dutname = duthosts.frontend_nodes[dut_index].hostname
             dut_cfg_facts = all_duts_config_facts[dutname]
             dut_mg_facts = all_duts_mg_facts[dutname]
