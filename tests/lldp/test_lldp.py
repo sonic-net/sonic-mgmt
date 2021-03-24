@@ -17,13 +17,12 @@ def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, 
     unpatch_lldpctl(localhost, duthost)
 
 
-def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
+def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport, enum_frontend_asic_index):
     """ verify the LLDP message on DUT """
     duthost = duthosts[rand_one_dut_hostname]
 
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    lldpctl_facts = duthost.lldpctl_facts(skip_interface_pattern_list=["eth0"])['ansible_facts']
-
+    config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
     for k, v in lldpctl_facts['lldpctl'].items():
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
         assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
@@ -32,7 +31,7 @@ def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport):
 
 
 def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
-                       collect_techsupport, loganalyzer):
+                       collect_techsupport, loganalyzer, enum_frontend_asic_index):
     """ verify LLDP information on neighbors """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -47,10 +46,10 @@ def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
 
     res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
-    lldpctl_facts = duthost.lldpctl_facts(skip_interface_pattern_list=["eth0"])['ansible_facts']
+    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
     host_facts  = duthost.setup()['ansible_facts']
-
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
+ 
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
     for k, v in lldpctl_facts['lldpctl'].items():
