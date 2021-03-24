@@ -11,6 +11,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
     get_peer_ixia_chassis
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
+import snappi
 
 try:
     from abstract_open_traffic_generator.port import Port
@@ -193,11 +194,31 @@ def ixia_api(ixia_api_serv_ip,
     if api_session:
         api_session.assistant.Session.remove()
 
+
+@pytest.fixture(scope='module')
+def snappi_api(ixia_api_serv_ip,
+               ixia_api_serv_port):
+    """
+    Snappi session fixture for snappi Tgen API
+    Args:
+        ixia_api_serv_ip (pytest fixture): ixia_api_serv_ip fixture
+        ixia_api_serv_port (pytest fixture): ixia_api_serv_port fixture.
+    """
+    host = "https://" + ixia_api_serv_ip + ":" + str(ixia_api_serv_port)
+    api = snappi.api(host=host, ext="ixnetwork")
+
+    yield api
+
+    if api.assistant is not None:
+        api.assistant.Session.remove()
+
+
 @pytest.fixture(scope = "function")
 def ixia_testbed(conn_graph_facts,
                  fanout_graph_facts,
                  duthosts,
-                 rand_one_dut_hostname):
+                 rand_one_dut_hostname,
+                 snappi_api):
 
     """
     L2/L3 Tgen API config for the T0 testbed
@@ -224,17 +245,14 @@ def ixia_testbed(conn_graph_facts,
 
     ixia_ports = ixia_fanout_list.get_ports(peer_device=duthost.hostname)
 
-    ports = list()
     port_names = list()
     port_speed = None
 
     """ L1 config """
+    config = snappi_api.config()
     for i in range(len(ixia_ports)):
-        port = Port(name='Port {}'.format(i),
-                    location=get_tgen_location(ixia_ports[i]))
-
-        ports.append(port)
-        port_names.append(port.name)
+        config.ports.port(name='Port {}'.format(i),
+                          location=get_tgen_location(ixia_ports[i]))
 
         if port_speed is None:
             port_speed = int(ixia_ports[i]['speed'])
@@ -243,32 +261,29 @@ def ixia_testbed(conn_graph_facts,
             """ All the ports should have the same bandwidth """
             return None
 
-    pfc = Ieee8021qbb(pfc_delay=0,
-                      pfc_class_0=0,
-                      pfc_class_1=1,
-                      pfc_class_2=2,
-                      pfc_class_3=3,
-                      pfc_class_4=4,
-                      pfc_class_5=5,
-                      pfc_class_6=6,
-                      pfc_class_7=7)
+    port_names = [port.name for port in config.ports]
+    config.options.port_options.location_preemption = True
+    l1_config = config.layer1.layer1()[-1]
+    l1_config.name = 'port settings'
+    l1_config.port_names = [port.name for port in config.ports]
+    l1_config.speed = 'speed_%d_gbps' % int(port_speed/1000)
+    l1_config.auto_negotiate = False
+    l1_config.auto_negotiation.link_training = True
+    l1_config.auto_negotiation.rs_fec = True
+    l1_config.ieee_media_defaults = False
 
-    flow_ctl = FlowControl(choice=pfc)
+    pfc = l1_config.flow_control.ieee_802_1qbb
+    pfc.pfc_delay = 0
+    pfc.pfc_class_0 = 0
+    pfc.pfc_class_1 = 1
+    pfc.pfc_class_2 = 2
+    pfc.pfc_class_3 = 3
+    pfc.pfc_class_4 = 4
+    pfc.pfc_class_5 = 5
+    pfc.pfc_class_6 = 6
+    pfc.pfc_class_7 = 7
 
-    auto_negotiation = AutoNegotiation(link_training=True,
-                                       rs_fec=True)
-
-    l1_config = Layer1(name='L1 config',
-                       speed='speed_%d_gbps' % int(port_speed/1000),
-                       auto_negotiate=False,
-                       auto_negotiation=auto_negotiation,
-                       ieee_media_defaults=False,
-                       flow_control=flow_ctl,
-                       port_names=port_names)
-
-    config = Config(ports=ports,
-                    layer1=[l1_config],
-                    options=Options(PortOptions(location_preemption=True)))
+    l1_config.flow_control.choice = l1_config.flow_control.IEEE_802_1QBB
 
     """ L2/L3 config """
     vlan_subnet = get_vlan_subnet(duthost)
@@ -280,17 +295,15 @@ def ixia_testbed(conn_graph_facts,
     prefix = vlan_subnet.split('/')[1]
 
     for i in range(len(ixia_ports)):
-        ip_stack = Ipv4(name='Ipv4 {}'.format(i),
-                        address=Pattern(vlan_ip_addrs[i]),
-                        prefix=Pattern(prefix),
-                        gateway=Pattern(gw_addr),
-                        ethernet=Ethernet(name='Ethernet {}'.format(i)))
+        dev = config.devices.device(name='Device {}'.format(i),
+                                    container_name=port_names[i])[-1]
 
-        device = Device(name='Device {}'.format(i),
-                        device_count=1,
-                        container_name=port_names[i],
-                        choice=ip_stack)
-
-        config.devices.append(device)
+        eth = dev.ethernet
+        eth.name = 'Ethernet {}'.format(i)
+        ipv4 = eth.ipv4
+        ipv4.name = 'Ipv4 {}'.format(i)
+        ipv4.address = vlan_ip_addrs[i]
+        ipv4.prefix = prefix
+        ipv4.gateway = gw_addr
 
     return config
