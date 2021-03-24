@@ -1,4 +1,3 @@
-import logging
 import nnpy
 import ptf
 import ptf.platforms.nn as nn
@@ -111,7 +110,7 @@ class PtfTestAdapter(BaseTest):
     def kill(self):
         """ Close dataplane socket and kill data plane thread """
         self.dataplane.kill()
-        
+
         for injector in DataPlanePortNN.packet_injecters.values():
             injector.socket.close()
         DataPlanePortNN.packet_injecters.clear()
