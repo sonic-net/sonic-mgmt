@@ -789,11 +789,10 @@ class ReloadTest(BaseTest):
     def get_warmboot_finalizer_state(self):
         stdout, stderr, _ = self.dut_connection.execCommand('sudo systemctl is-active warmboot-finalizer.service')
 
-        if stdout == []:
+        if not stdout:
             self.log('Finalizer state not returned from DUT')
-            #self.fails['dut'].add('Error collecting Finalizer state from DUT')
             return ''
-        if stderr != []:
+        if stderr:
             self.fails['dut'].add("stderr from DUT while collecting Finalizer state: %s" % (str(stderr)))
 
         finalizer_state = stdout[0].strip()
@@ -803,8 +802,10 @@ class ReloadTest(BaseTest):
         stdout, stderr, _ = self.dut_connection.execCommand('date +"%Y-%m-%d %H:%M:%S"')
         if stdout == []:
             self.fails['dut'].add('Error collecting current date from DUT: empty value returned')
+            raise Exception('Error collecting current date from DUT: empty value returned')
         if stderr != []:
             self.fails['dut'].add("Error collecting current date from DUT: %s" % (str(stderr)))
+            raise Exception('Error collecting current date from DUT: empty value returned')
         return datetime.datetime.strptime(stdout[0].strip(), "%Y-%m-%d %H:%M:%S")
 
     def check_warmboot_finalizer(self):
