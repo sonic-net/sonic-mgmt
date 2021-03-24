@@ -5,7 +5,6 @@ from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action,
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, shutdown_fanout_upper_tor_intfs, \
                                                 shutdown_fanout_lower_tor_intfs, upper_tor_fanouthosts, lower_tor_fanouthosts                   # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor, toggle_all_simulator_ports_to_lower_tor         # lgtm[py/unused-import]
-from tests.common.dualtor.tor_failure_utils import reboot_tor, tor_blackhole_traffic, wait_for_device_reachable                                 # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
 
 pytestmark = [
@@ -15,7 +14,7 @@ pytestmark = [
 
 def test_active_link_down_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor, reboot_tor,
+    toggle_all_simulator_ports_to_upper_tor,
     shutdown_fanout_upper_tor_intfs
 ):
     """
@@ -35,7 +34,7 @@ def test_active_link_down_upstream(
 
 def test_active_link_down_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor, reboot_tor,
+    toggle_all_simulator_ports_to_upper_tor,
     shutdown_fanout_upper_tor_intfs
 ):
     """
@@ -55,7 +54,7 @@ def test_active_link_down_downstream_active(
 
 def test_active_link_down_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor, reboot_tor,
+    toggle_all_simulator_ports_to_upper_tor,
     shutdown_fanout_upper_tor_intfs
 ):
     """
@@ -75,7 +74,7 @@ def test_active_link_down_downstream_standby(
 
 def test_standby_link_down_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor, reboot_tor,
+    toggle_all_simulator_ports_to_upper_tor,
     shutdown_fanout_lower_tor_intfs
 ):
     """
@@ -95,7 +94,7 @@ def test_standby_link_down_upstream(
 
 def test_standby_link_down_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor, reboot_tor,
+    toggle_all_simulator_ports_to_upper_tor,
     shutdown_fanout_lower_tor_intfs
 ):
     """
@@ -115,7 +114,7 @@ def test_standby_link_down_downstream_active(
 
 def test_standby_link_down_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor, reboot_tor,
+    toggle_all_simulator_ports_to_upper_tor,
     shutdown_fanout_lower_tor_intfs
 ):
     """
