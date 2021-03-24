@@ -1,5 +1,4 @@
 import logging
-from typing import Counter
 import pytest
 import json
 import urllib2
@@ -46,8 +45,8 @@ def url(mux_server_url, duthost, tbinfo):
         Args:
             interface_name: a str, the name of interface
                             If interface_name is none, the returned url contains no '/port/action' (For polling/toggling all ports)
-                            or /mux/vms/flap_counter for retrieving flap counter for all ports 
-                            or /mux/vms/clear_flap_counter for clearing flap counter for given ports 
+                            or /mux/vms/flap_counter for retrieving flap counter for all ports
+                            or /mux/vms/clear_flap_counter for clearing flap counter for given ports
             action: a str, output|drop|None. If action is None, the returned url contains no '/action'
         Returns:
             The url for posting flow update request, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
@@ -375,4 +374,4 @@ def simulator_clear_flap_counters(url):
     server_url = url(action=CLEAR_FLAP_COUNTER)
     data = {"port_to_clear": "all"}
     pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
-    
+
