@@ -800,10 +800,10 @@ class ReloadTest(BaseTest):
 
     def get_now_time(self):
         stdout, stderr, _ = self.dut_connection.execCommand('date +"%Y-%m-%d %H:%M:%S"')
-        if stdout == []:
+        if not stdout:
             self.fails['dut'].add('Error collecting current date from DUT: empty value returned')
             raise Exception('Error collecting current date from DUT: empty value returned')
-        if stderr != []:
+        if stderr:
             self.fails['dut'].add("Error collecting current date from DUT: %s" % (str(stderr)))
             raise Exception('Error collecting current date from DUT: empty value returned')
         return datetime.datetime.strptime(stdout[0].strip(), "%Y-%m-%d %H:%M:%S")
