@@ -13,20 +13,20 @@ from files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 @pytest.mark.topology("tgen")
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_all_to_all(ixia_api,
-                          ixia_testbed,
-                          conn_graph_facts,
-                          fanout_graph_facts,
-                          duthosts,
-                          rand_one_dut_hostname,
-                          rand_one_dut_portname_oper_up,
-                          rand_one_dut_lossless_prio,
-                          lossy_prio_list,
-                          prio_dscp_map,
-                          trigger_pfcwd):
+def test_pfcwd_many_to_one(ixia_api,
+                           ixia_testbed,
+                           conn_graph_facts,
+                           fanout_graph_facts,
+                           duthosts,
+                           rand_one_dut_hostname,
+                           rand_one_dut_portname_oper_up,
+                           rand_one_dut_lossless_prio,
+                           lossy_prio_list,
+                           prio_dscp_map,
+                           trigger_pfcwd):
 
     """
-    Run PFC watchdog test under all to all traffic pattern
+    Run PFC watchdog test under many to one traffic pattern
 
     Args:
         ixia_api (pytest fixture): IXIA session
@@ -63,4 +63,4 @@ def test_pfcwd_all_to_all(ixia_api,
                               bg_prio_list=lossy_prio_list,
                               prio_dscp_map=prio_dscp_map,
                               trigger_pfcwd=trigger_pfcwd,
-                              pattern="all to all")
+                              pattern="many to one")
