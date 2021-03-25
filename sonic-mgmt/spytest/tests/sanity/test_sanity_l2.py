@@ -192,7 +192,6 @@ def test_base_line_portchannel_create_delete():
             tg1.tg_traffic_control(action='run', stream_handle=stream_list)
             st.wait(data.post_wait_time_run)
             tg1.tg_traffic_control(action='stop', stream_handle=stream_list)
-
             if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
                                                comp_type='packet_count'):
                 debug_cmds()

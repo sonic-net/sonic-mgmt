@@ -45,6 +45,10 @@ def test_ft_ip_static_ip_on_mgmt_intrf():
     data.ip_address = ip_address_list[0]
     if '1.74' in data.ip_address:
  	gateway = '1.74.23.200'
+    if '192.168' in data.ip_address:
+        gateway = data.ip_address.split('.')
+        gateway[-1] = '1'
+        gateway = '.'.join(gateway)
     command = "sudo ip route add 0.0.0.0/0 via {} dev {}".format(gateway, data.interface)
     st.config(vars.D1, command, skip_error_check=False)
     
