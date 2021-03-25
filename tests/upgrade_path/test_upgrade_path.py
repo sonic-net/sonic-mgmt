@@ -246,6 +246,16 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
                         platform="remote",
                         qlen=10000,
                         log_file=log_file)
+
+            ctr = 120
+            # Poll every 5s for 10min
+            while ctr:
+                reboot_cause = get_reboot_cause(duthost)
+                if reboot_cause == upgrade_type:
+                    break
+                else:
+                    time.sleep(5)
+                ctr -= 1
             reboot_cause = get_reboot_cause(duthost)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             pytest_assert(reboot_cause == upgrade_type, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))
