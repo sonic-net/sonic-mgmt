@@ -69,7 +69,7 @@ vms21-t1-2700-2,vms21-2,t1-lag,docker-ptf,vms21-2,10.64.246.146/23,,server_21,VM
 vms21-dual-t0-7050-3,vms21-3,dualtor-56,docker-ptf,vms21-3,10.64.246.147/23,,server_21,VM2128,[str2-7050cx3-acs-10;str2-7050cx3-acs-11],str2,True,v-saidia
 vms21-t0-z9332f-02,vms21-4,t0-80,docker-ptf,vms21-4,10.64.246.148/23,,server_21,VM2132,str2-z9332f-02,str2,True,v-saidia
 vms21-t1-z9332f-01,vms21-5,t1-lag,docker-ptf,vms21-5,10.64.246.149/23,,server_21,VM2156,str2-z9332f-01,str2,True,v-saidia
-vmsvc1-t1-n3164-acs-1,svc1-1,t1-64-lag,docker-ptf,svc1-1,10.206.144.19/24,,server_svc_1,VM1000,svcstr-n3164-acs-1,,False,Mahesh
-vmsvc1-t1-n3164-acs-2,svc1-2,t1-64-lag,docker-ptf,svc1-2,10.206.144.20/24,,server_svc_1,VM1024,svcstr-n3164-acs-2,,False,genhwa
+vmsvc1-t1-n3164-acs-1,svc1-1,t1-64-lag,docker-ptf,svc1-1,10.206.144.19/24,,server_svc_1,VM1000,svcstr-n3164-acs-1,strsvc,False,Mahesh
+vmsvc1-t1-n3164-acs-2,svc1-2,t1-64-lag,docker-ptf,svc1-2,10.206.144.20/24,,server_svc_1,VM1024,svcstr-n3164-acs-2,strsvc,False,genhwa
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,,False,superman
 spytest,spytest,fullmesh,docker-ptf,ptf-unknown,10.64.246.101/23,,server_16,,[str2-7060-spy-3;str2-7060-spy-4;str2-7060-spy-1;str2-7060-spy-2],str2,False,hellospytest

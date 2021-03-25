@@ -948,7 +948,7 @@
   server: server_svc_1
   vm_base: VM1000
   dut: [svcstr-n3164-acs-1]
-  inv_name: ''
+  inv_name: strsvc
   auto_recover: 'False'
   comment: Mahesh
 
@@ -962,7 +962,7 @@
   server: server_svc_1
   vm_base: VM1024
   dut: [svcstr-n3164-acs-2]
-  inv_name: ''
+  inv_name: strsvc
   auto_recover: 'False'
   comment: genhwa
 
