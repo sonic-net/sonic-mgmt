@@ -12,7 +12,7 @@ function usage
   echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] config-vm <topo-name> <vm-name> <vault-password-file>"
-  echo "    $0 [options] announce-routes <topo-name> <vault-password-file>"
+  echo "    $0 [options] announce-routes <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo
@@ -52,7 +52,7 @@ function usage
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
   echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
-  echo "To announce routes to DUT: $0 announce-routes 'topo-name' ~/.password"
+  echo "To announce routes to DUT: $0 announce-routes 'topo-name' 'inventory' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
   echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
@@ -348,6 +348,7 @@ function announce_routes
   topology=$1
   inventory=$2
   passfile=$3
+  shift
   shift
   shift
 
