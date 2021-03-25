@@ -440,7 +440,7 @@ def find_graph(hostnames, part=False):
 def get_port_name_list(hwsku):
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
-    port_alias_to_name_map = get_port_alias_to_name_map(hwsku)
+    port_alias_to_name_map, _ = get_port_alias_to_name_map(hwsku)
 
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
