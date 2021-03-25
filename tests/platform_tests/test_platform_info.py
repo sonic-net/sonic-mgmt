@@ -150,7 +150,7 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
         if "201811" in dut.os_version or "201911" in dut.os_version:
             psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
         else:
-            psu_line_pattern = re.compile(r"PSU\s+(\d+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
+            psu_line_pattern = re.compile(r"PSU\s+(\d+)\s+\S+\s+\S+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
 
         psu_match = psu_line_pattern.match(psu_status_line)
         psu_id = psu_match.group(1)
