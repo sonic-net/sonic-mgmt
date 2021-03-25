@@ -40,6 +40,9 @@ class SonicAsic(object):
         self.ports = None
         self.queue_oid = set()
 
+        self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
+        self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
+
     def get_critical_services(self):
         """This function returns the list of the critical services
            for the namespace(asic)
@@ -383,3 +386,35 @@ class SonicAsic(object):
         # this queue's OID
         self.queue_oid.add(queue_oid)
         return queue_oid
+
+    def get_extended_minigraph_facts(self, tbinfo):
+          return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
+
+    def startup_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} startup {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def shutdown_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} shutdown {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def config_ip_intf(self, interface_name, ip_address, op):
+        return self.sonichost.shell("sudo config interface {ns} ip {op} {intf} {ip}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  intf=interface_name,
+                                  ip=ip_address))
+
+    def config_portchannel_member(self, pc_name, interface_name, op):
+        return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  pc=pc_name,
+                                  intf=interface_name))
+
+    def switch_arptable(self, *module_args, **complex_args):
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.switch_arptable(*module_args, **complex_args)
+
+    def shell(self, *module_args, **complex_args):
+        return self.sonichost.shell(*module_args, **complex_args)
