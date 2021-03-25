@@ -31,9 +31,9 @@ def check_monit_last_output(duthost):
     indices = [i for i, s in enumerate(monit_status_result) if 'last output' in s]
     monit_last_output = monit_status_result[indices[0]]
     if duthost.is_multi_asic:
-        return "'python /usr/bin/lldpmgrd' is not running in host and in namespace asic0" in monit_last_output
+        return "'/usr/bin/lldpmgrd' is not running in host and in namespace asic0" in monit_last_output
     else:
-        return "'python /usr/bin/lldpmgrd' is not running in host" in monit_last_output
+        return "'/usr/bin/lldpmgrd' is not running in host" in monit_last_output
 
 def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
