@@ -1,7 +1,8 @@
 import pytest
 import crypt
 import logging
-import time
+
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,11 @@ logger = logging.getLogger(__name__)
 def check_all_services_status(ptfhost):
     res = ptfhost.command("service --status-all")
     logger.info(res["stdout_lines"])
+
+
+def start_tacacs_server(ptfhost):
+    ptfhost.command("service tacacs_plus restart", module_ignore_errors=True)
+    return "tacacs+ running" in ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout_lines"]
 
 
 def setup_tacacs_client(duthost, creds, tacacs_server_ip):
@@ -43,26 +49,19 @@ def setup_tacacs_server(ptfhost, creds):
 
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
-    check_all_services_status(ptfhost)
-
-    # FIXME: This is a short term mitigation, we need to determine how to reliably check if
-    # the service template has been completely written to disk and is available for the `service`
-    # utility to consume. `cat` and `md5sum` do not seem to work for this purpose.
-    time.sleep(10)
-    check_all_services_status(ptfhost)
-
-    # start tacacs server
     ptfhost.lineinfile(path="/etc/default/tacacs+", line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"", regexp='^DAEMON_OPTS=.*')
-    ptfhost.service(name="tacacs_plus", state="restarted")
+    check_all_services_status(ptfhost)
+
+    # FIXME: This is a short term mitigation, we need to figure out why the tacacs+ server does not start
+    # reliably all of a sudden.
+    wait_until(5, 1, start_tacacs_server, ptfhost)
     check_all_services_status(ptfhost)
 
 
-def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip, creds):
+def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     # stop tacacs server
     ptfhost.service(name="tacacs_plus", state="stopped")
     check_all_services_status(ptfhost)
-
-    time.sleep(5)
 
     # reset tacacs client configuration
     duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
@@ -80,7 +79,7 @@ def test_tacacs(ptfhost, duthosts, rand_one_dut_hostname, creds):
 
     yield
 
-    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip, creds)
+    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
 
 
 @pytest.fixture(scope="module")
@@ -95,4 +94,4 @@ def test_tacacs_v6(ptfhost, duthosts, rand_one_dut_hostname, creds):
 
     yield
 
-    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip, creds)
+    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
