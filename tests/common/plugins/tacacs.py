@@ -40,6 +40,7 @@ def setup_tacacs_server(ptfhost, creds):
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
 
     # start tacacs server
+    ptfhost.lineinfile(path="/etc/default/tacacs+", line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"", regexp='^DAEMON_OPTS=.*')
     ptfhost.service(name="tacacs_plus", state="started")
 
 
