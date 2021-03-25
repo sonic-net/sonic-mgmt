@@ -6,7 +6,7 @@ import ptf.packet as scapy
 import ptf.mask as mask
 
 from ptf.base_tests import BaseTest
-from ptf.dataplane import DataPlane
+from ptf.dataplane import DataPlane, DataPlanePortNN
 from tests.common.utilities import wait_until
 
 
@@ -49,8 +49,8 @@ class PtfTestAdapter(BaseTest):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """ exit from 'with' block """
-
-        self.kill()
+        if exc_type != PtfAdapterNNConnectionError:
+            self.kill()
 
     def _check_ptf_nn_agent_availability(self, socket_addr):
         """Verify the nanomsg socket address exposed by ptf_nn_agent is available."""
@@ -108,8 +108,12 @@ class PtfTestAdapter(BaseTest):
         self.dataplane = ptf.dataplane_instance
 
     def kill(self):
-        """ kill data plane thread """
+        """ Close dataplane socket and kill data plane thread """
         self.dataplane.kill()
+
+        for injector in DataPlanePortNN.packet_injecters.values():
+            injector.socket.close()
+        DataPlanePortNN.packet_injecters.clear()
 
     def reinit(self, ptf_config=None):
         """ reinitialize ptf data plane thread.
