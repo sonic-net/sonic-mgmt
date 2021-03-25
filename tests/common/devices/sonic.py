@@ -14,7 +14,7 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.cache import cached
-from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
@@ -1094,8 +1094,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         return self._parse_show(output)
 
     @cached(name='mg_facts')
-    def get_extended_minigraph_facts(self, tbinfo):
-        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+    def get_extended_minigraph_facts(self, tbinfo, namespace = DEFAULT_NAMESPACE):
+        mg_facts = self.minigraph_facts(host = self.hostname, namespace = namespace)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
