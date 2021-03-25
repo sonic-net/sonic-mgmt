@@ -101,7 +101,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     # pool for executing tasks asynchronously
     pool = ThreadPool()
     dut_ip = duthost.mgmt_ip
-
+    hostname = duthost.hostname
     try:
         reboot_ctrl    = reboot_ctrl_dict[reboot_type]
         reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
@@ -110,14 +110,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         if wait == 0:
             wait = reboot_ctrl['wait']
     except KeyError:
-        raise ValueError('invalid reboot type: "{}"'.format(reboot_type))
+        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
     def execute_reboot_command():
-        logger.info('rebooting with command "{}"'.format(reboot_command))
+        logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
         return duthost.command(reboot_command)
 
     def execute_reboot_helper():
-        logger.info('rebooting with helper "{}"'.format(reboot_helper))
+        logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
         return reboot_helper(reboot_kwargs)
 
     dut_datetime = duthost.get_now_time()
@@ -129,7 +129,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
 
-    logger.info('waiting for ssh to drop')
+    logger.info('waiting for ssh to drop on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
                              state='absent',
@@ -140,8 +140,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
 
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
         if reboot_res.ready():
-            logger.error('reboot result: {}'.format(reboot_res.get()))
-        raise Exception('DUT did not shutdown')
+            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
+        raise Exception('DUT {} did not shutdown'.format(hostname))
 
     if not wait_for_ssh:
         return
@@ -150,7 +150,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     #       This feature requires serial information to be present in
     #       testbed information
 
-    logger.info('waiting for ssh to startup')
+    logger.info('waiting for ssh to startup on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
                              state='started',
@@ -159,43 +159,43 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
                              timeout=timeout,
                              module_ignore_errors=True)
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        raise Exception('DUT did not startup')
+        raise Exception('DUT {} did not startup'.format(hostname))
 
-    logger.info('ssh has started up')
+    logger.info('ssh has started up on {}'.format(hostname))
 
-    logger.info('waiting for switch to initialize')
+    logger.info('waiting for switch {} to initialize'.format(hostname))
 
     if reboot_type == 'warm':
-        logger.info('waiting for warmboot-finalizer service to become activating')
+        logger.info('waiting for warmboot-finalizer service to become activating on {}'.format(hostname))
         finalizer_state = get_warmboot_finalizer_state(duthost)
         while finalizer_state != 'activating':
             dut_datetime_after_ssh = duthost.get_now_time()
             time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
             if time_passed > wait:
-                raise Exception('warmboot-finalizer never reached state "activating"')
+                raise Exception('warmboot-finalizer never reached state "activating" on {}'.format(hostname))
             time.sleep(1)
             finalizer_state = get_warmboot_finalizer_state(duthost)
-        logger.info('waiting for warmboot-finalizer service to finish')
+        logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
         finalizer_state = get_warmboot_finalizer_state(duthost)
-        logger.info('warmboot finalizer service state {}'.format(finalizer_state))
+        logger.info('warmboot finalizer service state {} on {}'.format(finalizer_state, hostname))
         count = 0
         while finalizer_state == 'activating':
             finalizer_state = get_warmboot_finalizer_state(duthost)
-            logger.info('warmboot finalizer service state {}'.format(finalizer_state))
+            logger.info('warmboot finalizer service state {} on {}'.format(finalizer_state, hostname))
             time.sleep(delay)
             if count * delay > timeout:
-                raise Exception('warmboot-finalizer.service did not finish')
+                raise Exception('warmboot-finalizer.service did not finish on {}'.format(hostname))
             count += 1
-        logger.info('warmboot-finalizer service finished')
+        logger.info('warmboot-finalizer service finished on {}'.format(hostname))
     else:
         time.sleep(wait)
 
     DUT_ACTIVE.set()
-    logger.info('{} reboot finished'.format(reboot_type))
+    logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
     dut_uptime = duthost.get_up_time()
-    logger.info('DUT up since {}'.format(dut_uptime))
-    assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device did not reboot"
+    logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
+    assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device {} did not reboot".format(hostname)
 
 
 def get_reboot_cause(dut):

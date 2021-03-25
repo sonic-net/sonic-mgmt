@@ -431,7 +431,7 @@ def main():
         fib_t2_lag(topo, ptf_ip)
         module.exit_json(changed=True)
     else:
-        module.fail_json(msg='Unsupported topology "{}"'.format(topo_name))
+        module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
 
 
 if __name__ == '__main__':

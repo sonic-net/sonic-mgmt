@@ -1137,6 +1137,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return asic
 
+    def get_facts(self):
+        return self.facts
+
     def get_running_config_facts(self):
         return self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
 
