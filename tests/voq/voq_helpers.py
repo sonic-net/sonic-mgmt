@@ -271,7 +271,7 @@ def check_rif_on_sup(sup, rif, slot, asic, port):
         asic_str = asic
 
     key = "SYSTEM_INTERFACE|{}|{}|{}".format(slot_str, asic_str, port)
-    my_system_intf = voqdb.get_keys(key)
+    voqdb.get_keys(key)
     logger.info("Found key {} on chassisdb on supervisor card".format(key))
 
 
