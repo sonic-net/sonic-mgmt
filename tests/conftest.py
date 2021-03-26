@@ -48,6 +48,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
+                  'tests.common.plugins.logging_utils',
                   'tests.common.dualtor',
                   'tests.vxlan')
 
