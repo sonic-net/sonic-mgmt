@@ -1174,6 +1174,7 @@ def test_ft_cpu_usage():
             if float(row['cpu']) < 80.0 and float(row['cpu']) >= 0.0:
                 st.log("CPU usage for {} is {}".format(row['command'],row['cpu']))
             else:
+                st.log("CPU usage for {} is {}".format(row['command'], row['cpu']))
                 st.log("test case failed as {} reached more than allowed CPU usage".format(row['command']))
                 raise Exception("test case failed as {} reached more than allowed CPU usage".format(row['command']))
         st.report_pass("test_case_passed")
@@ -1197,6 +1198,7 @@ def test_ft_memory_usage():
             if float(row['mem']) < 80.0 and float(row['mem']) >= 0.0:
                 st.log("Memory usage for {} is {}".format(row['command'],row['mem']))
             else:
+                st.log("Memory usage for {} is {}".format(row['command'], row['mem']))
                 st.log("Memory usage for {} is {}".format(row['command'],row['mem']))
                 raise Exception("test case failed as {} reached more than allowed Memory usage".format(row['command']))
         st.log("Test Case Passed")
