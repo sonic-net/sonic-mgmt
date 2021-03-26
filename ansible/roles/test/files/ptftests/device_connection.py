@@ -6,7 +6,7 @@ from paramiko.ssh_exception import BadHostKeyException, AuthenticationException,
 from pip._vendor.retrying import retry
 logger = logging.getLogger(__name__)
 
-DEFAULT_CMD_EXECUTION_TIMEOUT_SEC = 300
+DEFAULT_CMD_EXECUTION_TIMEOUT_SEC = 10
 
 class DeviceConnection:
     '''

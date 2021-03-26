@@ -68,6 +68,7 @@ import multiprocessing
 from arista import Arista
 import sad_path as sp
 
+MAX_EXEC_CMD_TIMEOUT_FAST_REBOOT = 300
 
 class StateMachine():
     def __init__(self, init_state='init'):
@@ -1125,7 +1126,10 @@ class ReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         self.log("Rebooting remote side")
-        stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type)
+        if self.reboot_type == 'fast-reboot':
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, MAX_EXEC_CMD_TIMEOUT_FAST_REBOOT)
+        else:
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type)
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
         if stderr != []:
