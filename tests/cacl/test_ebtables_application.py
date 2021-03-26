@@ -17,7 +17,7 @@ def generate_expected_rules(duthost):
     return ebtables_rules
 
 
-def test_ebtables_application(duthosts, rand_one_dut_hostname):
+def test_ebtables_application(duthosts, rand_one_dut_hostname, enum_asic_index):
     """
     Test case to ensure ebtables rules are applied are corectly on DUT during init
 
@@ -28,7 +28,7 @@ def test_ebtables_application(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     expected_ebtables_rules = generate_expected_rules(duthost)
 
-    stdout = duthost.shell("sudo ebtables -L FORWARD")["stdout"]
+    stdout = duthost.asic_instance(enum_asic_index).command("sudo ebtables -L FORWARD")["stdout"]
     ebtables_rules = stdout.strip().split("\n")
     actual_ebtables_rules = [rule.strip().replace("0806","ARP") for rule in ebtables_rules if rule.startswith('-')]
 

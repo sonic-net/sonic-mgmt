@@ -34,7 +34,7 @@ def mux_server_url(request, tbinfo):
     return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
 @pytest.fixture(scope='module')
-def url(mux_server_url, duthost):
+def url(mux_server_url, duthost, tbinfo):
     """
     A helper function is returned to make fixture accept arguments
     """
@@ -51,7 +51,7 @@ def url(mux_server_url, duthost):
         """
         if not interface_name:
             return mux_server_url
-        mg_facts = duthost.get_extended_minigraph_facts()
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         mbr_index = mg_facts['minigraph_ptf_indices'][interface_name]
         if not action:
             return mux_server_url + "/{}".format(mbr_index)

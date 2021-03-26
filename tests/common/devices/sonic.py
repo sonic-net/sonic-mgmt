@@ -14,7 +14,7 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.cache import cached
-from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
@@ -149,9 +149,25 @@ class SonicHost(AnsibleHostBase):
         facts.update(self._get_platform_info())
         facts["num_asic"] = self._get_asic_count(facts["platform"])
         facts["router_mac"] = self._get_router_mac()
+        facts["modular_chassis"] = self._get_modular_chassis()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
+
+    def _get_modular_chassis(self):
+        py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
+        if py_res["failed"]:
+            out = self.shell(
+                "python3 -c \"import sonic_platform.platform as P; print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
+                module_ignore_errors=True)
+        else:
+            out = self.shell(
+                "python -c \"import sonic_platform.platform as P; print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
+                module_ignore_errors=True)
+        res = "False" if out["failed"] else out["stdout"]
+        return res
+
+
 
     def _get_asic_count(self, platform):
         """
@@ -650,6 +666,16 @@ class SonicHost(AnsibleHostBase):
         """
         return self.command("sudo config interface shutdown {}".format(ifname))
 
+    def shutdown_multiple(self, ifnames):
+        """
+            Shutdown multiple interfaces
+
+            Args:
+                ifnames (list): the interface names to shutdown
+        """
+        intf_str = ','.join(ifnames)
+        return self.shutdown(intf_str)
+
     def no_shutdown(self, ifname):
         """
             Bring up interface specified by ifname
@@ -658,6 +684,16 @@ class SonicHost(AnsibleHostBase):
                 ifname: the interface to bring up
         """
         return self.command("sudo config interface startup {}".format(ifname))
+
+    def no_shutdown_multiple(self, ifnames):
+        """
+            Bring up multiple interfaces
+
+            Args:
+                ifnames (list): the interface names to bring up
+        """
+        intf_str = ','.join(ifnames)
+        return self.no_shutdown(intf_str)
 
     def get_ip_route_info(self, dstip, ns=""):
         """
@@ -1058,8 +1094,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         return self._parse_show(output)
 
     @cached(name='mg_facts')
-    def get_extended_minigraph_facts(self, tbinfo):
-        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+    def get_extended_minigraph_facts(self, tbinfo, namespace = DEFAULT_NAMESPACE):
+        mg_facts = self.minigraph_facts(host = self.hostname, namespace = namespace)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have

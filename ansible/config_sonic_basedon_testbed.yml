@@ -71,7 +71,7 @@
     delegate_to: localhost
 
   - name: find interface name mapping and individual interface speed if defined from dut
-    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
+    port_alias: hwsku="{{ hwsku }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
