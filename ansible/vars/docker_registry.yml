@@ -1,1 +1,2 @@
-docker_registry_host: sonicdev-microsoft.azurecr.io:443
+#docker_registry_host: sonicdev-microsoft.azurecr.io:443
+docker_registry_host: registry.gitlabsr.nuq.ion.nokia.net/sr/linux/sonic/sonic-buildimage

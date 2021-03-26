@@ -5,14 +5,12 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.helpers.redis import AsicDbCli, RedisKeyNotFound
-from tests.common.errors import RunAnsibleModuleFail
-from voq_helpers import check_local_neighbor, check_voq_remote_neighbor, get_sonic_mac, get_neighbor_mac
+from voq_helpers import check_local_neighbor, check_voq_remote_neighbor, get_sonic_mac
 from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info, get_port_by_ip
 from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup, find_system_port
 from tests.common.helpers.dut_utils import get_host_visible_vars
 from tests.common.utilities import get_inventory_files
 from tests.voq.voq_helpers import get_eos_mac, get_vm_with_ip
-from tests.common.devices.sonic_asic import SonicAsic
 
 pytestmark = [
     pytest.mark.topology('t2')

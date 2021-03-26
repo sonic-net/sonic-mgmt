@@ -187,7 +187,10 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: use_own_value
+      ansible_user: ansible
+      ansible_password: 123
+      ansible_sudo_pass: 123
+      ansible_become_pass: 123
 
 vms_1:
   hosts:
@@ -203,12 +206,20 @@ vms_1:
       ansible_host: 10.250.0.55
     VM0105:
       ansible_host: 10.250.0.56
+      ansible_user: admin
+      ansible_password: 123456
     VM0106:
       ansible_host: 10.250.0.57
+      ansible_user: admin
+      ansible_password: 123456
     VM0107:
       ansible_host: 10.250.0.58
+      ansible_user: admin
+      ansible_password: 123456
     VM0108:
       ansible_host: 10.250.0.59
+      ansible_user: admin
+      ansible_password: 123456
     VM0109:
       ansible_host: 10.250.0.60
     VM0110:
