@@ -1,14 +1,12 @@
-Value TotalPhysicalMemory (\d+)
-Value UsedPhysicalMemory (\d+)
-Value FreePhysicalMemory (\d+)
-Value SharedPhysicalMemory (\d+)
-Value BufferedPhysicalMemory (\d+)
-Value AvailablePhysicalMemory (\d+)
-Value TotalSwapMemory (\d+)
-Value UsedSwapMemory (\d+)
-Value FreeSwapMemory (\d+)
-
+Value Name ([a-zA-Z]+)
+Value total (\d+)
+Value used (\d+)
+Value free (\d+)
+Value shared (\d+)
+Value buff_cache (\d+)
+Value available (\d+) 
 
 Start
-  ^Mem:\s*${TotalPhysicalMemory}\s*${UsedPhysicalMemory}\s*${FreePhysicalMemory}\s*${SharedPhysicalMemory}\s*${BufferedPhysicalMemory}\s*${AvailablePhysicalMemory}\s*
-  ^Swap:\s*${TotalSwapMemory}\s*${UsedSwapMemory}\s*${FreeSwapMemory}
+  ^${Name}:\s+${total}\s+${used}\s+${free}\s+${shared}\s+${buff_cache}\s+${available} -> Record
+  ^${Name}:\s+${total}\s+${used}\s+${free} -> Record
+

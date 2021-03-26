@@ -2938,6 +2938,38 @@ class WorkArea(object):
             return self.module_vars[dut][name]
         return default
 
+    def get_platform_type(self, dut):
+        """
+        returns the platform type as a string
+        :return: platform type string 
+        :rtype: str
+        """
+        return self._context._tb.get_platform_type(dut)
+
+    def get_build_commit_hash(self, dut):
+        """
+        returns the build commit hash as a string
+        :return: commit hash string 
+        :rtype: str
+        """
+        return self._context._tb.get_build_commit_hash(dut)
+
+    def get_username(self, dut):
+        """
+        returns the username as a string
+        :return: user name string 
+        :rtype: str
+        """
+        return self._context._tb.get_username(dut)
+
+    def get_password(self, dut):
+        """
+        returns the password as a string
+        :return: password string 
+        :rtype: str
+        """
+        return self._context._tb.get_password(dut)
+
     def clear_tc_results(self):
         self._context.tc_results.clear()
 

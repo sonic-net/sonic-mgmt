@@ -1154,6 +1154,30 @@ class Testbed(object):
                     if pval: retval.append("{}{}:{}".format(dname, pname.upper(), pval))
         return ",".join(retval) if retval else "D1"
 
+    def get_platform_type(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.platform_type
+        return None
+
+    def get_build_commit_hash(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.build_commit_hash
+        return None
+
+    def get_username(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.credentials.username
+        return None
+
+    def get_password(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.credentials.password
+        return None
+
     def _check_min_links(self, from_type, to_type, res, errs):
         from_dev = self.get_device_name("{}{}".format(from_type, res.group(1)))
         to_dev = self.get_device_name("{}{}".format(to_type, res.group(2)))
@@ -1469,7 +1493,7 @@ class Testbed(object):
             if d in props and name in props[d]:
                 return props[d][name]
         return None
-
+    
     @staticmethod
     def trace_need_has(log, dut, dut_tb, props, name, phase, need, has=None):
         if not log:
@@ -1480,7 +1504,6 @@ class Testbed(object):
             msg = "{}:{} DEV:{}/{} NEED:{} HAS:{} REQ:{}".format(phase, name, dut, dut_tb, need, has, props)
         Testbed.trace2(log, msg)
 
-    @staticmethod
     def check_model_prefix(log, tb, dut, dut_tb, props, prefix=""):
         model_name = "MODEL{}".format(prefix)
         has, need = None, Testbed.read_need(model_name, dut, props)

@@ -42,6 +42,126 @@ def get_system_status(dut, service=None, skip_error_check=False):
         st.warn(msg.format(output, exp))
     return False
 
+def get_swver(dut):
+    """
+    :param dut:
+    :return:
+    """
+    version = show_version(dut)['version']
+    return version
+
+def get_processes_memory(dut):
+    """
+    Author: Harsha Golla (harsgoll@cisco.com)
+    Function to get the show processes memory output
+    :param dut:
+    :return:
+    """
+    command = "show processes memory"
+    return st.show(dut, command)
+
+def get_environment(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Fucntion to get the show environment
+    :param dut
+    :return:
+    """
+    command = "show environment"
+    return st.show(dut,command)
+
+def apply_config_reload(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get the show environment
+    :param dut
+    :return:
+    """
+    command = "config reload -y"
+    return st.config(dut,command)
+
+def apply_optics_on(dut, port):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function for simulation of  optics on for specified port
+    :param dut
+    :param port number: integer
+    :return:
+    """
+    command = "/opt/cisco/bin/sfp.py on "+port
+    return st.config(dut,command)
+
+def apply_optics_off(dut, port):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function for simulation of  optics off for specified port
+    :param dut
+    :param port number: integer
+    :return:
+    """
+    command = "/opt/cisco/bin/sfp.py off "+port
+    return st.config(dut,command)
+
+def get_show_run_all(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Fucntion to get the show runningconfiguration all
+    :param dut
+    :return:
+    """
+    command = "show runningconfiguration all"
+    return st.config(dut,command)
+
+def get_interface(dut, interface_name):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Fucntion to get the show interface interface_name 
+    :param dut
+    :param interface_name: Ethernet\d+
+    :return:
+    """
+    command = "show interface "+interface_name
+    return st.show(dut,command,type="vtysh")
+
+def get_int_transceiver_eeprom(dut):
+    """
+    Author: Harsha Golla (harsgoll@cisco.com)
+    Function to get the show int transciever eeprom -dom
+    :param dut:
+    :return:
+    """
+    command = "show int transceiver eeprom"
+    return st.show(dut, command)
+
+def get_sfputil_show_eeprom(dut):
+    """
+    Author: Deekshitha Kankanala(dkankana@cisco.com)
+    Function to get the sfputil show eeprom
+    :param dut:
+    :return:
+    """
+    command = "sudo sfputil show eeprom"
+    return st.show(dut, command) 
+
+def get_sfputil_reset_ethernet(dut, port):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get the sfputil reset Ethernet[/d+]
+    :param dut:
+    :return:
+    """
+    command = "sudo sfputil reset "+port
+    return st.show(dut,command)
+
+def get_sysuptime(dut):
+    """
+    :param dut:
+    :type dut:
+    :return:
+    :rtype:
+    """
+    up_time = show_version(dut)['uptime']
+    return up_time
 
 def get_hwsku(dut):
     """
@@ -69,6 +189,43 @@ def get_platform_summary(dut, value=None):
     :return:
     """
     output = st.show(dut, "show platform summary")
+    if output:
+        return output[0]
+    return output
+
+def get_platform_idprom(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform idprom")
+    if output:
+        return output[0]
+    return output
+
+def get_users(dut,value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get users
+    :param dut:
+    :param value:  
+    :return:
+    """
+    output = st.show(dut, "show users")
+    return output
+
+def get_platform_inventory(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform inventory")
     if value:
         if len(output) <= 0 or value not in output[0]:
             return None
@@ -78,6 +235,148 @@ def get_platform_summary(dut, value=None):
         if output:
             return output[0]
 
+def get_platform_temperature(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform temperature of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform temperature")
+    return output
+
+def get_platform_psustatus(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform psustatus")
+    return output
+
+def get_show_boot(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show boot.
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show boot")
+    if output:
+        return output[0]
+    return output
+
+def get_show_mgmt_vrf(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show mgmt-vrf")
+    if output:
+        return output[0]
+    return output
+
+def get_show_int_transceiver_presence(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show int transceiver presence
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show int transceiver presence")
+    return output
+
+def get_show_int_transceiver_lpmode(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show int transceiver presence
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show int transceiver lpmode")
+    return output
+
+def get_show_management_int_address(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show management_interface address")
+    if len(output) <= 0 :
+        return None
+    if output:
+        return output[0]
+    return output
+
+def get_show_system_memory(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show system-memory
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show system-memory")
+    if len(output) <= 0 :
+        return None
+    return output[0]  
+
+
+def get_show_services(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show services
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show services")
+    return output
+
+def enable_show_mgmt_vrf(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    command = "sudo config vrf add mgmt"
+    st.config(dut, command)    
+
+def disable_show_mgmt_vrf(dut, value = None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    command = "sudo config vrf del mgmt"
+    st.config(dut, command)
+
+def get_platform_fan(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform fan")
+    return output
 
 def get_dut_date_time(dut):
     """
@@ -105,7 +404,6 @@ def get_dut_date_time_obj(dut):
     except Exception as e:
         st.error(e)
         return None
-
 
 def get_mac_address(base_mac="00:00:00:00:00:00", start=1, end=100):
     """
@@ -778,6 +1076,19 @@ def get_docker_ps(dut):
     output = st.show(dut, command)
     return output
 
+def get_docker_ps_container(dut, container_name):
+    """
+    Get docker ps -f name=""
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    :param dut:
+    :return:
+    """
+    command = 'docker ps -f {}={}'.format('name', container_name)
+    output = st.show(dut, command)
+    if output:
+        return output[0]
+    return output     
+
 def get_docker_stats(dut):
     """
     Get docker ps
@@ -880,7 +1191,19 @@ def get_overall_cpu_util(dut, exclude_proc_name=None):
     :return:
     """
 
+def startup_eth0(dut):
+    """
+    Start up the ifconfig eth0 port
+    """
+    command = "sudo ifconfig eth0 up"
+    st.config(dut, command)
 
+def shutdown_eth0(dut):
+    """
+    Shut down the ifconfig eth0 port
+    """
+    command = "sudo ifconfig eth0 down"
+    st.config(dut,command)
 
 def get_platform_syseeprom(dut, tlv_name=None, key='value', decode=False, cli_type=''):
     """
@@ -1128,7 +1451,6 @@ def check_interface_status(conn_obj, interface, state, device="dut"):
     if interface_state != state:
         return False
     return True
-
 
 def get_ps_aux(connection_obj, search_string, device="dut"):
     """

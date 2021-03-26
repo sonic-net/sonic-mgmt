@@ -1,0 +1,13 @@
+Value management_ipv4_ip (\d+.\d+.\d+.\d+)
+Value ipv4_mask (\d+)
+Value management_ipv4_gateway (\d+.\d+.\d+.\d+)
+Value management_ipv6_ip (\w+:\d+::\d+ |\w+:\w+:\w+:\w+:\w+::\w+)
+Value ipv6_mask (\d+)
+Value management_ipv6_gateway (\w+:\d+::\d+ |\w+::\w+:\w+:\w+:\w+)
+
+
+Start
+  ^Management IP address = ${management_ipv4_ip}/${ipv4_mask}
+  ^Management Network Default Gateway = ${management_ipv4_gateway}
+  ^Management IP address = ${management_ipv6_ip}/${ipv6_mask}
+  ^Management Network Default Gateway = ${management_ipv6_gateway}

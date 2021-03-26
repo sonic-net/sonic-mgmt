@@ -1,0 +1,19 @@
+Value name ([\w\.]+)
+Value productid ([\w\-\.]+)
+Value version (\d.\d+)
+Value serial_num (\w+)
+Value description (.*)
+Value fpd_name ([\w\/]+)
+Value fpd_ver ([\w\.\-]+)
+Value fpd_desc ([\w\s]+)
+
+Start
+# match line after line containing "User input"
+  ^\s*Chassis -> CRec
+
+CRec
+  ^\s*${name}\s+${productid}\s+${version}\s+${serial_num}\s+${description} -> Record
+  ^\s*FPDs -> FPDRec
+
+FPDRec
+  ^\s*${fpd_name}\s+${fpd_ver}\s+${fpd_desc} -> Record

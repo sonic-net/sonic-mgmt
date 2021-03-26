@@ -1,10 +1,10 @@
 Value Current (\S+)
 Value Next (\S+)
-Value List Available (\S+)
+Value Available (\S+)
 
 Start
-  ^Current:\s+${Current}
-  ^Next:\s+${Next}
+  ^Current:\s+${Current} 
+  ^Next:\s+${Next} 
   ^Available:\s+${Available} -> Record
   ^Available: -> ARec
 
