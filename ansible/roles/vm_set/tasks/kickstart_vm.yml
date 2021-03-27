@@ -109,4 +109,4 @@
     become: yes
     when: autostart|bool == true
 
-  when: not skip_this_vm and (vm_type | lower) == "sonic"
+  when: not skip_this_vm and (vm_type | lower) == "vsonic"
