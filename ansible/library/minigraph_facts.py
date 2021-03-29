@@ -360,6 +360,7 @@ def parse_dpg(dpg, hname):
                     ports[port_alias_asic_map[member]] = {'name': port_alias_asic_map[member], 'alias': port_name_to_alias_map[port_alias_asic_map[member]]}
 
             pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list}
+            pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list, 'namespace': ''}
             fallback_node = pcintf.find(str(QName(ns, "Fallback")))
             if fallback_node is not None:
                 pcs[pcintfname]['fallback'] = fallback_node.text
@@ -629,6 +630,13 @@ def parse_xml(filename, hostname, asic_name=None):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, asic_name)
             elif child.tag == str(QName(ns, "PngDec")):
                 (neighbors, devices, _) = parse_asic_png(child, asic_name, hostname)
+
+    # Associate Port Channel to namespace
+    try:
+        for pckey, pcval in pcs.iteritems():
+            pcval['namespace'] = neighbors[pcval['members'][0]]['namespace']
+    except Exception as e:
+        print >> sys.stderr, "Warning: PortChannel " + pckey + " has no member ports."
 
     # TODO: Move all alias-related code out of minigraph_facts.py and into
     # its own module to be used as another layer after parsing the minigraph.
