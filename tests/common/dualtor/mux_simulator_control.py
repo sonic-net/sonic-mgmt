@@ -337,7 +337,7 @@ def simulator_flap_counter(url):
         server_url = url(interface_name, FLAP_COUNTER)
         counter = _get(server_url)
         assert(counter and len(counter) == 1)
-        return counter.values()[0]
+        return list(counter.values())[0]
 
     return _simulator_flap_counter
 

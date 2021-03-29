@@ -64,7 +64,7 @@ def clear_flap_counter(vm_set, port_index):
     flap_counter[mbr_name] = 0
 
 
-def fill_flap_counter():
+def init_flap_counter():
     """
     Fill 0 to global flap counter
     """
@@ -729,7 +729,7 @@ if __name__ == '__main__':
     $ sudo python <prog> <port>
     '''
     config_logging()
-    fill_flap_counter()
+    init_flap_counter()
     if '-v' in sys.argv:
         app.logger.setLevel(logging.DEBUG)
         for handler in app.logger.handlers:
