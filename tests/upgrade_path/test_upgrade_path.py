@@ -34,6 +34,7 @@ TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
 TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 
+MAX_REBOOT_CAUSE_WAIT_TIME = 180
 
 @pytest.fixture(scope="module")
 def setup(localhost, ptfhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
@@ -246,7 +247,15 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
                         platform="remote",
                         qlen=10000,
                         log_file=log_file)
-            reboot_cause = get_reboot_cause(duthost)
+
+            # Poll every 5s for 2min
+            start_secs = time.time()
+            while (time.time() - start_secs) < MAX_REBOOT_CAUSE_WAIT_TIME:
+                reboot_cause = get_reboot_cause(duthost)
+                if reboot_cause == upgrade_type:
+                    break
+                else:
+                    time.sleep(5)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             pytest_assert(reboot_cause == upgrade_type, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))
             check_services(duthost)
