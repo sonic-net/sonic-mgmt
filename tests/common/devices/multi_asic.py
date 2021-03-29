@@ -112,6 +112,12 @@ class MultiAsicSonicHost(object):
 
         return [asic.namespace for asic in self.frontend_asics]
 
+    def get_sonic_host_and_frontend_asic_instance(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [self.sonichost]
+
+        return [self.sonichost] + [asic for asic in self.frontend_asics]
+
     def get_backend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]

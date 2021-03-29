@@ -18,6 +18,7 @@ import json
 
 from ansible.module_utils.basic import *
 from collections import defaultdict
+from sonic_py_common import multi_asic
 
 INTF_IP_GET_INFO_SCRIPT = "/tmp/gather_intf_ip_info.py"
 DOCUMENTATION = '''
@@ -295,27 +296,38 @@ def main():
 
     m_args = module.params
     up_ports = m_args['up_ports']
-    namespace = m_args['namespace']
+    namespace_passed = m_args['namespace']
 
     # Create a python script file in the DUT.
     with open(INTF_IP_GET_INFO_SCRIPT, "w") as f:
         f.write(INTF_IP_GET_INFO_CMDs)
         f.close()
 
+    interfaces = dict()
+    ips = dict(
+         all_ipv4_addresses = [],
+         all_ipv6_addresses = [],
+    )
+
     # Initialize the cmd string which to invoke the python script which we created on the DUT.
     cmd_prefix = ''
     cmd = '/usr/bin/python {}'.format(INTF_IP_GET_INFO_SCRIPT)
 
-    # If the user passed a namespace parameter invoke that script with the cmd_prefix
-    if namespace is not None:
-        cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
-    rc, output, err = module.run_command(cmd_prefix + cmd, use_unsafe_shell=True)
-    if rc != 0:
-        module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, stderr))
+    for namespace in multi_asic.get_front_end_namespaces():
+        if namespace_passed and namespace != namespace_passed:
+            continue
+        # If the user passed a namespace parameter invoke that script with the cmd_prefix
+        if namespace:
+            cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
+        rc, output, err = module.run_command(cmd_prefix + cmd, use_unsafe_shell=True)
+        if rc != 0:
+            module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, err))
 
-    # Get the output from the gather interface info script.
-    if output:
-        ips_interfaces = json.loads(output)
+        # Get the output from the gather interface info script.
+        if output:
+            ips_interfaces = json.loads(output)
+            interfaces.update(ips_interfaces["interfaces"])
+            ips.update(ips_interfaces["ips"])
 
     # Remove the file which was created earlier
     os.remove(INTF_IP_GET_INFO_SCRIPT)
@@ -325,14 +337,14 @@ def main():
     down_ports = []
     for name in up_ports:
         try:
-            if not ips_interfaces["interfaces"][name]['link']:
+            if not interfaces[name]['link']:
                 down_ports += [name]
         except:
             down_ports += [name]
             pass
 
-    results['ansible_interface_facts'] = ips_interfaces["interfaces"]
-    results['ansible_interface_ips'] = ips_interfaces["ips"]
+    results['ansible_interface_facts'] = interfaces
+    results['ansible_interface_ips'] = ips
     results['ansible_interface_link_down_ports'] = down_ports
     module.exit_json(ansible_facts=results)
 
