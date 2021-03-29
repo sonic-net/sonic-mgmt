@@ -658,6 +658,7 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
     tx_port = mg_facts['minigraph_ptf_indices'][itfs]
     logger.info("Verifying upstream traffic. packet number = {} interface = {} server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
     for i in range(0, pkt_num):
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, tx_port, pkt, count=1)
         if drop:
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, rx_ports)
