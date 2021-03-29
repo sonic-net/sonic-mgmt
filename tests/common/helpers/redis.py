@@ -144,7 +144,7 @@ class RedisCli(object):
 
     def get_keys(self, table):
         """
-        Executes a redis CLI get or hget and validates the response against a provided field.
+        Gets the list of keys in a table.
 
         Args:
             table: full name of the table for which to get the keys.

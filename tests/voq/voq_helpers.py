@@ -281,13 +281,12 @@ def check_voq_remote_neighbor(host, asic, neighbor_ip, neighbor_mac, interface, 
     check_neighbor_kernel_route(host, asic.asic_index, neighbor_ip, interface)
 
 
-def check_rif_on_sup(sup, rif, slot, asic, port):
+def check_rif_on_sup(sup, slot, asic, port):
     """
     Checks the router interface entry on the supervisor card.
 
     Args:
         sup: duthost for the supervisor card
-        rif: OID of the router interface to check for.
         slot: The slot number the router interface is on.
         asic: The asic number the asic is on, or 0 if a single asic card.
         port: the name of the port (Ethernet1)
@@ -726,7 +725,7 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
                     fail_cnt += 1
                 else:
                     logger.debug("Asic neighbor macs for %s match: %s == %s", neighbor, neigh_mac.lower(),
-                                asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
+                                 asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
                 encaps[neighbor] = asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX']
                 break
         else:
@@ -743,7 +742,7 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
                     fail_cnt += 1
                 else:
                     logger.debug("App neighbor macs for %s match: %s == %s", neighbor, neigh_mac.lower(),
-                                app_dump[entry]['value']['neigh'].lower())
+                                 app_dump[entry]['value']['neigh'].lower())
 
                 pytest_assert(":{}:".format(local_port) in entry, "Port for %s does not match" % entry)
                 break
@@ -863,7 +862,7 @@ def check_all_neighbors_present_remote(rem_host, rem_asic, neighs, encaps, all_c
                     fail_cnt += 1
                 else:
                     logger.debug("Asic neighbor macs for %s match: %s == %s", neighbor, neigh_mac.lower(),
-                                asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
+                                 asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS'].lower())
 
                 if encap_id != asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX']:
                     logger.error("Asic neighbor encap for %s do not match: %s != %s", neighbor, encap_id,
@@ -871,7 +870,7 @@ def check_all_neighbors_present_remote(rem_host, rem_asic, neighs, encaps, all_c
                     fail_cnt += 1
                 else:
                     logger.debug("Asic neighbor encap for %s match: %s == %s", neighbor, encap_id,
-                                asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX'])
+                                 asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX'])
 
                 pytest_assert(asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_IMPOSE_INDEX'] == "true",
                               "Encap impose is not true in asicDB")
@@ -893,7 +892,7 @@ def check_all_neighbors_present_remote(rem_host, rem_asic, neighs, encaps, all_c
                     fail_cnt += 1
                 else:
                     logger.debug("App neighbor macs for %s match: %s == %s", neighbor, remote_inband_mac.lower(),
-                                app_dump[entry]['value']['neigh'].lower())
+                                 app_dump[entry]['value']['neigh'].lower())
 
                 pytest_assert(":{}:".format(remote_inband_info['port']) in entry, "Port for %s does not match" % entry)
                 break

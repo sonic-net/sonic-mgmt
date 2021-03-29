@@ -175,16 +175,18 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
     logger.info("Check router interfaces on node: %s, asic: %d", per_host.hostname, asic.asic_index)
 
     dev_intfs = cfg_facts['INTERFACE']
+    voq_intfs = cfg_facts['VOQ_INBAND_INTERFACE']
     dev_sysports = get_device_system_ports(cfg_facts)
 
     slot = per_host.facts['slot_num']
+
     rif_ports_in_asicdb = []
 
     # intf_list = get_router_interface_list(dev_intfs)
     asicdb = AsicDbCli(asic)
     asicdb_rif_table = asicdb.dump(asicdb.ASIC_ROUTERINTF_TABLE)
     sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
-    vidtorid_table = asicdb.dump("VIDTORID")
+
     # asicdb_intf_key_list = asicdb.get_router_if_list()
     # Check each rif in the asicdb, if it is local port, check VOQ DB for correct RIF.
     # If it is on system port, verify slot/asic/port and OID match a RIF in VoQDB
@@ -205,7 +207,7 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
             hostif = asicdb.hget_key_value(hostifkey, 'SAI_HOSTIF_ATTR_NAME')
             logger.info("RIF: %s is on local port: %s", rif, hostif)
             rif_ports_in_asicdb.append(hostif)
-            if hostif not in dev_intfs:
+            if hostif not in dev_intfs and hostif not in voq_intfs:
                 pytest.fail("Port: %s has a router interface, but it isn't in configdb." % portid)
 
             # check MTU and ethernet address
@@ -215,10 +217,9 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
             pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
                           "MAC for rif %s is not %s" % (rif, intf_mac))
 
-            sup_rif = vidtorid_table["VIDTORID"]['value']["oid:" + rif.split(":")[3]]
             sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, hostif)
             for sup in duthosts.supervisor_nodes:
-                check_rif_on_sup(sup, sup_rif, sysport_info['slot'], sysport_info['asic'], hostif)
+                check_rif_on_sup(sup, sysport_info['slot'], sysport_info['asic'], hostif)
 
         elif porttype == 'sysport':
             try:
@@ -236,9 +237,8 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
                 raise AssertionError("Did not find OID %s in local or system tables" % portid)
 
             sys_slot, sys_asic, sys_port = cfg_port.split("|")
-            sup_rif = vidtorid_table["VIDTORID"]['value']["oid:" + rif.split(":")[3]]
             for sup in duthosts.supervisor_nodes:
-                check_rif_on_sup(sup, sup_rif, sys_slot, sys_asic, sys_port)
+                check_rif_on_sup(sup, sys_slot, sys_asic, sys_port)
 
         elif porttype == 'port':
             # this is the RIF on the inband port.
@@ -252,16 +252,17 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
             pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
                           "MAC for rif %s is not %s" % (rif, intf_mac))
 
-            sup_rif = vidtorid_table["VIDTORID"]['value']["oid:" + rif.split(":")[3]]
             sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, inband['port'])
+
             for sup in duthosts.supervisor_nodes:
-                check_rif_on_sup(sup, sup_rif, sysport_info['slot'], sysport_info['asic'], inband['port'])
+                check_rif_on_sup(sup, sysport_info['slot'], sysport_info['asic'], inband['port'])
 
         # TODO: Could be on a LAG
 
     # Verify each RIF in config had a corresponding local port RIF in the asicDB.
     for rif in dev_intfs:
         pytest_assert(rif in rif_ports_in_asicdb, "Interface %s is in configdb.json but not in asicdb" % rif)
+
     logger.info("Interfaces %s are present in configdb.json and asicdb" % str(dev_intfs.keys()))
 
 
@@ -332,6 +333,9 @@ def test_voq_inband_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
     dev_sysports = get_device_system_ports(cfg_facts)
     inband_info = get_inband_info(cfg_facts)
+    if inband_info == {}:
+        logger.info("No inband configuration on this ASIC: %s/%s, skipping", per_host.hostname, asic.asic_index)
+        return
     inband_mac = get_sonic_mac(per_host, asic.asic_index, inband_info['port'])
 
     inband_ips = []
