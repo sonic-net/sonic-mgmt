@@ -97,6 +97,8 @@ class DualTorIO:
         else:
             self.packets_per_server = self.packets_to_send // len(self.vlan_interfaces)
 
+        self.all_packets = []
+
     def _generate_vlan_servers(self):
         """
         Create mapping of server IPs to PTF interfaces
@@ -207,7 +209,7 @@ class DualTorIO:
         # Create packet #1 for each server and append to the list,
         # then packet #2 for each server, etc.
         # This way, when sending packets we continuously send for all servers
-        # instead of sending all packets for server #1, then all packets for 
+        # instead of sending all packets for server #1, then all packets for
         # server #2, etc.
         for i in range(self.packets_per_server):
             for server_ip in server_ip_list:
@@ -281,7 +283,7 @@ class DualTorIO:
         # Create packet #1 for each server and append to the list,
         # then packet #2 for each server, etc.
         # This way, when sending packets we continuously send for all servers
-        # instead of sending all packets for server #1, then all packets for 
+        # instead of sending all packets for server #1, then all packets for
         # server #2, etc.
         for i in range(self.packets_per_server):
             for vlan_intf in vlan_src_intfs:
@@ -367,6 +369,18 @@ class DualTorIO:
         logger.info("Sniffer started at {}".format(str(sniffer_start)))
         sniff_filter = "tcp and tcp dst port {} and tcp src port 1234 and not icmp".format(TCP_DST_PORT)
 
+        # We run a PTF script on PTF to sniff traffic. The PTF script calls scapy.sniff which by default capture
+        # on all the PTF interfaces, including the backplane interface for announcing routes from PTF to VMs.
+        # On VMs, the PTF backplane is the next hop for the annoucned routes. So, packets sent by DUT to VMs
+        # are forwarded to the PTF backplane interface as well. Then on PTF, the packets sent by DUT to VMs can
+        # be captured on both the PTF interfaces tapped to VMs and on the backplane interface. This will result in
+        # packet duplication and fail the test. Below change is to add capture filter to filter out all the packets
+        # destined to the PTF backplane interface.
+        output = self.ptfhost.shell('cat /sys/class/net/backplane/address', module_ignore_errors=True)
+        if not output['failed']:
+            ptf_bp_mac = output['stdout']
+            sniff_filter = '({}) and (not ether dst {})'.format(sniff_filter, ptf_bp_mac)
+
         scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'sniff_timeout': wait,
             'sniff_filter': sniff_filter})
         scapy_sniffer.start()
@@ -403,14 +417,13 @@ class DualTorIO:
                 "sniff_timeout" : sniff_timeout,
                 "sniff_filter" : sniff_filter,
                 "capture_pcap": capture_pcap,
-                "sniffer_log": sniffer_log,
                 "port_filter_expression": 'not (arp and ether src {})\
                     and not tcp'.format(self.dut_mac)
             },
             log_file=sniffer_log,
             module_ignore_errors=False
         )
-        logger.debug("Ptf_runner result: {}".format(result))     
+        logger.debug("Ptf_runner result: {}".format(result))
 
         logger.info('Fetching log files from ptf and dut hosts')
         logs_list =  [
@@ -420,10 +433,9 @@ class DualTorIO:
 
         for log_item in logs_list:
             self.ptfhost.fetch(**log_item)
-        
+
         self.all_packets = scapyall.rdpcap(capture_pcap)
         logger.info("Number of all packets captured: {}".format(len(self.all_packets)))
-
 
     def get_test_results(self):
         return self.test_results
@@ -451,7 +463,7 @@ class DualTorIO:
             not scapyall.ICMP in pkt and
             pkt[scapyall.TCP].sport == 1234 and
             pkt[scapyall.TCP].dport == TCP_DST_PORT and
-            self.check_tcp_payload(pkt) and 
+            self.check_tcp_payload(pkt) and
             (
                 pkt[scapyall.Ether].dst == self.sent_pkt_dst_mac or
                 pkt[scapyall.Ether].src in self.received_pkt_src_mac
@@ -487,7 +499,7 @@ class DualTorIO:
             scapyall.wrpcap(filename, packet_list)
             logger.info("Filtered pcap dumped to {}".format(filename))
 
-        self.test_results = {} 
+        self.test_results = {}
 
         for server_ip in natsorted(server_to_packet_map.keys()):
             result = self.examine_each_packet(server_to_packet_map[server_ip])
@@ -532,7 +544,7 @@ class DualTorIO:
                             'end_id': curr_payload
                         }
                         disruption_ranges.append(disruption_dict)
-                    
+
                 # Save packets as (payload_id, timestamp) tuples
                 # for easier timing calculations later
                 received_packet_list.append((curr_payload, curr_time))
@@ -563,7 +575,7 @@ class DualTorIO:
             # Store the id of the last received packet
             if received_packet_list[-1][0] != self.packets_per_server - 1:
                 disruption_after_traffic = received_packet_list[-1][0]
-        
+
         result = {
             'sent_packets': num_sent_packets,
             'received_packets': len(received_packet_list),
@@ -572,7 +584,7 @@ class DualTorIO:
             'duplications': duplicate_ranges,
             'disruptions': disruption_ranges
         }
-        
+
         if num_sent_packets < self.packets_per_server:
             if self.traffic_generator == self.generate_from_t1_to_server:
                 server_addr = packet[scapyall.IP].dst
