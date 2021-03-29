@@ -1,4 +1,4 @@
-supported_vm_types: [ "veos", "sonic", "ceos" ]
+supported_vm_types: [ "veos", "ceos", "vsonic" ]
 root_path: veos-vm
 vm_images_url: https://acsbe.blob.core.windows.net/vmimages
 cd_image_filename: Aboot-veos-serial-8.0.0.iso

@@ -4,7 +4,7 @@
 
 - set_fact:
     disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
-  when: (vm_type | lower) == "sonic"
+  when: (vm_type | lower) == "vsonic"
 
 - set_fact:
     disk_image: "{{ disk_image_dir }}/{{ disk_image_name }}"
