@@ -49,4 +49,3 @@ def test_server_down(duthosts, tbinfo, rand_selected_interface, simulator_flap_c
     pytest_assert(mux_flap_counter_1 - mux_flap_counter_0 <= 3, 
                     "The mux_cable flap count should be no larger than 3 ({})".format(mux_flap_counter_1 - mux_flap_counter_0)) 
 
-                    

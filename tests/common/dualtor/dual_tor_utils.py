@@ -659,4 +659,3 @@ def show_muxcable_status(duthost):
 
     return ret
 
-    
