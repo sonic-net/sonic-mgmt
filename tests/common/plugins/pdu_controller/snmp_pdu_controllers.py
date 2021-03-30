@@ -116,7 +116,7 @@ class snmpPduController(PduControllerBase):
         pdu_port_base = self.PORT_NAME_BASE_OID
         query_oid = '.' + pdu_port_base
         if self.has_lanes:
-            query_oid = query_oid + str(lane_id)
+            query_oid = query_oid + '.' + str(lane_id)
 
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
