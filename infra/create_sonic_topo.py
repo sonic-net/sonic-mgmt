@@ -42,6 +42,12 @@ def _create_parser():
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
                       required=False,default="mth32")
+    parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
+                      required=True,default='sanity_scripts.txt')
+    parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
+                      required=False,default='DT7')
+    parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
+                      required=False,default='DT7')
     return parser
 
 def git_update(data):
@@ -459,6 +465,65 @@ def add_vEOS_cfg(data):
     
     ssh.close()
 
+def run_scripts(data,script_file,drop_version,log_dir):
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    chan = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send('cd /data/tests \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
+    chan.send('./run_scripts.py  -i {} -v {} -l {}\n'.format(script_file,drop_version,log_dir))
+    chan.settimeout(180)
+    buff = ''
+    err_buff = ''
+    rcv_timeout = 60
+    interval_length = 5
+    
+    try:    
+        while not chan.exit_status_ready():
+            if chan.recv_ready():
+                resp = chan.recv(9999)
+                print(resp.decode("ascii"))
+                buff += resp.decode("ascii")
+            else:
+                rcv_timeout -= interval_length
+            if rcv_timeout < 0:
+                break
+            else:
+                time.sleep(interval_length)
+
+            if chan.recv_stderr_ready():            
+                error_buff = chan.recv_stderr(9999)
+                while error_buff:
+                    err_buff += error_buff.decode("ascii")
+                    error_buff = chan.recv_stderr(9999)
+                print(err_buff)
+    except Exception as e: 
+        print('Hit %s' % e)
+    #finally:
+    #    print(buff)
+    
+    ssh.close()
+
 
 def main():
     argparser = _create_parser()
@@ -469,6 +534,9 @@ def main():
     dut_uname = args['dut_uname']
     topo_type = args['topo_type']
     device_type = args['device_type']
+    script_file = args['script_file']
+    drop_version = args['drop_version']
+    log_dir = args['log_dir']
     if device_type == 'sherman':
         dut_name = 'sherman-01'
     else:
@@ -547,6 +615,8 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
+    print("Running Sanity Scripts")
+    run_scripts(data,script_file,drop_version,log_dir)
     
     print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
