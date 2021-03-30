@@ -38,6 +38,9 @@ class SonicAsic(object):
             self.namespace = DEFAULT_NAMESPACE
             self.cli_ns_option = ""
 
+        self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
+        self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
+
     def get_critical_services(self):
         """This function returns the list of the critical services
            for the namespace(asic)
@@ -231,6 +234,20 @@ class SonicAsic(object):
             return False
         return True
 
+    def is_backend_portchannel(self, port_channel):
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+        if port_channel in mg_facts["minigraph_portchannels"]:
+            port_name = next(
+                iter(
+                    mg_facts["minigraph_portchannels"][port_channel]["members"]
+                )
+            )
+            if "Ethernet-BP" not in port_name:
+                return False
+        return True
+
     def get_active_ip_interfaces(self):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -243,7 +260,7 @@ class SonicAsic(object):
         ip_ifaces = {}
         for k,v in ip_ifs["ip_interfaces"].items():
             if (k.startswith("Ethernet") or
-                (k.startswith("PortChannel") and k.find("400") == -1)
+                (k.startswith("PortChannel") and not self.is_backend_portchannel(k))
             ):
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
                         self.ping_v4(v["peer_ipv4"])
@@ -369,3 +386,37 @@ class SonicAsic(object):
         )
 
         return result["stdout_lines"]
+
+    def get_extended_minigraph_facts(self, tbinfo):
+          return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
+
+    def startup_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} startup {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def shutdown_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} shutdown {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def config_ip_intf(self, interface_name, ip_address, op):
+        return self.sonichost.shell("sudo config interface {ns} ip {op} {intf} {ip}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  intf=interface_name,
+                                  ip=ip_address))
+
+    def config_portchannel_member(self, pc_name, interface_name, op):
+        return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  pc=pc_name,
+                                  intf=interface_name))
+
+    def switch_arptable(self, *module_args, **complex_args):
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.switch_arptable(*module_args, **complex_args)
+
+    def shell(self, *module_args, **complex_args):
+        return self.sonichost.shell(*module_args, **complex_args)
+
+
