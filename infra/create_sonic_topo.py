@@ -43,7 +43,7 @@ def _create_parser():
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
                       required=False,default="mth32")
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
-                      required=True,default='sanity_scripts.txt')
+                      required=False,default='sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
                       required=False,default='DT7')
     parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
@@ -490,6 +490,7 @@ def run_scripts(data,script_file,drop_version,log_dir):
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
+    
 
     chan.send('./run_scripts.py  -i {} -v {} -l {}\n'.format(script_file,drop_version,log_dir))
     chan.settimeout(180)
