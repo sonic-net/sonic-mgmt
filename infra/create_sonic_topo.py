@@ -492,7 +492,7 @@ def run_scripts(data,script_file,drop_version,log_dir):
     print(resp.decode("ascii"))
     
 
-    chan.send('./run_scripts.py  -i {} -v {} -l {}\n'.format(script_file,drop_version,log_dir))
+    chan.send('./run_scripts.py  -s {} -v {} -l {}\n'.format(script_file,drop_version,log_dir))
     chan.settimeout(180)
     buff = ''
     err_buff = ''
