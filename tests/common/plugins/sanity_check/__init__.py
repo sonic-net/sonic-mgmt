@@ -88,7 +88,7 @@ def print_logs(duthosts):
             res.pop('stdout')
             res.pop('stderr')
             outputs.append(res)
-        logger.info(json.dumps(outputs, indent=4))
+        logger.info("dut={}, cmd_outputs={}".format(dut.hostname,json.dumps(outputs, indent=4)))
 
 
 def filter_check_items(tbinfo, check_items):
