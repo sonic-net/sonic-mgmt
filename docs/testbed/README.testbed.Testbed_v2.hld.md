@@ -51,20 +51,40 @@ HwSku                            =                                              
 ManagementIp                     =
 Type                             = "leaf_fanout"/"root_fanout"/"dev_sonic"
 ProvisionStatus                  = "not_provisioned"/"in_progress"/"provisioned"    ; provision status for "dev_sonic"
+ConsoleServer                    = FK to CONSOLE_SERVER_TABLE
+ConsolePort                      =
 ```
 * `DUT_LIST`
 ```
 ; List contains all the SONiC DUTs defined in the lab
 key                              = DUT_LIST                                         ; contains DUT names that are FK to `SWITCH_TABLE`
 ```
-* `SERVER_TABLE`
+* `TEST_SERVER_TABLE`
 ```
-; Defines server metadata
-key                              = SERVER_TABLE:server_name
+; Defines test server metadata
+key                              = SERVER_TABLE:test_server_name
 ; field                          = value
 HwSku                            = "TestServ"
 ManagementIp                     =
 ServerStatus                     = "active"/"down"
+```
+* `CONSOLE_SERVER_TABLE`
+```
+; Defines console server metadata
+key                              = SERVER_TABLE:console_server_name
+; field                          = value
+HwSku                            =
+ManagementIp                     =
+Protocol                         =
+```
+* `PDU_TABLE`
+```
+; Defines PDU metadata
+key                              = PDU_TABLE:pdu_hostname
+; field                          = value
+HwSku                            =
+ManagementIp                     =
+Protocol                         =
 ```
 * `PORT_LIST`
 ```
@@ -96,6 +116,19 @@ key                              = VLANIDPOOL_SET
 key                              = VIRTLINK_TABLE:endport0:endport1                  ; endport0 and endport1 are FK to `PORT_TABLE
 ; field                          = value
 Status                           = "active"/"inactive"
+```
+* `SWITCH_PSU_LIST`
+```
+; List of PSUs for a switch device
+key                              = SWITCH_PSU_LIST:<switch_name>
+```
+* `SWITCH_PSU_TABLE`
+```
+; Describes the link between a switch PSU and a PDU port
+key                              = SWITCH_PDU_TABLE:<switch_name>:PSU<1|2>
+; field                          = value
+PeerDevice                       =
+PeerPort                         =
 ```
 
 ## Implementation Plan
