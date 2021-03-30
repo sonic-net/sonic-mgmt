@@ -44,6 +44,9 @@
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
+    <DevicesL3Info Hostname="str-msn2700-01">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.188/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="str-7260-10">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.13/23"/>
     </DevicesL3Info>
@@ -89,6 +92,9 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet19" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet30" vlanids="1681-1712"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="str-acs-serv-01">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.245/23"/>
+    </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
