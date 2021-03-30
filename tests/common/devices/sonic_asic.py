@@ -419,4 +419,18 @@ class SonicAsic(object):
     def shell(self, *module_args, **complex_args):
         return self.sonichost.shell(*module_args, **complex_args)
 
+    def port_on_asic(self, portname):
+        cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
+        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if ports is not None and portname in ports:
+            return True
+        return False
+
+    def portchannel_on_asic(self, portchannel):
+        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if pcs is not None and portchannel in pcs:
+            return True
+        return False
+
 
