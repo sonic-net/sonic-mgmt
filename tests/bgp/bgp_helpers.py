@@ -99,13 +99,15 @@ def parse_rib(host, ip_ver):
     Parse output of 'show bgp ipv4/6' and parse into a dict for checking routes
     """
     routes = {}
-    cmd = "vtysh -c \"show bgp ipv%d json\"" % ip_ver
-    route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
-    for ip, nexthops in route_data['routes'].iteritems():
-        aspath = set()
-        for nexthop in nexthops:
-            aspath.add(nexthop['path'])
-        routes[ip] = aspath
+    for asic_index in host.get_frontend_asic_ids():
+        namespace = '-n {}'.format(asic_index) if host.is_multi_asic else ''
+        cmd = "vtysh %s -c \"show bgp ipv%d json\"" % (namespace, ip_ver)
+        route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
+        for ip, nexthops in route_data['routes'].iteritems():
+            aspath = set()
+            for nexthop in nexthops:
+                aspath.add(nexthop['path'])
+            routes[ip] = aspath
     return routes
 
 def verify_all_routes_announce_to_bgpmon(duthost, ptfhost):

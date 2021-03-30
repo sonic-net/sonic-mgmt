@@ -229,20 +229,23 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
+                    conn["namespace"] = mg_facts["minigraph_portchannels"][intf]["namespace"]
                 else:
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf]
                 connections.append(conn)
 
             for conn in connections:
                 # bind the ip to the interface and notify bgpcfgd
-                duthost.shell("config interface ip add %s %s" % (conn["local_intf"], conn["local_addr"]))
+                namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
+                duthost.shell("config interface %s ip add %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
 
             yield connections
 
         finally:
             for conn in connections:
-                duthost.shell("config interface ip remove %s %s" % (conn["local_intf"], conn["local_addr"]))
+                namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
+                duthost.shell("config interface %s ip remove %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
 
     peer_count = getattr(request.module, "PEER_COUNT", 1)

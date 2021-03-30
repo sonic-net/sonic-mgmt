@@ -20,16 +20,29 @@ def traffic_shift_community(duthost):
     community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')['stdout']
     return community
 
+def verify_traffic_shift(host, outputs, match_result):
+    if host.is_multi_asic:
+        for asic_index in host.get_frontend_asic_ids():
+            result_str = "BGP{} : {}".format(asic_index, match_result)
+            if result_str in outputs:
+                continue
+            else:
+                return "ERROR"
+    else:
+        if match_result not in outputs:
+            return "ERROR"
+
+    return match_result
+
 def get_traffic_shift_state(host):
     outputs = host.shell('TSC')['stdout_lines']
-    for out in outputs:
-        if TS_NORMAL == out.strip():
-            return TS_NORMAL
-        if TS_MAINTENANCE == out.strip():
-            return TS_MAINTENANCE
-        if TS_INCONSISTENT == out.strip():
-            return TS_INCONSISTENT
-    pytest.fail("TSC return unexpected state {}".format(out))
+    if verify_traffic_shift(host, outputs, TS_NORMAL) is not "ERROR":
+        return TS_NORMAL
+    if verify_traffic_shift(host, outputs, TS_MAINTENANCE) is not "ERROR":
+        return TS_MAINTENANCE
+    if verify_traffic_shift(host, outputs, TS_INCONSISTENT) is not "ERROR":
+        return TS_INCONSISTENT
+    pytest.fail("TSC return unexpected state {}".format("ERROR"))
 
 def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
     """
