@@ -17,13 +17,15 @@ def _create_parser():
                       required=False,default=None)
     parser.add_argument('-p', '--only_parse', action='store_true', help='Just Parse results',
                       default=False)
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
+                      required=False,default="mth32")
     return parser
 
-def run_scripts(script_file,drop_version,log_dir):
+def run_scripts(dut_name,script_file,drop_version,log_dir):
     if drop_version is not None:
-        filename = "ongoing_result_{}.txt".format(drop_version)
+        filename = "ongoing_result_{}.csv".format(drop_version)
     else:
-        filename = 'ongoing_result.txt'
+        filename = 'ongoing_result.csv'
     if log_dir is not None:
         log_dir = '/data/tests/{}'.format(log_dir)
     else:
@@ -44,8 +46,8 @@ def run_scripts(script_file,drop_version,log_dir):
             tc_name = tc_name + "_" + drop_version
 
         print("Executing: {}".format(tc))
-        
-        cmd = "./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(log_dir,tc,tc_name)
+        print("./run_tests.sh -n docker-ptf -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(dut_name,log_dir,tc,tc_name))
+        cmd = "./run_tests.sh -n docker-ptf -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(dut_name,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(tc_name), shell=True).strip()
@@ -66,6 +68,7 @@ def run_scripts(script_file,drop_version,log_dir):
 
     current_result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
+    os.system("cat {}".format(filename))
 
 def parse_results():
     total_passed = 0
@@ -81,7 +84,7 @@ def parse_results():
         else:
             continue
 
-    result_file = open('final_result.txt', 'w')
+    result_file = open('final_result.csv', 'w')
     if len(log_list) > 0:
         for log_file in log_list:
             os.system("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g'  >> all_result.txt".format(log_file))
@@ -112,11 +115,16 @@ def main():
     drop_version = args['drop_version']
     log_dir = args['log_dir']
     only_parse = args['only_parse']
+    device_type = args['device_type']
+    if device_type == 'sherman':
+        dut_name = 'sherman-01'
+    else:
+        dut_name = 'mathilda-01'
 
     if only_parse:
         parse_results()
     else:
-        run_scripts(script_file,drop_version,log_dir)
+        run_scripts(dut_name,script_file,drop_version,log_dir)
 
 if __name__ == '__main__':
   main()

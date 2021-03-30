@@ -340,6 +340,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
+    #ftp_client.put('run_scripts.py','sonic-test/sonic-mgmt/tests/run_scripts.py')
+    #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
     if device_type == 'mth32':
         ftp_client.put('lab_connection_graph_mth32.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
@@ -465,7 +467,7 @@ def add_vEOS_cfg(data):
     
     ssh.close()
 
-def run_scripts(data,script_file,drop_version,log_dir):
+def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -491,8 +493,7 @@ def run_scripts(data,script_file,drop_version,log_dir):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
     
-
-    chan.send('./run_scripts.py  -s {} -v {} -l {}\n'.format(script_file,drop_version,log_dir))
+    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} \n'.format(script_file,drop_version,log_dir,device_type))
     chan.settimeout(180)
     buff = ''
     err_buff = ''
@@ -617,7 +618,7 @@ def main():
     add_ptf_backplane_addr(data)
 
     print("Running Sanity Scripts")
-    run_scripts(data,script_file,drop_version,log_dir)
+    run_scripts(data,script_file,drop_version,log_dir,device_type)
     
     print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
@@ -628,6 +629,14 @@ def main():
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
         print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
+
+    if device_type == 'sherman':
+        print("Device name is sherman. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log")
+    else:
+        print("Device name is mth32. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log")
+
 
 
 if __name__ == '__main__':
