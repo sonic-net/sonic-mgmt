@@ -218,7 +218,7 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
             console_link = console_link.attrib
             device = console_link['EndDevice']
             if device in devices:
-                if devtype == 'Server':
+                if devices[device]['Type'] == 'Server':
                     device_table = 'TEST_SERVER_TABLE' + ':' + device
                 else:
                     device_table = 'SWITCH_TABLE' + ':' + device
@@ -234,7 +234,7 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
             pdu_hostname = pdu['Hostname']
             pdb_meta = json.dumps(pdu)
             device_table = 'PDU_TABLE' + ':' + pdu_hostname
-            DB_SCRIPTS['add_pdu'](keys=[device_table, 'PDU_list'], args=[pdb_meta], client=pipe)
+            DB_SCRIPTS['add_pdu'](keys=[device_table, 'PDU_LIST'], args=[pdb_meta], client=pipe)
 
         for link in graph_xml_root.iter('PowerControlLinkInfo'):
             link = link.attrib
@@ -262,6 +262,8 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
         pipe.execute()
     except Exception:
         logging.exception("Provision db failed, mark db as 'down'.")
+        DB_SCRIPTS['cleanup'](args=['*_TABLE*', '*_LIST*', '*_SET*'])
+        conn.zrem('DB_CONNECTION_GRAPH_VERSIONS', conn_graph_file_hash)
         conn.hset('DB_META', mapping={'server_state': 'down'})
         raise
     else:

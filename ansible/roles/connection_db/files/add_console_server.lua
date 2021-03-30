@@ -9,7 +9,7 @@ local console_server_meta = cjson.decode(ARGV[1])
 local console_server_hostname = console_server_meta['Hostname']
 local payload = {}
 
-table.remove(console_server_meta, 'Hostname')
+console_server_meta['Hostname'] = nil
 
 for key, value in pairs(console_server_meta)
 do

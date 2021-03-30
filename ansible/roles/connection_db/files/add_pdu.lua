@@ -9,7 +9,7 @@ local pdu_meta = cjson.decode(ARGV[1])
 local pdu_hostname = pdu_meta['Hostname']
 local payload = {}
 
-table.remove(pdu_meta, 'Hostname')
+pdu_meta['Hostname'] = nil
 
 for key, value in pairs(pdu_meta)
 do

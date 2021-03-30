@@ -18,9 +18,9 @@
       when: configure_action is not defined
 
     - name: Check that variable connection_graph_filename or duts_name is defined
-      fail: msg="Please pass extra variable 'connection_grap_filename' or 'duts_name'"
+      fail: msg="Please pass extra variable 'connection_graph_filename' or 'duts_name'"
       when:
-        - provision_connection_db is not defined
+        - connection_graph_filename is not defined
         - duts_name is not defined
 
     - name: Find connection graph file
