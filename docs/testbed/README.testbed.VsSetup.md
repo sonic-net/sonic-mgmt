@@ -47,7 +47,7 @@ ceosimage                                      4.23.2F             d53c28e38448 
 
 If you want to skip downloading the image when the cEOS image is not imported locally, set `skip_ceos_image_downloading` to `true` in `sonic-mgmt/ansible/group_vars/all/ceos.yml`. Then, when the cEOS image is not locally available, the scripts will not try to download it and will fail with an error message. Please use option 1 to download and import the cEOS image manually.
 
-#### Option 3: Use SONiC image as neighboring devices 
+#### Option 3: Use SONiC image as neighboring devices
 You need to prepare a sound SONiC image `sonic-vs.img` in `~/veos-vm/images/`. We don't support to download sound sonic image right now, but for testing, you can also follow the section [Download the sonic-vs image](##download-the-sonic-vs-image) to download an available image and put it into the directory `~/veos-vm/images`
 
 ## Download the sonic-vs image
@@ -139,7 +139,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 ```
 $ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
-If you use SONiC image as the VMs, you need to add extract parameters `-k sonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k sonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
+If you use SONiC image as the VMs, you need to add extract parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
 
@@ -231,7 +231,7 @@ Once the topology has been created, we need to give the DUT an initial configura
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
 ```
-$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 lab password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
 ```
 
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.

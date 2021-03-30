@@ -64,18 +64,6 @@ class BGPNeighbor(object):
     def start_session(self):
         """Start the BGP session."""
         logging.debug("start bgp session %s", self.name)
-        self.ptfhost.exabgp(
-            name=self.name,
-            state="started",
-            local_ip=self.ip,
-            router_id=self.ip,
-            peer_ip=self.peer_ip,
-            local_asn=self.asn,
-            peer_asn=self.peer_asn,
-            port=self.port
-        )
-        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port):
-            raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
 
         _write_variable_from_j2_to_configdb(
             self.duthost,
@@ -98,6 +86,19 @@ class BGPNeighbor(object):
             local_addr=self.peer_ip,
             peer_name=self.name
         )
+
+        self.ptfhost.exabgp(
+            name=self.name,
+            state="started",
+            local_ip=self.ip,
+            router_id=self.ip,
+            peer_ip=self.peer_ip,
+            local_asn=self.asn,
+            peer_asn=self.peer_asn,
+            port=self.port
+        )
+        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port):
+            raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
 
         if self.is_quagga:
             allow_ebgp_multihop_cmd = (

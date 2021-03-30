@@ -33,10 +33,10 @@ def parse_chassis_module(output, expected_headers):
     return result
 
 
-def test_show_chassis_module_status(duthosts, enum_dut_hostname):
+def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname):
     cmd = " ".join([CMD_SHOW_CHASSIS_MODULE, "status"])
     logger.info("verifying output of cli command {}".format(cmd))
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     exp_headers = ["Name", "Description", "Physical-Slot", "Oper-Status", "Admin-Status"]
     skip_mod_list = get_skip_mod_list(duthost)
 
@@ -55,7 +55,7 @@ def test_show_chassis_module_status(duthosts, enum_dut_hostname):
                               mod_idx, res[mod_idx]['Oper-Status']))
 
 
-def test_show_chassis_module_midplane_status(duthosts, enum_dut_hostname, skip_module_list):
+def test_show_chassis_module_midplane_status(duthosts, enum_rand_one_per_hwsku_hostname):
     """
        @summary: Verify output of `show chassis-module midplane-status`
     """
@@ -63,7 +63,7 @@ def test_show_chassis_module_midplane_status(duthosts, enum_dut_hostname, skip_m
     logger.info("verifying output of cli command {}".format(cmd))
     expected_headers = ["Name", "IP-Address", "Reachability"]
 
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     output = duthost.command(cmd)
     res_mid_status = parse_chassis_module(output['stdout_lines'], expected_headers)
     mod_key= ['line-cards']
