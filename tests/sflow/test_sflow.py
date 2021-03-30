@@ -502,5 +502,23 @@ class TestReboot():
         partial_ptf_runner(
               enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
+        
+    def testWarmreboot(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):
+
+        config_sflow(duthost,sflow_status='enable')
+        verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
+        duthost.command('sudo config save -y')
+        reboot(duthost, localhost,reboot_type='warm')
+        assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
+        for intf in var['sflow_ports']:
+            var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost,intf)
+            var['sflow_ports'][intf]['port_index'] = get_port_index(duthost,intf)
+            verify_sflow_interfaces(duthost,intf,'up',512)
+        var['portmap'] = json.dumps(var['sflow_ports'])
+        ptfhost.copy(content=var['portmap'],dest="/tmp/sflow_ports.json")
+        partial_ptf_runner(
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
+              active_collectors="['collector0','collector1']" )
 
 

@@ -254,7 +254,7 @@ class SflowTest(BaseTest):
                time.sleep(self.polling_int)
         else:
            self.sendTraffic()
-           time.sleep(5)
+           time.sleep(10) # For Test Stability
         self.stop_collector = True
         thr1.join()
         thr2.join()
