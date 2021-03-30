@@ -1,4 +1,4 @@
-#!/router/bin/python3.8.2_mcpre-v1
+#!/usr/bin/python
 
 import argparse
 import json
