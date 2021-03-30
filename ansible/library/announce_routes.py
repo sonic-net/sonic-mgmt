@@ -83,6 +83,33 @@ def announce_routes(ptf_ip, port, routes):
     r = requests.post(url, data=data)
     assert r.status_code == 200
 
+# AS path from Leaf router for T0 topology
+def get_leaf_uplink_as_path(spine_asn):
+    default_route_as_path = "6666 6667"
+    return "{} {}".format(spine_asn, default_route_as_path)
+
+# AS path from Spine router for T1 topology
+def get_spine_uplink_as_path():
+    default_route_as_path = "6666 6667"
+    return "{}".format(default_route_as_path)
+
+# AS path from Core router for T2 topology
+def get_core_uplink_as_path():
+    default_route_as_path = "6666 6667"
+    return "{}".format(default_route_as_path)
+
+# Get AS path to append to uplink routers AS for routes being advertised by this uplink router.
+def get_uplink_router_as_path(uplink_router_type, spine_asn):
+    default_route_as_path = None
+    # router type must be one of 'leaf', 'spine', 'core'. 'tor' routers are not uplink routers
+    if uplink_router_type == "leaf":
+        default_route_as_path = get_leaf_uplink_as_path(spine_asn)
+    elif uplink_router_type == "spine":
+        default_route_as_path = get_spine_uplink_as_path()
+    elif uplink_router_type == "core":
+        default_route_as_path = get_core_uplink_as_path()
+    return default_route_as_path
+
 
 def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start,
@@ -90,19 +117,14 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     tor_subnet_size, max_tor_subnet_number, topo,
                     router_type = "leaf", tor_index=None, set_num=None):
     routes = []
+    if router_type != "tor":
+        default_route_as_path = get_uplink_router_as_path(router_type, spine_asn)
 
-    default_route_as_path = "6666 6667"
-
-    if router_type == "leaf" and topo != "t2":
-        default_route_as_path = "{} {}".format(spine_asn, default_route_as_path)
-    if router_type == "core" and topo == "t2":
-        default_route_as_path = "{}".format(default_route_as_path)
-    # Default route for T2 is adventised by the core routers.
-    if (topo != "t2" and router_type != 'tor') or (topo == "t2" and router_type == "core"):
-        if family in ["v4", "both"]:
-            routes.append(("0.0.0.0/0", nexthop, default_route_as_path))
-        if family in ["v6", "both"]:
-            routes.append(("::/0", nexthop_v6, default_route_as_path))
+        if topo != "t2" or (topo == "t2" and router_type == "core"):
+            if family in ["v4", "both"]:
+                routes.append(("0.0.0.0/0", nexthop, default_route_as_path))
+            if family in ["v6", "both"]:
+                routes.append(("::/0", nexthop_v6, default_route_as_path))
 
     # NOTE: Using large enough values (e.g., podset_number = 200,
     # us to overflow the 192.168.0.0/16 private address space here.
@@ -291,7 +313,7 @@ We would have the following distribution:
    - 192.168.xx.xx (32 routes) from the first 8 T1 VM's from linecard2 and linecard3 (VM25-VM32, and VM49-VM56)
    - 192.169.xx.xx (32 routes) from the remaining 16 T1 VM's on linecard2 and linecard3 (VM33-VM48, and VM64-VM72)
    - 192.170.xx.xx (32 routes) from all T1 VMs on linecard2 and linecard3 (VM25-VM48, and VM49-VM72)
-- T2 Routes:
+- T3 Routes:
    - 192.171.xx.xx to 193.45.xx.xx (4K routes) from from first 8 T3 VM's on linecard1 (VM1-VM8)
    - 193.46.xx.xx to 193.176.xx.xx (4K routes) from the remaining 16 T3 VM's on linecard1 (VM9-VM24)
    - 193.177.xx.xx - 194.55.xx.xx (4K routes) from all 24 T3 VM's on linecard1 (VM1-VM24)
