@@ -46,18 +46,18 @@ def run_scripts(script_file,drop_version,log_dir):
         print("Executing: {}".format(tc))
         
         cmd = "./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(log_dir,tc,tc_name)
-        subprocess.Popen("bash -c '{}'".format(cmd),shell=True)
+        os.system("bash -c '{}'".format(cmd))
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(tc_name), shell=True).strip()
         failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l".format(tc_name), shell=True).strip()
         skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l".format(tc_name), shell=True).strip()
         errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l".format(tc_name), shell=True).strip()
         time.sleep(10)
-        final_total += total_tests
-        total_passed += passed
-        total_failed += failed
-        total_skipped += skipped
-        total_error += errored
+        final_total += int(total_tests)
+        total_passed += int(passed)
+        total_failed += int(failed)
+        total_skipped += int(skipped)
+        total_error += int(errored)
 
         print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
 
@@ -92,11 +92,11 @@ def parse_results():
             skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l".format(log_file), shell=True).strip()
             errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l".format(log_file), shell=True).strip()
 
-            final_total += total_tests
-            total_passed += passed
-            total_failed += failed
-            total_skipped += skipped
-            total_error += errored
+            final_total += int(total_tests)
+            total_passed += int(passed)
+            total_failed += int(failed)
+            total_skipped += int(skipped)
+            total_error += int(errored)
             print("{}     : {} : {} : {} : {} : {} \n".format(log_file,total_tests,passed,failed,skipped,errored))
 
             result_file.write("{}     , {} , {} , {} , {} , {} \n".format(log_file,total_tests,passed,failed,skipped,errored))
