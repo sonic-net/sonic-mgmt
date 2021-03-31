@@ -323,15 +323,3 @@ def simulator_server_down(set_drop, set_output):
     yield _drop_helper
     set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
 
-
-def toggle_mux_simulator_to_tor(host, mux_server_url, tbinfo):
-    """
-    Function for toggling all simulator port to given tor
-    """
-    dut_index = tbinfo['duts'].index(host.hostname)
-    if dut_index == 0:
-        data = {"active_side": UPPER_TOR}
-    else:
-        data = {"active_side": LOWER_TOR}
-
-    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to {}".format(host.hostname))
