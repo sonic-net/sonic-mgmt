@@ -212,42 +212,6 @@ class SonicAsic(object):
             )
         return self.sonichost.is_service_running(service_name, docker_name)
 
-    def ping_v4(self, ipv4, count=1):
-        """
-        Returns 'True' if ping to IP address works, else 'False'
-        Args:
-            IPv4 address
-
-        Returns:
-            True or False
-        """
-        try:
-            socket.inet_aton(ipv4)
-        except socket.error:
-            raise Exception("Invalid IPv4 address {}".format(ipv4))
-
-        try:
-            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
-                self._ns_arg, count, ipv4
-            ))
-        except RunAnsibleModuleFail:
-            return False
-        return True
-
-    def is_backend_portchannel(self, port_channel):
-        mg_facts = self.sonichost.minigraph_facts(
-            host = self.sonichost.hostname
-        )['ansible_facts']
-        if port_channel in mg_facts["minigraph_portchannels"]:
-            port_name = next(
-                iter(
-                    mg_facts["minigraph_portchannels"][port_channel]["members"]
-                )
-            )
-            if "Ethernet-BP" not in port_name:
-                return False
-        return True
-
     def get_active_ip_interfaces(self):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -257,20 +221,7 @@ class SonicAsic(object):
             Dict of Interfaces and their IPv4 address
         """
         ip_ifs = self.show_ip_interface()["ansible_facts"]
-        ip_ifaces = {}
-        for k,v in ip_ifs["ip_interfaces"].items():
-            if (k.startswith("Ethernet") or
-                (k.startswith("PortChannel") and not self.is_backend_portchannel(k))
-            ):
-                if (v["admin"] == "up" and v["oper_state"] == "up" and
-                        self.ping_v4(v["peer_ipv4"])
-                    ):
-                    ip_ifaces[k] = {
-                        "ipv4" : v["ipv4"],
-                        "peer_ipv4" : v["peer_ipv4"]
-                    }
-
-        return ip_ifaces
+        return self.sonichost.active_ip_interfaces(ip_ifs["ip_interfaces"], self._ns_arg)
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
