@@ -28,11 +28,11 @@ class SonicAsic(object):
         """
         self.sonichost = sonichost
         self.asic_index = asic_index
-        self._ns_arg = ""
+        self.ns_arg = ""
         if self.sonichost.is_multi_asic:
             self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
             self.cli_ns_option = "-n {}".format(self.namespace)
-            self._ns_arg = "sudo ip netns exec {} ".format(self.namespace)
+            self.ns_arg = "sudo ip netns exec {} ".format(self.namespace)
         else:
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
@@ -114,7 +114,6 @@ class SonicAsic(object):
         if self.sonichost.is_multi_asic:
             complex_args['namespace'] = self.namespace
         return self.sonichost.config_facts(*module_args, **complex_args)
-
 
     def show_interface(self, *module_args, **complex_args):
         """Wrapper for the ansible module 'show_interface'
@@ -229,7 +228,7 @@ class SonicAsic(object):
 
         try:
             self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
-                self._ns_arg, count, ipv4
+                self.ns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
@@ -290,7 +289,7 @@ class SonicAsic(object):
         check_opt = "-C INPUT"
         cmd = (
             "{}/sbin/{} -t filter {{}} -p tcp -j DROP --destination-port bgp"
-        ).format(self._ns_arg, ipcmd)
+        ).format(self.ns_arg, ipcmd)
 
         check_cmd = cmd.format(check_opt)
         run_cmd = cmd.format(run_opt)
@@ -360,7 +359,7 @@ class SonicAsic(object):
         if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
             return self.sonichost.command(cmdstr)
 
-        cmdstr = "sudo ip netns exec {} ".format(self.namespace) + cmdstr
+        cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
         return self.sonichost.command(cmdstr)
 

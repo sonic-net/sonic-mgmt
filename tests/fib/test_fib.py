@@ -81,7 +81,7 @@ def get_fib_info(duthost, cfg_facts, mg_facts):
 
         asic = duthost.asic_instance(asic_index)
 
-        asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic._ns_arg, timestamp))
+        asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
         duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
         po = asic_cfg_facts.get('PORTCHANNEL', {})
