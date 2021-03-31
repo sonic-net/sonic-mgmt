@@ -150,7 +150,7 @@ def check_vendor_specific_psustatus(dut, psu_status_line):
         if "201811" in dut.os_version or "201911" in dut.os_version:
             psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
         else:
-            psu_line_pattern = re.compile(r"PSU\s+(\d+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
+            psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
 
         psu_match = psu_line_pattern.match(psu_status_line)
         psu_id = psu_match.group(1)
@@ -183,11 +183,12 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
         psu_info_list = json.loads(cli_psu_status["stdout"])
         for psu_info in psu_info_list:
+	    psu_test_results[psu_info["index"]] = False
             if psu_info["status"] == "NOT OK":
                 power_off_psu_list.append(psu_info["index"])
 
     if power_off_psu_list:
-        logging.warn('Powered off PSUs: {}'.format(power_off_psu_list))
+        logging.warning('Powered off PSUs: {}'.format(power_off_psu_list))
 
     return len(power_off_psu_list) == 0
 
@@ -200,7 +201,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
+    psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT)")
 
     psu_num = get_psu_num(duthost)
     pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
@@ -232,9 +233,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
-            fields = line.split()
-            if fields[2] != "OK":
-                psu_under_test = fields[1]
+            match = psu_line_pattern.match(line)
+            if match.group(2) != "OK":
+                psu_under_test = match.group(1)
             check_vendor_specific_psustatus(duthost, line)
         pytest_assert(psu_under_test is not None, "No PSU is turned off")
 
@@ -245,9 +246,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
-            fields = line.split()
-            if fields[1] == psu_under_test:
-                pytest_assert(fields[2] == "OK", "Unexpected PSU status after turned it on")
+            match = psu_line_pattern.match(line)
+            if match.group(1) == psu_under_test:
+                pytest_assert(match.group(2) == "OK", "Unexpected PSU status after turned it on")
             check_vendor_specific_psustatus(duthost, line)
 
         psu_test_results[psu_under_test] = True
@@ -397,13 +398,13 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     time.sleep(5)
 
     psu_under_test = None
-    psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
+    psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT)")
     cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
     for line in cli_psu_status["stdout_lines"][2:]:
         pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
-        fields = line.split()
-        if fields[2] != "OK":
-            psu_under_test = fields[1]
+        match = psu_line_pattern.match(line)
+        if match.group(2) != "OK":
+            psu_under_test = match.group(1)
 
     pytest_assert(psu_under_test is not None, "No PSU is turned off")
     logging.info('Wait and check all FAN speed turn to 100%...')
