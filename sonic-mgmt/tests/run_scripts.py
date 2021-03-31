@@ -31,8 +31,10 @@ def run_scripts(dut_name,script_file,drop_version,log_dir):
     else:
         log_dir = '/data/tests/run_logs'
     current_result_file = open(filename, 'w')
+    current_result_file.write("{}     , {} , {} , {} , {} , {} \n")
     tcs_file = open(script_file, 'r')
     tcs = tcs_file.readlines()
+    sno = 0
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -55,18 +57,19 @@ def run_scripts(dut_name,script_file,drop_version,log_dir):
         skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l".format(tc_name), shell=True).strip()
         errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l".format(tc_name), shell=True).strip()
         time.sleep(10)
+        sno += 1
         final_total += int(total_tests)
         total_passed += int(passed)
         total_failed += int(failed)
         total_skipped += int(skipped)
-        total_error += int(errored)
+        total_skipped += int(errored)
 
-        print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
+        print("{}:{}     : {} : {} : {} : {} : {}".format(sno, tc_name,total_tests,passed,failed,skipped,errored))
 
-        current_result_file.write("{}     , {} , {} , {} , {} , {} \n".format(tc_name,total_tests,passed,failed,skipped,errored))
+        current_result_file.write("{}, {}     , {} , {} , {} , {} \n".format(sno, tc_name,total_tests,passed,failed,skipped))
         current_result_file.flush()
 
-    current_result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
+    current_result_file.write("Total     , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped))
     current_result_file.close()
     os.system("cat {}".format(filename))
 

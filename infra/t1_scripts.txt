@@ -4,12 +4,14 @@ test_interfaces.py
 test_nbr_health.py
 test_pretest.py
 test_procdockerstatsd.py
-test_posttest.py
 bgp/test_bgp_fact.py
+bgp/test_bgp_bbr.py
+bgp/test_bgp_multipath_relax.py
+bgp/test_bgp_allow_list.py
 bgp/test_traffic_shift.py
 bgp/test_bgpmon.py
 bgp/test_bgp_update_timer.py
-bgp/test_bgp_speaker.py
+#bgp/test_bgp_speaker.py
 bgp/test_bgp_gr_helper.py
 bgp/bgp_monitor_dump.py
 acl/test_acl.py
@@ -20,7 +22,8 @@ arp/test_neighbor_mac_noptf.py
 arp/test_wr_arp.py
 cacl/test_cacl_application.py
 cacl/test_cacl_function.py
-copp/test_copp.py
+crm/test_crm.py
+#copp/test_copp.py
 decap/test_decap.py
 dhcp_relay/test_dhcp_pkt_fwd.py
 dhcp_relay/test_dhcp_relay.py
@@ -43,9 +46,6 @@ ipfwd/test_dip_sip.py
 ipfwd/test_mtu.py
 lldp/test_lldp.py
 monit/test_monit_status.py
-mvrf/test_mgmtvrf.py
-mvrf/test_mgmtvrf.py
-mvrf/test_mgmtvrf.py
 mvrf/test_mgmtvrf.py
 #nat/test_dynamic_nat.py
 #nat/test_static_nat.py
@@ -95,10 +95,6 @@ portstat/test_portstat.py
 route/test_default_route.py
 route/test_route_perf.py
 #sflow/test_sflow.py
-#sflow/test_sflow.py
-#sflow/test_sflow.py
-#sflow/test_sflow.py
-#sflow/test_sflow.py
 show_techsupport/test_techsupport.py
 snmp/test_snmp_cpu.py
 snmp/test_snmp_interfaces.py
@@ -117,3 +113,4 @@ telemetry/test_telemetry.py
 #testbed_setup/test_populate_fdb.py
 #upgrade_path/test_upgrade_path.py
 #vlan/test_vlan.py
+test_posttest.py
