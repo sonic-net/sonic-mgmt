@@ -194,7 +194,7 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_neigh_entries(rand_selected_dut, tbinfo, mock_server_ip_mac_map):
+def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo, mock_server_ip_mac_map):
     '''
     Apply neighbor table entries for servers
     '''
@@ -222,7 +222,7 @@ def apply_dual_tor_neigh_entries(rand_selected_dut, tbinfo, mock_server_ip_mac_m
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_peer_switch_route(rand_selected_dut, mock_peer_switch_loopback_ip):
+def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Apply the tunnel route to reach the peer switch via the T1 switches
     '''
@@ -254,7 +254,7 @@ def apply_dual_tor_peer_switch_route(rand_selected_dut, mock_peer_switch_loopbac
 
 
 @pytest.fixture(scope='module')
-def apply_peer_switch_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
+def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Adds the PEER_SWITCH table to config DB and the peer_switch field to the device metadata
     Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
@@ -278,7 +278,7 @@ def apply_peer_switch_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_
 
 
 @pytest.fixture(scope='module')
-def apply_tunnel_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
+def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Adds the TUNNEL table to config DB
     '''
@@ -307,7 +307,7 @@ def apply_tunnel_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
 
 
 @pytest.fixture(scope='module')
-def apply_mux_cable_table_to_dut(rand_selected_dut, mock_server_base_ip_addr, tor_mux_intfs):
+def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_server_base_ip_addr, tor_mux_intfs):
     '''
     Adds the MUX_CABLE table to config DB
     '''
