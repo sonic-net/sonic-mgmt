@@ -339,9 +339,9 @@ class FgEcmpTest(BaseTest):
         # return value of -1 to denote that a flood had occured. The caller can use the 
         # special return value to identify how many packets were flooded. 
 
-        if timeout==None:
+        if timeout is None:
             timeout = ptf.ptfutils.default_timeout
-        if n_timeout==None:
+        if n_timeout is None:
             n_timeout = ptf.ptfutils.default_negative_timeout
         logging.debug("Checking for pkt on device %d, port %r", device_number, port)
         result = dp_poll(test, device_number=device_number, timeout=timeout, exp_pkt=pkt)
@@ -431,7 +431,7 @@ class FgEcmpTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
-        if exp_port == None:
+        if exp_port is None:
             return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
         else:
             return self.verify_packet_warm(masked_exp_pkt, exp_port)
@@ -478,7 +478,7 @@ class FgEcmpTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
-        if exp_port == None:
+        if exp_port is None:
             return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
         else:
             return self.verify_packet_warm(masked_exp_pkt, exp_port)

@@ -25,12 +25,15 @@ USE_INNER_HASHING = False
 NUM_FLOWS = 1000
 ptf_to_dut_port_map = {}
 
-SUPPORTED_TOPO = ['t0']
-SUPPORTED_PLATFORMS = ['mellanox']
+pytestmark = [
+    pytest.mark.topology('t0'),
+    pytest.mark.asic('mellanox'),
+    pytest.mark.disable_loganalyzer
+]
 
 logger = logging.getLogger(__name__)
 
-def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
+def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
     config_port_indices = cfg_facts['port_index_map']
     port_list = []
     eth_port_list = []
@@ -40,7 +43,6 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip):
     global ptf_to_dut_port_map
 
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
-    print vlan_members
     index = 0
     for vlan in cfg_facts['VLAN_MEMBER'].keys():
         vlan_id = vlan[4:]
@@ -139,8 +141,8 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
     ptfhost.copy(content=json.dumps(fg_ecmp, indent=2), dest=FG_ECMP_CFG)
 
 
-def setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_ip):
-    port_list, ip_to_port, bank_0_port, bank_1_port = configure_interfaces(cfg_facts, duthost, ptfhost, ptfadapter, vlan_ip)
+def setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_ip):
+    port_list, ip_to_port, bank_0_port, bank_1_port = configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip)
     generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port)
     time.sleep(60)
     setup_neighbors(duthost, ptfhost, ip_to_port)
@@ -181,11 +183,10 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         ipcmd = "ipv6 route"
 
     vtysh_base_cmd = "vtysh -c 'configure terminal'"
+    vtysh_base_cmd = duthost.get_vtysh_cmd_for_namespace(vtysh_base_cmd, DEFAULT_NAMESPACE)
     dst_ip_list = []
     for prefix in prefix_list:
         dst_ip_list.append(prefix.split('/')[0])
-
-    test_time = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
 
     ### Start test in state where 1 link is down, when nexthop addition occurs for link which is down, the nexthop
     ### should not go to active
@@ -244,7 +245,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     flows_per_nh = NUM_FLOWS/len(port_list)
     for port in port_list:
         exp_flow_count[port] = flows_per_nh
-
 
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=shutdown_link)
@@ -420,6 +420,7 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
         ipcmd = "ipv6 route"
 
     vtysh_base_cmd = "vtysh -c 'configure terminal'"
+    vtysh_base_cmd = duthost.get_vtysh_cmd_for_namespace(vtysh_base_cmd, DEFAULT_NAMESPACE)
     dst_ip_list = []
     for prefix in prefix_list:
         dst_ip_list.append(prefix.split('/')[0])
@@ -427,7 +428,6 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     prefix = prefix_list[0]
     dst_ip = dst_ip_list[0]
 
-    test_time = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     logger.info("Transition prefix to non fine grained ecmp and validate packets")
 
     pc_ips = []
@@ -497,14 +497,8 @@ def cleanup(duthost, ptfhost):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
+def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
-    if tbinfo['topo']['name'] not in SUPPORTED_TOPO:
-        logger.warning("Unsupported topology, currently supports " + str(SUPPORTED_TOPO))
-        pytest.skip("Unsupported topology")
-    if duthost.facts["asic_type"] not in SUPPORTED_PLATFORMS:
-        logger.warning("Unsupported platform, currently supports " + str(SUPPORTED_PLATFORMS))
-        pytest.skip("Unsupported platform")
 
     try:
         mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
@@ -517,18 +511,18 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname):
         yield duthost, cfg_facts, router_mac, net_ports 
 
     finally:
-        cleanup(duthost)
+        cleanup(duthost, ptfhost)
 
 
-def test_fg_ecmp(common_setup_teardown, ptfadapter, ptfhost):
+def test_fg_ecmp(common_setup_teardown, ptfhost):
     duthost, cfg_facts, router_mac, net_ports = common_setup_teardown
 
     # IPv4 test
-    port_list, ipv4_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4)
+    port_list, ipv4_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4)
     fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST, cfg_facts)
 
     # IPv6 test
-    port_list, ipv6_to_port, bank_0_port, bank_1_port = setup_test_config(ptfadapter, duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6)
+    port_list, ipv6_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6)
     fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, cfg_facts)
