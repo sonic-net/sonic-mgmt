@@ -731,6 +731,17 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
 # This test looks to measure xon threshold (pg_reset_floor)
 class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
+
+    def get_rx_port(self, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id):
+        print >> sys.stderr, "dst_port_id:{}, src_port_id:{}".format(dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
+        return dst_port_id
+
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
@@ -743,7 +754,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
         max_buffer_size = int(self.test_params['buffer_max_size'])
-        pg = int(self.test_params['pg']) + 2 # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg = int(self.test_params['pg']) + 2
 
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
@@ -775,10 +788,10 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
-        recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-        xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-        xmit_3_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_3_id])
+        recv_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, port_list[src_port_id]
+        )
+
         # The number of packets that will trek into the headroom space;
         # We observe in test that if the packets are sent to multiple destination ports,
         # the ingress may not trigger PFC sharp at its boundary
@@ -787,36 +800,71 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             margin = 1
 
+        # create packet
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                                eth_dst=pkt_dst_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_ttl=ttl)
+        dst_port_id = self.get_rx_port(
+            src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id
+        )
+
+        # create packet
+        pkt_dst_mac2 = router_mac if router_mac != '' else dst_port_2_mac
+        pkt2 = simple_ip_packet(pktlen=default_packet_length,
+                                 eth_dst=pkt_dst_mac2,
+                                 eth_src=src_port_mac,
+                                 ip_src=src_port_ip,
+                                 ip_dst=dst_port_2_ip,
+                                 ip_tos=tos,
+                                 ip_ttl=ttl)
+        dst_port_2_id = self.get_rx_port(
+            src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id
+        )
+
+        # create packet
+        pkt_dst_mac3 = router_mac if router_mac != '' else dst_port_3_mac
+        pkt3 = simple_ip_packet(pktlen=default_packet_length,
+                                 eth_dst=pkt_dst_mac3,
+                                 eth_src=src_port_mac,
+                                 ip_src=src_port_ip,
+                                 ip_dst=dst_port_3_ip,
+                                 ip_tos=tos,
+                                 ip_ttl=ttl)
+        dst_port_3_id = self.get_rx_port(
+            src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id
+        )
+
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         try:
             # send packets to dst port 1, occupying the "xon"
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis)
+            xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
+                self.client, port_list[dst_port_id]
+            )
+            send_packet(
+                self, src_port_id, pkt, 
+                pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
+            )
+
             # send packets to dst port 2, occupying the shared buffer
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac if router_mac != '' else dst_port_2_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_2_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis)
+            xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(
+                self.client, port_list[dst_port_2_id]
+            )
+            send_packet(
+                self, src_port_id, pkt2, 
+                pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
+            )
+
             # send 1 packet to dst port 3, triggering PFC
-            pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                    eth_dst=router_mac if router_mac != '' else dst_port_3_mac,
-                                    eth_src=src_port_mac,
-                                    ip_src=src_port_ip,
-                                    ip_dst=dst_port_3_ip,
-                                    ip_tos=tos,
-                                    ip_ttl=ttl)
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + 1)
+            xmit_3_counters_base, queue_counters = sai_thrift_read_port_counters(
+                self.client, port_list[dst_port_3_id]
+            )
+            send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
@@ -1308,15 +1356,25 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
 
-        sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         # Send packets to leak out
-        pkt = simple_tcp_packet(pktlen=64,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        pkt = simple_ip_packet(pktlen=64,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
                     ip_ttl=64)
+
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
+
+        sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
         # Get a snapshot of counter values
@@ -1326,8 +1384,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = 3
         tos = dscp << 2
         tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -1339,8 +1397,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = 4
         tos = dscp << 2
         tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -1352,8 +1410,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = 8
         tos = dscp << 2
         tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -1365,8 +1423,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = 0
         tos = dscp << 2
         tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -1378,8 +1436,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = 5
         tos = dscp << 2
         tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -1391,8 +1449,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = 46
         tos = dscp << 2
         tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -1404,8 +1462,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = 48
         tos = dscp << 2
         tos |= ecn
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                    eth_dst=pkt_dst_mac,
                     eth_src=src_port_mac,
                     ip_src=src_port_ip,
                     ip_dst=dst_port_ip,
@@ -1519,13 +1577,22 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 # To avoid that we need a larger margin
         else:
             packet_length = 64
-        pkt = simple_tcp_packet(pktlen=packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        pkt = simple_ip_packet(pktlen=packet_length,
+                                eth_dst=pkt_dst_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
                                 ip_tos=tos,
                                 ip_ttl=ttl)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -1614,13 +1681,23 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        pkt = simple_tcp_packet(pktlen=packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        pkt = simple_ip_packet(pktlen=packet_length,
+                                eth_dst=pkt_dst_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
                                 ip_tos=tos,
                                 ip_ttl=ttl)
+
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -1635,6 +1712,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # this is the case for lossy traffic
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
             time.sleep(8)
+
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, pg_shared_wm_res[pg])
             if pkts_num_fill_min:
@@ -1665,6 +1743,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
+                # these counters are clear on read, ensure counter polling
+                # is disabled before the test
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size, pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size)
                 assert(pg_shared_wm_res[pg] <= (expected_wm + margin) * cell_size)
@@ -1756,6 +1836,8 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
+                # these counters are clear on read, ensure counter polling
+                # is disabled before the test
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, pg_headroom_wm_res[pg], ((expected_wm + margin) * cell_size))
                 assert(pg_headroom_wm_res[pg] <= (expected_wm + margin) * cell_size)
@@ -1861,6 +1943,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
+                # these counters are clear on read, ensure counter polling
+                # is disabled before the test
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm + margin) * cell_size)
                 assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
