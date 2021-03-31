@@ -1264,7 +1264,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert(timeout > 0)
+        assert(timeout >= 0)
 
         return crm_facts
 
