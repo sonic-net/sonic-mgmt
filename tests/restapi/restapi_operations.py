@@ -1,6 +1,4 @@
-import pytest
 import logging
-import json
 import requests
 
 from tests.common.helpers.assertions import pytest_assert

@@ -133,7 +133,7 @@ def construct_url(duthosts, rand_one_dut_hostname):
         try:
             tup = ('https', netloc, path, '', '', '')
             endpoint = urlunparse(tup)
-        except:
+        except Exception:
             logging.error("Invalid URL: "+endpoint)
             return None
         return endpoint
