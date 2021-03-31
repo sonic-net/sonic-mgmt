@@ -8,7 +8,6 @@ import yaml
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.system_utils import docker
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -1178,7 +1177,6 @@ class QosSaiBaseMasic(QosBase):
 
             rx_port = None
             tx_port = None
-            next_hop_asic = None
 
             a1 = c1[asic_id]["ansible_facts"]["int_counter"]
             a2 = c2[asic_id]["ansible_facts"]["int_counter"]
@@ -1295,11 +1293,13 @@ class QosSaiBaseMasic(QosBase):
         # find asics with T0 neighbors
         ports = dict()
         for k, v in build_ip_interface.items():
-            if len(v):
+            try:
                 port_index = next(iter(v))
                 port_info = v[port_index]
                 if port_info["bgp_neighbor"].lower().endswith("t0"):
                     ports.update({k: v})
+            except StopIteration:
+                continue
 
         pytest_assert(
             len(ports) >= 0, "Ports from at least two ASICs required"

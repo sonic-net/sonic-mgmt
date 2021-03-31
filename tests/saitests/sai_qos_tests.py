@@ -815,23 +815,23 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         try:
             # send packets to dst port 1, occupying the "xon"
-            xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
-                self.client, port_list[dst_port_id]
-            )
-            send_packet(
-                self, src_port_id, pkt,
-                pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
-            )
-
+            pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                            eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                            eth_src=src_port_mac,
+                                            ip_src=src_port_ip,
+                                            ip_dst=dst_port_ip,
+                                            ip_tos=tos,
+                                            ip_ttl=ttl)
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis)
             # send packets to dst port 2, occupying the shared buffer
-            xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(
-                self.client, port_list[dst_port_2_id]
-            )
-            send_packet(
-                self, src_port_id, pkt2,
-                pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
-            )
-
+            pkt = simple_tcp_packet(pktlen=default_packet_length,
+                                            eth_dst=router_mac if router_mac != '' else dst_port_2_mac,
+                                            eth_src=src_port_mac,
+                                            ip_src=src_port_ip,
+                                            ip_dst=dst_port_2_ip,
+                                            ip_tos=tos,
+                                            ip_ttl=ttl)
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis)
             # send 1 packet to dst port 3, triggering PFC
             pkt = simple_tcp_packet(pktlen=default_packet_length,
                                     eth_dst=router_mac if router_mac != '' else dst_port_3_mac,
@@ -2060,7 +2060,6 @@ class PacketTransmit(sai_base_test.ThriftInterfaceDataPlane):
             "src_port_ip: {}, dst_port_ip: {}").format(
                 dst_port_mac, src_port_mac, src_port_ip, dst_port_ip
             )
-        exp_ip_id = 110
 
         # Send packets to leak out
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
