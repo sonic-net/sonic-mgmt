@@ -36,7 +36,7 @@ def verify_crm_nexthop_counter_not_increased(rand_selected_dut, set_crm_polling_
     time.sleep(CRM_POLL_INTERVAL)
     diff = get_crm_nexthop_counter(rand_selected_dut) - original_counter
     logging.info("Before test: crm nexthop counter = {}".format(original_counter + diff))
-    py_assert(diff == 0, "crm nexthop counter is increased by {}.".format(diff))
+    py_assert(diff <= 0, "crm nexthop counter is increased by {}.".format(diff))
 
 
 def pytest_addoption(parser):

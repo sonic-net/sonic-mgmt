@@ -700,7 +700,6 @@ def get_crm_nexthop_counter(host):
     return crm_facts['resources']['ipv4_nexthop']['used']
 
 
-@pytest.fixture
 def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     @summary: A helper function for collecting info of dualtor testbed.
