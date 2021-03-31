@@ -1,5 +1,6 @@
   <PngDec>
     <DeviceInterfaceLinks>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
 {% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
@@ -84,6 +85,7 @@
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
@@ -208,6 +210,11 @@
         <SerialNumber i:nil="true"/>
         <Hostname>{{ asic }}</Hostname>
         <HwSku>Broadcom-Trident2</HwSku>
+      </Device>
+{% endfor %}
+{% for asic in fabric_info %}
+      <Device i:type="Asic">
+        <Hostname>{{ asic['asicname'] }}</Hostname>
       </Device>
 {% endfor %}
     </Devices>
