@@ -48,6 +48,8 @@ def _create_parser():
                       required=False,default='DT7')
     parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
                       required=False,default='DT7')
+    parser.add_argument('-r', '--run_sanity', action='store_true', help='Run Sanity',
+                      default=False)
     return parser
 
 def git_update(data):
@@ -70,7 +72,7 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout master; git stash apply\n")
+    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout venkat_run_scripts; git stash apply\n")
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
@@ -532,6 +534,7 @@ def main():
     args = vars(argparser.parse_args())
     topo_yaml = args['topo_yaml']
     clean_sim = args['clean_sim']
+    run_sanity = args['run_sanity']
     dut_passwd = args['dut_passwd']
     dut_uname = args['dut_uname']
     topo_type = args['topo_type']
@@ -616,9 +619,10 @@ def main():
 
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
-
-    print("Running Sanity Scripts")
-    run_scripts(data,script_file,drop_version,log_dir,device_type)
+    
+    if run_sanity:
+        print("Running Sanity Scripts")
+        run_scripts(data,script_file,drop_version,log_dir,device_type)
     
     print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
@@ -630,12 +634,14 @@ def main():
     for i in range (1,vEOS_count+1):
         print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
 
+    print("******************************************************************************************************************************************************************************\n")
     if device_type == 'sherman':
         print("Device name is sherman. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log")
+        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log")
+        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    print("******************************************************************************************************************************************************************************\n")
 
 
 
