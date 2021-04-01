@@ -140,23 +140,16 @@ def get_psu_num(dut):
     return psu_num
 
 
-def check_vendor_specific_psustatus(dut, psu_status_line):
+def check_vendor_specific_psustatus(dut, psu_info_dict):
     """
     @summary: Vendor specific psu status check
     """
     if dut.facts["asic_type"] in ["mellanox"]:
         from .mellanox.check_sysfs import check_psu_sysfs
 
-        if "201811" in dut.os_version or "201911" in dut.os_version:
-            psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
-        else:
-            psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
-
-        psu_match = psu_line_pattern.match(psu_status_line)
-        psu_id = psu_match.group(1)
-        psu_status = psu_match.group(2)
-
-        check_psu_sysfs(dut, psu_id, psu_status)
+        psu_id_pattern = re.compile(r"PSU\s+(\d)")
+        psu_id = psu_id_pattern.match(psu_info_dict["psu"]).group(1)
+        check_psu_sysfs(dut, psu_id, psu_info_dict["status"])
 
 
 def turn_all_outlets_on(pdu_ctrl):
@@ -183,7 +176,7 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
         psu_info_list = json.loads(cli_psu_status["stdout"])
         for psu_info in psu_info_list:
-	    psu_test_results[psu_info["index"]] = False
+            psu_test_results[psu_info["index"]] = False
             if psu_info["status"] == "NOT OK":
                 power_off_psu_list.append(psu_info["index"])
 
@@ -200,8 +193,6 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
     duthost = duthosts[rand_one_dut_hostname]
-
-    psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT)")
 
     psu_num = get_psu_num(duthost)
     pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
@@ -230,26 +221,24 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, rand_one_dut_hostname, pd
         pdu_ctrl.turn_off_outlet(outlet)
         time.sleep(5)
 
-        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-        for line in cli_psu_status["stdout_lines"][2:]:
-            pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
-            match = psu_line_pattern.match(line)
-            if match.group(2) != "OK":
-                psu_under_test = match.group(1)
-            check_vendor_specific_psustatus(duthost, line)
+        cli_psu_status = duthost.show_and_parse(CMD_PLATFORM_PSUSTATUS)
+        for psu_info_dict in cli_psu_status:
+            if psu_info_dict["status"] != "OK":
+                psu_id = psu_info_dict["psu"].split()[1]
+                psu_under_test = psu_id
+            check_vendor_specific_psustatus(duthost, psu_info_dict)
         pytest_assert(psu_under_test is not None, "No PSU is turned off")
 
         logging.info("Turn on outlet {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
         time.sleep(5)
 
-        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-        for line in cli_psu_status["stdout_lines"][2:]:
-            pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
-            match = psu_line_pattern.match(line)
-            if match.group(1) == psu_under_test:
-                pytest_assert(match.group(2) == "OK", "Unexpected PSU status after turned it on")
-            check_vendor_specific_psustatus(duthost, line)
+        cli_psu_status = duthost.show_and_parse(CMD_PLATFORM_PSUSTATUS)
+        for psu_info_dict in cli_psu_status:
+            psu_id = psu_info_dict["psu"].split()[1]
+            if psu_id == psu_under_test:
+                pytest_assert(psu_info_dict["status"] == "OK", "Unexpected PSU status after turned it on")
+            check_vendor_specific_psustatus(duthost, psu_info_dict)
 
         psu_test_results[psu_under_test] = True
 
@@ -337,7 +326,7 @@ def test_thermal_control_psu_absence(duthosts, rand_one_dut_hostname, pdu_contro
     """
     duthost = duthosts[rand_one_dut_hostname]
     psu_num = get_psu_num(duthost)
-    
+
     pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PDU controller for testing")
@@ -398,13 +387,10 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     time.sleep(5)
 
     psu_under_test = None
-    psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT)")
-    cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
-    for line in cli_psu_status["stdout_lines"][2:]:
-        pytest_assert(psu_line_pattern.match(line), "Unexpected PSU status output")
-        match = psu_line_pattern.match(line)
-        if match.group(2) != "OK":
-            psu_under_test = match.group(1)
+    cli_psu_status = dut.show_and_parse(CMD_PLATFORM_PSUSTATUS)
+    for psu_info_dict in cli_psu_status:
+        if psu_info_dict["status"] != "OK":
+            psu_under_test = psu_info_dict["psu"]
 
     pytest_assert(psu_under_test is not None, "No PSU is turned off")
     logging.info('Wait and check all FAN speed turn to 100%...')
