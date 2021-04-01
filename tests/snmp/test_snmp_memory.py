@@ -32,11 +32,10 @@ def load_memory(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
     duthost.shell("killall python /tmp/memory.py", module_ignore_errors=True)
 
-def collect_memory(duthosts, enum_rand_one_per_hwsku_hostname):
+def collect_memory(duthost):
     """
     Collect memory data from DUT
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     facts = {}
     output = duthost.shell("cat /proc/meminfo")['stdout_lines']
     for line in output:
@@ -52,7 +51,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = localhost.snmp_facts(host=host_ip, version="v2c",
                                       community=creds["snmp_rocommunity"])['ansible_facts']
-    facts = collect_memory(duthosts, enum_rand_one_per_hwsku_hostname)
+    facts = collect_memory(duthost)
     compare = (('ansible_sysTotalFreeMemery', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
                ('ansible_sysCachedMemory', 'Cached'))
 

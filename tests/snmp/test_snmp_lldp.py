@@ -2,7 +2,7 @@ import pytest
 import re
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2'),
+    pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
 

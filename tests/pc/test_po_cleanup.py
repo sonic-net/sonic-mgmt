@@ -38,9 +38,9 @@ def check_kernel_po_interface_cleaned(duthost, asic_index):
     return res == '0'
 
 @pytest.fixture(scope="module", autouse=True)
-def check_topo_and_restore(duthosts, rand_one_dut_hostname, tbinfo):
+def check_topo_and_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts['minigraph_portchannels'].keys()) == 0 and not duthost.is_multi_asic:

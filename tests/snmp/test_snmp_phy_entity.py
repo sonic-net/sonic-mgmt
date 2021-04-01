@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.platform_tests.thermal_control_test_helper import mocker_factory
 
 pytestmark = [
-    pytest.mark.topology('any', 't2'),
+    pytest.mark.topology('any'),
     pytest.mark.device_type('physical')
 ]
 
