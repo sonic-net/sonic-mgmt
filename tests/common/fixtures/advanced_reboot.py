@@ -85,6 +85,11 @@ class AdvancedReboot:
         if self.rebootLimit is None:
             if self.kvmTest:
                 self.rebootLimit = 200 # Default reboot limit for kvm
+            elif 'warm-reboot' in self.rebootType:
+                if isMellanoxDevice(self.duthost):
+                    self.rebootLimit = 1
+                else:
+                    self.rebootLimit = 0
             else:
                 self.rebootLimit = 30 # Default reboot limit for physical devices
 
