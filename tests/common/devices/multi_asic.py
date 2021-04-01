@@ -275,7 +275,6 @@ class MultiAsicSonicHost(object):
             False,
             "ASIC instance not found for port {}".format(port)
         )
-        return None
 
     def get_queue_oid_asic_instance(self, queue_oid):
         """
@@ -297,7 +296,6 @@ class MultiAsicSonicHost(object):
             False,
             "ASIC instance not found for queue OID {}".format(queue_oid)
         )
-        return None
 
     def get_queue_oid(self, port, queue_num):
         """
