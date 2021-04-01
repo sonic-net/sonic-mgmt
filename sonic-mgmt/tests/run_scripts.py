@@ -31,16 +31,17 @@ def run_scripts(dut_name,script_file,drop_version,log_dir):
     else:
         log_dir = '/data/tests/run_logs'
     current_result_file = open(filename, 'w')
-    current_result_file.write("{}     , {} , {} , {} , {} , {} \n")
+    current_result_file.write("Sno,Feature,T,P,F,S\n")
     tcs_file = open(script_file, 'r')
     tcs = tcs_file.readlines()
     sno = 0
     total_passed = 0
     total_failed = 0
     total_skipped = 0
-    total_error = 0
     final_total = 0
     for tc in tcs:
+        if '#' in tc:
+            continue
         tc = tc.strip()
         tc_name = tc.split('/')
         tc_name = tc_name[len(tc_name)-1].split('.')[0]
