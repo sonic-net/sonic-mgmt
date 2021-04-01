@@ -79,6 +79,10 @@ def get_power(conn, psu_id):
     return psu_api(conn, psu_id, 'get_power')
 
 
+def get_maximum_supplied_power(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_maximum_supplied_power')
+
+
 def get_powergood_status(conn, psu_id):
     return psu_api(conn, psu_id, 'get_powergood_status')
 
@@ -117,3 +121,11 @@ def get_all_thermals(conn, psu_id):
 
 def get_thermal(conn, psu_id, index):
     return psu_api(conn, psu_id, 'get_thermal', [index])
+
+
+def set_status_master_led(conn, psu_id, color):
+    return psu_api(conn, psu_id, 'set_status_master_led', [color])
+
+
+def get_status_master_led(conn, psu_id):
+    return psu_api(conn, psu_id, 'get_status_master_led')

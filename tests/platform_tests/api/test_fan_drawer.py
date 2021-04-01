@@ -34,14 +34,6 @@ STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
 
-@pytest.fixture(scope="class")
-def gather_facts(request, duthost):
-    # Get platform facts from platform.json file
-    request.cls.chassis_facts = duthost.facts.get("chassis")
-    request.cls.asic_type = duthost.facts.get("asic_type")
-
-
-@pytest.mark.usefixtures("gather_facts")
 class TestFanDrawerApi(PlatformApiTestBase):
 
     num_fan_drawers = None
@@ -62,11 +54,11 @@ class TestFanDrawerApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, fan_drawer_idx):
+    def compare_value_with_platform_facts(self, duthost, key, value, fan_drawer_idx):
         expected_value = None
 
-        if self.chassis_facts:
-            expected_fan_drawers = self.chassis_facts.get("fan_drawers")
+        if duthost.facts.get("chassis"):
+            expected_fan_drawers = duthost.facts.get("chassis").get("fan_drawers")
             if expected_fan_drawers:
                 expected_value = expected_fan_drawers[fan_drawer_idx].get(key)
                 if key == "num_fans" and not expected_value:
@@ -80,17 +72,18 @@ class TestFanDrawerApi(PlatformApiTestBase):
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_fan_drawers):
             name = fan_drawer.get_name(platform_api_conn, i)
 
             if self.expect(name is not None, "Unable to retrieve Fan_drawer {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Fan_drawer {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i)
+                self.compare_value_with_platform_facts(duthost, 'name', name, i)
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_fan_drawers):
             presence = fan_drawer.get_presence(platform_api_conn, i)
 
@@ -100,7 +93,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_fan_drawers):
             model = fan_drawer.get_model(platform_api_conn, i)
 
@@ -109,7 +102,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_fan_drawers):
             serial = fan_drawer.get_serial(platform_api_conn, i)
 
@@ -118,7 +111,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_fan_drawers):
             status = fan_drawer.get_status(platform_api_conn, i)
 
@@ -144,16 +137,17 @@ class TestFanDrawerApi(PlatformApiTestBase):
     #
     # Functions to test methods defined in Fan_drawerBase class
     #
-    def test_get_num_fans(self, duthost, localhost, platform_api_conn):
+    def test_get_num_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_fan_drawers):
 
             num_fans = fan_drawer.get_num_fans(platform_api_conn, i)
             if self.expect(num_fans is not None, "Unable to retrieve fan_drawer {} number of fans".format(i)):
                 self.expect(isinstance(num_fans, int), "fan drawer {} number of fans appear to be incorrect".format(i))
-                self.compare_value_with_platform_facts('num_fans', num_fans, i)
+                self.compare_value_with_platform_facts(duthost, 'num_fans', num_fans, i)
         self.assert_expectations()
 
-    def test_get_all_fans(self, duthost, localhost, platform_api_conn):
+    def test_get_all_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_fan_drawers):
 
             fans_list = fan_drawer.get_all_fans(platform_api_conn, i)
@@ -161,7 +155,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
                 self.expect(isinstance(fans_list, list), "fan drawer {} list of fans appear to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_set_fan_drawers_led(self, duthost, localhost, platform_api_conn):
+    def test_set_fan_drawers_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
         FAULT_LED_COLOR_LIST = [
             STATUS_LED_COLOR_AMBER,
@@ -181,7 +176,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
         LED_COLOR_TYPES.append(NORMAL_LED_COLOR_LIST)
 
         # Mellanox is not supporting set leds to 'off'
-        if self.asic_type != "mellanox":
+        if duthost.facts.get("asic_type") != "mellanox":
             LED_COLOR_TYPES.append(OFF_LED_COLOR_LIST)
 
         LED_COLOR_TYPES_DICT = {
@@ -205,4 +200,13 @@ class TestFanDrawerApi(PlatformApiTestBase):
                             self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan_drawer {})".format(
                                 color, color_actual, i))
                 self.expect(led_type_result is True, "Failed to set status_led for fan_drawer {} to {}".format(i, LED_COLOR_TYPES_DICT[index]))
+        self.assert_expectations()
+
+    def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        for i in range(self.num_fan_drawers):
+            fan_drawer_max_con_power = fan_drawer.get_maximum_consumed_power(platform_api_conn, i)
+            if self.expect(fan_drawer_max_con_power is not None, "Unable to retrieve module {} slot id".format(i)):
+                self.expect(isinstance(fan_drawer_max_con_power, float),
+                            "Module {} max consumed power format appears incorrect ".format(i))
+
         self.assert_expectations()
