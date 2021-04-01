@@ -118,10 +118,11 @@ def _post(server_url, data):
     return True
 
 @pytest.fixture(scope='module')
-def set_drop(url):
+def set_drop(url, recover_all_directions):
     """
     A helper function is returned to make fixture accept arguments
     """
+    drop_intfs = set()
     def _set_drop(interface_name, directions):
         """
         A fixture to set drop for a certain direction on a port
@@ -131,11 +132,15 @@ def set_drop(url):
         Returns:
             None.
         """
+        drop_intfs.add(interface_name)
         server_url = url(interface_name, DROP)
         data = {"out_ports": directions}
         pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
-    return _set_drop
+    yield _set_drop
+
+    for intf in drop_intfs:
+        recover_all_directions(intf)
 
 @pytest.fixture(scope='module')
 def set_output(url):
