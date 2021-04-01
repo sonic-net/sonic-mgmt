@@ -134,10 +134,16 @@ class Arista(object):
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
-            v4_routing_ok, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
+            v4_routing, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
+            if v4_routing != v4_routing_ok:
+                v4_routing_ok = v4_routing
+                self.log('BGP routing for ipv4 OK: %s' % (v4_routing_ok))
             info['bgp_route_v4'] = v4_routing_ok
 
-            v6_routing_ok, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
+            v6_routing, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
+            if v6_routing != v6_routing_ok:
+                v6_routing_ok = v6_routing
+                self.log('BGP routing for ipv6 OK: %s' % (v6_routing_ok))
             info["bgp_route_v6"] = v6_routing_ok
 
             portchannel_output = self.do_cmd("show interfaces po1 | json")
