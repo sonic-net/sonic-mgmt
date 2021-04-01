@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import time
 
 from collections import defaultdict
 from datetime import datetime
@@ -1217,39 +1218,53 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 'low': int(threshold['low threshold']),
                 'type': threshold['threshold type']
             }
+        def _show_and_parse_crm_resources():
+            # Get output of all resources
+            not_ready_prompt = "CRM counters are not ready"
+            output = self.command('crm show resources all')['stdout_lines']
+            in_section = False
+            sections = defaultdict(list)
+            section_id = 0
+            for line in output:
+                if not_ready_prompt in line:
+                    return False
+                if len(line.strip()) != 0:
+                    if not in_section:
+                        in_section = True
+                        section_id += 1
+                    sections[section_id].append(line)
+                else:
+                    in_section=False
+                    continue
+            # Output of 'crm show resources all' has 3 sections.
+            #   section 1: resources usage
+            #   section 2: ACL group
+            #   section 3: ACL table
+            if 1 in sections.keys():
+                crm_facts['resources'] = {}
+                resources = self._parse_show(sections[1])
+                for resource in resources:
+                    crm_facts['resources'][resource['resource name']] = {
+                        'used': int(resource['used count']),
+                        'available': int(resource['available count'])
+                    }
 
-        # Get output of all resources
-        output = self.command('crm show resources all')['stdout_lines']
-        in_section = False
-        sections = defaultdict(list)
-        section_id = 0
-        for line in output:
-            if len(line.strip()) != 0:
-                if not in_section:
-                    in_section = True
-                    section_id += 1
-                sections[section_id].append(line)
-            else:
-                in_section=False
-                continue
-        # Output of 'crm show resources all' has 3 sections.
-        #   section 1: resources usage
-        #   section 2: ACL group
-        #   section 3: ACL table
-        if 1 in sections.keys():
-            crm_facts['resources'] = {}
-            resources = self._parse_show(sections[1])
-            for resource in resources:
-                crm_facts['resources'][resource['resource name']] = {
-                    'used': int(resource['used count']),
-                    'available': int(resource['available count'])
-                }
+            if 2 in sections.keys():
+                crm_facts['acl_group'] = self._parse_show(sections[2])
 
-        if 2 in sections.keys():
-            crm_facts['acl_group'] = self._parse_show(sections[2])
-
-        if 3 in sections.keys():
-            crm_facts['acl_table'] = self._parse_show(sections[3])
+            if 3 in sections.keys():
+                crm_facts['acl_table'] = self._parse_show(sections[3])
+            return True
+        # Retry until crm resources are ready
+        timeout = crm_facts['polling_interval'] + 10
+        while timeout >= 0:
+            ret = _show_and_parse_crm_resources()
+            if ret:
+                break
+            logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
+            time.sleep(10)
+            timeout -= 10
+        assert(timeout >= 0)
 
         return crm_facts
 
