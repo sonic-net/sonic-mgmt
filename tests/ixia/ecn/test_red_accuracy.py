@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_testbed, snappi_api
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
@@ -13,7 +13,7 @@ from files.helper import run_ecn_test, is_ecn_marked
 @pytest.mark.topology("tgen")
 
 def test_red_accuracy(request,
-                      ixia_api,
+                      snappi_api,
                       ixia_testbed,
                       conn_graph_facts,
                       fanout_graph_facts,
@@ -28,7 +28,7 @@ def test_red_accuracy(request,
 
     Args:
         request (pytest fixture): pytest request object
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -61,7 +61,7 @@ def test_red_accuracy(request,
     iters = 100
     result_file_name = 'result.txt'
 
-    ip_pkts_list = run_ecn_test(api=ixia_api,
+    ip_pkts_list = run_ecn_test(api=snappi_api,
                                 testbed_config=ixia_testbed,
                                 conn_data=conn_graph_facts,
                                 fanout_data=fanout_graph_facts,
