@@ -94,7 +94,7 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds,
        if lldp_facts_ns is not None:
            lldp_facts.update(lldp_facts_ns)
     pattern = re.compile(r'^eth0|^Ethernet-IB')
-    nei = [k for k, v in lldp_facts['lldp'].items() if not re.match(pattern, k) and v['chassis'].has_key('mgmt-ip') ]
+    nei = [k for k, v in lldp_facts.items() if not re.match(pattern, k) and v['chassis'].has_key('mgmt-ip') ]
     print "neighbors {} send chassis management IP information".format(nei)
 
     # Check if lldpRemManAddrTable is present
