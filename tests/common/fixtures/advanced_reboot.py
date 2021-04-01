@@ -40,6 +40,14 @@ class AdvancedReboot:
         )
 
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            cmd_format = "sed -i 's/{}/{}/' {}"
+            warmboot_script_path = duthost.shell('which warm-reboot')['stdout']
+            original_line = 'timeout 1s docker exec $container echo "success"'
+            replaced_line = 'timeout 5s docker exec $container echo "success"'
+            replace_cmd = cmd_format.format(original_line, replaced_line, warmboot_script_path)
+            logger.info("Increase docker exec timeout from 1s to 5s in {}".format(warmboot_script_path))
+            duthost.shell(replace_cmd)
+
             self.kvmTest = True
             device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
             if 'vs' not in device_marks:
