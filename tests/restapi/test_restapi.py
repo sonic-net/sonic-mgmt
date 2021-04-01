@@ -20,61 +20,79 @@ CLIENT_KEY = 'restapiclient.key'
 
 restapi = Restapi(CLIENT_CERT, CLIENT_KEY)
 
-# Tests
+'''
+This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
+'''
 def test_data_path(construct_url):
+    # Create Default VxLan Tunnel
     params = '{"ip_addr": "10.3.152.32"}'
     r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
     pytest_assert(r.status_code == 204)
 
+    # Check RESTAPI server heartbeat
     restapi.heartbeat(construct_url)
 
+    #
+    # Create first VNET and add VLAN, VLAN member, VLAN neighbor and routes to it
+    #
+
+    # Create VNET
     params = '{"vnid": 2000}'
-    r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-1', params)
+    r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-2', params)
     pytest_assert(r.status_code == 204)
 
-    r = restapi.get_config_vrouter_vrf_id(construct_url, 'vnet-guid-1')
+    # Verify VNET has been created
+    r = restapi.get_config_vrouter_vrf_id(construct_url, 'vnet-guid-2')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
-    expected = '{"attr": {"vnid": 2000}, "vnet_id": "vnet-guid-1"}'
+    expected = '{"attr": {"vnid": 2000}, "vnet_id": "vnet-guid-2"}'
     pytest_assert(r.json() == json.loads(expected))
 
-    params = '{"vnet_id": "vnet-guid-1", "ip_prefix": "100.0.10.1/24"}'
+    # Create VLAN
+    params = '{"vnet_id": "vnet-guid-2", "ip_prefix": "100.0.10.1/24"}'
     r = restapi.post_config_vlan(construct_url, '2000', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify VLAN has been created
     r = restapi.get_config_vlan(construct_url, '2000')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
-    expected = '{"attr": {"ip_prefix": "100.0.10.1/24", "vnet_id": "vnet-guid-1"}, "vlan_id": 2000}'
+    expected = '{"attr": {"ip_prefix": "100.0.10.1/24", "vnet_id": "vnet-guid-2"}, "vlan_id": 2000}'
     pytest_assert(r.json() == json.loads(expected))
 
+    # Add and configure VLAN member
     params = '{"tagging_mode": "tagged"}'
     r = restapi.post_config_vlan_member(construct_url, '2000', 'Ethernet216', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify VLAN member has been added
     r = restapi.get_config_vlan_member(construct_url, '2000', 'Ethernet216')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = '{"if_name": "Ethernet216", "vlan_id": 2000, "attr": {"tagging_mode": "tagged"}}'
     pytest_assert(r.json() == json.loads(expected))
 
+    # Add neighbor to VLAN
     params = '{}'
     r = restapi.post_config_vlan_neighbor(construct_url, '2000', '100.0.10.4', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify neighbor has been added
     r = restapi.get_config_vlan_neighbor(construct_url, '2000', '100.0.10.4')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = '{"ip_addr": "100.0.10.4", "vlan_id": 2000}'
     pytest_assert(r.json() == json.loads(expected))  
 
+    # Add routes
     params = '[{"cmd": "add", "ip_prefix": "100.0.20.4/32", "nexthop": "100.3.152.52", "vnid": 2000, "mac_address": null}, \
                 {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 2000, "mac_address": null}]'
-    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-1', params)
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify routes
     params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-1', params)
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 2000}, 
@@ -83,53 +101,67 @@ def test_data_path(construct_url):
         pytest_assert(route in r.json())
 
 
+    #
+    # Create second VNET and add VLAN, VLAN member, VLAN neighbor and routes to it
+    #
+
+    # Create VNET
     params = '{"vnid": 3000}'
     r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-3', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify VNET has been created
     r = restapi.get_config_vrouter_vrf_id(construct_url, 'vnet-guid-3')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = '{"attr": {"vnid": 3000}, "vnet_id": "vnet-guid-3"}'
     pytest_assert(r.json() == json.loads(expected))
 
+    # Create VLAN
     params = '{"vnet_id": "vnet-guid-3", "ip_prefix": "192.168.10.1/24"}'
     r = restapi.post_config_vlan(construct_url, '3000', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify VLAN has been created
     r = restapi.get_config_vlan(construct_url, '3000')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = '{"attr": {"ip_prefix": "192.168.10.1/24", "vnet_id": "vnet-guid-3"}, "vlan_id": 3000}'
     pytest_assert(r.json() == json.loads(expected))
 
+    # Add and configure VLAN member
     params = '{"tagging_mode": "tagged"}'
     r = restapi.post_config_vlan_member(construct_url, '3000', 'Ethernet220', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify VLAN member has been added
     r = restapi.get_config_vlan_member(construct_url, '3000', 'Ethernet220')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = '{"if_name": "Ethernet220", "vlan_id": 3000, "attr": {"tagging_mode": "tagged"}}'
     pytest_assert(r.json() == json.loads(expected))
 
+    # Add neighbor to VLAN
     params = '{}'
     r = restapi.post_config_vlan_neighbor(construct_url, '3000', '192.168.10.4', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify neighbor has been added
     r = restapi.get_config_vlan_neighbor(construct_url, '3000', '192.168.10.4')
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = '{"ip_addr": "192.168.10.4", "vlan_id": 3000}'
     pytest_assert(r.json() == json.loads(expected))  
 
+    # Add routes
     params = '[{"cmd": "add", "ip_prefix": "100.0.20.4/32", "nexthop": "100.3.152.52", "vnid": 3000, "mac_address": null}, \
                 {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 3000, "mac_address": null}]'
-    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-1', params)
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-3', params)
     pytest_assert(r.status_code == 204)
 
+    # Verify routes
     params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-1', params)
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-3', params)
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 3000}, 

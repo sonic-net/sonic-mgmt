@@ -20,11 +20,11 @@ class Restapi:
         session = requests.Session()
         session.headers.update({'Content-type': 'application/json'})
         if method == GET:
-            req = requests.Request('GET', url)
+            req = requests.Request(GET, url)
         elif method == POST:
-            req = requests.Request('POST', url, data=params)
+            req = requests.Request(POST, url, data=params)
         elif method == PATCH:
-            req = requests.Request('PATCH', url, data=params)
+            req = requests.Request(PATCH, url, data=params)
         req_p = req.prepare()
         clientcert=(self.CLIENT_CERT, self.CLIENT_KEY)
         response = session.send(req_p,
@@ -36,7 +36,7 @@ class Restapi:
     #
     # Fundamental operations
     #
-    # vxlan
+    # Decap
     def post_config_tunnel_decap_tunnel_type(self, construct_url, tunnel_type, params):
         path = API_VERSION+'/config/tunnel/decap/{tunnel_type}'.format(tunnel_type=tunnel_type)
         url = construct_url(path)
