@@ -218,7 +218,8 @@ def rand_one_dut_hostname(request):
     """
     dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1)
+        dut_hostnames = random.sample(dut_hostnames, 1) 
+    logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
 
 

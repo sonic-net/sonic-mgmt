@@ -21,7 +21,9 @@ __all__ = [
     'cleanup_mocked_configs',
     'mock_peer_switch_loopback_ip',
     'mock_server_base_ip_addr',
-    'mock_server_ip_mac_map'
+    'mock_server_ip_mac_map',
+    'set_dual_tor_state_to_orchagent',
+    'del_dual_tor_state_from_orchagent'
 ]
 
 logger = logging.getLogger(__name__)
@@ -52,15 +54,10 @@ def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(swss_filename))
 
 
-def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
-    '''
-    Helper function to configure active/standby state in orchagent
-
-    Args:
-        dut: DUT object
-        state: either 'active' or 'standby'
-    '''
-
+def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+    """
+    Helper function for setting active/standby state to orchagent
+    """
     logger.info("Applying {} state to orchagent".format(state))
 
     intf_configs = []
@@ -92,15 +89,42 @@ def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
     swss_filename = '/mux{}.json'.format(state)
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
-    yield
-    logger.info("Removing {} state from orchagent".format(state))
 
-    for i in range(len(intf_configs)):
-        intf_configs[i]['"OP"'] = '"DEL"'
+def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):
+    """
+    Helper function for deleting active/standby state to orchagent
+    """
+    logger.info("Removing {} state from orchagent".format(state))
+    intf_configs = []
+
+    for intf in tor_mux_intfs:
+        intf_config_dict = {}
+        state_dict = {}
+
+        state_key = '"MUX_CABLE_TABLE:{}"'.format(intf)
+        state_dict = {'"state"': '"{}"'.format(state)}
+        intf_config_dict[state_key] = state_dict
+        intf_config_dict['"OP"'] = '"DEL"'
+
+        intf_configs.append(intf_config_dict)
 
     swss_config_str = json.dumps(intf_configs, indent=4)
     swss_filename = '/mux{}.json'.format(state)
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
+
+
+def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+    '''
+    Helper function to configure active/standby state in orchagent
+
+    Args:
+        dut: DUT object
+        state: either 'active' or 'standby'
+    '''
+
+    set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs)
+    yield
+    del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs)
 
 
 @pytest.fixture(scope='module')

@@ -14,6 +14,12 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 
+from ptf import mask
+from ptf import testutils
+from scapy.all import Ether, IP
+from tests.common.helpers.generators import generate_ip_through_default_route
+
+
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
 
 logger = logging.getLogger(__name__)
@@ -601,6 +607,65 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, vlan_mac, act
                socket_recv_size=16384)
 
 
+def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
+    """
+    @summary: Helper function for verifying upstream packets
+    @param host: The dut host
+    @param ptfadapter: The ptfadapter fixture
+    @param tbinfo: The tbinfo fixture
+    @param ifts: The interface name on DUT
+    @param server_ip: The IP address of server
+    @param pkt_num: The number of packets to generete and tx
+    @param drop: Packets are expected to be dropped if drop is True, and vice versa
+    @return: No return value. An exception will be raised if verify fails.
+    """
+    random_ip = generate_ip_through_default_route(host).split('/')[0]
+    vlan_table = host.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = host.get_dut_iface_mac(vlan_name)
+    router_mac = host.facts['router_mac']
+    # Generate packets from server to a random IP address, which goes default routes
+    pkt = testutils.simple_ip_packet(eth_dst=vlan_mac,
+                                    ip_src=server_ip,
+                                    ip_dst=random_ip)
+    # Generate packet forwarded to portchannels
+    pkt_copy = pkt.copy()
+    pkt_copy[Ether].src = router_mac
+
+    exp_pkt = mask.Mask(pkt_copy)
+    exp_pkt.set_do_not_care_scapy(Ether, "dst")
+
+    exp_pkt.set_do_not_care_scapy(IP, "dst")
+    exp_pkt.set_do_not_care_scapy(IP, "ihl")
+    exp_pkt.set_do_not_care_scapy(IP, "tos")
+    exp_pkt.set_do_not_care_scapy(IP, "len")
+    exp_pkt.set_do_not_care_scapy(IP, "id")
+    exp_pkt.set_do_not_care_scapy(IP, "flags")
+    exp_pkt.set_do_not_care_scapy(IP, "frag")
+    exp_pkt.set_do_not_care_scapy(IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(IP, "proto")
+    exp_pkt.set_do_not_care_scapy(IP, "chksum")
+
+    exp_pkt.set_ignore_extra_bytes()
+
+    port_channels = get_t1_ptf_pc_ports(host, tbinfo)
+    rx_ports = []
+    for v in port_channels.values():
+        rx_ports += v
+    rx_ports = [int(x.strip('eth')) for x in rx_ports]
+
+    mg_facts = host.get_extended_minigraph_facts(tbinfo)
+    tx_port = mg_facts['minigraph_ptf_indices'][itfs]
+    logger.info("Verifying upstream traffic. packet number = {} interface = {} server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
+    for i in range(0, pkt_num):
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, tx_port, pkt, count=1)
+        if drop:
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, rx_ports)
+        else:
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, rx_ports)
+
+
 def get_crm_nexthop_counter(host):
     """
     Get used crm nexthop counter
@@ -643,3 +708,4 @@ def rand_selected_interface(rand_selected_dut):
     iface = str(random.choice(server_ips.keys()))
     logging.info("select DUT interface %s to test.", iface)
     return iface, server_ips[iface]
+

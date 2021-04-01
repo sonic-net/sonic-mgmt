@@ -328,6 +328,7 @@ def simulator_server_down(set_drop, set_output):
     yield _drop_helper
     set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
 
+
 @pytest.fixture
 def simulator_flap_counter(url):
     """
