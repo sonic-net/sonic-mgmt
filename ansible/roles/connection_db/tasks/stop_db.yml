@@ -1,0 +1,23 @@
+---
+- name: Stop servercfgd
+  systemd:
+    name: servercfgd
+    state: stopped
+
+- name: Ensure Redis is stopped
+  service:
+    name: redis-server
+    state: stopped
+
+- name: Remove Redis
+  apt:
+    name: redis-server
+    state: absent
+    purge: yes
+
+- name: Remove py-redis
+  pip:
+    name: redis
+    state: absent
+    executable: "{{ pip_executable }}"
+  environment: "{{ proxy_env | default({}) }}"
