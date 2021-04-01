@@ -46,6 +46,7 @@ str-e1031-acs-2,10.64.247.25/23,Celestica-E1031-T48S4,FanoutLeafSonic,
 str-n3164-acs-2,10.3.147.150/23,Nexus-3164,DevSonic,
 str-s5232f-on-1,10.3.146.247/23,DellEMC-S5232f-C32,DevSonic,
 str-sn3800-01,10.3.146.62/23,ACS-MSN3800,DevSonic,
+str-msn4600c-acs-02,10.3.146.175/23,ACS-MSN4600C,DevSonic
 str-7260-02,10.3.147.154/23,Arista-7260QX-64,FanoutLeaf,
 str-7260-03,10.3.147.169/23,Arista-7260QX-64,FanoutLeaf,
 str-7260-04,10.3.147.164/23,Arista-7260QX-64,FanoutLeaf,

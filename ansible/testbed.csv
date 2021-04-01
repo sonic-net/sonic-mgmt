@@ -28,6 +28,7 @@ vms7-t0-7260-7,vms7-9,t0-64,docker-ptf,vms7-9,10.64.246.79/23,,server_7,VM0744,s
 vms7-t0-s6100-4,vms7-1,t0-64,docker-ptf,vms7-1,10.64.246.80/23,,server_7,VM0748,str-s6100-acs-4,str,True,yingxie
 vms7-t0-dx010-4,vms7-11,t0,docker-ptf,vms7-11,10.64.246.59/23,,server_7,VM0756,str-dx010-acs-4,str,True,vadixit
 vms7-t0-dx010-5,vms7-12,t0,docker-ptf,vms7-12,10.64.246.117/23,,server_7,VM0760,str-dx010-acs-5,str,True,v-saidia
+vms7-t0-4600c-2,vms7-13,t0-64,docker-ptf,vms7-13,10.64.246.151/23,,server_7,VM0752,str-msn4600c-acs-02,str,True,v-saidia
 vms11-2-t0,v11-21,t0,docker-ptf,v11-21,10.64.246.23/23,,server_11,VM1132,str-msn2700-03,str,True,qiluo
 vms11-3-t1,v11-31,t1,docker-ptf,v11-31,10.64.246.22/23,,server_11,VM1164,str-s6000-acs-11,str,True,Travis
 vms11-t0-s6000,vms11-4,t0,docker-ptf,vms11-4,10.64.246.83/23,,server_11,VM1116,str-s6000-acs-10,str,True,Pradnya

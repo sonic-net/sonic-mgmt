@@ -100,6 +100,8 @@ all:
           ansible_host: 10.64.246.59
         vms7-12:
           ansible_host: 10.64.246.117
+        vms7-13:
+          ansible_host: 10.64.246.151
         vms11-4:
           ansible_host: 10.64.246.83
         vms11-5:
@@ -230,6 +232,7 @@ sonic:
     sonic_dx010_100:
     sonic_agc7648:
     sonic_nexus_3164:
+    sonic_mlnx_4600C:
 
 sonic_dell32_40:
   hosts:
@@ -749,6 +752,15 @@ sonic_nexus_3164:
   vars:
     hwsku: Nexus-3164
     iface_speed: 40000
+
+sonic_mlnx_4600C:
+  vars:
+    hwsku: ACS-MSN4600C
+    iface_speed: 100000
+  hosts:
+    str-msn4600c-acs-02:
+      ansible_host: 10.3.146.175
+      pdu_host: pdu-115,pdu-116
 
 acs_ixia_dscp:
   hosts:
