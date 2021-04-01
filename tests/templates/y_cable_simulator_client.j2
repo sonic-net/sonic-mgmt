@@ -13,6 +13,8 @@ VM_SET = "{{ group_name }}"
 
 DUT_NAME = "{{ dut_name }}"
 
+FLAP_COUNTER = 'flap_counter'
+
 BASE_URL = "http://{{ mux_simulator_server }}:{{ mux_simulator_port }}/"
 
 SYSLOG_IDENTIFIER = "y_cable_sim"
@@ -133,17 +135,23 @@ def _load_port_config_ini(porttabfile):
             # Next line, next host index
             host_intf_index += 1
 
-def _url(physical_port):
+def _url(physical_port, action=None):
     """
     Helper function to build an url for given physical_port
 
     Args:
         physical_port: physical port on switch, an integer starting from 1
+        action: 'flap_counter' or None
     Returns:
         str: The url for post/get.
     """
     host_intf_index = _physical_port_to_host_port(physical_port)
-    return BASE_URL + "/mux/{}/{}".format(VM_SET, host_intf_index)
+    url = BASE_URL + "/mux/{}/{}".format(VM_SET, host_intf_index)
+    
+    if action:
+        url += "/{}".format(action)
+
+    return url
 
 def _post(physical_port, data):
     """
@@ -172,7 +180,7 @@ def _post(physical_port, data):
         return False
     return True
 
-def _get(physical_port):
+def _get(physical_port, action=None):
     """
     Helper function for polling status from y_cable server.
 
@@ -182,7 +190,7 @@ def _get(physical_port):
         dict: A dict decoded from server's response.
         None: Returns None is error is detected.
     """
-    req = request.Request(url=_url(physical_port))
+    req = request.Request(url=_url(physical_port, action))
     try:
         res = request.urlopen(req)
         data = res.read()
@@ -269,3 +277,125 @@ def check_if_link_is_active_for_torB(physical_port):
     """
     return True
 
+def enable_prbs_mode(physical_port, target, mode_value, lane_map):
+    """
+    Enables PRBS mode. Mocked for mux simulator.
+    """
+    return True
+
+def disable_prbs_mode(physical_port, target):
+    """
+    Disables PRBS mode. Mocked for mux simulator.
+    """
+    return True
+
+def enable_loopback_mode(physical_port, target, lane_map):
+    """
+    Enables loopback mode. Mocked for mux simulator.
+    """
+    return True
+
+def disable_loopback_mode(physical_port, target):
+    """
+    Disables loopback mode. Mocked for mux simulator.
+    """
+    return True
+
+def get_ber_info(physical_port, target):
+    """
+    Returns BER for a port. Mocked for mux simulator.
+    """
+    return [0, 0, 0, 0]
+
+def get_eye_info(physical_port, target):
+    """
+    Returns EYE for a port. Mocked for mux simulator.
+    """
+    return [0, 0, 0, 0]
+
+def get_part_number(physical_port):
+    """
+    Returns part number for port. Mocked for mux simulator.
+    """
+    return "Mux_Simulator"
+
+def get_vendor(physical_port):
+    """
+    Returns vendor for port. Mocked for mux simulator.
+    """
+    return "Microsoft"
+
+def get_switch_count(physical_port, count_type):
+    """
+    Returns switchover count for port.
+    """
+    if count_type == 'auto':
+        return 0
+    else:
+        return _get(physical_port, FLAP_COUNTER)
+
+def get_target_cursor_values(physical_port, lane, target):
+    """
+    Returns cursor equilization parameters. Mocked for mux simulator.
+    """
+    return [-1, -1, -1, -1, -1]
+
+def check_if_nic_lanes_active(physical_port):
+    """
+    Checks if NIC lanes are active. Mocked for mux simulator.
+    """
+    return 15
+
+def get_firmware_version(physical_port, target):
+    """
+    Mocked for mux simulator
+    """
+    return None
+
+def get_interval_voltage_temp(physical_port):
+    """
+    Mocked for mux simulator
+    """
+    return 1, 1
+
+def get_nic_voltage_temp(physical_port):
+    """
+    Mocked for mux simulator
+    """
+    return 1, 1
+
+def get_local_temperature(physical_port):
+    """
+    Mocked for mux simulator
+    """
+    return 1
+
+def get_local_voltage(physical_port):
+    """
+    Mocked for mux simulator
+    """
+    return 1
+
+def get_nic_temperature(physical_port):
+    """
+    Mocked for mux simulator
+    """
+    return 1
+
+def get_nic_voltage(physical_port):
+    """
+    Mocked for mux simulator
+    """
+    return 1
+
+def set_switching_mode(physical_port, mode):
+    """
+    Mocked for mux simulator
+    """
+    return True
+
+def get_switching_mode(physical_port, mode):
+    """
+    Mocked for mux simulator
+    """
+    return 1
