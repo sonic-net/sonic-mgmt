@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_testbed, snappi_api
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @pytest.mark.topology("tgen")
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio(ixia_api,
+def test_pfcwd_basic_single_lossless_prio(snappi_api,
                                           ixia_testbed,
                                           conn_graph_facts,
                                           fanout_graph_facts,
@@ -30,7 +30,7 @@ def test_pfcwd_basic_single_lossless_prio(ixia_api,
     Run PFC watchdog basic test on a single lossless priority
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -52,7 +52,7 @@ def test_pfcwd_basic_single_lossless_prio(ixia_api,
     duthost = duthosts[rand_one_dut_hostname]
     lossless_prio = int(lossless_prio)
 
-    run_pfcwd_basic_test(api=ixia_api,
+    run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=ixia_testbed,
                          conn_data=conn_graph_facts,
                          fanout_data=fanout_graph_facts,
@@ -64,7 +64,7 @@ def test_pfcwd_basic_single_lossless_prio(ixia_api,
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio(ixia_api,
+def test_pfcwd_basic_multi_lossless_prio(snappi_api,
                                          ixia_testbed,
                                          conn_graph_facts,
                                          fanout_graph_facts,
@@ -78,7 +78,7 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api,
     Run PFC watchdog basic test on multiple lossless priorities
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -98,7 +98,7 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api,
 
     duthost = duthosts[rand_one_dut_hostname]
 
-    run_pfcwd_basic_test(api=ixia_api,
+    run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=ixia_testbed,
                          conn_data=conn_graph_facts,
                          fanout_data=fanout_graph_facts,
@@ -111,7 +111,7 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api,
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
+def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,
                                                  ixia_testbed,
                                                  conn_graph_facts,
                                                  fanout_graph_facts,
@@ -127,7 +127,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
     Verify PFC watchdog basic test works on a single lossless priority after various types of reboot
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -157,7 +157,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
     pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
-    run_pfcwd_basic_test(api=ixia_api,
+    run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=ixia_testbed,
                          conn_data=conn_graph_facts,
                          fanout_data=fanout_graph_facts,
@@ -171,7 +171,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
+def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,
                                                 ixia_testbed,
                                                 conn_graph_facts,
                                                 fanout_graph_facts,
@@ -187,7 +187,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
     Verify PFC watchdog basic test works on multiple lossless priorities after various kinds of reboots
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -215,7 +215,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
     pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
-    run_pfcwd_basic_test(api=ixia_api,
+    run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=ixia_testbed,
                          conn_data=conn_graph_facts,
                          fanout_data=fanout_graph_facts,
@@ -228,7 +228,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api,
+def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,
                                                           ixia_testbed,
                                                           conn_graph_facts,
                                                           fanout_graph_facts,
@@ -243,7 +243,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api,
     Verify PFC watchdog basic test works on a single lossless priority after various service restarts
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -273,7 +273,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api,
     pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
-    run_pfcwd_basic_test(api=ixia_api,
+    run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=ixia_testbed,
                          conn_data=conn_graph_facts,
                          fanout_data=fanout_graph_facts,
@@ -287,7 +287,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api,
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api,
+def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,
                                                          ixia_testbed,
                                                          conn_graph_facts,
                                                          fanout_graph_facts,
@@ -302,7 +302,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api,
     Verify PFC watchdog basic test works on multiple lossless priorities after various service restarts
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -330,7 +330,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api,
     pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
-    run_pfcwd_basic_test(api=ixia_api,
+    run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=ixia_testbed,
                          conn_data=conn_graph_facts,
                          fanout_data=fanout_graph_facts,

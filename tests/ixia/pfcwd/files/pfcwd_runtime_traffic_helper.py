@@ -1,20 +1,13 @@
 import time
+import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
+    ixia_api_serv_user, ixia_api_serv_passwd
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import start_pfcwd, stop_pfcwd
 
-from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate, Duration, FixedSeconds
-from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
-from abstract_open_traffic_generator.flow import Pattern as FieldPattern
-from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
-from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
-from abstract_open_traffic_generator.control import State, ConfigState,\
-    FlowTransmitState
-from abstract_open_traffic_generator.result import FlowRequest
+logger = logging.getLogger(__name__)
 
 DATA_FLOW_NAME = "Data Flow"
 DATA_PKT_SIZE = 1024
@@ -69,19 +62,18 @@ def run_pfcwd_runtime_traffic_test(api,
                           prio_dscp_map=prio_dscp_map)
 
     """ Tgen config = testbed config + flow config """
-    config = testbed_config
-    config.flows = flows
+    flows = testbed_config.flows
 
     all_flow_names = [flow.name for flow in flows]
 
     flow_stats = __run_traffic(api=api,
-                               config=config,
+                               config=testbed_config,
                                duthost=duthost,
                                all_flow_names=all_flow_names,
                                pfcwd_start_delay_sec=PFCWD_START_DELAY_SEC,
                                exp_dur_sec=DATA_FLOW_DURATION_SEC)
 
-    speed_str = config.layer1[0].speed
+    speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
 
     __verify_results(rows=flow_stats,
@@ -89,6 +81,7 @@ def run_pfcwd_runtime_traffic_test(api,
                      data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                      data_pkt_size=DATA_PKT_SIZE,
                      tolerance=TOLERANCE_THRESHOLD)
+
 
 def __gen_traffic(testbed_config,
                   port_id,
@@ -116,35 +109,29 @@ def __gen_traffic(testbed_config,
     rx_port_id = port_id
     tx_port_id = (port_id + 1) % len(testbed_config.devices)
 
-    data_endpoint = DeviceTxRx(
-        tx_device_names=[testbed_config.devices[tx_port_id].name],
-        rx_device_names=[testbed_config.devices[rx_port_id].name],
-    )
+    tx_device_names = [testbed_config.devices[tx_port_id].name]
+    rx_device_names = [testbed_config.devices[rx_port_id].name]
 
-    result = list()
     data_flow_rate_percent = int(100 / len(prio_list))
 
     """ For each priority """
     for prio in prio_list:
-        ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
-                                    ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-        pfc_queue = FieldPattern([prio])
+        data_flow = testbed_config.flows.flow(
+            name='{} Prio {}'.format(data_flow_name, prio))[-1]
+        data_flow.tx_rx.device.tx_names = tx_device_names
+        data_flow.tx_rx.device.rx_names = rx_device_names
 
-        data_flow = Flow(
-            name='{} Prio {}'.format(data_flow_name, prio),
-            tx_rx=TxRx(data_endpoint),
-            packet=[
-                Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-                Header(choice=Ipv4Header(priority=ip_prio))
-            ],
-            size=Size(data_pkt_size),
-            rate=Rate('line', data_flow_rate_percent),
-            duration=Duration(FixedSeconds(seconds=data_flow_dur_sec))
-        )
+        eth, ipv4 = data_flow.packet.ethernet().ipv4()
+        eth.pfc_queue.value = prio
+        ipv4.priority.choice = ipv4.priority.DSCP
+        ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+        ipv4.priority.dscp.ecn.value = (
+            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
-        result.append(data_flow)
+        data_flow.size.fixed = data_pkt_size
+        data_flow.rate.percentage = data_flow_rate_percent
+        data_flow.duration.fixed_seconds.seconds = data_flow_dur_sec
 
-    return result
 
 def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, exp_dur_sec):
     """
@@ -161,9 +148,12 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
     Returns:
         per-flow statistics (list)
     """
-
-    api.set_state(State(ConfigState(config=config, state='set')))
-    api.set_state(State(FlowTransmitState(state='start')))
+    api.set_config(config)
+    logger.info('Starting transmit on all flows ...')
+    ts = api.transmit_state()
+    ts.state = ts.START
+    api.set_transmit_state(ts)
+    time.sleep(exp_dur_sec)
 
     time.sleep(pfcwd_start_delay_sec)
     start_pfcwd(duthost)
@@ -173,9 +163,12 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
     max_attempts = 20
 
     while attempts < max_attempts:
-        rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
+        request = api.metrics_request()
+        request.flow.flow_names = all_flow_names
+        rows = api.get_metrics(request).flow_metrics
+
         """ If all the flows have stopped """
-        transmit_states = [row['transmit'] for row in rows]
+        transmit_states = [row.transmit for row in rows]
         if len(rows) == len(all_flow_names) and\
            list(set(transmit_states)) == ['stopped']:
             time.sleep(IXIA_POLL_DELAY_SEC)
@@ -188,10 +181,16 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
                   "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
-    rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
-    api.set_state(State(FlowTransmitState(state='stop')))
+    request = api.metrics_request()
+    request.flow.flow_names = all_flow_names
+    rows = api.get_metrics(request).flow_metrics
+    logger.info('Stop transmit on all flows ...')
+    ts = api.transmit_state()
+    ts.state = ts.STOP
+    api.set_transmit_state(ts)
 
     return rows
+
 
 def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, tolerance):
     """
@@ -210,9 +209,9 @@ def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, toleran
     data_flow_rate_percent = int(100 / len(rows))
 
     for row in rows:
-        flow_name = row['name']
-        tx_frames = row['frames_tx']
-        rx_frames = row['frames_rx']
+        flow_name = row.name
+        tx_frames = row.frames_tx
+        rx_frames = row.frames_rx
 
         pytest_assert(tx_frames == rx_frames, "{} packets of {} are dropped".\
                       format(tx_frames-rx_frames, flow_name))

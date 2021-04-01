@@ -1,25 +1,19 @@
 import time
 from math import ceil
+import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
+    ixia_api_serv_user, ixia_api_serv_passwd
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
     enable_packet_aging, start_pfcwd
 
-from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
-from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
-from abstract_open_traffic_generator.flow import Pattern as FieldPattern
-from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
-from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
-from abstract_open_traffic_generator.control import State, ConfigState,\
-    FlowTransmitState
-from abstract_open_traffic_generator.result import FlowRequest
+
+logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = "Pause Storm"
 DATA_FLOW1_NAME = "Data Flow 1"
@@ -102,25 +96,24 @@ def run_pfcwd_basic_test(api,
     exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
 
     """ Generate traffic config """
-    flows = __gen_traffic(testbed_config=testbed_config,
-                          port_id=port_id,
-                          pause_flow_name=PAUSE_FLOW_NAME,
-                          pause_flow_dur_sec=pfc_storm_dur_sec,
-                          data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                          data_flow_delay_sec_list=[flow1_delay_sec, flow2_delay_sec],
-                          data_flow_dur_sec_list=[flow1_dur_sec, flow2_dur_sec],
-                          data_pkt_size=DATA_PKT_SIZE,
-                          prio_list=prio_list,
-                          prio_dscp_map=prio_dscp_map)
+    __gen_traffic(testbed_config=testbed_config,
+                  port_id=port_id,
+                  pause_flow_name=PAUSE_FLOW_NAME,
+                  pause_flow_dur_sec=pfc_storm_dur_sec,
+                  data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                  data_flow_delay_sec_list=[flow1_delay_sec, flow2_delay_sec],
+                  data_flow_dur_sec_list=[flow1_dur_sec, flow2_dur_sec],
+                  data_pkt_size=DATA_PKT_SIZE,
+                  prio_list=prio_list,
+                  prio_dscp_map=prio_dscp_map)
 
     """ Tgen config = testbed config + flow config """
-    config = testbed_config
-    config.flows = flows
+    flows = testbed_config.flows
 
     all_flow_names = [flow.name for flow in flows]
 
     flow_stats = __run_traffic(api=api,
-                               config=config,
+                               config=testbed_config,
                                all_flow_names=all_flow_names,
                                exp_dur_sec=exp_dur_sec)
 
@@ -160,17 +153,20 @@ def __gen_traffic(testbed_config,
         flows configurations (list): the list should have configurations of
         len(prio_list) * 2 data flows, and a pause storm.
     """
-    result = list()
 
     rx_port_id = port_id
     tx_port_id = (port_id + 1) % len(testbed_config.devices)
 
-    data_endpoint = DeviceTxRx(
-        tx_device_names=[testbed_config.devices[tx_port_id].name],
-        rx_device_names=[testbed_config.devices[rx_port_id].name],
-    )
+    tx_device_names = [testbed_config.devices[tx_port_id].name]
+    rx_device_names = [testbed_config.devices[rx_port_id].name]
 
     """ PFC storm """
+    pause_flow = testbed_config.flows.flow(name=pause_flow_name)[-1]
+    pause_flow.tx_rx.port.tx_name = testbed_config.ports[rx_port_id].name
+    pause_flow.tx_rx.port.rx_name = testbed_config.ports[tx_port_id].name
+
+    pause_pkt = pause_flow.packet.pfcpause()[-1]
+
     pause_time = []
     for x in range(8):
         if x in prio_list:
@@ -180,22 +176,17 @@ def __gen_traffic(testbed_config,
 
     vector = pfc_class_enable_vector(prio_list)
 
-    pause_pkt = Header(PfcPause(
-        dst=FieldPattern(choice='01:80:C2:00:00:01'),
-        src=FieldPattern(choice='00:00:fa:ce:fa:ce'),
-        class_enable_vector=FieldPattern(choice=vector),
-        pause_class_0=FieldPattern(choice=pause_time[0]),
-        pause_class_1=FieldPattern(choice=pause_time[1]),
-        pause_class_2=FieldPattern(choice=pause_time[2]),
-        pause_class_3=FieldPattern(choice=pause_time[3]),
-        pause_class_4=FieldPattern(choice=pause_time[4]),
-        pause_class_5=FieldPattern(choice=pause_time[5]),
-        pause_class_6=FieldPattern(choice=pause_time[6]),
-        pause_class_7=FieldPattern(choice=pause_time[7]),
-    ))
-
-    pause_src_point = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name,
-                               rx_port_name=testbed_config.ports[tx_port_id].name)
+    pause_pkt.src.value = '00:00:fa:ce:fa:ce'
+    pause_pkt.dst.value = '01:80:C2:00:00:01'
+    pause_pkt.class_enable_vector.value = vector
+    pause_pkt.pause_class_0.value = pause_time[0]
+    pause_pkt.pause_class_1.value = pause_time[1]
+    pause_pkt.pause_class_2.value = pause_time[2]
+    pause_pkt.pause_class_3.value = pause_time[3]
+    pause_pkt.pause_class_4.value = pause_time[4]
+    pause_pkt.pause_class_5.value = pause_time[5]
+    pause_pkt.pause_class_6.value = pause_time[6]
+    pause_pkt.pause_class_7.value = pause_time[7]
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -203,16 +194,10 @@ def __gen_traffic(testbed_config,
     pps = int(2 / pause_dur)
     pause_pkt_cnt = pps * pause_flow_dur_sec
 
-    pause_flow = Flow(
-        name=pause_flow_name,
-        tx_rx=TxRx(pause_src_point),
-        packet=[pause_pkt],
-        size=Size(64),
-        rate=Rate('pps', value=pps),
-        duration=Duration(FixedPackets(packets=pause_pkt_cnt, delay=0))
-    )
-
-    result.append(pause_flow)
+    pause_flow.rate.pps = pps
+    pause_flow.size.fixed = 64
+    pause_flow.duration.fixed_packets.packets = pause_pkt_cnt
+    pause_flow.duration.fixed_packets.delay = 0
 
     data_flow_rate_percent = int(100 / len(prio_list))
 
@@ -221,27 +206,27 @@ def __gen_traffic(testbed_config,
 
         """ For each priority """
         for prio in prio_list:
-            ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
-                                    ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-            pfc_queue = FieldPattern([prio])
+            data_flow = testbed_config.flows.flow(
+                name='{} Prio {}'.format(data_flow_name_list[i], prio))[-1]
+            data_flow.tx_rx.device.tx_names = tx_device_names
+            data_flow.tx_rx.device.rx_names = rx_device_names
 
-            data_flow = Flow(
-                name='{} Prio {}'.format(data_flow_name_list[i], prio),
-                tx_rx=TxRx(data_endpoint),
-                packet=[
-                    Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-                    Header(choice=Ipv4Header(priority=ip_prio))
-                ],
-                size=Size(data_pkt_size),
-                rate=Rate('line', data_flow_rate_percent),
-                duration=Duration(FixedSeconds(seconds=data_flow_dur_sec_list[i],
-                                               delay=sec_to_nanosec(data_flow_delay_sec_list[i]),
-                                               delay_unit='nanoseconds'))
-            )
+            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth.pfc_queue.value = prio
+            ipv4.priority.choice = ipv4.priority.DSCP
+            ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+            ipv4.priority.dscp.ecn.value = (
+                ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
-            result.append(data_flow)
+            data_flow.size.fixed = data_pkt_size
+            data_flow.rate.percentage = data_flow_rate_percent
+            data_flow.duration.fixed_seconds.seconds = (
+                data_flow_dur_sec_list[i])
+            data_flow.duration.fixed_seconds.delay = sec_to_nanosec(
+                data_flow_delay_sec_list[i])
+            data_flow.duration.fixed_seconds.delay_unit = (
+                data_flow.duration.fixed_seconds.NANOSECONDS)
 
-    return result
 
 def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     """
@@ -256,17 +241,23 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     Returns:
         per-flow statistics (list)
     """
-    api.set_state(State(ConfigState(config=config, state='set')))
-    api.set_state(State(FlowTransmitState(state='start')))
+
+    api.set_config(config)
+    logger.info('Starting transmit on all flows ...')
+    ts = api.transmit_state()
+    ts.state = ts.START
+    api.set_transmit_state(ts)
     time.sleep(exp_dur_sec)
 
     attempts = 0
     max_attempts = 20
 
     while attempts < max_attempts:
-        rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
+        request = api.metrics_request()
+        request.flow.flow_names = all_flow_names
+        rows = api.get_metrics(request).flow_metrics
         """ If all the flows have stopped """
-        transmit_states = [row['transmit'] for row in rows]
+        transmit_states = [row.transmit for row in rows]
         if len(rows) == len(all_flow_names) and\
            list(set(transmit_states)) == ['stopped']:
             time.sleep(IXIA_POLL_DELAY_SEC)
@@ -279,10 +270,17 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
                   "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
-    rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
-    api.set_state(State(FlowTransmitState(state='stop')))
+    request = api.metrics_request()
+    request.flow.flow_names = all_flow_names
+    rows = api.get_metrics(request).flow_metrics
+
+    logger.info('Stop transmit on all flows ...')
+    ts = api.transmit_state()
+    ts.state = ts.STOP
+    api.set_transmit_state(ts)
 
     return rows
+
 
 def __verify_results(rows,
                      data_flow_name_list,
@@ -305,9 +303,9 @@ def __verify_results(rows,
     data_flow_rx_frames_list = num_data_flows * [0]
 
     for row in rows:
-        flow_name = row['name']
-        tx_frames = row['frames_tx']
-        rx_frames = row['frames_rx']
+        flow_name = row.name
+        tx_frames = row.frames_tx
+        rx_frames = row.frames_rx
 
         for i in range(num_data_flows):
             if data_flow_name_list[i] in flow_name:
