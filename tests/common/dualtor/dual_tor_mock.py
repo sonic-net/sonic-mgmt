@@ -23,7 +23,8 @@ __all__ = [
     'mock_server_base_ip_addr',
     'mock_server_ip_mac_map',
     'set_dual_tor_state_to_orchagent',
-    'del_dual_tor_state_from_orchagent'
+    'del_dual_tor_state_from_orchagent',
+    'apply_dualtor_subtype_to_th2'
 ]
 
 logger = logging.getLogger(__name__)
@@ -362,12 +363,43 @@ def apply_mux_cable_table_to_dut(rand_selected_dut, mock_server_base_ip_addr, to
     dut.shell_cmds(cmds=cmds)
 
 
+def is_t0_mocked_dualtor(tbinfo):
+    return tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]
+
+
+@pytest.fixture(scope='module')
+def apply_dualtor_subtype_to_th2(duthosts):
+    json_str = '''{\
+                        "DEVICE_METADATA": {\
+                            "localhost": {\
+                                "subtype": "DualToR"\
+                            }\
+                        }\
+                    }'''
+    cmds = ["sonic-cfggen -a '{}' -w".format(json_str),
+            "systemctl restart swss"]
+
+    for host in duthosts:
+        if host.get_asic_name() == 'th2':
+            # Add DualToR subtype on th2 platform and restart swss
+            host.shell_cmds(cmds=cmds)
+    yield
+
+    cmds = ["redis-cli -n 4 hdel 'DEVICE_METADATA|localhost' 'subtype'",
+            "systemctl restart swss"]
+    for host in duthosts:
+        if host.get_asic_name() == 'th2':
+            # Clear DualToR subtype and restart swss
+            host.shell_cmds(cmds=cmds)
+
+
 @pytest.fixture(scope='module')
 def apply_mock_dual_tor_tables(request, tbinfo):
     '''
     Wraps all table fixtures for convenience
     '''
-    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+    if is_t0_mocked_dualtor(tbinfo):
+        request.getfixturevalue("apply_dualtor_subtype_to_th2")
         request.getfixturevalue("apply_mux_cable_table_to_dut")
         request.getfixturevalue("apply_tunnel_table_to_dut")
         request.getfixturevalue("apply_peer_switch_table_to_dut")
@@ -379,7 +411,7 @@ def apply_mock_dual_tor_kernel_configs(request, tbinfo):
     '''
     Wraps all kernel related (routes and neighbor entries) fixtures for convenience
     '''
-    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+    if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue("apply_dual_tor_peer_switch_route")
         request.getfixturevalue("apply_dual_tor_neigh_entries")
         logger.info("Done applying kernel configs for dual ToR mock")
@@ -391,6 +423,6 @@ def cleanup_mocked_configs(duthost, tbinfo):
 
     yield
 
-    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+    if is_t0_mocked_dualtor(tbinfo):
         logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
         config_reload(duthost, config_source="minigraph")
