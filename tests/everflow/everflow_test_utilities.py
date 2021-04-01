@@ -538,6 +538,7 @@ class BaseEverflowTest(object):
             testutils.send(ptfadapter, src_port, mirror_packet)
 
             if expect_recv:
+                time.sleep(0.05) #Stability Buffer
                 _, received_packet = testutils.verify_packet_any_port(
                     ptfadapter,
                     expected_mirror_packet,
