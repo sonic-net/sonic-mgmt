@@ -114,6 +114,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname):
             service_dict[status+" count"] = service_dict.get(status+" count", 1) + 1
         timestamps[status] = time
         service_restart_times.update({service_name: service_dict})
+
     for message in messages:
         for status, pattern in service_patterns.items():
             if re.search(pattern, message):
