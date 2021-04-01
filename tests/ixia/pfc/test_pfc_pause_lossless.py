@@ -139,7 +139,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,
     Test if PFC can pause a single lossless priority even after various types of reboot
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -205,7 +205,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,
     Test if PFC can pause multiple lossless priorities even after various types of reboot
 
     Args:
-        ixia_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): IXIA session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph

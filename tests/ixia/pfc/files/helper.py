@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
+    ixia_api_serv_user, ixia_api_serv_passwd
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     get_egress_lossless_buffer_size, stop_pfcwd, disable_packet_aging
@@ -225,9 +225,8 @@ def __gen_traffic(testbed_config,
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[rx_port_id].name
     pause_flow.tx_rx.port.rx_name = testbed_config.ports[tx_port_id].name
 
-    pause_pkt = pause_flow.packet.pfcpause()[-1]
-
     if global_pause:
+        pause_pkt = pause_flow.packet.ethernetpause()[-1]
         pause_pkt.src.value = '00:00:fa:ce:fa:ce'
         pause_pkt.dst.value = '01:80:C2:00:00:01'
 
@@ -241,6 +240,7 @@ def __gen_traffic(testbed_config,
 
         vector = pfc_class_enable_vector(pause_prio_list)
 
+        pause_pkt = pause_flow.packet.pfcpause()[-1]
         pause_pkt.src.value = '00:00:fa:ce:fa:ce'
         pause_pkt.dst.value = '01:80:C2:00:00:01'
         pause_pkt.class_enable_vector.value = vector
