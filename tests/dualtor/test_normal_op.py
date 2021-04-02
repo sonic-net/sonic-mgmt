@@ -12,11 +12,6 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="session", autouse=True)
-def common_setup_teardown(run_arp_service):
-    pass
-
-
 def test_normal_op_upstream(upper_tor_host, lower_tor_host,
                             send_server_to_t1_with_action,
                             toggle_all_simulator_ports_to_upper_tor):

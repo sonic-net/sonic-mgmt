@@ -4,6 +4,7 @@ import time
 
 from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter, lower_tor_host # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.fixtures.ptfhost_utils import run_garp_service
 
 
 CRM_POLL_INTERVAL = 1
@@ -48,3 +49,8 @@ def pytest_addoption(parser):
         type=int,
         help="The number of iterations for mux stress test"
     )
+
+@pytest.fixture(scope="module", autouse=True)
+def common_setup_teardown(request, tbinfo):
+    if 'dualtor' in tbinfo['topo']['name']:
+        request.getfixturevalue('run_garp_service')
