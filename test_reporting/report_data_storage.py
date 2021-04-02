@@ -121,24 +121,25 @@ class KustoConnector(ReportDBConnector):
         ping_time = str(datetime.utcnow())
         for result in ping_output:
             result.update({"Timestamp": ping_time})
-        reachability_data = {"data": ping_output}
 
+        reachability_data = {"data": ping_output}
         self._ingest_data(self.RAW_REACHABILITY_TABLE, reachability_data)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
-        data = []
+        pdu_output = []
         for result in pdu_status_output:
             if not result["PDU status"]:
                 status = {"Timestamp": time, "Host": result["Host"], "data_present": False}
-                data.append(status)
+                pdu_output.append(status)
                 continue
 
             for status in result["PDU status"]:
                 status.update({"Timestamp": time, "Host": result["Host"], "data_present": True})
-                data.append(status)
+                pdu_output.append(status)
 
-        self._ingest_data(self.RAW_PDU_STATUS_TABLE, data)
+        pdu_status_data = {"data": pdu_output}
+        self._ingest_data(self.RAW_PDU_STATUS_TABLE, pdu_status_data)
 
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
