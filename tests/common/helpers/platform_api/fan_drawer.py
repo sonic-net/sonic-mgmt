@@ -67,3 +67,7 @@ def set_status_led(conn, index, color):
 
 def get_status_led(conn, index):
     return fan_drawer_api(conn, index, 'get_status_led')
+
+
+def get_maximum_consumed_power(conn, index):
+    return fan_drawer_api(conn, index, 'get_maximum_consumed_power')
