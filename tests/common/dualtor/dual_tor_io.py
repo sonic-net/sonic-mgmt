@@ -264,7 +264,7 @@ class DualTorIO:
         else:
             ptf_port = self.tor_to_ptf_intf_map[self.tor_vlan_intf]
             src_mac = ptf_intf_to_mac_map[ptf_port]
-            src_ip = self.tor_to_ptf_intf_map[ptf_port]
+            src_ip = self.ptf_intf_to_server_ip_map[ptf_port]
         logger.info(
             "Ethernet address: dst: {} src: {}".format(
                 self.vlan_mac, src_mac
@@ -333,6 +333,8 @@ class DualTorIO:
         self.sender_thr = InterruptableThread(target=sender)
         self.sniff_thr = InterruptableThread(target=sniffer)
         self.sniffer_started = threading.Event()
+        self.sniff_thr.set_error_handler(lambda *args, **kargs: self.sniffer_started.set())
+        self.sender_thr.set_error_handler(lambda *args, **kargs: self.io_ready_event.set())
         self.sniff_thr.start()
         self.sender_thr.start()
         self.sniff_thr.join()

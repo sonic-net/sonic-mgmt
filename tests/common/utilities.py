@@ -105,7 +105,7 @@ class InterruptableThread(threading.Thread):
             threading.Thread.run(self)
         except Exception:
             self._e = sys.exc_info()
-            if self.error_handler:
+            if getattr(self, "error_handler", None) is not None:
                 self.error_handler(*self._e)
 
     def join(self, timeout=None, suppress_exception=False):
