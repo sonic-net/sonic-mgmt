@@ -35,7 +35,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'soft-reboot'], (
+        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot'], (
             "Please set rebootType var."
         )
 
@@ -251,20 +251,6 @@ class AdvancedReboot:
             if 'SONiC-OS-201803' in self.currentImage and 'SONiC-OS-201811' in nextImage:
                 self.__runScript(['upgrade_mlnx_fw.sh'], self.duthost)
 
-    def __checkSoftRebootOnDut(self):
-        '''
-        Check if soft-reboot script is available or not on DUT image and copy from scripts directory if it's not available.
-        '''
-        if self.rebootType == 'soft-reboot':
-            if 'SONiC-OS-2018' in self.currentImage or 'SONiC-OS-2019' in self.currentImage:
-                result = self.duthost.shell('stat /usr/bin/soft-reboot', module_ignore_errors=True)
-                if len(result['stderr_lines']) != 0:
-                    self.duthost.copy(src='scripts/soft-reboot-2019', dest='/usr/bin/soft-reboot')
-            else:
-                result = self.duthost.shell('stat /usr/local/bin/soft-reboot', module_ignore_errors=True)
-                if len(result['stderr_lines']) != 0:
-                    self.duthost.copy(src='scripts/soft-reboot', dest='/usr/local/bin/soft-reboot')
-
     def __updateAndRestartArpResponder(self, item=None):
         '''
         Update ARP responder configuration data based on the inboot/preboot operation (item)
@@ -339,8 +325,6 @@ class AdvancedReboot:
         if self.replaceFastRebootScript:
             logger.info('Replace fast-reboot script on DUT  {}'.format(self.duthost.hostname))
             self.duthost.copy(src='scripts/fast-reboot', dest='/usr/bin/')
-
-        self.__checkSoftRebootOnDut()
 
     def __clearArpAndFdbTables(self):
         '''

@@ -503,7 +503,7 @@ class ReloadTest(BaseTest):
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
-        if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f', 'soft-reboot']:
+        if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
 
@@ -790,7 +790,7 @@ class ReloadTest(BaseTest):
     def wait_until_reboot(self):
         self.log("Wait until Control plane is down")
         self.timeout(self.wait_until_cpu_port_down, self.task_timeout, "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
-        if self.reboot_type == 'fast-reboot' or self.reboot_type == 'soft-reboot':
+        if self.reboot_type == 'fast-reboot':
             self.light_probe = True
         else:
             # add or del routes during boot
