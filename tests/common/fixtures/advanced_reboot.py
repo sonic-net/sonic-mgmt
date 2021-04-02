@@ -40,6 +40,15 @@ class AdvancedReboot:
         )
 
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            # Fast and Warm-reboot procedure now test if "docker exec" works.
+            # The timeout for check_docker_exec test is 1s. This timeout is good
+            # enough for test in physical devices. However, the KVM devices are
+            # inherently slow, and the 1s timeout for check_docker_exec test has
+            # intermittently failed in Azure Pipeline PR tests.
+            # Therefore, the 1s timeout is increased to 5s for KVM testing.
+            # 5s timeout is believed to be generous enough for the KVM device,
+            # however more test results are needed to prove this.
+
             cmd_format = "sed -i 's/{}/{}/' {}"
             warmboot_script_path = duthost.shell('which warm-reboot')['stdout']
             original_line = 'timeout 1s docker exec $container echo "success"'
