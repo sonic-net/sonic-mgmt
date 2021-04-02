@@ -331,18 +331,24 @@ topology:
 
 configuration_properties:
   common:
+    podset_number: 400
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 32
+    tor_subnet_size: 128
     dut_asn: 65100
     dut_type: Spine
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-  spine:
-    swrole: spine
-
+  core:
+    swrole: core
+  leaf:
+    swrole: leaf
 configuration:
   ARISTA01T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
       asn: 65200
       peers:
@@ -368,9 +374,9 @@ configuration:
   ARISTA03T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65201
       peers:
         65100:
           - 10.0.0.4
@@ -394,9 +400,9 @@ configuration:
   ARISTA05T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65202
       peers:
         65100:
           - 10.0.0.8
@@ -420,9 +426,9 @@ configuration:
   ARISTA07T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65203
       peers:
         65100:
           - 10.0.0.12
@@ -446,9 +452,9 @@ configuration:
   ARISTA09T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65204
       peers:
         65100:
           - 10.0.0.16
@@ -472,9 +478,9 @@ configuration:
   ARISTA11T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65205
       peers:
         65100:
           - 10.0.0.20
@@ -498,9 +504,9 @@ configuration:
   ARISTA13T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65206
       peers:
         65100:
           - 10.0.0.24
@@ -524,9 +530,9 @@ configuration:
   ARISTA15T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65207
       peers:
         65100:
           - 10.0.0.28
@@ -550,9 +556,9 @@ configuration:
   ARISTA17T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65208
       peers:
         65100:
           - 10.0.0.32
@@ -571,9 +577,9 @@ configuration:
   ARISTA18T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65209
       peers:
         65100:
           - 10.0.0.34
@@ -592,9 +598,9 @@ configuration:
   ARISTA19T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65210
       peers:
         65100:
           - 10.0.0.36
@@ -613,9 +619,9 @@ configuration:
   ARISTA20T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65211
       peers:
         65100:
           - 10.0.0.38
@@ -634,9 +640,9 @@ configuration:
   ARISTA21T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65212
       peers:
         65100:
           - 10.0.0.40
@@ -655,9 +661,9 @@ configuration:
   ARISTA22T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65213
       peers:
         65100:
           - 10.0.0.42
@@ -676,9 +682,9 @@ configuration:
   ARISTA23T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65214
       peers:
         65100:
           - 10.0.0.44
@@ -697,9 +703,9 @@ configuration:
   ARISTA24T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65215
       peers:
         65100:
           - 10.0.0.46
@@ -718,9 +724,9 @@ configuration:
   ARISTA25T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65216
       peers:
         65100:
           - 10.0.0.48
@@ -739,9 +745,9 @@ configuration:
   ARISTA26T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65217
       peers:
         65100:
           - 10.0.0.50
@@ -760,9 +766,9 @@ configuration:
   ARISTA27T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65218
       peers:
         65100:
           - 10.0.0.52
@@ -781,9 +787,9 @@ configuration:
   ARISTA28T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65219
       peers:
         65100:
           - 10.0.0.54
@@ -802,9 +808,9 @@ configuration:
   ARISTA29T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65220
       peers:
         65100:
           - 10.0.0.56
@@ -823,9 +829,9 @@ configuration:
   ARISTA30T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65221
       peers:
         65100:
           - 10.0.0.58
@@ -844,9 +850,9 @@ configuration:
   ARISTA31T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65222
       peers:
         65100:
           - 10.0.0.60
@@ -865,9 +871,9 @@ configuration:
   ARISTA32T3:
     properties:
       - common
-      - spine
+      - core
     bgp:
-      asn: 65200
+      asn: 65223
       peers:
         65100:
           - 10.0.0.62
@@ -886,7 +892,7 @@ configuration:
   ARISTA01T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
       asn: 65000
       peers:
@@ -912,9 +918,9 @@ configuration:
   ARISTA03T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65001
+      asn: 65000
       peers:
         65100:
           - 10.0.0.68
@@ -938,9 +944,9 @@ configuration:
   ARISTA05T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65002
+      asn: 65000
       peers:
         65100:
           - 10.0.0.72
@@ -964,9 +970,9 @@ configuration:
   ARISTA07T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65003
+      asn: 65000
       peers:
         65100:
           - 10.0.0.76
@@ -990,9 +996,9 @@ configuration:
   ARISTA09T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65004
+      asn: 65000
       peers:
         65100:
           - 10.0.0.80
@@ -1016,9 +1022,9 @@ configuration:
   ARISTA11T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65005
+      asn: 65000
       peers:
         65100:
           - 10.0.0.84
@@ -1042,9 +1048,9 @@ configuration:
   ARISTA13T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65006
+      asn: 65000
       peers:
         65100:
           - 10.0.0.88
@@ -1068,9 +1074,9 @@ configuration:
   ARISTA15T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65007
+      asn: 65000
       peers:
         65100:
           - 10.0.0.92
@@ -1094,9 +1100,9 @@ configuration:
   ARISTA17T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65008
+      asn: 65000
       peers:
         65100:
           - 10.0.0.96
@@ -1112,12 +1118,17 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.49/24
       ipv6: fc0a::62/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA18T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65009
+      asn: 65000
       peers:
         65100:
           - 10.0.0.98
@@ -1133,12 +1144,17 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.50/24
       ipv6: fc0a::64/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA19T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65010
+      asn: 65000
       peers:
         65100:
           - 10.0.0.100
@@ -1157,9 +1173,9 @@ configuration:
   ARISTA20T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65011
+      asn: 65000
       peers:
         65100:
           - 10.0.0.102
@@ -1178,9 +1194,9 @@ configuration:
   ARISTA21T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65012
+      asn: 65000
       peers:
         65100:
           - 10.0.0.104
@@ -1199,9 +1215,9 @@ configuration:
   ARISTA22T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65013
+      asn: 65000
       peers:
         65100:
           - 10.0.0.106
@@ -1220,9 +1236,9 @@ configuration:
   ARISTA23T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65014
+      asn: 65000
       peers:
         65100:
           - 10.0.0.108
@@ -1241,9 +1257,9 @@ configuration:
   ARISTA24T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65015
+      asn: 65000
       peers:
         65100:
           - 10.0.0.110
@@ -1262,9 +1278,9 @@ configuration:
   ARISTA25T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65016
+      asn: 65000
       peers:
         65100:
           - 10.0.0.112
@@ -1283,9 +1299,9 @@ configuration:
   ARISTA26T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65017
+      asn: 65000
       peers:
         65100:
           - 10.0.0.114
@@ -1304,9 +1320,9 @@ configuration:
   ARISTA27T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65018
+      asn: 65000
       peers:
         65100:
           - 10.0.0.116
@@ -1325,9 +1341,9 @@ configuration:
   ARISTA28T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65019
+      asn: 65000
       peers:
         65100:
           - 10.0.0.118
@@ -1346,9 +1362,9 @@ configuration:
   ARISTA29T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65020
+      asn: 65000
       peers:
         65100:
           - 10.0.0.120
@@ -1367,9 +1383,9 @@ configuration:
   ARISTA30T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65021
+      asn: 65000
       peers:
         65100:
           - 10.0.0.122
@@ -1388,9 +1404,9 @@ configuration:
   ARISTA31T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65022
+      asn: 65000
       peers:
         65100:
           - 10.0.0.124
@@ -1409,9 +1425,9 @@ configuration:
   ARISTA32T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65023
+      asn: 65000
       peers:
         65100:
           - 10.0.0.126
@@ -1430,9 +1446,9 @@ configuration:
   ARISTA33T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65024
+      asn: 65000
       peers:
         65100:
           - 10.0.0.128
@@ -1456,9 +1472,9 @@ configuration:
   ARISTA35T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65025
+      asn: 65000
       peers:
         65100:
           - 10.0.0.132
@@ -1482,9 +1498,9 @@ configuration:
   ARISTA37T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65026
+      asn: 65000
       peers:
         65100:
           - 10.0.0.136
@@ -1508,9 +1524,9 @@ configuration:
   ARISTA39T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65027
+      asn: 65000
       peers:
         65100:
           - 10.0.0.140
@@ -1534,9 +1550,9 @@ configuration:
   ARISTA41T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65028
+      asn: 65000
       peers:
         65100:
           - 10.0.0.144
@@ -1560,9 +1576,9 @@ configuration:
   ARISTA43T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65029
+      asn: 65000
       peers:
         65100:
           - 10.0.0.148
@@ -1586,9 +1602,9 @@ configuration:
   ARISTA45T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65030
+      asn: 65000
       peers:
         65100:
           - 10.0.0.152
@@ -1612,9 +1628,9 @@ configuration:
   ARISTA47T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65031
+      asn: 65000
       peers:
         65100:
           - 10.0.0.156
@@ -1638,9 +1654,9 @@ configuration:
   ARISTA49T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65032
+      asn: 65000
       peers:
         65100:
           - 10.0.0.160
@@ -1659,9 +1675,9 @@ configuration:
   ARISTA50T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65033
+      asn: 65000
       peers:
         65100:
           - 10.0.0.162
@@ -1680,9 +1696,9 @@ configuration:
   ARISTA51T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65034
+      asn: 65000
       peers:
         65100:
           - 10.0.0.164
@@ -1701,9 +1717,9 @@ configuration:
   ARISTA52T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65035
+      asn: 65000
       peers:
         65100:
           - 10.0.0.166
@@ -1722,9 +1738,9 @@ configuration:
   ARISTA53T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65036
+      asn: 65000
       peers:
         65100:
           - 10.0.0.168
@@ -1743,9 +1759,9 @@ configuration:
   ARISTA54T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65037
+      asn: 65000
       peers:
         65100:
           - 10.0.0.170
@@ -1764,9 +1780,9 @@ configuration:
   ARISTA55T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65038
+      asn: 65000
       peers:
         65100:
           - 10.0.0.172
@@ -1785,9 +1801,9 @@ configuration:
   ARISTA56T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65039
+      asn: 65000
       peers:
         65100:
           - 10.0.0.174
@@ -1803,12 +1819,17 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.88/24
       ipv6: fc0a::b0/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA57T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65040
+      asn: 65000
       peers:
         65100:
           - 10.0.0.176
@@ -1824,12 +1845,17 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.89/24
       ipv6: fc0a::b2/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA58T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65041
+      asn: 65000
       peers:
         65100:
           - 10.0.0.178
@@ -1848,9 +1874,9 @@ configuration:
   ARISTA59T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65042
+      asn: 65000
       peers:
         65100:
           - 10.0.0.180
@@ -1869,9 +1895,9 @@ configuration:
   ARISTA60T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65043
+      asn: 65000
       peers:
         65100:
           - 10.0.0.182
@@ -1890,9 +1916,9 @@ configuration:
   ARISTA61T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65044
+      asn: 65000
       peers:
         65100:
           - 10.0.0.184
@@ -1911,9 +1937,9 @@ configuration:
   ARISTA62T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65045
+      asn: 65000
       peers:
         65100:
           - 10.0.0.186
@@ -1932,9 +1958,9 @@ configuration:
   ARISTA63T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65046
+      asn: 65000
       peers:
         65100:
           - 10.0.0.188
@@ -1953,9 +1979,9 @@ configuration:
   ARISTA64T1:
     properties:
       - common
-      - spine
+      - leaf
     bgp:
-      asn: 65047
+      asn: 65000
       peers:
         65100:
           - 10.0.0.190
