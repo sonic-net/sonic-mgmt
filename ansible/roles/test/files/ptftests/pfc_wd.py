@@ -80,6 +80,10 @@ class PfcWdTest(BaseTest):
                                     ip_ttl=63)
                 masked_exp_pkt = Mask(exp_pkt)
                 masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
 
                 send_packet(self, self.port_src, pkt, 1)
         else:
@@ -106,6 +110,10 @@ class PfcWdTest(BaseTest):
                                 ip_ttl=63)
             masked_exp_pkt = Mask(exp_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
 
             send_packet(self, self.port_src, pkt, self.pkt_count)
 

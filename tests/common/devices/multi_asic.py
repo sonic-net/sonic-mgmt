@@ -5,6 +5,7 @@ import logging
 
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 
 logger = logging.getLogger(__name__)
@@ -262,3 +263,57 @@ class MultiAsicSonicHost(object):
                 return False
 
         return True
+
+    def get_port_asic_instance(self, port):
+        """
+        Returns the ASIC instance to which the port belongs
+        Args:
+            port: Port ID
+
+        Returns:
+            returns the ASIC instance if found, else None
+        """
+        for asic in self.asics:
+            if asic.port_exists(port):
+                return asic
+
+        pytest_assert(
+            False,
+            "ASIC instance not found for port {}".format(port)
+        )
+
+    def get_queue_oid_asic_instance(self, queue_oid):
+        """
+        Returns the ASIC instance which has the queue OID saved.
+        Queue OIDs are saved only when requested for a given port and queue.
+
+        Args:
+            queue_oid: Queue OID
+
+        Returns:
+            returns the ASIC instance if found, else None
+        """
+        asic = None
+        for asic in self.asics:
+            if queue_oid in asic.queue_oid:
+                return asic
+
+        pytest_assert(
+            False,
+            "ASIC instance not found for queue OID {}".format(queue_oid)
+        )
+
+    def get_queue_oid(self, port, queue_num):
+        """
+        Get the queue OID of given port and queue number. The queue OID is
+        saved for the purpose of returning the ASIC instance of the
+        queue OID
+
+        Args:
+            port: Port ID
+            queue_num: Queue
+        Returns:
+            Queue OID
+        """
+        asic = self.get_port_asic_instance(port)
+        return asic.get_queue_oid(port, queue_num)
