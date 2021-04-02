@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import socket
 import time
 
 from collections import defaultdict
@@ -1355,3 +1356,68 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             except KeyError:
                 pass
         return up_ip_ports
+
+    def get_rsyslog_ipv4(self):
+        if not self.is_multi_asic:
+            return "127.0.0.1"
+        ip_ifs = self.show_ip_interface()["ansible_facts"]
+        ns_docker_if_ipv4 = ip_ifs["ip_interfaces"]["docker0"]["ipv4"]
+        try:
+            socket.inet_aton(ns_docker_if_ipv4)
+        except socket.error:
+            raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
+        return ns_docker_if_ipv4
+
+    def ping_v4(self, ipv4, count=1, ns_arg=""):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv4 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_aton(ipv4)
+        except socket.error:
+            raise Exception("Invalid IPv4 address {}".format(ipv4))
+
+        try:
+            self.shell("{}ping -q -c{} {} > /dev/null".format(
+                ns_arg, count, ipv4
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return True
+
+    def is_backend_portchannel(self, port_channel):
+        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+        ports = mg_facts["minigraph_portchannels"].get(port_channel)
+        # minigraph facts does not have backend portchannel IFs
+        if ports is None:
+            return True
+        return False if "Ethernet-BP" not in ports["members"][0] else True
+
+    def active_ip_interfaces(self, ip_ifs, ns_arg=""):
+        """
+        Return a dict of active IP (Ethernet or PortChannel) interfaces, with
+        interface and peer IPv4 address.
+
+        Returns:
+            Dict of Interfaces and their IPv4 address
+        """
+        ip_ifaces = {}
+        for k,v in ip_ifs.items():
+            if (k.startswith("Ethernet") or
+               (k.startswith("PortChannel") and not
+                self.is_backend_portchannel(k))
+            ):
+                if (v["admin"] == "up" and v["oper_state"] == "up" and
+                        self.ping_v4(v["peer_ipv4"], ns_arg=ns_arg)
+                    ):
+                    ip_ifaces[k] = {
+                        "ipv4" : v["ipv4"],
+                        "peer_ipv4" : v["peer_ipv4"]
+                    }
+
+        return ip_ifaces
