@@ -18,7 +18,7 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_hostname, patch_lldpctl, unpatc
 
 
 @pytest.mark.bsl
-def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, tbinfo):
+def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, tbinfo):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -37,7 +37,7 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds,
         pytest.skip("LLDP not supported on supervisor node")
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     mg_facts = {}
     for asic_id in duthost.get_asic_ids():
         mg_facts_ns   = duthost.asic_instance(asic_id).get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']

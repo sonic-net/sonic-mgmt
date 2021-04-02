@@ -43,14 +43,14 @@ def collect_memory(duthost):
         facts.update({split[0].replace(":", ""): split[-2]})
     return facts
 
-def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
+def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """
     Verify if memory MIB equals to data collected from DUT
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = localhost.snmp_facts(host=host_ip, version="v2c",
-                                      community=creds["snmp_rocommunity"])['ansible_facts']
+                                      community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     facts = collect_memory(duthost)
     compare = (('ansible_sysTotalFreeMemery', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
                ('ansible_sysCachedMemory', 'Cached'))
@@ -68,7 +68,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                   "Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percent))
 
 
-def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, load_memory):
+def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, load_memory):
     """
     Verify SNMP total free memory matches DUT results in stress test
     """
@@ -76,7 +76,7 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = localhost.snmp_facts(host=host_ip, version="v2c",
-                                      community=creds["snmp_rocommunity"])['ansible_facts']
+                                      community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     mem_free = duthost.shell("grep MemFree /proc/meminfo | awk '{print $2}'")['stdout']
     pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemery'], mem_free) < percent,
                   "sysTotalFreeMemery differs by more than {}".format(percent))

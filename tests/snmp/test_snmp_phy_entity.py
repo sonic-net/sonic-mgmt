@@ -103,28 +103,28 @@ def check_image_version(duthosts):
 
 
 @pytest.fixture(scope="module")
-def snmp_physical_entity_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
+def snmp_physical_entity_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """
     Module level fixture for getting physical entity information from snmp fact for frontend dut
     :param duthost: DUT host object
     :param localhost: localhost object
-    :param creds: Credential for snmp
+    :param creds_all_duts: Credential for snmp
     :return:
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    return get_entity_mib(duthost, localhost, creds)
+    return get_entity_mib(duthost, localhost, creds_all_duts)
 
 
-def get_entity_mib(duthost, localhost, creds):
+def get_entity_mib(duthost, localhost, creds_all_duts):
     """
     Get physical entity information from snmp fact
     :param duthost: DUT host object
     :param localhost: localhost object
-    :param creds: Credential for snmp
+    :param creds_all_duts: Credential for snmp
     :return:
     """
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     entity_mib = {}
     for oid, info in snmp_facts['snmp_physical_entities'].items():
         entity_mib[int(oid)] = info
@@ -441,12 +441,12 @@ def _get_transceiver_sensor_data(duthost, name):
 
 
 @pytest.mark.disable_loganalyzer
-def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info, localhost, creds, pdu_controller):
+def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_info, localhost, creds_all_duts, pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
     :param duthost: DUT host object
     :param localhost: localhost object
-    :param creds: Credential for snmp
+    :param creds_all_duts: Credential for snmp
     :param pdu_controller: PDU controller
     :return:
     """
@@ -473,18 +473,18 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     pdu_controller.turn_off_outlet(first_outlet)
     assert wait_until(30, 5, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
-    assert wait_until(120, 20, _check_psu_status_after_power_off, duthost, localhost, creds)
+    assert wait_until(120, 20, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts[duthost])
 
 
-def _check_psu_status_after_power_off(duthost, localhost, creds):
+def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     """
     Check that at least one PSU is powered off and its sensor information should be removed from mib
     :param duthost: DUT host object
     :param localhost: localhost object
-    :param creds: Credential for snmp
+    :param creds_all_duts: Credential for snmp
     :return: True if sensor information is removed from mib
     """
-    mib_info = get_entity_mib(duthost, localhost, creds)
+    mib_info = get_entity_mib(duthost, localhost, creds_all_duts[duthost])
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     power_off_psu_found = False
     for key in keys:
@@ -505,12 +505,12 @@ def _check_psu_status_after_power_off(duthost, localhost, creds):
 
 
 @pytest.mark.disable_loganalyzer
-def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, mocker_factory):
+def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, mocker_factory):
     """
 
     :param duthost: DUT host object
     :param localhost: localhost object
-    :param creds: Credential for snmp
+    :param creds_all_duts: Credential for snmp
     :param mocker_factory: Factory to create fan mocker
     :return:
     """
@@ -531,7 +531,7 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
     # Ignore the test if the platform does not have fans (e.g Line card)
     if not keys:
         pytest.skip('Fan information does not exist in DB, skipping this test')
-    mib_info = get_entity_mib(duthost, localhost, creds)
+    mib_info = get_entity_mib(duthost, localhost, creds_all_duts[duthost])
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
         if fan_info['presence'] == 'True':
