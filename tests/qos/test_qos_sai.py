@@ -135,6 +135,16 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+
+        dst_port_count = set([
+            dutConfig["testPorts"]["dst_port_id"],
+            dutConfig["testPorts"]["dst_port_2_id"],
+            dutConfig["testPorts"]["dst_port_3_id"],
+        ])
+
+        if len(dst_port_count) != 3:
+            pytest.skip("PFC Xon Limit test: Need at least 3 destination ports")
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
