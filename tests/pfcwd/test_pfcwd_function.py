@@ -53,8 +53,13 @@ class PfcCmd(object):
         Returns:
             counter value(string)
         """
-        cmd = "redis-cli -n 2 HGET COUNTERS:{}"
-        return dut.command("{} {}".format(cmd.format(queue_oid), attr))['stdout']
+        asic = dut.get_queue_oid_asic_instance(queue_oid)
+        return asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "2", "HGET",
+                "COUNTERS:{}".format(queue_oid), attr
+            ]
+        )[0].encode("utf-8")
 
     @staticmethod
     def set_storm_status(dut, queue_oid, storm_status):
@@ -66,38 +71,33 @@ class PfcCmd(object):
             queue_oid(string) : queue oid for which the storm status needs to be set
             storm_status(string) : debug storm status (enabled/disabled)
         """
-        cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
-        dut.command(cmd.format(queue_oid, storm_status))
+        asic = dut.get_queue_oid_asic_instance(queue_oid)
+        asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "2", "HSET",
+                "COUNTERS:{}".format(queue_oid),
+                "DEBUG_STORM", storm_status
+            ]
+        )
 
     @staticmethod
-    def get_queue_oid(dut, port, queue_num):
-        """
-        Retreive queue oid
-
-        Args:
-            dut(AnsibleHost) : dut instance
-            port(string) : port name
-            queue_num(int) : queue number
-
-        Returns:
-            queue oid(string)
-        """
-        cmd = "redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {}:{}".format(port, queue_num)
-        return dut.command(cmd)['stdout']
-
-    @staticmethod
-    def update_alpha(dut, profile, value):
+    def update_alpha(dut, port, profile, value):
         """
         Update dynamic threshold value in buffer profile
 
         Args:
             dut(AnsibleHost) : dut instance
+            port(string) : port name
             profile(string) : profile name
             value(int) : dynamic threshold value to update
         """
         logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
-        cmd = "redis-cli -n 4 HSET {} dynamic_th {}".format(profile, value)
-        dut.command(cmd)
+        asic = dut.get_port_asic_instance(port)
+        asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HSET", "profile", "dynamic_th", value
+            ]
+        )
 
     @staticmethod
     def get_mmu_params(dut, port):
@@ -112,10 +112,21 @@ class PfcCmd(object):
             pg_profile(string), alpha(string)
         """
         logger.info("Retreiving pg profile and dynamic threshold for port: {}".format(port))
-        cmd = "redis-cli -n 4 HGET BUFFER_PG|{}|3-4 profile".format(port)
-        pg_profile = dut.command(cmd)['stdout'][1:-1]
-        cmd = "redis-cli -n 4 HGET {} dynamic_th".format(pg_profile)
-        alpha = dut.command(cmd)['stdout']
+
+        asic = dut.get_port_asic_instance(port)
+        pg_profile = asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HGET", 
+                "BUFFER_PG|{}|3-4".format(port), "profile"
+            ]
+        )[0].encode("utf-8")[1:-1]
+
+        alpha = asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HGET", pg_profile, "dynamic_th"
+            ]
+        )[0].encode("utf-8")
+
         return pg_profile, alpha
 
 class PfcPktCntrs(object):
@@ -242,7 +253,7 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
             self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
-        self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+        self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
     def update_queue(self, port):
         """
@@ -256,7 +267,7 @@ class SetupPfcwdFunc(object):
         else:
            self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] + 1
         logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
-        self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+        self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
     def setup_mmu_params(self, port):
         """
@@ -267,13 +278,14 @@ class SetupPfcwdFunc(object):
         """
         self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port)
 
-    def update_mmu_params(self, mmu_action):
+    def update_mmu_params(self, mmu_action, port):
         """
         Update dynamic threshold value
 
         Args:
             mmu_action(string): for value "change", update within -6 and 3
                                 for value "restore", set back to original threshold
+            port(string) : port name
         """
         if int(self.alpha) <= -6:
             new_alpha = -5
@@ -283,9 +295,9 @@ class SetupPfcwdFunc(object):
             new_alpha = int(self.alpha) + 1
 
         if mmu_action == "change":
-            PfcCmd.update_alpha(self.dut, self.pg_profile, new_alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, new_alpha)
         elif mmu_action == "restore":
-            PfcCmd.update_alpha(self.dut, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
         time.sleep(2)
 
     def resolve_arp(self, vlan):
@@ -590,7 +602,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer = self.storm_detect_path(dut, port, action)
 
         if mmu_action is not None:
-            self.update_mmu_params(mmu_action)
+            self.update_mmu_params(mmu_action, port)
 
         logger.info("--- Storm restoration path for port {} ---".format(port))
         self.storm_restore_path(dut, loganalyzer, port, action)
@@ -714,6 +726,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("--- Stop pfc storm on port {}".format(port))
                 self.storm_hndle.stop_storm()
             # restore alpha
-            PfcCmd.update_alpha(self.dut, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
