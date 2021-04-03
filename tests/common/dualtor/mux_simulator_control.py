@@ -5,7 +5,7 @@ import urllib2
 
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER
 
 __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
@@ -29,12 +29,12 @@ def mux_server_url(request, tbinfo):
     server = tbinfo['server']
     vmset_name = tbinfo['group-name']
     inv_files = request.config.option.ansible_inventory
-    ip = utilities.get_test_server_vars(inv_files, server, 'ansible_host')
-    port = utilities.get_group_visible_vars(inv_files, server, 'mux_simulator_port')
+    ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
+    port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_port')
     return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
 
 @pytest.fixture(scope='module')
-def url(mux_server_url, duthost):
+def url(mux_server_url, duthost, tbinfo):
     """
     A helper function is returned to make fixture accept arguments
     """
@@ -45,13 +45,18 @@ def url(mux_server_url, duthost):
         Args:
             interface_name: a str, the name of interface
                             If interface_name is none, the returned url contains no '/port/action' (For polling/toggling all ports)
+                            or /mux/vms/flap_counter for retrieving flap counter for all ports
+                            or /mux/vms/clear_flap_counter for clearing flap counter for given ports
             action: a str, output|drop|None. If action is None, the returned url contains no '/action'
         Returns:
             The url for posting flow update request, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
         """
         if not interface_name:
+            if action:
+                # Only for flap_counter or clear_flap_counter
+                return mux_server_url + "/{}".format(action)
             return mux_server_url
-        mg_facts = duthost.get_extended_minigraph_facts()
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         mbr_index = mg_facts['minigraph_ptf_indices'][interface_name]
         if not action:
             return mux_server_url + "/{}".format(mbr_index)
@@ -113,10 +118,11 @@ def _post(server_url, data):
     return True
 
 @pytest.fixture(scope='module')
-def set_drop(url):
+def set_drop(url, recover_all_directions):
     """
     A helper function is returned to make fixture accept arguments
     """
+    drop_intfs = set()
     def _set_drop(interface_name, directions):
         """
         A fixture to set drop for a certain direction on a port
@@ -126,11 +132,15 @@ def set_drop(url):
         Returns:
             None.
         """
+        drop_intfs.add(interface_name)
         server_url = url(interface_name, DROP)
         data = {"out_ports": directions}
         pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
-    return _set_drop
+    yield _set_drop
+
+    for intf in drop_intfs:
+        recover_all_directions(intf)
 
 @pytest.fixture(scope='module')
 def set_output(url):
@@ -267,21 +277,21 @@ def toggle_all_simulator_ports(mux_server_url):
         _toggle_all_simulator_ports(mux_server_url, side)
     return _toggle
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_upper_tor(mux_server_url):
     """
     A module level fixture to toggle all ports to upper_tor
     """
     _toggle_all_simulator_ports(mux_server_url, UPPER_TOR)
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
     """
     A module level fixture to toggle all ports to lower_tor
     """
     _toggle_all_simulator_ports(mux_server_url, LOWER_TOR)
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
     """
     A module level fixture to toggle all ports to randomly selected tor
@@ -294,7 +304,7 @@ def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand
 
     pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
     """
     A module level fixture to toggle all ports to another side
@@ -303,14 +313,14 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url):
     """
     _toggle_all_simulator_ports(mux_server_url, TOGGLE)
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def toggle_all_simulator_ports_to_random_side(mux_server_url):
     """
     A module level fixture to toggle all ports to a random side.
     """
     _toggle_all_simulator_ports(mux_server_url, RANDOM)
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def simulator_server_down(set_drop, set_output):
     """
     A fixture to set drop on a given mux cable
@@ -322,3 +332,52 @@ def simulator_server_down(set_drop, set_output):
 
     yield _drop_helper
     set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
+
+
+@pytest.fixture
+def simulator_flap_counter(url):
+    """
+    A function level fixture to retrieve mux simulator flap counter for a given interface
+    """
+    def _simulator_flap_counter(interface_name):
+        server_url = url(interface_name, FLAP_COUNTER)
+        counter = _get(server_url)
+        assert(counter and len(counter) == 1)
+        return list(counter.values())[0]
+
+    return _simulator_flap_counter
+
+
+@pytest.fixture
+def simulator_flap_counters(url):
+    """
+    A function level fixture to retrieve mux simulator flap counter for all ports of a testbed
+    """
+    server_url = url(action=FLAP_COUNTER)
+    return _get(server_url)
+
+
+@pytest.fixture
+def simulator_clear_flap_counter(url, duthost, tbinfo):
+    """
+    A function level fixture to clear mux simulator flap counter for given port(s)
+    """
+    def _simulator_clear_flap_counter(interface_name):
+        server_url = url(action=CLEAR_FLAP_COUNTER)
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        mbr_index = mg_facts['minigraph_ptf_indices'][interface_name]
+        data = {"port_to_clear": str(mbr_index)}
+        pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
+
+    return _simulator_clear_flap_counter
+
+
+@pytest.fixture
+def simulator_clear_flap_counters(url):
+    """
+    A function level fixture to clear mux simulator flap counter for all ports of a testbed
+    """
+    server_url = url(action=CLEAR_FLAP_COUNTER)
+    data = {"port_to_clear": "all"}
+    pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
+

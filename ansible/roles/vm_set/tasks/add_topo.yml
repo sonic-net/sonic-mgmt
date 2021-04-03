@@ -123,8 +123,14 @@
     include_tasks: start_ptf_tgen.yml
     when: topo == 'fullmesh'
 
+  - name: Start PTF portchannel service
+    include_tasks: ptf_portchannel.yml
+
   - name: Announce routes
     include_tasks: announce_routes.yml
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
 
   - name: Start mux simulator
     include_tasks: control_mux_simulator.yml

@@ -1,5 +1,6 @@
 from __future__ import print_function, division, absolute_import
 
+import inspect
 import logging
 import os
 import cPickle as pickle
@@ -8,8 +9,8 @@ import sys
 
 from collections import defaultdict
 from threading import Lock
-
 from six import with_metaclass
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,9 @@ class FactsCache(with_metaclass(Singleton, object)):
     Args:
         with_metaclass ([function]): Python 2&3 compatible function from the six library for adding metaclass.
     """
+
+    NOTEXIST = object()
+
     def __init__(self, cache_location=CACHE_LOCATION):
         self._cache_location = os.path.abspath(cache_location)
         self._cache = defaultdict(dict)
@@ -87,7 +91,7 @@ class FactsCache(with_metaclass(Singleton, object)):
             except (IOError, ValueError) as e:
                 logger.info('Load cache file "{}" failed with exception: {}'\
                     .format(os.path.abspath(facts_file), repr(e)))
-                return None
+                return self.NOTEXIST
 
     def write(self, zone, key, value):
         """Store facts to cache.
@@ -158,31 +162,71 @@ class FactsCache(with_metaclass(Singleton, object)):
                 logger.error('Remove cache folder "{}" failed with exception: {}'\
                     .format(self._cache_location, repr(e)))
 
-def cached(name):
+
+def _get_default_zone(function, func_args, func_kargs):
+    """
+        Default zone getter used for decorator cached.
+        For multi asic platforms some the facts will have the namespace to get the facts for an ASIC.
+        Add the namespace to the default zone.
+    """
+    hostname = None
+    if func_args:
+        hostname = getattr(func_args[0], "hostname", None)
+    if not hostname or not isinstance(hostname, str):
+        raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
+                         % type(func_args[0]))
+    zone = hostname
+    arg_names = inspect.getargspec(function)[0]
+    if 'namespace' in arg_names:
+        try:
+            index = arg_names.index('namespace')
+            namespace = func_args[index]
+            if namespace and isinstance(namespace, str):
+                zone = "{}-{}".format(hostname,namespace)
+        except IndexError:
+            pass
+    return zone
+
+
+def cached(name, zone_getter=None, after_read=None, before_write=None):
     """Decorator for enabling cache for facts.
 
     The cached facts are to be stored by <name>.pickle. Because the cached pickle files must be stored under subfolder
-    specified by zone, this decorator can only be used for bound method of class which is subclass of AnsibleHostBase.
-    The classes have attribute 'hostname' that can be used as zone.
+    specified by zone, the decorate have an option to passed a zone getter function used to get zone. The zone getter
+    function must have signature of '(function, func_args, func_kargs)' that 'function' is the decorated function,
+    'func_args' and 'func_kargs' are the parameters passed to the decorated function at runtime. The zone getter function
+    should raise an error if it fails to return a string as zone.
+    With default zone getter function, this decorator can try to find zone:
+    if the function is a bound method of class AnsibleHostBase and its derivatives, it will try to use its
+    attribute 'hostname' as zone, or raises an error if 'hostname' doesn't exists or is not a string.
 
     Args:
         name ([str]): Name of the cached facts.
-
+        zone_getter ([function]): Function used to get hostname used as zone.
+        after_read ([function]): Hook function used to process facts after read from cache.
+        before_write ([function]): Hook function used to process facts before write into cache.
     Returns:
         [function]: Decorator function.
     """
     cache = FactsCache()
+
     def decorator(target):
-        def wrapper(*args, **kwargs):
-            hostname = getattr(args[0], 'hostname', None)
-            if not hostname or not isinstance(hostname, str):
-                raise Exception('Decorator is only applicable to bound method of class AnsibleHostBase and its sub-classes')
-            cached_facts = cache.read(hostname, name)
-            if cached_facts:
+        def wrapper(*args, **kargs):
+            _zone_getter = zone_getter or _get_default_zone
+            zone = _zone_getter(target, args, kargs)
+
+            cached_facts = cache.read(zone, name)
+            if after_read:
+                cached_facts = after_read(cached_facts, target, args, kargs)
+            if cached_facts is not FactsCache.NOTEXIST:
                 return cached_facts
             else:
-                facts = target(*args, **kwargs)
-                cache.write(hostname, name, facts)
+                facts = target(*args, **kargs)
+                if before_write:
+                    _facts = before_write(facts, target, args, kargs)
+                    cache.write(zone, name, _facts)
+                else:
+                    cache.write(zone, name, facts)
                 return facts
         return wrapper
     return decorator

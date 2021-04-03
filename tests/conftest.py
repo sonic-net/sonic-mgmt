@@ -93,6 +93,10 @@ def pytest_addoption(parser):
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
+    parser.addoption("--post_check", action="store_true", default=False,
+                     help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--post_check_items", action="store", default=False,
+                     help="Change (add|remove) post test check items based on pre test check items")
 
     ########################
     #   pre-test options   #
@@ -162,7 +166,7 @@ def get_tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = cache.read(tbname, 'tbinfo')
-    if not testbedinfo:
+    if testbedinfo is cache.NOTEXIST:
         testbedinfo = TestbedInfo(tbfile)
         cache.write(tbname, 'tbinfo', testbedinfo)
 
@@ -214,7 +218,8 @@ def rand_one_dut_hostname(request):
     """
     dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1)
+        dut_hostnames = random.sample(dut_hostnames, 1) 
+    logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
 
 

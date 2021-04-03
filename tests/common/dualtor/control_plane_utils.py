@@ -20,14 +20,14 @@ DB_SEPARATOR_MAP = {
 }
 
 APP_DB_MUX_STATE_FIELDS = {
-    "MUX_CABLE_TABLE": "state", # <active/standby>
-    "HW_MUX_CABLE_TABLE": "state", # <active/standby>
+    "MUX_CABLE_TABLE": "state",  # <active/standby>
+    "HW_MUX_CABLE_TABLE": "state",  # <active/standby>
 }
 
 STATE_DB_MUX_STATE_FIELDS = {
-    "MUX_CABLE_TABLE": "state", # <active/standby>
-    "HW_MUX_CABLE_TABLE": "state", # <active/standby>
-    "MUX_LINKMGR_TABLE": "state" # <healthy/unhealthy>
+    "MUX_CABLE_TABLE": "state",  # <active/standby>
+    "HW_MUX_CABLE_TABLE": "state",  # <active/standby>
+    "MUX_LINKMGR_TABLE": "state"  # <healthy/unhealthy>
 }
 
 DB_CHECK_FIELD_MAP = {
@@ -38,28 +38,37 @@ DB_CHECK_FIELD_MAP = {
 
 def _dump_db(duthost, db, key_pattern):
     """Dump redis database matching specificied key pattern"""
-    command = "redis-dump -d {db} -k \"{key_pattern}\"".format(db=db, key_pattern=key_pattern)
+    command = "redis-dump -d {db} -k \"{key_pattern}\"".format(
+        db=db, key_pattern=key_pattern)
     lines = duthost.shell(command)["stdout_lines"]
     return json.loads(lines[0])
 
 
 def expect_db_values(duthost, db, state, health=None, intf_names='all'):
     """
-    Query db on `tor_host` and check if the mux-related fields match the expected values.
+    Query db on `tor_host` and check if the mux-related fields match the
+    expected values.
 
     The tables/fields checked are defined in DB_CHECK_FIELD_MAP
 
     Args:
-        duthost: DUT host object (needs to be passed by calling function from duthosts fixture)
-        db: Database number to check. Should be either 0 for APP_DB or 6 for STATE_DB
-        state: The expected value for each of the `state` fields in both tables
-        health: The expected value for the `state` field in the MUX_LINKMGR_TABLE table (only needed for STATE_DB)
-        intf_names: A list of the PORTNAME to check in each table, or 'all' (by default) to check all MUX_CABLE interfaces
+        duthost:    DUT host object (needs to be passed by calling function
+                    from duthosts fixture)
+        db:         Database number to check. Should be either 0 for APP_DB or
+                    6 for STATE_DB
+        state:      The expected value for each of the `state` fields in both
+                    tables
+        health:     The expected value for the `state` field in the
+                    MUX_LINKMGR_TABLE table (only needed for STATE_DB)
+        intf_names: A list of the PORTNAME to check in each table, or 'all'
+                    (by default) to check all MUX_CABLE interfaces
 
     Raises:
         AssertionError if th mux cable fields don't match the given states.
     """
-    logger.info("Verifying {} values on {}: expected state = {}, expected health = {}".format(DB_NAME_MAP[db], duthost, state, health))
+    logger.info("Verifying {} values on {}: "
+                "expected state = {}, expected health = {}".format(
+                            DB_NAME_MAP[db], duthost, state, health))
     if intf_names == 'all':
         mux_intfs = duthost.get_running_config_facts()['MUX_CABLE'].keys()
     else:
@@ -72,9 +81,11 @@ def expect_db_values(duthost, db, state, health=None, intf_names='all'):
     for table, field in db_check_fields.items():
         key_pattern = table + separator + "*"
         db_dump = _dump_db(duthost, db, key_pattern)
-        
+
         if table == 'MUX_LINKMGR_TABLE':
-            pytest_assert(health is not None, "Must give a value for `health` when checking STATE_DB values")
+            pytest_assert(
+                health is not None,
+                "Must give a value for `health` when checking STATE_DB values")
             target_value = health
         else:
             target_value = state
@@ -85,5 +96,27 @@ def expect_db_values(duthost, db, state, health=None, intf_names='all'):
             if db_dump[table_key]['value'][field] != target_value:
                 mismatch_ports[table_key] = db_dump[table_key]['value']
 
-    pytest_assert(not bool(mismatch_ports), "Database states don't match expected state {state}, incorrect {db_name} values {db_states}"
-                                                    .format(state=state, db_name=DB_NAME_MAP[db], db_states=json.dumps(mismatch_ports, indent=4, sort_keys=True)))
+    pytest_assert(not bool(mismatch_ports),
+                  "Database states don't match expected state {state},"
+                  "incorrect {db_name} values {db_states}"
+                  .format(state=state, db_name=DB_NAME_MAP[db],
+                          db_states=json.dumps(mismatch_ports,
+                                               indent=4,
+                                               sort_keys=True)))
+
+
+def verify_tor_states(expected_active_host, expected_standby_host,
+                      expected_standby_health='healthy', intf_names='all'):
+    """
+    Verifies that the expected states for active and standby ToRs are
+    reflected in APP_DB and STATE_DB on each device
+    """
+
+    expect_db_values(expected_active_host, APP_DB,
+                     'active', intf_names=intf_names)
+    expect_db_values(expected_active_host, STATE_DB, 'active',
+                     'healthy', intf_names=intf_names)
+    expect_db_values(expected_standby_host, APP_DB,
+                     'standby', intf_names=intf_names)
+    expect_db_values(expected_standby_host, STATE_DB, 'standby',
+                     expected_standby_health, intf_names=intf_names)

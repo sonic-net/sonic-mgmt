@@ -6,12 +6,19 @@ import json
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
 
+from collections import defaultdict
 from natsort import natsorted
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+
+from ptf import mask
+from ptf import testutils
+from scapy.all import Ether, IP
+from tests.common.helpers.generators import generate_ip_through_default_route
+
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
 
@@ -204,6 +211,7 @@ def force_active_tor():
     """
     forced_intfs = []
     def force_active_tor_fn(dut, intf):
+        logger.info('Setting {} as active for intfs {}'.format(dut, intf))
         if type(intf) == str:
             cmds = ["config muxcable mode active {}; true".format(intf)]
             forced_intfs.append((dut, intf))
@@ -277,20 +285,21 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
         tbinfo (dict): Testbed info from the tbinfo fixture.
         dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All the
             fanout interfaces that are connected to the specified DUT interfaces will be shutdown. If dut_intfs is not
-            specified, the function will shutdown all the fanout interfaces that are connected to the tor_host DUT.
+            specified, the function will shutdown all the fanout interfaces that are connected to the tor_host DUT and in a VLAN.
             Defaults to None.
 
     Returns:
-        list of tuple: Return a list of tuple. Each tuple has two items. The first item is the host object for fanout.
-            The second item is the fanout interface that has been shutdown. The returned list makes it easy to recover
-            the interfaces.
+        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down 
+                                 on that host device.
     """
-    down_intfs = []
-
     if not dut_intfs:
-        # If no interface is specified, shutdown all ports
-        mg_facts = tor_host.get_extended_minigraph_facts(tbinfo)
-        dut_intfs = mg_facts['minigraph_ports'].keys()
+        # If no interface is specified, shutdown all VLAN ports
+        vlan_intfs = []
+        vlan_member_table = tor_host.get_running_config_facts()['VLAN_MEMBER']
+        for vlan_members in vlan_member_table.values():
+            vlan_intfs.extend(list(vlan_members.keys()))
+
+        dut_intfs = vlan_intfs
 
     dut_intfs = natsorted(dut_intfs)
 
@@ -304,22 +313,27 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
     logger.debug('full_dut_fanout_port_map: {}'.format(full_dut_fanout_port_map))
 
+    fanout_shut_intfs = defaultdict(list)
+
     for dut_intf in dut_intfs:
         encoded_dut_intf = encode_dut_port_name(tor_host.hostname, dut_intf)
         if encoded_dut_intf in full_dut_fanout_port_map:
             fanout_host = full_dut_fanout_port_map[encoded_dut_intf]['fanout_host']
             fanout_intf = full_dut_fanout_port_map[encoded_dut_intf]['fanout_intf']
-            fanout_host.shutdown(fanout_intf)
-            down_intfs.append((fanout_host, fanout_intf))
+            fanout_shut_intfs[fanout_host].append(fanout_intf)
         else:
             logger.error('No dut intf "{}" in full_dut_fanout_port_map'.format(encoded_dut_intf))
 
-    return down_intfs
+    for fanout_host, intf_list in fanout_shut_intfs.items():
+        fanout_host.shutdown(intf_list)
+
+    return fanout_shut_intfs
 
 
 @pytest.fixture
 def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo):
-    """Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
+    """
+    Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
 
     Args:
         upper_tor_host (object): Host object for upper_tor.
@@ -329,22 +343,25 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
     Yields:
         function: A function for shutting down fanout interfaces connected to specified upper_tor interfaces
     """
-    down_intfs = []
+    shut_fanouts = []
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
-        down_intfs.extend(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
     logger.info('Recover fanout ports connected to upper_tor')
-    for fanout_host, fanout_intf in down_intfs:
-        fanout_host.no_shutdown(fanout_intf)
+
+    for instance in shut_fanouts:
+        for fanout_host, intf_list in instance.items():
+            fanout_host.no_shutdown(intf_list)
 
 
 @pytest.fixture
 def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo):
-    """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
+    """
+    Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
     Args:
         lower_tor_host (object): Host object for lower_tor.
@@ -354,17 +371,19 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
     Yields:
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
-    down_intfs = []
+    shut_fanouts = []
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
-        down_intfs.extend(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
     logger.info('Recover fanout ports connected to lower_tor')
-    for fanout_host, fanout_intf in down_intfs:
-        fanout_host.no_shutdown(fanout_intf)
+
+    for instance in shut_fanouts:
+        for fanout_host, intf_list in instance.items():
+            fanout_host.no_shutdown(intf_list)
 
 
 @pytest.fixture
@@ -588,6 +607,65 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, vlan_mac, act
                socket_recv_size=16384)
 
 
+def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
+    """
+    @summary: Helper function for verifying upstream packets
+    @param host: The dut host
+    @param ptfadapter: The ptfadapter fixture
+    @param tbinfo: The tbinfo fixture
+    @param ifts: The interface name on DUT
+    @param server_ip: The IP address of server
+    @param pkt_num: The number of packets to generete and tx
+    @param drop: Packets are expected to be dropped if drop is True, and vice versa
+    @return: No return value. An exception will be raised if verify fails.
+    """
+    random_ip = generate_ip_through_default_route(host).split('/')[0]
+    vlan_table = host.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = host.get_dut_iface_mac(vlan_name)
+    router_mac = host.facts['router_mac']
+    # Generate packets from server to a random IP address, which goes default routes
+    pkt = testutils.simple_ip_packet(eth_dst=vlan_mac,
+                                    ip_src=server_ip,
+                                    ip_dst=random_ip)
+    # Generate packet forwarded to portchannels
+    pkt_copy = pkt.copy()
+    pkt_copy[Ether].src = router_mac
+
+    exp_pkt = mask.Mask(pkt_copy)
+    exp_pkt.set_do_not_care_scapy(Ether, "dst")
+
+    exp_pkt.set_do_not_care_scapy(IP, "dst")
+    exp_pkt.set_do_not_care_scapy(IP, "ihl")
+    exp_pkt.set_do_not_care_scapy(IP, "tos")
+    exp_pkt.set_do_not_care_scapy(IP, "len")
+    exp_pkt.set_do_not_care_scapy(IP, "id")
+    exp_pkt.set_do_not_care_scapy(IP, "flags")
+    exp_pkt.set_do_not_care_scapy(IP, "frag")
+    exp_pkt.set_do_not_care_scapy(IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(IP, "proto")
+    exp_pkt.set_do_not_care_scapy(IP, "chksum")
+
+    exp_pkt.set_ignore_extra_bytes()
+
+    port_channels = get_t1_ptf_pc_ports(host, tbinfo)
+    rx_ports = []
+    for v in port_channels.values():
+        rx_ports += v
+    rx_ports = [int(x.strip('eth')) for x in rx_ports]
+
+    mg_facts = host.get_extended_minigraph_facts(tbinfo)
+    tx_port = mg_facts['minigraph_ptf_indices'][itfs]
+    logger.info("Verifying upstream traffic. packet number = {} interface = {} server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
+    for i in range(0, pkt_num):
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, tx_port, pkt, count=1)
+        if drop:
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, rx_ports)
+        else:
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, rx_ports)
+
+
 def get_crm_nexthop_counter(host):
     """
     Get used crm nexthop counter
@@ -630,3 +708,4 @@ def rand_selected_interface(rand_selected_dut):
     iface = str(random.choice(server_ips.keys()))
     logging.info("select DUT interface %s to test.", iface)
     return iface, server_ips[iface]
+

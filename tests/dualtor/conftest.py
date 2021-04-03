@@ -4,6 +4,7 @@ import time
 
 from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter, lower_tor_host # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.fixtures.ptfhost_utils import run_garp_service
 
 
 CRM_POLL_INTERVAL = 1
@@ -32,3 +33,24 @@ def verify_crm_nexthop_counter_not_increased(lower_tor_host):
     yield
     diff = get_crm_nexthop_counter(lower_tor_host) - original_counter
     py_assert(diff == 0, "crm nexthop counter is increased by {}.".format(diff))
+
+
+def pytest_addoption(parser):
+    """
+    Adds pytest options that are used by dual ToR tests
+    """
+
+    dual_tor_group = parser.getgroup("Dual ToR test suite options")
+
+    dual_tor_group.addoption(
+        "--mux-stress-count",
+        action="store",
+        default=2,
+        type=int,
+        help="The number of iterations for mux stress test"
+    )
+
+@pytest.fixture(scope="module", autouse=True)
+def common_setup_teardown(request, tbinfo):
+    if 'dualtor' in tbinfo['topo']['name']:
+        request.getfixturevalue('run_garp_service')

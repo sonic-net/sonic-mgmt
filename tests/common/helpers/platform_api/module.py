@@ -127,3 +127,35 @@ def get_all_sfps(conn, mod_idx):
 
 def get_sfp(conn, mod_idx, sfp_idx):
     return module_api(conn, mod_idx, 'get_sfp', [sfp_idx])
+
+
+def get_description(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_description')
+
+
+def get_slot(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_slot')
+
+
+def get_type(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_type')
+
+
+def get_oper_status(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_oper_status')
+
+
+def get_midplane_ip(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_midplane_ip')
+
+
+def is_midplane_reachable(conn, mod_idx):
+    return module_api(conn, mod_idx, 'is_midplane_reachable')
+
+
+def get_maximum_consumed_power(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_maximum_consumed_power')
+
+
+def reboot(conn, mod_idx, reboot_type):
+    return module_api(conn, mod_idx, 'reboot', [reboot_type])

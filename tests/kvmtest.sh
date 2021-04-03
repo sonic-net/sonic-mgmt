@@ -101,6 +101,7 @@ test_t0() {
     bgp/test_bgp_fact.py \
     bgp/test_bgp_gr_helper.py \
     bgp/test_bgp_speaker.py \
+    bgp/test_bgp_update_timer.py \
     cacl/test_ebtables_application.py \
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
@@ -129,6 +130,7 @@ test_t0() {
     iface_namingmode/test_iface_namingmode.py \
     platform_tests/test_cpu_memory_usage.py \
     bgp/test_bgpmon.py \
+    container_checker/test_container_checker.py \
     process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests
@@ -166,6 +168,7 @@ test_t1_lag() {
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
     bgp/test_bgpmon.py \
+    container_checker/test_container_checker.py \
     process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests

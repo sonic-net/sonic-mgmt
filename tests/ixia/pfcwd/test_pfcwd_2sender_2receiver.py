@@ -8,7 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list,\
     lossless_prio_list, lossy_prio_list
 
-from files.pfcwd_2sender_2receiver_helper import run_pfcwd_2sender_2receiver_test
+from files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 
 @pytest.mark.topology("tgen")
 
@@ -52,14 +52,15 @@ def test_pfcwd_2sender_2receiver(ixia_api,
     duthost = duthosts[rand_one_dut_hostname]
     lossless_prio = int(lossless_prio)
 
-    run_pfcwd_2sender_2receiver_test(api=ixia_api,
-                                     testbed_config=ixia_testbed,
-                                     conn_data=conn_graph_facts,
-                                     fanout_data=fanout_graph_facts,
-                                     duthost=duthost,
-                                     dut_port=dut_port,
-                                     pause_prio_list=[lossless_prio],
-                                     test_prio_list=[lossless_prio],
-                                     bg_prio_list=lossy_prio_list,
-                                     prio_dscp_map=prio_dscp_map,
-                                     trigger_pfcwd=trigger_pfcwd)
+    run_pfcwd_multi_node_test(api=ixia_api,
+                              testbed_config=ixia_testbed,
+                              conn_data=conn_graph_facts,
+                              fanout_data=fanout_graph_facts,
+                              duthost=duthost,
+                              dut_port=dut_port,
+                              pause_prio_list=[lossless_prio],
+                              test_prio_list=[lossless_prio],
+                              bg_prio_list=lossy_prio_list,
+                              prio_dscp_map=prio_dscp_map,
+                              trigger_pfcwd=trigger_pfcwd,
+                              pattern="2 sender 2 receiver")

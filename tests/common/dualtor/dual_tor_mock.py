@@ -5,12 +5,26 @@ import pytest
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
-
+from tests.common import config_reload
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
 
-__all__ = ['apply_active_state_to_orchagent', 'apply_dual_tor_neigh_entries', 'apply_dual_tor_peer_switch_route', 'apply_mock_dual_tor_kernel_configs',
-           'apply_mock_dual_tor_tables', 'apply_mux_cable_table_to_dut', 'apply_peer_switch_table_to_dut', 'apply_standby_state_to_orchagent', 'apply_tunnel_table_to_dut',
-           'mock_peer_switch_loopback_ip', 'mock_server_base_ip_addr']
+__all__ = [
+    'apply_active_state_to_orchagent',
+    'apply_dual_tor_neigh_entries',
+    'apply_dual_tor_peer_switch_route',
+    'apply_mock_dual_tor_kernel_configs',
+    'apply_mock_dual_tor_tables',
+    'apply_mux_cable_table_to_dut',
+    'apply_peer_switch_table_to_dut',
+    'apply_standby_state_to_orchagent',
+    'apply_tunnel_table_to_dut',
+    'cleanup_mocked_configs',
+    'mock_peer_switch_loopback_ip',
+    'mock_server_base_ip_addr',
+    'mock_server_ip_mac_map',
+    'set_dual_tor_state_to_orchagent',
+    'del_dual_tor_state_from_orchagent'
+]
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +54,10 @@ def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(swss_filename))
 
 
-def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
-    '''
-    Helper function to configure active/standby state in orchagent
-
-    Args:
-        dut: DUT object
-        state: either 'active' or 'standby'
-    '''
-
+def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+    """
+    Helper function for setting active/standby state to orchagent
+    """
     logger.info("Applying {} state to orchagent".format(state))
 
     intf_configs = []
@@ -80,15 +89,42 @@ def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
     swss_filename = '/mux{}.json'.format(state)
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
-    yield
-    logger.info("Removing {} state from orchagent".format(state))
 
-    for i in range(len(intf_configs)):
-        intf_configs[i]['"OP"'] = '"DEL"'
+def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):
+    """
+    Helper function for deleting active/standby state to orchagent
+    """
+    logger.info("Removing {} state from orchagent".format(state))
+    intf_configs = []
+
+    for intf in tor_mux_intfs:
+        intf_config_dict = {}
+        state_dict = {}
+
+        state_key = '"MUX_CABLE_TABLE:{}"'.format(intf)
+        state_dict = {'"state"': '"{}"'.format(state)}
+        intf_config_dict[state_key] = state_dict
+        intf_config_dict['"OP"'] = '"DEL"'
+
+        intf_configs.append(intf_config_dict)
 
     swss_config_str = json.dumps(intf_configs, indent=4)
     swss_filename = '/mux{}.json'.format(state)
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
+
+
+def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+    '''
+    Helper function to configure active/standby state in orchagent
+
+    Args:
+        dut: DUT object
+        state: either 'active' or 'standby'
+    '''
+
+    set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs)
+    yield
+    del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs)
 
 
 @pytest.fixture(scope='module')
@@ -135,7 +171,7 @@ def mock_peer_switch_loopback_ip(rand_selected_dut):
 
 
 @pytest.fixture(scope='module')
-def mock_server_base_ip_addr(rand_selected_dut):
+def mock_server_base_ip_addr(rand_selected_dut, tbinfo):
     '''
     Calculates the IP address of the first server
 
@@ -145,15 +181,13 @@ def mock_server_base_ip_addr(rand_selected_dut):
         IPv4Interface and IPv6 interface objects reperesenting the first server addresses
     '''
     dut = rand_selected_dut
-    vlan_interface = dut.get_running_config_facts()['VLAN_INTERFACE']
-
-    vlan = list(vlan_interface.keys())[0]
+    vlan_interfaces = dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlan_interfaces']
 
     server_ipv4_base_addr = None
     server_ipv6_base_addr = None
 
-    for ip_addr_str in vlan_interface[vlan].keys():
-        ip_addr = ip_interface(ip_addr_str)
+    for vlan_intf in vlan_interfaces:
+        ip_addr = ip_interface(vlan_intf['addr'])
 
         if type(ip_addr) is IPv4Interface:
             server_ipv4_base_addr = ip_addr + 1
@@ -165,17 +199,12 @@ def mock_server_base_ip_addr(rand_selected_dut):
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_neigh_entries(rand_selected_dut, ptfadapter, tbinfo, mock_server_base_ip_addr, tor_mux_intfs):
-    '''
-    Apply neighber table entries for servers
-    '''
-    logger.info("Applying dual ToR neighbor entries")
-
+def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_base_ip_addr, tor_mux_intfs):
     dut = rand_selected_dut
 
     server_ipv4_base_addr, _ = mock_server_base_ip_addr
 
-    server_ip_to_mac_map = {}
+    server_ip_mac_map = {}
 
     dut_ptf_intf_map = dut.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
 
@@ -183,13 +212,24 @@ def apply_dual_tor_neigh_entries(rand_selected_dut, ptfadapter, tbinfo, mock_ser
         # For each VLAN interface, get the corresponding PTF interface MAC
         ptf_port_index = dut_ptf_intf_map[intf]
         ptf_mac = ptfadapter.dataplane.ports[(0, ptf_port_index)].mac()
-        server_ip_to_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
+        server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
 
-    vlan_interface = dut.get_running_config_facts()['VLAN_INTERFACE']
-    vlan = list(vlan_interface.keys())[0]
+    return server_ip_mac_map
+
+
+@pytest.fixture(scope='module')
+def apply_dual_tor_neigh_entries(rand_selected_dut, tbinfo, mock_server_ip_mac_map):
+    '''
+    Apply neighbor table entries for servers
+    '''
+    logger.info("Applying dual ToR neighbor entries")
+
+    dut = rand_selected_dut
+
+    vlan = dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys()[0]
 
     cmds = []
-    for ip, mac in server_ip_to_mac_map.items():
+    for ip, mac in mock_server_ip_mac_map.items():
         # Use `ip neigh replace` in case entries already exist for the target IP
         # If there are no pre-existing entries, equivalent to `ip neigh add`
         cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
@@ -200,7 +240,7 @@ def apply_dual_tor_neigh_entries(rand_selected_dut, ptfadapter, tbinfo, mock_ser
     logger.info("Removing dual ToR neighbor entries")
 
     cmds = []
-    for ip in server_ip_to_mac_map.keys():
+    for ip in mock_server_ip_mac_map.keys():
         cmds.append('ip -4 neigh del {} dev {}'.format(ip, vlan))
     dut.shell_cmds(cmds=cmds)
 
@@ -327,7 +367,7 @@ def apply_mock_dual_tor_tables(request, tbinfo):
     '''
     Wraps all table fixtures for convenience
     '''
-    if tbinfo["topo"]["name"] == "t0":
+    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
         request.getfixturevalue("apply_mux_cable_table_to_dut")
         request.getfixturevalue("apply_tunnel_table_to_dut")
         request.getfixturevalue("apply_peer_switch_table_to_dut")
@@ -339,7 +379,18 @@ def apply_mock_dual_tor_kernel_configs(request, tbinfo):
     '''
     Wraps all kernel related (routes and neighbor entries) fixtures for convenience
     '''
-    if tbinfo["topo"]["name"] == "t0":
+    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
         request.getfixturevalue("apply_dual_tor_peer_switch_route")
         request.getfixturevalue("apply_dual_tor_neigh_entries")
         logger.info("Done applying kernel configs for dual ToR mock")
+
+
+@pytest.fixture(scope="module")
+def cleanup_mocked_configs(duthost, tbinfo):
+    """Config reload to reset the mocked configs applied to DUT."""
+
+    yield
+
+    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+        logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
+        config_reload(duthost, config_source="minigraph")

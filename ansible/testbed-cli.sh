@@ -12,13 +12,14 @@ function usage
   echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] config-vm <topo-name> <vm-name> <vault-password-file>"
+  echo "    $0 [options] announce-routes <topo-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|sonic) (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'veos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -51,6 +52,7 @@ function usage
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
   echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
+  echo "To announce routes to DUT: $0 announce-routes 'topo-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
   echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
@@ -98,11 +100,12 @@ function read_csv
   vm_base=${line_arr[8]}
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
+  inv_name=${line_arr[10]}
 }
 
 function read_yaml
 {
-  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1' in str(tb)))")
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['conf-name']))")
 
   IFS=$'+' read -r -a tb_lines <<< $content
   linecount=${#tb_lines[@]}
@@ -121,9 +124,9 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut comment;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut inv_name auto_recover comment;
   do
-    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb['$attr'])")
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
     line_arr=("${line_arr[@]}" "$value")
   done
@@ -138,6 +141,7 @@ function read_yaml
   vm_base=${line_arr[8]}
   dut=${line_arr[9]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
+  inv_name=${line_arr[10]}
 }
 
 function read_file
@@ -341,6 +345,23 @@ function disconnect_vms
   echo Done
 }
 
+function announce_routes
+{
+  topology=$1
+  passfile=$2
+  shift
+  shift
+
+  echo "Announce routes '$topology'"
+
+  read_file $topology
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "$inv_name" testbed_announce_routes.yml --vault-password-file="$passfile" \
+      -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
+
+  echo done
+}
+
 function generate_minigraph
 {
   topology=$1
@@ -520,6 +541,8 @@ case "${subcmd}" in
   disconnect-vms) disconnect_vms $@
                ;;
   config-vm)   config_vm $@
+               ;;
+  announce-routes) announce_routes $@
                ;;
   gen-mg)      generate_minigraph $@
                ;;

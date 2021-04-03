@@ -40,7 +40,7 @@ class ShowIpInterfaceModule(object):
         self.ns = ""
         ns = self.m_args["namespace"]
         if ns is not None:
-            self.ns = "sudo ip netns exec {} ".format(ns)
+            self.ns = " -n {} -d all  ".format(ns)
         
     def run(self):
         """
@@ -63,7 +63,7 @@ class ShowIpInterfaceModule(object):
         self.ip_int = {}
         try:
             rc, self.out, err = self.module.run_command(
-                    "{}show ip interfaces".format(self.ns),
+                    "show ip interfaces{}".format(self.ns),
                     executable='/bin/bash',
                     use_unsafe_shell=True
                 )
