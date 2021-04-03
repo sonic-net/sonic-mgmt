@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD, REBOOT_TYPE_SOFT
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
 
@@ -242,14 +242,18 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
                 # advance-reboot test (on ptf) does not support cold reboot yet
                 reboot(duthost, localhost)
             else:
-                ptf_runner(ptfhost,
-                        "ptftests",
-                        "advanced-reboot.ReloadTest",
-                        platform_dir="ptftests",
-                        params=test_params,
-                        platform="remote",
-                        qlen=10000,
-                        log_file=log_file)
+                if test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_SOFT).get("command"):
+                    # advance-reboot test (on ptf) does not support SOFT reboot yet
+                    reboot(duthost, localhost, REBOOT_TYPE_SOFT)
+                else:
+                    ptf_runner(ptfhost,
+                            "ptftests",
+                            "advanced-reboot.ReloadTest",
+                            platform_dir="ptftests",
+                            params=test_params,
+                            platform="remote",
+                            qlen=10000,
+                            log_file=log_file)
             reboot_cause = get_reboot_cause(duthost)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             pytest_assert(reboot_cause == upgrade_type, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))
