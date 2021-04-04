@@ -30,6 +30,7 @@ DUT_RUN_DIR = "/tmp/everflow"
 EVERFLOW_RULE_CREATE_FILE = "acl-erspan.json"
 EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
+STABILITY_BUFFER = 0.05 #50msec
 
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
@@ -538,6 +539,7 @@ class BaseEverflowTest(object):
             testutils.send(ptfadapter, src_port, mirror_packet)
 
             if expect_recv:
+                time.sleep(STABILITY_BUFFER)
                 _, received_packet = testutils.verify_packet_any_port(
                     ptfadapter,
                     expected_mirror_packet,
