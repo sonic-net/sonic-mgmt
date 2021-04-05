@@ -3,6 +3,9 @@ import pytest
 import random
 import ipaddress
 import json
+
+from collections import defaultdict
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.errors import RunAnsibleModuleFail
 
@@ -77,21 +80,19 @@ def log_port_info(ports):
 
     Args:
         ports: Output of pick_ports.
-
     """
-    port_dict_to_print = {}
-    for a_port_name, a_port in ports.items():
-        port_dict_to_print[a_port_name] = {}
-        for a_fld_name in a_port:
-            if a_fld_name == 'dut':
-                port_dict_to_print[a_port_name]['dut'] = a_port['dut'].hostname
-            elif a_fld_name == 'asic':
-                port_dict_to_print[a_port_name]['asic'] = a_port['asic'].asic_index
-            elif isinstance(a_port[a_fld_name], ipaddress.IPv4Address) or isinstance(a_port[a_fld_name],
+    port_dict_to_print = defaultdict(dict)
+    for port_name, port in ports.items():
+        for fld_name in port:
+            if fld_name == 'dut':
+                port_dict_to_print[port_name]['dut'] = port['dut'].hostname
+            elif fld_name == 'asic':
+                port_dict_to_print[port_name]['asic'] = port['asic'].asic_index
+            elif isinstance(port[fld_name], ipaddress.IPv4Address) or isinstance(port[fld_name],
                                                                                      ipaddress.IPv6Address):
-                port_dict_to_print[a_port_name][a_fld_name] = "%s" % a_port[a_fld_name]
+                port_dict_to_print[port_name][fld_name] = "%s" % port[fld_name]
             else:
-                port_dict_to_print[a_port_name][a_fld_name] = a_port[a_fld_name]
+                port_dict_to_print[port_name][fld_name] = port[fld_name]
 
     logger.info("Ports picked are:\n%s" % json.dumps(port_dict_to_print, indent=4))
 
@@ -110,6 +111,21 @@ def get_info_for_a_port(cfg_facts, iface_list, version, dut, asic_index, nbrhost
         nbrhosts: nbrhosts fixture.
 
     Returns:
+
+        A dictionary with port information:
+
+            {
+                "my_lb_ip": "10.1.0.2", # Instance of ipaddress.IPv4Address (or IPv6Address)
+                "inband": "3.3.3.7",
+                "my_ip": "10.0.0.10", # Instance of ipaddress.IPv4Address (or IPv6Address)
+                "nbr_ip": "10.0.0.11",
+                "nbr_port": "Ethernet1",
+                "asic": <SonicAsic>,  # Instance of SonicAsic the port is on
+                "nbr_vm": "ARISTA03T1", # To index into nbrhosts fixture.
+                "nbr_lb": "100.1.0.6", # Instance of ipaddress.IPv4Address (or IPv6Address)
+                "dut": <MultiAsicSonicHost>,  # Instance of MultiAsicSonicHost the port is on
+                "port": "Ethernet13"
+            },
 
     """
     rtn_dict = {}
@@ -174,36 +190,36 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
     # Lets find portA and portB in the first frontend node
     dutA = duthosts.frontend_nodes[0]
 
-    for a_asic_index, a_asic_cfg in enumerate(all_cfg_facts[dutA.hostname]):
-        cfg_facts = a_asic_cfg['ansible_facts']
+    for asic_index, asic_cfg in enumerate(all_cfg_facts[dutA.hostname]):
+        cfg_facts = asic_cfg['ansible_facts']
         cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
         cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
         eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower()]
         pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
         if port_type_a == "ethernet":
             if len(eths) != 0:
-                intfs_to_test['portA'] = get_info_for_a_port(cfg_facts, eths, version, dutA, a_asic_index, nbrhosts)
+                intfs_to_test['portA'] = get_info_for_a_port(cfg_facts, eths, version, dutA, asic_index, nbrhosts)
                 # We have one ethernet interface, lets check for a pos interface for portB
                 if len(pos) != 0:
-                    intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, pos, version, dutA, a_asic_index, nbrhosts)
+                    intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, pos, version, dutA, asic_index, nbrhosts)
                 else:
                     # No pos interfaces, let see if we have other ethernet ports in this asic
                     if len(eths) != 1:
                         # We have more than 1 eth interface, pick it for port B
-                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, eths, version, dutA, a_asic_index,
+                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, eths, version, dutA, asic_index,
                                                                      nbrhosts)
         else:
             # port type is portchannel
             if len(pos) != 0:
-                intfs_to_test['portA'] = get_info_for_a_port(cfg_facts, pos, version, dutA, a_asic_index, nbrhosts)
+                intfs_to_test['portA'] = get_info_for_a_port(cfg_facts, pos, version, dutA, asic_index, nbrhosts)
                 # We have one pc interface, lets check for a eth interface for portB
                 if len(eths) != 0:
-                    intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, eths, version, dutA, a_asic_index, nbrhosts)
+                    intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, eths, version, dutA, asic_index, nbrhosts)
                 else:
                     # No eth interfaces, let see if we have other pc ports in this asic
                     if len(pos) != 1:
                         # We have more than 1 pc interface, pick it for port B
-                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, pos, version, dutA, a_asic_index,
+                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, pos, version, dutA, asic_index,
                                                                      nbrhosts)
 
         if 'portA' in intfs_to_test:
@@ -216,29 +232,29 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
         other_duts = duthosts.frontend_nodes[1:]
 
     # Lets try to find portC and portD on other asics/linecards.
-    for a_dut in other_duts:
-        for a_asic_index, a_asic_cfg in enumerate(all_cfg_facts[a_dut.hostname]):
-            if a_dut == dutA and a_asic_index == intfs_to_test['portA']['asic'].asic_index:
+    for dut in other_duts:
+        for asic_index, asic_cfg in enumerate(all_cfg_facts[dut.hostname]):
+            if dut == dutA and asic_index == intfs_to_test['portA']['asic'].asic_index:
                 # Ignore the asic we used for portA
                 continue
-            cfg_facts = a_asic_cfg['ansible_facts']
+            cfg_facts = asic_cfg['ansible_facts']
             cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
             cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
             eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower()]
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
             if len(eths) != 0:
                 if port_type_a == "ethernet":
-                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, eths, version, a_dut, a_asic_index,
+                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, eths, version, dut, asic_index,
                                                                  nbrhosts)
                 else:
-                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, eths, version, a_dut, a_asic_index,
+                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, eths, version, dut, asic_index,
                                                                  nbrhosts)
 
             if len(pos) != 0:
                 if port_type_a == "ethernet":
-                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, pos, version, a_dut, a_asic_index, nbrhosts)
+                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, pos, version, dut, asic_index, nbrhosts)
                 else:
-                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, pos, version, a_dut, a_asic_index, nbrhosts)
+                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, pos, version, dut, asic_index, nbrhosts)
 
             if 'portC' in intfs_to_test and 'portD' in intfs_to_test:
                 # We have found both portC and portD - no need to check other asics

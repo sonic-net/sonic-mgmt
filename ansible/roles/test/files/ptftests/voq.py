@@ -84,12 +84,12 @@ class DataplaneTest(BaseTest):
 
         self.dataplane = ptf.dataplane_instance
         self.dataplane.flush()
-        if config["log_dir"] is None:
+        if config["log_dir"] is not None:
             filename = os.path.join(config["log_dir"], str(self)) + ".pcap"
             self.dataplane.start_pcap(filename)
 
     def tearDown(self):
-        if config["log_dir"] is None:
+        if config["log_dir"] is not None:
             self.dataplane.stop_pcap()
         reset_filters()
         BaseTest.tearDown(self)

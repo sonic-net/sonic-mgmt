@@ -82,11 +82,10 @@ def nbr_macs(nbrhosts):
         Dictionary of MAC addresses of neighbor VMS, dict[vm_name][interface_name] = "mac address"
 
     """
-    results = {}
     logger.debug("Get MACS for all neighbor hosts.")
-    parallel_run(_get_nbr_macs, [nbrhosts], results, nbrhosts.keys(), timeout=120)
+    results = parallel_run(_get_nbr_macs, [nbrhosts], {}, nbrhosts.keys(), timeout=120)
 
-    for res in results['results']:
-        logger.info("parallel_results %s = %s", res, results['results'][res])
+    for res in results:
+        logger.info("parallel_results %s = %s", res, results[res])
 
-    return results['results']
+    return results
