@@ -169,8 +169,10 @@ class ReloadTest(BaseTest):
 
         if self.sad_oper:
            self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.sad_oper)
+           self.report_file_name = '/tmp/%s-%s.json' % (self.test_params['reboot_type'], self.sad_oper)
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
+           self.report_file_name = '/tmp/%s-report.json' % self.test_params['reboot_type']
         self.log_fp = open(self.log_file_name, 'w')
 
         self.packets_list = []
@@ -1096,6 +1098,14 @@ class ReloadTest(BaseTest):
                     errors += "FAILED:%s:%s\n" % (name, fail)
 
         self.log("="*50)
+
+        self.report = {
+            "downtime": (self.no_routing_stop - self.no_routing_start).total_seconds(),
+            "reboot_time": "0:00:00" if self.no_routing_stop and self.routing_always \
+                else (self.no_routing_stop - self.reboot_start).total_seconds()
+        }
+        with open(self.report_file_name, 'w') as reportfile:
+            json.dump(self.report, reportfile)
 
         self.assertTrue(is_good, errors)
 
