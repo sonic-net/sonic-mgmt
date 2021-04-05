@@ -942,7 +942,7 @@ server:
       pdu_host: pdu-100
     str-acs-serv-14:
       ansible_host: 10.64.247.30
-      pdu_host: pdu-118
+      pdu_host: pdu-110
     str-acs-serv-15:
       ansible_host: 10.64.247.31
       pdu_host: pdu-118
