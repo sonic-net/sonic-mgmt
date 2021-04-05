@@ -72,11 +72,12 @@ def crm_thresholds(duthosts, rand_one_dut_hostname):
     return res
 
 
-@pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthosts, rand_one_dut_hostname, tbinfo):
+@pytest.fixture(scope="function", autouse=True)
+def crm_interface(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
     """ Return tuple of two DUT interfaces """
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
         crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]
@@ -98,7 +99,11 @@ def set_polling_interval(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def collector():
+def collector(duthosts, rand_one_dut_hostname):
     """ Fixture for sharing variables beatween test cases """
+    duthost = duthosts[rand_one_dut_hostname]
     data = {}
+    for asic in duthost.asics:
+        data[asic.asic_index] = {}
+
     yield data
