@@ -19,7 +19,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|sonic) (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'veos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -101,12 +101,12 @@ function read_csv
   vm_base=${line_arr[8]}
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
-  inventory=${line_arr[10]}
+  inv_name=${line_arr[10]}
 }
 
 function read_yaml
 {
-  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1' in str(tb)))")
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['conf-name']))")
 
   IFS=$'+' read -r -a tb_lines <<< $content
   linecount=${#tb_lines[@]}
@@ -125,9 +125,9 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut comment;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut inv_name auto_recover comment;
   do
-    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb['$attr'])")
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
     line_arr=("${line_arr[@]}" "$value")
   done
@@ -142,7 +142,7 @@ function read_yaml
   vm_base=${line_arr[8]}
   dut=${line_arr[9]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
-  inventory=${line_arr[10]}
+  inv_name=${line_arr[10]}
 }
 
 function read_file
@@ -367,7 +367,7 @@ function announce_routes
 
   read_file $topology
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "$inventory" testbed_announce_routes.yml --vault-password-file="$passfile" \
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "$inv_name" testbed_announce_routes.yml --vault-password-file="$passfile" \
       -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
 
   echo done

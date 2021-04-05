@@ -49,6 +49,11 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
             reachability_data = json.load(f)
 
         kusto_db.upload_reachability_data(reachability_data)
+    elif args.category == "pdu_status":
+        with open(args.path_name) as f:
+            pdu_data = json.load(f)
+
+        kusto_db.upload_pdu_status_data(pdu_data)
     else:
         print('Unknown category "{}"'.format(args.category))
         sys.exit(1)

@@ -46,6 +46,14 @@ class ReportDBConnector(ABC):
         """
         pass
 
+    @abstractmethod
+    def upload_pdu_status_data(self, pdu_status_output: List) -> None:
+        """Upload PDU status data to the back-end data store.
+
+        Args:
+            pdu_status_output: A list of PDU status results from devutils.
+        """
+
 
 class KustoConnector(ReportDBConnector):
     """KustoReportDB is a wrapper for storing test reports in Kusto/Azure Data Explorer."""
@@ -54,19 +62,22 @@ class KustoConnector(ReportDBConnector):
     SUMMARY_TABLE = "TestReportSummary"
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
+    RAW_PDU_STATUS_TABLE = "RawPduStatusData"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
         SUMMARY_TABLE: DataFormat.JSON,
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
-        RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON
+        RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
+        RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON
     }
 
     TABLE_MAPPING_LOOKUP = {
         METADATA_TABLE: "FlatMetadataMappingV1",
         SUMMARY_TABLE: "FlatSummaryMappingV1",
         RAW_CASE_TABLE: "RawCaseMappingV1",
-        RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1"
+        RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
+        RAW_PDU_STATUS_TABLE: "RawPduStatusMapping"
     }
 
     def __init__(self, db_name: str):
@@ -110,9 +121,25 @@ class KustoConnector(ReportDBConnector):
         ping_time = str(datetime.utcnow())
         for result in ping_output:
             result.update({"Timestamp": ping_time})
-        reachability_data = {"data": ping_output}
 
+        reachability_data = {"data": ping_output}
         self._ingest_data(self.RAW_REACHABILITY_TABLE, reachability_data)
+
+    def upload_pdu_status_data(self, pdu_status_output: List) -> None:
+        time = str(datetime.utcnow())
+        pdu_output = []
+        for result in pdu_status_output:
+            if not result["PDU status"]:
+                status = {"Timestamp": time, "Host": result["Host"], "data_present": False}
+                pdu_output.append(status)
+                continue
+
+            for status in result["PDU status"]:
+                status.update({"Timestamp": time, "Host": result["Host"], "data_present": True})
+                pdu_output.append(status)
+
+        pdu_status_data = {"data": pdu_output}
+        self._ingest_data(self.RAW_PDU_STATUS_TABLE, pdu_status_data)
 
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
