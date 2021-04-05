@@ -118,7 +118,7 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
 @pytest.fixture(scope="module")
 def check_interfaces(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_on_dut, args, kwargs, duthosts, timeout=600)
+        result = parallel_run(_check_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
         return result.values()
 
     @reset_ansible_local_tmp
@@ -193,7 +193,7 @@ def check_bgp(duthosts):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
-                if a_asic_neighbors:
+                if a_asic_neighbors is not None:
                     down_neighbors = [k for k, v in a_asic_neighbors.items()
                                       if v['state'] != 'established']
                     if down_neighbors:
