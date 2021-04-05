@@ -39,6 +39,11 @@
         or secret_group_vars.ixia_api_server is not defined
         or secret_group_vars.ixia_api_server.rest_port is not defined
 
+    - name: Get Keysight API Server container status
+      docker_container_info:
+        name: apiserver
+      register: keysight_api_server_container_status
+
     - name: Pull and start Keysight API Server container
       docker_container:
         name: apiserver
@@ -52,6 +57,7 @@
           - net_admin
         privileged: yes
       become: yes
+      when: not keysight_api_server_container_status.exists or (keysight_api_server_container_status.exists and keysight_api_server_container_status.container['State']['Status'] != 'running')
 
     - name: Bind ptf_ip to keysight_api_server
       vm_topology:
@@ -61,6 +67,7 @@
         ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
         ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
         mgmt_bridge: "{{ mgmt_bridge }}"
+        vm_names: ""
       become: yes
 
   when: container_type == "API-SERVER"

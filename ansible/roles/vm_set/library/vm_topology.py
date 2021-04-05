@@ -98,6 +98,7 @@ EXAMPLES = '''
     ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
     ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
+    vm_names: ""
 '''
 
 
@@ -947,7 +948,7 @@ def main():
             cmd=dict(required=True, choices=['create', 'bind', 'bind_keysight_api_server_ip', 'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
-            vm_names=dict(required=False, type='list'),
+            vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
             ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
@@ -965,13 +966,12 @@ def main():
         supports_check_mode=False)
 
     cmd = module.params['cmd']
+    vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     duts_mgmt_port = []
 
-    if 'vm_names' in module.params:
-        vm_names = module.params['vm_names']
-    else:
+    if cmd == 'bind_keysight_api_server_ip':
         vm_names = []
 
     curtime = datetime.datetime.now().isoformat()
