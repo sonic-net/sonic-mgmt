@@ -364,6 +364,7 @@ class AdvancedReboot:
         '''
         if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(self.rebootType)
+            rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
             capturePcap = '/tmp/capture.pcap'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
@@ -371,6 +372,7 @@ class AdvancedReboot:
             swssRec = '/tmp/swss.rec'
         else:
             rebootLog = '/tmp/{0}-{1}.log'.format(self.rebootType, rebootOper)
+            rebootReport = '/tmp/{0}-{1}-report.json'.format(self.rebootType, rebootOper)
             capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
             filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
             syslogFile = '/tmp/syslog_{0}'.format(rebootOper)
@@ -390,6 +392,7 @@ class AdvancedReboot:
         logFiles = {
             self.ptfhost: [
                 {'src': rebootLog, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
+                {'src': rebootReport, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
                 {'src': capturePcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
                 {'src': filterPcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
             ],

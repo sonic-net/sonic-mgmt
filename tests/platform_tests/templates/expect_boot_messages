@@ -1,0 +1,4 @@
+r, ".* NOTICE admin: (Stopping|Stopped|Starting|Started).* (?!syncd|swss|gbsyncd).* service.*"
+r, ".* NOTICE admin: Stopped.* swss.* service.*"
+r, ".* NOTICE root: (Stopping|Stopped|Starting|Started).* (swss|syncd|gbsyncd).* service.*"
+r, ".* NOTICE root: WARMBOOT_FINALIZER.*"
