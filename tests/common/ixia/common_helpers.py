@@ -15,7 +15,7 @@ import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
-def increment_ip_address (ip, incr=1) :
+def increment_ip_address(ip, incr=1) :
     """
     Increment IP address by an integer number.
 
@@ -71,6 +71,147 @@ def get_vlan_subnet(host_ans):
     prefix_len = mg_vlan_intfs[0]['prefixlen']
     gw_addr = ansible_stdout_to_str(mg_vlan_intfs[0]['addr'])
     return gw_addr + '/' + str(prefix_len)
+
+def get_mac(host_ans):
+    """
+    Get the MAC address of the device
+
+    Args:
+        host_ans: Ansible host instance of the device
+
+    Returns:
+        MAC address (str), e.g., "11:22:33:44:55:66", or None
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    if 'DEVICE_METADATA' not in config_facts:
+        return None
+
+    device_metadata = config_facts['DEVICE_METADATA']
+    if 'localhost' not in device_metadata:
+        return None
+
+    localhost_metadata = device_metadata['localhost']
+    if 'mac' not in localhost_metadata:
+        return None
+
+    return str(localhost_metadata['mac'])
+
+def get_logical_intf_member(host_ans, member_type):
+    """
+    Get logical interfaces (vlan/portchannel) and their attached physical
+    interfaces (a.k.a., members)
+
+    Args:
+        host_ans: Ansible host instance of the device
+
+    Returns:
+        A dictionary where key is the logical interface and value is the
+        list of physical interfaces attached to this logical interface
+
+        For example:
+        {
+            'PortChannel0001': ['Ethernet0', 'Ethernet4'],
+            'PortChannel0002': ['Ethernet8', 'Ethernet12']
+        }
+        {
+            'Vlanl0001': ['Ethernet0', 'Ethernet4'],
+            'Vlanl0002': ['Ethernet8', 'Ethernet12']
+        }
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    if member_type not in config_facts:
+        return None
+
+    member = config_facts[member_type]
+    result = {}
+
+    for logical_intf in member:
+        physical_intfs = list(member[logical_intf].keys())
+        result[logical_intf] = physical_intfs
+
+    return result
+
+def get_intf_ipv4_addr(host_ans):
+    """
+    Get IPv4 addresses of all the interfaces
+
+    Args:
+        host_ans: Ansible host instance of the device
+
+    Returns:
+        A dictionary where key is the interface name and value is the
+        IPv4 subnet
+
+        For example:
+        {
+            'PortChannel0001': '192.168.1.1/31'
+            'Vlan1000': '192.168.2.1/24'
+            'Ethernet0': '192.168.3.1/31'
+        }
+    """
+    result = {}
+    intf_types = ['PORTCHANNEL_INTERFACE', 'VLAN_INTERFACE']
+
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    for intf_type in intf_types:
+        if intf_type not in config_facts:
+            continue
+
+        intfs = config_facts[intf_type]
+        for intf in intfs:
+            addrs = list(intfs[intf].keys())
+            """ IPv6 addr string typically has ':', e.g., FC00::71/126 """
+            ipv4_addrs = [x for x in addrs if ':' not in x]
+
+            if len(ipv4_addrs) == 1:
+                result[intf] = ipv4_addrs[0]
+
+    return result
+
+def get_portchannel_member(host_ans):
+    """
+    Get portchannel interfaces and physical interfaces attached to them
+
+    Args:
+        host_ans: Ansible host instance of the device
+
+    Returns:
+        A dictionary where key is the portchannel name and value is the list
+        of physical interfaces attached to this portchannel interface.
+
+        For example:
+        {
+            'PortChannel0001': ['Ethernet0', 'Ethernet4'],
+            'PortChannel0002': ['Ethernet8', 'Ethernet12']
+        }
+    """
+    return get_logical_intf_member(host_ans=host_ans,
+                                   member_type='PORTCHANNEL_MEMBER')
+
+def get_vlan_member(host_ans):
+    """
+    Get vlan interfaces and physical interfaces attached to them
+
+    Args:
+        host_ans: Ansible host instance of the device
+
+    Returns:
+        A dictionary where key is the vlan name and value is the list of
+        physical interfaces attached to this vlan interface.
+
+        For example:
+        {
+            'Vlanl0001': ['Ethernet0', 'Ethernet4'],
+            'Vlanl0002': ['Ethernet8', 'Ethernet12']
+        }
+    """
+    return get_logical_intf_member(host_ans=host_ans, member_type='VLAN_MEMBER')
 
 def get_egress_lossless_buffer_size(host_ans):
     """
@@ -175,8 +316,8 @@ def get_peer_ixia_chassis(conn_data, dut_hostname):
 
         dut_hostname (str): hostname of the DUT
 
-    Return:
-        Return the name of the peer IXIA chassis
+    Returns:
+        The name of the peer IXIA chassis or None
     """
 
     device_conn = conn_data['device_conn']
@@ -191,6 +332,142 @@ def get_peer_ixia_chassis(conn_data, dut_hostname):
         return peer_devices[0]
     else:
         return None
+
+def get_peer_port(conn_data, dut_hostname, dut_intf):
+    """
+    Get the peer port of the DUT port
+
+    Args:
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        Example format of the conn_data is given below:
+
+        {
+            u'device_conn': {
+                u'msr-s6100-dut-1': {
+                    u'Ethernet0': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port5',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet1': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port6',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet2': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port7',
+                        u'speed': u'40000'
+                    }
+                }
+            },
+            u'device_info': [{u'HwSku': u'Dell-S6100', u'Type': u'DevSonic'}],
+            u'device_port_vlans': [
+                {
+                    u'Ethernet0': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet1': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet2': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    }
+                }
+            ],
+            u'device_vlan_list': [[]],
+            u'device_vlan_map_list': {u'msr-s6100-dut-1': []},
+            u'device_vlan_range': [[]]
+        }
+
+        dut_hostname (str): hostname of the DUT
+        dut_intf (str): name of DUT interface
+
+    Returns:
+        The name of the peer port or None
+    """
+    device_conn = conn_data['device_conn']
+    if dut_hostname not in device_conn:
+        return None
+
+    dut_device_conn = device_conn[dut_hostname]
+    if dut_intf not in dut_device_conn:
+        return None
+
+    return dut_device_conn[dut_intf]['peerport']
+
+
+def get_dut_intfs(conn_data, dut_hostname):
+    """
+    Get DUT's interfaces
+
+    Args:
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        Example format of the conn_data is given below:
+
+        {
+            u'device_conn': {
+                u'msr-s6100-dut-1': {
+                    u'Ethernet0': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port5',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet1': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port6',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet2': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port7',
+                        u'speed': u'40000'
+                    }
+                }
+            },
+            u'device_info': [{u'HwSku': u'Dell-S6100', u'Type': u'DevSonic'}],
+            u'device_port_vlans': [
+                {
+                    u'Ethernet0': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet1': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet2': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    }
+                }
+            ],
+            u'device_vlan_list': [[]],
+            u'device_vlan_map_list': {u'msr-s6100-dut-1': []},
+            u'device_vlan_range': [[]]
+        }
+
+        dut_hostname (str): hostname of the DUT
+
+    Returns:
+        Return the list of interface names
+    """
+
+    device_conn = conn_data['device_conn']
+    if dut_hostname not in device_conn:
+        return None
+
+    dut_device_conn = device_conn[dut_hostname]
+    return list(dut_device_conn.keys())
 
 
 def pfc_class_enable_vector(prio_list):
