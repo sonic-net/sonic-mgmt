@@ -6,8 +6,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
@@ -40,7 +39,7 @@ def run_pfcwd_multi_node_test(api,
     Run PFC watchdog test in a multi-node (>=3) topoology
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         testbed_config (obj): L2/L3 config of a T0 testbed
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
@@ -264,7 +263,7 @@ def __gen_2sender_2receiver_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flows configurations (list)
+        N/A
     """
     """ Generate a PFC pause storm """
     pause_port_id = port_id
@@ -343,7 +342,7 @@ def __gen_a2a_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flows configurations (list)
+        N/A
     """
     """ Generate a PFC pause storm """
     pause_port_id = port_id
@@ -418,7 +417,7 @@ def __gen_m2o_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flows configurations (list)
+        N/A
     """
 
     """ Generate a PFC pause storm """
@@ -479,9 +478,7 @@ def __gen_data_flows(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flows configurations (list): the list should have configurations of
-        len(src_port_id_list) * len(dst_port_id_list) * len(flow_prio_list)
-        data flows
+        N/A
     """
 
     for src_port_id in src_port_id_list:
@@ -522,7 +519,7 @@ def __gen_data_flow(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flow configuration (obj): including name, packet format, rate, ...
+        N/A
     """
     tx_device_names = [testbed_config.devices[src_port_id].name]
     rx_device_names = [testbed_config.devices[dst_port_id].name]
@@ -564,7 +561,7 @@ def __gen_pause_flow(testbed_config,
         flow_dur_sec (float): duration of the flow in second
 
     Returns:
-        flow configuration (obj): including name, packet format, rate, ...
+        N/A
     """
     pause_time = []
     for x in range(8):
@@ -615,7 +612,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     Run traffic and dump per-flow statistics
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         config (obj): experiment config (testbed config + flow config)
         all_flow_names (list): list of names of all the flows
         exp_dur_sec (int): experiment duration in second
@@ -623,11 +620,15 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     Returns:
         per-flow statistics (list)
     """
-    api.set_config(config)
+    response = api.set_config(config)
+    pytest_assert(len(response.errors) == 0,
+                  'Set Config failed due to errors')
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'Start traffic failed due to errors')
     time.sleep(exp_dur_sec)
 
     attempts = 0
@@ -658,7 +659,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     logger.info('Stop transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'Stop traffic failed due to errors')
     return rows
 
 

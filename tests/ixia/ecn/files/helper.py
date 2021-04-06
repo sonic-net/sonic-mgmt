@@ -5,8 +5,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging
@@ -37,7 +36,7 @@ def run_ecn_test(api,
     Run a ECN test
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         testbed_config (obj): L2/L3 config of a T0 testbed
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
@@ -148,7 +147,7 @@ def __gen_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        Configurations of the data flow and the PFC pause storm (list)
+        N/A
 
     """
 
@@ -229,7 +228,7 @@ def __config_capture_ip_pkt(testbed_config, port_id):
         port_id (int): ID of DUT port to capture packets
 
     Returns:
-        Packet capture configuration (list)
+       N/A
     """
 
     """ We only capture IP packets """
@@ -253,7 +252,7 @@ def __run_traffic(api,
     Run traffic and capture packets
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         config (obj): experiment config
         all_flow_names (list): names of all the flows
         capture_port_name (str): name of the port to capture packets
@@ -262,17 +261,23 @@ def __run_traffic(api,
     Returns:
         N/A
     """
-    api.set_config(config)
+    response = api.set_config(config)
+    pytest_assert(len(response.errors) == 0,
+                  'Set Config failed due to errors')
 
     cs = api.capture_state()
     cs.port_names = [capture_port_name]
     cs.state = cs.START
-    api.set_capture_state(cs)
+    response = api.set_capture_state(cs)
+    pytest_assert(len(response.errors) == 0,
+                  'Set Capture failed due to errors')
 
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'Start traffic failed due to errors')
     time.sleep(exp_dur_sec)
 
     attempts = 0
@@ -300,16 +305,17 @@ def __run_traffic(api,
     request = api.capture_request()
     request.port_name = capture_port_name
     pcap_bytes = api.get_capture(request)
-    pcap_bytes = pcap_bytes.getvalue()
 
     with open(pcap_file_name, 'wb') as fid:
-        fid.write(pcap_bytes)
+        fid.write(pcap_bytes.getvalue())
 
     """ Stop all the flows """
     logger.info('Stop transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'Stop traffic failed due to errors')
 
 
 def __get_ip_pkts(pcap_file_name):

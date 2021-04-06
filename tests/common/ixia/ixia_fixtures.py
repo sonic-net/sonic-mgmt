@@ -13,6 +13,7 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subne
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
 import snappi
 
+# TODO: remove abstract imports after all tests are migrated to snappi.
 try:
     from abstract_open_traffic_generator.port import Port
     from abstract_open_traffic_generator.config import Options, Config
@@ -205,11 +206,14 @@ def snappi_api(ixia_api_serv_ip,
         ixia_api_serv_port (pytest fixture): ixia_api_serv_port fixture.
     """
     host = "https://" + ixia_api_serv_ip + ":" + str(ixia_api_serv_port)
+    # TODO: Currently extension is defaulted to ixnetwork.
+    # Going forward, we should be able to specify extension
+    # from command line while running pytest.
     api = snappi.api(host=host, ext="ixnetwork")
 
     yield api
 
-    if api.assistant is not None:
+    if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
 
 

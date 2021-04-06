@@ -2,8 +2,7 @@ import time
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import start_pfcwd, stop_pfcwd
 
@@ -28,7 +27,7 @@ def run_pfcwd_runtime_traffic_test(api,
     Test PFC watchdog's impact on runtime traffic
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         testbed_config (obj): L2/L3 config of a T0 testbed
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
@@ -103,8 +102,7 @@ def __gen_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flows configurations (list): the list should have configurations of
-        len(prio_list) data flows
+        N/A
     """
     rx_port_id = port_id
     tx_port_id = (port_id + 1) % len(testbed_config.devices)
@@ -138,7 +136,7 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
     Start traffic at time 0 and enable PFC watchdog at pfcwd_start_delay_sec
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         config (obj): experiment config (testbed config + flow config)
         duthost (Ansible host instance): device under test
         all_flow_names (list): list of names of all the flows
@@ -148,11 +146,15 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
     Returns:
         per-flow statistics (list)
     """
-    api.set_config(config)
+    response = api.set_config(config)
+    pytest_assert(len(response.errors) == 0,
+                  'Set Config failed due to errors')
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'Start traffic failed due to errors')
     time.sleep(exp_dur_sec)
 
     time.sleep(pfcwd_start_delay_sec)
@@ -187,7 +189,9 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
     logger.info('Stop transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'stop traffic failed due to errors')
 
     return rows
 

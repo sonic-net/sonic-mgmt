@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_testbed, snappi_api
+     ixia_testbed, snappi_api
 from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list
 
@@ -26,7 +26,7 @@ def test_global_pause(snappi_api,
     Test if IEEE 802.3X pause (a.k.a., global pause) will impact any priority
 
     Args:
-        snappi_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): snappi API session
         ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph

@@ -4,8 +4,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     get_egress_lossless_buffer_size, stop_pfcwd, disable_packet_aging
@@ -39,7 +38,7 @@ def run_pfc_test(api,
     Run a PFC test
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         testbed_config (obj): L2/L3 config of a T0 testbed
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
@@ -166,9 +165,7 @@ def __gen_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        flows configurations (list): the list should have configurations of
-        len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
-        flows and a pause storm.
+        N/A
     """
 
     rx_port_id = port_id
@@ -279,7 +276,7 @@ def __run_traffic(api,
     Run traffic and dump per-flow statistics
 
     Args:
-        api (obj): IXIA session
+        api (obj): snappi API session
         config (obj): experiment config (testbed config + flow config)
         data_flow_names (list): list of names of data (test and background) flows
         all_flow_names (list): list of names of all the flows
@@ -288,11 +285,15 @@ def __run_traffic(api,
     Returns:
         per-flow statistics (list)
     """
-    api.set_config(config)
+    response = api.set_config(config)
+    pytest_assert(len(response.errors) == 0,
+                  'Set Config failed due to errors')
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'Start traffic failed due to errors')
     time.sleep(exp_dur_sec)
 
     attempts = 0
@@ -323,7 +324,9 @@ def __run_traffic(api,
     logger.info('Stop transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    response = api.set_transmit_state(ts)
+    pytest_assert(len(response.errors) == 0,
+                  'Stop traffic failed due to errors')
 
     return rows
 
