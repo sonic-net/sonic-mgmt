@@ -88,7 +88,7 @@ def add_loopback_routes(standby_tor, active_tor_loopback_ip):
     """
     logger.info("Applying dual ToR peer switch loopback route")
     bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
-    
+
     ipv4_neighbors = []
 
     for neighbor in bgp_neighbors:
@@ -123,7 +123,7 @@ def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut,
 
 def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, rand_unselected_dut, verify_crm_nexthop_counter_not_increased, tbinfo):
     """
-    Verify traffic is distributed evenly after t1 link is recovered; 
+    Verify traffic is distributed evenly after t1 link is recovered;
     Verify CRM that no new nexthop created
     """
     PAUSE_TIME = 30
@@ -150,11 +150,11 @@ def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, ra
 def test_standby_tor_downstream_bgp_recovered(ptfhost, rand_selected_dut, rand_unselected_dut, verify_crm_nexthop_counter_not_increased, tbinfo):
     """
     Verify traffic is shifted to the active links and no traffic drop observed;
-    Verify traffic is distributed evenly after BGP session is recovered; 
+    Verify traffic is distributed evenly after BGP session is recovered;
     Verify CRM that no new nexthop created
     """
     PAUSE_TIME = 30
-    
+
     down_bgp = shutdown_random_one_bgp_session(rand_selected_dut)
     time.sleep(PAUSE_TIME)
     params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
@@ -169,24 +169,17 @@ def test_standby_tor_downstream_bgp_recovered(ptfhost, rand_selected_dut, rand_u
     params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     check_tunnel_balance(**params)
 
-    
-def test_standby_tor_downstream_loopback_route_removed(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
-    """
-    Verify traffic is equally distributed via default route
-    """
-    pt_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
-    params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
-    active_tor_loopback0 = params['active_tor_ip']
-    remove_loopback_routes(rand_selected_dut, active_tor_loopback0)
-    check_tunnel_balance(**params)
-
-
-def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     Verify traffic is equally distributed via loopback route
     """
     pt_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
     params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     active_tor_loopback0 = params['active_tor_ip']
+
+    # Remove loopback routes and verify traffic is equally distributed
+    remove_loopback_routes(rand_selected_dut, active_tor_loopback0)
+    check_tunnel_balance(**params)
+
+    # Readd loopback routes and verify traffic is equally distributed
     add_loopback_routes(rand_selected_dut, active_tor_loopback0)
     check_tunnel_balance(**params)
