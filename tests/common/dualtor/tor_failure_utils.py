@@ -27,15 +27,16 @@ def shutdown_tor_bgp():
         bgp_neighbors = duthost.get_bgp_neighbors()
         up_bgp_neighbors = [k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established"]
         if shutdown_all and up_bgp_neighbors:
-            logger.info("Shutdown BGP sessions on {}".format(duthost.hostname))
-            duthost.shell("config bgp shutdown all")
+            logger.info("Kill bgpd process on {}".format(duthost.hostname))
+            duthost.shell("pkill -9 bgpd")
 
     yield shutdown_tor_bgp
 
     time.sleep(1)
     for duthost in torhost:
-        logger.info("Starting BGP sessions on {}".format(duthost.hostname))
-        duthost.shell("config bgp startup all")
+        logger.info("Restarting BGP container on {}".format(duthost.hostname))
+        duthost.shell("systemctl reset-failed bgp")
+        duthost.shell("systemctl restart bgp")
 
 
 @pytest.fixture

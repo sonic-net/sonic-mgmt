@@ -39,8 +39,8 @@ def test_active_tor_shutdown_bgp_upstream(
         action=lambda: shutdown_tor_bgp(upper_tor_host)
     )
     verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host
     )
 
 
@@ -99,12 +99,12 @@ def test_active_tor_shutdown_bgp_downstream_standby(
         T1 switch receives no IP-in-IP packet; server receives packet;
         verify traffic interruption is < 1 second
     '''
-    with tunnel_traffic_monitor(lower_tor_host, existing=False):
+    with tunnel_traffic_monitor(lower_tor_host, existing=True):
         send_t1_to_server_with_action(
             lower_tor_host, verify=True, delay=1,
             action=lambda: shutdown_tor_bgp(upper_tor_host)
         )
     verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host
     )
