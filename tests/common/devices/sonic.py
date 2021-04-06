@@ -913,11 +913,12 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         Returns:
             str: The MAC address of the specified interface, or None if it is not found.
         """
-        for iface, iface_info in self.setup()['ansible_facts'].items():
-            if iface_name in iface:
-                return iface_info["macaddress"]
-
-        return None
+        try:
+            mac = self.command('cat /sys/class/net/{}/address'.format(iface_name))['stdout']
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
+            return None
 
     def get_container_autorestart_states(self):
         """
