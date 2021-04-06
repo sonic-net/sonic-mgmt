@@ -30,9 +30,9 @@ devices:
     linecard_versions: [p7]
     vxr_sim_config:
         shelf:
-            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
-            ConfigS1NpsuiteVer: 1.70.1
-            ConfigS1SDkVer: 1.37.0
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.38.1_NPS1.74.6/npl
+            ConfigS1NpsuiteVer: 1.74.6
+            ConfigS1SDkVer: 1.38.1
 
   
   sonic_mgmt :
