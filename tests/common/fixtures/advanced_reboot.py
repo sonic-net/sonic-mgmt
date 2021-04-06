@@ -40,6 +40,23 @@ class AdvancedReboot:
         )
 
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            # Fast and Warm-reboot procedure now test if "docker exec" works.
+            # The timeout for check_docker_exec test is 1s. This timeout is good
+            # enough for test in physical devices. However, the KVM devices are
+            # inherently slow, and the 1s timeout for check_docker_exec test has
+            # intermittently failed in Azure Pipeline PR tests.
+            # Therefore, the 1s timeout is increased to 5s for KVM testing.
+            # 5s timeout is believed to be generous enough for the KVM device,
+            # however more test results are needed to prove this.
+
+            cmd_format = "sed -i 's/{}/{}/' {}"
+            warmboot_script_path = duthost.shell('which warm-reboot')['stdout']
+            original_line = 'timeout 1s docker exec $container echo "success"'
+            replaced_line = 'timeout 5s docker exec $container echo "success"'
+            replace_cmd = cmd_format.format(original_line, replaced_line, warmboot_script_path)
+            logger.info("Increase docker exec timeout from 1s to 5s in {}".format(warmboot_script_path))
+            duthost.shell(replace_cmd)
+
             self.kvmTest = True
             device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
             if 'vs' not in device_marks:
@@ -85,6 +102,11 @@ class AdvancedReboot:
         if self.rebootLimit is None:
             if self.kvmTest:
                 self.rebootLimit = 200 # Default reboot limit for kvm
+            elif 'warm-reboot' in self.rebootType:
+                if isMellanoxDevice(self.duthost):
+                    self.rebootLimit = 1
+                else:
+                    self.rebootLimit = 0
             else:
                 self.rebootLimit = 30 # Default reboot limit for physical devices
 
@@ -342,6 +364,7 @@ class AdvancedReboot:
         '''
         if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(self.rebootType)
+            rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
             capturePcap = '/tmp/capture.pcap'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
@@ -349,6 +372,7 @@ class AdvancedReboot:
             swssRec = '/tmp/swss.rec'
         else:
             rebootLog = '/tmp/{0}-{1}.log'.format(self.rebootType, rebootOper)
+            rebootReport = '/tmp/{0}-{1}-report.json'.format(self.rebootType, rebootOper)
             capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
             filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
             syslogFile = '/tmp/syslog_{0}'.format(rebootOper)
@@ -368,6 +392,7 @@ class AdvancedReboot:
         logFiles = {
             self.ptfhost: [
                 {'src': rebootLog, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
+                {'src': rebootReport, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
                 {'src': capturePcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
                 {'src': filterPcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
             ],
