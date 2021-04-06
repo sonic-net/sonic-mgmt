@@ -197,7 +197,7 @@ class TestChassisFans(PlatformApiTestBase):
 
     def test_set_fans_speed(self, duthost, localhost, platform_api_conn):
 
-        target_speed = random.randint(1, 100)
+        target_speed = random.randint(40, 60)
 
         for i in range(self.num_fans):
             speed = fan.get_speed(platform_api_conn, i)

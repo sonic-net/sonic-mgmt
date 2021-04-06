@@ -83,19 +83,11 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]):
-            if len(downstream_ports) <8:
                 downstream_ports.append(interface)
                 downstream_port_ids.append(port_id)
-            else:
-                duthost.shutdown(interface)
-                shut_list.append(interface)
         elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
-            if len(upstream_ports) <8:
                 upstream_ports.append(interface)
                 upstream_port_ids.append(port_id)
-            else:
-                duthost.shutdown(interface)
-                shut_list.append(interface)
                 
     # Get the list of LAGs
     port_channels = mg_facts["minigraph_portchannels"]

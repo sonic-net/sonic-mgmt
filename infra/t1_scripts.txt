@@ -13,9 +13,8 @@ bgp/test_bgpmon.py
 bgp/test_bgp_update_timer.py
 #bgp/test_bgp_speaker.py
 bgp/test_bgp_gr_helper.py
-bgp/bgp_monitor_dump.py
 acl/test_acl.py
-arp/test_arp_dualtor.py
+#arp/test_arp_dualtor.py
 arp/test_arpall.py
 arp/test_neighbor_mac.py
 arp/test_neighbor_mac_noptf.py

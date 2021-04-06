@@ -177,8 +177,8 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name):
 
     tdata['devices'][dut_name]['ansible']['ansible_host'] = data['sonic_dut']['xr_mgmt_ip']
     tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
-    tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['ptf']['xr_mgmt_ip'] + '/24'
-    tdata['testbed']['docker-ptf']['ptf_ip'] = data['ptf']['xr_mgmt_ip'] + '/24'
+    tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+    tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     base = 100
 
     for i in range (1,vEOS_count+1):
@@ -409,7 +409,7 @@ def add_ptf_backplane_addr(data):
     cmd_list.append('ip address add 10.10.246.254/24 dev eth32')
     cmd_list.append('ip -6 address add fc0a::ff/64 dev eth32')
     cmd_list.append('for i in {0..32}; do /sbin/ifconfig eth$i mtu 9216 up; done')
-    run_exec_cmds(data['ptf']['HostAgent'], data['ptf']['xr_redir22'], 'root', 'root', cmd_list)
+    run_exec_cmds(data['docker_ptf']['HostAgent'], data['docker_ptf']['xr_redir22'], 'root', 'root', cmd_list)
 
 def add_vEOS_cfg(data):
     ssh = paramiko.SSHClient()
@@ -471,62 +471,10 @@ def add_vEOS_cfg(data):
 
 def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send('cd /data/tests \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    cmd_list = list()
+    cmd_list.append('./run_scripts.py  -s {} -v {} -l {} -d {} \n'.format(script_file,drop_version,log_dir,device_type))
+    run_exec_cmds(data['docker_ptf']['HostAgent'], data['docker_ptf']['xr_redir22'], 'root', 'root', cmd_list)
     
-    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} \n'.format(script_file,drop_version,log_dir,device_type))
-    chan.settimeout(180)
-    buff = ''
-    err_buff = ''
-    rcv_timeout = 60
-    interval_length = 5
-    
-    try:    
-        while not chan.exit_status_ready():
-            if chan.recv_ready():
-                resp = chan.recv(9999)
-                print(resp.decode("ascii"))
-                buff += resp.decode("ascii")
-            else:
-                rcv_timeout -= interval_length
-            if rcv_timeout < 0:
-                break
-            else:
-                time.sleep(interval_length)
-
-            if chan.recv_stderr_ready():            
-                error_buff = chan.recv_stderr(9999)
-                while error_buff:
-                    err_buff += error_buff.decode("ascii")
-                    error_buff = chan.recv_stderr(9999)
-                print(err_buff)
-    except Exception as e: 
-        print('Hit %s' % e)
-    #finally:
-    #    print(buff)
-    
-    ssh.close()
 
 
 def main():
@@ -628,7 +576,7 @@ def main():
 
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
-    print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['ptf']['HostAgent'], data['ptf']['serial0'], data['ptf']['xr_mgmt_ip'], data['ptf']['xr_redir22']))
+    print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
 
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):

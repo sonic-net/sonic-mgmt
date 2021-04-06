@@ -2,6 +2,7 @@ simulation:
   no_image_copy: true
   slurm_flags:
     hours: 120
+    partition: bigmem_intel
           
           
 devices:
