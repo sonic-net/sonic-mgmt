@@ -781,3 +781,17 @@ def rand_selected_interface(rand_selected_dut):
     return iface, server_ips[iface]
 
 
+def show_muxcable_status(duthost):
+    """
+    Show muxcable status and parse into a dict
+    """
+    command = "show muxcable status"
+    output = duthost.shell(command)["stdout_lines"]
+    
+    ret = {}
+    for i in range(2, len(output)):
+        port, status, health = output[i].split()
+        ret[port] = {'status': status, 'health': health}
+
+    return ret
+

@@ -201,7 +201,6 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, mock_server_base_ip_addr, tor_mux_intfs):
-
     garp_config = {}
 
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]

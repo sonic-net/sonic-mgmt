@@ -8,7 +8,7 @@ def pytest_addoption(parser):
     options_group.addoption(
         "--upgrade_type",
         default="warm",
-        help="Specify the type (warm/fast/cold) of upgrade that is needed from source to target image",
+        help="Specify the type (warm/fast/cold/soft) of upgrade that is needed from source to target image",
     )
 
     options_group.addoption(
