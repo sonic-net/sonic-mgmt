@@ -51,7 +51,8 @@ class TestQosSai(QosSaiBase):
         'Celestica-DX010-C32',
         'Arista-7260CX3-D108C8',
         'Force10-S6100',
-        'Arista-7260CX3-Q64'
+        'Arista-7260CX3-Q64',
+        'Arista-7050CX3-32S-C32'
     ]
 
     def testParameter(
