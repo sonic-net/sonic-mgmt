@@ -95,7 +95,7 @@ def test_standby_tor_heartbeat_failure_downstream_active(
     Confirm no switchover and no disruption.
     """
     send_t1_to_server_with_action(
-        upper_tor_host, verify=True, tor_vlan_port='Ethernet4',
+        upper_tor_host, verify=True,
         action=lambda: shutdown_tor_heartbeat(lower_tor_host)
     )
     verify_tor_states(
