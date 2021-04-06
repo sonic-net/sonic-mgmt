@@ -384,6 +384,9 @@ sonic_arista64_100:
       ansible_host: 10.3.146.137
       hwsku: Arista-7260CX3-D108C8
       pdu_host: pdu-121,pdu-122
+    str2-7170-azd:
+      ansible_host: 10.3.146.76
+      hwsku: Arista-7170-64C
 
 sonic_nokia_7215:
   vars:
