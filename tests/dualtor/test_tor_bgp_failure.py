@@ -30,8 +30,8 @@ def test_active_tor_shutdown_bgp_upstream(
     Action: Shutdown all BGP sessions on the active ToR
     Expectation:
         Verify packet flow after the active ToR (A) loses BGP sessions
-        ToR A DBs indicate standby, ToR B DBs indicate active
-        T1 switch receives packet from the new active ToR (B) and not the new standby ToR (A)
+        ToR A DBs indicate active, ToR B DBs indicate standby
+        T1 switch receives packet from the initial active ToR (A) and not the standby ToR (B)
         Verify traffic interruption < 1 second
     '''
     send_server_to_t1_with_action(
@@ -96,7 +96,8 @@ def test_active_tor_shutdown_bgp_downstream_standby(
     Action: Shutdown all BGP sessions on the active ToR
     Expectation:
         Verify packet flow after the active ToR (A) loses BGP sessions
-        T1 switch receives no IP-in-IP packet; server receives packet;
+        T1 switch continues to receive IP-in-IP traffic, from lower to upper ToR
+        No switchover occurs
         verify traffic interruption is < 1 second
     '''
     with tunnel_traffic_monitor(lower_tor_host, existing=True):
