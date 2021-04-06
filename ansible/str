@@ -497,7 +497,7 @@ sonic_mlnx_40:
         "0x2A": "128"
         "0x2B": "Mellanox"
         "0xFE": "0xC3A11ADD"
-      pdu_host: pdu-98,pdu-99
+      pdu_host: pdu-98
     str-msn2700-04:
       ansible_host: 10.3.147.47
       model: MSN2700-CS2FO
