@@ -32,9 +32,9 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
         else:
             return set(ports_down) & set(db_ports_down)
 
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if not ports:
         logger.info("No ports specified, toggling all minigraph ports")
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ports = mg_facts["minigraph_ports"].keys()
 
     if not wait_time_getter:
@@ -43,8 +43,12 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     port_down_wait_time, port_up_wait_time = wait_time_getter(duthost, len(ports))
     logger.info("Toggling ports:\n%s", pprint.pformat(ports))
 
-    cmds_down = ["config interface shutdown {}".format(port) for port in ports]
-    cmds_up = ["config interface startup {}".format(port) for port in ports]
+    cmds_down = []
+    cmds_up = []
+    for port in ports:
+        namespace = '-n {}'.format(mg_facts["minigraph_neighbors"][port]['namespace']) if mg_facts["minigraph_neighbors"][port]['namespace'] else ''
+        cmds_down.append("config interface {} shutdown {}".format(namespace, port))
+        cmds_up.append("config interface {} startup {}".format(namespace, port))
 
     shutdown_ok = False
     shutdown_err_msg = ""

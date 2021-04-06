@@ -198,6 +198,11 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
 
     return results
 
+# For this test, we use the fanout connected to the DUT to send PFC pause frames.
+# The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration of the test.
+# The inter packet interval between PFC frames to completely block a queue vary based on link speed and we have seen flakiness in our test runs.
+# Since this test is already covered under the 'ixia' folder where we use a traffic generator to generate pause frames, skipping this here.
+@pytest.mark.skip(reason="Fanout needs to send PFC frames fast enough to completely pause the queue")
 def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
                             conn_graph_facts, fanout_graph_facts,
                             lossless_prio_dscp_map, enum_dut_lossless_prio):
