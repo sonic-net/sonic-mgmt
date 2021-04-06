@@ -32,13 +32,7 @@ image_list = [
     "next"
 ]
 
-@pytest.fixture(scope="class")
-def gather_facts(request, duthost):
-    # Get platform facts from platform.json file
-    request.cls.chassis_facts = duthost.facts.get("chassis")
 
-
-@pytest.mark.usefixtures("gather_facts")
 class TestComponentApi(PlatformApiTestBase):
     """Platform API test cases for the Component class"""
 
@@ -60,11 +54,10 @@ class TestComponentApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, component_idx):
+    def compare_value_with_platform_facts(self, duthost, key, value, component_idx):
         expected_value = None
-
-        if self.chassis_facts:
-            expected_components = self.chassis_facts.get("components")
+        if duthost.facts.get("chassis"):
+            expected_components = duthost.facts.get("chassis").get("components")
             if expected_components:
                 expected_value = expected_components[component_idx].get(key)
 
@@ -77,7 +70,8 @@ class TestComponentApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -85,10 +79,10 @@ class TestComponentApi(PlatformApiTestBase):
             name = component.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Component {}: Unable to retrieve name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Component {}: Name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i)
+                self.compare_value_with_platform_facts(duthost, 'name', name, i)
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -100,7 +94,7 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(presence is True, "Component {} not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -110,7 +104,7 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "Component {}: Model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -120,7 +114,7 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(serial, STRING_TYPE), "Component {}: Serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -149,7 +143,7 @@ class TestComponentApi(PlatformApiTestBase):
     #
 
 
-    def test_get_description(self, duthost, localhost, platform_api_conn):
+    def test_get_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -159,7 +153,7 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(description, STRING_TYPE), "Component {}: Description appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_firmware_version(self, duthost, localhost, platform_api_conn):
+    def test_get_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -169,45 +163,45 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(isinstance(fw_version, STRING_TYPE), "Component {}: Firmware version appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_available_firmware_version(self, duthost, localhost, platform_api_conn):
+    def test_get_available_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
         for i in range(self.num_components):
-            for image in range(image_list):
+            for image in image_list:
                 avail_fw_version = component.get_available_firmware_version(platform_api_conn, i, image)
                 if self.expect(avail_fw_version is not None, "Component {}: Failed to retrieve available firmware version from image {}".format(i, image)):
                     self.expect(isinstance(avail_fw_version, STRING_TYPE), "Component {}: Available Firmware version appears to be incorrect from image {}".format(i, image))
         self.assert_expectations()
 
-    def test_get_firmware_update_notification(self, duthost, localhost, platform_api_conn):
+    def test_get_firmware_update_notification(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
         for i in range(self.num_components):
-            for image in range(image_list):
+            for image in image_list:
                 notif = component.get_firmware_update_notification(platform_api_conn, i, image)
                 # Can return "None" if no update required. 
                 pytest_assert(isinstance(notif, STRING_TYPE), "Component {}: Firmware update notification appears to be incorrect from image {}".format(i, image))
 
-    def test_install_firmware(self, duthost, localhost, platform_api_conn):
+    def test_install_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
         for i in range(self.num_components):
-            for image in range(image_list):
+            for image in image_list:
                 install_status = component.install_firmware(platform_api_conn, i, image)
                 if self.expect(install_status is not None, "Component {}: Failed to install firmware from image {}".format(i, image)):
-                    self.expect(isinstance(avail_fw_version, bool), "Component {}: Return of Firmware installation appears to be incorrect from image {}".format(i, image))
+                    self.expect(isinstance(install_status, bool), "Component {}: Return of Firmware installation appears to be incorrect from image {}".format(i, image))
         self.assert_expectations()
 
 
-    def test_update_firmware(self, duthost, localhost, platform_api_conn):
+    def test_update_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
         for i in range(self.num_components):
-            for image in range(image_list):
+            for image in image_list:
                 update_status = component.update_firmware(platform_api_conn, i, image)
                 if self.expect(update_status is not None, "Component {}: Failed to update firmware from image {}".format(i, image)):
                     self.expect(isinstance(update_status, bool), "Component {}: Return of Firmware update appears to be incorrect from image {}".format(i, image))
