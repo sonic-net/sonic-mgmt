@@ -490,10 +490,12 @@ sensors_checks:
     compares:
       power: []
       temp:
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
 
       - - lm75-i2c-7-4a/Ambient Port Temp/temp1_input
         - lm75-i2c-7-4a/Ambient Port Temp/temp1_max
@@ -652,14 +654,16 @@ sensors_checks:
     compares:
       power: []
       temp:
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - tmp102-i2c-7-48/Ambient Port Temp/temp1_input
         - tmp102-i2c-7-48/Ambient Port Temp/temp1_max
@@ -835,10 +839,12 @@ sensors_checks:
     compares:
       power: []
       temp:
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
 
       - - lm75-i2c-7-4a/Ambient Port Temp/temp1_input
         - lm75-i2c-7-4a/Ambient Port Temp/temp1_max
@@ -939,14 +945,16 @@ sensors_checks:
     compares:
       power: []
       temp:
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - lm75-i2c-7-4b/Ambient Fan Side Temp (air intake)/temp1_input
         - lm75-i2c-7-4b/Ambient Fan Side Temp (air intake)/temp1_max
@@ -1032,14 +1040,16 @@ sensors_checks:
     compares:
       power: []
       temp:
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - lm75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_input
         - lm75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_max
@@ -1238,15 +1248,15 @@ sensors_checks:
       power: []
       temp:
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
         - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
@@ -1442,11 +1452,11 @@ sensors_checks:
       power: []
       temp:
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
 
       - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
         - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
@@ -1699,15 +1709,15 @@ sensors_checks:
       power: []
       temp:
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
         - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
@@ -2007,15 +2017,15 @@ sensors_checks:
       power: []
       temp:
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
         - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
@@ -3372,11 +3382,11 @@ sensors_checks:
       power: []
       temp:
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
 
       - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
         - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
@@ -3669,15 +3679,15 @@ sensors_checks:
       power: []
       temp:
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
         - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
@@ -3958,15 +3968,15 @@ sensors_checks:
       power: []
       temp:
       - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
+        - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
+        - coretemp-isa-0000/Core 1/temp3_crit
       - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_max
+        - coretemp-isa-0000/Core 2/temp4_crit
       - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_max
+        - coretemp-isa-0000/Core 3/temp5_crit
 
       - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
         - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
