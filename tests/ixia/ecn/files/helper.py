@@ -86,7 +86,7 @@ def run_ecn_test(api,
                   'Failed to get ID for port {}'.format(dut_port))
 
     """ Generate packet capture config """
-    capture_config = __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
+    __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
 
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,

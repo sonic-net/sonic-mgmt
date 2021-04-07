@@ -249,7 +249,6 @@ def ixia_testbed(conn_graph_facts,
 
     ixia_ports = ixia_fanout_list.get_ports(peer_device=duthost.hostname)
 
-    port_names = list()
     port_speed = None
 
     """ L1 config """

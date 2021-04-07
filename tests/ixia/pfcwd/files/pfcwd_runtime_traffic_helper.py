@@ -52,13 +52,13 @@ def run_pfcwd_runtime_traffic_test(api,
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
 
-    flows = __gen_traffic(testbed_config=testbed_config,
-                          port_id=port_id,
-                          data_flow_name=DATA_FLOW_NAME,
-                          data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                          data_pkt_size=DATA_PKT_SIZE,
-                          prio_list=prio_list,
-                          prio_dscp_map=prio_dscp_map)
+    __gen_traffic(testbed_config=testbed_config,
+                  port_id=port_id,
+                  data_flow_name=DATA_FLOW_NAME,
+                  data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                  data_pkt_size=DATA_PKT_SIZE,
+                  prio_list=prio_list,
+                  prio_dscp_map=prio_dscp_map)
 
     """ Tgen config = testbed config + flow config """
     flows = testbed_config.flows
