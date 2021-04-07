@@ -43,7 +43,6 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     dhcp_relay_data_list = []
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    host_facts = duthost.setup()['ansible_facts']
 
     switch_loopback_ip = mg_facts['minigraph_lo_interfaces'][0]['addr']
 
