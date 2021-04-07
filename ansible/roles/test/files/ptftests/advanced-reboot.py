@@ -1105,7 +1105,8 @@ class ReloadTest(BaseTest):
             "reboot_time": "0:00:00" if self.no_routing_stop and self.routing_always \
                 else (self.no_routing_stop - self.reboot_start).total_seconds()
         }
-        if 'warm-reboot' in self.reboot_type:
+        # Add total downtime (calculated in physical warmboot test using packet disruptions)
+        if 'warm-reboot' in self.reboot_type and not self.kvm_test:
             self.report["total_downtime"] = self.total_disrupt_time
 
         with open(self.report_file_name, 'w') as reportfile:
