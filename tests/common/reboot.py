@@ -100,7 +100,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
 
     # pool for executing tasks asynchronously
     pool = ThreadPool()
-    dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+    dut_ip = duthost.mgmt_ip
 
     try:
         reboot_ctrl    = reboot_ctrl_dict[reboot_type]
