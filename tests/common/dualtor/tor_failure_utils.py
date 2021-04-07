@@ -122,7 +122,7 @@ def wait_for_device_reachable(localhost):
     """
 
     def wait_for_device_reachable(duthost, timeout=300):
-        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+        dut_ip = duthost.mgmt_ip
         logger.info("Waiting for ssh to startup on {}"
                     .format((duthost.hostname)))
         res = localhost.wait_for(host=dut_ip,
