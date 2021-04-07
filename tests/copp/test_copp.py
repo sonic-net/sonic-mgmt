@@ -162,7 +162,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
               "myip": test_params.myip,
               "peerip": test_params.peerip}
 
-    dut_ip = dut.setup()["ansible_facts"]["ansible_eth0"]["ipv4"]["address"]
+    dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
                       "1-{}@tcp://{}:10900".format(test_params.nn_target_port, dut_ip)]
 
@@ -244,7 +244,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
         config_reload(dut)
 
     logging.info("Configure syncd RPC for testing")
-    copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface, 
+    copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
                                test_params.nn_target_namespace, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
