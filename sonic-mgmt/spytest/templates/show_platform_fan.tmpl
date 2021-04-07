@@ -1,0 +1,11 @@
+Value Drawer (\S+)
+Value LED (\S+)
+Value Fan (\w+\d.\d)
+Value Speed (\d+%|N/A)
+Value Direction (\w+[\s\w]+|N/A)
+Value Presence (Not Present|Present)
+Value Status (\S+)
+Value TimeStamp (\d+\s+\d\d:\d\d:\d\d)
+
+Start
+  ^\s*${Drawer}\s+${LED}\s+${Fan}\s+${Speed}\s+${Direction}\s+${Presence}\s+${Status}\s+${TimeStamp} -> Record

@@ -203,6 +203,38 @@ def get_testbed_vars(native=None):
     """
     return getwa().get_testbed_vars(native)
 
+def get_platform_type(dut):
+    """
+    returns the platform type as a string
+    :return: platform type string 
+    :rtype: str
+    """
+    return getwa().get_platform_type(dut)
+
+def get_build_commit_hash(dut):
+    """
+    returns the commit unique hash id as a string
+    :return: commit hash string 
+    :rtype: str
+    """
+    return getwa().get_build_commit_hash(dut)
+
+def get_username(dut):
+    """
+    returns the username as a string
+    :return: username string
+    :rtype: str
+    """
+    return getwa().get_username(dut)
+
+def get_password(dut):
+    """
+    returns password as a string
+    :return: password string
+    :rtype: str
+    """
+    return getwa().get_password(dut)
+
 def lock_topology(*args):
     """
     locks the topology to specified specification though

@@ -1,0 +1,44 @@
+Value chassis_serial (\S+) 
+Value clei (\S+) 
+Value controller_type (\S+) 
+Value device_vals (\S+) 
+Value eci_number (\S+) 
+Value group_type (\S+) 
+Value hw_version (\S+) 
+Value macaddr (\S+) 
+Value mac_blksize (\S+) 
+Value mfg_test (\S+) 
+Value new_deviation (\S+) 
+Value pcb_partnbr_6 (\S+) 
+Value pcb_revision_4 (\S+) 
+Value pcb_serial (\S+) 
+Value product_id (\S+) 
+Value pwr_consumption (\S+) 
+Value tan_revison (\d+) 
+Value top_assy_pn_4 (\S+) 
+Value tuner_type (\S+) 
+Value udi_desc (\w+[\s\w+]*) 
+Value version_id (\S+) 
+
+Start 
+  ^\s*CHASSIS_SERIAL:\s+${chassis_serial}  
+  ^\s*CLEI:\s+${clei}  
+  ^\s*CONTROLLER_TYPE:\s+${controller_type}  
+  ^\s*DEVICE_VALS:\s+${device_vals}  
+  ^\s*ECI_NUMBER:\s+${eci_number}  
+  ^\s*GROUP_TYPE:\s+${group_type}  
+  ^\s*HW_VERSION:\s+${hw_version}  
+  ^\s*MACADDR:\s+${macaddr}  
+  ^\s*MAC_BLKSIZE:\s+${mac_blksize}  
+  ^\s*MFG_TEST:\s+${mfg_test}  
+  ^\s*NEW_DEVIATION:\s+${new_deviation}  
+  ^\s*PCB_PARTNBR_6:\s+${pcb_partnbr_6}  
+  ^\s*PCB_REVISION_4:\s+${pcb_revision_4}  
+  ^\s*PCB_SERIAL:\s+${pcb_serial}  
+  ^\s*PRODUCT_ID:\s+${product_id} 
+  ^\s*PWR_CONSUMPTION:\s+${pwr_consumption}
+  ^\s*TAN_REVISION:\s+${tan_revison} 
+  ^\s*TOP_ASSY_PN_4:\s+${top_assy_pn_4} 
+  ^\s*TUNER_TYPE:\s+${tuner_type}  
+  ^\s*UDI_DESC:\s+${udi_desc}
+  ^\s*VERSION_ID:\s+${version_id} 

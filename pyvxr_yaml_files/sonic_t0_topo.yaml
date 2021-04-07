@@ -4,7 +4,7 @@ simulation:
     hours: 120
           
 devices:
-  ptf:
+  docker_ptf:
     platform: linux
     image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2.new
     linux_username: root
@@ -57,30 +57,30 @@ device_groups:
 connections:
   hubs:
     hub0:
-      - ptf.eth[0..26]
+      - docker_ptf.eth[0..26]
       - sonic_dut.Ethernet[0..26]
   custom:
     ptf_injected29:
       ports:
-      - ptf.eth28
+      - docker_ptf.eth28
       - sonic_dut.Ethernet28
       - veos1.Ethernet1
     ptf_injected30:
       ports:
-      - ptf.eth29
+      - docker_ptf.eth29
       - sonic_dut.Ethernet29
       - veos2.Ethernet1
     ptf_injected31:
       ports:
-      - ptf.eth30
+      - docker_ptf.eth30
       - sonic_dut.Ethernet30
       - veos3.Ethernet1
     ptf_injected32:
       ports:
-      - ptf.eth31
+      - docker_ptf.eth31
       - sonic_dut.Ethernet31
       - veos4.Ethernet1
     backplane:
       ports:
       - veos[1..4].Ethernet9
-      - ptf.eth32  
+      - docker_ptf.eth32  

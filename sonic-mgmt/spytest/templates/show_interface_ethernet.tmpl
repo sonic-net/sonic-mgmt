@@ -1,0 +1,24 @@
+Value Interface (\S+)
+Value Status (\w+)
+Value Line_Protocol (\w+)
+Value uptime (.*)
+Value downtime (.*)
+Value vrf (.*)
+Value index (.*)
+Value flags (.*)
+Value type (.*)
+Value hwaddr (.*)
+Value inet6 (.*)
+
+Start
+  ^\s*Interface ${Interface} is ${Status}, line protocol is ${Line_Protocol}
+  ^\s*Interface ${Interface} is ${Status}
+  ^\s*Link ups:\s*\d+\s*last:\s+${uptime}
+  ^\s*Link downs:\s*\d+\s*last:\s+${downtime}
+  ^\s*vrf: ${vrf}
+  ^\s*index ${index}
+  ^\s*flags: ${flags}
+  ^\s*Type: ${type}
+  ^\s*HWaddr: ${hwaddr}
+  ^\s*inet6 ${inet6} -> Record
+  

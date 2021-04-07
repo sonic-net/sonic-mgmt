@@ -1,0 +1,16 @@
+Value Filldown docker_name (\S+)
+Value user (\S+)
+Value pid (\d+)
+Value cpu (\d+.\d+)
+Value mem (\d+.\d+)
+Value vsz (\d+)
+Value rss (\d+)
+Value tty (\S+)
+Value stat ([a-zA-Z+]+)
+Value start (\d+:\d+ || \S+)
+Value time (\d+:\d+)
+Value cmd ([\S+\s\S+]+)
+
+Start
+  ^\s*${docker_name}\s*docker
+  ^\s*${user}\s*${pid}\s*${cpu}\s*${mem}\s*${vsz}\s*${rss}\s*${tty}\s*${stat}\s*${start}\s*${time}\s*${cmd} -> Record
