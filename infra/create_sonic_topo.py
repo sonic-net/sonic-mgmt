@@ -25,6 +25,7 @@ import yaml
 import telnetlib
 import paramiko
 import time
+import datetime
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
@@ -471,10 +472,66 @@ def add_vEOS_cfg(data):
 
 def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
-    cmd_list = list()
-    cmd_list.append('./run_scripts.py  -s {} -v {} -l {} -d {} \n'.format(script_file,drop_version,log_dir,device_type))
-    run_exec_cmds(data['docker_ptf']['HostAgent'], data['docker_ptf']['xr_redir22'], 'root', 'root', cmd_list)
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    chan = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send('cd /data/tests \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
+    tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
+    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
+    chan.send('exit \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
+    tcs_file = open(script_file, 'r')
+    tcs = tcs_file.readlines()
+    for tc in tcs:
+        if '#' in tc:
+            continue
+        tc = tc.strip()
+        tc_name = tc.split('/')
+        tc_name = tc_name[len(tc_name)-1].split('.')[0]
     
+    result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
+    later = datetime.datetime.now() + datetime.timedelta(hours=1)
+    while True:
+        chan.send('cat ~/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
+        time.sleep(3)
+        resp = chan.recv(9999)
+        print(resp.decode("ascii")) 
+        if tc_name in resp:
+            break
+        else:
+            if datetime.datetime.now() < later:
+                time.sleep(300)
+            else:
+                print("Looks like test is taking longer than an hour. Check list of sanity scripts or increase time to wait")
+                break
+    ssh.close()
 
 
 def main():
@@ -567,6 +624,25 @@ def main():
 
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
+
+    print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
+
+    print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
+
+    print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
+
+    print("VEOS (admin/123456): ")
+    for i in range (1,vEOS_count+1):
+        print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
+
+    print("******************************************************************************************************************************************************************************\n")
+    if device_type == 'sherman':
+        print("Device name is sherman. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    else:
+        print("Device name is mth32. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    print("******************************************************************************************************************************************************************************\n")
     
     if run_sanity:
         print("Running Sanity Scripts")

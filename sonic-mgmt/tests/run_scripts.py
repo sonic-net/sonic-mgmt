@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import time
+import datetime
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -19,13 +20,15 @@ def _create_parser():
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
                       required=False,default="mth32")
+    parser.add_argument('-t', '--tstamp', type=str, help='Time stamp',
+                      required=False,default=None)
     return parser
 
-def run_scripts(dut_name,script_file,drop_version,log_dir):
+def run_scripts(dut_name,script_file,drop_version,log_dir,tstamp):
     if drop_version is not None:
-        filename = "ongoing_result_{}.csv".format(drop_version)
+        filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
-        filename = 'ongoing_result.csv'
+        filename = 'ongoing_result_{}.csv'.format(tstamp)
     if log_dir is not None:
         log_dir = '/data/tests/{}'.format(log_dir)
     else:
@@ -120,15 +123,19 @@ def main():
     log_dir = args['log_dir']
     only_parse = args['only_parse']
     device_type = args['device_type']
+    tstamp = args['tstamp']
     if device_type == 'sherman':
         dut_name = 'sherman-01'
     else:
         dut_name = 'mathilda-01'
 
+    if tstamp is None:        
+        tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
+
     if only_parse:
         parse_results()
     else:
-        run_scripts(dut_name,script_file,drop_version,log_dir)
+        run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
 
 if __name__ == '__main__':
   main()
