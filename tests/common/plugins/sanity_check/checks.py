@@ -33,11 +33,11 @@ __all__ = [
 @pytest.fixture(scope="module")
 def check_services(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_on_dut, (args), kwargs, duthosts, timeout=SYSTEM_STABILIZE_MAX_TIME)
+        result = parallel_run(_check_services_on_dut, (args), kwargs, duthosts, timeout=SYSTEM_STABILIZE_MAX_TIME)
         return result.values()
 
     @reset_ansible_local_tmp
-    def _check_on_dut(*args, **kwargs):
+    def _check_services_on_dut(*args, **kwargs):
         dut=kwargs['node']
         results = kwargs['results']
         logger.info("Checking services status on %s..." % dut.hostname)
@@ -118,11 +118,11 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
 @pytest.fixture(scope="module")
 def check_interfaces(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
+        result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
         return result.values()
 
     @reset_ansible_local_tmp
-    def _check_on_dut(*args, **kwargs):
+    def _check_interfaces_on_dut(*args, **kwargs):
         dut = kwargs['node']
         results = kwargs['results']
         logger.info("Checking interfaces status on %s..." % dut.hostname)
@@ -179,11 +179,11 @@ def check_interfaces(duthosts):
 @pytest.fixture(scope="module")
 def check_bgp(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
+        result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
         return result.values()
 
     @reset_ansible_local_tmp
-    def _check_on_dut(*args, **kwargs):
+    def _check_bgp_on_dut(*args, **kwargs):
         dut = kwargs['node']
         results = kwargs['results']
 
@@ -263,11 +263,11 @@ def _is_db_omem_over_threshold(command_output):
 @pytest.fixture(scope="module")
 def check_dbmemory(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_on_dut, args, kwargs, duthosts, timeout=600)
+        result = parallel_run(_check_dbmemory_on_dut, args, kwargs, duthosts, timeout=600)
         return result.values()
 
     @reset_ansible_local_tmp
-    def _check_on_dut(*args, **kwargs):
+    def _check_dbmemory_on_dut(*args, **kwargs):
         dut = kwargs['node']
         results = kwargs['results']
 
@@ -468,11 +468,11 @@ def check_monit(duthosts):
     @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
     def _check(*args, **kwargs):
-        result = parallel_run(_check_on_dut, args, kwargs, duthosts, timeout=600)
+        result = parallel_run(_check_monit_on_dut, args, kwargs, duthosts, timeout=600)
         return result.values()
 
     @reset_ansible_local_tmp
-    def _check_on_dut(*args, **kwargs):
+    def _check_monit_on_dut(*args, **kwargs):
         dut = kwargs['node']
         results = kwargs['results']
 
@@ -531,11 +531,11 @@ def check_monit(duthosts):
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_on_dut, args, kwargs, duthosts, timeout=600)
+        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=600)
         return result.values()
 
     @reset_ansible_local_tmp
-    def _check_on_dut(*args, **kwargs):
+    def _check_processes_on_dut(*args, **kwargs):
         dut = kwargs['node']
         results = kwargs['results']
         logger.info("Checking process status on %s..." % dut.hostname)
