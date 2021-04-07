@@ -211,14 +211,7 @@ def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbin
         cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
     dut.shell_cmds(cmds=cmds)
 
-    yield
-
-    logger.info("Removing dual ToR neighbor entries")
-
-    cmds = []
-    for ip in mock_server_ip_mac_map.keys():
-        cmds.append('ip -4 neigh del {} dev {}'.format(ip, vlan))
-    dut.shell_cmds(cmds=cmds)
+    return
 
 
 @pytest.fixture(scope='module')
@@ -246,11 +239,7 @@ def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, 
     # If there are no pre-existing routes, equivalent to `ip route add`
     dut.shell('ip route replace {} {}'.format(mock_peer_switch_loopback_ip, nexthop_str))
 
-    yield
-
-    logger.info("Removing dual ToR peer switch loopback route")
-
-    dut.shell('ip route del {}'.format(mock_peer_switch_loopback_ip))
+    return
 
 
 @pytest.fixture(scope='module')
@@ -269,12 +258,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'dualToR'))
     dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname))
 
-    yield
-    logger.info("Removing peer switch table")
-
-    dut.shell('redis-cli -n 4 DEL "{}"'.format(peer_switch_key))
-    dut.shell('redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'dualToR'))
-    dut.shell('redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname))
+    return
 
 
 @pytest.fixture(scope='module')
@@ -300,10 +284,7 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
     for param, value in tunnel_params.items():
         dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(tunnel_key, param, value))
 
-    yield
-    logger.info("Removing tunnel table")
-
-    dut.shell('redis-cli -n 4 DEL "{}"'.format(tunnel_key))
+    return
 
 
 @pytest.fixture(scope='module')
@@ -329,13 +310,7 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock
         cmds.append('redis-cli -n 4 HSET "{}" "state" "auto"'.format(key))
     dut.shell_cmds(cmds=cmds)
 
-    yield
-    logger.info("Removing mux cable table")
-
-    cmds = []
-    for key in keys_inserted:
-        cmds.append('redis-cli -n 4 DEL "{}"'.format(key))
-    dut.shell_cmds(cmds=cmds)
+    return
 
 
 @pytest.fixture(scope='module')
