@@ -1145,14 +1145,14 @@ class ReloadTest(BaseTest):
                 self.handle_post_reboot_health_check()
 
             if 'warm-reboot' in self.reboot_type:
-                def wait_for_finalizer():
-                    while self.warmboot_finalizer_thread.is_alive():
-                        self.log('Waiting till finalizer finish')
-                        time.sleep(self.TIMEOUT)
-                    self.warmboot_finalizer_thread.join()
-
-                self.timeout(wait_for_finalizer,finalizer_timeout + self.test_params['warm_up_timeout_secs'],\
-                    "Warmboot Finalizer hasn't finished for {} seconds".format(self.task_timeout))
+                total_timeout = finalizer_timeout + self.test_params['warm_up_timeout_secs']
+                start_time = datetime.datetime.now()
+                # Wait until timeout happens OR the IO test completes
+                while ((datetime.datetime.now() - start_time).seconds < total_timeout) and\
+                    self.warmboot_finalizer_thread.is_alive():
+                        time.sleep(0.5)
+                if self.warmboot_finalizer_thread.is_alive():
+                    self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}".format(total_timeout, self.get_warmboot_finalizer_state()))
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
