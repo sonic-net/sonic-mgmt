@@ -810,12 +810,10 @@ class ReloadTest(BaseTest):
             raise Exception('Error collecting current date from DUT: empty value returned')
         return datetime.datetime.strptime(stdout[0].strip(), "%Y-%m-%d %H:%M:%S")
 
-    def check_warmboot_finalizer(self):
+    def check_warmboot_finalizer(self, finalizer_timeout):
         dut_datetime = self.get_now_time()
         self.log('waiting for warmboot-finalizer service to become activating')
         finalizer_state = self.get_warmboot_finalizer_state()
-        warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
-        finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
 
         while finalizer_state != 'activating':
             time.sleep(1)
@@ -834,7 +832,7 @@ class ReloadTest(BaseTest):
             finalizer_state = self.get_warmboot_finalizer_state()
             self.log('warmboot finalizer service state {}'.format(finalizer_state))
             time.sleep(10)
-            if count * 10 > warm_up_timeout_secs:
+            if count * 10 > int(self.test_params['warm_up_timeout_secs']):
                 self.fails['dut'].add('warmboot-finalizer.service did not finish')
                 raise TimeoutError
             count += 1
@@ -1128,7 +1126,9 @@ class ReloadTest(BaseTest):
             thr.start()
 
             if 'warm-reboot' in self.reboot_type:
-                thr = threading.Thread(target=self.check_warmboot_finalizer)
+                finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
+                thr = threading.Thread(target=self.check_warmboot_finalizer,\
+                    kwargs={'finalizer_timeout': finalizer_timeout})
                 thr.setDaemon(True)
                 thr.start()
                 self.warmboot_finalizer_thread = thr
@@ -1151,7 +1151,8 @@ class ReloadTest(BaseTest):
                         time.sleep(self.TIMEOUT)
                     self.warmboot_finalizer_thread.join()
 
-                self.timeout(wait_for_finalizer, self.task_timeout, "Warmboot Finalizer hasn't finished for %d seconds".format(self.task_timeout))
+                self.timeout(wait_for_finalizer,finalizer_timeout + self.test_params['warm_up_timeout_secs'],\
+                    "Warmboot Finalizer hasn't finished for {} seconds".format(self.task_timeout))
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
