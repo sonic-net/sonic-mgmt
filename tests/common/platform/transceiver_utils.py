@@ -45,8 +45,8 @@ def all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     db_output = dut.command(docker_cmd)["stdout_lines"]
-    not_detected_interfaces = [intf for intf in interfaces if intf not in xcvr_skip_list[dut.hostname] if
-                               "TRANSCEIVER_INFO|%s" % intf not in db_output]
+    not_detected_interfaces = [intf for intf in interfaces if (intf not in xcvr_skip_list[dut.hostname] and
+                               "TRANSCEIVER_INFO|{}".format(intf) not in db_output)]
     if len(not_detected_interfaces) > 0:
         logging.info("Interfaces not detected: %s" % str(not_detected_interfaces))
         return False
