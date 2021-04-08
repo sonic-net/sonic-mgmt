@@ -46,6 +46,7 @@ class DualTorIO:
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
         self.test_results = dict()
+        self.stop_early = False
 
         # Calculate valid range for T1 src/dst addresses
         mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
@@ -92,6 +93,7 @@ class DualTorIO:
         # How many packets to be sent by sender thread
         self.packets_to_send = min(int(self.time_to_listen /
             (self.send_interval + 0.0015)), 45000)
+        self.packets_sent_per_server = dict()
 
         if self.tor_vlan_intf:
             self.packets_per_server = self.packets_to_send
@@ -337,8 +339,8 @@ class DualTorIO:
         self.sender_thr.set_error_handler(lambda *args, **kargs: self.io_ready_event.set())
         self.sniff_thr.start()
         self.sender_thr.start()
-        self.sniff_thr.join()
         self.sender_thr.join()
+        self.sniff_thr.join()
 
 
     def traffic_sender_thread(self):
@@ -356,13 +358,38 @@ class DualTorIO:
         # Signal data_plane_utils that sender and sniffer threads have begun
         self.io_ready_event.set()
 
+        sent_packets_count = 0
         for entry in self.packets_list:
+            _, packet = entry
+            server_addr = self.get_server_address(scapyall.Ether(str(packet)))
             time.sleep(self.send_interval)
+            # the stop_early flag can be set to True by data_plane_utils to stop prematurely
+            if self.stop_early:
+                self.send_pkt_to_stop_sniffer(*entry)
+                logger.info("Stopping the sender thread after sending {} packets".format(sent_packets_count))
+                break
             testutils.send_packet(self.ptfadapter, *entry)
+            self.packets_sent_per_server[server_addr] = self.packets_sent_per_server.get(server_addr, 0) + 1
+            sent_packets_count = sent_packets_count + 1
 
         logger.info("Sender finished running after {}".format(
             str(datetime.datetime.now() - sender_start)))
 
+
+    def send_pkt_to_stop_sniffer(self, port_id, packet):
+        packet = scapyall.Ether(str(packet))
+        payload_id = str(packet[scapyall.TCP].payload).replace('X','')
+        payload = payload_id + 'X' * 50 + 'STOP_EARLY'
+        packet.load = payload
+        testutils.send_packet(self.ptfadapter, port_id, packet)
+
+
+    def get_server_address(self, packet):
+        if self.traffic_generator == self.generate_from_t1_to_server:
+            server_addr = packet[scapyall.IP].dst
+        elif self.traffic_generator == self.generate_from_server_to_t1:
+            server_addr = packet[scapyall.IP].src
+        return server_addr
 
     def traffic_sniffer_thread(self):
         """
@@ -397,7 +424,7 @@ class DualTorIO:
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
         scapy_sniffer.join()
-        logger.info("Sniffer finshed running after {}".format(str(datetime.datetime.now() - sniffer_start)))
+        logger.info("Sniffer finished running after {}".format(str(datetime.datetime.now() - sniffer_start)))
         self.sniffer_started.clear()
 
 
@@ -488,10 +515,7 @@ class DualTorIO:
 
         # Split packets into separate lists based on server IP
         for packet in filtered_packets:
-            if self.traffic_generator == self.generate_from_t1_to_server:
-                server_addr = packet[scapyall.IP].dst
-            elif self.traffic_generator == self.generate_from_server_to_t1:
-                server_addr = packet[scapyall.IP].src
+            server_addr = self.get_server_address(packet)
             server_to_packet_map[server_addr].append(packet)
 
         # For each server's packet list, sort by payload then timestamp
@@ -512,13 +536,13 @@ class DualTorIO:
         self.test_results = {}
 
         for server_ip in natsorted(server_to_packet_map.keys()):
-            result = self.examine_each_packet(server_to_packet_map[server_ip])
+            result = self.examine_each_packet(server_ip, server_to_packet_map[server_ip])
             logger.info("Server {} results:\n{}"
                         .format(server_ip, json.dumps(result, indent=4)))
             self.test_results[server_ip] = result
 
 
-    def examine_each_packet(self, packets):
+    def examine_each_packet(self, server_ip, packets):
         num_sent_packets = 0
         received_packet_list = list()
         duplicate_packet_list = list()
@@ -583,7 +607,7 @@ class DualTorIO:
             # If the last packet we received does not match the number of packets
             # sent, some disruption continued after the traffic finished.
             # Store the id of the last received packet
-            if received_packet_list[-1][0] != self.packets_per_server - 1:
+            if received_packet_list[-1][0] != self.packets_sent_per_server.get(server_ip) - 1:
                 disruption_after_traffic = received_packet_list[-1][0]
 
         result = {
@@ -595,12 +619,8 @@ class DualTorIO:
             'disruptions': disruption_ranges
         }
 
-        if num_sent_packets < self.packets_per_server:
-            if self.traffic_generator == self.generate_from_t1_to_server:
-                server_addr = packet[scapyall.IP].dst
-            elif self.traffic_generator == self.generate_from_server_to_t1:
-                server_addr = packet[scapyall.IP].src
-
+        if num_sent_packets < self.packets_sent_per_server.get(server_ip):
+            server_addr = self.get_server_address(packet)
             logger.error('Not all sent packets were captured. '
                          'Something went wrong!')
             logger.error('Dumping server {} results and continuing:\n{}'

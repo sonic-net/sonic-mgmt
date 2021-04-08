@@ -15,6 +15,10 @@ from ptf import config # lgtm[py/unused-import]
 
 SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
 
+def stop_filter(packet):
+    if packet.haslayer(scapyall.TCP):
+        return "STOP_EARLY" in str(packet[scapyall.TCP].payload)
+    return False
 
 class Sniff(BaseTest):
     def __init__(self):
@@ -41,7 +45,7 @@ class Sniff(BaseTest):
         @summary: Sniff packets based on given filters and timeout
         """
         logging.info("Scappy sniffer started with wait {} and filter: {}".format(self.sniff_timeout, self.sniff_filter))
-        self.packets = scapyall.sniff(timeout=self.sniff_timeout, filter=self.sniff_filter)
+        self.packets = scapyall.sniff(timeout=self.sniff_timeout, filter=self.sniff_filter, stop_filter=stop_filter)
         logging.info("Scappy sniffer ended")
         self.save_sniffed_packets()
 
