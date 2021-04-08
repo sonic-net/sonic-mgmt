@@ -37,6 +37,11 @@ class SonicAsic(object):
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
             self.cli_ns_option = ""
+        self.ports = None
+        self.queue_oid = set()
+
+        self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
+        self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
 
     def get_critical_services(self):
         """This function returns the list of the critical services
@@ -209,28 +214,6 @@ class SonicAsic(object):
             )
         return self.sonichost.is_service_running(service_name, docker_name)
 
-    def ping_v4(self, ipv4, count=1):
-        """
-        Returns 'True' if ping to IP address works, else 'False'
-        Args:
-            IPv4 address
-
-        Returns:
-            True or False
-        """
-        try:
-            socket.inet_aton(ipv4)
-        except socket.error:
-            raise Exception("Invalid IPv4 address {}".format(ipv4))
-
-        try:
-            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
-                self._ns_arg, count, ipv4
-            ))
-        except RunAnsibleModuleFail:
-            return False
-        return True
-
     def get_active_ip_interfaces(self):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -239,21 +222,8 @@ class SonicAsic(object):
         Returns:
             Dict of Interfaces and their IPv4 address
         """
-        ip_ifs = self.show_ip_interface()["ansible_facts"]
-        ip_ifaces = {}
-        for k,v in ip_ifs["ip_interfaces"].items():
-            if (k.startswith("Ethernet") or
-                (k.startswith("PortChannel") and k.find("400") == -1)
-            ):
-                if (v["admin"] == "up" and v["oper_state"] == "up" and
-                        self.ping_v4(v["peer_ipv4"])
-                    ):
-                    ip_ifaces[k] = {
-                        "ipv4" : v["ipv4"],
-                        "peer_ipv4" : v["peer_ipv4"]
-                    }
-
-        return ip_ifaces
+        ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        return self.sonichost.active_ip_interfaces(ip_ifs, self._ns_arg)
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
@@ -369,3 +339,82 @@ class SonicAsic(object):
         )
 
         return result["stdout_lines"]
+
+    def port_exists(self, port):
+        """
+        Check if a given port exists in ASIC instance
+        Args:
+            port: port ID
+        Returns:
+            True or False
+        """
+        if self.ports is not None:
+            return port in self.ports
+
+        if_db = self.show_interface(
+            command="status"
+        )["ansible_facts"]["int_status"]
+
+        self.ports = set(if_db.keys())
+        return port in self.ports
+
+    def get_queue_oid(self, port, queue_num):
+        """
+        Get the queue OID of given port and queue number. The queue OID is
+        saved for the purpose of returning the ASIC instance of the
+        queue OID
+
+        Args:
+            port: Port ID
+            queue_num: Queue
+        Returns:
+            Queue OID
+        """
+        redis_cmd = [
+            "redis-cli", "-n", "2", "HGET", "COUNTERS_QUEUE_NAME_MAP",
+            "{}:{}".format(port, queue_num)
+        ]
+        queue_oid = next(iter(self.run_redis_cmd(redis_cmd)), None)
+
+        pytest_assert(
+            queue_oid != None,
+            "Queue OID not found for port {}, queue {}".format(
+                port, queue_num
+            )
+        )
+        # save the queue OID, will be used to retrieve ASIC instance for
+        # this queue's OID
+        self.queue_oid.add(queue_oid)
+        return queue_oid
+
+    def get_extended_minigraph_facts(self, tbinfo):
+          return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
+
+    def startup_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} startup {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def shutdown_interface(self, interface_name):
+        return self.sonichost.shell("sudo config interface {ns} shutdown {intf}".
+                                    format(ns=self.cli_ns_option, intf=interface_name))
+
+    def config_ip_intf(self, interface_name, ip_address, op):
+        return self.sonichost.shell("sudo config interface {ns} ip {op} {intf} {ip}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  intf=interface_name,
+                                  ip=ip_address))
+
+    def config_portchannel_member(self, pc_name, interface_name, op):
+        return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  pc=pc_name,
+                                  intf=interface_name))
+
+    def switch_arptable(self, *module_args, **complex_args):
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.switch_arptable(*module_args, **complex_args)
+
+    def shell(self, *module_args, **complex_args):
+        return self.sonichost.shell(*module_args, **complex_args)

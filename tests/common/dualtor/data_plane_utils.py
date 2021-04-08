@@ -1,9 +1,12 @@
+from collections import defaultdict
 import pytest
 import json
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import InterruptableThread
 import threading
 import logging
+from natsort import natsorted
 
 logger = logging.getLogger(__name__)
 
@@ -27,35 +30,7 @@ def arp_setup(ptfhost):
     ptfhost.shell("supervisorctl reread && supervisorctl update")
 
 
-def validate_no_traffic_loss(tor_IO, allowed_disruption, delay):
-    """
-    Validates traffic loss is as expected:
-
-    """
-    received_counter = tor_IO.get_total_received_packets()
-    total_disruptions = tor_IO.get_total_disruptions()
-    longest_disruption = tor_IO.get_longest_disruption()
-    total_lost_packets = tor_IO.get_total_lost_packets()
-    duplicated_packets = tor_IO.get_duplicated_packets_count()
-
-    if received_counter:
-        pytest_assert(total_disruptions <= allowed_disruption, "Traffic was "\
-            "disrupted {} times. Allowed number of disruption: {}"\
-            .format(total_disruptions, allowed_disruption))
-        pytest_assert(longest_disruption <= delay, "Traffic was disrupted for {}s. "\
-            "Maximum allowed disruption: {}s".format(longest_disruption, delay))
-    else:
-        pytest_assert(received_counter > 0, "Test failed to capture any meaningful "\
-            "received packet")
-
-    if total_lost_packets:
-        logging.warn("Packets were lost during the test. Total lost count: {}"\
-            .format(total_lost_packets))
-    pytest_assert(duplicated_packets == 0, "Duplicated packets received. "\
-        "Count: {}.".format(duplicated_packets))
-
-
-def generate_test_report(tor_IO):
+def validate_traffic_results(tor_IO, allowed_disruption, delay):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -63,20 +38,131 @@ def generate_test_report(tor_IO):
     Returns:
         data_plane_test_report (dict): sent/received/lost/disrupted packet counters
     """
-    data_plane_test_report = {
-            "total_received_packets": tor_IO.get_total_received_packets(),
-            "total_sent_packets": tor_IO.get_total_sent_packets(),
-            "duplicated_packets_count": tor_IO.get_duplicated_packets_count(),
-            "disruptions": {
-                "total_disruptions": tor_IO.get_total_disruptions(),
-                "total_disrupted_packets": tor_IO.get_total_disrupted_packets(),
-                "total_disruption_time": tor_IO.get_total_disrupt_time(),
-                "longest_disruption": tor_IO.get_longest_disruption(),
-                "total_lost_packets": tor_IO.get_total_lost_packets()
-            }
-    }
-    logger.info("Data plane traffic test results: \n{}".format(json.dumps(data_plane_test_report, indent=4)))
-    return data_plane_test_report
+    results = tor_IO.get_test_results()
+
+    pytest_assert(results is not None, "No traffic test results found")
+    server_summaries = dict()
+
+    failures = list()
+    # Calculate and log test summaries
+    for server_ip, result in natsorted(results.items()):
+        total_received_packets = result['received_packets']
+        received_packet_diff = result['received_packets'] - result['sent_packets']
+        total_disruptions = len(result['disruptions'])
+        
+        longest_disruption = 0
+        for disruption in result['disruptions']:
+            disruption_length = disruption['end_time'] - disruption['start_time']
+            if disruption_length > longest_disruption:
+                longest_disruption = disruption_length
+
+        total_duplications = len(result['duplications'])
+        longest_duplication = 0
+        for duplication in result['duplications']:
+            duplication_length = duplication['end_time'] - duplication['start_time']
+            if duplication_length > longest_duplication:
+                longest_duplication = duplication_length
+
+        disruption_before_traffic = result['disruption_before_traffic']
+        disruption_after_traffic = result['disruption_after_traffic']
+
+        server_summary = {
+            'received_packets': total_received_packets,
+            'received_packet_diff': received_packet_diff,
+            'total_disruptions': total_disruptions,
+            'longest_disruption': longest_disruption,
+            'total_duplications': total_duplications,
+            'longest_duplication': longest_duplication,
+            'disruption_before_traffic': disruption_before_traffic,
+            'disruption_after_traffic': disruption_after_traffic
+        }
+
+        logger.info('Server {} summary:\n{}'.format(server_ip, json.dumps(server_summary, indent=4, sort_keys=True)))
+        server_summaries[server_ip] = server_summary
+
+        # Assert test results separately so all server results are logged
+        if total_received_packets <= 0:
+            failures.append("Test failed to capture any meaningful received " 
+                            "packets for server {}".format(server_ip))
+        
+        if total_disruptions > allowed_disruption:
+            failures.append("Traffic to server {} was "
+                            "disrupted {} times. Allowed number of disruptions: {}"\
+                            .format(server_ip, total_disruptions, allowed_disruption))
+
+        if longest_disruption > delay:
+            failures.append("Traffic on server {} was disrupted for {}s. "
+                            "Maximum allowed disruption: {}s"
+                            .format(server_ip, longest_disruption, delay))
+
+        if total_duplications > allowed_disruption:
+            failures.append("Traffic to server {} was duplicated {} times. " 
+                            "Allowed number of duplications: {}"
+                            .format(server_ip, total_duplications, allowed_disruption))
+
+        if longest_duplication > delay:
+            failures.append("Traffic on server {} was duplicated for {}s. "
+                            "Maximum allowed duplication: {}s"
+                            .format(server_ip, longest_duplication, delay))
+
+        if bool(disruption_before_traffic):
+            failures.append("Traffic on server {} was disrupted prior to test start, "
+                            "missing {} packets from the start of the packet flow"
+                            .format(server_ip, disruption_before_traffic))
+
+        if bool(disruption_after_traffic):
+            failures.append("Traffic on server {} was disrupted after test end, "
+                            "missing {} packets from the end of the packet flow"
+                            .format(server_ip, disruption_after_traffic))
+
+    pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
+
+def verify_and_report(tor_IO, verify, delay):
+    # Wait for the IO to complete before doing checks
+    if verify:
+        allowed_disruption = 0 if delay == 0 else 1
+        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption,
+            delay=delay)
+    return tor_IO.get_test_results()
+
+
+def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
+            tbinfo, tor_vlan_port, send_interval, traffic_direction):
+    io_ready = threading.Event()
+    standbyhost = get_standbyhost(duthosts, activehost)
+    tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
+        io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval)
+    if traffic_direction == "server_to_t1":
+        traffic_generator = tor_IO.generate_from_server_to_t1
+    elif traffic_direction == "t1_to_server":
+        traffic_generator = tor_IO.generate_from_t1_to_server
+
+    send_and_sniff = InterruptableThread(
+        target=tor_IO.start_io_test,
+        kwargs={'traffic_generator': traffic_generator}
+    )
+    send_and_sniff.set_error_handler(lambda *args, **kargs: io_ready.set())
+
+    send_and_sniff.start()
+    if action:
+        # do not perform the provided action until
+        # IO threads (sender and sniffer) are ready
+        io_ready.wait()
+        logger.info("Sender and sniffer threads started, ready to execute the "\
+            "callback action")
+        action()
+    # Wait for the IO to complete before doing checks
+    send_and_sniff.join()
+    tor_IO.examine_flow()
+    return tor_IO
+
+
+def cleanup(ptfadapter, duthosts_list):
+    # cleanup torIO
+    ptfadapter.dataplane.flush()
+    for duthost in duthosts_list:
+        logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
+        duthost.shell('sonic-clear arp')
 
 
 @pytest.fixture
@@ -102,7 +188,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     
     duthosts_list = []
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
-                            delay=0, action=None, verify=False):
+                            delay=0, action=None, verify=False, send_interval=None):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -119,39 +205,21 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 default - `None`: No action will be performed and traffic will run
                 between server to T1 router.
             verify (boolean): If set to True, test will automatically verify packet
-                drops/duplication based on given qualification critera
+                drops/duplication based on given qualification criteria
+        Returns:
+            data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
         duthosts_list.append(activehost)
-        io_ready = threading.Event()
-        standbyhost = get_standbyhost(duthosts, activehost)
-        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-            io_ready, tor_vlan_port=tor_vlan_port)
-        send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
-            kwargs={'traffic_generator': tor_IO.generate_from_t1_to_server})
-        send_and_sniff.start()
-        if action:
-            # do not perform the provided action until IO threads (sender and sniffer) are ready
-            io_ready.wait()
-            logger.info("Sender and sniffer threads started, ready to execute "\
-                "the callback action")
-            action()
 
-        # Wait for the IO to complete before doing checks
-        logger.info("Waiting for sender and sniffer threads to finish..")
-        send_and_sniff.join()
-        generate_test_report(tor_IO)
-        if verify:
-            allowed_disruption = 0 if delay == 0 else 1
-            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
-                delay=delay)
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+                        action, tbinfo, tor_vlan_port, send_interval,
+                        traffic_direction="t1_to_server")
+
+        return verify_and_report(tor_IO, verify, delay)
 
     yield t1_to_server_io_test
 
-    # cleanup torIO
-    ptfadapter.dataplane.flush()
-    for duthost in duthosts_list:
-        logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
-        duthost.shell('sonic-clear arp')
+    cleanup(ptfadapter, duthosts_list)
 
 
 @pytest.fixture
@@ -178,7 +246,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
 
     duthosts_list = []
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
-                            delay=0, action=None, verify=False):
+                            delay=0, action=None, verify=False, send_interval=None):
         """
         Helper method for `send_server_to_t1_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -195,36 +263,17 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 between server to T1 router.
             verify (boolean): If set to True, test will automatically verify packet
                 drops/duplication based on given qualification critera
+        Returns:
+            data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
         duthosts_list.append(activehost)
-        io_ready = threading.Event()
-        standbyhost = get_standbyhost(duthosts, activehost)
-        tor_IO = DualTorIO(activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-            io_ready, tor_vlan_port=tor_vlan_port)
-        send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
-            kwargs={'traffic_generator': tor_IO.generate_from_server_to_t1})
-        send_and_sniff.start()
 
-        if action:
-            # do not perform the provided action until
-            # IO threads (sender and sniffer) are ready
-            io_ready.wait()
-            logger.info("Sender and sniffer threads started, ready to execute the "\
-                "callback action")
-            action()
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+                        action, tbinfo, tor_vlan_port, send_interval,
+                        traffic_direction="server_to_t1")
 
-        # Wait for the IO to complete before doing checks
-        send_and_sniff.join()
-        generate_test_report(tor_IO)
-        if verify:
-            allowed_disruption = 0 if delay == 0 else 1
-            validate_no_traffic_loss(tor_IO, allowed_disruption=allowed_disruption,
-                delay=delay)
+        return verify_and_report(tor_IO, verify, delay)
 
     yield server_to_t1_io_test
 
-    # cleanup torIO
-    ptfadapter.dataplane.flush()
-    for duthost in duthosts_list:
-       logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
-       duthost.shell('sonic-clear arp')
+    cleanup(ptfadapter, duthosts_list)

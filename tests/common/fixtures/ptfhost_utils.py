@@ -184,7 +184,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     vlan_intfs = duthost.get_vlan_intfs()
     vlan_table = duthost.get_running_config_facts()['VLAN']
     vlan_name = list(vlan_table.keys())[0]
-    vlan_mac = vlan_table[vlan_name]['mac']
+    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
     icmp_responder_args += " " + "-m {}".format(vlan_mac)
     ptfhost.copy(
@@ -200,7 +200,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     ptfhost.shell("supervisorctl stop icmp_responder")
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module')
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses):
 
     garp_config = {}
@@ -215,7 +215,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses):
         server_ip = ip_interface(config['server_ipv4']).ip
 
         garp_config[ptf_port_index] = {
-                                        'target_ip': '{}'.format(server_ip)  
+                                        'target_ip': '{}'.format(server_ip)
                                       }
 
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
