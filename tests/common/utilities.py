@@ -91,6 +91,10 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
 class InterruptableThread(threading.Thread):
     """Thread class that can be interrupted by Exception raised."""
 
+    def set_error_handler(self, error_handler):
+        """Add error handler callback that will be called when the thread exits with error."""
+        self.error_handler = error_handler
+
     def run(self):
         """
         @summary: Run the target function, call `start()` to start the thread
@@ -101,6 +105,8 @@ class InterruptableThread(threading.Thread):
             threading.Thread.run(self)
         except Exception:
             self._e = sys.exc_info()
+            if getattr(self, "error_handler", None) is not None:
+                self.error_handler(*self._e)
 
     def join(self, timeout=None, suppress_exception=False):
         """
