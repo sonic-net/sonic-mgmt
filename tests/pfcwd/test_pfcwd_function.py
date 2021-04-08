@@ -95,7 +95,7 @@ class PfcCmd(object):
         asic = dut.get_port_asic_instance(port)
         asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", "4", "HSET", "profile", "dynamic_th", value
+                "redis-cli", "-n", "4", "HSET", profile, "dynamic_th", value
             ]
         )
 
