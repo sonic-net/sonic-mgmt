@@ -20,7 +20,7 @@ pytestmark = [
 
 
 MEGABYTE = 1024 * 1024
-DEFAULT_PTF_SOCKET_RCV_SIZE = 10 * MEGABYTE
+DEFAULT_PTF_SOCKET_RCV_SIZE = 1 * MEGABYTE
 DEFAULT_PTF_QLEN = 15000
 
 
@@ -436,6 +436,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                meter_type="packets",
                                cir="100",
                                cbs="100",
+                               send_time="10",
                                tolerance="10")
         finally:
             # Clean up ACL rules and routes
