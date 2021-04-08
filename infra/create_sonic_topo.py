@@ -178,8 +178,8 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name):
 
     tdata['devices'][dut_name]['ansible']['ansible_host'] = data['sonic_dut']['xr_mgmt_ip']
     tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
-    tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
-    tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+    tdata['testbed']['ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+    tdata['testbed']['ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     base = 100
 
     for i in range (1,vEOS_count+1):
@@ -523,7 +523,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         time.sleep(3)
         resp = chan.recv(9999)
         print(resp.decode("ascii")) 
-        if tc_name in resp:
+        if tc_name in resp.decode("ascii"):
             break
         else:
             if datetime.datetime.now() < later:
