@@ -281,7 +281,7 @@ class MockerHelper:
                 self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
             except Exception as e:
                 # Catch any exception for later retry
-                failed_recover_files[file_path] = link_target
+                failed_recover_files[file_path] = value
 
         self.unlink_file_list.clear()
         self.regular_file_list.clear()
