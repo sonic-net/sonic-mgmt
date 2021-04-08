@@ -8,6 +8,7 @@ import pytest
 from ixnetwork_restpy import SessionAssistant
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
+from tests.common.fixtures.snappi_fixtures import snappi_api
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
     get_peer_ixia_chassis
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
@@ -292,5 +293,100 @@ def ixia_testbed(conn_graph_facts,
                         choice=ip_stack)
 
         config.devices.append(device)
+
+    return config
+
+
+@pytest.fixture(scope="function")
+def tgen_testbed(conn_graph_facts,
+                 fanout_graph_facts,
+                 duthosts,
+                 rand_one_dut_hostname,
+                 snappi_api):
+
+    """
+    L2/L3 Tgen API config for the T0 testbed
+
+    Args:
+        conn_graph_facts (pytest fixture)
+        fanout_graph_facts (pytest fixture)
+        duthosts (pytest fixture): list of DUTs
+        rand_one_dut_hostname (pytest fixture): DUT hostname
+
+    Returns:
+        L2/L3 config for the T0 testbed
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
+                                        dut_hostname=duthost.hostname)
+
+    if ixia_fanout is None:
+        return None
+
+    ixia_fanout_id = list(fanout_graph_facts.keys()).index(ixia_fanout)
+    ixia_fanout_list = IxiaFanoutManager(fanout_graph_facts)
+    ixia_fanout_list.get_fanout_device_details(device_number=ixia_fanout_id)
+
+    ixia_ports = ixia_fanout_list.get_ports(peer_device=duthost.hostname)
+
+    port_speed = None
+
+    """ L1 config """
+    config = snappi_api.config()
+    for i in range(len(ixia_ports)):
+        config.ports.port(name='Port {}'.format(i),
+                          location=get_tgen_location(ixia_ports[i]))
+
+        if port_speed is None:
+            port_speed = int(ixia_ports[i]['speed'])
+
+        elif port_speed != int(ixia_ports[i]['speed']):
+            """ All the ports should have the same bandwidth """
+            return None
+
+    port_names = [port.name for port in config.ports]
+    config.options.port_options.location_preemption = True
+    l1_config = config.layer1.layer1()[-1]
+    l1_config.name = 'port settings'
+    l1_config.port_names = [port.name for port in config.ports]
+    l1_config.speed = 'speed_%d_gbps' % int(port_speed/1000)
+    l1_config.auto_negotiate = False
+    l1_config.auto_negotiation.link_training = True
+    l1_config.auto_negotiation.rs_fec = True
+    l1_config.ieee_media_defaults = False
+
+    pfc = l1_config.flow_control.ieee_802_1qbb
+    pfc.pfc_delay = 0
+    pfc.pfc_class_0 = 0
+    pfc.pfc_class_1 = 1
+    pfc.pfc_class_2 = 2
+    pfc.pfc_class_3 = 3
+    pfc.pfc_class_4 = 4
+    pfc.pfc_class_5 = 5
+    pfc.pfc_class_6 = 6
+    pfc.pfc_class_7 = 7
+
+    l1_config.flow_control.choice = l1_config.flow_control.IEEE_802_1QBB
+
+    """ L2/L3 config """
+    vlan_subnet = get_vlan_subnet(duthost)
+    if vlan_subnet is None:
+        return None
+
+    vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(ixia_ports))
+    gw_addr = vlan_subnet.split('/')[0]
+    prefix = vlan_subnet.split('/')[1]
+
+    for i in range(len(ixia_ports)):
+        dev = config.devices.device(name='Device {}'.format(i),
+                                    container_name=port_names[i])[-1]
+
+        eth = dev.ethernet
+        eth.name = 'Ethernet {}'.format(i)
+        ipv4 = eth.ipv4
+        ipv4.name = 'Ipv4 {}'.format(i)
+        ipv4.address = vlan_ip_addrs[i]
+        ipv4.prefix = prefix
+        ipv4.gateway = gw_addr
 
     return config
