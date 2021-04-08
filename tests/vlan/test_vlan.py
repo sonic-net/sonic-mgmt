@@ -512,11 +512,5 @@ def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, d
     logger.info ("QinQ packet to be sent from port {} to port {}".format(src_port, dst_port))
     testutils.send(ptfadapter, src_port, transmit_qinq_pkt)
 
-    result_dst_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=dst_port,
-                                      timeout=1, exp_pkt=transmit_qinq_pkt)
-
-    if isinstance(result_dst_if, ptfadapter.dataplane.PollSuccess):
-        logger.info ("QinQ Packet Transmission Works")
-        logger.info ("QinQ packet successfully sent from port {} to port {}".format(src_port, dst_port))
-    else:
-        pytest.fail("Expected packet was not received")
+    testutils.verify_packet(ptfadapter, transmit_qinq_pkt, dst_port)
+    logger.info ("QinQ packet switching worked successfully...")
