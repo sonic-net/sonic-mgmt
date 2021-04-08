@@ -35,17 +35,16 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     kusto_db = KustoConnector(args.db_name)
 
     if args.category == "test_result":
-        test_result_json = {}
         for path_name in args.path_list:
             if args.json:
-                test_result_json.update(validate_junit_json_file(path_name))
+                test_result_json = validate_junit_json_file(path_name)
             else:
                 roots = validate_junit_xml_path(path_name)
-                test_result_json.update(parse_test_result(roots))
+                test_result_json = parse_test_result(roots)
 
-        tracking_id = args.external_id if args.external_id else ""
+            tracking_id = args.external_id if args.external_id else ""
 
-        kusto_db.upload_report(test_result_json, tracking_id)
+            kusto_db.upload_report(test_result_json, tracking_id)
     elif args.category == "reachability":
         reachability_data = []
         for path_name in args.path_list:
