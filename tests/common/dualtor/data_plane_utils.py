@@ -1,4 +1,3 @@
-from collections import defaultdict
 import pytest
 import json
 from tests.common.dualtor.dual_tor_io import DualTorIO
@@ -7,8 +6,6 @@ from tests.common.utilities import InterruptableThread
 from tests.common.utilities import wait_until
 import threading
 import logging
-import datetime
-import time
 from natsort import natsorted
 
 logger = logging.getLogger(__name__)

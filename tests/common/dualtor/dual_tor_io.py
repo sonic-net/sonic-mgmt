@@ -9,12 +9,10 @@ import logging
 import json
 import scapy.all as scapyall
 import ptf.testutils as testutils
-from itertools import cycle
 from operator import itemgetter
 from itertools import groupby
 
 from tests.common.utilities import InterruptableThread
-from tests.ptf_runner import ptf_runner
 from natsort import natsorted
 from collections import defaultdict
 
