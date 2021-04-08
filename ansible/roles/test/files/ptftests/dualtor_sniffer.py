@@ -1,61 +1,80 @@
-"""
-PTF test script to be used by dualtor dataplane utilities.
-This ptf test, uses Scapy to sniff packets based on the filter and timeout provided.
-Captured packets are dumped into a pcap file which later can be extracted from ptf.
-"""
-
-import ptf
-from ptf.base_tests import BaseTest
-import ptf.testutils as testutils
-import scapy.all as scapyall
-import socket
+import argparse
 import logging
 
-from ptf import config # lgtm[py/unused-import]
-
-SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
-
-def stop_filter(packet):
-    if packet.haslayer(scapyall.TCP):
-        return "STOP_EARLY" in str(packet[scapyall.TCP].payload)
-    return False
-
-class Sniff(BaseTest):
-    def __init__(self):
-        BaseTest.__init__(self)
-        self.sniff_timeout = testutils.test_params_get().get("sniff_timeout")
-        self.sniff_filter = testutils.test_params_get().get("sniff_filter")
-        self.capture_pcap = testutils.test_params_get().get("capture_pcap")
-        self.sniffer_log = testutils.test_params_get().get("sniffer_logs")
-        self.port_filter_expression = testutils.test_params_get().get("port_filter_expression")
+import scapy.all as scapyall
 
 
-    def setUp(self):
-        self.dataplane = ptf.dataplane_instance
-        logging.info("Setting socket configuration and filters")
-        for p in self.dataplane.ports.values():
-            port = p.get_packet_source()
-            port.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_RECV_BUFFER_SIZE)
-            #scapyall.attach_filter(port.socket, self.port_filter_expression)
-        logging.info("Socket configuration and filters complete")
+class Sniffer(object):
+    def __init__(self, filter=None, timeout=60):
+        self.filter = filter
+        self.timeout = timeout
+        self.packets = []
+        self.socket = None
+
+    def sniff(self):
+        logging.debug("scapy sniffer started: filter={}, timeout={}".format(self.filter, self.timeout))
+        scapyall.sniff(
+            filter=self.filter,
+            prn=self.process_pkt,
+            timeout=self.timeout)
+        logging.debug("Scapy sniffer ended")
+
+    def process_pkt(self, pkt):
+        self.packets.append(pkt)
+
+    def save_pcap(self, pcap_path):
+        if not self.packets:
+            logging.warn("No packets were captured")
+
+        scapyall.wrpcap(pcap_path, self.packets)
+        logging.debug("Pcap file dumped to {}".format(pcap_path))
 
 
-    def runTest(self):
-        """
-        @summary: Sniff packets based on given filters and timeout
-        """
-        logging.info("Scappy sniffer started with wait {} and filter: {}".format(self.sniff_timeout, self.sniff_filter))
-        self.packets = scapyall.sniff(timeout=self.sniff_timeout, filter=self.sniff_filter, stop_filter=stop_filter)
-        logging.info("Scappy sniffer ended")
-        self.save_sniffed_packets()
+def main():
+    parser = argparse.ArgumentParser(
+        description='''
+        Tool for managing the testbeds data in Azure Table Storage.
+        '''
+    )
+    parser.add_argument('-f', '--filter',
+        type=str,
+        dest='filter',
+        default=None,
+        help='Capture filter.'
+    )
+    parser.add_argument('-t', '--timeout',
+        type=float,
+        dest='timeout',
+        default=60.0,
+        help='Maximum number of seconds to sniff.'
+    )
+    parser.add_argument('-p', '--pcap',
+        type=str,
+        dest='pcap',
+        default='/tmp/capture.pcap',
+        help='Dump captured packets to the specified pcap file.'
+    )
+    parser.add_argument('-l', '--log',
+        type=str,
+        dest='log',
+        default='/tmp/capture.log',
+        help='Save log to the specified log file'
+    )
 
+    args = parser.parse_args()
 
-    def save_sniffed_packets(self):
-        """
-        @summary: Dump all the captured packets into a pcap file
-        """
-        if self.packets:
-            scapyall.wrpcap(self.capture_pcap, self.packets)
-            logging.info("Pcap file dumped to {}".format(self.capture_pcap))
-        else:
-            logging.info("Pcap file is empty")
+    logging.basicConfig(
+        filename=args.log,
+        filemode='w',
+        format='%(asctime)s %(levelname)s %(message)s',
+        level=logging.DEBUG
+    )
+
+    sniffer = Sniffer(filter=args.filter, timeout=args.timeout)
+    sniffer.sniff()
+    if sniffer.socket:
+        sniffer.socket.close()
+    sniffer.save_pcap(args.pcap)
+
+if __name__ == '__main__':
+    main()
