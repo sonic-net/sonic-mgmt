@@ -13,6 +13,7 @@ from itertools import cycle
 from operator import itemgetter
 from itertools import groupby
 
+from tests.common.utilities import InterruptableThread
 from tests.ptf_runner import ptf_runner
 from natsort import natsorted
 from collections import defaultdict
@@ -180,9 +181,10 @@ class DualTorIO:
         if self.tor_vlan_intf:
             # If destination VLAN intf is specified,
             # use only the connected server
-            server_ip_list = [self.ptf_intf_to_server_ip_map[
-                self.tor_vlan_intf
-                ]]
+            ptf_port = self.tor_to_ptf_intf_map[self.tor_vlan_intf]
+            server_ip_list = [
+                self.ptf_intf_to_server_ip_map[ptf_port]
+            ]
         else:
             # Otherwise send packets to all servers
             server_ip_list = self.ptf_intf_to_server_ip_map.values()
@@ -256,22 +258,23 @@ class DualTorIO:
             ptf_intf_to_mac_map[ptf_intf] = self.ptfadapter.dataplane.get_mac(0, ptf_intf)
 
         logger.info("-"*20 + "Server to T1 packet" + "-"*20)
-        logger.info("Ethernet address: dst: {} src: {}"
-                    .format(self.vlan_mac,
-                            'random' if self.tor_vlan_intf is None
-                                     else ptf_intf_to_mac_map[
-                                         self.tor_to_ptf_intf_map[self.tor_vlan_intf]
-                                         ]
-                           )
-                    )
-        logger.info("IP address: dst: {} src: {}"
-                    .format('random',
-                            'random' if self.tor_vlan_intf is None
-                                     else self.ptf_intf_to_server_ip_map[
-                                                   self.tor_vlan_intf
-                                               ]
-                           )
-                   )
+        if self.tor_vlan_intf is None:
+            src_mac = 'random'
+            src_ip = 'random'
+        else:
+            ptf_port = self.tor_to_ptf_intf_map[self.tor_vlan_intf]
+            src_mac = ptf_intf_to_mac_map[ptf_port]
+            src_ip = self.ptf_intf_to_server_ip_map[ptf_port]
+        logger.info(
+            "Ethernet address: dst: {} src: {}".format(
+                self.vlan_mac, src_mac
+            )
+        )
+        logger.info(
+            "IP address: dst: {} src: {}".format(
+                'random', src_ip
+            )
+        )
         logger.info("TCP port: dst: {} src: 1234".format(TCP_DST_PORT))
         logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac,
             self.standby_mac))
@@ -327,9 +330,11 @@ class DualTorIO:
         """
         @summary: This method starts and joins two background threads in parallel: sender and sniffer
         """
-        self.sender_thr = threading.Thread(target=sender)
-        self.sniff_thr = threading.Thread(target=sniffer)
+        self.sender_thr = InterruptableThread(target=sender)
+        self.sniff_thr = InterruptableThread(target=sniffer)
         self.sniffer_started = threading.Event()
+        self.sniff_thr.set_error_handler(lambda *args, **kargs: self.sniffer_started.set())
+        self.sender_thr.set_error_handler(lambda *args, **kargs: self.io_ready_event.set())
         self.sniff_thr.start()
         self.sender_thr.start()
         self.sniff_thr.join()
@@ -381,8 +386,13 @@ class DualTorIO:
             ptf_bp_mac = output['stdout']
             sniff_filter = '({}) and (not ether dst {})'.format(sniff_filter, ptf_bp_mac)
 
-        scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'sniff_timeout': wait,
-            'sniff_filter': sniff_filter})
+        scapy_sniffer = InterruptableThread(
+            target=self.scapy_sniff,
+            kwargs={
+                'sniff_timeout': wait,
+                'sniff_filter': sniff_filter
+            }
+        )
         scapy_sniffer.start()
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
