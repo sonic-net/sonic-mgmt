@@ -47,7 +47,7 @@ class DualTorIO:
         self.dataplane.flush()
         self.test_results = dict()
         self.stop_early = False
-        self.ptf_sniffer = "/root/ptftests/dualtor_sniffer.py"
+        self.ptf_sniffer = "/root/dual_tor_sniffer.py"
 
         # Calculate valid range for T1 src/dst addresses
         mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
@@ -366,6 +366,7 @@ class DualTorIO:
             time.sleep(self.send_interval)
             # the stop_early flag can be set to True by data_plane_utils to stop prematurely
             if self.stop_early:
+                time.sleep(5)
                 self.stop_sniffer_early()
                 logger.info("Stop the sender thread gracefully after sending {} packets"\
                     .format(sent_packets_count))
@@ -384,9 +385,7 @@ class DualTorIO:
         # Python installs a small number of signal handlers by default.
         # SIGINT is translated into a KeyboardInterrupt exception.
         logger.info("Stop the sniffer thread gracefully: sending SIGINT to ptf process")
-        sniffer_pid = self.ptfhost.command("pgrep -f {}".format(self.ptf_sniffer),\
-            module_ignore_errors=True)["stdout"]
-        self.ptfhost.command("kill -s SIGINT {}".format(sniffer_pid),\
+        self.ptfhost.command("pkill -SIGINT -f {}".format(self.ptf_sniffer),\
             module_ignore_errors=True)
 
 
@@ -455,7 +454,8 @@ class DualTorIO:
             sniff_filter (str): Filter that Scapy will use to collect only relevant packets
         """
         capture_pcap = '/tmp/capture.pcap'
-        capture_log = '/tmp/capture.log'        
+        capture_log = '/tmp/capture.log'
+        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
         self.ptfhost.command(
             'python {} -f "{}" -p {} -l {} -t {}'.format(
                 self.ptf_sniffer, sniff_filter, capture_pcap, capture_log, sniff_timeout

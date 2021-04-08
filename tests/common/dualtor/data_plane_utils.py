@@ -4,6 +4,7 @@ import json
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
+from tests.common.utilities import wait_until
 import threading
 import logging
 import datetime
@@ -155,11 +156,8 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         action()
     # do not time-wait the test, if early start is not requested (when stop_after=0)
     if stop_after:
-        start_time = datetime.datetime.now()
-        # Wait until timeout happens OR the IO test completes
-        while ((datetime.datetime.now() - start_time).seconds < stop_after) and\
-            send_and_sniff.is_alive():
-            time.sleep(0.5)
+        wait_until(timeout=stop_after, interval=0.5, condition=\
+            lambda: not send_and_sniff.is_alive)
         if send_and_sniff.is_alive():
             logger.info("Sender/Snifffer threads are still running. Sending signal "\
                 "to stop the IO test after {}s of the action".format(stop_after))
@@ -202,7 +200,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     duthosts_list = []
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
                             delay=0, action=None, verify=False, send_interval=None,
-                            stop_after=0):
+                            stop_after=None):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -222,7 +220,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 drops/duplication based on given qualification criteria
             send_interval (int): Sleep duration between two sent packets
             stop_after (int): Wait time after which sender/sniffer threads are terminated
-                dafault - 0: Early termination will not be performed
+                default - None: Early termination will not be performed
         Returns:
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
@@ -264,7 +262,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     duthosts_list = []
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
                             delay=0, action=None, verify=False, send_interval=None,
-                            stop_after=0):
+                            stop_after=None):
         """
         Helper method for `send_server_to_t1_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -283,7 +281,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                 drops/duplication based on given qualification critera
             send_interval (int): Sleep duration between two sent packets
             stop_after (int): Wait time after which sender/sniffer threads are terminated
-                dafault - 0: Early termination will not be performed
+                default - None: Early termination will not be performed
         Returns:
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
