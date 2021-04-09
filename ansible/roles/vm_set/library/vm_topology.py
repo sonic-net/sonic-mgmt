@@ -89,6 +89,16 @@ EXAMPLES = '''
     duts_name: "{{ duts_name }}"
     fp_mtu: "{{ fp_mtu_size }}"
     max_fp_num: "{{ max_fp_num }}
+
+- name: Bind ptf_ip to keysight_api_server
+  vm_topology:
+    cmd: "bind_keysight_api_server_ip"
+    ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+    ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
+    ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+    ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
+    vm_names: ""
 '''
 
 
@@ -295,17 +305,23 @@ class VMTopology(object):
 
         return
 
-    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None, mgmt_gw_v6=None):
+    def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None, mgmt_gw_v6=None, api_server_pid=None):
+        if api_server_pid:
+            self.pid = api_server_pid
+            self.update()
         if MGMT_PORT_NAME not in self.cntr_ifaces:
-            tmp_mgmt_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
-            self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, tmp_mgmt_if)
+            if api_server_pid is None:
+                tmp_mgmt_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
+                self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, tmp_mgmt_if)
+            else:
+                tmp_mgmt_if = hashlib.md5(('apiserver').encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
+                self.add_br_if_to_docker(mgmt_bridge, 'apiserver', tmp_mgmt_if)
 
             VMTopology.iface_down(tmp_mgmt_if, self.pid)
             VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, tmp_mgmt_if, MGMT_PORT_NAME))
 
         VMTopology.iface_up(MGMT_PORT_NAME, self.pid)
-
-        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw, mgmt_gw_v6=mgmt_gw_v6)
+        self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw, mgmt_gw_v6=mgmt_gw_v6, api_server_pid=api_server_pid)
         return
 
     def add_bp_port_to_docker(self, mgmt_ip, mgmt_ipv6):
@@ -334,12 +350,16 @@ class VMTopology(object):
 
         return
 
-    def add_ip_to_docker_if(self, int_if, mgmt_ip_addr, mgmt_ipv6_addr=None, mgmt_gw=None, mgmt_gw_v6=None):
+    def add_ip_to_docker_if(self, int_if, mgmt_ip_addr, mgmt_ipv6_addr=None, mgmt_gw=None, mgmt_gw_v6=None, api_server_pid=None):
+        if api_server_pid:
+            self.pid = api_server_pid
         self.update()
         if int_if in self.cntr_ifaces:
             VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" % (self.pid, int_if))
             VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" % (self.pid, mgmt_ip_addr, int_if))
             if mgmt_gw:
+                if api_server_pid:
+                    VMTopology.cmd("nsenter -t %s -n ip route del default" % (self.pid))
                 VMTopology.cmd("nsenter -t %s -n ip route add default via %s dev %s" % (self.pid, mgmt_gw, int_if))
             if mgmt_ipv6_addr:
                 VMTopology.cmd("nsenter -t %s -n ip -6 addr flush dev %s" % (self.pid, int_if))
@@ -347,7 +367,6 @@ class VMTopology(object):
             if mgmt_ipv6_addr and mgmt_gw_v6:
                 VMTopology.cmd("nsenter -t %s -n ip -6 route flush default" % (self.pid))
                 VMTopology.cmd("nsenter -t %s -n ip -6 route add default via %s dev %s" % (self.pid, mgmt_gw_v6, int_if))
-
         return
 
     def add_dut_if_to_docker(self, iface_name, dut_iface):
@@ -920,7 +939,7 @@ def check_params(module, params, mode):
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            cmd=dict(required=True, choices=['create', 'bind', 'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
+            cmd=dict(required=True, choices=['create', 'bind', 'bind_keysight_api_server_ip', 'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
@@ -945,6 +964,9 @@ def main():
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     duts_mgmt_port = []
+
+    if cmd == 'bind_keysight_api_server_ip':
+        vm_names = []
 
     curtime = datetime.datetime.now().isoformat()
 
@@ -1017,6 +1039,22 @@ def main():
 
             if hostif_exists:
                 net.add_host_ports()
+        elif cmd == 'bind_keysight_api_server_ip':
+            check_params(module, ['ptf_mgmt_ip_addr',
+                                  'ptf_mgmt_ipv6_addr',
+                                  'ptf_mgmt_ip_gw',
+                                  'ptf_mgmt_ipv6_gw',
+                                  'mgmt_bridge'], cmd)
+
+            ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
+            ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
+            ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
+            ptf_mgmt_ipv6_gw = module.params['ptf_mgmt_ipv6_gw']
+            mgmt_bridge = module.params['mgmt_bridge']
+
+            api_server_pid = net.get_pid('apiserver')
+
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw, api_server_pid)
         elif cmd == 'unbind':
             check_params(module, ['vm_set_name',
                                   'topo',
