@@ -161,7 +161,7 @@ class QosSaiBase:
                 size (str) size of shared headroom pool
                 None if shared headroom pool isn't enabled
         """
-        if self.isBufferInApplDb(duthost):
+        if self.isBufferInApplDb(dut_asic):
             db = "0"
             keystr = "BUFFER_POOL_TABLE:ingress_lossless_pool"
         else:
