@@ -16,26 +16,27 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def shutdown_tor_bgp():
+def kill_bgpd():
     """
-    Shutdown all BGP sessions
+    Kill bgpd process on a device
     """
     torhost = []
 
-    def shutdown_tor_bgp(duthost, shutdown_all=True):
+    def kill_bgpd(duthost, shutdown_all=True):
         torhost.append(duthost)
         bgp_neighbors = duthost.get_bgp_neighbors()
         up_bgp_neighbors = [k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established"]
         if shutdown_all and up_bgp_neighbors:
-            logger.info("Shutdown BGP sessions on {}".format(duthost.hostname))
-            duthost.shell("config bgp shutdown all")
+            logger.info("Kill bgpd process on {}".format(duthost.hostname))
+            duthost.shell("pkill -9 bgpd")
 
-    yield shutdown_tor_bgp
+    yield kill_bgpd
 
     time.sleep(1)
     for duthost in torhost:
-        logger.info("Starting BGP sessions on {}".format(duthost.hostname))
-        duthost.shell("config bgp startup all")
+        logger.info("Restarting BGP container on {}".format(duthost.hostname))
+        duthost.shell("systemctl reset-failed bgp")
+        duthost.shell("systemctl restart bgp")
 
 
 @pytest.fixture
@@ -122,7 +123,7 @@ def wait_for_device_reachable(localhost):
     """
 
     def wait_for_device_reachable(duthost, timeout=300):
-        dut_ip = duthost.setup()['ansible_facts']['ansible_eth0']['ipv4']['address']
+        dut_ip = duthost.mgmt_ip
         logger.info("Waiting for ssh to startup on {}"
                     .format((duthost.hostname)))
         res = localhost.wait_for(host=dut_ip,
