@@ -18,7 +18,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any', 't0-52')
+    pytest.mark.topology('any')
 ]
 
 # Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
