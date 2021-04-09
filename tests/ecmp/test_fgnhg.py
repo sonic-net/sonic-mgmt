@@ -1,5 +1,5 @@
 import pytest
-
+import datetime
 import time
 import logging
 import ipaddress
@@ -7,11 +7,18 @@ import json
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+<<<<<<< HEAD
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+=======
+from tests.common.reboot import reboot
+from multiprocessing.pool import ThreadPool, TimeoutError
+>>>>>>> Adding warm boot automation
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
+
 
 # Constants
 NUM_NHs = 8
@@ -22,12 +29,13 @@ PREFIX_IPV4_LIST = [u'100.50.25.12/32', u'100.50.25.13/32', u'100.50.25.14/32']
 PREFIX_IPV6_LIST = [u'fc:05::/128', u'fc:06::/128', u'fc:07::/128']
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 USE_INNER_HASHING = False
+WARM_BOOT_TESTING = False
 NUM_FLOWS = 1000
 ptf_to_dut_port_map = {}
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox'),
+    #pytest.mark.asic('mellanox'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -154,7 +162,6 @@ def configure_dut(duthost, cmd):
     logger.info("Configuring dut with " + cmd)
     duthost.shell(cmd, executable="/bin/bash")
 
-
 def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}".format(test_case)
     params = {
@@ -173,8 +180,31 @@ def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
             qlen=1000,
             log_file=log_file)
 
+def reprogram_ecmp_routes(duthost, prefix_list, ip_to_port, ipcmd):
+    logger.info ("Reprogramming ECMP routes")
+    vtysh_base_cmd = "vtysh -c 'configure terminal'"
+    t_end = time.time() + 60 * 6
+    while time.time() < t_end:
+        for prefix in prefix_list:
+           cmd = vtysh_base_cmd
+           for nexthop in ip_to_port:
+               cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
+           configure_dut(duthost, cmd)
 
-def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list):
+def hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count):
+    logger.info ("I ran hash_check_warm_boot")
+    for dst_ip in dst_ip_list:
+        partial_ptf_runner(ptfhost, 'hash_check_warm_boot', dst_ip, exp_flow_count)    
+
+def continuous_hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count):
+    t_end = time.time() + 60 * 6
+    while time.time() < t_end:
+        hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count)         
+        logger.info ("hash check time is")
+        logger.info (time.asctime( time.localtime(time.time()) ))
+
+
+def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list, localhost):
 
     # Init base test params
     if isinstance(ipaddress.ip_network(prefix_list[0]), ipaddress.IPv4Network):
@@ -232,6 +262,32 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'initial_hash_check', dst_ip, exp_flow_count)
+  
+    if WARM_BOOT_TESTING == True:
+        warm_reboot_start_time = time.asctime( time.localtime(time.time()) ) 
+        #str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+        logger.info ("warm reboot start time is ")
+        logger.info (warm_reboot_start_time)
+
+        #Async Thread for Warm Boot
+        pool = ThreadPool()
+        pool.apply_async(reboot, args = (duthost, localhost, "warm", ))
+
+        #Async Thread for Continuously Reprogramming ECMP Routes via vtysh
+        pool1 = ThreadPool()
+        pool1.apply_async(reprogram_ecmp_routes, args = (duthost, prefix_list, ip_to_port, ipcmd, ))
+
+        #Async Thread for Continuously Checking ECMP Routes under Warm Boot condition
+        pool2 = ThreadPool()  
+        pool2.apply_async(continuous_hash_check_warm_boot, args = (ptfhost, dst_ip_list, exp_flow_count, ))
+
+        time.sleep(660)
+
+    for prefix in prefix_list:
+           cmd = vtysh_base_cmd
+           for nexthop in ip_to_port:
+               cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
+           configure_dut_custom(duthost, cmd)
 
 
     ### Send the same flows again, but unshut the port which was shutdown at the beginning of test
@@ -338,7 +394,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=withdraw_nh_port) 
 
-
+    #CMT
     ### Simulate route and link flap conditions by toggling the route
     ### and ensure that there is no orch crash and data plane impact
     logger.info("Simulate route and link flap conditions by toggling the route "
@@ -514,15 +570,16 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         cleanup(duthost, ptfhost)
 
 
-def test_fg_ecmp(common_setup_teardown, ptfhost):
+def test_fg_ecmp(common_setup_teardown, ptfhost, localhost):
     duthost, cfg_facts, router_mac, net_ports = common_setup_teardown
 
     # IPv4 test
     port_list, ipv4_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4)
-    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST)
+    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST, localhost)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST, cfg_facts)
 
     # IPv6 test
     port_list, ipv6_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6)
-    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST)
+    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, localhost)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, cfg_facts)
+
