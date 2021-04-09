@@ -7,6 +7,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.tor_failure_utils import kill_bgpd                                                                                    # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
+from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
     pytest.mark.topology("dualtor")
