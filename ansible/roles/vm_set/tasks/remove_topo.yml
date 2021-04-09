@@ -76,6 +76,7 @@
   - name: Unbind topology {{ topo }} for Keysight IxANVL.
     vm_topology:
       cmd: "unbind"
+      vm_names: ""
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
