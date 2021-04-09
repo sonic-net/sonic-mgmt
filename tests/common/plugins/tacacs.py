@@ -17,11 +17,11 @@ def start_tacacs_server(ptfhost):
     return "tacacs+ running" in ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout_lines"]
 
 
-def setup_tacacs_client(duthost, creds, tacacs_server_ip):
+def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
     """setup tacacs client"""
 
     # configure tacacs client
-    duthost.shell("sudo config tacacs passkey %s" % creds['tacacs_passkey'])
+    duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost]['tacacs_passkey'])
 
     # get default tacacs servers
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -34,18 +34,18 @@ def setup_tacacs_client(duthost, creds, tacacs_server_ip):
     duthost.shell("sudo config aaa authentication login tacacs+")
 
 
-def setup_tacacs_server(ptfhost, creds):
+def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
     """setup tacacs server"""
 
     # configure tacacs server
-    extra_vars = {'tacacs_passkey': creds['tacacs_passkey'],
-                  'tacacs_rw_user': creds['tacacs_rw_user'],
-                  'tacacs_rw_user_passwd': crypt.crypt(creds['tacacs_rw_user_passwd'], 'abc'),
-                  'tacacs_ro_user': creds['tacacs_ro_user'],
-                  'tacacs_ro_user_passwd': crypt.crypt(creds['tacacs_ro_user_passwd'], 'abc'),
-                  'tacacs_jit_user': creds['tacacs_jit_user'],
-                  'tacacs_jit_user_passwd': crypt.crypt(creds['tacacs_jit_user_passwd'], 'abc'),
-                  'tacacs_jit_user_membership': creds['tacacs_jit_user_membership']}
+    extra_vars = {'tacacs_passkey': creds_all_duts[duthost]['tacacs_passkey'],
+                  'tacacs_rw_user': creds_all_duts[duthost]['tacacs_rw_user'],
+                  'tacacs_rw_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_rw_user_passwd'], 'abc'),
+                  'tacacs_ro_user': creds_all_duts[duthost]['tacacs_ro_user'],
+                  'tacacs_ro_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_ro_user_passwd'], 'abc'),
+                  'tacacs_jit_user': creds_all_duts[duthost]['tacacs_jit_user'],
+                  'tacacs_jit_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_jit_user_passwd'], 'abc'),
+                  'tacacs_jit_user_membership': creds_all_duts[duthost]['tacacs_jit_user_membership']}
 
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
@@ -71,11 +71,11 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
 
 
 @pytest.fixture(scope="module")
-def test_tacacs(ptfhost, duthosts, rand_one_dut_hostname, creds):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-    setup_tacacs_client(duthost, creds, tacacs_server_ip)
-    setup_tacacs_server(ptfhost, creds)
+    setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip)
+    setup_tacacs_server(ptfhost, creds_all_duts, duthost)
 
     yield
 
@@ -83,14 +83,14 @@ def test_tacacs(ptfhost, duthosts, rand_one_dut_hostname, creds):
 
 
 @pytest.fixture(scope="module")
-def test_tacacs_v6(ptfhost, duthosts, rand_one_dut_hostname, creds):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' not in ptfhost_vars:
         pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")
     tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-    setup_tacacs_client(duthost, creds, tacacs_server_ip)
-    setup_tacacs_server(ptfhost, creds)
+    setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip)
+    setup_tacacs_server(ptfhost, creds_all_duts, duthost)
 
     yield
 
