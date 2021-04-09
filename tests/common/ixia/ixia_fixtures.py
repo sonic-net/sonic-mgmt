@@ -13,7 +13,7 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subne
     get_intf_ipv4_addr
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
 from tests.common.ixia.port import IxiaPortConfig, IxiaPortType
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 
 try:
     from abstract_open_traffic_generator.port import Port
