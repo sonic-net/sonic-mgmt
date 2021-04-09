@@ -36,7 +36,14 @@
 
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
-    when: topo is not defined or topo not in topologies
+    when: topo is not defined
+
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: base_topo not in topologies
 
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
