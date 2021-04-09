@@ -110,7 +110,8 @@ class EverflowPolicerTest(BaseTest):
         logger.info(msg)
         msg = "max_range={}".format(self.max_rx_pps)
         logger.info(msg)
-
+        msg = "check_ttl={}".format(self.check_ttl)
+        logger.info(msg)
 
     def setUp(self):
         '''
@@ -134,6 +135,7 @@ class EverflowPolicerTest(BaseTest):
         self.cir = int(self.test_params['cir'])
         self.cbs = int(self.test_params['cbs'])
         self.tolerance = int(self.test_params['tolerance'])
+        self.check_ttl = self.test_params['check_ttl']
 
         assert_str = "meter_type({0}) not in {1}".format(self.meter_type, str(self.METER_TYPES))
         assert self.meter_type in self.METER_TYPES, assert_str
@@ -168,6 +170,8 @@ class EverflowPolicerTest(BaseTest):
 
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        if self.check_ttl == 'False':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
         self.dataplane.flush()
 
@@ -235,6 +239,8 @@ class EverflowPolicerTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care(38*8, len(payload)*8)  # don't match payload, payload will be matched by match_payload(pkt)
+        if self.check_ttl == 'False':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
         def match_payload(pkt):
             if self.asic_type in ["mellanox"]:
