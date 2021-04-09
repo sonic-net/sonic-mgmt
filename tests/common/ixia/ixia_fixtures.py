@@ -9,8 +9,11 @@ from ixnetwork_restpy import SessionAssistant
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_peer_ixia_chassis
+    get_peer_ixia_chassis, get_vlan_member, get_portchannel_member, get_mac,\
+    get_intf_ipv4_addr
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
+from tests.common.ixia.port import IxiaPortConfig, IxiaPortType
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 try:
     from abstract_open_traffic_generator.port import Port
@@ -21,6 +24,7 @@ try:
         Pattern
     from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
     from abstract_open_traffic_generator.port import Options as PortOptions
+    import abstract_open_traffic_generator.lag as lag
 
 except ImportError as e:
     raise pytest.skip.Exception("Test case is skipped: " + repr(e), allow_module_level=True)
@@ -294,3 +298,262 @@ def ixia_testbed(conn_graph_facts,
         config.devices.append(device)
 
     return config
+
+def __gen_mac(id):
+    """
+    Generate a MAC address
+
+    Args:
+        id (int): IXIA port ID
+
+    Returns:
+        MAC address (string)
+    """
+    return '00:11:22:33:44:{:02d}'.format(id)
+
+def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
+    """
+    Generate Tgen configuration of Vlan interfaces
+
+    Args:
+        config (obj): Tgen API config of the testbed
+        port_config_list (list): list of IXIA port configuration information
+        duthost (object): device under test
+        ixia_ports (list): list of IXIA port information
+
+    Returns:
+        True if we successfully generate configuration or False
+    """
+    vlan_member = get_vlan_member(host_ans=duthost)
+    if vlan_member is None:
+        return True
+
+    dut_mac = get_mac(duthost)
+    intf_ipv4_addrs = get_intf_ipv4_addr(host_ans=duthost)
+
+    """ For each Vlan """
+    for vlan in vlan_member:
+        phy_intfs = vlan_member[vlan]
+        vlan_subnet = str(intf_ipv4_addrs[vlan])
+        gw_addr, prefix = vlan_subnet.split('/')
+        vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(phy_intfs))
+
+        """ For each physical interface attached to this Vlan """
+        for i in range(len(phy_intfs)):
+            phy_intf = phy_intfs[i]
+            vlan_ip_addr = vlan_ip_addrs[i]
+
+            port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
+                        if ixia_pot['peer_port'] == phy_intf]
+            if len(port_ids) != 1:
+                return False
+
+            port_id = port_ids[0]
+            mac = __gen_mac(port_id)
+            ethernet = Ethernet(name='Ethernet Port {}'.format(port_id),
+                                         mac=Pattern(mac))
+
+            ip_stack = Ipv4(name='Ipv4 Port {}'.format(port_id),
+                            address=Pattern(vlan_ip_addr),
+                            prefix=Pattern(prefix),
+                            gateway=Pattern(gw_addr),
+                            ethernet=ethernet)
+
+            device = Device(name='Device Port {}'.format(port_id),
+                            device_count=1,
+                            container_name=config.ports[port_id].name,
+                            choice=ip_stack)
+
+            config.devices.append(device)
+
+            port_config = IxiaPortConfig(id=port_id,
+                                         ip=vlan_ip_addr,
+                                         mac=mac,
+                                         gw=gw_addr,
+                                         gw_mac=dut_mac,
+                                         prefix_len=prefix,
+                                         port_type=IxiaPortType.VlanMember,
+                                         peer_port=phy_intf)
+
+            port_config_list.append(port_config)
+
+    return True
+
+def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
+    """
+    Generate Tgen configuration of portchannel interfaces
+
+    Args:
+        config (obj): Tgen API config of the testbed
+        port_config_list (list): list of IXIA port configuration information
+        duthost (object): device under test
+        ixia_ports (list): list of IXIA port information
+
+    Returns:
+        True if we successfully generate configuration or False
+    """
+    pc_member = get_portchannel_member(host_ans=duthost)
+    if pc_member is None:
+        return True
+
+    dut_mac = get_mac(duthost)
+    intf_ipv4_addrs = get_intf_ipv4_addr(host_ans=duthost)
+
+    """ For each port channel """
+    for pc in pc_member:
+        phy_intfs = pc_member[pc]
+        pc_subnet = str(intf_ipv4_addrs[pc])
+        gw_addr, prefix = pc_subnet.split('/')
+        pc_ip_addr = get_addrs_in_subnet(pc_subnet, 1)[0]
+
+        lag_ports = []
+
+        for i in range(len(phy_intfs)):
+            phy_intf = phy_intfs[i]
+
+            port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
+                        if ixia_pot['peer_port'] == phy_intf]
+            if len(port_ids) != 1:
+                return False
+
+            port_id = port_ids[0]
+            mac = __gen_mac(port_id)
+
+            proto = lag.Protocol(choice=lag.Lacp(
+                actor_system_id='00:00:00:00:00:01',
+                actor_system_priority=1,
+                actor_port_priority=1,
+                actor_port_number=1,
+                actor_key=1))
+
+            ethernet = lag.Ethernet(name='Ethernet Port {}'.format(port_id),
+                               mac=mac)
+
+            lag_port = lag.Port(port_name=config.ports[port_id].name,
+                                protocol=proto,
+                                ethernet=ethernet)
+
+            lag_ports.append(lag_port)
+
+            port_config = IxiaPortConfig(id=port_id,
+                                         ip=pc_ip_addr,
+                                         mac=mac,
+                                         gw=gw_addr,
+                                         gw_mac=dut_mac,
+                                         prefix_len=prefix,
+                                         port_type=IxiaPortType.PortChannelMember,
+                                         peer_port=phy_intf)
+
+            port_config_list.append(port_config)
+
+        lag_intf = lag.Lag(name='Lag {}'.format(pc), ports=lag_ports)
+        config.lags.append(lag_intf)
+
+        ip_stack = Ipv4(name='Ipv4 {}'.format(pc),
+                        address=Pattern(pc_ip_addr),
+                        prefix=Pattern(prefix),
+                        gateway=Pattern(gw_addr),
+                        ethernet=Ethernet(name='Ethernet {}'.format(pc)))
+
+        device = Device(name='Device {}'.format(pc),
+                        device_count=1,
+                        container_name=lag_intf.name,
+                        choice=ip_stack)
+
+        config.devices.append(device)
+
+    return True
+
+@pytest.fixture(scope = "function")
+def ixia_testbed_config(conn_graph_facts,
+                        fanout_graph_facts,
+                        duthosts,
+                        rand_one_dut_hostname):
+    """
+    Geenrate Tgen API config and port config information for the testbed
+
+    Args:
+        conn_graph_facts (pytest fixture)
+        fanout_graph_facts (pytest fixture)
+        duthosts (pytest fixture): list of DUTs
+        rand_one_dut_hostname (pytest fixture): DUT hostname
+
+    Returns:
+        - config (obj): Tgen API config of the testbed
+        - port_config_list (list): list of port configuration information
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    """ Generate L1 config """
+    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
+                                        dut_hostname=duthost.hostname)
+
+    pytest_assert(ixia_fanout is not None, 'Fail to get ixia_fanout')
+
+    ixia_fanout_id = list(fanout_graph_facts.keys()).index(ixia_fanout)
+    ixia_fanout_list = IxiaFanoutManager(fanout_graph_facts)
+    ixia_fanout_list.get_fanout_device_details(device_number=ixia_fanout_id)
+
+    ixia_ports = ixia_fanout_list.get_ports(peer_device=duthost.hostname)
+
+    ports = []
+    port_names = []
+    port_speed = None
+
+    for i in range(len(ixia_ports)):
+        port = Port(name='Port {}'.format(i),
+                    location=get_tgen_location(ixia_ports[i]))
+
+        ports.append(port)
+        port_names.append(port.name)
+
+        if port_speed is None:
+            port_speed = int(ixia_ports[i]['speed'])
+
+        pytest_assert(port_speed == int(ixia_ports[i]['speed']),
+                      'Ports have different link speeds')
+
+    pfc = Ieee8021qbb(pfc_delay=0,
+                      pfc_class_0=0,
+                      pfc_class_1=1,
+                      pfc_class_2=2,
+                      pfc_class_3=3,
+                      pfc_class_4=4,
+                      pfc_class_5=5,
+                      pfc_class_6=6,
+                      pfc_class_7=7)
+
+    flow_ctl = FlowControl(choice=pfc)
+
+    auto_negotiation = AutoNegotiation(link_training=True,
+                                       rs_fec=True)
+
+    speed_gbps = int(port_speed/1000)
+
+    l1_config = Layer1(name='L1 config',
+                       speed='speed_{}_gbps'.format(speed_gbps),
+                       auto_negotiate=False,
+                       auto_negotiation=auto_negotiation,
+                       ieee_media_defaults=False,
+                       flow_control=flow_ctl,
+                       port_names=port_names)
+
+    config = Config(ports=ports,
+                    layer1=[l1_config],
+                    options=Options(PortOptions(location_preemption=True)))
+
+    port_config_list = []
+
+    config_result = __vlan_intf_config(config=config,
+                                       port_config_list=port_config_list,
+                                       duthost=duthost,
+                                       ixia_ports=ixia_ports)
+    pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
+
+    config_result = __portchannel_intf_config(config=config,
+                                              port_config_list=port_config_list,
+                                              duthost=duthost,
+                                              ixia_ports=ixia_ports)
+    pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+
+    return config, port_config_list

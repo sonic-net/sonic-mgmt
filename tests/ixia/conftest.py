@@ -1,6 +1,9 @@
 import pytest
 import random
-from tests.common.ixia.common_helpers import enable_packet_aging, start_pfcwd
+from tests.common.ixia.common_helpers import enable_packet_aging, start_pfcwd,\
+    get_portchannel_member
+from tests.common.config_reload import config_reload
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.conftest import generate_priority_lists
 
 @pytest.fixture(autouse=True, scope="module")
@@ -72,3 +75,55 @@ def enable_packet_aging_after_test(duthosts, rand_one_dut_hostname):
 
     duthost = duthosts[rand_one_dut_hostname]
     enable_packet_aging(duthost)
+
+@pytest.fixture(autouse=True, scope="module")
+def set_pc_minlinks_before_test(duthosts, rand_one_dut_hostname):
+    """
+    Set the portchannel min links to 1 before tests
+
+    Args:
+        duthosts (pytest fixture) : list of DUTs
+        rand_one_dut_hostname (pytest fixture): DUT hostname
+
+    Yields:
+        N/A
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    pc_member = get_portchannel_member(duthost)
+
+    if pc_member is not None:
+        for pc in list(pc_member.keys()):
+            cmd = r'redis-cli -n 4 hset "PORTCHANNEL|{}" "min_links" "1"'.format(pc)
+            duthost.shell(cmd)
+
+        duthost.shell('sudo config save -y')
+        if isMellanoxDevice(duthost):
+            wait_sec = 240
+        else:
+            wait_sec = 90
+
+        config_reload(duthost=duthost, config_source='config_db', wait=wait_sec)
+
+    yield
+
+@pytest.fixture(autouse=True, scope="module")
+def reload_config_after_test(duthosts, rand_one_dut_hostname):
+    """
+    Reload minigraph configuration after test
+
+    Args:
+        duthosts (pytest fixture) : list of DUTs
+        rand_one_dut_hostname (pytest fixture): DUT hostname
+
+    Yields:
+        N/A
+    """
+    yield
+
+    duthost = duthosts[rand_one_dut_hostname]
+    if isMellanoxDevice(duthost):
+        wait_sec = 240
+    else:
+        wait_sec = 90
+
+    config_reload(duthost=duthost, config_source='minigraph', wait=wait_sec)
