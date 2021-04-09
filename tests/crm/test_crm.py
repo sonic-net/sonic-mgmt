@@ -56,7 +56,7 @@ NS_PREFIX_TEMPLATE="""
     {% endif %}"""
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """Ignore expected failures logs during test execution.
 
     We don't have control over the order events are received by orchagent, so it is
@@ -65,7 +65,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     removed.
 
     Args:
-        rand_one_dut_hostname: Fixture to randomly pick a DUT from the testbed
+        enum_rand_one_per_hwsku_frontend_hostname: Fixture to randomly pick a frontend DUT from the testbed
         loganalyzer: Loganalyzer utility fixture
 
     """
@@ -74,7 +74,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 
 def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
@@ -400,8 +400,8 @@ def get_entries_num(used, available):
                                                                 ("6", "{} -6 route add 2001::/126 via {}",
                                                                 "{} -6 route del 2001::/126 via {}")],
                                                                 ids=["ipv4", "ipv6"])
-def test_crm_route(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
 
@@ -517,8 +517,8 @@ def test_crm_route(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, cr
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, crm_interface, ip_ver, nexthop):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, nexthop):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
     nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
@@ -596,8 +596,8 @@ def test_crm_nexthop(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, 
 
 
 @pytest.mark.parametrize("ip_ver,neighbor", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_neighbor(duthosts, rand_one_dut_hostname, enum_frontend_asic_index,  crm_interface, ip_ver, neighbor):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,  crm_interface, ip_ver, neighbor):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
     neighbor_add_cmd = "{ip_cmd} neigh replace {neighbor} lladdr 11:22:33:44:55:66 dev {iface}"\
@@ -669,8 +669,8 @@ def test_crm_neighbor(duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
 
 
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
-def test_crm_nexthop_group(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, crm_interface, group_member, network):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, group_member, network):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
 
     nhg_del_template="""
@@ -783,8 +783,8 @@ def test_crm_nexthop_group(duthosts, rand_one_dut_hostname, enum_frontend_asic_i
         crm_avail=new_nexthop_group_available)
 
 
-def test_acl_entry(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, collector):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
     
@@ -850,8 +850,8 @@ def test_acl_entry(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, co
         "\"crm_stats_acl_entry_available\" counter was not incremented")
 
 
-def test_acl_counter(duthosts, rand_one_dut_hostname,enum_frontend_asic_index, collector):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_frontend_asic_index, collector):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
 
@@ -931,8 +931,8 @@ def test_acl_counter(duthosts, rand_one_dut_hostname,enum_frontend_asic_index, c
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
 @pytest.mark.usefixtures('disable_fdb_aging')
-def test_crm_fdb_entry(duthosts, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
