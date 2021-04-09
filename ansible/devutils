@@ -260,6 +260,19 @@ def action_pdu_status(parameters):
     show_data_output(header, data, parameters['json'])
 
 
+def action_pdu_failures(parameters):
+    header, data = action_pdu(parameters, 'status')
+    failures = []
+    for entry in data:
+        if parameters['json']:
+            if any(x['output_watts'] == '0' for x in entry['PDU status']):
+                failures.append(entry)
+        else:
+            if any(x['output_watts'] == '0' for x in entry[2]):
+                failures.append(entry)
+    show_data_output(header, failures, parameters['json'])
+
+
 def action_pdu_off(parameters):
     header, data = action_pdu(parameters, 'off')
     show_data_output(header, data, parameters['json'])
@@ -324,9 +337,9 @@ def main():
     parser.add_argument('-6', '--ipv6', help='Include IPv6', action='store_true',
                         required=False, default=False)
     parser.add_argument('-a', '--action',
-                        help='Action towards host(s): list, ping, run, ssh, console, pdu_status, pdu_on, pdu_off, pdu_reboot, default list',
+                        help='Action towards host(s): list, ping, run, ssh, console, pdu_status, pdu_on, pdu_off, pdu_reboot, pdu_failures, default list',
                         type=str, required=False, default='list',
-                        choices=['list', 'ping', 'ssh', 'console', 'run', 'pdu_status', 'pdu_on', 'pdu_off', 'pdu_reboot'])
+                        choices=['list', 'ping', 'ssh', 'console', 'run', 'pdu_status', 'pdu_on', 'pdu_off', 'pdu_reboot', 'pdu_failures'])
     parser.add_argument('--cmd', help="Command to run on all hosts",
                         type=str, required=False)
     parser.add_argument('-g', '--group', help='Groups: all, sonic, ptf, pdu, default all',
@@ -358,6 +371,7 @@ def main():
                'pdu_off': action_pdu_off,
                'pdu_on': action_pdu_on,
                'pdu_reboot': action_pdu_reboot,
+               'pdu_failures': action_pdu_failures,
                }
     parameters = {'hosts': hosts,
                   'limit': args.limit,
