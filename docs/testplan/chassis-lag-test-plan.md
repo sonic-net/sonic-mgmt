@@ -124,7 +124,7 @@ lag id should exist in ASIC DB, repeat the same step on all ASIC on other host.
 
 Verify that when a LAG is dynamically deleted via CLI on an ASIC, it is removed in remote ASIC_DB.
 ### Test Steps
-* Delete an existing LAG from any ASIC in the OC topology
+* Delete an existing LAG from any ASIC
 * Add back the deleted LAG
 
 ### Pass/Fail Criteria
