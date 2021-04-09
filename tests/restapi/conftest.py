@@ -7,7 +7,6 @@ from urlparse import urlunparse
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.common.utilities import wait_until
 
 RESTAPI_SERVER_START_WAIT_TIME = 15
 RESTAPI_CONTAINER_NAME = 'restapi'
