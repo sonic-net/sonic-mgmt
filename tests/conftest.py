@@ -97,6 +97,8 @@ def pytest_addoption(parser):
                      help="Perform post test sanity check if sanity check is enabled")
     parser.addoption("--post_check_items", action="store", default=False,
                      help="Change (add|remove) post test check items based on pre test check items")
+    parser.addoption("--recover_method", action="store", default="adaptive",
+                     help="Set method to use for recover if sanity failed")
 
     ########################
     #   pre-test options   #

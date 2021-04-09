@@ -161,6 +161,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
     if request.config.option.allow_recover:
         allow_recover = True
 
+    if request.config.option.recover_method:
+        recover_method = request.config.getoption("--recover_method")
+
     if request.config.option.post_check:
         post_check = True
 
