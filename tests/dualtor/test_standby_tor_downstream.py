@@ -169,6 +169,8 @@ def test_standby_tor_downstream_bgp_recovered(ptfhost, rand_selected_dut, rand_u
     params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     check_tunnel_balance(**params)
 
+
+def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     Verify traffic is equally distributed via loopback route
     """
