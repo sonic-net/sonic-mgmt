@@ -4,22 +4,22 @@ import pytest
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0', 't1', 't2'),
     pytest.mark.device_type('vs')
 ]
 
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     patch_lldpctl(localhost, duthost)
     yield
     unpatch_lldpctl(localhost, duthost)
 
 
-def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport, enum_frontend_asic_index):
+def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, collect_techsupport_all_duts, enum_frontend_asic_index):
     """ verify the LLDP message on DUT """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
@@ -30,13 +30,13 @@ def test_lldp(duthosts, rand_one_dut_hostname, localhost, collect_techsupport, e
         assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
 
 
-def test_lldp_neighbor(duthosts, rand_one_dut_hostname, localhost, eos,
-                       collect_techsupport, loganalyzer, enum_frontend_asic_index):
+def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
+                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index):
     """ verify LLDP information on neighbors """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend([
             ".*ERR syncd#syncd: :- check_fdb_event_notification_data.*",
             ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb \
                 notifications, NOT translating and NOT storing in ASIC DB.*",
