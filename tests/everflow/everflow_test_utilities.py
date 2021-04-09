@@ -162,6 +162,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         },
         "tor": {
             "src_port": spine_ports[0],
+            "src_port_lag_name":spine_dest_lag_name[0],
             "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][spine_ports[0]]),
             "dest_port": tor_dest_ports,
             "dest_port_ptf_id": tor_dest_ports_ptf_id,
@@ -170,6 +171,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         },
         "spine": {
             "src_port": tor_ports[0],
+            "src_port_lag_name":tor_dest_lag_name[0],
             "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][tor_ports[0]]),
             "dest_port": spine_dest_ports,
             "dest_port_ptf_id": spine_dest_ports_ptf_id,
@@ -364,22 +366,25 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
-        if config_method == CONFIG_MODE_CLI:
-            command = ("redis-cli -n 4 hmset \"POLICER|{}\" "
-                       "meter_type packets mode sr_tcm cir {} cbs {} "
-                       "red_packet_action drop").format(policer_name, rate_limit, rate_limit)
-        elif config_method == CONFIG_MODE_CONFIGLET:
-            pass
-
-        duthost.command(command)
+        for namespace in duthost.get_frontend_asic_namespace_list():
+            if config_method == CONFIG_MODE_CLI:
+                sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+                command = ("{} CONFIG_DB hmset \"POLICER|{}\" "
+                           "meter_type packets mode sr_tcm cir {} cbs {} "
+                           "red_packet_action drop").format(sonic_db_cmd, policer_name, rate_limit, rate_limit)
+            elif config_method == CONFIG_MODE_CONFIGLET:
+                pass
+            duthost.command(command)
 
     def remove_policer_config(self, duthost, policer_name, config_method):
-        if config_method == CONFIG_MODE_CLI:
-            command = "redis-cli -n 4 del \"POLICER|{}\"".format(policer_name)
-        elif config_method == CONFIG_MODE_CONFIGLET:
-            pass
+        for namespace in duthost.get_frontend_asic_namespace_list():
+            if config_method == CONFIG_MODE_CLI:
+                sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+                command = "{} CONFIG_DB del \"POLICER|{}\"".format(sonic_db_cmd, policer_name)
+            elif config_method == CONFIG_MODE_CONFIGLET:
+                pass
 
-        duthost.command(command)
+            duthost.command(command)
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_acl_table(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, config_method):
@@ -411,7 +416,7 @@ class BaseEverflowTest(object):
         if self.acl_stage() == "egress":
             self.remove_acl_table_config(duthost, "EVERFLOW_EGRESS", config_method)
 
-    def apply_acl_table_config(self, duthost, table_name, table_type, config_method):
+    def apply_acl_table_config(self, duthost, table_name, table_type, config_method, bind_ports_list=None, bind_namespace=None):
         if config_method == CONFIG_MODE_CLI:
             command = "config acl add table {} {}".format(table_name, table_type)
 
@@ -420,18 +425,21 @@ class BaseEverflowTest(object):
             if self.acl_stage() == "egress":
                 command += " --stage {}".format(self.acl_stage())
 
+            if bind_ports_list:
+                command += " -p {}".format(",".join(bind_ports_list))
+
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
 
-    def remove_acl_table_config(self, duthost, table_name, config_method):
+    def remove_acl_table_config(self, duthost, table_name, config_method, bind_namespace=None):
         if config_method == CONFIG_MODE_CLI:
             command = "config acl remove table {}".format(table_name)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
 
     def apply_acl_rule_config(
             self,
@@ -503,11 +511,6 @@ class BaseEverflowTest(object):
                                       dest_ports=None,
                                       expect_recv=True,
                                       valid_across_namespace=True):
-        expected_mirror_packet = self._get_expected_mirror_packet(mirror_session,
-                                                                  setup,
-                                                                  duthost,
-                                                                  mirror_packet)
-
         if not src_port:
             src_port = self._get_random_src_port(setup)
 
@@ -533,8 +536,22 @@ class BaseEverflowTest(object):
         if src_port_namespace != dest_ports_namespace:
             src_port_set.add(dest_ports[0])
 
+        expected_mirror_packet_with_ttl = self._get_expected_mirror_packet(mirror_session,
+                                                                  setup,
+                                                                  duthost,
+                                                                  mirror_packet,
+                                                                  True)
+        expected_mirror_packet_without_ttl = self._get_expected_mirror_packet(mirror_session,
+                                                                  setup,
+                                                                  duthost,
+                                                                  mirror_packet,
+                                                                  False)
+
+ 
         # Loop through Source Port Set and send traffic on each source port of the set
         for src_port in src_port_set:
+            expected_mirror_packet = expected_mirror_packet_with_ttl \
+                                     if self._get_port_namespace(setup, int(src_port)) == dest_ports_namespace else expected_mirror_packet_without_ttl
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, src_port, mirror_packet)
 
@@ -573,7 +590,7 @@ class BaseEverflowTest(object):
             else:
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
-    def _get_expected_mirror_packet(self, mirror_session, setup, duthost, mirror_packet):
+    def _get_expected_mirror_packet(self, mirror_session, setup, duthost, mirror_packet, check_ttl):
         payload = mirror_packet.copy()
 
         # Add vendor specific padding to the packet
@@ -601,7 +618,8 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
-        expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
+        if not check_ttl:
+            expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
         # though the session does have a DSCP specified.
