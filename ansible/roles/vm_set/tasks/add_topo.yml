@@ -91,6 +91,7 @@
     - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
       vm_topology:
         cmd: "bind"
+        vm_names: ""
         vm_set_name: "{{ vm_set_name }}"
         topo: "{{ topology }}"
         ptf_mgmt_ip_addr: "{{ ptf_ip }}"
