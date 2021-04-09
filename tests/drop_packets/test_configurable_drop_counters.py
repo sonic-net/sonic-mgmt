@@ -2,7 +2,7 @@
 Tests the functionality of the configurable drop counter feature in SONiC.
 
 Todo:
-    - Add test cases for ACL_ANY, SIP/DIP_LINK_LOCAL, and UNRESOLVED_NEXT_HOP
+    - Add test cases for ACL_ANY and UNRESOLVED_NEXT_HOP
     - Add test cases for dynamic add/remove of drop reasons
     - Add test cases with multiple drop counters
     - Verify standard drop counters as well as configurable drop counters
@@ -35,6 +35,7 @@ VLAN_HOSTS = 100
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 
 MOCK_DEST_IP = "2.2.2.2"
+LINK_LOCAL_IP = "169.254.0.1"
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
 def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, mock_server,
@@ -67,6 +68,62 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
         mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
+        duthost.command("sonic-clear fdb all")
+        duthost.command("sonic-clear arp")
+
+
+@pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
+def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
+                        send_dropped_traffic, drop_reason):
+    """
+    Verifies counters that check for link local dst IP.
+
+    Args:
+        drop_reason (str): The drop reason being tested.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    counter_type = setup_counters([drop_reason])
+
+    rx_port = random.choice(testbed_params["physical_port_map"].keys())
+    rx_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
+    logging.info("Selected port %s, mac = %s to send traffic", rx_port, rx_mac)
+
+    src_mac = "DE:AD:BE:EF:12:34"
+    src_ip = "10.10.10.10"
+
+    pkt = _get_simple_ip_packet(src_mac, rx_mac, src_ip, LINK_LOCAL_IP)
+
+    try:
+        send_dropped_traffic(counter_type, pkt, rx_port)
+    finally:
+        duthost.command("sonic-clear fdb all")
+        duthost.command("sonic-clear arp")
+
+
+@pytest.mark.parametrize("drop_reason", ["SIP_LINK_LOCAL"])
+def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
+                        send_dropped_traffic, drop_reason):
+    """
+    Verifies counters that check for link local src IP.
+
+    Args:
+        drop_reason (str): The drop reason being tested.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    counter_type = setup_counters([drop_reason])
+
+    rx_port = random.choice(testbed_params["physical_port_map"].keys())
+    rx_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
+    logging.info("Selected port %s, mac = %s to send traffic", rx_port, rx_mac)
+
+    src_mac = "DE:AD:BE:EF:12:34"
+    dst_ip = "10.10.10.10"
+
+    pkt = _get_simple_ip_packet(src_mac, rx_mac, LINK_LOCAL_IP, dst_ip)
+
+    try:
+        send_dropped_traffic(counter_type, pkt, rx_port)
+    finally:
         duthost.command("sonic-clear fdb all")
         duthost.command("sonic-clear arp")
 
