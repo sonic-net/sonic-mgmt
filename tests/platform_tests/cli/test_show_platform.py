@@ -177,9 +177,9 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     psu_status_output_lines = duthost.command(cmd)["stdout_lines"]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
-        psu_line_pattern = re.compile(r"PSU\s+\d+\s+(OK|NOT OK|NOT PRESENT)")
+        psu_line_pattern = re.compile(r"PSU\s+(\d+)\s+(OK|NOT OK|NOT PRESENT)")
     else:
-        psu_line_pattern = re.compile(r"PSU\s+\d+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
+        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
 
     # Check that all PSUs are showing valid status and also at least one PSU is OK
     num_psu_ok = 0
@@ -187,7 +187,7 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     for line in psu_status_output_lines[2:]:
         psu_match = psu_line_pattern.match(line)
         pytest_assert(psu_match, "Unexpected PSU status output: '{}' on '{}'".format(line, duthost.hostname))
-        psu_status = psu_match.group(1)
+        psu_status = psu_match.group(2)
         if psu_status == "OK":
             num_psu_ok += 1
 
