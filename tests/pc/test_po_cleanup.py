@@ -9,7 +9,7 @@ pytestmark = [
 ]
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -25,12 +25,12 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
         ignoreRegex = [
             ".*",
         ]
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
         expectRegex = [
             ".*teammgrd: :- cleanTeamProcesses.*",
             ".*teamsyncd: :- cleanTeamSync.*"
         ]
-        loganalyzer[rand_one_dut_hostname].expect_regex.extend(expectRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(expectRegex)
 
 def check_kernel_po_interface_cleaned(duthost, asic_index):
     namespace = duthost.get_namespace_from_asic_id(asic_index)
@@ -38,9 +38,9 @@ def check_kernel_po_interface_cleaned(duthost, asic_index):
     return res == '0'
 
 @pytest.fixture(scope="module", autouse=True)
-def check_topo_and_restore(duthosts, rand_one_dut_hostname, tbinfo):
+def check_topo_and_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts['minigraph_portchannels'].keys()) == 0 and not duthost.is_multi_asic:
@@ -50,12 +50,12 @@ def check_topo_and_restore(duthosts, rand_one_dut_hostname, tbinfo):
     logging.info("Reloading config..")
     config_reload(duthost)
 
-def test_po_cleanup(duthosts, rand_one_dut_hostname, enum_asic_index):
+def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
     test port channel are cleaned up correctly and teammgrd and teamsyncd process
     handle  SIGTERM gracefully
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logging.info("Disable swss/teamd Feature")
     duthost.asic_instance(enum_asic_index).stop_service("swss")
     # Check if Linux Kernel Portchannel Interface teamdev are clean up

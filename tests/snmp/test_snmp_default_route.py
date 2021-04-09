@@ -7,12 +7,12 @@ pytestmark = [
 
 
 @pytest.mark.bsl
-def test_snmp_default_route(duthosts, enum_dut_hostname, localhost, creds):
+def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds_all_duts):
     """compare the snmp facts between observed states and target state"""
 
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     dut_result = duthost.shell('show ip route 0.0.0.0/0 | grep "\*"')
 
     dut_result_nexthops = []

@@ -406,10 +406,8 @@ def pdu():
         return pdu
 
 
-@pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
+def creds_on_dut(duthost):
     """ read credential information according to the dut inventory """
-    duthost = duthosts[rand_one_dut_hostname]
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
@@ -447,6 +445,19 @@ def creds(duthosts, rand_one_dut_hostname):
         creds["console_password"][k] = v["passwd"]
 
     return creds
+
+@pytest.fixture(scope="module")
+def creds(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    return creds_on_dut(duthost)
+
+
+@pytest.fixture(scope='module')
+def creds_all_duts(duthosts):
+    creds_all_duts = dict()
+    for duthost in duthosts.nodes:
+        creds_all_duts[duthost] = creds_on_dut(duthost)
+    return creds_all_duts
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
