@@ -252,7 +252,7 @@ def get_mac_dut(duthost, interface):
 
     Returns: MAC address
     """
-    return duthost.setup()['ansible_facts']['ansible_{}'.format(interface)]['macaddress']
+    return duthost.get_dut_iface_mac(interface)
 
 
 def get_port_number(interface):
