@@ -2,6 +2,7 @@ import os
 import json
 import random
 import logging
+import time
 from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import *
 from tests.common.mellanox_data import get_platform_data
@@ -291,6 +292,9 @@ class MockerHelper:
             if self.deinit_retry > 0:
                 self.unlink_file_list = failed_recover_links
                 self.regular_file_list = failed_recover_files
+                # The failed files might be used by other sonic daemons, delay 1 second
+                # here to avoid conflict
+                time.sleep(1)
                 self.deinit()
             else:
                 # We don't want to retry it infinite, and 5 times retry
