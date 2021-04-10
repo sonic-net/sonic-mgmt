@@ -36,7 +36,7 @@ def test_active_tor_kill_bgpd_upstream(
         Verify traffic interruption < 1 second
     '''
     send_server_to_t1_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: kill_bgpd(upper_tor_host)
     )
     verify_tor_states(
@@ -103,7 +103,7 @@ def test_active_tor_kill_bgpd_downstream_standby(
     '''
     with tunnel_traffic_monitor(lower_tor_host, existing=True):
         send_t1_to_server_with_action(
-            lower_tor_host, verify=True, delay=1,
+            lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             action=lambda: kill_bgpd(upper_tor_host)
         )
     verify_tor_states(
