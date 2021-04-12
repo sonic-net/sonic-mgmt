@@ -51,7 +51,7 @@ def select_ports(port_config_list, duthost, pattern, rx_port_id):
 
     if pattern == "many to one":
         rx_port_id_list = [rx_port_id]
-
+        """ Interfaces in the same portchannel cannot send traffic to each other """
         if rx_port_config.type == IxiaPortType.PortChannelMember:
             tx_port_id_list = [x.id for x in port_config_list \
                                if x.ip != rx_port_config.ip]
