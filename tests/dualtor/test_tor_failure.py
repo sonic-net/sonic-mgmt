@@ -7,6 +7,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host  
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor, toggle_all_simulator_ports_to_lower_tor         # lgtm[py/unused-import] 
 from tests.common.dualtor.tor_failure_utils import reboot_tor, tor_blackhole_traffic, wait_for_device_reachable                                 # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
+from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -23,7 +24,7 @@ def test_active_tor_reboot_upstream(
     occurred and disruption lasts < 1 second
     """
     send_server_to_t1_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: reboot_tor(upper_tor_host)
     )
     wait_for_device_reachable(upper_tor_host)
@@ -43,7 +44,7 @@ def test_active_tor_reboot_downstream_standby(
     Confirm switchover occurred and disruption lasts < 1 second
     """
     send_t1_to_server_with_action(
-        lower_tor_host, verify=True, delay=1,
+        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: reboot_tor(upper_tor_host)
     )
     wait_for_device_reachable(upper_tor_host)
