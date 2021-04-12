@@ -1,0 +1,104 @@
+Value temperature ([\d\.]+)
+Value voltage ([\d\.]+)
+Value rx1power ([\S\-]+)
+Value rx2power ([\S\-]+)
+Value rx3power ([\S\-]+)
+Value rx4power ([\S\-]+)
+Value tx1bias ([\d\.]+)
+Value tx2bias ([\d\.]+)
+Value tx3bias ([\d\.]+)
+Value tx4bias ([\d\.]+)
+Value tx1power ([\S\/]+)
+Value tx2power ([\S\/]+)
+Value tx3power ([\S\/]+)
+Value tx4power ([\S\/]+)
+Value temphighalarm ([\d\.]+)
+Value temphighwarning ([\d\.]+)
+Value templowalarm ([\-\d\.]+)
+Value templowwarning ([\d\.]+)
+Value vcchighalarm ([\d\.]+)
+Value vcchighwarning ([\d\.]+)
+Value vcclowalarm ([\d\.]+)
+Value vcclowwarning ([\d\.]+)
+Value txpowerhighalarm ([\S\/]+)
+Value txpowerlowalarm ([\S\/]+)
+Value txpowerhighwarning ([\S\/]+)
+Value txpowerlowwarning ([\S\/]+)
+Value rxpowerhighalarm ([\S\-]+)
+Value rxpowerlowalarm ([\S\-]+)
+Value rxpowerhighwarning ([\S\-]+)
+Value rxpowerlowwarning ([\S\-]+)
+Value txbiashighalarm ([\d\.]+)
+Value txbiaslowalarm ([\d\.]+)
+Value txbiashighwarning ([\d\.]+)
+Value txbiaslowwarning ([\d\.]+)
+
+Start
+  ^\s*1\)\s*\"temperature\"\s* 
+  ^\s*2\)\s*\"${temperature}\s* 
+  ^\s*3\)\s*\"voltage\"\s* 
+  ^\s*4\)\s*\"${voltage}\s* 
+  ^\s*5\)\s*\"rx1power\"\s* 
+  ^\s*6\)\s*\"${rx1power}\s* 
+  ^\s*7\)\s*\"rx2power\"\s* 
+  ^\s*8\)\s*\"${rx2power}\s* 
+  ^\s*9\)\s*\"rx3power\"\s* 
+  ^\s*10\)\s*\"${rx3power}\s* 
+  ^\s*11\)\s*\"rx4power\"\s* 
+  ^\s*12\)\s*\"${rx4power}\s* 
+  ^\s*13\)\s*\"tx1bias\"\s* 
+  ^\s*14\)\s*\"${tx1bias}\s* 
+  ^\s*15\)\s*\"tx2bias\"\s* 
+  ^\s*16\)\s*\"${tx2bias}\s* 
+  ^\s*17\)\s*\"tx3bias\"\s* 
+  ^\s*18\)\s*\"${tx3bias}\s* 
+  ^\s*19\)\s*\"tx4bias\"\s* 
+  ^\s*20\)\s*\"${tx4bias}\s* 
+  ^\s*21\)\s*\"tx1power\"\s* 
+  ^\s*22\)\s*\"${tx1power}\s* 
+  ^\s*23\)\s*\"tx2power\"\s* 
+  ^\s*24\)\s*\"${tx2power}\s* 
+  ^\s*25\)\s*\"tx3power\"\s* 
+  ^\s*26\)\s*\"${tx3power}\s* 
+  ^\s*27\)\s*\"tx4power\"\s* 
+  ^\s*28\)\s*\"${tx4power}\s* 
+  ^\s*29\)\s*\"temphighalarm\"\s* 
+  ^\s*30\)\s*\"${temphighalarm}\s* 
+  ^\s*31\)\s*\"temphighwarning\"\s* 
+  ^\s*32\)\s*\"${temphighwarning}\s* 
+  ^\s*33\)\s*\"templowalarm\"\s* 
+  ^\s*34\)\s*\"${templowalarm}\s* 
+  ^\s*35\)\s*\"templowwarning\"\s* 
+  ^\s*36\)\s*\"${templowwarning}\s* 
+  ^\s*37\)\s*\"vcchighalarm\"\s* 
+  ^\s*38\)\s*\"${vcchighalarm}\s* 
+  ^\s*39\)\s*\"vcchighwarning\"\s* 
+  ^\s*40\)\s*\"${vcchighwarning}\s* 
+  ^\s*41\)\s*\"vcclowalarm\"\s* 
+  ^\s*42\)\s*\"${vcclowalarm}\s* 
+  ^\s*43\)\s*\"vcclowwarning\"\s* 
+  ^\s*44\)\s*\"${vcclowwarning}\s* 
+  ^\s*45\)\s*\"txpowerhighalarm\"\s* 
+  ^\s*46\)\s*\"${txpowerhighalarm}\s* 
+  ^\s*47\)\s*\"txpowerlowalarm\"\s* 
+  ^\s*48\)\s*\"${txpowerlowalarm}\s* 
+  ^\s*49\)\s*\"txpowerhighwarning\"\s* 
+  ^\s*50\)\s*\"${txpowerhighwarning}\s* 
+  ^\s*51\)\s*\"txpowerlowwarning\"\s* 
+  ^\s*52\)\s*\"${txpowerlowwarning}\s* 
+  ^\s*53\)\s*\"rxpowerhighalarm\"\s* 
+  ^\s*54\)\s*\"${rxpowerhighalarm}\s* 
+  ^\s*55\)\s*\"rxpowerlowalarm\"\s* 
+  ^\s*56\)\s*\"${rxpowerlowalarm}\s* 
+  ^\s*57\)\s*\"rxpowerhighwarning\"\s* 
+  ^\s*58\)\s*\"${rxpowerhighwarning}\s* 
+  ^\s*59\)\s*\"rxpowerlowwarning\"\s* 
+  ^\s*60\)\s*\"${rxpowerlowwarning}\s* 
+  ^\s*61\)\s*\"txbiashighalarm\"\s* 
+  ^\s*62\)\s*\"${txbiashighalarm}\s* 
+  ^\s*63\)\s*\"txbiaslowalarm\"\s* 
+  ^\s*64\)\s*\"${txbiaslowalarm}\s* 
+  ^\s*65\)\s*\"txbiashighwarning\"\s* 
+  ^\s*66\)\s*\"${txbiashighwarning}\s* 
+  ^\s*67\)\s*\"txbiaslowwarning\"\s* 
+  ^\s*68\)\s*\"${txbiaslowwarning}\s* -> Record
