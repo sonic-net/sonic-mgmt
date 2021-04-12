@@ -507,6 +507,10 @@ show_lldp_redis_cli.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 4 hgetall "LLDP_PO
 show_portchannel_configdb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 4 hgetall 'PORTCHANNEL.*
 show_portchannel_appdb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 0 hgetall 'LAG_TABLE.*
 show_portchannel_statedb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall 'LAG_TABLE.*
+show_redis_cli_TRANSCEIVER_INFO.tmpl, .*, sonic, redis-cli -n 6 keys TRANSCEIVER_INFO*
+show_redis_cli_hget_all_interface.tmpl, .*, sonic, redis-cli -n 6 hgetall 'TRANSCEIVER_INFO.*
+show_redis-cli_TRANSCEIVER_DOM_SENSOR.tmpl, .*, sonic, redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*
+show_redis_DOM_SENSOR_Interface_details.tmpl, .*, sonic, redis-cli -n 6 hgetall 'TRANSCEIVER_DOM_SENSOR.*
 show_redis_cli_stp_iccp.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall '_STP_ICCP.*
 show_redis_cli_stp_iccp.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall 'STP_FASTAGEING_FLUSH.*
 show_redis_cli_transceiver_info.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall "TRANSCEIVER_INFO*
