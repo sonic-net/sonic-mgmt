@@ -3,7 +3,6 @@ import random
 from tests.common.ixia.common_helpers import enable_packet_aging, start_pfcwd,\
     get_portchannel_member
 from tests.common.config_reload import config_reload
-from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.conftest import generate_priority_lists
 
 @pytest.fixture(autouse=True, scope="module")
@@ -76,6 +75,25 @@ def enable_packet_aging_after_test(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     enable_packet_aging(duthost)
 
+def __need_set_pc_minlinks(duthost):
+    """
+    Check if we need to set portchannel min links to 1 for the DUT
+
+    Args:
+        duthost (object): device unnder test
+
+    Returns:
+        True if we need to set min links to 1, False otherwise
+    """
+    pc_member = get_portchannel_member(duthost)
+    if pc_member is not None:
+        for pc in pc_member:
+            intfs = pc_member[pc]
+            if len(intfs) > 1:
+                return True
+
+    return False
+
 @pytest.fixture(autouse=True, scope="module")
 def set_pc_minlinks_before_test(duthosts, rand_one_dut_hostname):
     """
@@ -89,27 +107,23 @@ def set_pc_minlinks_before_test(duthosts, rand_one_dut_hostname):
         N/A
     """
     duthost = duthosts[rand_one_dut_hostname]
-    pc_member = get_portchannel_member(duthost)
 
-    if pc_member is not None:
-        for pc in list(pc_member.keys()):
+    if __need_set_pc_minlinks(duthost):
+        pc_member = get_portchannel_member(duthost)
+        for pc in pc_member:
             cmd = r'redis-cli -n 4 hset "PORTCHANNEL|{}" "min_links" "1"'.format(pc)
             duthost.shell(cmd)
 
         duthost.shell('sudo config save -y')
-        if isMellanoxDevice(duthost):
-            wait_sec = 240
-        else:
-            wait_sec = 90
-
-        config_reload(duthost=duthost, config_source='config_db', wait=wait_sec)
+        config_reload(duthost=duthost, config_source='config_db', wait=240)
 
     yield
 
 @pytest.fixture(autouse=True, scope="module")
 def reload_config_after_test(duthosts, rand_one_dut_hostname):
     """
-    Reload minigraph configuration after test
+    Reload minigraph configuration after test if we have modified portchannel
+    min links
 
     Args:
         duthosts (pytest fixture) : list of DUTs
@@ -121,9 +135,5 @@ def reload_config_after_test(duthosts, rand_one_dut_hostname):
     yield
 
     duthost = duthosts[rand_one_dut_hostname]
-    if isMellanoxDevice(duthost):
-        wait_sec = 240
-    else:
-        wait_sec = 90
-
-    config_reload(duthost=duthost, config_source='minigraph', wait=wait_sec)
+    if __need_set_pc_minlinks(duthost):
+        config_reload(duthost=duthost, config_source='minigraph', wait=240)
