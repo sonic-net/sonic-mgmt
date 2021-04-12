@@ -5,9 +5,9 @@ from test_vrf import setup_vrf              # lgtm[py/unused-import]
 from test_vrf import dut_facts             # lgtm[py/unused-import]
 from test_vrf import gen_vrf_neigh_file
 from test_vrf import partial_ptf_runner     # lgtm[py/unused-import]
-from test_vrf import ptf_test_port_map
-from test_vrf import mg_facts
-from test_vrf import vlan_mac
+from test_vrf import ptf_test_port_map      # lgtm[py/unused-import]
+from test_vrf import mg_facts      # lgtm[py/unused-import]
+from test_vrf import vlan_mac      # lgtm[py/unused-import]
 from test_vrf import PTF_TEST_PORT_MAP
 
 from tests.ptf_runner import ptf_runner
