@@ -79,6 +79,8 @@ class HashTest(BaseTest):
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
 
+        self.ignore_ttl = self.test_params.get('ignore_ttl', False)
+
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
@@ -217,15 +219,22 @@ class HashTest(BaseTest):
             exp_pkt['IP'].proto = ip_proto
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        # mask the chksum also if masking the ttl
+        if self.ignore_ttl:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+
 
         send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'\
+        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={} on port {})'\
             .format(pkt.src,
                     pkt.dst,
                     pkt['IP'].src,
                     pkt['IP'].dst,
                     sport,
-                    dport))
+                    dport,
+                    src_port))
         logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'\
             .format(exp_router_mac,
                     'any',
@@ -284,15 +293,21 @@ class HashTest(BaseTest):
 
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+        # mask the chksum also if masking the ttl
+        if self.ignore_ttl:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
+        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={} on port {})'\
             .format(pkt.src,
                     pkt.dst,
                     pkt['IPv6'].src,
                     pkt['IPv6'].dst,
                     sport,
-                    dport))
+                    dport,
+                    src_port))
         logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
             .format(exp_router_mac,
                     'any',
