@@ -49,28 +49,30 @@ def ssh_remote_ban_run(localhost, remote_ip, username, password, cmd):
     return res['rc'] != 0 and "Make sure your account has RW permission to current device" in res['stderr']
 
 
-def test_ro_user(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    res = ssh_remote_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
+    res = ssh_remote_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                         creds_all_duts[duthost]['tacacs_ro_user_passwd'], 'cat /etc/passwd')
 
     for l in res['stdout_lines']:
         fds = l.split(':')
         if fds[0] == "test":
             assert fds[4] == "remote_user"
 
-def test_ro_user_ipv6(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs_v6):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs_v6):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    res = ssh_remote_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
+    res = ssh_remote_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                         creds_all_duts[duthost]['tacacs_ro_user_passwd'], 'cat /etc/passwd')
 
     for l in res['stdout_lines']:
         fds = l.split(':')
         if fds[0] == "test":
             assert fds[4] == "remote_user"
 
-def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options["inventory_manager"].get_host(duthost.hostname).vars["ansible_host"]
 
     # Run as RO and use the commands allowed by the sudoers file
@@ -115,23 +117,30 @@ def test_ro_user_allowed_command(localhost, duthosts, rand_one_dut_hostname, cre
     # sudo sfputil show
 
     for command in commands:
-        if does_command_exist(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], command):
+        if does_command_exist(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                              creds_all_duts[duthost]['tacacs_ro_user_passwd'], command):
             for subcommand in commands[command]:
-                allowed = ssh_remote_allow_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], subcommand)
+                allowed = ssh_remote_allow_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                                               creds_all_duts[duthost]['tacacs_ro_user_passwd'], subcommand)
                 pytest_assert(allowed, "command '{}' not authorized".format(subcommand))
         else:
             logger.info('"{}" not found on DUT, skipping...'.format(command))
 
-    dash_allowed = ssh_remote_allow_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], 'sudo sonic-installer list')
+    dash_allowed = ssh_remote_allow_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                                        creds_all_duts[duthost]['tacacs_ro_user_passwd'], 'sudo sonic-installer list')
     if not dash_allowed:
-        dash_banned = ssh_remote_ban_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], 'sudo sonic-installer list')
+        dash_banned = ssh_remote_ban_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                                         creds_all_duts[duthost]['tacacs_ro_user_passwd'], 'sudo sonic-installer list')
         pytest_assert(dash_banned, "command 'sudo sonic-installer list' should be either allowed or banned")
-        underscore_allowed = ssh_remote_allow_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], 'sudo sonic_installer list')
-        pytest_assert(underscore_allowed, "command 'sudo sonic_installer list' should be allowed if 'sudo sonic-installer list' is banned")
+        underscore_allowed = ssh_remote_allow_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                                                  creds_all_duts[duthost]['tacacs_ro_user_passwd'],
+                                                  'sudo sonic_installer list')
+        pytest_assert(underscore_allowed, "command 'sudo sonic_installer list' should be allowed if"
+                                          " 'sudo sonic-installer list' is banned")
 
 
-def test_ro_user_banned_command(localhost, duthosts, rand_one_dut_hostname, creds, test_tacacs):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     # Run as readonly use the commands allowed by sudoers file
@@ -142,5 +151,6 @@ def test_ro_user_banned_command(localhost, duthosts, rand_one_dut_hostname, cred
     ]
 
     for command in commands:
-        banned = ssh_remote_ban_run(localhost, dutip, creds['tacacs_ro_user'], creds['tacacs_ro_user_passwd'], command)
+        banned = ssh_remote_ban_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
+                                    creds_all_duts[duthost]['tacacs_ro_user_passwd'], command)
         pytest_assert(banned, "command '{}' authorized".format(command))

@@ -120,14 +120,16 @@ def verify_snmp_speed(facts, snmp_facts, results):
     return results
 
 @pytest.mark.bsl
-def test_snmp_interfaces(localhost, creds, duthosts, enum_dut_hostname, enum_asic_index):
+def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
     """compare the snmp facts between observed states and target state"""
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("interfaces not present on supervisor node")
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
 
     snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
     print snmp_ifnames
@@ -141,13 +143,13 @@ def test_snmp_interfaces(localhost, creds, duthosts, enum_dut_hostname, enum_asi
         assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
 
 @pytest.mark.bsl
-def test_snmp_mgmt_interface(localhost, creds, duthosts, enum_dut_hostname):
+def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
     """compare the snmp facts between observed states and target state"""
 
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
@@ -157,12 +159,12 @@ def test_snmp_mgmt_interface(localhost, creds, duthosts, enum_dut_hostname):
     for name in config_facts.get('MGMT_INTERFACE', {}):
         assert name in snmp_ifnames, "Management Interface not found in SNMP facts."
 
-def test_snmp_interfaces_mibs(duthosts, rand_one_dut_hostname, localhost, creds):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
 
     dut_facts = collect_all_facts(duthost)
     ports_snmps = verify_port_snmp(dut_facts, snmp_facts)

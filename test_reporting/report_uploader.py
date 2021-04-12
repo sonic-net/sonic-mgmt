@@ -19,7 +19,7 @@ Examples:
 python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
 """,
     )
-    parser.add_argument("path_name", metavar="path", type=str, help="A file/directory to upload.")
+    parser.add_argument("path_list", metavar="path", nargs="+", type=str, help="list of file/directory to upload.")
     parser.add_argument("db_name", metavar="database", type=str, help="The Kusto DB to upload to.")
     parser.add_argument(
         "--external_id", "-e", type=str, help="An external tracking ID to append to the report.",
@@ -35,23 +35,28 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     kusto_db = KustoConnector(args.db_name)
 
     if args.category == "test_result":
-        if args.json:
-            test_result_json = validate_junit_json_file(args.path_name)
-        else:
-            roots = validate_junit_xml_path(args.path_name)
-            test_result_json = parse_test_result(roots)
+        for path_name in args.path_list:
+            if args.json:
+                test_result_json = validate_junit_json_file(path_name)
+            else:
+                roots = validate_junit_xml_path(path_name)
+                test_result_json = parse_test_result(roots)
 
-        tracking_id = args.external_id if args.external_id else ""
+            tracking_id = args.external_id if args.external_id else ""
 
-        kusto_db.upload_report(test_result_json, tracking_id)
+            kusto_db.upload_report(test_result_json, tracking_id)
     elif args.category == "reachability":
-        with open(args.path_name) as f:
-            reachability_data = json.load(f)
+        reachability_data = []
+        for path_name in args.path_list:
+            with open(path_name) as f:
+                reachability_data.extend(json.load(f))
 
         kusto_db.upload_reachability_data(reachability_data)
     elif args.category == "pdu_status":
-        with open(args.path_name) as f:
-            pdu_data = json.load(f)
+        pdu_data = []
+        for path_name in args.path_list:
+            with open(path_name) as f:
+                pdu_data.extend(json.load(f))
 
         kusto_db.upload_pdu_status_data(pdu_data)
     else:
