@@ -9,7 +9,6 @@ import logging
 import json
 import scapy.all as scapyall
 import ptf.testutils as testutils
-from itertools import cycle
 from operator import itemgetter
 from itertools import groupby
 
@@ -84,8 +83,9 @@ class DualTorIO:
         self.sniff_time_incr = 0
         # Inter-packet send-interval (minimum interval 3.5ms)
         if send_interval < 0.0035:
-            logger.warn("Minimum packet send-interval is .0035s. \
-                Ignoring user-provided interval {}".format(send_interval))
+            if send_interval is not None:
+                logger.warn("Minimum packet send-interval is .0035s. \
+                    Ignoring user-provided interval {}".format(send_interval))
             self.send_interval = 0.0035
         else:
             self.send_interval = send_interval

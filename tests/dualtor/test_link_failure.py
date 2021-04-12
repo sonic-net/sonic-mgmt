@@ -6,6 +6,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, 
                                                 shutdown_fanout_lower_tor_intfs, upper_tor_fanouthosts, lower_tor_fanouthosts                   # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor, toggle_all_simulator_ports_to_lower_tor         # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
+from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -22,7 +23,7 @@ def test_active_link_down_upstream(
     Verify switchover and disruption lasts < 1 second
     """
     send_server_to_t1_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=shutdown_fanout_upper_tor_intfs
     )
     verify_tor_states(
@@ -42,7 +43,7 @@ def test_active_link_down_downstream_active(
     Verify switchover and disruption lasts < 1 second
     """
     send_t1_to_server_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=shutdown_fanout_upper_tor_intfs
     )
     verify_tor_states(
@@ -62,7 +63,7 @@ def test_active_link_down_downstream_standby(
     Verify switchover and disruption lasts < 1 second
     """
     send_t1_to_server_with_action(
-        lower_tor_host, verify=True, delay=1,
+        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=shutdown_fanout_upper_tor_intfs
     )
     verify_tor_states(
@@ -82,7 +83,7 @@ def test_standby_link_down_upstream(
     Verify no switchover and no disruption
     """
     send_server_to_t1_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=shutdown_fanout_lower_tor_intfs
     )
     verify_tor_states(
@@ -102,7 +103,7 @@ def test_standby_link_down_downstream_active(
     Confirm no switchover and no disruption
     """
     send_t1_to_server_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=shutdown_fanout_lower_tor_intfs
     )
     verify_tor_states(
@@ -122,7 +123,7 @@ def test_standby_link_down_downstream_standby(
     Confirm no switchover and no disruption
     """
     send_t1_to_server_with_action(
-        lower_tor_host, verify=True, delay=1,
+        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=shutdown_fanout_lower_tor_intfs
     )
     verify_tor_states(

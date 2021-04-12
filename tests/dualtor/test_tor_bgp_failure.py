@@ -7,6 +7,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.tor_failure_utils import kill_bgpd                                                                                    # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
+from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -35,7 +36,7 @@ def test_active_tor_kill_bgpd_upstream(
         Verify traffic interruption < 1 second
     '''
     send_server_to_t1_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: kill_bgpd(upper_tor_host)
     )
     verify_tor_states(
@@ -102,7 +103,7 @@ def test_active_tor_kill_bgpd_downstream_standby(
     '''
     with tunnel_traffic_monitor(lower_tor_host, existing=True):
         send_t1_to_server_with_action(
-            lower_tor_host, verify=True, delay=1,
+            lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             action=lambda: kill_bgpd(upper_tor_host)
         )
     verify_tor_states(
