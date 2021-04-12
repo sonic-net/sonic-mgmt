@@ -36,7 +36,10 @@ class QosParamMellanox(object):
         self.ingressLossyProfile = ingressLossyProfile
         self.egressLosslessProfile = egressLosslessProfile
         self.egressLossyProfile = egressLossyProfile
-        self.sharedHeadroomPoolSize = sharedHeadroomPoolSize
+        if sharedHeadroomPoolSize and int(sharedHeadroomPoolSize) != 0:
+            self.sharedHeadroomPoolSize = sharedHeadroomPoolSize
+        else:
+            self.sharedHeadroomPoolSize = None
         self.dutConfig = dutConfig
 
         return
