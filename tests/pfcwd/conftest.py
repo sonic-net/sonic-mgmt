@@ -96,9 +96,7 @@ def setup_pfc_test(
     port_list = mg_facts['minigraph_ports'].keys()
     ports = (' ').join(port_list)
     neighbors = conn_graph_facts['device_conn'][duthost.hostname]
-    dut_facts = duthost.setup()['ansible_facts']
-    dut_eth0_ip = dut_facts['ansible_eth0']['ipv4']['address']
-    dut_eth0_mac = dut_facts['ansible_eth0']['macaddress']
+    dut_eth0_ip = duthost.mgmt_ip
     vlan_nw = None
 
     if mg_facts['minigraph_vlans']:

@@ -65,6 +65,8 @@ Much like the PTF docker image, this image will be pulled from the configured do
 
 Also, topologies with the Keysight API server will not be using any VMs.
 
+Keysight API server can be accessed using the `ptf_ip` from the testbed file. Since the api-server is not deployed again if already running one should use the original `pft_ip` to access it across the ixia-testbeds.
+
 The most recent IxNetwork API Server docker image can be found [here](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.00_Update-3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2).
 See also the [Ixia software download](https://support.ixiacom.com/public/support-overview/product-support/downloads-updates/versions/68) page for any newer versions.
 

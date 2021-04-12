@@ -3,6 +3,7 @@ import pytest
 import json
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import InterruptableThread
 import threading
 import logging
 from natsort import natsorted
@@ -136,8 +137,11 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
     elif traffic_direction == "t1_to_server":
         traffic_generator = tor_IO.generate_from_t1_to_server
 
-    send_and_sniff = threading.Thread(target=tor_IO.start_io_test,
-        kwargs={'traffic_generator': traffic_generator})
+    send_and_sniff = InterruptableThread(
+        target=tor_IO.start_io_test,
+        kwargs={'traffic_generator': traffic_generator}
+    )
+    send_and_sniff.set_error_handler(lambda *args, **kargs: io_ready.set())
 
     send_and_sniff.start()
     if action:
