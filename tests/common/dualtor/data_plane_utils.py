@@ -151,8 +151,8 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         logger.info("Sender and sniffer threads started, ready to execute the "\
             "callback action")
         action()
-    # do not time-wait the test, if early start is not requested (when stop_after=0)
-    if stop_after:
+    # do not time-wait the test, if early stop is not requested (when stop_after=None)
+    if stop_after is not None:
         wait_until(timeout=stop_after, interval=0.5, condition=\
             lambda: not send_and_sniff.is_alive)
         if send_and_sniff.is_alive():
