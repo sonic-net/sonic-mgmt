@@ -48,6 +48,7 @@ function usage
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
+  echo "To remove a topology and keysight-api-server container on a server: $0 remove-topo 'topo-name' ~/.password remove_keysight_api_server"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password"
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
   echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
@@ -248,15 +249,25 @@ function remove_topo
 
   read_file ${topology}
 
+  remove_keysight_api_server=0
+  for i in "$@"
+  do
+    if [[ "remove_keysight_api_server" == "$i" ]]; then
+      remove_keysight_api_server=1
+      shift
+    fi
+  done
+
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
-        -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-        $ansible_options $@
+      -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+      -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+      -e remove_keysight_api_server="$remove_keysight_api_server" \
+      $ansible_options $@
 
   echo Done
 }
