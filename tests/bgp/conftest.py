@@ -220,12 +220,21 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
             _subnets = ipaddress.ip_network(u"10.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
             subnets = (_ for _ in _subnets if _ not in used_subnets)
 
+            loopback_ip = None
+            for intf in mg_facts["minigraph_lo_interfaces"]:
+                if netaddr.IPAddress(intf["addr"]).version == 4:
+                    loopback_ip = intf["addr"]
+                    break
+                if not loopback_ip:
+                    pytest.fail("ipv4 lo interface not found")
+
             for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces, peer_count), subnets):
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
                 conn["local_intf"] = "%s" % intf
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
+                conn["loopback_ip"] = loopback_ip
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
@@ -321,7 +330,7 @@ def backup_bgp_config(duthost):
 @pytest.fixture(scope="module")
 def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
     connection = setup_interfaces[0]
-    dut_lo_addr = connection['local_addr'].split("/")[0]
+    dut_lo_addr = connection["loopback_ip"].split("/")[0]
     peer_addr = connection['neighbor_addr'].split("/")[0]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     asn = mg_facts['minigraph_bgp_asn']
@@ -353,6 +362,10 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
                    peer_asn=asn,
                    port=BGP_MONITOR_PORT,
                    dump_script=CUSTOM_DUMP_SCRIPT_DEST)
+    # Add the route to DUT loopback IP  and the interface router mac
+    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
+    ptfhost.shell("ip route add %s dev %s" % (dut_lo_addr + "/32", connection["neighbor_intf"]))
+
     pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
                   "Failed to start bgp monitor session on PTF")
     yield
@@ -361,3 +374,6 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
     ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
     ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
     ptfhost.file(path=DUMP_FILE, state="absent")
+    # Remove the route to DUT loopback IP  and the interface router mac
+    ptfhost.shell("ip route del %s dev %s" % (dut_lo_addr + "/32", connection["neighbor_intf"]))
+    ptfhost.shell("ip neigh del %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
