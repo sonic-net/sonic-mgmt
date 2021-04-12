@@ -1526,4 +1526,4 @@ def test_ft_config_reload():
             print("Type of error occured:", sys.exc_info()[0])
             raise Exception("Test case failed as Voltage values are not within range")
 
-
+    st.report_pass("test_case_passed")
