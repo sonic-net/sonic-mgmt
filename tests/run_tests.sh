@@ -147,6 +147,10 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --allow_recover"
     fi
 
+    for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+    done
+
     if [[ -d ${LOG_PATH} ]]; then
         rm -rf ${LOG_PATH}
     fi
