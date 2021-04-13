@@ -814,9 +814,6 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
     RandomThermalStatusMocker class to help generate random thermal status and check it with actual data.
     """
 
-    # Thermal algorithm status sys fs path.
-    THERMAL_ALGO_STATUS_FILE_PATH = '/run/hw-management/config/suspend'
-
     # Default threshold diff between high threshold and critical threshold
     DEFAULT_THRESHOLD_DIFF = 5
 
@@ -894,12 +891,12 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
 
     def check_thermal_algorithm_status(self, expected_status):
         """
+        Deprecated.
         Check if actual thermal algorithm status match given expected value.
         :param expected_status: True if enable else False.
         :return: True if match else False
         """
-        expected_value = '0' if expected_status else '1'
-        return expected_value == self.mock_helper.read_value(RandomThermalStatusMocker.THERMAL_ALGO_STATUS_FILE_PATH)
+        return True
 
 
 @mocker('SingleFanMocker')
