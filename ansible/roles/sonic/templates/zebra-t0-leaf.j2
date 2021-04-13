@@ -1,0 +1,17 @@
+{% set host = configuration[hostname] %}
+hostname {{ hostname }}
+password zebra
+enable password zebra
+!
+log syslog informational
+log facility local4
+!
+! end of template: common/daemons.common.conf.j2!
+!
+!
+! Enable link-detect (default disabled)
+{% for name, iface in host['interfaces'].items() %}
+interface {{ name }}
+link detect
+!
+{% endfor %}
