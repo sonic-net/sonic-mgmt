@@ -13,10 +13,6 @@ def check_hw_management_service(dut):
     assert hw_mgmt_service_state["ActiveState"] == "active", "The hw-management service is not active"
     assert hw_mgmt_service_state["SubState"] == "exited", "The hw-management service is not exited"
 
-    logging.info("Check thermal control status")
-    tc_suspend = dut.command("cat /var/run/hw-management/config/suspend")
-    assert tc_suspend["stdout"] == "1", "Thermal control is not suspended"
-
     logging.info("Check dmesg")
     dmesg = dut.command("sudo dmesg")
     error_keywords = ["crash", "Out of memory", "Call Trace", "Exception", "panic"]
