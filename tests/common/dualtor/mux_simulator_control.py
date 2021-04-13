@@ -119,7 +119,8 @@ def _post(server_url, data):
         return False
     return True
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope='function')
 def set_drop(url, recover_all_directions):
     """
     A helper function is returned to make fixture accept arguments
@@ -144,7 +145,8 @@ def set_drop(url, recover_all_directions):
     for intf in drop_intfs:
         recover_all_directions(intf)
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope='function')
 def set_output(url):
     """
     A helper function is returned to make fixture accept arguments
