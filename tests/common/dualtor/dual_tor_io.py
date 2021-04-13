@@ -232,13 +232,13 @@ class DualTorIO:
                     eth_src = self.ptfadapter.dataplane.get_mac(
                         0, ptf_t1_src_intf
                     )
-                    packet[scapyall.Ether].src = eth_src
+                packet[scapyall.Ether].src = eth_src
                 packet[scapyall.IP].src = self.random_host_ip()
                 packet[scapyall.IP].dst = server_ip
                 payload = str(i) + payload_suffix
                 packet.load = payload
-                packet[scapyall.IP].chksum = None
                 packet[scapyall.TCP].chksum = None
+                packet[scapyall.IP].chksum = None
                 self.packets_list.append((ptf_t1_src_intf, str(packet)))
 
         self.sent_pkt_dst_mac = self.dut_mac
@@ -310,8 +310,8 @@ class DualTorIO:
                 packet[scapyall.IP].src = server_ip
                 packet[scapyall.IP].dst = self.random_host_ip()
                 packet.load = payload
-                packet[scapyall.IP].chksum = None
                 packet[scapyall.TCP].chksum = None
+                packet[scapyall.IP].chksum = None
                 self.packets_list.append((ptf_src_intf, str(packet)))
         self.sent_pkt_dst_mac = self.vlan_mac
         self.received_pkt_src_mac = [self.active_mac, self.standby_mac]
