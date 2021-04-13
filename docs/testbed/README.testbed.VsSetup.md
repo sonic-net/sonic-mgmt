@@ -139,7 +139,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 ```
 $ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
-If you use SONiC image as the VMs, you need to add extract parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
+If you use SONiC image as the VMs, you need to add extract parameters `-k vsonic` so that this command is `./testbed-cli.sh -m vsonic_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
 
@@ -171,7 +171,7 @@ VM0100 | SUCCESS => {
 ```
 For the SONiC VMs **Note:** The passwd is `password`.
 ```
-$ ansible -m ping -i veos_vtb server_1 -u admin -k
+$ ansible -m ping -i vsonic_vtb server_1 -u admin -k
 VM0102 | SUCCESS => {
         "changed": false,
                 "ping": "pong"
@@ -225,18 +225,34 @@ e07bd0245bd9        ceosimage:4.23.2F                                     "/sbin
 c929c622232a        sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/local/bin/supe…"   7 minutes ago        Up 7 minutes                            ptf_vms6-1
 ```
 
+### vSONiC
+```
+$ cd /data/sonic-mgmt/ansible
+$ ./testbed-cli.sh -t vtestbed.csv -m vsonic_vtb -k vsonic add-topo vms-kvm-sonic-t0 password.txt
+```
+
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
 
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
+### vEOS or cEOS
+
 ```
 $ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
+```
+
+### vSONiC
+
+```
+$ ./testbed-cli.sh -t vtestbed.csv -m vsonic_vtb deploy-mg vms-kvm-sonic-t0 vsonic_vtb password.txt
 ```
 
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
 
 3. You should see BGP sessions up in SONiC:
+
+If neighbor devices are EOS:
 
 ```
 admin@vlab-01:~$ show ip bgp sum
@@ -250,6 +266,28 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 10.0.0.59       4 64600    3208     593        0    0    0 00:00:22     1
 10.0.0.61       4 64600    3205     950        0    0    0 00:00:21     1
 10.0.0.63       4 64600    3204     950        0    0    0 00:00:21     1
+```
+
+If neighbor devices are SONiC
+
+```
+admin@vlab-01:~$ show ip bgp sum
+
+IPv4 Unicast Summary:
+BGP router identifier 10.1.0.32, local AS number 65100 vrf-id 0
+BGP table version 3
+RIB entries 5, using 920 bytes of memory
+Peers 4, using 83680 KiB of memory
+Peer groups 4, using 256 bytes of memory
+
+
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
+10.0.0.59      4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
+10.0.0.61      4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
+10.0.0.63      4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
+
 ```
 
 ## Run a Pytest
