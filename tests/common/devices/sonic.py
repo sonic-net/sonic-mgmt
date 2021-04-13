@@ -1128,7 +1128,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "th"
         elif "Broadcom Limited Device b971" in output:
             asic = "th2"
-        elif "Broadcom Limited Device b850" in output:
+        elif ("Broadcom Limited Device b850" in output or
+              "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
         elif "Broadcom Limited Device b870" in output:
             asic = "td3"

@@ -327,7 +327,8 @@ def get_asic_name():
         asic = "th"
     elif "Broadcom Limited Device b971" in output:
         asic = "th2"
-    elif "Broadcom Limited Device b850" in output:
+    elif ("Broadcom Limited Device b850" in output or
+          "Broadcom Limited Broadcom BCM56850" in output):
         asic = "td2"
     elif "Broadcom Limited Device b870" in output:
         asic = "td3"
