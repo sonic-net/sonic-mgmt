@@ -1,0 +1,53 @@
+Value type (\w+\d+\s+\w+\s+\w+)
+Value hardware_rev (\d+\w+)
+Value serial (\w+\-\w+)
+Value manufacturer (\S+)
+Value model ([\w\-]+)
+Value vendor_oui ([\w\-\d]+)
+Value vendor_date ([\d\-]+)
+Value connector (\w+\s+\w+\s+\w+)
+Value encoding (\S+)
+Value ext_identifier ([\w\d\s\,\(\)\.]+)
+Value ext_rateselect_compliance ([\w\+\d\s]+)
+Value cable_type ([\w\s\(\)]+)
+Value cable_length (\S+)
+Value specification_compliance (\S+)
+Value nominal_bit_rate (\S+)
+Value application_advertisement (\S+)
+Value is_replaceable (\S+)
+
+Start
+  ^\s*\d+\)\s*\"type\"\s*
+  ^\s*\d+\)\s*\"${type}\s*
+  ^\s*3\)\s*\"hardware_rev\"\s*
+  ^\s*4\)\s*\"${hardware_rev}\"\s*
+  ^\s*5\)\s*\"serial\"\s*
+  ^\s*6\)\s*\"${serial}\"\s*
+  ^\s*7\)\s*\"manufacturer\"\s*
+  ^\s*8\)\s*\"${manufacturer}\"\s*
+  ^\s*9\)\s*\"model\"\s*
+  ^\s*10\)\s*\"${model}\"\s*
+  ^\s*11\)\s*\"vendor_oui\"\s*
+  ^\s*12\)\s*\"${vendor_oui}\"\s*
+  ^\s*13\)\s*\"vendor_date\"\s*
+  ^\s*14\)\s*\"${vendor_date}\s*\"\s*
+  ^\s*15\)\s*\"connector\"\s*
+  ^\s*16\)\s*\"${connector}\"\s*
+  ^\s*17\)\s*\"encoding\"\s*
+  ^\s*18\)\s*\"${encoding}\"\s*
+  ^\s*19\)\s*\"ext_identifier\"\s*
+  ^\s*20\)\s*\"${ext_identifier}\"\s*
+  ^\s*21\)\s*\"ext_rateselect_compliance\"\s*
+  ^\s*22\)\s*\"${ext_rateselect_compliance}\"\s*
+  ^\s*23\)\s*\"cable_type\"\s*
+  ^\s*24\)\s*\"${cable_type}\"\s*
+  ^\s*25\)\s*\"cable_length\"\s*
+  ^\s*26\)\s*\"${cable_length}\"\s*
+  ^\s*27\)\s*\"specification_compliance\"\s*
+  ^\s*28\)\s*\"${specification_compliance}\"\s*
+  ^\s*29\)\s*\"nominal_bit_rate\"\s*
+  ^\s*30\)\s*\"${nominal_bit_rate}\"\s*
+  ^\s*31\)\s*\"application_advertisement\"\s*
+  ^\s*32\)\s*\"${application_advertisement}\"\s*
+  ^\s*33\)\s*\"is_replaceable\"\s*
+  ^\s*34\)\s*\"${is_replaceable}\"\s* -> Record

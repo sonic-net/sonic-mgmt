@@ -1479,3 +1479,51 @@ def test_ft_config_reload():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+  def test_ft_xcvrd_info_in_db():
+    """
+    Author: Harsha Golla <harsgoll@cisco.com>
+    Validate the below
+        - transceiver information of all ports are in redis: redis-cli -n 6 keys TRANSCEIVER_INFO*
+        - transceiver information of each connected port, for example: redis-cli -n 6 hgetall "TRANSCEIVER_INFO|Ethernet0"
+        - TRANSCEIVER_DOM_SENSOR of all ports in redis: redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*
+        - TRANSCEIVER_DOM_SENSOR information of each connected ports for example: redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|Ethernet0"
+    """
+    vars = st.get_testbed_vars()
+    # Comparision of Interfaces between test bed file and REDIS CLI Command
+    interfacesTestBedFile = [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1T1P1, vars.D1T1P2, vars.D1T1P3,
+                             vars.D1T1P4]
+    interfacesDatabase = [element['interface'] for element in basic_obj.get_redis_cli_interface(vars.D1)]
+    if interfacesTestBedFile.sort() != interfacesDatabase.sort():
+        st.report_fail("Test case failed as interfaces from testbed file didnt match with Interfaces from redis database")
+
+    #Verification of Vendor Fields
+    for interface in interfacesDatabase:
+        redisInterfaceDetails = basic_obj.get_interface_details_redis(vars.D1, interface.split("Ethernet")[1])
+        print(redisInterfaceDetails)
+        if basic_obj.verifyVendorPresence(redisInterfaceDetails):
+            st.log("All vendor fields exist for interface {} in redis".format(interface))
+        else:
+            raise Exception("Test case failed as vendor information is missing")
+
+    #Comparision of Iterfaces between testbed file and DOM Sensor Command
+    interfacesDOMSENSOR = [element['interface'] for element in basic_obj.get_redis_cli_interface_dom_sensors(vars.D1)]
+    if interfacesTestBedFile.sort() != interfacesDOMSENSOR.sort():
+        st.report_fail(
+            "Test case failed as interfaces from testbed file didnt match with Interfaces from redis database")
+    #Verification of Temperature, voltage
+    for interface in interfacesDOMSENSOR:
+        redisDomDetails = basic_obj.get_redis_int_dom(vars.D1, interface.split("Ethernet")[1])
+        print(redisDomDetails)
+        temperature, voltage, temphighwarning, templowwarning, vcchighwarning, vcclowwarning = basic_obj.processRedisData(redisDomDetails)
+        if basic_obj.valueComparisions(templowwarning, temperature, temphighwarning):
+            st.log("Temperature values are within the range")
+        else:
+            print("Type of error occured:", sys.exc_info()[0])
+            raise Exception("Test case failed as Temperature values are not within range")
+        if basic_obj.valueComparisions(vcclowwarning, voltage, vcchighwarning):
+            st.log("Voltage values are within the range")
+        else:
+            print("Type of error occured:", sys.exc_info()[0])
+            raise Exception("Test case failed as Voltage values are not within range")
+
+    st.report_pass("test_case_passed")
