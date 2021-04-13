@@ -62,16 +62,24 @@ class EosHost(AnsibleHostBase):
     def shutdown(self, interface_name):
         out = self.eos_config(
             lines=['shutdown'],
-            parents='interface %s' % interface_name)
+            parents=['interface {}'.format(interface_name)])
         logging.info('Shut interface [%s]' % interface_name)
         return out
+
+    def shutdown_multiple(self, interfaces):
+        intf_str = ','.join(interfaces)
+        return self.shutdown(intf_str)
 
     def no_shutdown(self, interface_name):
         out = self.eos_config(
             lines=['no shutdown'],
-            parents='interface %s' % interface_name)
+            parents=['interface {}'.format(interface_name)])
         logging.info('No shut interface [%s]' % interface_name)
         return out
+
+    def no_shutdown_multiple(self, interfaces):
+        intf_str = ','.join(interfaces)
+        return self.no_shutdown(intf_str)
 
     def check_intf_link_state(self, interface_name):
         show_int_result = self.eos_command(

@@ -62,9 +62,12 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
 
-  - name: Check if it is a known topology
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
-    when: topo not in topologies
+    when: base_topo not in topologies
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
@@ -99,9 +102,12 @@
           fail: msg="Define topo variable with -e topo=something"
           when: topo is not defined
 
+        - set_fact:
+            base_topo: "{{ topo.split('_') | first }}"
+
         - name: Check if it is a known topology
           fail: msg="Unknown topology {{ topo }}"
-          when: topo not in topologies
+          when: base_topo not in topologies
 
         - name: Check that variable VM_base is defined
           fail: msg="Define VM_base variable with -e VM_base=something"

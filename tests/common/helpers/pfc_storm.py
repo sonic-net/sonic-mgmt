@@ -33,10 +33,9 @@ class PFCStorm(object):
                 Other keys: 'pfc_storm_defer_time', 'pfc_storm_stop_defer_time', 'pfc_asym'
         """
         self.dut = duthost
-        dut_facts = duthost.setup()['ansible_facts']
         hostvars = self.dut.host.options['variable_manager']._hostvars[self.dut.hostname]
         self.inventory = hostvars['inventory_file'].split('/')[-1]
-        self.ip_addr = dut_facts['ansible_eth0']['ipv4']['address']
+        self.ip_addr = duthost.mgmt_ip
         self.fanout_info = fanout_graph_facts
         self.fanout_hosts = fanouthosts
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")

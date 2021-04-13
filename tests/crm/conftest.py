@@ -56,8 +56,8 @@ def pytest_runtest_teardown(item, nextitem):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_thresholds(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
     crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor",
         "ipv6_neighbor", "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
@@ -72,11 +72,12 @@ def crm_thresholds(duthosts, rand_one_dut_hostname):
     return res
 
 
-@pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthosts, rand_one_dut_hostname, tbinfo):
+@pytest.fixture(scope="function", autouse=True)
+def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, enum_frontend_asic_index):
     """ Return tuple of two DUT interfaces """
-    duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
         crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]
@@ -88,9 +89,9 @@ def crm_interface(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthosts, rand_one_dut_hostname):
+def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Set CRM polling interval to 1 second """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
@@ -98,7 +99,11 @@ def set_polling_interval(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def collector():
+def collector(duthosts, rand_one_dut_hostname):
     """ Fixture for sharing variables beatween test cases """
+    duthost = duthosts[rand_one_dut_hostname]
     data = {}
+    for asic in duthost.asics:
+        data[asic.asic_index] = {}
+
     yield data

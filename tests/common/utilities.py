@@ -91,6 +91,10 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
 class InterruptableThread(threading.Thread):
     """Thread class that can be interrupted by Exception raised."""
 
+    def set_error_handler(self, error_handler):
+        """Add error handler callback that will be called when the thread exits with error."""
+        self.error_handler = error_handler
+
     def run(self):
         """
         @summary: Run the target function, call `start()` to start the thread
@@ -101,6 +105,8 @@ class InterruptableThread(threading.Thread):
             threading.Thread.run(self)
         except Exception:
             self._e = sys.exc_info()
+            if getattr(self, "error_handler", None) is not None:
+                self.error_handler(*self._e)
 
     def join(self, timeout=None, suppress_exception=False):
         """
@@ -368,3 +374,46 @@ def is_ipv4_address(ip_address):
         return True
     except ipaddress.AddressValueError:
         return False
+
+
+def compare_crm_facts(left, right):
+    """Compare CRM facts
+
+    Args:
+        left (dict): crm facts returned by dut.get_crm_facts()
+        right (dict): crm facts returned by dut.get_crm_facts()
+
+    Returns:
+        list: List of unmatched items.
+    """
+    unmatched = []
+
+    for k, v in left['resources'].items():
+        lv = v
+        rv = right['resources'][k]
+        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+
+    left_acl_group = {}
+    for ag in left['acl_group']:
+        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
+        left_acl_group[key] = {
+            'available': ag['available count'],
+            'used': ag['used count']
+        }
+
+    right_acl_group = {}
+    for ag in left['acl_group']:
+        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
+        right_acl_group[key] = {
+            'available': ag['available count'],
+            'used': ag['used count']
+        }
+
+    for k, v in left_acl_group.items():
+        lv = v
+        rv = right_acl_group[k]
+        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+
+    return unmatched

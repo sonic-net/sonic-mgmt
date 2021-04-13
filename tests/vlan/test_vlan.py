@@ -245,6 +245,18 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
                                 ip_ttl=ttl)
     return pkt
 
+def build_qinq_packet(outer_vlan_id, vlan_id,
+                      src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
+                      src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
+    pkt = testutils.simple_qinq_tcp_packet(eth_dst=dst_mac,
+                             eth_src=src_mac,
+                             dl_vlan_outer=outer_vlan_id,
+                             vlan_vid=vlan_id,
+                             ip_src=src_ip,
+                             ip_dst=dst_ip,
+                             ip_ttl=ttl)
+    return pkt
+
 def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], device_number=0, timeout=1):
     for port in ports:
         result = testutils.dp_poll(test, device_number=device_number, port_number=port,
@@ -467,3 +479,38 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
         logger.info ("Untagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
     else:
         pytest.fail("Expected packet was not received")
+
+
+def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, duthost):
+    """
+    Test case #6
+    Send qinq packets w/ src and dst specified over tagged ports in vlan
+    Verify that the qinq packet is switched based on outer vlan tag + src/dst mac
+    """
+
+    # Add more supported platforms to the list as they are tested
+    qinq_switching_supported_platforms = ['mellanox']
+    if duthost.facts["asic_type"] not in qinq_switching_supported_platforms:
+        pytest.skip("Unsupported platform")
+
+    vlan_ids = vlan_ports_list[0]['permit_vlanid'].keys()
+    tagged_test_vlan = vlan_ids[0]
+
+    ports_for_test = []
+    for vlan_port in vlan_ports_list:
+        if vlan_port['pvid'] != tagged_test_vlan:
+            ports_for_test.append(vlan_port['port_index'][0])
+
+    #take two tagged ports for test
+    src_port = ports_for_test[0]
+    dst_port = ports_for_test[-1]
+
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port)
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
+
+    transmit_qinq_pkt = build_qinq_packet(outer_vlan_id=tagged_test_vlan, vlan_id=250, src_mac=src_mac, dst_mac=dst_mac)
+    logger.info ("QinQ packet to be sent from port {} to port {}".format(src_port, dst_port))
+    testutils.send(ptfadapter, src_port, transmit_qinq_pkt)
+
+    testutils.verify_packet(ptfadapter, transmit_qinq_pkt, dst_port)
+    logger.info ("QinQ packet switching worked successfully...")

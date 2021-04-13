@@ -28,6 +28,50 @@ UPPER_TOR = 'upper_tor'
 LOWER_TOR = 'lower_tor'
 NIC = 'nic'
 
+# Global variable for storing mux cable flapping
+flap_counter = {}
+
+def get_flap_counter(vm_set, port_index):
+    """
+    @summary: Get the flap counter for a certain mbr
+    @param vm_set: A str, vm_set name
+    @param port_index: An integer, the port_index
+    @return: An dict {'mbr-vms17-8-0': 10}
+    """
+    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    return {mbr_name: flap_counter.get(mbr_name, 0)}
+
+
+def increase_flap_counter(vm_set, port_index):
+    """
+    @summary: Increase the flap counter for a certain mbr by 1
+    @param vm_set: A str, vm_set name
+    @param port_index: An integer, the port_index
+    @return: None
+    """
+    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    flap_counter[mbr_name] = flap_counter.get(mbr_name, 0) + 1
+
+
+def clear_flap_counter(vm_set, port_index):
+    """
+    @summary: Clear the flap counter for a certain mbr
+    @param vm_set: A str, vm_set name
+    @param port_index: An integer, the port_index
+    @return: None
+    """
+    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    flap_counter[mbr_name] = 0
+
+
+def init_flap_counter():
+    """
+    Fill 0 to global flap counter
+    """
+    for intf in os.listdir('/sys/class/net'):
+        if intf.startswith('mbr-'):
+            flap_counter[intf] = 0
+
 
 def run_cmd(cmdline):
     """Use subprocess to run a command line with shell=True
@@ -287,6 +331,9 @@ def set_active_side(vm_set, port_index, new_active_side):
         return mux_status
 
     # Need to toggle active side anyway
+    # Increase flap counter
+    increase_flap_counter(vm_set, port_index)
+
     flows = get_flows(vm_set, port_index)
     active_port = get_active_port(flows)
     if new_active_side == 'toggle':
@@ -606,6 +653,63 @@ def mux_cable_flow_update(vm_set, port_index, action):
         app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
         return jsonify({'err_msg': err_msg}), 500
 
+@app.route('/mux/<vm_set>/<port_index>/flap_counter', methods=['GET'])
+def flap_counter_port(vm_set, port_index):
+    """
+    Handler for retrieving flap counter for a given port
+    """
+    valid, msg = _validate_param(vm_set, port_index)
+    if not valid:
+        app.logger.error('{} {} {}'.format(request.method, request.url, msg))
+        return jsonify({'err_msg': msg}), 400
+    
+    return get_flap_counter(vm_set, port_index)
+
+
+@app.route('/mux/<vm_set>/flap_counter', methods=['GET'])
+def flap_counter_all(vm_set):
+    """
+    Handler for retrieving flap counter for all ports
+    """
+    ret = {}
+
+    pattern = "mbr-{}".format(vm_set)
+    for mbr, counter in flap_counter.items():
+        if mbr.startswith(pattern):
+            ret[mbr] = counter
+    
+    return ret
+
+
+@app.route('/mux/<vm_set>/clear_flap_counter', methods=['POST'])
+def clear_flap_counter_handler(vm_set):
+    """
+    Handler for clearing flap counter for all ports or a given port
+    Data posted should be {'port_to_clear': '0|1...'} or {'port_to_clear': 'all'}
+    """
+    ret = {}
+    data = request.get_json()
+    if 'port_to_clear' not in data:
+        msg = 'Bad posted data, expected: {"port_to_clear": "all|integer"}'
+        return jsonify({'err_msg': msg}), 400
+    port_indexes = data['port_to_clear']
+    if port_indexes == "all":
+        pattern = "mbr-{}".format(vm_set)
+        for mbr, counter in flap_counter.items():
+            if mbr.startswith(pattern):
+                flap_counter[mbr] = 0
+                ret[mbr] = 0
+    else:
+        indexes = port_indexes.split('|')
+        for index in indexes:
+            valid, msg = _validate_param(vm_set, index)
+            if not valid:
+                continue
+            clear_flap_counter(vm_set, index)
+            mbr_name = "mbr-{}-{}".format(vm_set, index)
+            ret[mbr_name] = 0
+
+    return ret
 
 def config_logging():
     rfh = RotatingFileHandler(
@@ -625,7 +729,7 @@ if __name__ == '__main__':
     $ sudo python <prog> <port>
     '''
     config_logging()
-
+    init_flap_counter()
     if '-v' in sys.argv:
         app.logger.setLevel(logging.DEBUG)
         for handler in app.logger.handlers:
