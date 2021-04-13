@@ -1,8 +1,8 @@
-import time
 import pytest
 import logging
 import re
 
+from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli
 
@@ -52,6 +52,13 @@ def get_lag_id_from_chassis_db(duthosts):
         pytest.fail("LAG id for lag {} is not preset in CHASSIS_DB".format(TMP_PC))
 
 
+def verify_lag_interface(duthost, asic, portchannel, expected=True):
+    """Verify lag interface status"""
+    if duthost.interface_facts(namespace=asic.namespace)['ansible_facts']['ansible_interface_facts'][portchannel]['link'] == expected:
+        return True
+    return False
+
+
 def add_lag(duthost, asic, portchannel_members=None, portchannel_ip=None,
             portchannel=TMP_PC, add=True):
     """
@@ -83,9 +90,9 @@ def add_lag(duthost, asic, portchannel_members=None, portchannel_ip=None,
         int_facts = duthost.interface_facts(namespace=asic.namespace)['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts']
                       [portchannel]['ipv4']['address'] == portchannel_ip.split('/')[0])
-        time.sleep(30)
-        int_facts = duthost.interface_facts(namespace=asic.namespace)['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][portchannel]['link'])
+
+        pytest_assert(wait_until(30,5, verify_lag_interface, duthost, asic, portchannel),
+                      'For added Portchannel {} link is not up'.format(portchannel))
 
 
 def verify_lag_id_is_unique_in_chassis_db(duthosts, duthost, asic):
@@ -122,11 +129,12 @@ def verify_lag_in_app_db(asic, deleted=False):
     app_db_lag_list = appdb.get_app_db_lag_list()
     if deleted:
         for lag in app_db_lag_list:
-            if TMP_PC not in lag:
-                logging.info('LAG {} is deleted in ASIC app db'.format(TMP_PC))
-                return
-        pytest.fail('LAG {} still exist in ASIC app db,'
-                    ' Expected was should be deleted from asic app db.'.format(TMP_PC))
+            if TMP_PC in lag:
+                pytest.fail('LAG {} still exist in ASIC app db,'
+                            ' Expected was should be deleted from asic app db.'.format(TMP_PC))
+
+        logging.info('LAG {} is deleted in ASIC app db'.format(TMP_PC))
+        return
 
     else:
         for lag in app_db_lag_list:
@@ -200,9 +208,10 @@ def delete_lag_members_ip(duthost, asic, portchannel_members,
     if portchannel_ip:
         duthost.shell("config interface {} ip remove {} {}"
                       .format(asic.cli_ns_option, portchannel, portchannel_ip))
-        time.sleep(30)
-        int_facts = duthost.interface_facts(namespace=asic.namespace)['ansible_facts']
-        pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
+
+        pytest_assert(wait_until(30,5, verify_lag_interface, duthost, asic, portchannel, expected=False),
+                      'For deleted Portchannel {} ip link is not down'.format(portchannel))
+
 
 
 def verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, lag_id):
@@ -232,6 +241,7 @@ def verify_lag_member_in_app_db(asic, pc_members, deleted=False):
             for lag_member in app_db_lag_member_list:
                 if pattern in lag_member:
                     exist = True
+                    break
 
             if exist:
                 pytest.fail('LAG {} still exist in ASIC app db, '
@@ -245,6 +255,7 @@ def verify_lag_member_in_app_db(asic, pc_members, deleted=False):
             for lag in app_db_lag_member_list:
                 if pattern in lag:
                     exist = True
+                    break
 
             if not exist:
                 pytest.fail('LAG {} does not exist in ASIC app db,'
@@ -319,6 +330,7 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
                 for lag_member in lag_member_list:
                     if re.search(pattern, lag_member):
                         exist = True
+                        break
                 if exist:
                     pytest.fail('lag member {} not found in system lag member table {}'
                                 .format(member, lag_member_list))
@@ -335,6 +347,7 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
                         exist = True
                         logging.info('lag member {} found in system lag member table {}'
                                      .format(member, lag_member))
+                        break
 
                 if not exist:
                     pytest.fail('lag member {} not found in system lag member table {}'

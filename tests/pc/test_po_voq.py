@@ -36,7 +36,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         portchannel_members = config_facts['PORTCHANNEL'][portchannel].get('members')
 
     else:
-        pytest.skip('Skip test sine there is no portchannel configured. ')
+        pytest.skip('Skip test since there is no portchannel configured. ')
 
     portchannel_ip = None
     if 'PORTCHANNEL_INTERFACE' in config_facts:
@@ -81,7 +81,6 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     # to verify lag in remote asic db
     remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     voq_lag.verify_lag_in_remote_asic_db(remote_duthosts, tmp_lag_id)
-    voq_lag.delete_lag(duthost, asic)
     voq_lag.verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, tmp_lag_id)
     voq_lag.verify_lag_in_app_db(asic, deleted=True)
     voq_lag.verify_lag_in_asic_db(duthost.asics, tmp_lag_id, deleted=True)
