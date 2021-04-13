@@ -111,14 +111,14 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
         raise Exception("Incorrect number of ACL entries specified - {}".format(entry_num))
 
     logger.info("Applying {}".format(dut_conf_file_path))
-    duthost.command("acl-loader update full {}".format(dut_conf_file_path))
+    output = duthost.command("acl-loader update full {}".format(dut_conf_file_path))['stdout']
+    if 'DATAACL table does not exist' in output:
+        pytest.skip("DATAACL does not exist")
 
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
     collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
-
-
 
 
 def generate_mac(num):
@@ -210,8 +210,8 @@ def get_acl_tbl_key(asichost):
         if "2048" in out:
             key = item
             break
-        else:
-            pytest.fail("Ether type was not found in SAI ACL Entry table")
+    else:
+        pytest.fail("Ether type was not found in SAI ACL Entry table")
 
     # Get ACL table key
     cmd = "{db_cli} ASIC_DB HGET {key} \"SAI_ACL_ENTRY_ATTR_TABLE_ID\""
