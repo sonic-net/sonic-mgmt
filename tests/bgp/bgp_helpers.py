@@ -104,22 +104,21 @@ def parse_rib(host, ip_ver):
     """
     routes = {}
 
-    # In case of Multi-aisc device get the routes in ASIC0.
-    namespace = "asic0" if host.is_multi_asic else DEFAULT_NAMESPACE
-    bgp_cmd = "vtysh -c \"show bgp ipv%d json\"" % ip_ver
-    cmd = host.get_vtysh_cmd_for_namespace(bgp_cmd, namespace)
+    for namespace in host.get_frontend_asic_namespace_list():
+        bgp_cmd = "vtysh -c \"show bgp ipv%d json\"" % ip_ver
+        cmd = host.get_vtysh_cmd_for_namespace(bgp_cmd, namespace)
 
-    route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
-    for ip, nexthops in route_data['routes'].iteritems():
-        aspath = set()
-        for nexthop in nexthops:
-            # if internal route with aspath as '' skip adding
-            if nexthop['aspath'] =='':
-                continue
-            aspath.add(nexthop['path'])
-        # if aspath is valid, add it into routes
-        if aspath:
-            routes[ip] = aspath
+        route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
+        for ip, nexthops in route_data['routes'].iteritems():
+            aspath = set()
+            for nexthop in nexthops:
+                # if internal route with aspath as '' skip adding
+                if nexthop['aspath'] =='':
+                    continue
+                aspath.add(nexthop['path'])
+            # if aspath is valid, add it into routes
+            if aspath:
+                routes[ip] = aspath
 
     return routes
 
