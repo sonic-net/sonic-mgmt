@@ -200,7 +200,10 @@ def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_int
             for i in vlan_ports_list[0]['permit_vlanid']:
                 duthost.command('ip route flush {}'.format(
                     item['permit_vlanid'][i]['remote_ip']))
+    except RunAnsibleModuleFail as e:
+        logger.error(e)
 
+    try:
         for vlan_port in vlan_ports_list:
             for permit_vlanid in vlan_port["permit_vlanid"].keys():
                 if int(permit_vlanid) != vlan_port["pvid"]:
