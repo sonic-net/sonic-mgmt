@@ -55,7 +55,7 @@
   become: yes
   when: hostname in configuration
   notify:
-    - Restart BGP Daemon
+    - Restart BGP service
 
 - name: create zebra config
   template: src="zebra-{{ topo }}-{{ props.swrole }}.j2"
@@ -63,4 +63,4 @@
   become: yes
   when: hostname in configuration
   notify:
-    - Restart BGP Daemon
+    - Restart BGP service

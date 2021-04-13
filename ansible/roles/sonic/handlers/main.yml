@@ -6,8 +6,8 @@
   become: yes
   listen: "Update config db"
 
-- name: SONiC restart BGP Daemon
+- name: SONiC restart BGP service
   become: true
   service: name=bgp
            state=restarted
-  listen: "Restart BGP Daemon"
+  listen: "Restart BGP service"
