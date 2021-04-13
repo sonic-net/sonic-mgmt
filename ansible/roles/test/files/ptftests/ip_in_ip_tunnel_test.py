@@ -2,7 +2,7 @@
 Description:    This file contains the IPinIP test for dualtor testbed
 
 Usage:          Examples of how to start this script
-                /usr/bin/ptf --test-dir ptftests ip_in_ip_tunnel_test.IpinIPTunnelTest --platform-dir ptftests --qlen=2000 --platform remote -t hash_key_list=['src-port', 'dst-port', 'src-mac', 'dst-mac', 'src-ip'];server_ip='192.168.0.2';active_tor_ip='10.1.0.33';standby_tor_mac='d4:af:f7:4d:af:18';standby_tor_ip='10.1.0.32';active_tor_mac='d4:af:f7:4d:a4:44';ptf_portchannel_indices={u'PortChannel0001': [29], u'PortChannel0003': [33], u'PortChannel0002': [31], u'PortChannel0004': [35]} --relax --debug info --log-file /tmp/ip_in_ip_tunnel_test.2021-02-10-07:14:46.log --socket-recv-size 16384
+                /usr/bin/ptf --test-dir ptftests ip_in_ip_tunnel_test.IpinIPTunnelTest --platform-dir ptftests --qlen=2000 --platform remote -t hash_key_list=['src-port', 'dst-port', 'src-mac', 'dst-mac', 'src-ip'];server_ip='192.168.0.2';active_tor_ip='10.1.0.33';standby_tor_mac='d4:af:f7:4d:af:18';standby_tor_ip='10.1.0.32';ptf_portchannel_indices={u'PortChannel0001': [29], u'PortChannel0003': [33], u'PortChannel0002': [31], u'PortChannel0004': [35]} --relax --debug info --log-file /tmp/ip_in_ip_tunnel_test.2021-02-10-07:14:46.log --socket-recv-size 16384
 
 '''
 #---------------------------------------------------------------------
@@ -39,12 +39,12 @@ class IpinIPTunnelTest(BaseTest):
         '''
         BaseTest.__init__(self)
         self.test_params = test_params_get()
+        self.logger = logging.getLogger("IPinIPTunnel")
 
     def setUp(self):
         self.server_ip = self.test_params['server_ip']
         self.server_port = int(self.test_params['server_port'])
         self.vlan_mac = self.test_params['vlan_mac']
-        self.active_tor_mac = self.test_params['active_tor_mac']
         self.standby_tor_mac = self.test_params['standby_tor_mac']
         self.active_tor_ip = self.test_params['active_tor_ip']
         self.standby_tor_ip = self.test_params['standby_tor_ip']
@@ -101,7 +101,7 @@ class IpinIPTunnelTest(BaseTest):
         """
         inner_pkt = inner_pkt.copy()
         inner_pkt.ttl = inner_pkt.ttl - 1
-        pkt = scapy.Ether(dst=self.active_tor_mac, src=self.standby_tor_mac) / \
+        pkt = scapy.Ether(dst="aa:aa:aa:aa:aa:aa", src=self.standby_tor_mac) / \
             scapy.IP(src=self.standby_tor_ip, dst=self.active_tor_ip) / inner_pkt[IP]
         exp_pkt = Mask(pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
@@ -154,11 +154,11 @@ class IpinIPTunnelTest(BaseTest):
         expect_packet_num = PACKET_NUM / portchannel_num
         pkt_num_lo = expect_packet_num * (1.0 - DIFF)
         pkt_num_hi = expect_packet_num * (1.0 + DIFF)
-        logging.info("hash key = {}".format(hash_key))
-        logging.info("%-10s \t %10s \t %10s \t" % ("port(s)", "exp_cnt", "act_cnt"))
+        self.logger.info("hash key = {}".format(hash_key))
+        self.logger.info("%-10s \t %10s \t %10s \t" % ("port(s)", "exp_cnt", "act_cnt"))
         balance = True
         for portchannel, count in pkt_distribution.items():
-            logging.info("%-10s \t %10s \t %10s \t" % (portchannel, str(expect_packet_num), str(count)))
+            self.logger.info("%-10s \t %10s \t %10s \t" % (portchannel, str(expect_packet_num), str(count)))
             if count < pkt_num_lo or count > pkt_num_hi:
                 balance = False
         if not balance:
@@ -181,12 +181,16 @@ class IpinIPTunnelTest(BaseTest):
                              port_id=self.server_port,
                              pkt=unexpected_packet,
                              timeout=TIMEOUT)
+
         # Step 2. verify packet is received from IPinIP tunnel and check balance
         for hash_key in self.hash_key_list:
+            self.logger.info("Verifying traffic balance for hash key {}".format(hash_key))
             pkt_distribution = {}
             for i in range(0, PACKET_NUM):
                 inner_pkt = self.generate_packet_to_server(hash_key)
                 tunnel_pkt = self.generate_expected_packet(inner_pkt)
+                self.logger.info("Sending packet dst_mac = {} src_mac = {} dst_ip = {} src_ip = {} from port {}" \
+                    .format(inner_pkt[Ether].dst, inner_pkt[Ether].src, inner_pkt[IP].dst, inner_pkt[IP].src, src_port))
                 send_packet(self, src_port, inner_pkt)
                 # Verify packet is received from IPinIP tunnel
                 idx, count = verify_packet_any_port(test=self,

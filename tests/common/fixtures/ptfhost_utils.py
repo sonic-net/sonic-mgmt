@@ -7,7 +7,6 @@ from ipaddress import ip_interface
 from jinja2 import Template
 from natsort import natsorted
 
-
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = "/root"
@@ -200,13 +199,22 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     ptfhost.shell("supervisorctl stop icmp_responder")
 
 
-@pytest.fixture(scope='module')
-def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses):
-
+@pytest.fixture(scope='module', autouse=True)
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, mock_server_base_ip_addr, tor_mux_intfs):
     garp_config = {}
 
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-    mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
+    if 't0' in tbinfo['topo']['name']:
+        # For mocked dualtor testbed
+        mux_cable_table = {}
+        server_ipv4_base_addr, _ = mock_server_base_ip_addr
+        for i, intf in enumerate(tor_mux_intfs):
+            server_ipv4 = str(server_ipv4_base_addr + i)
+            mux_cable_table[intf] = {}
+            mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+    else:
+        # For physical dualtor testbed
+        mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
 
     logger.info("Generating GARP service config file")
 
