@@ -78,12 +78,6 @@ def get_t2_fib_info(duthosts, ptfhost, all_duts_config_facts, all_duts_mg_facts)
 
     for prefix, prefix_info in all_prefix_dict.items():
         for dut_index, dut_prefix_route in prefix_info.items():
-            #Ignore directly connected networks
-            if prefix.startswith('10.0.0') or prefix.startswith('100.1.0'):
-                continue
-            # Ignore directly connected IPv6 networks
-            if prefix.startswith('2064:100') or prefix.startswith("fc00::"):
-                continue
             dutname = duthosts.frontend_nodes[dut_index].hostname
             dut_cfg_facts = all_duts_config_facts[dutname]
             dut_mg_facts = all_duts_mg_facts[dutname]
@@ -101,6 +95,10 @@ def get_t2_fib_info(duthosts, ptfhost, all_duts_config_facts, all_duts_mg_facts)
                 if po.has_key(ifname):
                     oports.append([str(dut_mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                 elif 'Ethernet-IB' in ifname:
+                    # skip routes for the eBGP peer on the remote linecard. These get installed
+                    if nh == '0.0.0.0' or nh == '::' or nh == "":
+                        skip = True
+                        continue
                     for other_dut_index, other_dut_prefix_route in prefix_info.items():
                         if other_dut_index == dut_index:
                             continue
@@ -110,6 +108,11 @@ def get_t2_fib_info(duthosts, ptfhost, all_duts_config_facts, all_duts_mg_facts)
                         other_dutname = duthosts.frontend_nodes[other_dut_index].hostname
                         other_dut_po = all_duts_config_facts[other_dutname].get('PORTCHANNEL', {})
                         other_dut_ports = all_duts_config_facts[other_dutname].get('PORT', {})
+                        other_dut_nh = prefix_info[other_dut_index]['nexthop']
+                        if other_dut_nh == '0.0.0.0' or other_dut_nh == '::' or other_dut_nh == "":
+                            # skip routes for local interface on remote card.
+                            skip = True
+                            continue
                         for other_dut_ifname in prefix_info[other_dut_index]['ifnames']:
                             if 'Ethernet-IB' not in other_dut_ifname:
                                 # Other DUT has this learnt over front-end ports
