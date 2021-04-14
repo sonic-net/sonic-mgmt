@@ -2945,6 +2945,14 @@ class WorkArea(object):
         :rtype: str
         """
         return self._context._tb.get_platform_type(dut)
+    
+    def get_rp_ip_address(self, dut):
+        """
+        returns the platform type as a string
+        :return: platform type string
+        :rtype: str
+        """
+        return self._context._tb.get_rp_ip_address(dut)
 
     def get_build_commit_hash(self, dut):
         """

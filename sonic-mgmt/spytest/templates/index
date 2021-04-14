@@ -42,6 +42,7 @@ show_interface_pfc_statistics.tmpl, .*, sonic, show qos interface (Ethernet|Eth)
 show_interface_ethernet.tmpl, .*, sonic, show interface Ethernet\d+
 show_interface.tmpl, .*, sonic, show interface .*
 
+linux/ifconfig_eth.tmpl, .*, sonic, sudo ifconfig eth*
 unix_ifcfg.tmpl, .*,sonic, /sbin/ifconfig
 linux/ip_route_list_dev.tmpl, .*,sonic, /sbin/ip route list dev eth0
 linux/ip_route_list_dev.tmpl, .*,sonic, ip route list dev eth0

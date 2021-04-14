@@ -1,0 +1,36 @@
+Value interface ([\S\d]+)
+Value flags ([\d]+)
+Value mtu ([\d]+)
+Value inet ([\.\d]+)
+Value netmask ([\.\d]+)
+Value broadcast ([\.\d]+)
+Value inet6 ([\d\.\S]+)
+Value prefixlen ([\d]+)
+Value scopeid ([\dx]+)
+Value ether ([\d\:]+)
+Value txqueuelen ([\d]+)
+Value RXpackets ([\d]+)
+Value RXbytes ([\d]+)
+Value RXDecimal ([\d\.\S\s]+)
+Value RXerrors ([\d]+)
+Value RXdropped ([\d]+)
+Value RXoverruns ([\d]+)
+Value RXframe ([\d]+)
+Value TXPackets ([\d]+)
+Value TXbytes ([\d]+)
+Value TXDecimal ([\d\.\S\s]+)
+Value TXerrors (\d+)
+Value TXdropped (\d+)
+Value TXoverruns (\d+)
+Value TXframe (\d+)
+Value TXcollisions (\d+)
+
+Start
+  ^\s*${interface}:\s+flags=${flags}<UP,BROADCAST,RUNNING,MULTICAST>\s*mtu\s*${mtu}
+  ^\s*inet\s*${inet}\s*netmask\s*${netmask}\s*broadcast\s*${broadcast}
+  ^\s*inet6\s*${inet6}\s*prefixlen\s*${prefixlen}\s*scopeid\s*${scopeid}<link>
+  ^\s*ether\s*${ether}\s*txqueuelen\s*${txqueuelen}\s*\(Ethernet\)
+  ^\s*RX\s*packets\s*${RXpackets}\s*bytes\s*${RXbytes}\s*\(${RXDecimal}\)
+  ^\s*RX\s*errors\s*${RXerrors}\s*dropped\s*${RXdropped}\s*overruns\s8{RXoverruns}\s*frame\s*${RXframe}
+  ^\s*TX\s*packets\s*${TXPackets}\s*bytes\s*${TXbytes}\s*\(${TXDecimal}\)
+  ^\s*TX\s*errors\s*${TXerrors}\s*dropped\s*${TXdropped}\s*overruns\s8{TXoverruns}\s*carrier\s*${TXframe}\s*collisions\s*${TXcollisions}

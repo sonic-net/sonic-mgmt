@@ -1,0 +1,54 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    R1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 1.74.23.20, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+        rpip: 1.74.23.1
+    R3:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 1.74.23.1, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    R2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 1.74.23.23, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: stc, version: 5.20, ip: 172.27.147.23, params: def_tg}
+
+topology:
+    R1:
+        interfaces:
+            Ethernet4: {EndDevice: R2, EndPort: Ethernet12, params: def_link}
+            Ethernet5: {EndDevice: R2, EndPort: Ethernet24, params: def_link}
+            Ethernet10: {EndDevice: R2, EndPort: Ethernet10, params: def_link}
+            Ethernet11: {EndDevice: R2, EndPort: Ethernet11, params: def_link}
+            Ethernet0: {EndDevice: T1, EndPort: 5/29, params: def_tg_link}
+            Ethernet1: {EndDevice: T1, EndPort: 5/21, params: def_tg_link}
+            Ethernet7: {EndDevice: T1, EndPort: 5/5, params: def_tg_link}
+            Ethernet9: {EndDevice: T1, EndPort: 5/1, params: def_tg_link}
+    R2:
+        interfaces:
+            Ethernet15: {EndDevice: T1, EndPort: 3/37, params: def_tg_link}
+            Ethernet25: {EndDevice: T1, EndPort: 3/41, params: def_tg_link}
+

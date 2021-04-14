@@ -1159,6 +1159,12 @@ class Testbed(object):
             if dut1 == dut:
                 return dinfo.platform_type
         return None
+    
+    def get_rp_ip_address(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.rpip
+        return None
 
     def get_build_commit_hash(self,dut1):
         for dut, dinfo in self.topology.devices.items():
