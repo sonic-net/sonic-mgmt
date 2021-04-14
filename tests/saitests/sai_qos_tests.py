@@ -1794,13 +1794,24 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         tos |= ecn
         ttl = 64
         default_packet_length = 64
-        pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        pkt = simple_ip_packet(pktlen=default_packet_length,
+                                eth_dst=pkt_dst_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
                                 ip_tos=tos,
                                 ip_ttl=ttl)
+
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -1892,13 +1903,23 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         tos = dscp << 2
         tos |= ecn
         ttl = 64
-        pkt = simple_tcp_packet(pktlen=packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        pkt = simple_ip_packet(pktlen=packet_length,
+                                eth_dst=pkt_dst_mac,
                                 eth_src=src_port_mac,
                                 ip_src=src_port_ip,
                                 ip_dst=dst_port_ip,
                                 ip_tos=tos,
                                 ip_ttl=ttl)
+
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
