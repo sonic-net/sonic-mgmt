@@ -1527,3 +1527,60 @@ def test_ft_config_reload():
             raise Exception("Test case failed as Voltage values are not within range")
 
     st.report_pass("test_case_passed")
+ 
+
+def test_external_controller_reachability():
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+
+    #Gathering RP IP address from yaml file
+    rp_ip_address = st.get_rp_ip_address(dut)
+    print(rp_ip_address)
+
+    #Gathering eth1 from LC
+    lc_ifconfig_eth1 = basic_obj.ifconfig_eth(dut, 1)
+    print(lc_ifconfig_eth1[0]['inet'])
+    lc_eth1=lc_ifconfig_eth1[0]['inet']
+
+
+    #Gathering eth1 from RP
+    ssh_RP = connect_to_device(rp_ip_address, "cisco", "cisco123")
+    if ssh_RP:
+        st.log("Executing command - 'ifconfig eth1' in to the SSH session.")
+        st.log(execute_command(ssh_RP, 'sudo ifconfig eth1'))
+        RPoutput = execute_command(ssh_RP, 'sudo ifconfig eth1')
+        RPoutput = RPoutput.split()
+        RPeth1 = RPoutput[RPoutput.index('inet') + 1]
+        st.wait(5, 'After executing "sudo ifconfig eth1" cmd on SSH session.')
+        st.log("Forcefully disconnecting the SSH session..")
+        ssh_disconnect(ssh_RP)
+    else:
+        raise Exception('SSH connection unsuccessful')
+
+    #Verifying Internal reachability from RP to LC
+    ssh_RP = connect_to_device(rp_ip_address, "cisco", "cisco123")
+    if ssh_RP:
+        st.log("Executing PING command in on RP")
+        RPpingoutput = execute_command(ssh_RP, 'sudo ping {} -c 5'.format(lc_eth1))
+        RPpingoutput = RPpingoutput.split("\n")
+        for line in RPpingoutput:
+            if "loss" in line:
+                line= line.split()
+                pingresult = line[line.index("loss,")-2]
+        if pingresult == "0%":
+            RPpingresult = True
+        else:
+            RPpingresult = False
+        st.wait(5, 'After executing ping cmd on SSH session.')
+        st.log("Forcefully disconnecting the SSH session..")
+        ssh_disconnect(ssh_RP)
+    else:
+        raise Exception('SSH connection unsuccessful')
+
+    #Verifying Internal reachability from LC to RP
+    LCpingresult = ipfeature.ping(dut, lc_eth1)
+
+    if RPpingresult and LCpingresult:
+        st.report_pass("test_case_passed")
+    else:
+        st.report_fail("test_case_failed")
