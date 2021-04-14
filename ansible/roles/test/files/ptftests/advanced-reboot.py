@@ -811,6 +811,7 @@ class ReloadTest(BaseTest):
         return datetime.datetime.strptime(stdout[0].strip(), "%Y-%m-%d %H:%M:%S")
 
     def check_warmboot_finalizer(self, finalizer_timeout):
+        self.wait_until_control_plane_up()
         dut_datetime = self.get_now_time()
         self.log('waiting for warmboot-finalizer service to become activating')
         finalizer_state = self.get_warmboot_finalizer_state()
@@ -838,7 +839,7 @@ class ReloadTest(BaseTest):
             count += 1
         self.log('warmboot-finalizer service finished')
 
-    def wait_until_reboot(self):
+    def wait_until_control_plane_down(self):
         self.log("Wait until Control plane is down")
         self.timeout(self.wait_until_cpu_port_down, self.task_timeout, "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
         if self.reboot_type == 'fast-reboot':
@@ -848,6 +849,11 @@ class ReloadTest(BaseTest):
             self.do_inboot_oper()
         self.reboot_start = datetime.datetime.now()
         self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
+
+    def wait_until_control_plane_up(self):
+        self.log("Wait until Control plane is up")
+        self.timeout(self.wait_until_cpu_port_up, self.task_timeout, "DUT hasn't come back up in {} seconds".format(self.task_timeout))
+        self.log("Dut reboots: control plane up at %s" % str(datetime.datetime.now()))
 
     def handle_fast_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
@@ -1124,6 +1130,7 @@ class ReloadTest(BaseTest):
             thr = threading.Thread(target=self.reboot_dut)
             thr.setDaemon(True)
             thr.start()
+            self.wait_until_control_plane_down()
 
             if 'warm-reboot' in self.reboot_type:
                 finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
@@ -1133,7 +1140,6 @@ class ReloadTest(BaseTest):
                 thr.start()
                 self.warmboot_finalizer_thread = thr
 
-            self.wait_until_reboot()
             if self.kvm_test:
                 self.handle_advanced_reboot_health_check_kvm()
                 self.handle_post_reboot_health_check_kvm()
