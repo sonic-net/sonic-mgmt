@@ -2595,3 +2595,9 @@ def flush_iptable(dut):
 
 def execute_linux_cmd(dut, cmd):
     st.show(dut, cmd, skip_tmpl=True)
+
+def ifconfig_eth(dut, interfacenumber):
+    command = "sudo ifconfig eth{}".format(interfacenumber)
+    print("command", command)
+    output = st.show(dut, command)
+    return output
