@@ -20,7 +20,7 @@ pytestmark = [
 
 
 MEGABYTE = 1024 * 1024
-DEFAULT_PTF_SOCKET_RCV_SIZE = 10 * MEGABYTE
+DEFAULT_PTF_SOCKET_RCV_SIZE = 1 * MEGABYTE
 DEFAULT_PTF_QLEN = 15000
 
 
@@ -403,7 +403,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
             config_method,
             tbinfo
     ):
-        """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table."""
+        """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table.
+        This tests single rate three color policer mode and specifically checks CIR value
+        and switch behaviour under condition when CBS is assumed to be fully absorbed while
+        sending traffic over a period of time. Received packets are accumulated and actual
+        receive rate is calculated and compared with CIR value with tollerance range 10%.
+        """
         # Add explicit for regular packet so that it's dest port is different then mirror port
         # NOTE: This is important to add since for the Policer test case regular packets
         # and mirror packets can go to same interface, which causes tail drop of
@@ -456,6 +461,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                meter_type="packets",
                                cir="100",
                                cbs="100",
+                               send_time="10",
                                tolerance="10")
         finally:
             # Clean up ACL rules and routes

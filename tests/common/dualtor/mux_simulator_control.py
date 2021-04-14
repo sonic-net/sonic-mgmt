@@ -26,12 +26,14 @@ def mux_server_url(request, tbinfo):
     Returns:
         str: The address of mux simulator server + vmset_name, like http://10.0.0.64:8080/mux/vms17-8
     """
-    server = tbinfo['server']
-    vmset_name = tbinfo['group-name']
-    inv_files = request.config.option.ansible_inventory
-    ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
-    port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_port')
-    return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
+    if 'dualtor' in tbinfo['topo']['name']:
+        server = tbinfo['server']
+        vmset_name = tbinfo['group-name']
+        inv_files = request.config.option.ansible_inventory
+        ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
+        port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_port')
+        return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
+    return ""
 
 @pytest.fixture(scope='module')
 def url(mux_server_url, duthost, tbinfo):
@@ -117,7 +119,8 @@ def _post(server_url, data):
         return False
     return True
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope='function')
 def set_drop(url, recover_all_directions):
     """
     A helper function is returned to make fixture accept arguments
@@ -142,7 +145,8 @@ def set_drop(url, recover_all_directions):
     for intf in drop_intfs:
         recover_all_directions(intf)
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope='function')
 def set_output(url):
     """
     A helper function is returned to make fixture accept arguments
