@@ -3,7 +3,7 @@ import logging
 import pytest
 import re
 import time
-
+from enum import Enum, unique
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.platform_tests.thermal_control_test_helper import mocker_factory
@@ -68,6 +68,66 @@ SENSOR_TYPE_PORT_TX_BIAS = 4 * SENSOR_TYPE_MULTIPLE
 CHASSIS_SUB_ID = 1
 CHASSIS_MGMT_SUB_ID = MODULE_TYPE_MGMT
 
+
+@unique
+class EntitySensorDataType(int, Enum):
+    """
+    Enumeration of sensor data types according to RFC3433
+    (https://tools.ietf.org/html/rfc3433)
+    """
+
+    OTHER = 1
+    UNKNOWN = 2
+    VOLTS_AC = 3
+    VOLTS_DC = 4
+    AMPERES = 5
+    WATTS = 6
+    HERTZ = 7
+    CELSIUS = 8
+    PERCENT_RH = 9
+    RPM = 10
+    CMM = 11
+    TRUTHVALUE = 12
+
+
+@unique
+class EntitySensorDataScale(int, Enum):
+    """
+    Enumeration of sensor data scale types according to RFC3433
+    (https://tools.ietf.org/html/rfc3433)
+    """
+
+    YOCTO = 1
+    ZEPTO = 2
+    ATTO = 3
+    FEMTO = 4
+    PICO = 5
+    NANO = 6
+    MICRO = 7
+    MILLI = 8
+    UNITS = 9
+    KILO = 10
+    MEGA = 11
+    GIGA = 12
+    TERA = 13
+    EXA = 14
+    PETA = 15
+    ZETTA = 16
+    YOTTA = 17
+
+
+@unique
+class EntitySensorStatus(int, Enum):
+    """
+    Enumeration of sensor operational status according to RFC3433
+    (https://tools.ietf.org/html/rfc3433)
+    """
+
+    OK = 1
+    UNAVAILABLE = 2
+    NONOPERATIONAL = 3
+
+
 # field_name : (name, position)
 PSU_SENSOR_INFO = {
     'temp': ('Temperature', 1, SENSOR_TYPE_TEMP),
@@ -94,6 +154,7 @@ PHYSICAL_ENTITY_KEY_TEMPLATE = 'PHYSICAL_ENTITY_INFO|{}'
 XCVR_KEY_TEMPLATE = 'TRANSCEIVER_INFO|{}'
 XCVR_DOM_KEY_TEMPLATE = 'TRANSCEIVER_DOM_SENSOR|{}'
 
+
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthosts):
     """Skip the test for unsupported images."""
@@ -114,8 +175,9 @@ def snmp_physical_entity_and_sensor_info(duthosts, enum_rand_one_per_hwsku_hostn
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     return get_entity_and_sensor_mib(duthost, localhost, creds_all_duts)
 
+
 def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
-#def get_entity_mib(duthost, localhost, creds):
+    # def get_entity_mib(duthost, localhost, creds):
     """
     Get physical entity information from snmp fact
     :param duthost: DUT host object
@@ -125,7 +187,9 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     """
     mib_info = {}
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = \
+    localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])[
+        'ansible_facts']
     entity_mib = {}
     sensor_mib = {}
     for oid, info in snmp_facts['snmp_physical_entities'].items():
@@ -186,6 +250,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     :return:
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
+    snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have fans (e.g Line card)
@@ -241,6 +306,17 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             assert tachometers_fact['entPhysModelName'] == ''
             assert tachometers_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
+        expect_sensor_oid = expect_oid + SENSOR_TYPE_FAN
+        assert expect_sensor_oid in snmp_entity_sensor_info, 'Cannot find fan {} in entity sensor mib'.format(name)
+        fan_snmp_sensor_fact = snmp_entity_sensor_info[expect_sensor_oid]
+        assert fan_snmp_sensor_fact['entPhySensorType'] == str(int(EntitySensorDataType.UNKNOWN))
+        assert fan_snmp_sensor_fact['entPhySensorPrecision'] == '0'
+        assert fan_snmp_sensor_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
+        assert (0 < int(fan_snmp_sensor_fact['entPhySensorValue']) <= 100)
+        assert fan_snmp_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
+               or fan_snmp_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
+               or fan_snmp_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
+
 
 def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
     """
@@ -284,10 +360,10 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         assert psu_snmp_fact['entPhysModelName'] == '' if is_null_str(psu_info['model']) else psu_info['model']
         assert psu_snmp_fact['entPhysIsFRU'] == REPLACEABLE if psu_info['is_replaceable'] == 'True' else NOT_REPLACEABLE
 
-        _check_psu_sensor(name, psu_info, expect_oid, snmp_physical_entity_info)
+        _check_psu_sensor(name, psu_info, expect_oid, snmp_physical_entity_and_sensor_info)
 
 
-def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_info):
+def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_and_sensor_info):
     """
     Check PSU sensor information in physical entity mib
     :param psu_name: PSU name
@@ -296,6 +372,8 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_info):
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
+    snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
+    snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     for field, sensor_tuple in PSU_SENSOR_INFO.items():
         expect_oid = psu_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
         if is_null_str(psu_info[field]):
@@ -303,20 +381,31 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_info):
             continue
 
         assert expect_oid in snmp_physical_entity_info, 'Cannot find PSU sensor {} in physical entity mib'.format(field)
-        sensor_snmp_fact = snmp_physical_entity_info[expect_oid]
+        phy_entity_snmp_fact = snmp_physical_entity_info[expect_oid]
         sensor_name = '{sensor_name} for {psu_name}'.format(sensor_name=sensor_tuple[0], psu_name=psu_name)
-        assert sensor_snmp_fact['entPhysDescr'] == sensor_name
-        assert sensor_snmp_fact['entPhysContainedIn'] == psu_oid
-        assert sensor_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_SENSOR
-        assert sensor_snmp_fact['entPhyParentRelPos'] == sensor_tuple[1]
-        assert sensor_snmp_fact['entPhysName'] == sensor_name
-        assert sensor_snmp_fact['entPhysHwVer'] == ''
-        assert sensor_snmp_fact['entPhysFwVer'] == ''
-        assert sensor_snmp_fact['entPhysSwVer'] == ''
-        assert sensor_snmp_fact['entPhysSerialNum'] == ''
-        assert sensor_snmp_fact['entPhysMfgName'] == ''
-        assert sensor_snmp_fact['entPhysModelName'] == ''
-        assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
+        assert phy_entity_snmp_fact['entPhysDescr'] == sensor_name
+        assert phy_entity_snmp_fact['entPhysContainedIn'] == psu_oid
+        assert phy_entity_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_SENSOR
+        assert phy_entity_snmp_fact['entPhyParentRelPos'] == sensor_tuple[1]
+        assert phy_entity_snmp_fact['entPhysName'] == sensor_name
+        assert phy_entity_snmp_fact['entPhysHwVer'] == ''
+        assert phy_entity_snmp_fact['entPhysFwVer'] == ''
+        assert phy_entity_snmp_fact['entPhysSwVer'] == ''
+        assert phy_entity_snmp_fact['entPhysSerialNum'] == ''
+        assert phy_entity_snmp_fact['entPhysMfgName'] == ''
+        assert phy_entity_snmp_fact['entPhysModelName'] == ''
+        assert phy_entity_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
+
+        entity_sensor_snmp_facts = snmp_entity_sensor_info[expect_oid]
+        assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS)) \
+               or entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.VOLTS_DC)) \
+               or entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.AMPERES)) \
+               or entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.WATTS))
+        assert entity_sensor_snmp_facts['entPhySensorPrecision'] == '3'
+        assert entity_sensor_snmp_facts['entPhySensorScale'] == EntitySensorDataScale.UNITS
+        assert entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
+               or entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
+               or entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
 
 
 def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
@@ -327,6 +416,7 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
     :return:
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
+    snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
     assert keys, 'Thermal information does not exist in DB'
@@ -355,6 +445,14 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
         assert thermal_snmp_fact['entPhysMfgName'] == ''
         assert thermal_snmp_fact['entPhysModelName'] == ''
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
+
+        thermal_sensor_snmp_fact = snmp_entity_sensor_info[expect_oid]
+        assert thermal_sensor_snmp_fact['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS))
+        assert thermal_sensor_snmp_fact['entPhySensorPrecision'] == '3'
+        assert thermal_sensor_snmp_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
+        assert thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
+               or thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
+               or thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
 
 
 def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
@@ -454,7 +552,9 @@ def _get_transceiver_sensor_data(duthost, name):
 
 
 @pytest.mark.disable_loganalyzer
-def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info, localhost, creds_all_duts, pdu_controller):
+def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostname,
+                                         snmp_physical_entity_and_sensor_info, localhost, creds_all_duts,
+                                         pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
     :param duthost: DUT host object
@@ -519,7 +619,8 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
 
 
 @pytest.mark.disable_loganalyzer
-def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, mocker_factory):
+def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
+                                              mocker_factory):
     """
 
     :param duthost: DUT host object
