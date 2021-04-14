@@ -15,7 +15,7 @@ class QosSaiBase:
     """
         QosSaiBase contains collection of pytest fixtures that ready the tesbed for QoS SAI test cases.
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "dualtor-56"]
     SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3"]
