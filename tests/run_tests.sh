@@ -123,7 +123,7 @@ function setup_test_options()
         TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
     fi
 
-    # Check against $INLUCDE_FOLDERS, filter out test cases not in the specified folders
+    # Check against $INCLUDE_FOLDERS, filter out test cases not in the specified folders
     FINAL_CASES=""
     includes=$(python -c "print '|'.join('''$INCLUDE_FOLDERS'''.split())")
     for test_case in ${TEST_CASES}; do
