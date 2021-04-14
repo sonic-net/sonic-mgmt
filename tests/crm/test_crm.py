@@ -931,8 +931,9 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_fr
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
 @pytest.mark.usefixtures('disable_fdb_aging')
-def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
     if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
@@ -1005,7 +1006,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbin
         RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
 
     # Verify thresholds for "FDB entry" CRM resource
-    verify_thresholds(duthost, crm_cli_res="fdb", crm_used=new_crm_stats_fdb_entry_used,
+    verify_thresholds(duthost, asichost, crm_cli_res="fdb", crm_used=new_crm_stats_fdb_entry_used,
         crm_avail=new_crm_stats_fdb_entry_available)
 
     # Remove FDB entry
