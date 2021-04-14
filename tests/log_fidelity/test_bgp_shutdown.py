@@ -20,7 +20,7 @@ def test_bgp_shutdown(duthosts, rand_one_dut_hostname):
     try:
         marker=loganalyzer.init()
         duthost.command(BGP_DOWN_EXPECTED_LOG_MESSAGE)
-        logger.info("check for expected log in syslog")
+        logger.info("Check for expected log {} in syslog".format(EXPECTED_LOG))
         loganalyzer.analyze(marker)
 
     except LogAnalyzerError as err:
