@@ -306,16 +306,18 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             assert tachometers_fact['entPhysModelName'] == ''
             assert tachometers_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
+        # Check fan tachometer sensor facts
         expect_sensor_oid = expect_oid + SENSOR_TYPE_FAN
         assert expect_sensor_oid in snmp_entity_sensor_info, 'Cannot find fan {} in entity sensor mib'.format(name)
-        fan_snmp_sensor_fact = snmp_entity_sensor_info[expect_sensor_oid]
-        assert fan_snmp_sensor_fact['entPhySensorType'] == str(int(EntitySensorDataType.UNKNOWN))
-        assert fan_snmp_sensor_fact['entPhySensorPrecision'] == '0'
-        assert fan_snmp_sensor_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
-        assert (0 < int(fan_snmp_sensor_fact['entPhySensorValue']) <= 100)
-        assert fan_snmp_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
-               or fan_snmp_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
-               or fan_snmp_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
+        tachometers_sensor_fact = snmp_entity_sensor_info[expect_sensor_oid]
+        assert tachometers_sensor_fact['entPhySensorType'] == str(int(EntitySensorDataType.UNKNOWN))
+        assert tachometers_sensor_fact['entPhySensorPrecision'] == '0'
+        assert tachometers_sensor_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
+        # Fan tachometer sensor value(percent) is a int between 0 and 100
+        assert (0 < int(tachometers_sensor_fact['entPhySensorValue']) <= 100)
+        assert tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
+               or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
+               or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
 
 
 def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
@@ -553,7 +555,7 @@ def _get_transceiver_sensor_data(duthost, name):
 
 @pytest.mark.disable_loganalyzer
 def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostname,
-                                         snmp_physical_entity_and_sensor_info, localhost, creds_all_duts,
+                                         localhost, creds_all_duts,
                                          pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
@@ -563,7 +565,6 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     :param pdu_controller: PDU controller
     :return:
     """
-    snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not pdu_controller:
         pytest.skip('psu_controller is None, skipping this test')
@@ -598,7 +599,9 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     :param creds_all_duts: Credential for snmp
     :return: True if sensor information is removed from mib
     """
-    entity_mib_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts[duthost])["entity_mib"]
+    snmp_physical_entity_and_sensor_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts[duthost])
+    entity_mib_info = snmp_physical_entity_and_sensor_info["entity_mib"]
+    entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     power_off_psu_found = False
     for key in keys:
@@ -612,7 +615,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
             assert expect_oid in entity_mib_info
             for field, sensor_tuple in PSU_SENSOR_INFO.items():
                 sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
-                if sensor_oid not in entity_mib_info:
+                if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
                     power_off_psu_found = True
                     break
     return power_off_psu_found
@@ -647,6 +650,7 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
     if not keys:
         pytest.skip('Fan information does not exist in DB, skipping this test')
     entity_mib_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts[duthost])["entity_mib"]
+    entity_sensor_mib_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts[duthost])["sensor_mib"]
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
         if fan_info['presence'] == 'True':
@@ -669,7 +673,8 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
 
         if not is_null_str(fan_info['speed']):
             tachometers_oid = expect_oid + SENSOR_TYPE_FAN
-            assert tachometers_oid not in entity_mib_info, 'Absence fan tachometers info should not in mib'
+            assert tachometers_oid not in entity_mib_info and tachometers_oid not in entity_sensor_mib_info, \
+                'Absence fan tachometers info should not in mib'
 
 
 def redis_get_keys(duthost, db_id, pattern):
