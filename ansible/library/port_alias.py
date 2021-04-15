@@ -183,8 +183,6 @@ def main():
                 num_asic = multi_asic.get_num_asics()
             except Exception, e:
                 num_asic = 1
-        # if m_args['include_internal'] is not None:
-        #     include_internal = m_args['include_internal']
 
 
         for asic_id in range(num_asic):
