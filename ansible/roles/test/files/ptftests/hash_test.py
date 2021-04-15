@@ -245,9 +245,9 @@ class HashTest(BaseTest):
         exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
         actual_src_mac = Ether(rcvd_pkt).src
         if exp_src_mac != actual_src_mac:
-            logging.warn(
-                "Rcvd pkt on {} which is one of the expected ports, but the src mac doesn't match, expected {}, got {}".format(
-                    dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
             return (0, None)
         return (rcvd_port, rcvd_pkt)
 
@@ -325,9 +325,9 @@ class HashTest(BaseTest):
         exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
         actual_src_mac = Ether(rcvd_pkt).src
         if exp_src_mac != actual_src_mac:
-            logging.warn(
-                "Rcvd pkt on {} which is one of the expected ports, but the src mac doesn't match, expected {}, got {}".format(
-                    dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
             return (0, None)
         return (rcvd_port, rcvd_pkt)
 
