@@ -6,6 +6,7 @@ import os
 import re
 import socket
 import time
+import inspect
 
 from collections import defaultdict
 from datetime import datetime
@@ -1095,7 +1096,11 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
         return self._parse_show(output)
 
-    @cached(name='mg_facts')
+    def _get_namespace(function, func_args, func_kargs):
+        args_binding = inspect.getcallargs(function, *func_args, **func_kargs)
+        return args_binding.get("namespace") or args_binding.get("kargs").get("namespace")
+
+    @cached(name='mg_facts', zone_getter=_get_namespace)
     def get_extended_minigraph_facts(self, tbinfo, namespace = DEFAULT_NAMESPACE):
         mg_facts = self.minigraph_facts(host = self.hostname, namespace = namespace)['ansible_facts']
         mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()

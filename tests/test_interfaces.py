@@ -8,13 +8,13 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-def test_interfaces(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+def test_interfaces(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
     """compare the interfaces between observed states and target state"""
 
     duthost = duthosts[enum_frontend_dut_hostname] 
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     host_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
-    mg_facts   = duthost.minigraph_facts(host=duthost.hostname, namespace=namespace)['ansible_facts']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace=namespace)
     verify_port(host_facts, mg_facts['minigraph_portchannels'].keys())
     for k, v in mg_facts['minigraph_portchannels'].items():
         verify_port(host_facts, v['members'])
