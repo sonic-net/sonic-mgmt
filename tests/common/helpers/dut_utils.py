@@ -159,3 +159,24 @@ def get_program_info(duthost, container_name, program_name):
                     .format(program_name, program_status, program_pid))
 
     return program_status, program_pid
+
+
+def get_disabled_container_list(duthost):
+    """Gets the container/service names which are disabled.
+
+    Args:
+        duthost: Host DUT.
+
+    Return:
+        A list includes the names of disabled containers/services
+    """
+    disabled_containers = []
+
+    container_status, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
+
+    for container_name, status in container_status.items():
+        if "disabled" in status:
+            disabled_containers.append(container_name)
+
+    return disabled_containers
