@@ -881,7 +881,7 @@ class TestShowIP():
         as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route 20c0:a800::/64'.format(ifmode))['stdout']
+        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route ::/0'.format(ifmode))['stdout']
         logger.info('route:\n{}'.format(route))
 
         if mode == 'alias':
