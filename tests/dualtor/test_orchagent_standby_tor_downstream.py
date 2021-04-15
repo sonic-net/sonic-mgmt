@@ -3,11 +3,13 @@ import random
 import time
 import logging
 import ipaddress
+import contextlib
+import time
 import scapy.all as scapyall
 
 from ptf import testutils, mask
 from tests.common.dualtor.dual_tor_mock import *
-from tests.common.dualtor.dual_tor_utils import dualtor_info, check_tunnel_balance, flush_neighbor, get_t1_ptf_ports, flush_neighbor
+from tests.common.dualtor.dual_tor_utils import dualtor_info, check_tunnel_balance, flush_neighbor, get_t1_ptf_ports
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses, run_garp_service, run_icmp_responder   # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
@@ -196,6 +198,7 @@ def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_du
 def test_standby_tor_remove_neighbor_downstream_standby(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
+    set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
@@ -231,6 +234,19 @@ def test_standby_tor_remove_neighbor_downstream_standby(
         exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
         return exp_pkt
 
+    @contextlib.contextmanager
+    def crm_neighbor_checker(duthost):
+        crm_facts_before = duthost.get_crm_facts()
+        ipv4_neighbor_before = crm_facts_before["resources"]["ipv4_neighbor"]["used"]
+        logging.info("ipv4 neighbor before test: %s", ipv4_neighbor_before)
+        yield
+        time.sleep(crm_facts_before["polling_interval"])
+        crm_facts_after = duthost.get_crm_facts()
+        ipv4_neighbor_after = crm_facts_after["resources"]["ipv4_neighbor"]["used"]
+        logging.info("ipv4 neighbor after test: %s", ipv4_neighbor_after)
+        if ipv4_neighbor_after != ipv4_neighbor_before:
+            raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)
+
     tor = rand_selected_dut
     test_params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     server_ipv4 = test_params["target_server_ip"]
@@ -245,10 +261,14 @@ def test_standby_tor_remove_neighbor_downstream_standby(
 
     logging.info("send traffic to server %s after removing neighbor entry", server_ipv4)
     tunnel_monitor.existing = False
-    with flush_neighbor(tor, server_ipv4):
-        with tunnel_monitor:
-            with ServerTrafficMonitor(tor, vmhost,
-                                      test_params["selected_port"],
-                                      conn_graph_facts, exp_pkt,
-                                      existing=False):
-                testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+    server_traffic_monitor = ServerTrafficMonitor(
+        tor, vmhost, test_params["selected_port"],
+        conn_graph_facts, exp_pkt, existing=False
+    )
+    with crm_neighbor_checker(tor), flush_neighbor(tor, server_ipv4), tunnel_monitor, server_traffic_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+    logging.info("send traffic to server %s after neighbor entry is restored", server_ipv4)
+    tunnel_monitor.existing = True
+    with crm_neighbor_checker(tor), tunnel_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
