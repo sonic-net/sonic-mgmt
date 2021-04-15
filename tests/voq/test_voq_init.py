@@ -3,12 +3,14 @@ import json
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-
+from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.helpers.redis import AsicDbCli, RedisKeyNotFound
-from tests.common.errors import RunAnsibleModuleFail
-from voq_helpers import check_local_neighbor, check_voq_remote_neighbor, get_sonic_mac, get_neighbor_mac
+from voq_helpers import check_local_neighbor, check_voq_remote_neighbor, get_sonic_mac
 from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info, get_port_by_ip
 from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup, find_system_port
+from tests.common.helpers.dut_utils import get_host_visible_vars
+from tests.common.utilities import get_inventory_files
+from tests.voq.voq_helpers import get_eos_mac, get_vm_with_ip
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -18,31 +20,56 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def chassis_facts(duthosts):
+def chassis_facts(duthosts, request):
     """
     Fixture to add some items to host facts from inventory file.
     """
     for a_host in duthosts.nodes:
 
         if len(duthosts.supervisor_nodes) > 0:
-            out = a_host.command("cat /etc/sonic/card_details.json")
-            card_details = json.loads(out['stdout'])
-            if 'slot_num' in card_details:
-                a_host.facts['slot_num'] = card_details['slot_num']
+            inv_files = get_inventory_files(request)
+            host_vars = get_host_visible_vars(inv_files, a_host.hostname)
+            pytest_assert('slot_num' in host_vars, 
+                          "Variable 'slot_num' not found in inventory for host {}".format (a_host.hostname))
+            slot_num = host_vars['slot_num'] 
+            a_host.facts['slot_num'] = int(slot_num)
+
+
+
+@reset_ansible_local_tmp
+def _get_nbr_macs(nbrhosts, node=None, results=None):
+    vm = nbrhosts[node]
+    node_results = {}
+
+    for intf in vm['conf']['interfaces'].keys():
+        logger.info("Get MAC on vm %s for intf: %s", node, intf)
+        mac = get_eos_mac(vm, intf)
+        logger.info("Found MAC on vm %s for intf: %s, mac: %s", node, intf, mac['mac'])
+        node_results[intf] = mac['mac']
+
+    results[node] = node_results
 
 
 @pytest.fixture(scope="module")
-def nbrhosts_facts(nbrhosts):
-    nbrhosts_facts = {}
-    for a_vm in nbrhosts:
-        try:
-            vm_facts = nbrhosts[a_vm]['host'].eos_facts()
-        except RunAnsibleModuleFail:
-            logger.error("VM: %s is down, skipping config fetching.", a_vm)
-            continue
-        logger.debug("vm facts: {}".format(json.dumps(vm_facts, indent=4)))
-        nbrhosts_facts[a_vm] = vm_facts
-    return nbrhosts_facts
+def nbr_macs(nbrhosts):
+    """
+    Fixture to get all the neighbor mac addresses in parallel.
+
+    Args:
+        nbrhosts:
+
+    Returns:
+        Dictionary of MAC addresses of neighbor VMS, dict[vm_name][interface_name] = "mac address"
+
+    """
+    results = {}
+    logger.debug("Get MACS for all neighbor hosts.")
+    parallel_run(_get_nbr_macs, [nbrhosts], results, nbrhosts.keys(), timeout=120)
+
+    for res in results['results']:
+        logger.info("parallel_results %s = %s", res, results['results'][res])
+
+    return results['results']
 
 
 def test_voq_switch_create(duthosts):
@@ -196,6 +223,7 @@ def test_voq_interface_create(duthosts):
         for asic in per_host.asics:
             cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
             dev_intfs = cfg_facts['INTERFACE']
+            voq_intfs = cfg_facts['VOQ_INBAND_INTERFACE']
             dev_sysports = get_device_system_ports(cfg_facts)
 
             slot = per_host.facts['slot_num']
@@ -224,7 +252,7 @@ def test_voq_interface_create(duthosts):
                     hostif = asicdb.hget_key_value(hostifkey, 'SAI_HOSTIF_ATTR_NAME')
                     logger.info("RIF: %s is on local port: %s", rif, hostif)
                     rif_ports_in_asicdb.append(hostif)
-                    if hostif not in dev_intfs:
+                    if hostif not in dev_intfs and hostif not in voq_intfs:
                         pytest.fail("Port: %s has a router interface, but it isn't in configdb." % portid)
 
                     # check MTU and ethernet address
@@ -281,7 +309,7 @@ def test_voq_interface_create(duthosts):
             logger.info("Interfaces %s are present in configdb.json and asicdb" % str(dev_intfs.keys()))
 
 
-def test_voq_neighbor_create(duthosts, nbrhosts, nbrhosts_facts):
+def test_voq_neighbor_create(duthosts, nbrhosts, nbr_macs):
     """
     Verify neighbor entries are created on linecards for local and remote VMS.
 
@@ -344,8 +372,9 @@ def test_voq_neighbor_create(duthosts, nbrhosts, nbrhosts_facts):
                 if show_intf['int_status'][local_port]['oper_state'] == "down":
                     logger.error("Port is down, must skip interface: %s, IP: %s", local_port, local_ip)
                     continue
-
-                neigh_mac = get_neighbor_mac(neighbor, nbrhosts, nbrhosts_facts)
+                nbr_vm = get_vm_with_ip(neighbor, nbrhosts)
+                neigh_mac = nbr_macs[nbr_vm['vm']][nbr_vm['port']]
+                #neigh_mac = get_neighbor_mac(neighbor, nbrhosts, nbrhosts_facts)
                 if neigh_mac is None:
                     logger.error("Could not find neighbor MAC, must skip.  IP: %s, port: %s", local_ip, local_port)
 
@@ -389,6 +418,8 @@ def test_voq_inband_port_create(duthosts):
 
     """
     for per_host in duthosts.frontend_nodes:
+        if per_host.get_facts()['asic_type'] == 'vs':
+            pytest.skip("Inband port currently not supported on a VS chassis")
 
         for asic in per_host.asics:
             cfg_facts = asic.config_facts(source="persistent")['ansible_facts']

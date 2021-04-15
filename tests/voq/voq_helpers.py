@@ -258,15 +258,21 @@ def check_rif_on_sup(sup, rif, slot, asic, port):
 
     """
     voqdb = VoqDbCli(sup)
-
-    rif_oid = voqdb.get_router_interface_id(slot, asic, port)
-
-    if rif_oid == rif:
-        logger.info("RIF on sup: %s = %s", rif_oid, rif)
-    elif rif_oid[-10:-1] == rif[-10:-1]:
-        logger.warning("RIF on sup is a partial match: %s != %s", rif_oid, rif)
+    slot = str(slot)
+    if slot.isdigit():
+        slot_str = "Linecard" + slot
     else:
-        logger.error("RIF on sup does not match: %s != %s" % (rif_oid, rif))
+        slot_str = slot
+
+    asic = str(asic)
+    if asic.isdigit():
+        asic_str = "Asic" + asic
+    else:
+        asic_str = asic
+
+    key = "SYSTEM_INTERFACE|{}|{}|{}".format(slot_str, asic_str, port)
+    voqdb.get_keys(key)
+    logger.info("Found key {} on chassisdb on supervisor card".format(key))
 
 
 def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac):
@@ -291,7 +297,7 @@ def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac)
     logger.info("Neigh key: %s, slotnum: %s", neigh_key, slot)
     pytest_assert("|%s|" % slot in neigh_key,
                   "Slot for %s does not match %s" % (neigh_key, slot))
-    pytest_assert("|%s:" % port in neigh_key,
+    pytest_assert("|%s|" % port in neigh_key,
                   "Port for %s does not match %s" % (neigh_key, port))
     pytest_assert("|%s|" % asic in neigh_key,
                   "Asic for %s does not match %s" % (neigh_key, asic))
@@ -482,3 +488,50 @@ def find_system_port(dev_sysports, slot, asic_index, hostif):
             return sys_info
 
     raise KeyError("Could not find system port for {}/{}/{}".format(slot, asic_index, hostif))
+
+def get_vm_with_ip(neigh_ip, nbrhosts):
+    """
+    Finds the EOS VM and port with a specific IP Address.
+
+    Args:
+        neigh_ip: IP address to find.
+        nbrhosts: nbrhosts fixture.
+
+    Returns:
+        A dictionary with the vm index for nbrhosts, and port name.
+    """
+    for a_vm in nbrhosts:
+        for port, a_intf in nbrhosts[a_vm]['conf']['interfaces'].iteritems():
+            if 'ipv4' in a_intf and a_intf['ipv4'].split("/")[0] == neigh_ip:
+                return {"vm": a_vm, "port": port}
+            if 'ipv6' in a_intf and a_intf['ipv6'].split("/")[0].lower() == neigh_ip.lower():
+                return {"vm": a_vm, "port": port}
+    logger.error("Could not find vm connected to neighbor IP: %s", neigh_ip)
+    logger.info("nbrhosts: {}".format(json.dumps(nbrhosts, indent=4)))
+    return None
+
+
+def get_eos_mac(nbr, nbr_intf):
+    """
+    Gets the MAC address of and interface from an EOS host.
+
+    Args:
+        nbr: The element for the neighbor from nbrhosts fixture.
+        nbr_intf: The interface name on the neighbor to retrieve the MAC
+
+    Returns:
+        A dictionary with the mac address and shell interface name.
+    """
+    if "port-channel" in nbr_intf.lower():
+        # convert Port-Channel1 to po1
+        shell_intf = "po" + nbr_intf[-1]
+    else:
+        # convert Ethernet1 to eth1
+        shell_intf = "eth" + nbr_intf[-1]
+
+    output = nbr['host'].command("ip addr show dev %s" % shell_intf)
+    # 8: Ethernet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9100 ...
+    #     link/ether a6:69:05:fd:da:5f brd ff:ff:ff:ff:ff:ff
+
+    mac = output['stdout_lines'][1].split()[1]
+    return {'mac': mac, "shell_intf": shell_intf}

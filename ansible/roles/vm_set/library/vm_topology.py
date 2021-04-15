@@ -124,6 +124,9 @@ ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
 RETRIES = 10
 
+VS_CHASSIS_INBAND_BRIDGE_NAME = "br-T2Inband"
+VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
+
 cmd_debug_fname = None
 
 
@@ -174,13 +177,14 @@ class VMTopology(object):
 
     host_interfaces = HostInterfaces()
 
-    def __init__(self, vm_names, fp_mtu, max_fp_num):
+    def __init__(self, vm_names, fp_mtu, max_fp_num, topo):
         self.vm_names = vm_names
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
+        self.topo = topo
         return
 
-    def init(self, vm_set_name, topo, vm_base, duts_fp_ports, duts_name, ptf_exists=True):
+    def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True):
         self.vm_set_name = vm_set_name
         self.duts_name = duts_name
 
@@ -192,13 +196,13 @@ class VMTopology(object):
         self.update()
 
         self.VMs = {}
-        if 'VMs' in topo:
+        if 'VMs' in self.topo:
             self.vm_base = vm_base
             if vm_base in self.vm_names:
                 self.vm_base_index = self.vm_names.index(vm_base)
             else:
                 raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (vm_base, str(self.vm_names)))
-            for k, v in topo['VMs'].items():
+            for k, v in self.topo['VMs'].items():
                 if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
                     self.VMs[k] = v
 
@@ -208,8 +212,8 @@ class VMTopology(object):
                     raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" % (hostname, vmname, len(self.get_bridges(vmname))))
 
         self._is_multi_duts = True if len(self.duts_name) > 1 else False
-        if 'host_interfaces' in topo:
-            self.host_interfaces = topo['host_interfaces']
+        if 'host_interfaces' in self.topo:
+            self.host_interfaces = self.topo['host_interfaces']
         else:
             self.host_interfaces = []
 
@@ -254,6 +258,11 @@ class VMTopology(object):
             for fp_num in range(self.max_fp_num):
                 fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (vm, fp_num)
                 self.create_ovs_bridge(fp_br_name, self.fp_mtu)
+
+        if 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
+            # We have a KVM based virtual chassis, need to create bridge for midplane and inband.
+            self.create_ovs_bridge(VS_CHASSIS_INBAND_BRIDGE_NAME, self.fp_mtu)
+            self.create_ovs_bridge(VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.fp_mtu)
 
         return
 
@@ -477,6 +486,11 @@ class VMTopology(object):
                 injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, ptf_index)
                 self.bind_ovs_ports(br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)], injected_iface, vm_iface, disconnect_vm)
 
+        if 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
+            # We have a KVM based virtaul chassis, bind the midplane and inband ports
+            self.bind_vs_dut_ports(VS_CHASSIS_INBAND_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['inband_port'])
+            self.bind_vs_dut_ports(VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['midplane_port'])
+
         return
 
     def unbind_fp_ports(self):
@@ -485,6 +499,16 @@ class VMTopology(object):
                 br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 self.unbind_ovs_ports(br_name, vm_iface)
+
+        if 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
+            # We have a KVM based virtaul chassis, unbind the midplane and inband ports
+            self.unbind_vs_dut_ports(VS_CHASSIS_INBAND_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['inband_port'])
+            self.unbind_vs_dut_ports(VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['midplane_port'])
+            # Remove the bridges as well - this is here instead of destroy_bridges as that is called with cmd: 'destroy'
+            # is called from 'testbed-cli.sh stop-vms' which takes a server name, an no testbed name, and thus has
+            # no topology associated with it.
+            self.destroy_ovs_bridge(VS_CHASSIS_INBAND_BRIDGE_NAME)
+            self.destroy_ovs_bridge(VS_CHASSIS_MIDPLANE_BRIDGE_NAME)
 
         return
 
@@ -515,6 +539,36 @@ class VMTopology(object):
             VMTopology.cmd('brctl delbr %s' % self.bp_bridge)
 
         return
+
+    def bind_vs_dut_ports(self, br_name, dut_ports):
+        # dut_ports is a list of port on each DUT that has to be bound together. eg. 30,30,30 - will bind ports
+        # 30 of each DUT together into bridge br_name
+        # Also for vm, a dut's ports would be of the format <dut_hostname>-<port_num + 1>. So, port '30' on vm with
+        # name 'vlab-02' would be 'vlab-02-31'
+        br_ports = VMTopology.get_ovs_br_ports(br_name)
+        for dut_index, a_port in enumerate(dut_ports):
+            dut_name = self.duts_name[dut_index]
+            port_name = "{}-{}".format(dut_name, (a_port + 1))
+            br = VMTopology.get_ovs_bridge_by_port(port_name)
+            if br is not None and br != br_name:
+                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, port_name))
+
+            if port_name not in br_ports:
+                VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, port_name))
+
+
+    def unbind_vs_dut_ports(self, br_name, dut_ports):
+        """unbind all ports except the vm port from an ovs bridge"""
+        ports = VMTopology.get_ovs_br_ports(br_name)
+        for dut_index, a_port in enumerate(dut_ports):
+            dut_name = self.duts_name[dut_index]
+            port_name = "{}-{}".format(dut_name, (a_port + 1))
+            if port_name in ports:
+                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port_name))
+
+        return
+
+
 
     def bind_ovs_ports(self, br_name, dut_iface, injected_iface, vm_iface, disconnect_vm=False):
         """
@@ -977,8 +1031,8 @@ def main():
     try:
         if os.path.exists(cmd_debug_fname) and os.path.isfile(cmd_debug_fname):
             os.remove(cmd_debug_fname)
-
-        net = VMTopology(vm_names, fp_mtu, max_fp_num)
+        topo = module.params['topo']
+        net = VMTopology(vm_names, fp_mtu, max_fp_num, topo)
 
         if cmd == 'create':
             net.create_bridges()
@@ -997,7 +1051,6 @@ def main():
                                   'duts_fp_ports'], cmd)
 
             vm_set_name = module.params['vm_set_name']
-            topo = module.params['topo']
             duts_fp_ports = module.params['duts_fp_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
@@ -1013,7 +1066,7 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, duts_fp_ports, duts_name)
+            net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
 
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
             ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
@@ -1077,7 +1130,7 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, duts_fp_ports, duts_name)
+            net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
 
             if module.params['duts_mgmt_port']:
                 for dut_mgmt_port in module.params['duts_mgmt_port']:
@@ -1119,7 +1172,7 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, duts_fp_ports, duts_name, True)
+            net.init(vm_set_name, vm_base, duts_fp_ports, duts_name, True)
 
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
             ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
@@ -1160,7 +1213,7 @@ def main():
             else:
                 vm_base = None
 
-            net.init(vm_set_name, topo, vm_base, duts_fp_ports, duts_name)
+            net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
 
             if vms_exists:
                 if cmd == 'connect-vms':

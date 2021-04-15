@@ -2,7 +2,7 @@
     <DeviceDataPlaneInfo>
       <IPSecTunnels/>
       <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% if type is not defined or type != 'supervisor' %}
+{% if card_type is not defined or card_type != 'supervisor' %}
         <a:LoopbackIPInterface>
           <Name>HostIP</Name>
           <AttachTo>Loopback0</AttachTo>
@@ -160,7 +160,7 @@
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
-{% if type is not defined or type != 'supervisor' %}
+{% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>

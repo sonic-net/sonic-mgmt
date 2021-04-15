@@ -362,10 +362,10 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip):
         # sort the list of VMs
         all_vms = sorted(dut_vm_dict[a_dut_index])
         n_vms = len(all_vms)
-        first_third_vm_index = int(math.ceil(n_vms / 3))
+        first_third_vm_index = int(math.ceil(n_vms / 3.0))
 
         for a_vm_index, a_vm in enumerate(all_vms):
-            if all_vms == 1:
+            if len(all_vms) == 1:
                 # Only 1 VM, have it advertise all sets of routes
                 set_num = None
             elif a_vm_index < first_third_vm_index:
@@ -431,7 +431,7 @@ def main():
         fib_t2_lag(topo, ptf_ip)
         module.exit_json(changed=True)
     else:
-        module.fail_json(msg='Unsupported topology "{}"'.format(topo_name))
+        module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
 
 
 if __name__ == '__main__':

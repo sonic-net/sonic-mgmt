@@ -1,0 +1,136 @@
+{% set host = configuration[hostname] %}
+{% set mgmt_ip = ansible_host %}
+{% if vm_type is defined and vm_type == "ceos" %}
+{% set mgmt_if_index = 0 %}
+{% else %}
+{% set mgmt_if_index = 1 %}
+{% endif %}
+no schedule tech-support
+!
+{% if vm_type is defined and vm_type == "ceos" %}
+agent LicenseManager shutdown
+agent PowerFuse shutdown
+agent PowerManager shutdown
+agent Thermostat shutdown
+agent LedPolicy shutdown
+agent StandbyCpld shutdown
+agent Bfd shutdown
+{% endif %}
+!
+hostname {{ hostname }}
+!
+vrf definition MGMT
+ rd 1:1
+!
+spanning-tree mode mstp
+!
+aaa root secret 0 123456
+!
+username admin privilege 15 role network-admin secret 0 123456
+!
+clock timezone UTC
+!
+lldp run
+lldp management-address Management{{ mgmt_if_index }}
+lldp management-address vrf MGMT
+!
+snmp-server community {{ snmp_rocommunity }} ro
+snmp-server vrf MGMT
+!
+ip routing
+ip routing vrf MGMT
+ipv6 unicast-routing
+!
+{% if vm_mgmt_gw is defined %}
+ip route vrf MGMT 0.0.0.0/0 {{ vm_mgmt_gw }}
+{% else %}
+ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
+{% endif %}
+!
+interface Management {{ mgmt_if_index }}
+ description TO LAB MGMT SWITCH
+{% if vm_type is defined and vm_type == "ceos" %}
+ vrf MGMT
+{% else %}
+ vrf forwarding MGMT
+{% endif %}
+ ip address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
+ no shutdown
+!
+{% for name, iface in host['interfaces'].items() %}
+interface {{ name }}
+{% if name.startswith('Loopback') %}
+ description LOOPBACK
+{% else %}
+ no switchport
+{% endif %}
+{% if name.startswith('Port-Channel') %}
+ port-channel min-links 1
+{% endif %}
+{% if iface['lacp'] is defined %}
+ channel-group {{ iface['lacp'] }} mode active
+ lacp rate normal
+{% endif %}
+{% if iface['ipv4'] is defined %}
+ ip address {{ iface['ipv4'] }}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 address {{ iface['ipv6'] }}
+ ipv6 nd ra suppress
+{% endif %}
+ no shutdown
+!
+{% endfor %}
+!
+interface {{ bp_ifname }}
+ description backplane
+ no switchport
+{% if host['bp_interface']['ipv4'] is defined %}
+ ip address {{ host['bp_interface']['ipv4'] }}
+{% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 address {{ host['bp_interface']['ipv6'] }}
+ ipv6 nd ra suppress
+{% endif %}
+ no shutdown
+!
+router bgp {{ host['bgp']['asn'] }}
+ router-id {{ host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
+ !
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+ neighbor {{ remote_ip }} remote-as {{ asn }}
+ neighbor {{ remote_ip }} maximum-routes 0
+ neighbor {{ remote_ip }} description {{ asn }}
+{% if remote_ip | ipv6 %}
+ address-family ipv6
+  neighbor {{ remote_ip }} activate
+ exit
+{% endif %}
+{% endfor %}
+{% endfor %}
+ neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv4 }} description exabgp_v4
+ neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv6 }} description exabgp_v6
+ address-family ipv6
+  neighbor {{ props.nhipv6 }} activate
+ exit
+ !
+{% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
+{% if iface['ipv4'] is defined %}
+ network {{ iface['ipv4'] }}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ network {{ iface['ipv6'] }}
+{% endif %}
+{% endfor %}
+!
+management api http-commands
+ no protocol https
+ protocol http
+ no shutdown
+!
+end
