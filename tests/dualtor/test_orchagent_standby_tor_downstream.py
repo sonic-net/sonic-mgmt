@@ -1,4 +1,3 @@
-import ptf
 import pytest
 import random
 import time
