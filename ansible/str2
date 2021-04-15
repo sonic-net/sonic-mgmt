@@ -319,7 +319,7 @@ sonic_arista:
     str2-7050cx3-acs-08:
       ansible_host: 10.3.147.22
       hwsku: Arista-7050CX3-32S-D48C8
-      pdu_host: pdu-119
+      pdu_host: pdu-119,pdu-120
     str2-7050cx3-acs-09:
       ansible_host: 10.3.147.20
       hwsku: Arista-7050CX3-32S-D48C8
