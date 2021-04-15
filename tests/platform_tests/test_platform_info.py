@@ -145,7 +145,7 @@ def get_dut_psu_line_pattern(dut):
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
     else:
         """
-        Changed the pattern to match space (s+) and noen space (S+) only.
+        Changed the pattern to match space (s+) and non-space (S+) only.
         w+ cannot match following examples properly:
 
         example 1:
