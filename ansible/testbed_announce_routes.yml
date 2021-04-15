@@ -25,9 +25,12 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
 
-  - name: Check if it is a known topology
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
-    when: topo not in topologies
+    when: base_topo not in topologies
 
   - name: Check that variable ptf_ip is defined
     fail: msg="Define ptf ip variable with -e ptf_ip=something"

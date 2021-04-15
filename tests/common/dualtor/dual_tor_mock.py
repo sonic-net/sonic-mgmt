@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pytest
+import time
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
@@ -218,7 +219,7 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_neigh_entries(rand_selected_dut, tbinfo, mock_server_ip_mac_map):
+def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo, mock_server_ip_mac_map):
     '''
     Apply neighbor table entries for servers
     '''
@@ -235,18 +236,11 @@ def apply_dual_tor_neigh_entries(rand_selected_dut, tbinfo, mock_server_ip_mac_m
         cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
     dut.shell_cmds(cmds=cmds)
 
-    yield
-
-    logger.info("Removing dual ToR neighbor entries")
-
-    cmds = []
-    for ip in mock_server_ip_mac_map.keys():
-        cmds.append('ip -4 neigh del {} dev {}'.format(ip, vlan))
-    dut.shell_cmds(cmds=cmds)
+    return
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_peer_switch_route(rand_selected_dut, mock_peer_switch_loopback_ip):
+def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Apply the tunnel route to reach the peer switch via the T1 switches
     '''
@@ -270,15 +264,11 @@ def apply_dual_tor_peer_switch_route(rand_selected_dut, mock_peer_switch_loopbac
     # If there are no pre-existing routes, equivalent to `ip route add`
     dut.shell('ip route replace {} {}'.format(mock_peer_switch_loopback_ip, nexthop_str))
 
-    yield
-
-    logger.info("Removing dual ToR peer switch loopback route")
-
-    dut.shell('ip route del {}'.format(mock_peer_switch_loopback_ip))
+    return
 
 
 @pytest.fixture(scope='module')
-def apply_peer_switch_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
+def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Adds the PEER_SWITCH table to config DB and the peer_switch field to the device metadata
     Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
@@ -289,20 +279,34 @@ def apply_peer_switch_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_
     peer_switch_key = 'PEER_SWITCH|{}'.format(peer_switch_hostname)
     device_meta_key = 'DEVICE_METADATA|localhost'
 
-    dut.shell('redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip))
-    dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'dualToR'))
-    dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname))
+    cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
+            'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
+            'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
+    dut.shell_cmds(cmds=cmds)
+    if dut.get_asic_name() == 'th2':
+        # Restart swss on TH2 platform
+        logger.info("Restarting swss service")
+        dut.shell('systemctl restart swss')
+        time.sleep(120)
 
     yield
     logger.info("Removing peer switch table")
 
-    dut.shell('redis-cli -n 4 DEL "{}"'.format(peer_switch_key))
-    dut.shell('redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'dualToR'))
-    dut.shell('redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname))
+    cmds=['redis-cli -n 4 DEL "{}"'.format(peer_switch_key),
+          'redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
+          'redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
+    dut.shell_cmds(cmds=cmds)
+    if dut.get_asic_name() == 'th2':
+        # Restart swss on TH2 platform
+        logger.info("Restarting swss service")
+        dut.shell('systemctl restart swss')
+        time.sleep(120)
+        
+    return
 
 
 @pytest.fixture(scope='module')
-def apply_tunnel_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
+def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_peer_switch_loopback_ip):
     '''
     Adds the TUNNEL table to config DB
     '''
@@ -324,14 +328,11 @@ def apply_tunnel_table_to_dut(rand_selected_dut, mock_peer_switch_loopback_ip):
     for param, value in tunnel_params.items():
         dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(tunnel_key, param, value))
 
-    yield
-    logger.info("Removing tunnel table")
-
-    dut.shell('redis-cli -n 4 DEL "{}"'.format(tunnel_key))
+    return
 
 
 @pytest.fixture(scope='module')
-def apply_mux_cable_table_to_dut(rand_selected_dut, mock_server_base_ip_addr, tor_mux_intfs):
+def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_server_base_ip_addr, tor_mux_intfs):
     '''
     Adds the MUX_CABLE table to config DB
     '''
@@ -353,13 +354,11 @@ def apply_mux_cable_table_to_dut(rand_selected_dut, mock_server_base_ip_addr, to
         cmds.append('redis-cli -n 4 HSET "{}" "state" "auto"'.format(key))
     dut.shell_cmds(cmds=cmds)
 
-    yield
-    logger.info("Removing mux cable table")
+    return
 
-    cmds = []
-    for key in keys_inserted:
-        cmds.append('redis-cli -n 4 DEL "{}"'.format(key))
-    dut.shell_cmds(cmds=cmds)
+
+def is_t0_mocked_dualtor(tbinfo):
+    return tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]
 
 
 @pytest.fixture(scope='module')
@@ -367,7 +366,7 @@ def apply_mock_dual_tor_tables(request, tbinfo):
     '''
     Wraps all table fixtures for convenience
     '''
-    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+    if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue("apply_mux_cable_table_to_dut")
         request.getfixturevalue("apply_tunnel_table_to_dut")
         request.getfixturevalue("apply_peer_switch_table_to_dut")
@@ -379,7 +378,7 @@ def apply_mock_dual_tor_kernel_configs(request, tbinfo):
     '''
     Wraps all kernel related (routes and neighbor entries) fixtures for convenience
     '''
-    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+    if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue("apply_dual_tor_peer_switch_route")
         request.getfixturevalue("apply_dual_tor_neigh_entries")
         logger.info("Done applying kernel configs for dual ToR mock")
@@ -391,6 +390,6 @@ def cleanup_mocked_configs(duthost, tbinfo):
 
     yield
 
-    if tbinfo["topo"]["type"] == "t0" and 'dualtor' not in tbinfo["topo"]["name"]:
+    if is_t0_mocked_dualtor(tbinfo):
         logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
         config_reload(duthost, config_source="minigraph")

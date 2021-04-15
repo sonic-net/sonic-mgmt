@@ -473,12 +473,13 @@ class BaseAclTest(object):
         return wait_until(60, 2, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
-        res = duthost.command('aclshow -a')
+        for asic_id in duthost.get_frontend_asic_ids():
+            res = duthost.asic_instance(asic_id).command('aclshow -a')
 
-        num_of_lines = len(res['stdout'].split('\n'))
+            num_of_lines = len(res['stdout'].split('\n'))
 
-        if num_of_lines <= 2 or 'N/A' in res['stdout']:
-            return False
+            if num_of_lines <= 2 or 'N/A' in res['stdout']:
+                return False
 
         return True
 

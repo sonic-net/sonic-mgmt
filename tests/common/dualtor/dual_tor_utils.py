@@ -9,10 +9,10 @@ from tests.ptf_runner import ptf_runner
 from collections import defaultdict
 from natsort import natsorted
 from tests.common.config_reload import config_reload
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+import ipaddress
 
 from ptf import mask
 from ptf import testutils
@@ -166,6 +166,34 @@ def get_t1_active_ptf_ports(dut, tbinfo):
 
     return ptf_portchannel_intfs
 
+def get_t1_bgp_up_ptf_ports(dut, tbinfo):
+    """
+    @summary: Get ptf port indices for PortChannels on which BGP session is up
+    @param dut: The DUT we are testing against
+    @param tbinfo: The fixture tbinfo
+    @return: A dict { "PortChannel0001": [0, 1], ...}
+    """
+    config_facts = dut.get_running_config_facts()
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    bgp_facts = dut.bgp_facts()['ansible_facts']
+    ip_interfaces = dut.shell('show ip interface')['stdout_lines'][2:]
+    portchannels = []
+    for k, v in bgp_facts['bgp_neighbors'].items():
+        if v['state'] == 'established':
+            for line in ip_interfaces:
+                if k in line:
+                    portchannels.append(line.split()[0])
+                    break
+
+    ptf_portchannel_intfs = {}
+    for k, v in config_facts['PORTCHANNEL'].items():
+        if k in portchannels:
+            ptf_portchannel_intfs[k]  = []
+            for member in v['members']:
+                ptf_portchannel_intfs[k].append(mg_facts['minigraph_ptf_indices'][member])
+
+    return ptf_portchannel_intfs
+
 
 def update_mux_configs_and_config_reload(dut, state):
     """
@@ -176,10 +204,10 @@ def update_mux_configs_and_config_reload(dut, state):
     @param state: A str, auto|active|standby
     """
     STATE_LIST = ['auto', 'active', 'standby']
-    pytest_assert(state in STATE_LIST, "state should be one of {}".format(STATE_LIST))
+    pt_assert(state in STATE_LIST, "state should be one of {}".format(STATE_LIST))
 
     mux_cable_config = dut.shell("sonic-cfggen -d  --var-json 'MUX_CABLE'")['stdout']
-    pytest_assert(len(mux_cable_config.strip()) != 0, "No mux_cable configuration is found in config_db")
+    pt_assert(len(mux_cable_config.strip()) != 0, "No mux_cable configuration is found in config_db")
 
     # Update mux_cable state and dump to a temp file
     mux_cable_config_json = json.loads(mux_cable_config)
@@ -289,7 +317,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
             Defaults to None.
 
     Returns:
-        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down 
+        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down
                                  on that host device.
     """
     if not dut_intfs:
@@ -563,14 +591,13 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, targer_server_ip, target_server_port, ptf_portchannel_indices):
+def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, target_server_ip, target_server_port, ptf_portchannel_indices):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
     active ToR. The running script will capture all traffic and verify if these packets are distributed evenly.
     Args:
         ptfhost: The ptf host connected to current testbed
-        active_tor_mac: MAC address of active ToR
         standby_tor_mac: MAC address of the standby ToR
         vlan_mac: MAC address of Vlan (For verifying packet)
         active_tor_ip: IP Address of Loopback0 of active ToR (For verifying packet)
@@ -583,9 +610,8 @@ def check_tunnel_balance(ptfhost, active_tor_mac, standby_tor_mac, vlan_mac, act
     """
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
-        "server_ip": targer_server_ip,
+        "server_ip": target_server_ip,
         "server_port": target_server_port,
-        "active_tor_mac": active_tor_mac,
         "standby_tor_mac": standby_tor_mac,
         "vlan_mac": vlan_mac,
         "active_tor_ip": active_tor_ip,
@@ -674,6 +700,51 @@ def get_crm_nexthop_counter(host):
     return crm_facts['resources']['ipv4_nexthop']['used']
 
 
+def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
+    """
+    @summary: A helper function for collecting info of dualtor testbed.
+    @param ptfhost: The ptf host fixture
+    @param rand_selected_dut: The randomly selected dut host, will be set as standby ToR
+    @param rand_unselected_dut: The other dut in dualtor testbed, will be set as active ToR
+    @param tbinfo: The tbinfo fixture
+    @return: A dict, can be used as the argument of check_tunnel_balance
+    """
+    active_tor = rand_unselected_dut
+    standby_tor = rand_selected_dut
+    standby_tor_mg_facts = standby_tor.get_extended_minigraph_facts(tbinfo)
+
+    def _get_iface_ip(mg_facts, ifacename):
+        for loopback in mg_facts['minigraph_lo_interfaces']:
+            if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
+                return loopback['addr']
+
+    res = {}
+    res['ptfhost'] = ptfhost
+    res['standby_tor_mac'] = standby_tor.facts['router_mac']
+    vlan_name = standby_tor_mg_facts['minigraph_vlans'].keys()[0]
+    res['vlan_mac'] = standby_tor.get_dut_iface_mac(vlan_name)
+    res['standby_tor_ip'] = _get_iface_ip(standby_tor_mg_facts, 'Loopback0')
+
+    if 't0' in tbinfo["topo"]["name"]:
+        # For mocked dualtor
+        res['active_tor_ip'] = str(ipaddress.ip_address(res['standby_tor_ip']) + 1)
+        # For mocked dualtor, routes to peer switch is static 
+        res['ptf_portchannel_indices'] = get_t1_active_ptf_ports(standby_tor, tbinfo)
+    else:
+        active_tor_mg_facts = active_tor.get_extended_minigraph_facts(tbinfo)
+        res['active_tor_ip'] = _get_iface_ip(active_tor_mg_facts, 'Loopback0')
+        res['ptf_portchannel_indices'] = get_t1_bgp_up_ptf_ports(standby_tor, tbinfo)
+
+    servers = mux_cable_server_ip(standby_tor)
+    random_server_iface = random.choice(servers.keys())
+
+    res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
+    res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
+
+    logger.debug("dualtor info is generated {}".format(res))
+    return res
+
+
 def show_arp(duthost, neighbor_addr):
     """Show arp table entry for neighbor."""
     command = "/usr/sbin/arp -n %s" % neighbor_addr
@@ -708,4 +779,19 @@ def rand_selected_interface(rand_selected_dut):
     iface = str(random.choice(server_ips.keys()))
     logging.info("select DUT interface %s to test.", iface)
     return iface, server_ips[iface]
+
+
+def show_muxcable_status(duthost):
+    """
+    Show muxcable status and parse into a dict
+    """
+    command = "show muxcable status"
+    output = duthost.shell(command)["stdout_lines"]
+    
+    ret = {}
+    for i in range(2, len(output)):
+        port, status, health = output[i].split()
+        ret[port] = {'status': status, 'health': health}
+
+    return ret
 
