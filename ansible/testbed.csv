@@ -5,7 +5,7 @@ ptf2-6-b,ptf2-6,ptf32,docker-ptf,vtf2-6,10.64.246.16/23,2a01:111:e210:b000::9/64
 # vmsets
 vms1-t1-lag-3132,vms1-1,t1-lag,docker-ptf,vms1-1,10.64.246.56/23,,server_1,VM0100,str-n3132-acs-2,str,False,starlab-odl
 vms1-t1-2700,vms1-2,t1-lag,docker-ptf,vms1-2,10.64.246.57/23,2a01:111:e210:b000::8/64,server_1,VM0124,str-msn2700-02,str,True,Jenkins
-vms1-t0-2700-1,vms1-3,t0,docker-ptf,vms1-8,10.64.246.43/23,,server_1,VM0148,str-msn2700-01,str,True,dev
+vms1-t0-2700-1,vms1-3,t0,docker-ptf,vms1-3,10.64.246.69/23,,server_1,VM0148,str-msn2700-01,str,True,dev
 vms1-8,vms1-8,t1-lag,docker-ptf,vms1-8,10.64.246.43/23,,server_1,VM0160,str-msn2700-06,str,True,Jenkins
 vms1-t0-3132,vms1-10,t0,docker-ptf,vms1-10,10.64.246.82/23,,server_1,VM0184,str-n3132-acs-1,str,True,Jenkins
 vms2-2-t0-2700,vms2-2,t0-56,docker-ptf,vms2-2,10.64.246.27/23,,server_2,VM0232,str-msn2700-20,str,True,weibai
