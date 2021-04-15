@@ -73,7 +73,6 @@ def test_pfc_pause_single_lossless_prio(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
-#@pytest.mark.skip(reason="no way of currently testing this")
 def test_pfc_pause_multi_lossless_prio(ixia_api,
                                        ixia_testbed_config,
                                        conn_graph_facts,
@@ -127,7 +126,6 @@ def test_pfc_pause_multi_lossless_prio(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
-#@pytest.mark.skip(reason="no way of currently testing this")
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                                                ixia_testbed_config,
@@ -196,7 +194,6 @@ def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
-#@pytest.mark.skip(reason="no way of currently testing this")
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_multi_lossless_prio_reboot(ixia_api,
                                               ixia_testbed_config,

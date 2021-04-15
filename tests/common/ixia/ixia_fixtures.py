@@ -9,8 +9,7 @@ from ixnetwork_restpy import SessionAssistant
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_peer_ixia_chassis, get_vlan_member, get_portchannel_member, get_mac,\
-    get_intf_ipv4_addr
+    get_peer_ixia_chassis
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
 from tests.common.ixia.port import IxiaPortConfig, IxiaPortType
 from tests.common.helpers.assertions import pytest_assert
@@ -324,18 +323,29 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
     Returns:
         True if we successfully generate configuration or False
     """
-    vlan_member = get_vlan_member(host_ans=duthost)
-    if vlan_member is None:
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    vlan_facts = mg_facts['minigraph_vlans']
+    if len(vlan_facts) == 0:
         return True
 
-    dut_mac = get_mac(duthost)
-    intf_ipv4_addrs = get_intf_ipv4_addr(host_ans=duthost)
+    vlan_member = {}
+    for k, v in vlan_facts.items():
+        vlan_member[k] = v['members']
+
+    vlan_intf_facts = mg_facts['minigraph_vlan_interfaces']
+    vlan_intf = {}
+    for v in vlan_intf_facts:
+        if v['prefixlen'] <= 32:
+            vlan_intf[v['attachto']] = v
+
+    dut_mac = duthost.facts['router_mac']
 
     """ For each Vlan """
     for vlan in vlan_member:
         phy_intfs = vlan_member[vlan]
-        vlan_subnet = str(intf_ipv4_addrs[vlan])
-        gw_addr, prefix = vlan_subnet.split('/')
+        gw_addr = str(vlan_intf[vlan]['addr'])
+        prefix = str(vlan_intf[vlan]['prefixlen'])
+        vlan_subnet = '{}/{}'.format(gw_addr, prefix)
         vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(phy_intfs))
 
         """ For each physical interface attached to this Vlan """
@@ -351,7 +361,7 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
             ethernet = Ethernet(name='Ethernet Port {}'.format(port_id),
-                                         mac=Pattern(mac))
+                                mac=Pattern(mac))
 
             ip_stack = Ipv4(name='Ipv4 Port {}'.format(port_id),
                             address=Pattern(vlan_ip_addr),
@@ -392,19 +402,29 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
     Returns:
         True if we successfully generate configuration or False
     """
-    pc_member = get_portchannel_member(host_ans=duthost)
-    if pc_member is None:
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    pc_facts = mg_facts['minigraph_portchannels']
+    if len(pc_facts) == 0:
         return True
 
-    dut_mac = get_mac(duthost)
-    intf_ipv4_addrs = get_intf_ipv4_addr(host_ans=duthost)
+    pc_member = {}
+    for k, v in pc_facts.items():
+        pc_member[k] = v['members']
+
+    pc_intf_facts = mg_facts['minigraph_portchannel_interfaces']
+    pc_intf = {}
+    for v in pc_intf_facts:
+        if v['prefixlen'] <= 32:
+            pc_intf[v['attachto']] = v
+
+    dut_mac = duthost.facts['router_mac']
 
     """ For each port channel """
     for pc in pc_member:
         phy_intfs = pc_member[pc]
-        pc_subnet = str(intf_ipv4_addrs[pc])
-        gw_addr, prefix = pc_subnet.split('/')
-        pc_ip_addr = get_addrs_in_subnet(pc_subnet, 1)[0]
+        gw_addr = str(pc_intf[pc]['addr'])
+        prefix = str(pc_intf[pc]['prefixlen'])
+        pc_ip_addr = str(pc_intf[pc]['peer_addr'])
 
         lag_ports = []
 
@@ -427,7 +447,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
                 actor_key=1))
 
             ethernet = lag.Ethernet(name='Ethernet Port {}'.format(port_id),
-                               mac=mac)
+                                    mac=mac)
 
             lag_port = lag.Port(port_name=config.ports[port_id].name,
                                 protocol=proto,

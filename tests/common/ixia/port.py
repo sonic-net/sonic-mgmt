@@ -58,14 +58,6 @@ def select_ports(port_config_list, duthost, pattern, rx_port_id):
         else:
             tx_port_id_list = [x.id for x in port_config_list if x.id != rx_port_id]
 
-    active_port_id_list = tx_port_id_list + rx_port_id_list
-    for port_config in port_config_list:
-        dut_port = port_config.peer_port
-        if port_config.id in active_port_id_list:
-            duthost.shell('sudo config interface startup {}'.format(dut_port))
-        else:
-            duthost.shell('sudo config interface shutdown {}'.format(dut_port))
-
     return tx_port_id_list, rx_port_id_list
 
 def select_tx_port(tx_port_id_list, rx_port_id):
