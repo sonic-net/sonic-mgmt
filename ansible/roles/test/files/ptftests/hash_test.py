@@ -248,7 +248,6 @@ class HashTest(BaseTest):
             raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                             "but the src mac doesn't match, expected {}, got {}".
                             format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
-            return (0, None)
         return (rcvd_port, rcvd_pkt)
 
     def check_ipv6_route(self, hash_key, src_port, dst_port_list):
@@ -328,7 +327,6 @@ class HashTest(BaseTest):
             raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                             "but the src mac doesn't match, expected {}, got {}".
                             format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
-            return (0, None)
         return (rcvd_port, rcvd_pkt)
 
     def check_within_expected_range(self, actual, expected):
