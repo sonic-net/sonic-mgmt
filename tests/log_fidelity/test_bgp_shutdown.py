@@ -11,7 +11,7 @@ pytestmark = [
 
 BGP_DOWN_EXPECTED_LOG_MESSAGE = "admin state is set to 'down'"
 BGP_DOWN_COMMAND = "sudo config bgp shutdown all"
-BGP_UP_COMMAND = "sudo config bgp shutdown all"
+BGP_UP_COMMAND = "sudo config bgp startup all"
 
 def test_bgp_shutdown(duthosts, rand_one_dut_hostname):
     duthost=duthosts[rand_one_dut_hostname]
