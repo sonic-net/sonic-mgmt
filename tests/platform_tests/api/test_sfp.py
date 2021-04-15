@@ -155,6 +155,12 @@ class TestSfpApi(PlatformApiTestBase):
             return False
         return True
 
+    def is_xcvr_resettable(self, xcvr_info_dict):
+        xcvr_type = xcvr_info_dict.get("type_abbrv_name")
+        if xcvr_type == "SFP":
+            return False
+        return True
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -364,8 +370,15 @@ class TestSfpApi(PlatformApiTestBase):
     def test_reset(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Verify that the transceiver was actually reset
         for i in self.candidate_sfp:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
+               continue
+
             ret = sfp.reset(platform_api_conn, i)
-            self.expect(ret is True, "Failed to reset transceiver {}".format(i))
+            if self.is_xcvr_resettable(info_dict):
+               self.expect(ret is True, "Failed to reset transceiver {}".format(i))
+            else:
+               self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
         self.assert_expectations()
 
     def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
