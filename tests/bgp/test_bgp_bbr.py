@@ -246,7 +246,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         tor1_asn = setup['tor1_asn']
 
         vm_route = nbrhosts[node]['host'].get_route(route.prefix)
-        vm_route = {'failed': False}
+        vm_route['failed'] = False
         vm_route['tor_route'] = vm_route
         if accepted:
             if route.prefix not in vm_route['vrfs']['default']['bgpRouteEntries'].keys():

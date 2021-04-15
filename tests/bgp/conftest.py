@@ -127,7 +127,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
         # start bgpd if not started
         node_results = []
         node['host'].start_bgpd()
-        logger.info('disable graceful restart on neighbor {}'.format(k))
+        logger.info('disable graceful restart on neighbor {}'.format(node))
         node_results.append(node['host'].eos_config(
                 lines=['no graceful-restart'], \
                 parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'], \
