@@ -8,7 +8,7 @@ function show_help_and_exit()
     echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
-    echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
+    echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
