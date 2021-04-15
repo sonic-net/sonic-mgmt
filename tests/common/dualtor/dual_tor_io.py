@@ -215,8 +215,17 @@ class DualTorIO:
         # This way, when sending packets we continuously send for all servers
         # instead of sending all packets for server #1, then all packets for
         # server #2, etc.
+        tcp_tx_packet_orig = testutils.simple_tcp_packet(
+            eth_dst=eth_dst,
+            eth_src=eth_src,
+            ip_ttl=ip_ttl,
+            tcp_dport=TCP_DST_PORT
+        )
+        tcp_tx_packet_orig = scapyall.Ether(str(tcp_tx_packet_orig))
+        payload_suffix = "X" * 60
         for i in range(self.packets_per_server):
             for server_ip in server_ip_list:
+                packet = tcp_tx_packet_orig.copy()
                 if random_source:
                     tor_pc_src_intf = random.choice(
                         self.tor_pc_intfs
@@ -225,17 +234,13 @@ class DualTorIO:
                     eth_src = self.ptfadapter.dataplane.get_mac(
                         0, ptf_t1_src_intf
                     )
-                tcp_tx_packet = testutils.simple_tcp_packet(
-                    eth_dst=eth_dst,
-                    eth_src=eth_src,
-                    ip_dst=server_ip,
-                    ip_src=self.random_host_ip(),
-                    ip_ttl=ip_ttl,
-                    tcp_dport=TCP_DST_PORT
-                )
-                payload = str(i) + 'X' * 60
-                packet = scapyall.Ether(str(tcp_tx_packet))
+                packet[scapyall.Ether].src = eth_src
+                packet[scapyall.IP].src = self.random_host_ip()
+                packet[scapyall.IP].dst = server_ip
+                payload = str(i) + payload_suffix
                 packet.load = payload
+                packet[scapyall.TCP].chksum = None
+                packet[scapyall.IP].chksum = None
                 self.packets_list.append((ptf_t1_src_intf, str(packet)))
 
         self.sent_pkt_dst_mac = self.dut_mac
@@ -290,21 +295,25 @@ class DualTorIO:
         # This way, when sending packets we continuously send for all servers
         # instead of sending all packets for server #1, then all packets for
         # server #2, etc.
+        tcp_tx_packet_orig = testutils.simple_tcp_packet(
+            eth_dst=self.vlan_mac,
+            tcp_dport=TCP_DST_PORT
+        )
+        tcp_tx_packet_orig = scapyall.Ether(str(tcp_tx_packet_orig))
+        payload_suffix = "X" * 60
         for i in range(self.packets_per_server):
             for vlan_intf in vlan_src_intfs:
                 ptf_src_intf = self.tor_to_ptf_intf_map[vlan_intf]
                 server_ip = self.ptf_intf_to_server_ip_map[ptf_src_intf]
                 eth_src = ptf_intf_to_mac_map[ptf_src_intf]
-                payload =  str(i) + 'X' * 60
-                tcp_tx_packet = testutils.simple_tcp_packet(
-                    eth_dst=self.vlan_mac,
-                    eth_src=eth_src,
-                    ip_src=server_ip,
-                    ip_dst=self.random_host_ip(),
-                    tcp_dport=TCP_DST_PORT
-                )
-                packet = scapyall.Ether(str(tcp_tx_packet))
+                payload = str(i) + payload_suffix
+                packet = tcp_tx_packet_orig.copy()
+                packet[scapyall.Ether].src = eth_src
+                packet[scapyall.IP].src = server_ip
+                packet[scapyall.IP].dst = self.random_host_ip()
                 packet.load = payload
+                packet[scapyall.TCP].chksum = None
+                packet[scapyall.IP].chksum = None
                 self.packets_list.append((ptf_src_intf, str(packet)))
         self.sent_pkt_dst_mac = self.vlan_mac
         self.received_pkt_src_mac = [self.active_mac, self.standby_mac]
