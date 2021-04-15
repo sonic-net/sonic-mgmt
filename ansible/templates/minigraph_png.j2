@@ -107,7 +107,7 @@
 {% set server_base_address_v4 = '.'.join(server_base_address_v4.split('.')[:-1]) + '.{}' %}
 {% set server_base_address_v6 = (vlan_configs.values() | list)[0]['prefix_v6'] %}
 {% set server_base_address_v6 = server_base_address_v6 | ipaddr('network') %}
-{% set server_base_address_v6 = ':'.join(server_base_address_v6.split(':')[:-1]) + ':{}' %}
+{% set server_base_address_v6 = ':'.join(server_base_address_v6.split(':')[:-1]) + ':{:x}' %}
 {% for cable in dual_tor_facts['cables'] %}
       <Device i:type="SmartCable">
         <ElementType>SmartCable</ElementType>
