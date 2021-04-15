@@ -134,8 +134,11 @@ def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_
         logger.info("Add members to Vlans")
         for vlan_port in vlan_ports_list:
             for permit_vlanid in vlan_port['permit_vlanid'].keys():
+                is_untagged_member = True if vlan_port['pvid'] == permit_vlanid else False
+                if vlan_port['dev'].startswith("Ethernet") and is_untagged_member is True:
+                    duthost.command('config vlan member del 1000 {port}'.format(port=vlan_port['dev']))
                 duthost.command('config vlan member add {tagged} {id} {port}'.format(
-                    tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
+                    tagged=('--untagged' if is_untagged_member is True else ''),
                     id=permit_vlanid,
                     port=vlan_port['dev']
                 ))
