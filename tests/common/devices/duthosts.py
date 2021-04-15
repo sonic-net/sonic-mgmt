@@ -41,16 +41,18 @@ class DutHosts(object):
             """ To support hash operator on the DUTs (nodes) in the testbed """
             return list.__hash__()
 
-    def __init__(self, ansible_adhoc, tbinfo):
+    def __init__(self, ansible_adhoc, tbinfo, duts):
         """ Initialize a multi-dut testbed with all the DUT's defined in testbed info.
 
         Args:
             ansible_adhoc: The pytest-ansible fixture
             tbinfo - Testbed info whose "duts" holds the hostnames for the DUT's in the multi-dut testbed.
+            duts - list of DUT hostnames from the `--host-pattern` CLI option. Can be specified if only a subset of 
+                   DUTs in the testbed should be used
 
         """
         # TODO: Initialize the nodes in parallel using multi-threads?
-        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"]])
+        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"] if hostname in duts])
         self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
         self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
 
