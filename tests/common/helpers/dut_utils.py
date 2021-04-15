@@ -14,12 +14,12 @@ def is_supervisor_node(inv_files, hostname):
             you can be get it from get_inventory_files in tests.common.utilities
      @param hostname: hostname as defined in the inventory
     Returns:
-          Currently, we are using 'type' in the inventory to make the decision. If 'type' for the node is defined in
+          Currently, we are using 'card_type' in the inventory to make the decision. If 'card_type' for the node is defined in
           the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
           logic if possible to derive it from the DUT.
     """
     dut_vars = get_host_visible_vars(inv_files, hostname)
-    if 'type' in dut_vars and dut_vars['type'] == 'supervisor':
+    if 'card_type' in dut_vars and dut_vars['card_type'] == 'supervisor':
         return True
     return False
 
