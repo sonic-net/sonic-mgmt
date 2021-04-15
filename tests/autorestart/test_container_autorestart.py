@@ -11,6 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common import config_reload
+from tests.common.helpers.dut_utils import get_disabled_container_list
 
 logger = logging.getLogger(__name__)
 
@@ -151,23 +152,6 @@ def get_program_info(duthost, container_name, program_name):
                     .format(program_name, program_status, program_pid))
 
     return program_status, program_pid
-
-
-def get_disabled_container_list(duthost):
-    """
-    @summary: Get the container/service names which are disabled
-    @return: A list includes the names of disabled containers/services
-    """
-    disabled_containers = []
-
-    container_status, succeeded = duthost.get_feature_status()
-    pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
-
-    for container_name, status in container_status.items():
-        if status == "disabled":
-            disabled_containers.append(container_name)
-
-    return disabled_containers
 
 
 def is_container_running(duthost, container_name):
