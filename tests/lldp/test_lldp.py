@@ -63,10 +63,9 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
         neighbor_interface = v['port']['ifname']
         # Verify the published DUT system name field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
-        ansible_interface = 'ansible_{}'.format(neighbor_interface)
         # Verify the published DUT chassis id field is not empty
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
-                "0x%s" % (host_facts[ansible_interface]['macaddress'].replace(':', ''))
+               "0x%s" % (duthost.facts['router_mac'].replace(':', ''))
         # Verify the published DUT system description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
         # Verify the published DUT port id field is correct
