@@ -25,6 +25,7 @@ all:
           - t0-116
           - dualtor
           - dualtor-56
+          - t2-vs
       children:
         server_1:
     lab:
@@ -145,6 +146,34 @@ all:
           ansible_hostv6: fec0::ffff:afa:4
           type: simx
           hwsku: MSN3700
+        vlab-t2-01:
+          ansible_host: 10.250.0.120
+          ansible_hostv6: fec0::ffff:afa:10
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9020
+          ansible_password: password
+          ansible_user: admin
+          slot_num: 1
+        vlab-t2-02:
+          ansible_host: 10.250.0.121
+          ansible_hostv6: fec0::ffff:afa:11
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9021
+          ansible_password: password
+          ansible_user: admin
+          slot_num: 2
+        vlab-t2-sup:
+          ansible_host: 10.250.0.122
+          ansible_hostv6: fec0::ffff:afa:12
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9022
+          ansible_password: password
+          ansible_user: admin
+          card_type: supervisor
+          slot_num: 3
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
