@@ -29,7 +29,7 @@ from ansible.module_utils.basic import *
 results = {"downloaded_image_version": "Unknown"}
 
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
-    rc, out, err = module.run_command(cmd)
+    rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
     if not ignore_error and rc != 0:
         module.fail_json(msg="Failed %s: rc=%d, out=%s, err=%s" %
                          (msg, rc, out, err))
@@ -44,7 +44,7 @@ def get_disk_free_size(module, partition):
     return avail
 
 
-def reduce_installed_sonic_images(module, disk_used_pcent):
+def reduce_installed_sonic_images(module):
     exec_command(module, cmd="sonic_installer cleanup -y", ignore_error=True)
 
 
@@ -116,6 +116,19 @@ def work_around_for_slow_disks(module):
     exec_command(module, cmd="sysctl -w kernel.hung_task_timeout_secs=600", ignore_error=True)
 
 
+def free_up_disk_space(module, disk_used_pcent):
+    """Remove old log, core and dump files."""
+    def get_disk_used_percent(module):
+        output = exec_command(module, cmd="df -BM --output=pcent /host")[1]
+        return int(output.splitlines()[-1][:-1])
+
+    if get_disk_used_percent(module) > disk_used_pcent:
+        # free up spaces at best effort
+        exec_command(module, "rm -f /var/log/*.gz", ignore_error=True)
+        exec_command(module, "rm -f /var/core/*", ignore_error=True)
+        exec_command(module, "rm -rf /var/dump/*", ignore_error=True)
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -131,8 +144,9 @@ def main():
 
     try:
         work_around_for_slow_disks(module)
-        reduce_installed_sonic_images(module, disk_used_pcent)
+        reduce_installed_sonic_images(module)
         if new_image_url or save_as:
+            free_up_disk_space(module, disk_used_pcent)
             install_new_sonic_image(module, new_image_url, save_as)
     except:
         err = str(sys.exc_info())
