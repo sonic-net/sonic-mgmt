@@ -313,18 +313,21 @@ def main():
     cmd_prefix = ''
     cmd = '/usr/bin/python {}'.format(INTF_IP_GET_INFO_SCRIPT)
 
-    # If the user passed a namespace parameter invoke that script with the cmd_prefix
-    if namespace_passed:
-        cmd_prefix = 'sudo ip netns exec {} '.format(namespace_passed)
-    rc, output, err = module.run_command(cmd_prefix + cmd, use_unsafe_shell=True)
-    if rc != 0:
-        module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, err))
+    for namespace in multi_asic.get_namespace_list():
+        if namespace_passed and namespace != namespace_passed:
+            continue
+        # If the user passed a namespace parameter invoke that script with the cmd_prefix
+        if namespace:
+            cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
+        rc, output, err = module.run_command(cmd_prefix + cmd, use_unsafe_shell=True)
+        if rc != 0:
+            module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, err))
 
-    # Get the output from the gather interface info script.
-    if output:
-        ips_interfaces = json.loads(output)
-        interfaces.update(ips_interfaces["interfaces"])
-        ips.update(ips_interfaces["ips"])
+        # Get the output from the gather interface info script.
+        if output:
+            ips_interfaces = json.loads(output)
+            interfaces.update(ips_interfaces["interfaces"])
+            ips.update(ips_interfaces["ips"])
 
     # Remove the file which was created earlier
     os.remove(INTF_IP_GET_INFO_SCRIPT)
