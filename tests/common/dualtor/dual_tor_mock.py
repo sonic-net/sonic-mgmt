@@ -24,7 +24,8 @@ __all__ = [
     'mock_server_base_ip_addr',
     'mock_server_ip_mac_map',
     'set_dual_tor_state_to_orchagent',
-    'del_dual_tor_state_from_orchagent'
+    'del_dual_tor_state_from_orchagent',
+    'is_t0_mocked_dualtor'
 ]
 
 logger = logging.getLogger(__name__)

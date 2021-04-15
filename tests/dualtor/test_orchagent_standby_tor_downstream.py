@@ -247,6 +247,13 @@ def test_standby_tor_remove_neighbor_downstream_standby(
         if ipv4_neighbor_after != ipv4_neighbor_before:
             raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)
 
+    @contextlib.contextmanager
+    def stop_garp(ptfhost):
+        """Temporarily stop garp service."""
+        ptfhost.shell("supervisorctl stop garp_service")
+        yield
+        ptfhost.shell("supervisorctl start garp_service")
+
     tor = rand_selected_dut
     test_params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     server_ipv4 = test_params["target_server_ip"]
@@ -265,7 +272,9 @@ def test_standby_tor_remove_neighbor_downstream_standby(
         tor, vmhost, test_params["selected_port"],
         conn_graph_facts, exp_pkt, existing=False
     )
-    with crm_neighbor_checker(tor), flush_neighbor(tor, server_ipv4), tunnel_monitor, server_traffic_monitor:
+    # for real dualtor testbed, leave the neighbor restoration to garp service
+    flush_neighbor_ct = flush_neighbor(tor, server_ipv4, restore=is_t0_mocked_dualtor)
+    with crm_neighbor_checker(tor), stop_garp(ptfhost), flush_neighbor_ct, tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
     logging.info("send traffic to server %s after neighbor entry is restored", server_ipv4)
