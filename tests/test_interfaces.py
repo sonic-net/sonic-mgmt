@@ -11,7 +11,7 @@ pytestmark = [
 def test_interfaces(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
     """compare the interfaces between observed states and target state"""
 
-    duthost = duthosts[enum_frontend_dut_hostname] 
+    duthost = duthosts[enum_frontend_dut_hostname]
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     host_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace=namespace)
