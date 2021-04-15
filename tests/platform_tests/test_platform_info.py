@@ -144,6 +144,18 @@ def get_dut_psu_line_pattern(dut):
     if "201811" in dut.os_version or "201911" in dut.os_version:
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
     else:
+        """
+        Changed the pattern to match space (s+) and noen space (S+) only.
+        w+ cannot match following examples properly:
+
+        example 1:
+            PSU 1  PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
+            PSU 2  PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
+        example 2:
+            PSU 1  N/A      N/A               12.05           3.38        40.62  OK        green
+            PSU 2  N/A      N/A               12.01           4.12        49.50  OK        green
+
+        """
         psu_line_pattern = re.compile(r"PSU\s+(\d+)\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
     return psu_line_pattern
 
