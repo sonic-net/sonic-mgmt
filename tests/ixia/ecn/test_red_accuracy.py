@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
@@ -14,7 +14,7 @@ from files.helper import run_ecn_test, is_ecn_marked
 
 def test_red_accuracy(request,
                       ixia_api,
-                      ixia_testbed,
+                      ixia_testbed_config,
                       conn_graph_facts,
                       fanout_graph_facts,
                       duthosts,
@@ -29,7 +29,7 @@ def test_red_accuracy(request,
     Args:
         request (pytest fixture): pytest request object
         ixia_api (pytest fixture): IXIA session
-        ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
+        ixia_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
@@ -50,6 +50,7 @@ def test_red_accuracy(request,
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
+    testbed_config, port_config_list = ixia_testbed_config
     duthost = duthosts[rand_one_dut_hostname]
     lossless_prio = int(lossless_prio)
 
@@ -62,7 +63,8 @@ def test_red_accuracy(request,
     result_file_name = 'result.txt'
 
     ip_pkts_list = run_ecn_test(api=ixia_api,
-                                testbed_config=ixia_testbed,
+                                testbed_config=testbed_config,
+                                port_config_list=port_config_list,
                                 conn_data=conn_graph_facts,
                                 fanout_data=fanout_graph_facts,
                                 duthost=duthost,

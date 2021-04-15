@@ -9,11 +9,12 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging
+from tests.common.ixia.port import select_ports, select_tx_port
 
 from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
     BasicFilter
-from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header,Size, Rate,\
+    Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -30,6 +31,7 @@ DATA_FLOW_NAME = 'Data Flow'
 
 def run_ecn_test(api,
                  testbed_config,
+                 port_config_list,
                  conn_data,
                  fanout_data,
                  duthost,
@@ -47,7 +49,8 @@ def run_ecn_test(api,
 
     Args:
         api (obj): IXIA session
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
         duthost (Ansible host instance): device under test
@@ -100,7 +103,9 @@ def run_ecn_test(api,
 
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
+                          port_config_list=port_config_list,
                           port_id=port_id,
+                          duthost=duthost,
                           pause_flow_name=PAUSE_FLOW_NAME,
                           data_flow_name=DATA_FLOW_NAME,
                           prio=lossless_prio,
@@ -136,7 +141,9 @@ def run_ecn_test(api,
 sec_to_nanosec = lambda x : x * 1e9
 
 def __gen_traffic(testbed_config,
+                  port_config_list,
                   port_id,
+                  duthost,
                   pause_flow_name,
                   data_flow_name,
                   prio,
@@ -150,8 +157,10 @@ def __gen_traffic(testbed_config,
     Generate configurations of flows, including a data flow and a PFC pause storm.
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test
+        duthost (Ansible host instance): device under test
         pause_flow_name (str): name of the pause storm
         data_flow_name (str): name of the data flow
         prio (int): priority of the data flow and PFC pause storm
@@ -169,34 +178,51 @@ def __gen_traffic(testbed_config,
     result = list()
 
     rx_port_id = port_id
-    tx_port_id = (port_id + 1) % len(testbed_config.devices)
+    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
+                                                    duthost=duthost,
+                                                    pattern="many to one",
+                                                    rx_port_id=rx_port_id)
+    pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
+    tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
+                                rx_port_id=rx_port_id)
+    pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
 
-    data_endpoint = DeviceTxRx(
-        tx_device_names=[testbed_config.devices[tx_port_id].name],
-        rx_device_names=[testbed_config.devices[rx_port_id].name],
-    )
+    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+
+    tx_mac = tx_port_config.mac
+    if tx_port_config.gateway == rx_port_config.gateway and \
+       tx_port_config.prefix_len == rx_port_config.prefix_len:
+        """ If soruce and destination port are in the same subnet """
+        rx_mac = rx_port_config.mac
+    else:
+        rx_mac = tx_port_config.gateway_mac
+
+    data_endpoint = PortTxRx(tx_port_name=testbed_config.ports[tx_port_id].name,
+                             rx_port_name=testbed_config.ports[rx_port_id].name)
 
     data_flow_delay_nanosec = sec_to_nanosec(data_flow_delay_sec)
 
-    """ Data Flow """
+    eth_hdr = EthernetHeader(src=FieldPattern(tx_mac),
+                            dst=FieldPattern(rx_mac),
+                            pfc_queue=FieldPattern([prio]))
+
     ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
                             ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-    pfc_queue = FieldPattern([prio])
+    ipv4_hdr = Ipv4Header(src=FieldPattern(tx_port_config.ip),
+                          dst=FieldPattern(rx_port_config.ip),
+                          priority=ip_prio)
 
     data_flow = Flow(
         name=data_flow_name,
         tx_rx=TxRx(data_endpoint),
-        packet=[
-            Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-            Header(choice=Ipv4Header(priority=ip_prio))
-        ],
+        packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
         size=Size(data_pkt_size),
         rate=Rate('line', 100),
         duration=Duration(FixedPackets(packets=data_pkt_cnt,
                                        delay=data_flow_delay_nanosec,
                                        delay_unit='nanoseconds'))
     )
-
     result.append(data_flow)
 
     """ PFC Pause Storm """
@@ -223,8 +249,8 @@ def __gen_traffic(testbed_config,
     ))
 
     """ Pause frames are sent from the RX port """
-    pause_src_point = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name,
-                               rx_port_name=testbed_config.ports[tx_port_id].name)
+    pause_endpoint = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name,
+                              rx_port_name=testbed_config.ports[tx_port_id].name)
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -233,7 +259,7 @@ def __gen_traffic(testbed_config,
 
     pause_flow = Flow(
         name=pause_flow_name,
-        tx_rx=TxRx(pause_src_point),
+        tx_rx=TxRx(pause_endpoint),
         packet=[pause_pkt],
         size=Size(64),
         rate=Rate('pps', value=pps),
@@ -241,8 +267,8 @@ def __gen_traffic(testbed_config,
                                        delay=0,
                                        delay_unit='nanoseconds'))
     )
-
     result.append(pause_flow)
+
     return result
 
 
