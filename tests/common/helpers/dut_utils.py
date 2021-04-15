@@ -180,4 +180,3 @@ def get_disabled_container_list(duthost):
             disabled_containers.append(container_name)
 
     return disabled_containers
-    
