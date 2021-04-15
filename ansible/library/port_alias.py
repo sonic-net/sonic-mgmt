@@ -136,20 +136,13 @@ class SonicPortAliasMap():
                         alias = mapping[alias_index]
                     else:
                         alias = name
-                    if not include_internal:
-                        if role == 'Ext':
-                            aliases.append(alias)
-                            portmap[name] = alias
-                            aliasmap[alias] = name
-                            if (speed_index != -1) and (len(mapping) > speed_index):
-                                portspeed[alias] = mapping[speed_index]
-                    else:
+                    if role == 'Ext' or (role == "Int" and include_internal):
                         aliases.append(alias)
                         portmap[name] = alias
                         aliasmap[alias] = name
                         if (speed_index != -1) and (len(mapping) > speed_index):
                             portspeed[alias] = mapping[speed_index]
-                        if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                        if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
                             front_panel_asic_ifnames.append(asicifname)
                     if (asic_name_index != -1) and (len(mapping) > asic_name_index):
@@ -163,7 +156,7 @@ def main():
         argument_spec=dict(
             hwsku=dict(required=True, type='str'),
             num_asic=dict(type='int', required=False),
-            include_internal=dict(required=False, default=False)
+            include_internal=dict(required=False, type='bool', default=False)
         ),
         supports_check_mode=True
     )
