@@ -86,7 +86,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             logging.debug("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
             logging.debug("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
             check_res = []
-            if outer_dscp != inner_ecn:
+            if outer_dscp != inner_dscp:
                 check_res.append("outer packet DSCP not same as inner packet DSCP")
             if outer_ecn != inner_ecn:
                 check_res.append("outer packet ECN not same as inner packet ECN")
