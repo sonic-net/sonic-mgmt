@@ -3,10 +3,17 @@ import random
 import time
 import logging
 import ipaddress
+import contextlib
+import time
+import scapy.all as scapyall
+
+from ptf import testutils, mask
 from tests.common.dualtor.dual_tor_mock import *
-from tests.common.dualtor.dual_tor_utils import dualtor_info, check_tunnel_balance, flush_neighbor
+from tests.common.dualtor.dual_tor_utils import dualtor_info, check_tunnel_balance, flush_neighbor, get_t1_ptf_ports
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses, run_garp_service, run_icmp_responder   # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require as pt_require
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
+from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -18,6 +25,7 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__file__)
+
 
 def shutdown_random_one_t1_link(dut):
     """
@@ -185,3 +193,91 @@ def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_du
     # Readd loopback routes and verify traffic is equally distributed
     add_loopback_routes(rand_selected_dut, active_tor_loopback0)
     check_tunnel_balance(**params)
+
+
+def test_standby_tor_remove_neighbor_downstream_standby(
+    conn_graph_facts, ptfadapter, ptfhost,
+    rand_selected_dut, rand_unselected_dut, tbinfo,
+    set_crm_polling_interval,
+    tunnel_traffic_monitor, vmhost
+):
+    """
+    @summary: Verify that after removing neighbor entry for a server over standby
+    ToR, the packets sent to the server will be dropped(neither passed to the server
+    or redirected to the active ToR).
+    """
+    def build_packet_to_server(tor, ptfadapter, target_server_ip, tunnel_traffic_monitor):
+        """Build packet destinated to server."""
+        pkt_dscp = random.choice(range(0, 33))
+        pkt_ttl = random.choice(range(3, 65))
+        pkt = testutils.simple_ip_packet(
+            eth_dst=tor.facts["router_mac"],
+            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            ip_src="1.1.1.1",
+            ip_dst=target_server_ip,
+            ip_dscp=pkt_dscp,
+            ip_ttl=pkt_ttl
+        )
+        logging.info(
+            "the packet destinated to server %s:\n%s", target_server_ip,
+            tunnel_traffic_monitor._dump_show_str(pkt)
+        )
+        return pkt
+
+    def build_expected_packet_to_server(packet):
+        """Build expected mask packet downstream to server."""
+        exp_pkt = mask.Mask(packet)
+        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
+        exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+        exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+        return exp_pkt
+
+    @contextlib.contextmanager
+    def crm_neighbor_checker(duthost):
+        crm_facts_before = duthost.get_crm_facts()
+        ipv4_neighbor_before = crm_facts_before["resources"]["ipv4_neighbor"]["used"]
+        logging.info("ipv4 neighbor before test: %s", ipv4_neighbor_before)
+        yield
+        time.sleep(crm_facts_before["polling_interval"])
+        crm_facts_after = duthost.get_crm_facts()
+        ipv4_neighbor_after = crm_facts_after["resources"]["ipv4_neighbor"]["used"]
+        logging.info("ipv4 neighbor after test: %s", ipv4_neighbor_after)
+        if ipv4_neighbor_after != ipv4_neighbor_before:
+            raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)
+
+    @contextlib.contextmanager
+    def stop_garp(ptfhost):
+        """Temporarily stop garp service."""
+        ptfhost.shell("supervisorctl stop garp_service")
+        yield
+        ptfhost.shell("supervisorctl start garp_service")
+
+    tor = rand_selected_dut
+    test_params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
+    server_ipv4 = test_params["target_server_ip"]
+
+    pkt = build_packet_to_server(tor, ptfadapter, server_ipv4, tunnel_traffic_monitor)
+    exp_pkt = build_expected_packet_to_server(pkt)
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
+    logging.info("send traffic to server %s from ptf t1 interface %s", server_ipv4, ptf_t1_intf)
+    tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
+    with tunnel_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+    logging.info("send traffic to server %s after removing neighbor entry", server_ipv4)
+    tunnel_monitor.existing = False
+    server_traffic_monitor = ServerTrafficMonitor(
+        tor, vmhost, test_params["selected_port"],
+        conn_graph_facts, exp_pkt, existing=False
+    )
+    # for real dualtor testbed, leave the neighbor restoration to garp service
+    flush_neighbor_ct = flush_neighbor(tor, server_ipv4, restore=is_t0_mocked_dualtor)
+    with crm_neighbor_checker(tor), stop_garp(ptfhost), flush_neighbor_ct, tunnel_monitor, server_traffic_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+    logging.info("send traffic to server %s after neighbor entry is restored", server_ipv4)
+    tunnel_monitor.existing = True
+    with crm_neighbor_checker(tor), tunnel_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)

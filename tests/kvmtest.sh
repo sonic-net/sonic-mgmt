@@ -152,6 +152,21 @@ test_t0() {
     popd
 }
 
+test_t2() {
+    tgname=t2-setup
+    pushd $SONIC_MGMT_DIR/tests
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -E -c "test_vs_chassis_setup.py" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"
+    popd
+
+    tgname=t2
+    tests="\
+    voq/test_voq_init.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -c "$tests" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"
+    popd
+}
+
 test_t1_lag() {
     tgname=t1_lag
     tests="\
@@ -231,6 +246,8 @@ elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
     test_multi_asic_t1_lag 
+elif [ x$test_suite == x"t2" ]; then
+    test_t2
 else
     echo "unknown $test_suite"
     exit 1

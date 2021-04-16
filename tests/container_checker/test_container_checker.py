@@ -15,6 +15,7 @@ from tests.common.helpers.dut_utils import is_hitting_start_limit
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
+from tests.common.helpers.dut_utils import get_disabled_container_list
 
 logger = logging.getLogger(__name__)
 
@@ -82,27 +83,6 @@ def update_monit_service(duthost):
     duthost.shell("sudo mv -f /tmp/sonic-host /etc/monit/conf.d/")
     logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
     duthost.shell("sudo systemctl restart monit")
-
-
-def get_disabled_container_list(duthost):
-    """Gets the container/service names which are disabled.
-
-    Args:
-        duthost: Host DUT.
-
-    Return:
-        A list includes the names of disabled containers/services
-    """
-    disabled_containers = []
-
-    container_status, succeeded = duthost.get_feature_status()
-    pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
-
-    for container_name, status in container_status.items():
-        if "disabled" in status:
-            disabled_containers.append(container_name)
-
-    return disabled_containers
 
 
 def check_all_critical_processes_status(duthost):
