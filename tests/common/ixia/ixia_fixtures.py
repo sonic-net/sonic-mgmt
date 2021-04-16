@@ -5,6 +5,7 @@ included in this file.
 """
 
 import pytest
+from ipaddress import ip_address, IPv4Address
 from ixnetwork_restpy import SessionAssistant
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
@@ -310,6 +311,86 @@ def __gen_mac(id):
     """
     return '00:11:22:33:44:{:02d}'.format(id)
 
+def __valid_ipv4_addr(ip):
+    """
+    Determine if a input string is a valid IPv4 address
+
+    Args:
+        ip (unicode str): input IP address
+
+    Returns:
+        True if the input is a valid IPv4 adress or False otherwise
+    """
+    try:
+        return True if type(ip_address(ip)) is IPv4Address else False
+    except ValueError:
+        return False
+
+def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
+    """
+    Generate Tgen configuration of layer 3 interfaces
+
+    Args:
+        config (obj): Tgen API config of the testbed
+        port_config_list (list): list of IXIA port configuration information
+        duthost (object): device under test
+        ixia_ports (list): list of IXIA port information
+
+    Returns:
+        True if we successfully generate configuration or False
+    """
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    l3_intf_facts = mg_facts['minigraph_interfaces']
+    l3_intf = {}
+
+    for v in l3_intf_facts:
+        if __valid_ipv4_addr(v['addr']):
+            l3_intf[v['attachto']] = v
+
+    dut_mac = str(duthost.facts['router_mac'])
+
+    for k, v in l3_intf.items():
+        intf = str(k)
+        gw_addr = str(v['addr'])
+        prefix = str(v['prefixlen'])
+        ip = str(v['peer_addr'])
+
+        port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
+                    if ixia_pot['peer_port'] == intf]
+        if len(port_ids) != 1:
+            return False
+
+        port_id = port_ids[0]
+        mac = __gen_mac(port_id)
+        ethernet = Ethernet(name='Ethernet Port {}'.format(port_id),
+                            mac=Pattern(mac))
+
+        ip_stack = Ipv4(name='Ipv4 Port {}'.format(port_id),
+                        address=Pattern(ip),
+                        prefix=Pattern(prefix),
+                        gateway=Pattern(gw_addr),
+                        ethernet=ethernet)
+
+        device = Device(name='Device Port {}'.format(port_id),
+                        device_count=1,
+                        container_name=config.ports[port_id].name,
+                        choice=ip_stack)
+
+        config.devices.append(device)
+
+        port_config = IxiaPortConfig(id=port_id,
+                                     ip=ip,
+                                     mac=mac,
+                                     gw=gw_addr,
+                                     gw_mac=dut_mac,
+                                     prefix_len=prefix,
+                                     port_type=IxiaPortType.IPInterface,
+                                     peer_port=intf)
+
+        port_config_list.append(port_config)
+
+    return True
+
 def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
     """
     Generate Tgen configuration of Vlan interfaces
@@ -335,10 +416,10 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
     vlan_intf_facts = mg_facts['minigraph_vlan_interfaces']
     vlan_intf = {}
     for v in vlan_intf_facts:
-        if v['prefixlen'] <= 32:
+        if __valid_ipv4_addr(v['addr']):
             vlan_intf[v['attachto']] = v
 
-    dut_mac = duthost.facts['router_mac']
+    dut_mac = str(duthost.facts['router_mac'])
 
     """ For each Vlan """
     for vlan in vlan_member:
@@ -414,10 +495,10 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
     pc_intf_facts = mg_facts['minigraph_portchannel_interfaces']
     pc_intf = {}
     for v in pc_intf_facts:
-        if v['prefixlen'] <= 32:
+        if __valid_ipv4_addr(v['addr']):
             pc_intf[v['attachto']] = v
 
-    dut_mac = duthost.facts['router_mac']
+    dut_mac = str(duthost.facts['router_mac'])
 
     """ For each port channel """
     for pc in pc_member:
@@ -575,5 +656,11 @@ def ixia_testbed_config(conn_graph_facts,
                                               duthost=duthost,
                                               ixia_ports=ixia_ports)
     pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+
+    config_result = __l3_intf_config(config=config,
+                                     port_config_list=port_config_list,
+                                     duthost=duthost,
+                                     ixia_ports=ixia_ports)
+    pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list
