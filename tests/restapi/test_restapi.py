@@ -200,3 +200,63 @@ def test_data_path(construct_url, vlan_members):
     for route in expected:
         pytest_assert(route in r.json())
     logger.info("Routes with vnid: 3000 to VNET vnet-guid-3 have been added successfully")
+
+'''
+This test creates a VNET. It adds routes to the VNET and deletes them
+'''
+def test_create_vrf(construct_url):
+    # Create VNET
+    params = '{"vnid": 10000}'
+    logger.info("Creating VNET vnet-guid-10 with vnid: 10000")
+    r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-10', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VNET has been created
+    r = restapi.get_config_vrouter_vrf_id(construct_url, 'vnet-guid-10')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"attr": {"vnid": 10000}, "vnet_id": "vnet-guid-10"}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("VNET with vnet_id: vnet-guid-10 has been successfully created with vnid: 10000")
+
+    # Add routes
+    params = '[{"cmd": "add", "ip_prefix": "10.1.0.1/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "add", "ip_prefix": "10.1.0.2/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "add", "ip_prefix": "10.1.0.3/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "add", "ip_prefix": "10.1.0.4/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "add", "ip_prefix": "10.1.0.5/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}]'
+    logger.info("Adding routes with vnid: 7039114 to VNET vnet-guid-10")
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify routes
+    params = '{}'
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = [{"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.1/32", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, 
+                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.2/32", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
+                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.3/32", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
+                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.4/32", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
+                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.5/32", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}]
+    for route in expected:
+        pytest_assert(route in r.json())
+    logger.info("Routes with vnid: 7039114 to VNET vnet-guid-10 have been added successfully")
+
+    # Delete routes
+    params = '[{"cmd": "delete", "ip_prefix": "10.1.0.1/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "delete", "ip_prefix": "10.1.0.2/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "delete", "ip_prefix": "10.1.0.3/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "delete", "ip_prefix": "10.1.0.4/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}, \
+                {"cmd": "delete", "ip_prefix": "10.1.0.5/32", "nexthop": "100.78.60.37", "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}]'
+    logger.info("Deleting routes with vnid: 7039114 from VNET vnet-guid-10")
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify routes
+    params = '{}'
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    pytest_assert(len(r.json()) == 0)
+    logger.info("Routes with vnid: 7039114 from VNET vnet-guid-10 have been deleted successfully")
