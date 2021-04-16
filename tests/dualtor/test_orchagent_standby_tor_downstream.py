@@ -14,6 +14,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -89,12 +90,12 @@ def shutdown_one_bgp_session(rand_selected_dut):
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
 
 
-def add_loopback_routes(standby_tor, active_tor_loopback_ip):
+def add_nexthop_routes(standby_tor, route_dst, nexthop=None):
     """
-    Add static routes to reach the peer's loopback.
+    Add static routes to reach route_dst via nexthop.
     The function is similar with fixture apply_dual_tor_peer_switch_route, but we can't use the fixture directly
     """
-    logger.info("Applying dual ToR peer switch loopback route")
+    logger.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
     bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
 
     ipv4_neighbors = []
@@ -104,19 +105,24 @@ def add_loopback_routes(standby_tor, active_tor_loopback_ip):
             ipv4_neighbors.append(neighbor)
 
     nexthop_str = ''
-    for neighbor in ipv4_neighbors:
-        nexthop_str += 'nexthop via {} '.format(neighbor)
+    if nexthop is None:
+        for neighbor in ipv4_neighbors:
+            nexthop_str += 'nexthop via {} '.format(neighbor)
+    else:
+        nexthop_str += 'nexthop via {} '.format(nexthop)
 
     # Use `ip route replace` in case a rule already exists for this IP
     # If there are no pre-existing routes, equivalent to `ip route add`
-    standby_tor.shell('ip route replace {}/32 {}'.format(active_tor_loopback_ip, nexthop_str))
+    route_cmd = 'ip route replace {}/32 {}'.format(route_dst, nexthop_str)
+    standby_tor.shell(route_cmd)
+    logger.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
 
 
-def remove_loopback_routes(standby_tor, active_tor_loopback_ip):
+def remove_static_routes(standby_tor, active_tor_loopback_ip):
     """
-    Remove static routes for active tor's loopback
+    Remove static routes for active tor
     """
-    logger.info("Removing dual ToR peer switch loopback route")
+    logger.info("Removing dual ToR peer switch static route")
     standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
 
 
@@ -150,8 +156,8 @@ def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, ra
     params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     # For mocked dualtor, we should update static route manually after link recovered
     if 't0' in tbinfo['topo']['name']:
-        remove_loopback_routes(rand_selected_dut, params['active_tor_ip'])
-        add_loopback_routes(rand_selected_dut, params['active_tor_ip'])
+        remove_static_routes(rand_selected_dut, params['active_tor_ip'])
+        add_nexthop_routes(rand_selected_dut, params['active_tor_ip'])
     check_tunnel_balance(**params)
 
 
@@ -187,13 +193,41 @@ def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_du
     active_tor_loopback0 = params['active_tor_ip']
 
     # Remove loopback routes and verify traffic is equally distributed
-    remove_loopback_routes(rand_selected_dut, active_tor_loopback0)
+    remove_static_routes(rand_selected_dut, active_tor_loopback0)
     check_tunnel_balance(**params)
 
     # Readd loopback routes and verify traffic is equally distributed
-    add_loopback_routes(rand_selected_dut, active_tor_loopback0)
+    add_nexthop_routes(rand_selected_dut, active_tor_loopback0)
     check_tunnel_balance(**params)
 
+
+def build_packet_to_server(tor, ptfadapter, target_server_ip, tunnel_traffic_monitor):
+    """Build packet destinated to server."""
+    pkt_dscp = random.choice(range(0, 33))
+    pkt_ttl = random.choice(range(3, 65))
+    pkt = testutils.simple_ip_packet(
+        eth_dst=tor.facts["router_mac"],
+        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        ip_src="1.1.1.1",
+        ip_dst=target_server_ip,
+        ip_dscp=pkt_dscp,
+        ip_ttl=pkt_ttl
+    )
+    logging.info(
+        "the packet destinated to server %s:\n%s", target_server_ip,
+        tunnel_traffic_monitor._dump_show_str(pkt)
+    )
+    return pkt
+
+def build_expected_packet_to_server(packet):
+    """Build expected mask packet downstream to server."""
+    exp_pkt = mask.Mask(packet)
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+    return exp_pkt
 
 def test_standby_tor_remove_neighbor_downstream_standby(
     conn_graph_facts, ptfadapter, ptfhost,
@@ -206,34 +240,6 @@ def test_standby_tor_remove_neighbor_downstream_standby(
     ToR, the packets sent to the server will be dropped(neither passed to the server
     or redirected to the active ToR).
     """
-    def build_packet_to_server(tor, ptfadapter, target_server_ip, tunnel_traffic_monitor):
-        """Build packet destinated to server."""
-        pkt_dscp = random.choice(range(0, 33))
-        pkt_ttl = random.choice(range(3, 65))
-        pkt = testutils.simple_ip_packet(
-            eth_dst=tor.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
-            ip_src="1.1.1.1",
-            ip_dst=target_server_ip,
-            ip_dscp=pkt_dscp,
-            ip_ttl=pkt_ttl
-        )
-        logging.info(
-            "the packet destinated to server %s:\n%s", target_server_ip,
-            tunnel_traffic_monitor._dump_show_str(pkt)
-        )
-        return pkt
-
-    def build_expected_packet_to_server(packet):
-        """Build expected mask packet downstream to server."""
-        exp_pkt = mask.Mask(packet)
-        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-        exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
-        exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-        exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
-        return exp_pkt
-
     @contextlib.contextmanager
     def crm_neighbor_checker(duthost):
         crm_facts_before = duthost.get_crm_facts()
@@ -281,3 +287,62 @@ def test_standby_tor_remove_neighbor_downstream_standby(
     tunnel_monitor.existing = True
     with crm_neighbor_checker(tor), tunnel_monitor:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+
+def test_downstream_standby_mux_toggle_active(
+    conn_graph_facts, ptfadapter, ptfhost,
+    rand_selected_dut, rand_unselected_dut, tbinfo,
+    tunnel_traffic_monitor, vmhost, toggle_all_simulator_ports
+    ):
+    # set rand_selected_dut as standby and rand_unselected_dut to active tor
+    # params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
+    tor = rand_selected_dut
+    test_params = dualtor_info(ptfhost, tor, rand_unselected_dut, tbinfo)
+    server_ipv4 = test_params["target_server_ip"]
+    random_dst_ip = server_ipv4
+
+    pkt = build_packet_to_server(tor, ptfadapter, random_dst_ip, tunnel_traffic_monitor)
+    exp_pkt = build_expected_packet_to_server(pkt)
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
+
+    def set_mux_state(dut, tbinfo, state, toggle_all_simulator_ports):
+        dut_index = tbinfo['duts'].index(dut.hostname)
+        if dut_index == 0 and state == 'active' or dut_index == 1 and state == 'standby':
+            side = 'upper_tor'
+        else:
+            side = 'lower_tor'
+        toggle_all_simulator_ports(side)
+
+    def monitor_tunnel_and_server_traffic(torhost, expect_tunnel_traffic=True, expect_server_traffic=True):
+        tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
+        server_traffic_monitor = ServerTrafficMonitor(
+            torhost, vmhost, test_params["selected_port"],
+            conn_graph_facts, exp_pkt, existing=False
+        )
+        tunnel_monitor.existing = expect_tunnel_traffic
+        server_traffic_monitor.existing = expect_server_traffic
+        with tunnel_monitor, server_traffic_monitor:
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+    logger.info("Stage 1: Verify Standby Forwarding")
+    logger.info("Step 1.1: Add route to a nexthop which is a standby Neighbor")
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', toggle_all_simulator_ports)
+    add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthop=server_ipv4)
+    logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
+    check_tunnel_balance(**test_params)
+    monitor_tunnel_and_server_traffic(rand_unselected_dut)
+
+    logger.info("Stage 2: Verify Active Forwarding")
+    logger.info("Step 2.1: Simulate Mux state change to active")
+    set_mux_state(rand_selected_dut, tbinfo, 'active', toggle_all_simulator_ports)
+    logger.info("Step 2.2: Verify traffic to this route dst is forwarded directly to server")
+    monitor_tunnel_and_server_traffic(rand_selected_dut, expect_tunnel_traffic=False)
+
+    logger.info("Stage 3: Verify Standby Forwarding Again")
+    logger.info("Step 3.1: Simulate Mux state change to standby")
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', toggle_all_simulator_ports)
+    logger.info("Step 3.2: Verify traffic to this route dst is now redirected back to Active ToR and equally distributed")
+    monitor_tunnel_and_server_traffic(rand_unselected_dut)
+    check_tunnel_balance(**test_params)
+
+    remove_static_routes(rand_selected_dut, random_dst_ip)
