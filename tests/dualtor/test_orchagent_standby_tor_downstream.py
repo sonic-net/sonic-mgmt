@@ -5,9 +5,8 @@ import logging
 import ipaddress
 import contextlib
 import time
-import scapy.all as scapyall
 
-from ptf import testutils, mask
+from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import dualtor_info
 from tests.common.dualtor.dual_tor_utils import check_tunnel_balance
