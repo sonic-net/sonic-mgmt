@@ -604,8 +604,11 @@ class BaseAclTest(object):
 
         return exp_pkt
 
-    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version):
+    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         """Verify that unmatched packets are dropped."""
+        if stage == "egress":
+            pytest.skip("No default deny rule exists for egress ACL rules")
+
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
 
