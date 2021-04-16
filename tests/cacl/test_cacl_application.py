@@ -46,7 +46,7 @@ ACL_SERVICES = {
     },
     "SSH": {
         "ip_protocols": ["tcp"],
-        "dst_ports": ["22"],
+        "dst_ports": ["22", "50051"],
         "multi_asic_ns_to_host_fwd": True
     }
 }
