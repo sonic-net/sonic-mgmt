@@ -340,9 +340,15 @@ def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
         True if we successfully generate configuration or False
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    l3_intf_facts = mg_facts['minigraph_interfaces']
-    l3_intf = {}
+    if 'minigraph_interfaces' in mg_facts:
+        l3_intf_facts = mg_facts['minigraph_interfaces']
+    else:
+        return True
 
+    if len(l3_intf_facts) == 0:
+        return True
+
+    l3_intf = {}
     for v in l3_intf_facts:
         if __valid_ipv4_addr(v['addr']):
             l3_intf[v['attachto']] = v
@@ -405,7 +411,11 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
         True if we successfully generate configuration or False
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    vlan_facts = mg_facts['minigraph_vlans']
+    if 'minigraph_vlans' in mg_facts:
+        vlan_facts = mg_facts['minigraph_vlans']
+    else:
+        return True
+
     if len(vlan_facts) == 0:
         return True
 
@@ -484,7 +494,11 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
         True if we successfully generate configuration or False
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    pc_facts = mg_facts['minigraph_portchannels']
+    if 'minigraph_portchannels' in mg_facts:
+        pc_facts = mg_facts['minigraph_portchannels']
+    else:
+        return True
+
     if len(pc_facts) == 0:
         return True
 
