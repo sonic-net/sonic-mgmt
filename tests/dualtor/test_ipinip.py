@@ -21,6 +21,8 @@ from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.utilities import dump_scapy_packet_show_output
+
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -70,7 +72,7 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected
         ip_ttl=255,
         inner_frame=inner_packet
     )
-    logging.info("the encapsulated packet to send:\n%s", tunnel_traffic_monitor._dump_show_str(packet))
+    logging.info("the encapsulated packet to send:\n%s", dump_scapy_packet_show_output(packet))
     return packet
 
 
@@ -113,7 +115,7 @@ def test_decap_active_tor(
     testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
     _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
     rec_pkt = Ether(rec_pkt)
-    logging.info("received decap packet:\n%s", tunnel_traffic_monitor._dump_show_str(rec_pkt))
+    logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
     exp_ttl = encapsulated_packet[IP].payload[IP].ttl - 1
     exp_tos = encapsulated_packet[IP].payload[IP].tos
     if rec_pkt[IP].ttl != exp_ttl:

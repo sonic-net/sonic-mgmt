@@ -11,6 +11,7 @@ import threading
 import time
 import re
 
+from io import BytesIO
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
@@ -417,3 +418,13 @@ def compare_crm_facts(left, right):
             unmatched.append({'left': {k: lv}, 'right': {k: rv}})
 
     return unmatched
+
+
+def dump_scapy_packet_show_output(packet):
+    """Dump packet show output to string."""
+    _stdout, sys.stdout = sys.stdout, BytesIO()
+    try:
+        packet.show()
+        return sys.stdout.getvalue()
+    finally:
+        sys.stdout = _stdout
