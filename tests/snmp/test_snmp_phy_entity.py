@@ -177,7 +177,6 @@ def snmp_physical_entity_and_sensor_info(duthosts, enum_rand_one_per_hwsku_hostn
 
 
 def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
-    # def get_entity_mib(duthost, localhost, creds):
     """
     Get physical entity information from snmp fact
     :param duthost: DUT host object
@@ -187,9 +186,7 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     """
     mib_info = {}
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = \
-    localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])[
-        'ansible_facts']
+    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
     for oid, info in snmp_facts['snmp_physical_entities'].items():
@@ -399,10 +396,16 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_and_sens
         assert phy_entity_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
         entity_sensor_snmp_facts = snmp_entity_sensor_info[expect_oid]
-        assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS)) \
-               or entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.VOLTS_DC)) \
-               or entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.AMPERES)) \
-               or entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.WATTS))
+        if field == "current":
+            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.AMPERES))
+        elif field == "voltage":
+            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.VOLTS_DC))
+        elif field == "power":
+            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.WATTS))
+        elif field == "temperature":
+            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS))
+        else:
+            continue
         assert entity_sensor_snmp_facts['entPhySensorPrecision'] == '3'
         assert entity_sensor_snmp_facts['entPhySensorScale'] == EntitySensorDataScale.UNITS
         assert entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
