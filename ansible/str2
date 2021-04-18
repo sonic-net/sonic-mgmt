@@ -60,6 +60,8 @@ all:
           ansible_host: 10.64.246.148
         vms21-5:
           ansible_host: 10.64.246.149
+        vms21-6:
+          ansible_host: 10.64.246.152
 
     pdu:
       hosts:
@@ -116,6 +118,9 @@ all:
           protocol: snmp
         pdu-113:
           ansible_host: 10.3.155.113
+          protocol: snmp
+        pdu-114:
+          ansible_host: 10.3.155.114
           protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
@@ -209,6 +214,12 @@ fanout:
     str2-7260cx3-acs-fan-17:
       ansible_host: 10.3.146.77
       pdu_host: pdu-111
+    str2-7260cx3-acs-fan-18:
+      ansible_host: 10.3.146.144
+      pdu_host: pdu-113,pdu-114
+    str2-7260cx3-acs-fan-19:
+      ansible_host: 10.3.146.156
+      pdu_host: pdu-113,pdu-114
 
 sonic:
   vars:
@@ -384,6 +395,14 @@ sonic_arista64_100:
       ansible_host: 10.3.146.137
       hwsku: Arista-7260CX3-D108C8
       pdu_host: pdu-121,pdu-122
+    str2-7260cx3-acs-10:
+      ansible_host: 10.3.146.129
+      hwsku: Arista-7260CX3-D108C8
+      pdu_host: pdu-113,pdu-114
+    str2-7260cx3-acs-11:
+      ansible_host: 10.3.146.143
+      hwsku: Arista-7260CX3-D108C8
+      pdu_host: pdu-113,pdu-114
     str2-7170-azd:
       ansible_host: 10.3.146.76
       hwsku: Arista-7170-64C
