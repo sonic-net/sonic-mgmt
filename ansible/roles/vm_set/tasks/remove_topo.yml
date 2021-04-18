@@ -59,5 +59,19 @@
       name: apiserver
       state: absent
     become: yes
-  when: container_type == "API-SERVER"
+    when:
+      - remove_keysight_api_server == "1"
+
+  - debug:
+      msg: "[ INFO ] keysight_api_server container has been removed since remove_keysight_api_server is provided in the remove_topo arguments."
+    when:
+      - remove_keysight_api_server == "1"
+
+  - debug:
+      msg: "[ WARNING ] keysight_api_server container has not been removed since remove_keysight_api_server is not provided in the remove_topo arguments."
+    when:
+      - remove_keysight_api_server == "0"
+
+  when:
+    - container_type == "API-SERVER"
 

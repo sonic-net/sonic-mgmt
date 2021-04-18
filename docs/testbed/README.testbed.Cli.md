@@ -58,7 +58,10 @@ example-ixia,vms6-1,t0-64,docker-keysight-api-server,example-ixia-ptf-1,10.0.0.3
   - ./testbed-cli add-topo example-ixia ~/.password
 
 - To remove a Keysight API server docker container
-  - ./testbed-cli remove-topo example-ixia ~/.password
+  - ./testbed-cli remove-topo example-ixia ~/.password **remove_keysight_api_server**
+
+- If **remove_keysight_api_server** is not used in the arguments then the Keysight API server docker container will not be removed
+  - ./testbed-cli remove-topo example-ixia  ~/.password
 
 Note that it's mandatory to name the image "docker-keysight-api-server", as that triggers the Ixia IxNetwork API server deployment.
 Much like the PTF docker image, this image will be pulled from the configured docker registry.

@@ -137,6 +137,63 @@ class RedisCli(object):
         else:
             raise AssertionError("redis value error: %s != %s key was: %s" % (result, value, key))
 
+    def get_keys(self, table):
+        """
+        Executes a redis CLI get or hget and validates the response against a provided field.
+
+        Args:
+            table: full name of the table for which to get the keys.
+
+            Returns:
+                list of keys retrieved
+
+            Raises:
+                RedisKeyNotFound: If the key or field has no value or is not present.
+
+        """
+        cmd = self._cli_prefix() + " keys {}".format(table)
+        result = self._run_and_check(cmd)
+        if result == {}:
+            raise RedisKeyNotFound("No keys for %s found in rediscmd: %s" % (table, cmd))
+        else:
+            return result['stdout'].decode('unicode-escape')
+
+    def dump(self, table):
+        """
+        Dumps and entire table with redis-dump.
+
+        Args:
+            table: The table to dump.
+
+        Returns:
+            Dictionary containing the parsed json output of the redis_dump.
+
+        """
+        cli = "/usr/local/bin/redis-dump"
+        cmd_str = ""
+        # If an IP is specified, include in cli options.
+        if self.ip is not None:
+            cmd_str += " -H {} ".format(self.ip)
+
+        cmd_str += "-p {pid} -d {db} -y -k *{t}*".format(db=self.database, pid=self.pid, t=table)
+
+        # We are on an asic, it could be single asic card, or multiasic and need a namespace.
+        if isinstance(self.host, SonicAsic):
+            if self.host.namespace != DEFAULT_NAMESPACE:
+                cmd = "sudo ip netns exec {} {} {}".format(self.host.namespace, cli, cmd_str)
+                output = self.host.sonichost.command(cmd)
+            # for single asic platform
+            else:
+                cmd = cli + " " + cmd_str
+                output = self.host.sonichost.command(cmd)
+        else:
+            # We are on a sonichost, no namespace required.
+            cmd = cli + " " + cmd_str
+            output = self.host.sonichost.command(cmd)
+
+        parsed = json.loads(output["stdout"])
+        return parsed
+
 
 class AsicDbCli(RedisCli):
     """

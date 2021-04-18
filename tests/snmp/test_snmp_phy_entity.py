@@ -571,7 +571,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not pdu_controller:
         pytest.skip('psu_controller is None, skipping this test')
-    outlet_status = pdu_controller.get_psu_status()
+    outlet_status = pdu_controller.get_outlet_status()
     if len(outlet_status) < 2:
         pytest.skip('At least 2 PSUs required for rest of the testing in this case')
 
@@ -602,9 +602,10 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     :param creds_all_duts: Credential for snmp
     :return: True if sensor information is removed from mib
     """
-    snmp_physical_entity_and_sensor_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts[duthost])
+    snmp_physical_entity_and_sensor_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts)
     entity_mib_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
+
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     power_off_psu_found = False
     for key in keys:
@@ -652,8 +653,11 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
     # Ignore the test if the platform does not have fans (e.g Line card)
     if not keys:
         pytest.skip('Fan information does not exist in DB, skipping this test')
-    entity_mib_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts[duthost])["entity_mib"]
-    entity_sensor_mib_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts[duthost])["sensor_mib"]
+
+    snmp_physical_entity_and_sensor_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts)
+    entity_mib_info = snmp_physical_entity_and_sensor_info["entity_mib"]
+    entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
+
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
         if fan_info['presence'] == 'True':

@@ -111,14 +111,14 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
         raise Exception("Incorrect number of ACL entries specified - {}".format(entry_num))
 
     logger.info("Applying {}".format(dut_conf_file_path))
-    duthost.command("acl-loader update full {}".format(dut_conf_file_path))
+    output = duthost.command("acl-loader update full {}".format(dut_conf_file_path))['stdout']
+    if 'DATAACL table does not exist' in output:
+        pytest.skip("DATAACL does not exist")
 
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
     collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
-
-
 
 
 def generate_mac(num):
@@ -210,8 +210,8 @@ def get_acl_tbl_key(asichost):
         if "2048" in out:
             key = item
             break
-        else:
-            pytest.fail("Ether type was not found in SAI ACL Entry table")
+    else:
+        pytest.fail("Ether type was not found in SAI ACL Entry table")
 
     # Get ACL table key
     cmd = "{db_cli} ASIC_DB HGET {key} \"SAI_ACL_ENTRY_ATTR_TABLE_ID\""
@@ -931,8 +931,9 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_fr
         "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
 @pytest.mark.usefixtures('disable_fdb_aging')
-def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
     if "t0" not in tbinfo["topo"]["name"].lower():
         pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
@@ -1005,7 +1006,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbin
         RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
 
     # Verify thresholds for "FDB entry" CRM resource
-    verify_thresholds(duthost, crm_cli_res="fdb", crm_used=new_crm_stats_fdb_entry_used,
+    verify_thresholds(duthost, asichost, crm_cli_res="fdb", crm_used=new_crm_stats_fdb_entry_used,
         crm_avail=new_crm_stats_fdb_entry_available)
 
     # Remove FDB entry

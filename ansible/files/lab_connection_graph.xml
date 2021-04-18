@@ -1,56 +1,56 @@
 <LabConnectionGraph>
   <PhysicalNetworkGraphDeclaration>
     <Devices>
-      <Device Hostname="str-msn2700-01" HwSku="Mellanox-2700" Type="DevSonic"/>
-      <Device Hostname="str-7260-10" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
-      <Device Hostname="str-7260-11" HwSku="Arista-7260QX-64" Type="FanoutRoot"/>
-      <Device Hostname="str-acs-serv-01" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="dev-msn2700-01" HwSku="Mellanox-2700" Type="DevSonic"/>
+      <Device Hostname="dev-7260-10" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
+      <Device Hostname="dev-7260-11" HwSku="Arista-7260QX-64" Type="FanoutRoot"/>
+      <Device Hostname="dev-acs-serv-01" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet1" StartDevice="str-msn2700-01" StartPort="Ethernet0"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet2" StartDevice="str-msn2700-01" StartPort="Ethernet4"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet3" StartDevice="str-msn2700-01" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet4" StartDevice="str-msn2700-01" StartPort="Ethernet12"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet5" StartDevice="str-msn2700-01" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet6" StartDevice="str-msn2700-01" StartPort="Ethernet20"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet7" StartDevice="str-msn2700-01" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet8" StartDevice="str-msn2700-01" StartPort="Ethernet28"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet9" StartDevice="str-msn2700-01" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet10" StartDevice="str-msn2700-01" StartPort="Ethernet36"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet11" StartDevice="str-msn2700-01" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet12" StartDevice="str-msn2700-01" StartPort="Ethernet44"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet13" StartDevice="str-msn2700-01" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet14" StartDevice="str-msn2700-01" StartPort="Ethernet52"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet15" StartDevice="str-msn2700-01" StartPort="Ethernet56"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet16" StartDevice="str-msn2700-01" StartPort="Ethernet60"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet17" StartDevice="str-msn2700-01" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet18" StartDevice="str-msn2700-01" StartPort="Ethernet68"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet19" StartDevice="str-msn2700-01" StartPort="Ethernet72"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet20" StartDevice="str-msn2700-01" StartPort="Ethernet76"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet21" StartDevice="str-msn2700-01" StartPort="Ethernet80"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet22" StartDevice="str-msn2700-01" StartPort="Ethernet84"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet23" StartDevice="str-msn2700-01" StartPort="Ethernet88"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet24" StartDevice="str-msn2700-01" StartPort="Ethernet92"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet25" StartDevice="str-msn2700-01" StartPort="Ethernet96"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet26" StartDevice="str-msn2700-01" StartPort="Ethernet100"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet27" StartDevice="str-msn2700-01" StartPort="Ethernet104"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet28" StartDevice="str-msn2700-01" StartPort="Ethernet108"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet29" StartDevice="str-msn2700-01" StartPort="Ethernet112"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet30" StartDevice="str-msn2700-01" StartPort="Ethernet116"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet31" StartDevice="str-msn2700-01" StartPort="Ethernet120"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet32" StartDevice="str-msn2700-01" StartPort="Ethernet124"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-acs-serv-01" EndPort="p4p1" StartDevice="str-7260-11" StartPort="Ethernet19"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet64" StartDevice="str-7260-11" StartPort="Ethernet30"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet1" StartDevice="dev-msn2700-01" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet2" StartDevice="dev-msn2700-01" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet3" StartDevice="dev-msn2700-01" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet4" StartDevice="dev-msn2700-01" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet5" StartDevice="dev-msn2700-01" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet6" StartDevice="dev-msn2700-01" StartPort="Ethernet20"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet7" StartDevice="dev-msn2700-01" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet8" StartDevice="dev-msn2700-01" StartPort="Ethernet28"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet9" StartDevice="dev-msn2700-01" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet10" StartDevice="dev-msn2700-01" StartPort="Ethernet36"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet11" StartDevice="dev-msn2700-01" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet12" StartDevice="dev-msn2700-01" StartPort="Ethernet44"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet13" StartDevice="dev-msn2700-01" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet14" StartDevice="dev-msn2700-01" StartPort="Ethernet52"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet15" StartDevice="dev-msn2700-01" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet16" StartDevice="dev-msn2700-01" StartPort="Ethernet60"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet17" StartDevice="dev-msn2700-01" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet18" StartDevice="dev-msn2700-01" StartPort="Ethernet68"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet19" StartDevice="dev-msn2700-01" StartPort="Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet20" StartDevice="dev-msn2700-01" StartPort="Ethernet76"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet21" StartDevice="dev-msn2700-01" StartPort="Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet22" StartDevice="dev-msn2700-01" StartPort="Ethernet84"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet23" StartDevice="dev-msn2700-01" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet24" StartDevice="dev-msn2700-01" StartPort="Ethernet92"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet25" StartDevice="dev-msn2700-01" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet26" StartDevice="dev-msn2700-01" StartPort="Ethernet100"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet27" StartDevice="dev-msn2700-01" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet28" StartDevice="dev-msn2700-01" StartPort="Ethernet108"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet29" StartDevice="dev-msn2700-01" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet30" StartDevice="dev-msn2700-01" StartPort="Ethernet116"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet31" StartDevice="dev-msn2700-01" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet32" StartDevice="dev-msn2700-01" StartPort="Ethernet124"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-acs-serv-01" EndPort="p4p1" StartDevice="dev-7260-11" StartPort="Ethernet19"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="dev-7260-10" EndPort="Ethernet64" StartDevice="dev-7260-11" StartPort="Ethernet30"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
-    <DevicesL3Info Hostname="str-msn2700-01">
+    <DevicesL3Info Hostname="dev-msn2700-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.188/23"/>
     </DevicesL3Info>
-    <DevicesL3Info Hostname="str-7260-10">
+    <DevicesL3Info Hostname="dev-7260-10">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.13/23"/>
     </DevicesL3Info>
-    <DevicesL2Info Hostname="str-7260-10">
+    <DevicesL2Info Hostname="dev-7260-10">
       <InterfaceVlan mode="Access" portname="Ethernet1" vlanids="1681"/>
       <InterfaceVlan mode="Access" portname="Ethernet2" vlanids="1682"/>
       <InterfaceVlan mode="Access" portname="Ethernet3" vlanids="1683"/>
@@ -85,14 +85,14 @@
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="1712"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="1681-1712"/>
     </DevicesL2Info>
-    <DevicesL3Info Hostname="str-7260-11">
+    <DevicesL3Info Hostname="dev-7260-11">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.234/23"/>
     </DevicesL3Info>
-    <DevicesL2Info Hostname="str-7260-11">
+    <DevicesL2Info Hostname="dev-7260-11">
       <InterfaceVlan mode="Trunk" portname="Ethernet19" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet30" vlanids="1681-1712"/>
     </DevicesL2Info>
-    <DevicesL3Info Hostname="str-acs-serv-01">
+    <DevicesL3Info Hostname="dev-acs-serv-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.245/23"/>
     </DevicesL3Info>
   </DataPlaneGraph>
