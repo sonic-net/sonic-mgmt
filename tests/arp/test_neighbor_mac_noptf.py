@@ -23,35 +23,13 @@ class TestNeighborMacNoPtf:
     TEST_INTF = {
         4: {"intfIp": "29.0.0.1/24", "NeighborIp": "29.0.0.2"},
         6: {"intfIp": "fe00::1/64", "NeighborIp": "fe00::2"},
-    }
-
-    @pytest.fixture(scope="module", autouse=True)
-    def disableBGP(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        """
-           Disables BGP during the test to reduce load on switch.
-
-           Args:
-               duthost (AnsibleHost): Device Under Test (DUT)
-
-           Returns:
-               None
-        """
-	duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-	duthost.command("sudo config bgp shutdown all")
-	time.sleep(60)
-	
-	yield
-	
-	# Enable BGP again 
-	duthost.command("sudo config bgp startup all")
-	time.sleep(60)
+    }	
 
 
     @pytest.fixture(scope="module", autouse=True)
-    def restoreDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
-            Restores DUT configuration after test completes
+            Disabled BGP to reduce load on switch and restores DUT configuration after test completes
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -60,6 +38,8 @@ class TestNeighborMacNoPtf:
                 None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+	duthost.command("sudo config bgp shutdown all")
+	time.sleep(120)
         yield
 
         logger.info("Reload Config DB")
