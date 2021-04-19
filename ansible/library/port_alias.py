@@ -89,7 +89,7 @@ class SonicPortAliasMap():
             return portconfig
         return None
 
-    def get_portmap(self, asic_id=None):
+    def get_portmap(self, asic_id=None, include_internal=False):
         aliases = []
         portmap = {}
         aliasmap = {}
@@ -125,7 +125,7 @@ class SonicPortAliasMap():
                             asic_name_index = index
             else:
                 #added support to parse recycle port
-                if re.match('^Ethernet', line) or re.match('^Inband', line):
+                if re.match('^Ethernet', line):
                     mapping = line.split()
                     name = mapping[0]
                     if (role_index != -1) and (len(mapping) > role_index):
@@ -136,13 +136,13 @@ class SonicPortAliasMap():
                         alias = mapping[alias_index]
                     else:
                         alias = name
-                    if role == 'Ext':
+                    if role == 'Ext' or (role == "Int" and include_internal):
                         aliases.append(alias)
                         portmap[name] = alias
                         aliasmap[alias] = name
                         if (speed_index != -1) and (len(mapping) > speed_index):
                             portspeed[alias] = mapping[speed_index]
-                        if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                        if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
                             front_panel_asic_ifnames.append(asicifname)
                     if (asic_name_index != -1) and (len(mapping) > asic_name_index):
@@ -155,7 +155,8 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             hwsku=dict(required=True, type='str'),
-            num_asic=dict(type='int', required=False)
+            num_asic=dict(type='int', required=False),
+            include_internal=dict(required=False, type='bool', default=False)
         ),
         supports_check_mode=True
     )
@@ -182,10 +183,13 @@ def main():
                 num_asic = multi_asic.get_num_asics()
             except Exception, e:
                 num_asic = 1
+
+
         for asic_id in range(num_asic):
             if num_asic == 1:
                 asic_id = None
-            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic) = allmap.get_portmap(asic_id)
+            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic)\
+                = allmap.get_portmap(asic_id, m_args['include_internal'])
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:
