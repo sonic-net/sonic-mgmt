@@ -200,15 +200,15 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, mock_server_base_ip_addr, tor_mux_intfs):
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
     garp_config = {}
 
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     if 't0' in tbinfo['topo']['name']:
         # For mocked dualtor testbed
         mux_cable_table = {}
-        server_ipv4_base_addr, _ = mock_server_base_ip_addr
-        for i, intf in enumerate(tor_mux_intfs):
+        server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+        for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
             server_ipv4 = str(server_ipv4_base_addr + i)
             mux_cable_table[intf] = {}
             mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
