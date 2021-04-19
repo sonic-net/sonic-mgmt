@@ -27,6 +27,7 @@ all:
           - t0-116
           - dualtor
           - dualtor-56
+          - dualtor-120
       children:
         server_1:
         server_2:

@@ -114,8 +114,11 @@ OVS_FP_BRIDGE_REGEX = 'br-%s-\d+'
 OVS_FP_BRIDGE_TEMPLATE = 'br-%s-%d'
 OVS_FP_TAP_TEMPLATE = '%s-t%d'
 OVS_BP_TAP_TEMPLATE = '%s-back'
-INJECTED_INTERFACES_TEMPLATE = 'inje-%s-%d'
-MUXY_INTERFACES_TEMPLATE = 'muxy-%s-%d'
+# The name of interface name must be less than 15 bytes.
+# As a result, interface name like 'inje-vms21-6-132' will be invalid and rejected by kernel.
+# Therefore, the name template is shorten to 3 bytes to contain more digits (3 in max)
+INJECTED_INTERFACES_TEMPLATE = 'inj-%s-%d'
+MUXY_INTERFACES_TEMPLATE = 'mux-%s-%d'
 MUXY_BRIDGE_TEMPLATE = 'mbr-%s-%d'
 PTF_NAME_TEMPLATE = 'ptf_%s'
 PTF_MGMT_IF_TEMPLATE = 'ptf-%s-m'
