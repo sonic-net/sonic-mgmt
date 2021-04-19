@@ -18,6 +18,10 @@ log message also contains 'nodeid' of the current test case. Examples of such lo
 """
 import pytest
 import logging
+import inspect
+import functools
+import postimport
+
 
 LOGGER_NAME = "SectionStartLogger"
 
@@ -27,6 +31,82 @@ def pytest_configure(config):
     logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
     config.pluginmanager.register(LogSectionStartPlugin(logging_plugin), "LogSectionStart")
     logging.LogRecord = _LogRecord
+
+    postimport.register_hook(_pytest_import_callback)
+    # reload to inject custom pytest.fixture decorator
+    reload(pytest)
+
+
+def _pytest_import_callback(module):
+    """Hook function registered for the pytest module."""
+
+    def _fixture_func_decorator(fixture_func):
+        @functools.wraps(fixture_func)
+        def _decorate(*args, **kargs):
+            logging.info("-" * 20 + (" fixture %s setup starts " % fixture_func.__name__) + "-" * 20)
+            try:
+                return fixture_func(*args, **kargs)
+            except Exception as detail:
+                logging.exception("\n%r", detail)
+                raise
+            finally:
+                logging.info("-" * 20 + (" fixture %s setup ends " % fixture_func.__name__) + "-" * 20)
+        return _decorate
+
+    def _fixture_generator_decorator(fixture_generator):
+        @functools.wraps(fixture_generator)
+        def _decorate(*args, **kargs):
+            # setup, to the first yield in fixture
+            logging.info("-" * 20 + (" fixture %s setup starts " % fixture_generator.__name__) + "-" * 20)
+            it = fixture_generator(*args, **kargs)
+            try:
+                res = next(it)
+                logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
+                yield res
+            except Exception as detail:
+                logging.exception("\n%r", detail)
+                raise
+
+            # teardown, fixture will raise StopIteration
+            logging.info("-" * 20 + (" fixture %s teardown starts " % fixture_generator.__name__) + "-" * 20)
+            try:
+                next(it)
+            except StopIteration:
+                raise
+            except Exception as detail:
+                logging.exception("\n%r", detail)
+                raise
+            finally:
+                logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
+
+        return _decorate
+
+    def build_custom_fixture_decorator(original_fixture):
+
+        def _fixture(*args, **kargs):
+            """Decorator to replace the original pytest.fixture."""
+            def _decorate(func):
+                if inspect.isgeneratorfunction(func):
+                    return original_fixture(*args, **kargs)(_fixture_generator_decorator(func))
+                else:
+                    return original_fixture(*args, **kargs)(_fixture_func_decorator(func))
+
+            # check if the pytest.fixture is directly called
+            func = None
+            if len(args) == 1 and callable(args[0]) and not kargs:
+                func = args[0]
+            elif len(kargs) == 1 and callable(kargs.values()[0]) and not args:
+                func = kargs.values()[0]
+            if func is not None:
+                args, kargs = (), {}
+                return _decorate(func)
+
+            return _decorate
+
+        return _fixture
+
+    original_fixture = getattr(module, "fixture")
+    setattr(module, "fixture", build_custom_fixture_decorator(original_fixture))
 
 
 class _LogRecord(logging.LogRecord):
@@ -42,6 +122,7 @@ class _LogRecord(logging.LogRecord):
     For other attributes, pls refer to:
     https://github.com/python/cpython/blob/d00a449d6d421391557393cce695795b4b66c212/Lib/logging/__init__.py#L522
     """
+
     def __init__(self, *args, **kargs):
         super(_LogRecord, self).__init__(*args, **kargs)
         self.funcNamewithModule = "%s.%s" % (self.module, self.funcName)
