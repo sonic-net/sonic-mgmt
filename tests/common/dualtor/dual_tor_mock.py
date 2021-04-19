@@ -25,7 +25,9 @@ __all__ = [
     'mock_server_ip_mac_map',
     'set_dual_tor_state_to_orchagent',
     'del_dual_tor_state_from_orchagent',
-    'is_t0_mocked_dualtor'
+    'is_t0_mocked_dualtor',
+    'is_mocked_dualtor',
+    'set_mux_state'
 ]
 
 logger = logging.getLogger(__name__)
@@ -127,6 +129,22 @@ def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
     set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs)
     yield
     del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs)
+
+
+def is_mocked_dualtor(tbinfo):
+    return 'dualtor' not in tbinfo['topo']['name']
+
+
+def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
+    if is_mocked_dualtor(tbinfo):
+        set_dual_tor_state_to_orchagent(dut, state, itfs)
+    else:
+        dut_index = tbinfo['duts'].index(dut.hostname)
+        if dut_index == 0 and state == 'active' or dut_index == 1 and state == 'standby':
+            side = 'upper_tor'
+        else:
+            side = 'lower_tor'
+        toggle_all_simulator_ports(side)
 
 
 @pytest.fixture(scope='module')
