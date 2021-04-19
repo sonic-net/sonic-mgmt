@@ -156,12 +156,12 @@ class SonicPortAliasMap():
                     else:
                         alias = name
                     add_port = False
-                    if role == 'Ext':
+                    if role == 'Ext' or (role == "Int" and include_internal):
                         add_port = True
                         aliases.append(alias)
                         portmap[name] = alias
                         aliasmap[alias] = name
-                        if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                        if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
                             front_panel_asic_ifnames.append(asicifname)
                     if (speed_index != -1) and (len(mapping) > speed_index):
