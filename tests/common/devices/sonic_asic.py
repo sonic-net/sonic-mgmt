@@ -259,7 +259,7 @@ class SonicAsic(object):
             Dict of Interfaces and their IPv4 address
         """
         ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-        return self.sonichost.active_ip_interfaces(ip_ifs, self._ns_arg)
+        return self.sonichost.active_ip_interfaces(ip_ifs, self.ns_arg)
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
