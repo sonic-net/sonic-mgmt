@@ -17,6 +17,9 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
 
+pytestmark = [
+    pytest.mark.topology("dualtor")
+]
 
 def _set_drop_factory(set_drop_func, direction, tor_mux_intfs):
     """Factory to get set drop function for either upper_tor or lower_tor."""
