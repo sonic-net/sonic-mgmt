@@ -10,6 +10,7 @@ from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
 from tests.ptf_runner import ptf_runner
+from tests.common import port_toggle
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
@@ -729,3 +730,88 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
+
+    def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, tbinfo, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+        """
+        Test PfCWD functionality after toggling port
+
+        Test verifies the following:
+            1. Select the port and lossless queue
+            2. Start PFCWD on selected test port
+            3. Start PFC storm on selected test port and lossless queue
+            4. Verify that PFC storm is detected
+            5. Stop PFC storm on selected test port and lossless queue
+            6. Verify that PFC storm is restored
+            7. Toggle test port (put administrativelly down and then up)
+            8. Verify that PFC storm is not detected
+
+        Args:
+            request(object) : pytest request object
+            fake_storm(fixture) : Module scoped fixture for enable/disable fake storm
+            setup_pfc_test(fixture) : Module scoped autouse fixture for PFCWD
+            fanout_graph_facts(fixture) : Fanout graph info
+            tbinfo(fixture) : Testbed info
+            ptfhost(AnsibleHost) : PTF host instance
+            duthost(AnsibleHost) : DUT instance
+            fanouthosts(AnsibleHost): Fanout instance
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        setup_info = setup_pfc_test
+        self.fanout_info = fanout_graph_facts
+        self.ptf = ptfhost
+        self.dut = duthost
+        self.fanout = fanouthosts
+        self.timers = setup_info['pfc_timers']
+        self.ports = setup_info['selected_test_ports']
+        self.neighbors = setup_info['neighbors']
+        dut_facts = self.dut.facts
+        self.peer_dev_list = dict()
+        self.fake_storm = fake_storm
+        self.storm_hndle = None
+        action = "dontcare"
+
+        for idx, port in enumerate(self.ports):
+             logger.info("")
+             logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
+             self.setup_test_params(port, setup_info['vlan'], init=not idx)
+             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
+             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
+             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
+
+             try:
+                 # Verify that PFC storm is detected and restored
+                 self.stats = PfcPktCntrs(self.dut, action)
+                 logger.info("{} on port {}".format(WD_ACTION_MSG_PFX[action], port))
+                 self.run_test(self.dut, port, action)
+
+                 # Toggle test port and verify that PFC storm is not detected
+                 loganalyzer = LogAnalyzer(ansible_host=self.dut, marker_prefix="pfc_function_storm_detect_{}_port_{}".format(action, port))
+                 marker = loganalyzer.init()
+                 ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
+                 reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
+                 loganalyzer.ignore_regex.extend(reg_exp)
+                 loganalyzer.expect_regex = []
+                 loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
+                 loganalyzer.match_regex = []
+
+                 port_toggle(self.dut, tbinfo, ports=[port])
+
+                 logger.info("Verify that PFC storm is not detected on port {}".format(port))
+                 result = loganalyzer.analyze(marker, fail=False)
+                 if result["total"]["expected_missing_match"] == 0:
+                     pytest.fail(result)
+
+             except Exception as e:
+                 pytest.fail(str(e))
+
+             finally:
+                 if self.storm_hndle:
+                     logger.info("--- Stop PFC storm on port {}".format(port))
+                     self.storm_hndle.stop_storm()
+                 else:
+                     logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
+                     PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
+                 logger.info("--- Stop PFCWD ---")
+                 self.dut.command("pfcwd stop")
+

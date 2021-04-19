@@ -2,6 +2,7 @@ import os
 import json
 import random
 import logging
+import time
 from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import *
 from tests.common.mellanox_data import get_platform_data
@@ -119,6 +120,7 @@ class MockerHelper:
     INIT_FAN_NUM = False
 
     unlink_file_list = {}
+    regular_file_list = {}
 
     def __init__(self, dut):
         """
@@ -191,9 +193,13 @@ class MockerHelper:
         :param value: Value to write to sys fs file.
         :return:
         """
-        if not self._file_exist(file_path):
+        out = self.dut.stat(path=file_path)
+        if not out['stat']['exists']:
             raise SysfsNotExistError('{} not exist'.format(file_path))
-        self._unlink(file_path)
+        if out['stat']['islnk']:
+            self._unlink(file_path)
+        else:
+            self._cache_file_value(file_path)
         self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
 
     def read_thermal_value(self, file_path):
@@ -220,7 +226,8 @@ class MockerHelper:
         :param file_path: Sys fs file path.
         :return: Content of sys fs file.
         """
-        if not self._file_exist(file_path):
+        out = self.dut.stat(path=file_path)
+        if not out['stat']['exists']:
             raise SysfsNotExistError('{} not exist'.format(file_path))
         try:
             output = self.dut.command("cat %s" % file_path)
@@ -228,6 +235,20 @@ class MockerHelper:
             return value.strip()
         except Exception as e:
             assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
+
+    def _cache_file_value(self, file_path):
+        """
+        Cache file value for regular file.
+        :param file_path: Regular file path.
+        :return:
+        """
+        if file_path not in self.regular_file_list:
+            try:
+                output = self.dut.command("cat %s" % file_path)
+                value = output["stdout"]
+                self.regular_file_list[file_path] = value.strip()
+            except Exception as e:
+                assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
 
     def _unlink(self, file_path):
         """
@@ -242,44 +263,46 @@ class MockerHelper:
             self.dut.command('touch {}'.format(file_path))
             self.dut.command('chown admin {}'.format(file_path))
 
-    def _file_exist(self, file_path):
-        """
-        Check if the file path exists on DUT or not.
-        :param file_path: Sys fs file path.
-        :return: True if sys fs exists.
-        """
-        file_dir = os.path.dirname(file_path)
-        file_name = os.path.basename(file_path)
-        cmd = 'find {} -name {}'.format(file_dir, file_name)
-        output = self.dut.command(cmd)
-        return output['stdout'] and output['stdout'].strip() == file_path
-
     def deinit(self):
         """
         Destructor of MockerHelper. Re-link all sys fs files.
         :return:
         """
-        failed_recover_files = {}
+        failed_recover_links = {}
         for file_path, link_target in self.unlink_file_list.items():
             try:
                 self.dut.command('ln -f -s {} {}'.format(link_target, file_path))
             except Exception as e:
                 # Catch any exception for later retry
-                failed_recover_files[file_path] = link_target
+                failed_recover_links[file_path] = link_target
+
+        failed_recover_files = {}
+        for file_path, value in self.regular_file_list.items():
+            try:
+                self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
+            except Exception as e:
+                # Catch any exception for later retry
+                failed_recover_files[file_path] = value
 
         self.unlink_file_list.clear()
+        self.regular_file_list.clear()
         # If there is any failed recover files, retry it
-        if failed_recover_files:
+        if failed_recover_links or failed_recover_files:
             self.deinit_retry -= 1
             if self.deinit_retry > 0:
-                self.unlink_file_list = failed_recover_files
+                self.unlink_file_list = failed_recover_links
+                self.regular_file_list = failed_recover_files
+                # The failed files might be used by other sonic daemons, delay 1 second
+                # here to avoid conflict
+                time.sleep(1)
                 self.deinit()
             else:
                 # We don't want to retry it infinite, and 5 times retry
                 # is enough, so if it still fails after the retry, it
                 # means there is probably an issue with our sysfs, we need
                 # mark it fail here
-                error_message = "Failed to recover all sysfs files, failed files: {}".format(failed_recover_files)
+                failed_recover_files.update(failed_recover_links)
+                error_message = "Failed to recover all files, failed files: {}".format(failed_recover_files)
                 logging.error(error_message)
                 raise RuntimeError(error_message)
 
@@ -814,9 +837,6 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
     RandomThermalStatusMocker class to help generate random thermal status and check it with actual data.
     """
 
-    # Thermal algorithm status sys fs path.
-    THERMAL_ALGO_STATUS_FILE_PATH = '/run/hw-management/config/suspend'
-
     # Default threshold diff between high threshold and critical threshold
     DEFAULT_THRESHOLD_DIFF = 5
 
@@ -894,12 +914,12 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
 
     def check_thermal_algorithm_status(self, expected_status):
         """
+        Deprecated.
         Check if actual thermal algorithm status match given expected value.
         :param expected_status: True if enable else False.
         :return: True if match else False
         """
-        expected_value = '0' if expected_status else '1'
-        return expected_value == self.mock_helper.read_value(RandomThermalStatusMocker.THERMAL_ALGO_STATUS_FILE_PATH)
+        return True
 
 
 @mocker('SingleFanMocker')

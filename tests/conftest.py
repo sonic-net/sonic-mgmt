@@ -97,6 +97,8 @@ def pytest_addoption(parser):
                      help="Perform post test sanity check if sanity check is enabled")
     parser.addoption("--post_check_items", action="store", default=False,
                      help="Change (add|remove) post test check items based on pre test check items")
+    parser.addoption("--recover_method", action="store", default="adaptive",
+                     help="Set method to use for recover if sanity failed")
 
     ########################
     #   pre-test options   #
@@ -181,8 +183,33 @@ def tbinfo(request):
     return testbedinfo
 
 
+def get_specified_duts(request):
+    """
+    Get a list of DUT hostnames specified with the --host-pattern CLI option
+    or -d if using `run_tests.sh`
+    """
+    tbname, tbinfo = get_tbinfo(request)
+    testbed_duts = tbinfo['duts']
+
+    host_pattern = request.config.getoption("--host-pattern")
+    if ';' in host_pattern:
+        specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        specified_duts = host_pattern.split(',')
+
+    if any([dut not in testbed_duts for dut in specified_duts]):
+        pytest.fail("One of the specified DUTs {} does not belong to the testbed {}".format(specified_duts, tbname))
+
+    if len(testbed_duts) != specified_duts:
+        duts = specified_duts
+        logger.debug("Different DUTs specified than in testbed file, using {}"
+                    .format(str(duts)))
+
+    return duts
+
+
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -190,7 +217,7 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return DutHosts(ansible_adhoc, tbinfo)
+    return DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
 
 
 @pytest.fixture(scope="session")
@@ -406,10 +433,8 @@ def pdu():
         return pdu
 
 
-@pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
+def creds_on_dut(duthost):
     """ read credential information according to the dut inventory """
-    duthost = duthosts[rand_one_dut_hostname]
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
@@ -447,6 +472,19 @@ def creds(duthosts, rand_one_dut_hostname):
         creds["console_password"][k] = v["passwd"]
 
     return creds
+
+@pytest.fixture(scope="module")
+def creds(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    return creds_on_dut(duthost)
+
+
+@pytest.fixture(scope='module')
+def creds_all_duts(duthosts):
+    creds_all_duts = dict()
+    for duthost in duthosts.nodes:
+        creds_all_duts[duthost] = creds_on_dut(duthost)
+    return creds_all_duts
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -644,8 +682,8 @@ def get_host_data(request, dut):
 
 def generate_params_frontend_hostname(request):
     frontend_duts = []
-    tbname, tbinfo = get_tbinfo(request)
-    duts = tbinfo['duts']
+    tbname, _ = get_tbinfo(request)
+    duts = get_specified_duts(request)
     inv_files = get_inventory_files(request)
     for dut in duts:
         if is_frontend_node(inv_files, dut):
@@ -657,8 +695,7 @@ def generate_params_frontend_hostname(request):
 
 
 def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
-    tbname, tbinfo = get_tbinfo(request)
-    hosts = tbinfo['duts']
+    hosts = get_specified_duts(request)
     if frontend_only:
         hosts = generate_params_frontend_hostname(request)
     inv_files = get_inventory_files(request)
@@ -692,8 +729,7 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
 
 
 def generate_params_supervisor_hostname(request):
-    tbname, tbinfo = get_tbinfo(request)
-    duts = tbinfo['duts']
+    duts = get_specified_duts(request)
     if len(duts) == 1:
         # We have a single node - dealing with pizza box, return it
         return [duts[0]]
@@ -732,16 +768,18 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
 
 
 def generate_params_dut_index(request):
-    tbname, tbinfo = get_tbinfo(request)
-    num_duts = len(tbinfo['duts'])
-    logging.info("Num of duts in testbed '{}' is {}".format(tbname, num_duts))
+    tbname, _ = get_tbinfo(request)
+    num_duts = len(get_specified_duts(request))
+    logging.info("Using {} duts from testbed '{}'".format(num_duts, tbname))
+
     return range(num_duts)
 
 
 def generate_params_dut_hostname(request):
-    tbname, tbinfo = get_tbinfo(request)
-    duts = tbinfo["duts"]
-    logging.info("DUTs in testbed '{}' are: {}".format(tbname, str(duts)))
+    tbname, _ = get_tbinfo(request)
+    duts = get_specified_duts(request)
+    logging.info("Using DUTs {} in testbed '{}'".format(str(duts), tbname))
+
     return duts
 
 

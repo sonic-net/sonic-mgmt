@@ -186,7 +186,7 @@ def _power_off_reboot_helper(kwargs):
         pdu_ctrl.turn_on_outlet(outlet)
 
 
-def test_power_off_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list, pdu_controller, power_off_delay):
+def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list, pdu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param duthost: Fixture for DUT AnsibleHost object
@@ -196,7 +196,7 @@ def test_power_off_reboot(duthosts, rand_one_dut_hostname, localhost, conn_graph
     @param pdu_controller: The python object of psu controller
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pdu_ctrl = pdu_controller
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)

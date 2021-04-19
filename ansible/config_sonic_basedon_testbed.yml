@@ -377,6 +377,18 @@
         become: true
         shell: config load_minigraph -y
 
+      - name: Wait for switch to become reachable again
+        become: false
+        local_action: wait_for
+        args:
+          host: "{{ ansible_host }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH_[\\w\\.]+ Debian"
+          delay: 10
+          timeout: 600
+        changed_when: false
+
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
