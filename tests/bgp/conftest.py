@@ -225,8 +225,8 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
                 if netaddr.IPAddress(intf["addr"]).version == 4:
                     loopback_ip = intf["addr"]
                     break
-                if not loopback_ip:
-                    pytest.fail("ipv4 lo interface not found")
+            if not loopback_ip:
+                pytest.fail("ipv4 lo interface not found")
 
             for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces, peer_count), subnets):
                 conn = {}

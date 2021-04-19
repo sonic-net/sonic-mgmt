@@ -144,10 +144,8 @@ def remove_bgp_neighbors(duthost, asic_index):
 
     # Convert the json formatted result of sonic-cfggen into bgp_neighbors dict
     bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --var-json {}".format('-n ' + namespace if namespace else '', "BGP_NEIGHBOR"))["stdout"])
-    cmds = []
-    for neighbor in bgp_neighbors.keys():
-        cmds.append('sudo sonic-db-cli {} CONFIG_DB del "BGP_NEIGHBOR|{}"'.format('-n ' + namespace if namespace else '', neighbor))
-    duthost.shell_cmds(cmds=cmds)
+    cmd = 'sudo sonic-db-cli -n {} CONFIG_DB keys "BGP_NEI*" | xargs sonic-db-cli -n {} CONFIG_DB del'.format(namespace, namespace)
+    duthost.shell(cmd)
 
     # Restart BGP instance on that asic
     restart_bgp(duthost, asic_index)

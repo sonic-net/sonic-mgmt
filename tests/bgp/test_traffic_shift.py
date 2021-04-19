@@ -7,8 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 import re
 
 pytestmark = [
-    pytest.mark.topology('t1'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.topology('t1')
 ]
 
 logger = logging.getLogger(__name__)
@@ -210,14 +209,12 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown):
         pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
 
         # Recover to Normal state
-        # Verify ASIC0 has no neighbors message.
         duthost.shell("TSB")['stdout_lines']
 
         # Verify DUT is in Normal state, and ASIC0 has no neighbors message.
         pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
 
         # Check the traffic state
-        # Verify ASIC0 has no neighbors message.
         duthost.shell("TSC")['stdout_lines']
 
         # Verify DUT is in Normal state, and ASIC0 has no neighbors message.
