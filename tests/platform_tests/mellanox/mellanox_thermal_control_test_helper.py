@@ -323,7 +323,7 @@ class FanDrawerData:
     """
 
     # FAN direction sys fs path.
-    FAN_DIR_PATH = '/run/hw-management/system/fan_dir'
+    FAN_DIR_PATH = '/run/hw-management/thermal/fan{}_dir'
 
     def __init__(self, mock_helper, naming_rule, index):
         """
@@ -389,19 +389,19 @@ class FanDrawerData:
         :return:
         """
         try:
-            fan_dir_bits = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH))
+            fan_dir_bits = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH.format(self.index)))
         except SysfsNotExistError as e:
             self.mocked_direction = NOT_AVAILABLE
             return
 
         if direction:
-            fan_dir_bits = fan_dir_bits | (1 << (self.index - 1))
+            fan_dir_bits = 1
             self.mocked_direction = 'intake'
         else:
-            fan_dir_bits = fan_dir_bits & ~(1 << (self.index - 1))
+            fan_dir_bits = 0
             self.mocked_direction = 'exhaust'
 
-        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH, fan_dir_bits)
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH.format(self.index), fan_dir_bits)
 
     def get_status_led(self):
         """
