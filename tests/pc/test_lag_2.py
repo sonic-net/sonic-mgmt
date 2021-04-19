@@ -238,6 +238,14 @@ class LagTest:
             vm_host.no_shutdown(neighbor_intf)
             wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, True)
 
+@pytest.fixture(autouse=True, scope='module')
+def skip_if_no_lags(duthosts):
+    def has_lags(dut):
+        lag_facts = dut.lag_facts(host = dut.hostname)['ansible_facts']['lag_facts']
+        return len(lag_facts['names']) > 0
+    some_dut_has_lags = any(has_lags(dut) for dut in duthosts)
+    pytest_require(some_dut_has_lags, 'No LAGs found in any DUT')
+
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",
                                       "fallback"])
