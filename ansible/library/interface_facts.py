@@ -313,7 +313,7 @@ def main():
     cmd_prefix = ''
     cmd = '/usr/bin/python {}'.format(INTF_IP_GET_INFO_SCRIPT)
 
-    for namespace in multi_asic.get_front_end_namespaces():
+    for namespace in multi_asic.get_namespace_list():
         if namespace_passed and namespace != namespace_passed:
             continue
         # If the user passed a namespace parameter invoke that script with the cmd_prefix
