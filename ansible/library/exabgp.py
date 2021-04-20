@@ -78,7 +78,7 @@ dump_config_tmpl='''\
             parsed;
             update;
         }
-        run /usr/bin/python {dump_script};
+        run /usr/bin/python {{ dump_script }};
     }
 '''
 
@@ -170,7 +170,7 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
 
     dump_config = ""
     if dump_script:
-        dump_config = dump_config_tmpl.format(dump_script=dump_script)
+        dump_config = jinja2.Template(dump_config_tmpl).render(dump_script=dump_script)
 
     t = jinja2.Template(exabgp_conf_tmpl)
     data = t.render(name=name,
