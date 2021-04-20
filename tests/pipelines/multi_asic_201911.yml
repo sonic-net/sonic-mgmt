@@ -60,6 +60,7 @@ stages:
       displayName: "Setup t1-8-lag testbed"
 
     - script: |
+        # Reboot dut to ensure services are up and stable.
         sudo virsh reboot $(dut)
         sleep 120
         username=$(id -un)
