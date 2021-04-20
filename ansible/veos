@@ -69,6 +69,7 @@ all:
           - fullmesh
           - dualtor
           - dualtor-56
+          - dualtor-120
 
 vm_host_1:
   hosts:
