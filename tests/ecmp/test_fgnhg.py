@@ -37,7 +37,7 @@ ptf_to_dut_port_map = {}
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    #pytest.mark.asic('mellanox'),
+    pytest.mark.asic('mellanox'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -304,7 +304,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
  
     if WARM_BOOT_TESTING == True:
         warm_reboot_start_time = time.asctime( time.localtime(time.time()) ) 
-        #str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
         logger.info ("warm reboot start time is ")
         logger.info (warm_reboot_start_time)
 
