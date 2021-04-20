@@ -173,6 +173,7 @@ class ReloadTest(BaseTest):
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
            self.report_file_name = '/tmp/%s-report.json' % self.test_params['reboot_type']
+        self.report = dict()
         self.log_fp = open(self.log_file_name, 'w')
 
         self.packets_list = []
@@ -1115,6 +1116,8 @@ class ReloadTest(BaseTest):
         if 'warm-reboot' in self.reboot_type and not self.kvm_test:
             # Add total downtime (calculated in physical warmboot test using packet disruptions)
             total_downtime = self.total_disrupt_time
+        else:
+            total_downtime = "N/A"
         self.report["longest_downtime"] = longest_downtime
         self.report["reboot_time"] = reboot_time
         self.report["total_downtime"] = total_downtime
