@@ -124,6 +124,8 @@ all:
           ansible_host: 10.64.246.90
         vms12-8:
           ansible_host: 10.64.246.112
+        vms12-9:
+          ansible_host: 10.64.246.153
         vms13-4:
           ansible_host: 10.64.246.75
         vms13-5:
@@ -653,6 +655,28 @@ sonic_e1031:
         "0x2F": "LB"
         "0xFE": "0x86F7C95F"
       pdu_host: pdu-107,pdu-108
+    str-e1031-acs-3:
+      ansible_host: 10.3.146.180
+      model: R0882-F4111-01
+      serial: R0882F2B039723BY000014
+      base_mac: 00:e0:ec:84:9c:6a
+      syseeprom_info:
+        "0x21": "E1031"
+        "0x23": "R0882F2B039723BY000014"
+        "0x24": "00:E0:EC:84:9C:6A"
+        "0x25": "07/23/2019 21:39:22"
+        "0x26": "3"
+        "0x27": "Celestica"
+        "0x28": "Rangeley_7"
+        "0x29": "2015.05.0.0.3"
+        "0x2A": "53"
+        "0x2B": "Celestica"
+        "0x2C": "CN"
+        "0x2D": "Celestica"
+        "0x2E": "3.0.6"
+        "0x2F": "LB"
+        "0xFE": "0x0B5CED74"
+      pdu_host: pdu-113
   vars:
     hwsku: Celestica-E1031-T48S4
     iface_speed: 1000
@@ -898,6 +922,10 @@ fanout:
       ansible_host: 10.64.247.25
       os: sonic
       pdu_host: pdu-107,pdu-108
+    str-e1031-acs-4:
+      ansible_host: 10.3.146.181
+      os: sonic
+      pdu_host: pdu-113
     str-7260cx3-acs-fan-05:
       ansible_host: 10.64.246.76
       pdu_host: pdu-109,pdu-110

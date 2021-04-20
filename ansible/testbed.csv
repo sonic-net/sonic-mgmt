@@ -43,6 +43,7 @@ vms12-t0-s6000-1,v12-6,t0,docker-ptf,v12-6,10.64.246.55/23,,server_12,VM1280,str
 vms12-4-t0-marvell,v12-41,t0-52,docker-ptf,vms-unknown,10.64.246.85/23,,server_12,VM1268,str-marvell-acs-1,str,True,stumkurv
 vms12-t0-3800,vms12-5,t0-64,docker-ptf,vms12-5,10.64.246.90/23,,server_12,VM1272,str-sn3800-01,str,True,stumkurv
 vms12-t0-s5232-1,vms12-8,t0,docker-ptf,vms12-8,10.64.246.112/23,,server_12,VM1284,str-s5232f-on-1,str,True,lawlee
+vms12-9-t0-e1031,vms12-9,t0-52,docker-ptf,vms12-9,10.64.246.153/23,,server_12,VM1288,str-e1031-acs-3,str,True,v-saidia
 vms13-t0-a7170,vms13-4,t0-64,docker-ptf,vms13-4,10.64.246.75/23,,server_13,VM1304,str-a7170-acs-1,str,True,prsunny
 vms13-t1-n3164-2,vms13-5,t1-64-lag,docker-ptf,vms13-5,10.64.246.54/23,,server_13,VM1308,str-n3164-acs-2,str,True,Arvind
 vms13-4-t0,v13-41,t0,docker-ptf,v13-41,10.64.246.17/23,,server_13,VM1368,str-s6000-acs-12,str,True,lawlee
