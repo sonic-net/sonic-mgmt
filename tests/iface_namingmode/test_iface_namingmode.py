@@ -27,7 +27,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_alias_facts = duthost.port_alias(hwsku=hwsku)['ansible_facts']
+    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=True)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
