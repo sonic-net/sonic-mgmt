@@ -25,6 +25,7 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "Force10-Z9100":
         for i in range(0, 128, 4):
             port_alias_to_name_map["hundredGigE1/%d" % (i / 4 + 1)] = "Ethernet%d" % i
+    # TODO: Come up with a generic formula for generating etp style aliases based on number of ports and lanes
     elif hwsku == "DellEMC-Z9332f-M-O16C64":
         # 100G ports
         s100G_ports = [x for x in range(0, 96, 2)] + [x for x in range(128, 160, 2)]
@@ -36,20 +37,20 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
         s10G_ports = [x for x in range(256, 258)]
 
         for i in s100G_ports:
-            alias = "hundredGigE1/{}/{}".format(((i + 8) // 8), ((i // 2) % 4) + 1)
+            alias = "etp{}{}".format(((i + 8) // 8), chr(ord('a') + (i // 2) % 4))
             port_alias_to_name_map[alias] = "Ethernet{}".format(i)
         for i in s400G_ports:
-            alias = "fourhundredGigE1/{}".format((i // 8) + 1)
+            alias = "etp{}".format((i // 8) + 1)
             port_alias_to_name_map[alias] = "Ethernet{}".format(i)
         for i in s10G_ports:
-            alias = "tenGigE1/{}".format(33 if i == 256 else 34)
+            alias = "etp{}".format(33 if i == 256 else 34)
             port_alias_to_name_map[alias] = "Ethernet{}".format(i)
     elif hwsku == "DellEMC-Z9332f-O32":
         for i in range(0, 256, 8):
-            alias = "fourhundredGigE1/{}".format((i // 8) + 1)
+            alias = "etp{}".format((i // 8) + 1)
             port_alias_to_name_map[alias] = "Ethernet{}".format(i)
         for i in range(256, 258):
-            alias = "tenGigE1/{}".format(33 if i == 256 else 34)
+            alias = "etp{}".format(33 if i == 256 else 34)
             port_alias_to_name_map[alias] = "Ethernet{}".format(i)
     elif hwsku == "Arista-7050-QX32":
         for i in range(1, 25):
