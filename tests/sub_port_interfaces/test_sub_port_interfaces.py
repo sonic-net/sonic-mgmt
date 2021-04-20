@@ -14,6 +14,7 @@ from sub_ports_helpers import setup_vlan
 from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import check_sub_port
 
+
 pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
@@ -227,3 +228,41 @@ class TestSubPorts(object):
                                         dst_port=sub_port,
                                         ip_dst=value['ip'],
                                         pkt_action='fwd')
+
+
+    def test_routing_between_sub_ports(self, duthost, ptfadapter, apply_route_config):
+        """
+        Validates that packets are routed between sub-ports.
+
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Add one of the sub-ports to namespace on the PTF.
+            4.) Setup static routes between sub-port and sub-port in namespace on the PTF
+            5.) Create ICMP packet.
+            6.) Send ICMP request packet from sub-port to sub-port in namespace on the PTF.
+            7.) Verify that sub-port in namespace sends ICMP reply packet to sub-port on the PTF.
+            8.) Remove static routes from PTF
+            9.) Remove namespaces from PTF
+            10.) Clear configuration of sub-ports on the DUT.
+            11.) Clear configuration of sub-ports on the PTF.
+
+        Note:
+            Test verifies two cases of routing between sub-ports:
+                1.) Routing between sub-ports on the same port
+                2.) Routing between sub-ports on the different ports
+
+        Pass Criteria: PTF port gets ICMP reply packet from port in namespace on the PTF.
+        """
+        new_sub_ports = apply_route_config['new_sub_ports']
+        sub_ports = apply_route_config['sub_ports']
+
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
+            for sub_port, _ in next_hop_sub_ports:
+                generate_and_verify_traffic(duthost=duthost,
+                                            ptfadapter=ptfadapter,
+                                            src_port=sub_ports[src_port]['neighbor_port'],
+                                            ip_src=sub_ports[src_port]['neighbor_ip'],
+                                            dst_port=src_port,
+                                            ip_dst=sub_ports[sub_port]['neighbor_ip'],
+                                            pkt_action='fwd')
