@@ -4,6 +4,8 @@ import time
 import logging
 import ipaddress
 import json
+import collections
+from tabulate import tabulate
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -180,6 +182,41 @@ def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
             qlen=1000,
             log_file=log_file)
 
+def hash_view_cli_verification(duthost, prefix_list):
+    header = ["FG_NHG_PREFIX", "Next Hop", "Hash buckets"]
+    table = []
+    prefix_list = sorted(prefix_list)
+    for prefix in prefix_list:
+        nh_bucket_dict = {}
+        command = 'redis-cli -n 6 HGETALL "FG_ROUTE_TABLE|' + str(prefix) + '"'
+        data = duthost.command(command,module_ignore_errors=True)
+        data = data['stdout'].split('\n')
+        pairs = zip(data[::2], data[1::2])
+        for banknh in pairs:
+            nh=str(banknh[1]).split("@")[0]
+            hash_bucket =  str(banknh[0])
+            nh_bucket_dict.setdefault(nh, []).append(hash_bucket)
+        for nh in nh_bucket_dict:
+            unsorted_hb = nh_bucket_dict[nh]
+            sorted_hb =  sorted([int(k) for k in unsorted_hb])
+            sorted_hb = [str(x) for x in sorted_hb]
+            nh_bucket_dict[nh] = sorted_hb
+        nh_bucket_dict = collections.OrderedDict(sorted(nh_bucket_dict.items()))
+        for nhip, val in nh_bucket_dict.items():
+            formatted_banks = ','.replace(',', ', ').join(nh_bucket_dict[nhip])
+            table.append([prefix, nhip, formatted_banks])
+    derived_hash_view = (tabulate(table,header))
+    logger.info ("Derived hash-view")
+    logger.info (derived_hash_view)
+    cli_output = duthost.command('show fg-nhg-hash-view', module_ignore_errors = True)
+    cli_hash_view = cli_output['stdout']
+    logger.info ("CLI hash-view")
+    logger.info (cli_hash_view)
+    if (derived_hash_view == cli_hash_view):
+        logger.info ("CLI hash-view output validated!")
+    else:
+        logger.info ("Discrepancy betwen derived hash-view and CLI hash-view")
+
 def reprogram_ecmp_routes(duthost, prefix_list, ip_to_port, ipcmd):
     logger.info ("Reprogramming ECMP routes")
     vtysh_base_cmd = "vtysh -c 'configure terminal'"
@@ -228,6 +265,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     configure_dut(duthost, "config interface shutdown " + dut_if_shutdown)
     time.sleep(30)
 
+    hash_view_cli_verification(duthost, prefix_list)
+
     # Now add the route and nhs
     for prefix in prefix_list:
         cmd = vtysh_base_cmd
@@ -262,7 +301,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'initial_hash_check', dst_ip, exp_flow_count)
-  
+ 
     if WARM_BOOT_TESTING == True:
         warm_reboot_start_time = time.asctime( time.localtime(time.time()) ) 
         #str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
@@ -287,7 +326,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
            cmd = vtysh_base_cmd
            for nexthop in ip_to_port:
                cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
-           configure_dut_custom(duthost, cmd)
+           configure_dut(duthost, cmd)
 
 
     ### Send the same flows again, but unshut the port which was shutdown at the beginning of test
@@ -304,7 +343,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=shutdown_link)
-
 
     ### Send the same flows again, but withdraw one next-hop before sending the flows, check if hash bucket
     ### rebalanced as expected, and the number of flows received on a link is as expected
@@ -394,7 +432,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=withdraw_nh_port) 
 
-    #CMT
     ### Simulate route and link flap conditions by toggling the route
     ### and ensure that there is no orch crash and data plane impact
     logger.info("Simulate route and link flap conditions by toggling the route "
