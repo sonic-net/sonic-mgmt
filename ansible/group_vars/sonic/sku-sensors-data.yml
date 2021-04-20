@@ -945,8 +945,6 @@ sensors_checks:
     compares:
       power: []
       temp:
-      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
         - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
@@ -1040,8 +1038,6 @@ sensors_checks:
     compares:
       power: []
       temp:
-      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
       - - coretemp-isa-0000/Core 0/temp2_input
         - coretemp-isa-0000/Core 0/temp2_crit
       - - coretemp-isa-0000/Core 1/temp3_input
