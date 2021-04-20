@@ -249,11 +249,20 @@ def parse_png(png, hname):
 
 def parse_loopback_intf(child):
     lointfs = child.find(str(QName(ns, "LoopbackIPInterfaces")))
-    lo_intfs = {}
+    lo_intfs = []
     for lointf in lointfs.findall(str(QName(ns1, "LoopbackIPInterface"))):
         intfname = lointf.find(str(QName(ns, "AttachTo"))).text
         ipprefix = lointf.find(str(QName(ns1, "PrefixStr"))).text
-        lo_intfs[(intfname, ipprefix)] = {}
+        ipn = ipaddress.IPNetwork(ipprefix)
+        ipaddr = ipn.ip
+        prefix_len = ipn.prefixlen
+        ipmask = ipn.netmask
+        lo_intf = {'name': intfname, 'addr': ipaddr, 'prefixlen': prefix_len}
+        if isinstance(ipn, ipaddress.IPv4Network):
+            lo_intf['mask'] = ipmask
+        else:
+            lo_intf['mask'] = str(prefix_len)
+        lo_intfs.append(lo_intf)
     return lo_intfs
 
 
@@ -314,21 +323,7 @@ def parse_dpg(dpg, hname):
             intfs.append(intf)
             ports[intfname] = {'name': intfname, 'alias': intfalias}
 
-        lointfs = child.find(str(QName(ns, "LoopbackIPInterfaces")))
-        lo_intfs = []
-        for lointf in lointfs.findall(str(QName(ns1, "LoopbackIPInterface"))):
-            intfname = lointf.find(str(QName(ns, "AttachTo"))).text
-            ipprefix = lointf.find(str(QName(ns1, "PrefixStr"))).text
-            ipn = ipaddress.IPNetwork(ipprefix)
-            ipaddr = ipn.ip
-            prefix_len = ipn.prefixlen
-            ipmask = ipn.netmask
-            lo_intf = {'name': intfname, 'addr': ipaddr, 'prefixlen': prefix_len}
-            if isinstance(ipn, ipaddress.IPv4Network):
-                lo_intf['mask'] = ipmask
-            else:
-                lo_intf['mask'] = str(prefix_len)
-            lo_intfs.append(lo_intf)
+        lo_intfs = parse_loopback_intf(child)
 
         mgmtintfs = child.find(str(QName(ns, "ManagementIPInterfaces")))
         mgmt_intf = None
