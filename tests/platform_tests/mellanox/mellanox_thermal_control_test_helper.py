@@ -389,19 +389,19 @@ class FanDrawerData:
         :return:
         """
         try:
-            fan_dir_bits = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH.format(self.index)))
+            fan_dir_value = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH.format(self.index)))
         except SysfsNotExistError as e:
             self.mocked_direction = NOT_AVAILABLE
             return
 
         if direction:
-            fan_dir_bits = 1
+            fan_dir_value = 1
             self.mocked_direction = 'intake'
         else:
-            fan_dir_bits = 0
+            fan_dir_value = 0
             self.mocked_direction = 'exhaust'
 
-        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH.format(self.index), fan_dir_bits)
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH.format(self.index), fan_dir_value)
 
     def get_status_led(self):
         """
