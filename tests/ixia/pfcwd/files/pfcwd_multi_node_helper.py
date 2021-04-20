@@ -10,6 +10,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
+from tests.common.ixia.port import select_ports
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate, Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
@@ -31,6 +32,7 @@ TOLERANCE_THRESHOLD = 0.05
 
 def run_pfcwd_multi_node_test(api,
                               testbed_config,
+                              port_config_list,
                               conn_data,
                               fanout_data,
                               duthost,
@@ -46,7 +48,8 @@ def run_pfcwd_multi_node_test(api,
 
     Args:
         api (obj): IXIA session
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
         duthost (Ansible host instance): device under test
@@ -60,14 +63,14 @@ def run_pfcwd_multi_node_test(api,
     Returns:
         N/A
     """
-    patterns = ['all to all', 'many to one', '2 sender 2 receiver']
-    pytest_assert(pattern in patterns,
-                  'Unknown pattern {}. We only support {}'.format(pattern, patterns))
+    patterns = ['all to all', 'many to one']
+    if pattern not in patterns:
+        raise ValueError('invalid traffic pattern passed in "{}", must be {}'.format(
+            pattern, ' or '.join(['"{}"'.format(src) for src in patterns])))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-
-    num_devices = len(testbed_config.devices)
-    pytest_require(num_devices >= 3, "This test requires at least 3 hosts")
+    num_ports = len(port_config_list)
+    pytest_require(num_ports >= 3, "This test requires at least 3 ports")
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
@@ -92,77 +95,30 @@ def run_pfcwd_multi_node_test(api,
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
 
     """ Generate traffic config """
-    if pattern == "all to all":
-        test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / \
-                                     (num_devices - 1) / \
-                                     len(test_prio_list))
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / \
+                                 (num_ports - 1) / \
+                                 len(test_prio_list))
 
-        bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / \
-                                   (num_devices - 1) / \
-                                   len(bg_prio_list))
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / \
+                               (num_ports - 1) / \
+                               len(bg_prio_list))
 
-        flows = __gen_a2a_traffic(testbed_config=testbed_config,
-                                  port_id=port_id,
-                                  pause_flow_name=PAUSE_FLOW_NAME,
-                                  pause_prio_list=pause_prio_list,
-                                  test_flow_name=TEST_FLOW_NAME,
-                                  test_flow_prio_list=test_prio_list,
-                                  test_flow_rate_percent=test_flow_rate_percent,
-                                  bg_flow_name=BG_FLOW_NAME,
-                                  bg_flow_prio_list=bg_prio_list,
-                                  bg_flow_rate_percent=bg_flow_rate_percent,
-                                  data_flow_dur_sec=exp_dur_sec,
-                                  pfc_storm_dur_sec=pfc_storm_dur_sec,
-                                  data_pkt_size=DATA_PKT_SIZE,
-                                  prio_dscp_map=prio_dscp_map)
-
-    elif pattern == "many to one":
-        test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / \
-                                     (num_devices - 1) / \
-                                     len(test_prio_list))
-
-        bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / \
-                                   (num_devices - 1) / \
-                                   len(bg_prio_list))
-
-        flows = __gen_m2o_traffic(testbed_config=testbed_config,
-                                  port_id=port_id,
-                                  pause_flow_name=PAUSE_FLOW_NAME,
-                                  pause_prio_list=pause_prio_list,
-                                  test_flow_name=TEST_FLOW_NAME,
-                                  test_flow_prio_list=test_prio_list,
-                                  test_flow_rate_percent=test_flow_rate_percent,
-                                  bg_flow_name=BG_FLOW_NAME,
-                                  bg_flow_prio_list=bg_prio_list,
-                                  bg_flow_rate_percent=bg_flow_rate_percent,
-                                  data_flow_dur_sec=exp_dur_sec,
-                                  pfc_storm_dur_sec=pfc_storm_dur_sec,
-                                  data_pkt_size=DATA_PKT_SIZE,
-                                  prio_dscp_map=prio_dscp_map)
-
-    elif pattern == "2 sender 2 receiver":
-        test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / \
-                                     2.0 / \
-                                     len(test_prio_list))
-        bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / \
-                                   2.0 / \
-                                   len(bg_prio_list))
-
-        flows = __gen_2sender_2receiver_traffic(testbed_config=testbed_config,
-                                                port_id=port_id,
-                                                pause_flow_name=PAUSE_FLOW_NAME,
-                                                pause_prio_list=pause_prio_list,
-                                                test_flow_name=TEST_FLOW_NAME,
-                                                test_flow_prio_list=test_prio_list,
-                                                test_flow_rate_percent=test_flow_rate_percent,
-                                                bg_flow_name=BG_FLOW_NAME,
-                                                bg_flow_prio_list=bg_prio_list,
-                                                bg_flow_rate_percent=bg_flow_rate_percent,
-                                                data_flow_dur_sec=exp_dur_sec,
-                                                pfc_storm_dur_sec=pfc_storm_dur_sec,
-                                                data_pkt_size=DATA_PKT_SIZE,
-                                                prio_dscp_map=prio_dscp_map)
-
+    flows = __gen_traffic(testbed_config=testbed_config,
+                          port_config_list=port_config_list,
+                          port_id=port_id,
+                          pause_flow_name=PAUSE_FLOW_NAME,
+                          pause_prio_list=pause_prio_list,
+                          test_flow_name=TEST_FLOW_NAME,
+                          test_flow_prio_list=test_prio_list,
+                          test_flow_rate_percent=test_flow_rate_percent,
+                          bg_flow_name=BG_FLOW_NAME,
+                          bg_flow_prio_list=bg_prio_list,
+                          bg_flow_rate_percent=bg_flow_rate_percent,
+                          data_flow_dur_sec=exp_dur_sec,
+                          pfc_storm_dur_sec=pfc_storm_dur_sec,
+                          data_pkt_size=DATA_PKT_SIZE,
+                          prio_dscp_map=prio_dscp_map,
+                          traffic_pattern=pattern)
 
     """ Tgen config = testbed config + flow config """
     config = testbed_config
@@ -234,113 +190,30 @@ def __data_flow_dst(flow_name):
     index = words.index('->')
     return int(words[index+1])
 
-def __gen_2sender_2receiver_traffic(testbed_config,
-                                    port_id,
-                                    pause_flow_name,
-                                    pause_prio_list,
-                                    test_flow_name,
-                                    test_flow_prio_list,
-                                    test_flow_rate_percent,
-                                    bg_flow_name,
-                                    bg_flow_prio_list,
-                                    bg_flow_rate_percent,
-                                    data_flow_dur_sec,
-                                    pfc_storm_dur_sec,
-                                    data_pkt_size,
-                                    prio_dscp_map):
-    """
-    Generate configurations of flows under 2 sender 2 receiver traffic pattern,
-    including test flows, background flows and pause storm. Test flows and
-    background flows are also known as data flows.
-
-    Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
-        port_id (int): ID of DUT port to test.
-        pause_flow_name (str): name of pause storm
-        pause_prio_list (list): priorities to pause for PFC frames
-        test_flow_name (str): name prefix of test flows
-        test_prio_list (list): priorities of test flows
-        test_flow_rate_percent (int): rate percentage for each test flow
-        bg_flow_name (str): name prefix of background flows
-        bg_prio_list (list): priorities of background flows
-        bg_flow_rate_percent (int): rate percentage for each background flow
-        data_flow_dur_sec (int): duration of data flows in second
-        pfc_storm_dur_sec (float): duration of the pause storm in second
-        data_pkt_size (int): packet size of data flows in byte
-        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-
-    Returns:
-        flows configurations (list)
-    """
-    result = list()
-
-    """ Generate a PFC pause storm """
-    pause_port_id = port_id
-    pause_flow = __gen_pause_flow(testbed_config=testbed_config,
-                                  src_port_id=pause_port_id,
-                                  flow_name=pause_flow_name,
-                                  pause_prio_list=pause_prio_list,
-                                  flow_dur_sec=pfc_storm_dur_sec)
-
-    result.append(pause_flow)
-
-    """
-    Generate bi-birectional data flows between [port_id+2] and
-    [port_id, port_id+1]
-    """
-    one_port_id_list = [(port_id + 2) % len(testbed_config.devices)]
-    two_port_id_list = [port_id, (port_id + 1) % len(testbed_config.devices)]
-
-    perm = permutations([one_port_id_list, two_port_id_list])
-
-    for src_port_id_list, dst_port_id_list in list(perm):
-        test_flows = __gen_data_flows(testbed_config=testbed_config,
-                                      src_port_id_list=src_port_id_list,
-                                      dst_port_id_list=dst_port_id_list,
-                                      flow_name_prefix=TEST_FLOW_NAME,
-                                      flow_prio_list=test_flow_prio_list,
-                                      flow_rate_percent=test_flow_rate_percent,
-                                      flow_dur_sec=data_flow_dur_sec,
-                                      data_pkt_size=data_pkt_size,
-                                      prio_dscp_map=prio_dscp_map)
-
-        result.extend(test_flows)
-
-        bg_flows = __gen_data_flows(testbed_config=testbed_config,
-                                    src_port_id_list=src_port_id_list,
-                                    dst_port_id_list=dst_port_id_list,
-                                    flow_name_prefix=BG_FLOW_NAME,
-                                    flow_prio_list=bg_flow_prio_list,
-                                    flow_rate_percent=bg_flow_rate_percent,
-                                    flow_dur_sec=data_flow_dur_sec,
-                                    data_pkt_size=data_pkt_size,
-                                    prio_dscp_map=prio_dscp_map)
-
-        result.extend(bg_flows)
-
-    return result
-
-def __gen_a2a_traffic(testbed_config,
-                      port_id,
-                      pause_flow_name,
-                      pause_prio_list,
-                      test_flow_name,
-                      test_flow_prio_list,
-                      test_flow_rate_percent,
-                      bg_flow_name,
-                      bg_flow_prio_list,
-                      bg_flow_rate_percent,
-                      data_flow_dur_sec,
-                      pfc_storm_dur_sec,
-                      data_pkt_size,
-                      prio_dscp_map):
+def __gen_traffic(testbed_config,
+                  port_config_list,
+                  port_id,
+                  pause_flow_name,
+                  pause_prio_list,
+                  test_flow_name,
+                  test_flow_prio_list,
+                  test_flow_rate_percent,
+                  bg_flow_name,
+                  bg_flow_prio_list,
+                  bg_flow_rate_percent,
+                  data_flow_dur_sec,
+                  pfc_storm_dur_sec,
+                  data_pkt_size,
+                  prio_dscp_map,
+                  traffic_pattern):
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
     are also known as data flows.
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test.
         pause_flow_name (str): name of pause storm
         pause_prio_list (list): priorities to pause for PFC frames
@@ -354,6 +227,7 @@ def __gen_a2a_traffic(testbed_config,
         pfc_storm_dur_sec (float): duration of the pause storm in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        traffic_pattern (str): traffic pattern, "many to one" or "all to all"
 
     Returns:
         flows configurations (list)
@@ -363,6 +237,7 @@ def __gen_a2a_traffic(testbed_config,
     """ Generate a PFC pause storm """
     pause_port_id = port_id
     pause_flow = __gen_pause_flow(testbed_config=testbed_config,
+                                  port_config_list=port_config_list,
                                   src_port_id=pause_port_id,
                                   flow_name=pause_flow_name,
                                   pause_prio_list=pause_prio_list,
@@ -370,121 +245,38 @@ def __gen_a2a_traffic(testbed_config,
 
     result.append(pause_flow)
 
-    """ Generate all-to-all traffic pattern """
-    num_devices = len(testbed_config.devices)
-
-    for src_port_id in range(num_devices):
-        src_port_id_list = [src_port_id]
-        dst_port_id_list =[i for i in range(num_devices) if i != src_port_id]
-
-        test_flows = __gen_data_flows(testbed_config=testbed_config,
-                                      src_port_id_list=src_port_id_list,
-                                      dst_port_id_list=dst_port_id_list,
-                                      flow_name_prefix=TEST_FLOW_NAME,
-                                      flow_prio_list=test_flow_prio_list,
-                                      flow_rate_percent=test_flow_rate_percent,
-                                      flow_dur_sec=data_flow_dur_sec,
-                                      data_pkt_size=data_pkt_size,
-                                      prio_dscp_map=prio_dscp_map)
-
-        result.extend(test_flows)
-
-        bg_flows = __gen_data_flows(testbed_config=testbed_config,
-                                    src_port_id_list=src_port_id_list,
-                                    dst_port_id_list=dst_port_id_list,
-                                    flow_name_prefix=BG_FLOW_NAME,
-                                    flow_prio_list=bg_flow_prio_list,
-                                    flow_rate_percent=bg_flow_rate_percent,
-                                    flow_dur_sec=data_flow_dur_sec,
-                                    data_pkt_size=data_pkt_size,
-                                    prio_dscp_map=prio_dscp_map)
-
-        result.extend(bg_flows)
-
-    return result
-
-def __gen_m2o_traffic(testbed_config,
-                      port_id,
-                      pause_flow_name,
-                      pause_prio_list,
-                      test_flow_name,
-                      test_flow_prio_list,
-                      test_flow_rate_percent,
-                      bg_flow_name,
-                      bg_flow_prio_list,
-                      bg_flow_rate_percent,
-                      data_flow_dur_sec,
-                      pfc_storm_dur_sec,
-                      data_pkt_size,
-                      prio_dscp_map):
-    """
-    Generate configurations of flows under many to one traffic pattern, including
-    test flows, background flows and pause storm. Test flows and background flows
-    are also known as data flows.
-
-    Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
-        port_id (int): ID of DUT port to test.
-        pause_flow_name (str): name of pause storm
-        pause_prio_list (list): priorities to pause for PFC frames
-        test_flow_name (str): name prefix of test flows
-        test_prio_list (list): priorities of test flows
-        test_flow_rate_percent (int): rate percentage for each test flow
-        bg_flow_name (str): name prefix of background flows
-        bg_prio_list (list): priorities of background flows
-        bg_flow_rate_percent (int): rate percentage for each background flow
-        data_flow_dur_sec (int): duration of data flows in second
-        pfc_storm_dur_sec (float): duration of the pause storm in second
-        data_pkt_size (int): packet size of data flows in byte
-        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-
-    Returns:
-        flows configurations (list)
-    """
-    result = list()
-
-    """ Generate a PFC pause storm """
-    pause_port_id = port_id
-    pause_flow = __gen_pause_flow(testbed_config=testbed_config,
-                                  src_port_id=pause_port_id,
-                                  flow_name=pause_flow_name,
-                                  pause_prio_list=pause_prio_list,
-                                  flow_dur_sec=pfc_storm_dur_sec)
-
-    result.append(pause_flow)
-
-    """ Generate many-to-one traffic pattern """
-    num_devices = len(testbed_config.devices)
-    src_port_id_list =[i for i in range(num_devices) if i != port_id]
-    dst_port_id_list = [port_id]
+    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
+                                                    pattern=traffic_pattern,
+                                                    rx_port_id=port_id)
 
     test_flows = __gen_data_flows(testbed_config=testbed_config,
-                                  src_port_id_list=src_port_id_list,
-                                  dst_port_id_list=dst_port_id_list,
+                                  port_config_list=port_config_list,
+                                  src_port_id_list=tx_port_id_list,
+                                  dst_port_id_list=rx_port_id_list,
                                   flow_name_prefix=TEST_FLOW_NAME,
                                   flow_prio_list=test_flow_prio_list,
                                   flow_rate_percent=test_flow_rate_percent,
                                   flow_dur_sec=data_flow_dur_sec,
                                   data_pkt_size=data_pkt_size,
                                   prio_dscp_map=prio_dscp_map)
-
     result.extend(test_flows)
 
     bg_flows = __gen_data_flows(testbed_config=testbed_config,
-                                src_port_id_list=src_port_id_list,
-                                dst_port_id_list=dst_port_id_list,
+                                port_config_list=port_config_list,
+                                src_port_id_list=tx_port_id_list,
+                                dst_port_id_list=rx_port_id_list,
                                 flow_name_prefix=BG_FLOW_NAME,
                                 flow_prio_list=bg_flow_prio_list,
                                 flow_rate_percent=bg_flow_rate_percent,
                                 flow_dur_sec=data_flow_dur_sec,
                                 data_pkt_size=data_pkt_size,
                                 prio_dscp_map=prio_dscp_map)
-
     result.extend(bg_flows)
 
     return result
 
 def __gen_data_flows(testbed_config,
+                     port_config_list,
                      src_port_id_list,
                      dst_port_id_list,
                      flow_name_prefix,
@@ -497,7 +289,8 @@ def __gen_data_flows(testbed_config,
     Generate the configuration for data flows
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         src_port_id_list (list): IDs of source ports
         dst_port_id_list (list): IDs of destination ports
         flow_name_prefix (str): prefix of flows' names
@@ -516,8 +309,12 @@ def __gen_data_flows(testbed_config,
 
     for src_port_id in src_port_id_list:
         for dst_port_id in dst_port_id_list:
+            if src_port_id == dst_port_id:
+                continue
+
             for prio in flow_prio_list:
                 flow = __gen_data_flow(testbed_config=testbed_config,
+                                       port_config_list=port_config_list,
                                        src_port_id=src_port_id,
                                        dst_port_id=dst_port_id,
                                        flow_name_prefix=flow_name_prefix,
@@ -531,6 +328,7 @@ def __gen_data_flows(testbed_config,
     return flows
 
 def __gen_data_flow(testbed_config,
+                    port_config_list,
                     src_port_id,
                     dst_port_id,
                     flow_name_prefix,
@@ -543,7 +341,8 @@ def __gen_data_flow(testbed_config,
     Generate the configuration for a data flow
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         src_port_id (int): ID of the source port
         dst_port_id (int): ID of destination port
         flow_name_prefix (str): prefix of flow' name
@@ -556,15 +355,29 @@ def __gen_data_flow(testbed_config,
     Returns:
         flow configuration (obj): including name, packet format, rate, ...
     """
-    data_endpoint = DeviceTxRx(
-        tx_device_names=[testbed_config.devices[src_port_id].name],
-        rx_device_names=[testbed_config.devices[dst_port_id].name],
-    )
+    tx_port_config = next((x for x in port_config_list if x.id == src_port_id), None)
+    rx_port_config = next((x for x in port_config_list if x.id == dst_port_id), None)
+
+    tx_mac = tx_port_config.mac
+    if tx_port_config.gateway == rx_port_config.gateway and \
+       tx_port_config.prefix_len == rx_port_config.prefix_len:
+        """ If soruce and destination port are in the same subnet """
+        rx_mac = rx_port_config.mac
+    else:
+        rx_mac = tx_port_config.gateway_mac
+
+    data_endpoint = PortTxRx(tx_port_name=testbed_config.ports[src_port_id].name,
+                             rx_port_name=testbed_config.ports[dst_port_id].name)
+
+    eth_hdr = EthernetHeader(src=FieldPattern(tx_mac),
+                             dst=FieldPattern(rx_mac),
+                             pfc_queue=FieldPattern([flow_prio]))
 
     ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[flow_prio]),
                             ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-
-    pfc_queue = FieldPattern([flow_prio])
+    ipv4_hdr = Ipv4Header(src=FieldPattern(tx_port_config.ip),
+                          dst=FieldPattern(rx_port_config.ip),
+                          priority=ip_prio)
 
     flow_name = __data_flow_name(name_prefix=flow_name_prefix,
                                  src_id=src_port_id,
@@ -574,10 +387,7 @@ def __gen_data_flow(testbed_config,
     flow = Flow(
         name=flow_name,
         tx_rx=TxRx(data_endpoint),
-        packet=[
-            Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-            Header(choice=Ipv4Header(priority=ip_prio))
-        ],
+        packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
         size=Size(data_pkt_size),
         rate=Rate('line', flow_rate_percent),
         duration=Duration(FixedSeconds(seconds=flow_dur_sec))
@@ -586,6 +396,7 @@ def __gen_data_flow(testbed_config,
     return flow
 
 def __gen_pause_flow(testbed_config,
+                     port_config_list,
                      src_port_id,
                      flow_name,
                      pause_prio_list,
@@ -594,7 +405,8 @@ def __gen_pause_flow(testbed_config,
     Generate the configuration for a PFC pause storm
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         src_port_id (int): ID of the source port
         flow_name (str): flow' name
         pause_prio_list (list): priorities to pause for PFC frames
@@ -626,10 +438,8 @@ def __gen_pause_flow(testbed_config,
             pause_class_7=FieldPattern(choice=pause_time[7]),
         ))
 
-
-    dst_port_id = (src_port_id + 1) % len(testbed_config.devices)
     pause_src_point = PortTxRx(tx_port_name=testbed_config.ports[src_port_id].name,
-                               rx_port_name=testbed_config.ports[dst_port_id].name)
+                               rx_port_name=testbed_config.ports[src_port_id].name)
 
     """
     The minimal fixed time duration in IXIA is 1 second.
