@@ -7,22 +7,22 @@ pytestmark = [
 ]
 
 
-def collect_all_facts(duthost):
+def collect_all_facts(duthost, namespace):
     """
     Collect all data needed for test per each port from DUT
     :param duthost: DUT host object
     :return: dict with data collected from DUT per each port
     """
     result = {}
-    setup = duthost.setup()['ansible_facts']
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    cmd = 'redis-cli -n 0 --raw hget "PORT_TABLE:{}" "{}"'
+    setup = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
+    sonic_db_cmd = "sonic-db-cli -n {} {} HGET {}{}{} {}"
+    net_opersate = "cat /sys/class/net/{}/operstate"
     ports_list = []
     _ = [ports_list.extend(config_facts.get(i, {}).keys())
          for i in ['port_name_to_alias_map', 'PORTCHANNEL', 'MGMT_INTERFACE']]
-
     for name in ports_list:
-        key = 'ansible_{}'.format(name)
+        key = name
         # 6 stands for ethernet-csmacd and 161 stands for ieee8023adLag
         if_type = '161' if name.startswith("PortChannel") else '6'
         if name.startswith("Eth"):
@@ -35,23 +35,32 @@ def collect_all_facts(duthost):
             try:
                 admin = config_facts.get('PORT', {})[name]['admin_status']
             except KeyError:
-                admin = duthost.shell(cmd.format(name, 'admin_status'))['stdout']
+                #admin = duthost.shell(cmd.format(name, 'admin_status'))['stdout']
+                admin = duthost.shell(sonic_db_cmd.format(namespace, "APPL_DB", "PORT_TABLE", ":", name, "admin_status"))['stdout']
             result[portname].update({'adminstatus': admin})
-            oper = duthost.shell(cmd.format(name, 'oper_status'))['stdout']
+            #oper = duthost.shell(cmd.format(name, 'oper_status'))['stdout']
+            oper = duthost.shell(sonic_db_cmd.format(namespace, "APPL_DB", "PORT_TABLE", ":", name, "oper_status"))['stdout']
             result[portname].update({'operstatus': oper})
             result[portname].update({'description': config_facts.get('PORT', {})[name]['description']})
-        else:
+        elif name.startswith("PortChannel"):
             result.setdefault(name, {})
-            key_word = "PORTCHANNEL" if name.startswith("PortChannel") else 'MGMT_PORT'
+            key_word = "PORTCHANNEL"
             result[name].update({'mtu': str(setup[key]['mtu'])})
             result[name].update({'type': if_type})
             result[name].update({'adminstatus': config_facts.get(key_word, {})[name]['admin_status']})
-            if name.startswith("PortChannel"):
-                oper = duthost.shell('redis-cli -n 0 --raw hget "LAG_TABLE:{}" "oper_status"'.format(name))
-            else:
-                oper = duthost.shell('redis-cli -n 6 --raw hget "MGMT_PORT_TABLE|{}" "oper_status"'.format(name))
+            oper = duthost.shell(sonic_db_cmd.format(namespace, "APPL_DB", "LAG_TABLE", ":", name, "oper_status"))
             result[name].update({'operstatus': oper['stdout']})
             result[name].update({'description': config_facts.get(key_word, {})[name].get('description', '')})
+        else:
+            result.setdefault(name, {})
+            result[name].update({'mtu': str(setup[key]['mtu'])})
+            result[name].update({'type': if_type})
+            result[name].update({'adminstatus': config_facts.get(key_word, {})[name]['admin_status']})
+            oper = duthost.shell(net_opersate.format(name))
+            result[name].update({'operstatus': oper['stdout']})
+            result[name].update({'description': config_facts.get(key_word, {})[name].get('description', '')})
+
+             
     return result
 
 def verify_port_snmp(facts, snmp_facts):
@@ -62,12 +71,15 @@ def verify_port_snmp(facts, snmp_facts):
     :return: Dict with unequal snmp_facts
     """
     missed = {}
-    for _, port_snmp in snmp_facts['snmp_interfaces'].items():
-        port_name = port_snmp['name']
+    import pdb; pdb.set_trace()
+    snmp_port_map = { snmp_facts['snmp_interfaces'][idx]['name'] : idx for idx in snmp_facts['snmp_interfaces'] }
+
+    for port_name in facts:
+        idx = snmp_port_map[port_name]
+        port_snmp = snmp_facts['snmp_interfaces'][idx]
         compare = ['operstatus', 'adminstatus', 'mtu', 'description', 'type']
         missed.setdefault(port_name, {})
         for field in compare:
-            # Skip MTU on mgmt port for now, due to not implemented in Sonic for mgmt port
             if field == 'mtu' and port_name.startswith('eth0'):
                 continue
             elif facts[port_name][field] != port_snmp[field]:
@@ -82,10 +94,12 @@ def verify_port_ifindex(snmp_facts, results):
     :return: dict with unequal snmp_facts per port
     """
     unique = []
-    for port_index, port_snmp in snmp_facts['snmp_interfaces'].items():
-        port_name = port_snmp['name']
+    snmp_port_map = { snmp_facts['snmp_interfaces'][idx]['name'] : idx for idx in snmp_facts['snmp_interfaces'] }
+    for port_name in results:
+        idx = snmp_port_map[port_name]
+        port_snmp = snmp_facts['snmp_interfaces'][idx]
         unique.append(port_snmp['ifindex'])
-        if int(port_index) - 1 != int(port_snmp['ifindex']):
+        if int(idx) - 1 != int(port_snmp['ifindex']):
             results[port_name].update({'ifindex': port_snmp['ifindex']})
     if len(unique) != len(set(unique)):
         pytest.fail("Ifindex MIB values are not unique {}".format(unique))
@@ -100,8 +114,10 @@ def verify_snmp_speed(facts, snmp_facts, results):
     :return: Updated dict with unequal snmp_facts
     """
     speed, high_speed = "speed", "ifHighSpeed"
-    for _, port_snmp in snmp_facts['snmp_interfaces'].items():
-        port_name = port_snmp['name']
+    snmp_port_map = { snmp_facts['snmp_interfaces'][idx]['name'] : idx for idx in snmp_facts['snmp_interfaces'] }
+    for port_name in results:
+        idx = snmp_port_map[port_name]
+        port_snmp = snmp_facts['snmp_interfaces'][idx]
         if port_name.startswith('Eth'):
             speed_to_bps = facts[port_name][speed] * 1000000
             if speed_to_bps > int(port_snmp[speed]):
@@ -159,14 +175,15 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     for name in config_facts.get('MGMT_INTERFACE', {}):
         assert name in snmp_ifnames, "Management Interface not found in SNMP facts."
 
-def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, enum_asic_index):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
 
-    dut_facts = collect_all_facts(duthost)
+    dut_facts = collect_all_facts(duthost, namespace)
     ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
     speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
     result = verify_port_ifindex(snmp_facts, speed_snmp)
