@@ -19,7 +19,7 @@ log message also contains 'nodeid' of the current test case. Examples of such lo
 import pytest
 import logging
 import inspect
-import functools
+import decorator
 import postimport
 
 
@@ -40,46 +40,41 @@ def pytest_configure(config):
 def _pytest_import_callback(module):
     """Hook function registered for the pytest module."""
 
-    def _fixture_func_decorator(fixture_func):
-        @functools.wraps(fixture_func)
-        def _decorate(*args, **kargs):
-            logging.info("-" * 20 + (" fixture %s setup starts " % fixture_func.__name__) + "-" * 20)
-            try:
-                return fixture_func(*args, **kargs)
-            except Exception as detail:
-                logging.exception("\n%r", detail)
-                raise
-            finally:
-                logging.info("-" * 20 + (" fixture %s setup ends " % fixture_func.__name__) + "-" * 20)
-        return _decorate
+    @decorator.decorator
+    def _fixture_func_decorator(fixture_func, *args, **kargs):
+        logging.info("-" * 20 + (" fixture %s setup starts " % fixture_func.__name__) + "-" * 20)
+        try:
+            return fixture_func(*args, **kargs)
+        except Exception as detail:
+            logging.exception("\n%r", detail)
+            raise
+        finally:
+            logging.info("-" * 20 + (" fixture %s setup ends " % fixture_func.__name__) + "-" * 20)
 
-    def _fixture_generator_decorator(fixture_generator):
-        @functools.wraps(fixture_generator)
-        def _decorate(*args, **kargs):
-            # setup, to the first yield in fixture
-            logging.info("-" * 20 + (" fixture %s setup starts " % fixture_generator.__name__) + "-" * 20)
-            it = fixture_generator(*args, **kargs)
-            try:
-                res = next(it)
-                logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
-                yield res
-            except Exception as detail:
-                logging.exception("\n%r", detail)
-                raise
+    @decorator.decorator
+    def _fixture_generator_decorator(fixture_generator, *args, **kargs):
+        # setup, to the first yield in fixture
+        logging.info("-" * 20 + (" fixture %s setup starts " % fixture_generator.__name__) + "-" * 20)
+        it = fixture_generator(*args, **kargs)
+        try:
+            res = next(it)
+            logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
+            yield res
+        except Exception as detail:
+            logging.exception("\n%r", detail)
+            raise
 
-            # teardown, fixture will raise StopIteration
-            logging.info("-" * 20 + (" fixture %s teardown starts " % fixture_generator.__name__) + "-" * 20)
-            try:
-                next(it)
-            except StopIteration:
-                raise
-            except Exception as detail:
-                logging.exception("\n%r", detail)
-                raise
-            finally:
-                logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
-
-        return _decorate
+        # teardown, fixture will raise StopIteration
+        logging.info("-" * 20 + (" fixture %s teardown starts " % fixture_generator.__name__) + "-" * 20)
+        try:
+            next(it)
+        except StopIteration:
+            raise
+        except Exception as detail:
+            logging.exception("\n%r", detail)
+            raise
+        finally:
+            logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
 
     def build_custom_fixture_decorator(original_fixture):
 
@@ -98,7 +93,8 @@ def _pytest_import_callback(module):
             elif len(kargs) == 1 and callable(kargs.values()[0]) and not args:
                 func = kargs.values()[0]
             if func is not None:
-                args, kargs = (), {}
+                args = ()
+                kargs = {}
                 return _decorate(func)
 
             return _decorate
