@@ -89,7 +89,7 @@ def log_port_info(ports):
             elif fld_name == 'asic':
                 port_dict_to_print[port_name]['asic'] = port['asic'].asic_index
             elif isinstance(port[fld_name], ipaddress.IPv4Address) or isinstance(port[fld_name],
-                                                                                     ipaddress.IPv6Address):
+                                                                                 ipaddress.IPv6Address):
                 port_dict_to_print[port_name][fld_name] = "%s" % port[fld_name]
             else:
                 port_dict_to_print[port_name][fld_name] = port[fld_name]
@@ -585,7 +585,7 @@ class TestTableValidation(object):
 
 class TestVoqIPFwd(object):
 
-    @pytest.mark.parametrize('ttl, size', [(2, 1500), (255, 1500), (128, 64), (128,9000)])
+    @pytest.mark.parametrize('ttl, size', [(2, 1500), (255, 1500), (128, 64), (128, 9000)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["portchannel", "ethernet"])
     def test_voq_local_interface_ping(self, duthosts, nbrhosts, all_cfg_facts, ttl, size, version, porttype):

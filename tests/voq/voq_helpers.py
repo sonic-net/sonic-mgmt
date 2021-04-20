@@ -439,28 +439,6 @@ def get_inband_info(cfg_facts):
     return ret
 
 
-def get_vm_with_ip(neigh_ip, nbrhosts):
-    """
-    Finds the EOS VM and port with a specific IP Address.
-
-    Args:
-        neigh_ip: IP address to find.
-        nbrhosts: nbrhosts fixture.
-
-    Returns:
-        A dictionary with the vm index for nbrhosts, and port name.
-    """
-    for a_vm in nbrhosts:
-        for port, a_intf in nbrhosts[a_vm]['conf']['interfaces'].iteritems():
-            if 'ipv4' in a_intf and a_intf['ipv4'].split("/")[0] == neigh_ip:
-                return {"vm": a_vm, "port": port}
-            if 'ipv6' in a_intf and a_intf['ipv6'].split("/")[0].lower() == neigh_ip.lower():
-                return {"vm": a_vm, "port": port}
-    logger.error("Could not find vm connected to neighbor IP: %s", neigh_ip)
-    logger.info("nbrhosts: {}".format(json.dumps(nbrhosts, indent=4)))
-    return None
-
-
 def get_port_by_ip(cfg_facts, ipaddr):
     """
     Returns the port which has a given IP address from the dut config.
@@ -755,7 +733,7 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
 
         # supervisor checks
         for entry in voq_dump:
-            matchstr = ':%s' % neighbor
+            matchstr = '|%s' % neighbor
             if entry.endswith(matchstr):
 
                 if "portchannel" in local_port.lower():
@@ -768,7 +746,7 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
                 logger.debug("Neigh key: %s, slotnum: %s", entry, slotname)
                 pytest_assert("|%s|" % slotname in entry,
                               "Slot for %s does not match %s" % (entry, slotname))
-                pytest_assert("|%s:" % local_port in entry,
+                pytest_assert("|%s|" % local_port in entry,
                               "Port for %s does not match %s" % (entry, local_port))
                 pytest_assert("|%s|" % asicname in entry,
                               "Asic for %s does not match %s" % (entry, asicname))
@@ -781,7 +759,7 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
                                                                          voq_dump[entry]['value']['encap_index'].lower()))
                 break
         else:
-            logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq", neighbor, sysport_info['slot'])
+            logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq", neighbor, sysport_info['slot'], sysport_info['asic'])
             fail_cnt += 1
 
         logger.info("Local %s/%s and chassisdb neighbor validation of %s is successful",
@@ -1206,4 +1184,3 @@ def eos_ping(eos, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=Non
         raise AssertionError("Ping failed: %s" % output['parsed'])
 
     return output
-

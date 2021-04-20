@@ -376,4 +376,3 @@ def test_voq_inband_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
                 check_voq_remote_neighbor(rem_host, rem_asic, neighbor_ip, inband_mac,
                                           remote_inband_info['port'],
                                           encap_idx, remote_inband_mac)
-

@@ -68,7 +68,7 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
 
                 node_results.append(node.command("sudo config bgp shutdown neighbor {}".format(neighbor)))
 
-        results[node['host'].hostname] = node_results
+        results[node.hostname] = node_results
 
     parallel_run(disable_dut_bgp_neighs, [all_cfg_facts], {}, duthosts.frontend_nodes, timeout=120)
 
@@ -168,7 +168,7 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
                     "docker exec bgp vtysh -c \"config t\" -c \"router bgp {}\" -c \"no neighbor {} shutdown\"".format(
                         asnum, neighbor)))
 
-        results[node['host'].hostname] = node_results
+        results[node.hostname] = node_results
 
     parallel_run(enable_dut_bgp_neighs, [all_cfg_facts], {}, duthosts.frontend_nodes, timeout=120)
 
@@ -298,7 +298,7 @@ def poll_neighbor_table_delete(duthosts, neighs, delay=1, poll_time=180):
                     else:
                         node_cleared = True
 
-    logger.info("Neighbor poll ends after %s seconds", str(time.time()-t0))
+    logger.info("Neighbor poll ends after %s seconds", str(time.time() - t0))
 
 
 def test_neighbor_clear_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
@@ -795,7 +795,7 @@ class TestNeighborLinkFlap(LinkFlap):
 
             for neighbor in neighbors:
                 pytest_assert(wait_until(60, 2, check_arptable_state, per_host, neighbor, "REACHABLE"),
-                              "STATE for neighbor %s did not change to reachable".format(neighbor))
+                              "STATE for neighbor {} did not change to reachable".format(neighbor))
 
             dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighbors, nbrhosts, all_cfg_facts, nbr_macs)
 

@@ -45,12 +45,12 @@ def bgp_redistribute_route_lo(duthosts, all_cfg_facts):
             asic_asn = all_cfg_facts[a_host.hostname][a_asic.asic_index]['ansible_facts']['DEVICE_METADATA']['localhost']['bgp_asn']
 
             send_command = a_asic.get_docker_cmd(
-               "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv4 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-               "bgp")
+                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv4 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
+                "bgp")
 
             send_command_ipv6 = a_asic.get_docker_cmd(
-               "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv6 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-               "bgp")
+                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv6 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
+                "bgp")
 
             a_host.command(send_command)
             a_host.command(send_command_ipv6)
