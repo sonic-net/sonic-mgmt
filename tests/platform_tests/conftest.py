@@ -62,7 +62,7 @@ def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
         for port in ports:
             duthost.no_shutdown(ifname=port)
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname):
     """
     Advance reboot log analysis.
