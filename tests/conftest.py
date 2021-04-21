@@ -192,6 +192,9 @@ def get_specified_duts(request):
     testbed_duts = tbinfo['duts']
 
     host_pattern = request.config.getoption("--host-pattern")
+    if host_pattern=='all':
+        return testbed_duts
+
     if ';' in host_pattern:
         specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
     else:
@@ -245,7 +248,7 @@ def rand_one_dut_hostname(request):
     """
     dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1) 
+        dut_hostnames = random.sample(dut_hostnames, 1)
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
 
