@@ -339,9 +339,21 @@ def increase_arp_cache(duthost, max_value, ip_ver, test_name):
         res = duthost.shell(get_cmd.format(ip_ver, thresh_id))
         if res["rc"] != 0:
             logger.warning("Unable to get kernel ARP cache size: \n{}".format(res))
-        else:
-            # Add cleanup step to restore ARP cache
-            RESTORE_CMDS[test_name].append("sysctl -w " + res["stdout"].replace(" ", ""))
+            continue
+
+        try:
+            # Sample output: net.ipv4.neigh.default.gc_thresh1 = 1024
+            cur_th = int(res["stdout"].split()[-1])
+        except:
+            logger.warning("Unable to determin kernel ARP cache size: \n{}".format(res))
+            continue
+
+        if cur_th >= max_value + 100:
+            logger.info("Skipping setting ARP cache size to {}, current {}".format(max_value, res['stdout']))
+            continue
+
+        # Add cleanup step to restore ARP cache
+        RESTORE_CMDS[test_name].append("sysctl -w " + res["stdout"].replace(" ", ""))
         cmd = set_cmd.format(ip_ver, thresh_id, max_value + 100)
         duthost.shell(cmd)
         logger.info("{}".format(cmd))
