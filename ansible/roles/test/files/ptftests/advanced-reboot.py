@@ -173,6 +173,7 @@ class ReloadTest(BaseTest):
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
            self.report_file_name = '/tmp/%s-report.json' % self.test_params['reboot_type']
+        self.report = dict()
         self.log_fp = open(self.log_file_name, 'w')
 
         self.packets_list = []
@@ -1104,15 +1105,22 @@ class ReloadTest(BaseTest):
 
         self.log("="*50)
 
-        self.report = {
-            "longest_downtime": (self.no_routing_stop - self.no_routing_start).total_seconds(),
-            "reboot_time": "0:00:00" if self.no_routing_stop and self.routing_always \
-                else (self.no_routing_stop - self.reboot_start).total_seconds()
-        }
-        # Add total downtime (calculated in physical warmboot test using packet disruptions)
+        if self.no_routing_stop and self.no_routing_start:
+            longest_downtime = (self.no_routing_stop - self.no_routing_start).total_seconds()
+        else:
+            longest_downtime = "N/A"
+        if self.no_routing_stop and self.reboot_start:
+            reboot_time = (self.no_routing_stop - self.reboot_start).total_seconds()
+        else:
+            reboot_time = "0:00:00"
         if 'warm-reboot' in self.reboot_type and not self.kvm_test:
-            self.report["total_downtime"] = self.total_disrupt_time
-
+            # Add total downtime (calculated in physical warmboot test using packet disruptions)
+            total_downtime = self.total_disrupt_time
+        else:
+            total_downtime = "N/A"
+        self.report["longest_downtime"] = longest_downtime
+        self.report["reboot_time"] = reboot_time
+        self.report["total_downtime"] = total_downtime
         with open(self.report_file_name, 'w') as reportfile:
             json.dump(self.report, reportfile)
 
