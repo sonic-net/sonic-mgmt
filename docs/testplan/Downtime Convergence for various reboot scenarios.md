@@ -226,23 +226,6 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 * In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results. 
 * Set it back to default configuration.
 #### Test results
-| Reboot Type         | Event | Convergence (s) |
-| :---         |     :---:      | :---: |
-|   | Server-Server Traffic  |   |
-|   | Server-T1 Traffic  |   |
-| Soft-reboot  | T1-Server Traffic  |   |
-|   | Control plane (Loopback ping)  |   |
-|   | BGP Control plane  |   |
-
-For above test case, below are the test results when BGP is running on routed interface without LAG.
-
-| Reboot Type         | Event | Convergence (s) |
-| :---         |     :---:      | :---: |
-|   | Server-Server Traffic  |   |
-|   | Server-T1 Traffic  |   |
-| Soft-reboot  | T1-Server Traffic  |   |
-|   | Control plane (Loopback ping)  |   |
-|   | BGP Control plane  |   |
 
 ### Call for action
-* Solicit experience in multi-DUT system test scenarios.# Downtime convergence for various reboot scenarios
+* Soft-reboot command is not available in cli. Once it is available will upstream the script.
