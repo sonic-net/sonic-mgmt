@@ -10,6 +10,7 @@ from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
     enable_packet_aging, start_pfcwd
+from tests.common.ixia.port import select_ports, select_tx_port
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
@@ -30,6 +31,7 @@ DEVIATION = 0.2
 
 def run_pfcwd_basic_test(api,
                          testbed_config,
+                         port_config_list,
                          conn_data,
                          fanout_data,
                          duthost,
@@ -42,7 +44,8 @@ def run_pfcwd_basic_test(api,
 
     Args:
         api (obj): IXIA session
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
         duthost (Ansible host instance): device under test
@@ -103,6 +106,7 @@ def run_pfcwd_basic_test(api,
 
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
+                          port_config_list=port_config_list,
                           port_id=port_id,
                           pause_flow_name=PAUSE_FLOW_NAME,
                           pause_flow_dur_sec=pfc_storm_dur_sec,
@@ -132,6 +136,7 @@ def run_pfcwd_basic_test(api,
 sec_to_nanosec = lambda x : x * 1e9
 
 def __gen_traffic(testbed_config,
+                  port_config_list,
                   port_id,
                   pause_flow_name,
                   pause_flow_dur_sec,
@@ -145,7 +150,8 @@ def __gen_traffic(testbed_config,
     Generate configurations of flows, including data flows and pause storm.
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test.
         pause_flow_name (str): name of pause storm
         pause_flow_dur_sec (float): duration of pause storm in second
@@ -163,12 +169,24 @@ def __gen_traffic(testbed_config,
     result = list()
 
     rx_port_id = port_id
-    tx_port_id = (port_id + 1) % len(testbed_config.devices)
+    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
+                                                    pattern="many to one",
+                                                    rx_port_id=rx_port_id)
+    pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
+    tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
+                                rx_port_id=rx_port_id)
+    pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
 
-    data_endpoint = DeviceTxRx(
-        tx_device_names=[testbed_config.devices[tx_port_id].name],
-        rx_device_names=[testbed_config.devices[rx_port_id].name],
-    )
+    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+
+    tx_mac = tx_port_config.mac
+    if tx_port_config.gateway == rx_port_config.gateway and \
+       tx_port_config.prefix_len == rx_port_config.prefix_len:
+        """ If soruce and destination port are in the same subnet """
+        rx_mac = rx_port_config.mac
+    else:
+        rx_mac = tx_port_config.gateway_mac
 
     """ PFC storm """
     pause_time = []
@@ -194,8 +212,8 @@ def __gen_traffic(testbed_config,
         pause_class_7=FieldPattern(choice=pause_time[7]),
     ))
 
-    pause_src_point = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name,
-                               rx_port_name=testbed_config.ports[tx_port_id].name)
+    pause_endpoint = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name,
+                              rx_port_name=testbed_config.ports[tx_port_id].name)
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -205,7 +223,7 @@ def __gen_traffic(testbed_config,
 
     pause_flow = Flow(
         name=pause_flow_name,
-        tx_rx=TxRx(pause_src_point),
+        tx_rx=TxRx(pause_endpoint),
         packet=[pause_pkt],
         size=Size(64),
         rate=Rate('pps', value=pps),
@@ -214,6 +232,9 @@ def __gen_traffic(testbed_config,
 
     result.append(pause_flow)
 
+    data_endpoint = PortTxRx(tx_port_name=testbed_config.ports[tx_port_id].name,
+                             rx_port_name=testbed_config.ports[rx_port_id].name)
+
     data_flow_rate_percent = int(100 / len(prio_list))
 
     """ For each data flow """
@@ -221,17 +242,21 @@ def __gen_traffic(testbed_config,
 
         """ For each priority """
         for prio in prio_list:
+            eth_hdr = EthernetHeader(src=FieldPattern(tx_mac),
+                                     dst=FieldPattern(rx_mac),
+                                     pfc_queue=FieldPattern([prio]))
+
             ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
                                     ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-            pfc_queue = FieldPattern([prio])
+
+            ipv4_hdr = Ipv4Header(src=FieldPattern(tx_port_config.ip),
+                                  dst=FieldPattern(rx_port_config.ip),
+                                  priority=ip_prio)
 
             data_flow = Flow(
                 name='{} Prio {}'.format(data_flow_name_list[i], prio),
                 tx_rx=TxRx(data_endpoint),
-                packet=[
-                    Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-                    Header(choice=Ipv4Header(priority=ip_prio))
-                ],
+                packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
                 size=Size(data_pkt_size),
                 rate=Rate('line', data_flow_rate_percent),
                 duration=Duration(FixedSeconds(seconds=data_flow_dur_sec_list[i],
