@@ -1,6 +1,5 @@
 import time
 from math import ceil
-from itertools import permutations
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
@@ -12,8 +11,8 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 from tests.common.ixia.port import select_ports
 
-from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate, Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header,Size, Rate,\
+    Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header

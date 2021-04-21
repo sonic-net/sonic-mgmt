@@ -12,8 +12,8 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     enable_packet_aging, start_pfcwd
 from tests.common.ixia.port import select_ports, select_tx_port
 
-from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size,\
+    Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
