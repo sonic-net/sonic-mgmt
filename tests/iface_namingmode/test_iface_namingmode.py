@@ -12,6 +12,8 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+PORT_TOGGLE_DELAY = 10
+
 @pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
@@ -632,7 +634,7 @@ class TestConfigInterface():
         if out['rc'] != 0:
             pytest.fail()
 
-        wait(3)
+        wait(PORT_TOGGLE_DELAY)
         show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
         logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
 
@@ -646,7 +648,7 @@ class TestConfigInterface():
         if out['rc'] != 0:
             pytest.fail()
 
-        wait(3)
+        wait(PORT_TOGGLE_DELAY)
         show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
         logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
 
