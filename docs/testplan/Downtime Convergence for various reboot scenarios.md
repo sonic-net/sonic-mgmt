@@ -65,8 +65,8 @@ Following test methodology will be used for measuring downtime convergence.
 Measure the downtime convergence time when warm-reboot is issued while traffic is running.
 
 <p float="left">
-  <img src="Img/Downtime-Convergence-Topology.png" width="500"  hspace="50"/>
-  <img src="Img/Downtime-convergence-graph.png" width="380" /> 
+  <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
+  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
 </p>
 
 
@@ -111,8 +111,8 @@ For above test case, below are the test results when BGP is running on routed in
 Measure the downtime convergence time when fast-reboot is issued while traffic is running.
 
 <p float="left">
-  <img src="Img/Downtime-Convergence-Topology.png" width="500"  hspace="50"/>
-  <img src="Img/Downtime-convergence-graph.png" width="380" /> 
+  <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
+  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
 </p>
 
 
@@ -157,8 +157,8 @@ For above test case, below are the test results when BGP is running on routed in
 Measure the downtime convergence time when cold-reboot is issued while traffic is running.
 
 <p float="left">
-  <img src="Img/Downtime-Convergence-Topology.png" width="500"  hspace="50"/>
-  <img src="Img/Downtime-convergence-graph.png" width="380" /> 
+  <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
+  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
 </p>
 
 
@@ -204,8 +204,8 @@ For above test case, below are the test results when BGP is running on routed in
 Measure the downtime convergence time when cold-reboot is issued while traffic is running.
 
 <p float="left">
-  <img src="Img/Downtime-Convergence-Topology.png" width="500"  hspace="50"/>
-  <img src="Img/Downtime-convergence-graph.png" width="380" /> 
+  <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
+  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
 </p>
 
 
