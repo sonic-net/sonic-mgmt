@@ -47,7 +47,7 @@ def verify_port(host_facts, ports):
 
 def verify_mac_address(host_facts, intfs, router_mac):
     for intf in intfs:
-        if intf.has_key('attachto'):
+        if 'attachto' in intf:
             ifname = intf['attachto']
         else:
             ifname = intf['name']
