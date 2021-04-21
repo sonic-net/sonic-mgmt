@@ -40,8 +40,8 @@ def pytest_runtest_teardown(item, nextitem):
             dut = duthosts[hostname]
 
         if not dut:
-            logger.warning('fallback to use duthost {} {}'.format(duthosts, hostname))
             dut = item.funcargs['duthost']
+            logger.warning('fallback to use duthost {} instead from {} {}'.format(dut.hostname, duthosts, hostname))
             hostname = dut.hostname
 
         logger.info("Execute test cleanup: dut {} {}".format(hostname, json.dumps(RESTORE_CMDS, indent=4)))
