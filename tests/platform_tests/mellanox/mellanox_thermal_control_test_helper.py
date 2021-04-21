@@ -389,7 +389,7 @@ class FanDrawerData:
         :return:
         """
         try:
-            fan_dir_value = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH.format(self.index)))
+            _ = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH.format(self.index)))
         except SysfsNotExistError as e:
             self.mocked_direction = NOT_AVAILABLE
             return
