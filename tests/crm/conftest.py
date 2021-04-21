@@ -1,5 +1,6 @@
 import pytest
 import time
+import json
 import logging
 
 from test_crm import RESTORE_CMDS, CRM_POLLING_INTERVAL
@@ -32,14 +33,25 @@ def pytest_runtest_teardown(item, nextitem):
             item.funcargs["duthost"].command(cmd)
 
         test_name = item.function.func_name
-        logger.info("Execute test cleanup")
+        duthosts = item.funcargs['duthosts']
+        hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
+        dut = None
+        if duthosts and hostname: # unable to test hostname in duthosts
+            dut = duthosts[hostname]
+
+        if not dut:
+            logger.warning('fallback to use duthost {} {}'.format(duthosts, hostname))
+            dut = item.funcargs['duthost']
+            hostname = dut.hostname
+
+        logger.info("Execute test cleanup: dut {} {}".format(hostname, json.dumps(RESTORE_CMDS, indent=4)))
         # Restore DUT after specific test steps
         # Test case name is used to mitigate incorrect cleanup if some of tests was failed on cleanup step and list of
         # cleanup commands was not cleared
         for cmd in RESTORE_CMDS[test_name]:
             logger.info(cmd)
             try:
-                item.funcargs["duthost"].shell(cmd)
+                dut.shell(cmd)
             except RunAnsibleModuleFail as err:
                 failures.append("Failure during command execution '{command}':\n{error}".format(command=cmd,
                     error=str(err)))
