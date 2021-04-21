@@ -74,7 +74,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         rand_one_dut_hostname: hostname of a randomly selected DUT
     """
     duthost = duthosts[rand_one_dut_hostname]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot")
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot", analyze_sairedis=True)
     marker = loganalyzer.init()
     loganalyzer.load_common_config()
 
@@ -91,61 +91,83 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     yield
 
     result = loganalyzer.analyze(marker, fail=False)
-    messages = result["expect_messages"].values()
-    if not messages:
-        logging.error("Expected messages not found in syslog")
-        return
-    messages = messages[0]
+    analyze_result = dict()
+    for key, messages in result["expect_messages"].items():
+        if "syslog" in key:
+            if not messages:
+                logging.error("Expected messages not found in syslog")
+                return
 
-    service_restart_times = dict()
-    service_patterns = {
-        "Stopping": re.compile(r'.*Stopping.*service.*'),
-        "Stopped": re.compile(r'.*Stopped.*service.*'),
-        "Starting": re.compile(r'.*Starting.*service.*'),
-        "Started": re.compile(r'.*Started.*service.*')
-    }
+            service_restart_times = dict()
+            service_patterns = {
+                "Stopping": re.compile(r'.*Stopping.*service.*'),
+                "Stopped": re.compile(r'.*Stopped.*service.*'),
+                "Starting": re.compile(r'.*Starting.*service.*'),
+                "Started": re.compile(r'.*Started.*service.*')
+            }
 
-    def service_time_check(message, status):
-        time = message.split(duthost.hostname)[0].strip()
-        service_name = message.split(status + " ")[1].split()[0]
-        service_dict = service_restart_times.get(service_name, {"timestamp": {}})
-        timestamps = service_dict.get("timestamp")
-        if status in timestamps:
-            service_dict[status+" count"] = service_dict.get(status+" count", 1) + 1
-        timestamps[status] = time
-        service_restart_times.update({service_name: service_dict})
+            def service_time_check(message, status):
+                time = message.split(duthost.hostname)[0].strip()
+                service_name = message.split(status + " ")[1].split()[0]
+                service_dict = service_restart_times.get(service_name, {"timestamp": {}})
+                timestamps = service_dict.get("timestamp")
+                if status in timestamps:
+                    service_dict[status+" count"] = service_dict.get(status+" count", 1) + 1
+                timestamps[status] = time
+                service_restart_times.update({service_name: service_dict})
 
-    for message in messages:
-        for status, pattern in service_patterns.items():
-            if re.search(pattern, message):
-                service_time_check(message, status)
+            for message in messages:
+                for status, pattern in service_patterns.items():
+                    if re.search(pattern, message):
+                        service_time_check(message, status)
 
-    loganalyzer.save_extracted_log(dest="/tmp/log/syslog")
-    logging.info(json.dumps(service_restart_times, indent=4))
+            loganalyzer.save_extracted_log(dest="/tmp/log/syslog")
+            logging.info(json.dumps(service_restart_times, indent=4))
 
-    FMT = "%b %d %H:%M:%S.%f"
-    for _, timings in service_restart_times.items():
-        timestamps = timings["timestamp"]
-        timings["stop_time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
-            datetime.strptime(timestamps["Stopping"], FMT)).total_seconds() \
-                if "Stopped" in timestamps and "Stopping" in timestamps else None
+            FMT = "%b %d %H:%M:%S.%f"
+            for _, timings in service_restart_times.items():
+                timestamps = timings["timestamp"]
+                timings["stop_time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
+                    datetime.strptime(timestamps["Stopping"], FMT)).total_seconds() \
+                        if "Stopped" in timestamps and "Stopping" in timestamps else None
 
-        timings["start_time"] = (datetime.strptime(timestamps["Started"], FMT) -\
-            datetime.strptime(timestamps["Starting"], FMT)).total_seconds() \
-                if "Started" in timestamps and "Starting" in timestamps else None
+                timings["start_time"] = (datetime.strptime(timestamps["Started"], FMT) -\
+                    datetime.strptime(timestamps["Starting"], FMT)).total_seconds() \
+                        if "Started" in timestamps and "Starting" in timestamps else None
 
-        timings["reboot_time"] = (datetime.strptime(timestamps["Started"], FMT) -\
-            datetime.strptime(timestamps["Stopped"], FMT)).total_seconds() \
-                if "Started" in timestamps and "Stopped" in timestamps else None
+                timings["reboot_time"] = (datetime.strptime(timestamps["Started"], FMT) -\
+                    datetime.strptime(timestamps["Stopped"], FMT)).total_seconds() \
+                        if "Started" in timestamps and "Stopped" in timestamps else None
 
-    files = glob.glob('/tmp/*-report.json')
-    if files:
-        filepath = files[0]
-        with open(filepath) as json_file:
-            report = json.load(json_file)
-            service_restart_times.update(report)
-    result = service_restart_times
-    logging.info(json.dumps(result, indent=4))
+            files = glob.glob('/tmp/*-report.json')
+            if files:
+                filepath = files[0]
+                with open(filepath) as json_file:
+                    report = json.load(json_file)
+                    service_restart_times.update(report)
+            analyze_result["Services"] = service_restart_times
+            logging.info(json.dumps(analyze_result["Services"], indent=4))
+
+        elif "sairedis.rec" in key:
+            state_times = dict()
+            state_patterns = {
+                "Start creating switch": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
+                "Finish creating switch": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
+                "Set default route": re.compile(r'.*\|S\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
+            }
+            states = ["Start creating switch", "Finish creating switch", "Set default route"]
+
+            for message in messages:
+                for state, pattern in state_patterns.items():
+                    if re.search(pattern, message):
+                        timestamp = message.split("|")[0].strip()
+                        state_times[state] = timestamp
+
+            for state in states:
+                logging.info("{:25s} : {}".format(state, state_times[state] if state in state_times else "N/A"))
+
+            analyze_result["sairedis_state"] = state_times
+
     report_file_name = request.node.name + "_report.json"
     report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
         "../logs/platform_tests/")))
@@ -153,7 +175,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     if not os.path.exists(report_file_dir):
         os.makedirs(report_file_dir)
     with open(report_file_path, 'w') as fp:
-        json.dump(result, fp, indent=4)
+        json.dump(analyze_result, fp, indent=4)
 
 
 def pytest_addoption(parser):

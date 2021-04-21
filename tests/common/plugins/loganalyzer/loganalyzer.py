@@ -16,6 +16,7 @@ COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
 COMMON_IGNORE = join(split(__file__)[0], "loganalyzer_common_ignore.txt")
 COMMON_EXPECT = join(split(__file__)[0], "loganalyzer_common_expect.txt")
 SYSLOG_TMP_FOLDER = "/tmp/syslog"
+SAIREDIS_TMP_FOLDER = "/tmp/sairedis.rec"
 
 
 class LogAnalyzerError(Exception):
@@ -25,7 +26,7 @@ class LogAnalyzerError(Exception):
 
 
 class LogAnalyzer:
-    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None):
+    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, analyze_sairedis=False):
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
@@ -40,6 +41,9 @@ class LogAnalyzer:
         self.expected_matches_target = 0
         self._markers = []
         self.fail = True
+        self.analyze_sairedis = analyze_sairedis
+        if self.analyze_sairedis:
+            self.extracted_sairedis_rec = os.path.join(self.dut_run_dir, "sairedis.rec")
 
     def _add_end_marker(self, marker):
         """
@@ -176,7 +180,8 @@ class LogAnalyzer:
                             "expect_messages": {},
                             "unused_expected_regexp": []
                             }
-        tmp_folder = ".".join((SYSLOG_TMP_FOLDER, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
+        timestamp = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
+        tmp_folder = ".".join((SYSLOG_TMP_FOLDER, timestamp))
         marker = marker.replace(' ', '_')
         self.ansible_loganalyzer.run_id = marker
 
@@ -209,22 +214,31 @@ class LogAnalyzer:
 
             # On DUT extract syslog files from /var/log/ and create one file by location - /tmp/syslog
             self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string=start_string, target_filename=self.extracted_syslog)
+            if self.analyze_sairedis:
+                self.ansible_host.extract_log(directory='/var/log/swss', file_prefix='sairedis.rec', start_string='recording on: /var/log/swss/sairedis.rec', target_filename=self.extracted_sairedis_rec)
         finally:
             # Enable logrotate cron task back
             self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
 
         # Download extracted logs from the DUT to the temporal folder defined in SYSLOG_TMP_FOLDER
         self.save_extracted_log(dest=tmp_folder)
+        file_list = [tmp_folder]
+
+        if self.analyze_sairedis:
+            tmp_rec_folder = ".".join((SAIREDIS_TMP_FOLDER, timestamp))
+            self.save_extracted_sairedis_rec(dest=tmp_rec_folder)
+            file_list.append(tmp_rec_folder)
 
         match_messages_regex = re.compile('|'.join(self.match_regex)) if len(self.match_regex) else None
         ignore_messages_regex = re.compile('|'.join(self.ignore_regex)) if len(self.ignore_regex) else None
         expect_messages_regex = re.compile('|'.join(self.expect_regex)) if len(self.expect_regex) else None
 
-        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list([tmp_folder], match_messages_regex, ignore_messages_regex, expect_messages_regex)
+        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex)
         # Print syslog file content and remove the file
-        with open(tmp_folder) as fo:
-            logging.debug("Syslog content:\n\n{}".format(fo.read()))
-        os.remove(tmp_folder)
+        for folder in file_list:
+            with open(folder) as fo:
+                logging.debug("Syslog content:\n\n{}".format(fo.read()))
+            os.remove(folder)
 
         total_match_cnt = 0
         total_expect_cnt = 0
@@ -262,3 +276,11 @@ class LogAnalyzer:
         @param dest: File path to store downloaded log file.
         """
         self.ansible_host.fetch(dest=dest, src=self.extracted_syslog, flat="yes")
+
+    def save_extracted_sairedis_rec(self, dest):
+        """
+        @summary: Download extracted sairedis recording file to the ansible host.
+
+        @param dest: File path to store downloaded log file.
+        """
+        self.ansible_host.fetch(dest=dest, src=self.extracted_sairedis_rec, flat="yes")
