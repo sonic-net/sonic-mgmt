@@ -74,7 +74,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         rand_one_dut_hostname: hostname of a randomly selected DUT
     """
     duthost = duthosts[rand_one_dut_hostname]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot", analyze_sairedis=True)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot", 
+                    additional_files=['/var/log/swss/sairedis.rec'], additional_start_str=['recording on: /var/log/swss/sairedis.rec'])
     marker = loganalyzer.init()
     loganalyzer.load_common_config()
 
