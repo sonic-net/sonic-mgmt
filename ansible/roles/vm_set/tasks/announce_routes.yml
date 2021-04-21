@@ -23,7 +23,7 @@
     ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
     ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
 
-- name: Start exabgp processes for IPv4 on PTF
+- name: (Re)start exabgp processes for IPv4 on PTF
   exabgp:
     name: "{{ vm_item.key }}"
     state: "restarted"
@@ -40,7 +40,7 @@
     loop_var: vm_item
   delegate_to: "{{ ptf_host }}"
 
-- name: Start exabgp processes for IPv6 on PTF
+- name: (Re)start exabgp processes for IPv6 on PTF
   exabgp:
     name: "{{ vm_item.key }}-v6"
     state: "restarted"
@@ -59,7 +59,7 @@
 
 - name: Wait for exabgp to (re)start
   pause:
-    seconds: "{{ 2 * [topology['VMs']|dict2items|length, 10] | min }}"
+    seconds: "{{ 2 * topology['VMs']|dict2items|length }}"
 
 - name: Verify that exabgp processes for IPv4 are started
   wait_for:
