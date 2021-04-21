@@ -9,7 +9,7 @@
   - [Setup configuration](#setup-configuration)
   - [Test Methodology](#test-methodology)
   - [Test cases](#test-cases)
-    - [Test case # 1 - Downtime convergence measurement for warm-reboot while sending traffic](#test-case-1-downtime-convergence-measurement-for-warm-reboot-while-sending-traffic)
+    - [Test case # 1 - Downtime convergence measurement for warm-reboot while sending traffic](#test-case--1--downtime-convergence-measurement-for-warm-reboot-while-sending-traffic)
       - [Test objective](#test-objective)
       - [Test steps](#test-steps)
       - [Test results](#test-results)
