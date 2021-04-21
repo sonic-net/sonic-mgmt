@@ -1508,8 +1508,7 @@ def test_ft_config_reload():
     #Comparision of Iterfaces between testbed file and DOM Sensor Command
     interfacesDOMSENSOR = [element['interface'] for element in basic_obj.get_redis_cli_interface_dom_sensors(vars.D1)]
     if interfacesTestBedFile.sort() != interfacesDOMSENSOR.sort():
-        st.report_fail(
-            "Test case failed as interfaces from testbed file didnt match with Interfaces from redis database")
+        st.report_fail("Test case failed as interfaces from testbed file didnt match with Interfaces from redis database")
     #Verification of Temperature, voltage
     for interface in interfacesDOMSENSOR:
         redisDomDetails = basic_obj.get_redis_int_dom(vars.D1, interface.split("Ethernet")[1])
