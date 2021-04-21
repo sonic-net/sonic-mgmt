@@ -102,7 +102,7 @@ For above test case, below are the test results when BGP is running on routed in
 |   | Control plane (Loopback ping)  | 23  |
 |   | BGP Control plane  | 91  |
 
-### Test case # 2 – Downtime Convergence measurement for fast-reboot while sending traffic.
+### Test case # 2 – Downtime Convergence measurement for fast-reboot while sending traffic
 #### Test objective
 Measure the downtime convergence time when fast-reboot is issued while traffic is running.
 
@@ -147,7 +147,7 @@ For above test case, below are the test results when BGP is running on routed in
 |   | Control plane (Loopback ping)  | 33  |
 |   | BGP Control plane  | 109  |
 
-### Test case # 3 – Downtime Convergence measurement for cold-reboot while sending traffic.
+### Test case # 3 – Downtime Convergence measurement for cold-reboot while sending traffic
 #### Test objective
 Measure the downtime convergence time when cold-reboot is issued while traffic is running.
 
@@ -193,7 +193,7 @@ For above test case, below are the test results when BGP is running on routed in
 |   | BGP Control plane  | 107  |
 
 
-### Test case # 4 – Downtime Convergence measurement for soft-reboot while sending traffic.
+### Test case # 4 – Downtime Convergence measurement for soft-reboot while sending traffic
 #### Test objective
 Measure the downtime convergence time when cold-reboot is issued while traffic is running.
 
