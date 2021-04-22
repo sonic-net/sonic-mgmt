@@ -106,7 +106,11 @@ def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Initialize parameters
-    dscp_mode = "pipe"
+    if "201811" in duthost.os_version or "201911" in duthost.os_version:
+        dscp_mode = "pipe"
+    else:
+        dscp_mode = "uniform"
+
     ecn_mode = "copy_from_outer"
     ttl_mode = "pipe"
 
