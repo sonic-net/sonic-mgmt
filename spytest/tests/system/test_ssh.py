@@ -281,7 +281,7 @@ def test_ft_ssh_add_user_verify():
         acl_snmp =+ 1
 
     ipaddress = st.get_mgmt_ip(vars.D1)
-    if not ipaddress or not ip_obj.ping(vars.D1, IPAddr.strip('/32')):
+    if not ipaddress or not ip_obj.ping(vars.D1, IPAddr.replace('/32', '')):
         st.error("Ping to SNMP server or getting ip address to the dut is failed after reload")
         acl_obj.acl_delete(vars.D1)
         config_nondefault_user(config='remove')
