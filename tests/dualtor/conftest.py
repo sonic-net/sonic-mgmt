@@ -2,9 +2,13 @@ import pytest
 import logging
 import time
 
-from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter # lgtm[py/unused-import]
+pytest_plugins = (
+    'tests.common.dualtor.dual_tor_utils',
+    'tests.common.dualtor.dual_tor_mock'
+)
+
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.fixtures.ptfhost_utils import run_garp_service
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service
 
 
 CRM_POLL_INTERVAL = 1
