@@ -1479,7 +1479,7 @@ def test_ft_config_reload():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
-  def test_ft_xcvrd_info_in_db():
+def test_ft_xcvrd_info_in_db():
     """
     Author: Harsha Golla <harsgoll@cisco.com>
     Validate the below
