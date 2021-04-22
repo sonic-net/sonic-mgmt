@@ -113,7 +113,7 @@ def parse_rib(host, ip_ver):
             aspath = set()
             for nexthop in nexthops:
                 # if internal route with aspath as '' skip adding
-                if nexthop['aspath'] =='':
+                if nexthop.has_key('path') and nexthop['path'] =='':
                     continue
                 aspath.add(nexthop['path'])
             # if aspath is valid, add it into routes
@@ -141,15 +141,16 @@ def remove_bgp_neighbors(duthost, asic_index):
     Remove the bgp neigbors for a particular BGP instance
     """
     namespace = duthost.get_namespace_from_asic_id(asic_index)
+    namespace_prefix = '-n ' + namespace if namespace else ''
 
     # Convert the json formatted result of sonic-cfggen into bgp_neighbors dict
-    bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --var-json {}".format('-n ' + namespace if namespace else '', "BGP_NEIGHBOR"))["stdout"])
-    cmd = 'sudo sonic-db-cli -n {} CONFIG_DB keys "BGP_NEI*" | xargs sonic-db-cli -n {} CONFIG_DB del'.format(namespace, namespace)
+    bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --var-json {}".format(namespace_prefix, "BGP_NEIGHBOR"))["stdout"])
+    cmd = 'sudo sonic-db-cli {} CONFIG_DB keys "BGP_NEI*" | xargs sonic-db-cli {} CONFIG_DB del'.format(namespace_prefix, namespace_prefix)
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
     restart_bgp(duthost, asic_index)
-    
+
     return bgp_neighbors
 
 def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
@@ -157,11 +158,12 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     Restore the bgp neigbors for a particular BGP instance
     """
     namespace = duthost.get_namespace_from_asic_id(asic_index)
+    namespace_prefix = '-n ' + namespace if namespace else ''
 
     # Convert the bgp_neighbors dict into json format after adding the table name.
     bgp_neigh_dict = {"BGP_NEIGHBOR":bgp_neighbors}
     bgp_neigh_json = json.dumps(bgp_neigh_dict)
-    duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format('-n ' + namespace if namespace else '', bgp_neigh_json))
+    duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
 
     # Restart BGP instance on that asic
     restart_bgp(duthost, asic_index)

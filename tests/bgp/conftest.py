@@ -22,7 +22,7 @@ from bgp_helpers import TEMPLATE_DIR
 from bgp_helpers import BGP_PLAIN_TEMPLATE
 from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
 from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 logger = logging.getLogger(__name__)
 
@@ -175,12 +175,21 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
                 [netaddr.IPAddress(vlan_intf["addr"])]
             )
 
+            loopback_ip = None
+            for intf in mg_facts["minigraph_lo_interfaces"]:
+                if netaddr.IPAddress(intf["addr"]).version == 4:
+                    loopback_ip = intf["addr"]
+                    break
+            if not loopback_ip:
+                pytest.fail("ipv4 lo interface not found")
+
             for local_intf, neighbor_addr in zip(local_interfaces, neighbor_addresses):
                 conn = {}
                 conn["local_intf"] = vlan_intf_name
                 conn["local_addr"] = vlan_intf_addr
                 conn["neighbor_addr"] = neighbor_addr
                 conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][local_intf]
+                conn["loopback_ip"] = loopback_ip
                 connections.append(conn)
 
             for conn in connections:
@@ -235,6 +244,7 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
                 conn["loopback_ip"] = loopback_ip
+                conn["namespace"] = DEFAULT_NAMESPACE
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
