@@ -172,7 +172,7 @@ def _get_default_zone(function, func_args, func_kargs):
     hostname = None
     if func_args:
         hostname = getattr(func_args[0], "hostname", None)
-    if not hostname or not isinstance(hostname, str):
+    if not hostname or type(hostname) not in [ str, unicode ]:
         raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
                          % type(func_args[0]))
     zone = hostname
