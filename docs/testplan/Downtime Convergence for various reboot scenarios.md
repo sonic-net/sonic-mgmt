@@ -35,7 +35,7 @@ These tests are targeted on fully functioning SONiC system. We will be measuring
 
 ### Keysight Testbed
 The tests will run on following testbeds:
-* t0, t1
+* t0
 
 ![Single DUT Topology ](Img/Single_DUT_Topology.png)
 
