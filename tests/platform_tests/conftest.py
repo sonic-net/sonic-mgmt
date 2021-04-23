@@ -119,20 +119,31 @@ def analyze_syslog(duthost, messages):
 def analyze_sairedis_rec(messages):
     state_times = dict()
     state_patterns = {
-        "Start creating switch": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
-        "Finish creating switch": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
-        "Set default route": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
+        "sai_switch_create|Started": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
+        "sai_switch_create|Stopped": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
+        "default_route_set|Started": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
     }
-    states = ["Start creating switch", "Finish creating switch", "Set default route"]
 
+    FMT = "%b %d %H:%M:%S.%f"
     for message in messages:
         for state, pattern in state_patterns.items():
             if re.search(pattern, message):
-                timestamp = message.split("|")[0].strip()
-                state_times[state] = timestamp
+                state_name = state.split("|")[0].strip()
+                state_status = state.split("|")[1].strip()
+                state_dict = state_times.get(state_name, {"timestamp": {}})
+                timestamps = state_dict.get("timestamp")
+                if state_status in timestamps:
+                    state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
+                timestamp = datetime.strptime(message.split("|")[0].strip(), "%Y-%m-%d.%H:%M:%S.%f")
+                time = timestamp.strftime(FMT)
+                timestamps[state_status] = time
+                state_times.update({state_name: state_dict})
 
-    for state in states:
-        logging.info("{:25s} : {}".format(state, state_times[state] if state in state_times else "N/A"))
+    for _, timings in state_times.items():
+        timestamps = timings["timestamp"]
+        if "Stopped" in timestamps and "Started" in timestamps:
+            timings["time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
+                datetime.strptime(timestamps["Started"], FMT)).total_seconds() \
 
     return state_times
 
@@ -172,13 +183,13 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             service_restart_times = analyze_syslog(duthost, messages)
             if service_restart_times is not None:
                 analyze_result["Services"] = service_restart_times
-                logging.info(json.dumps(analyze_result["Services"], indent=4))
 
         elif "sairedis.rec" in key:
             state_times = analyze_sairedis_rec(messages)
             if state_times is not None:
                 analyze_result["sairedis_state"] = state_times
 
+    logging.info(json.dumps(analyze_result, indent=4))
     report_file_name = request.node.name + "_report.json"
     report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
         "../logs/platform_tests/")))
