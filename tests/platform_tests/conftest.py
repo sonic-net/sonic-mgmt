@@ -121,7 +121,7 @@ def analyze_sairedis_rec(messages):
     state_patterns = {
         "Start creating switch": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
         "Finish creating switch": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
-        "Set default route": re.compile(r'.*\|S\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
+        "Set default route": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
     }
     states = ["Start creating switch", "Finish creating switch", "Set default route"]
 
