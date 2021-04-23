@@ -61,7 +61,9 @@ stages:
 
     - script: |
         # Reboot dut to ensure services are up and stable.
+        echo "Reboot DUT"
         sudo virsh reboot $(dut)
+        echo "sleep"
         sleep 120
         username=$(id -un)
         rm -rf $(Build.ArtifactStagingDirectory)/*
