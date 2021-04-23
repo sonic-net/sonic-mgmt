@@ -88,7 +88,6 @@ def run_pfc_test(api,
     flows = __gen_traffic(testbed_config=testbed_config,
                           port_config_list=port_config_list,
                           port_id=port_id,
-                          duthost=duthost,
                           pause_flow_name=PAUSE_FLOW_NAME,
                           global_pause=global_pause,
                           pause_prio_list=pause_prio_list,
@@ -145,7 +144,6 @@ sec_to_nanosec = lambda x : x * 1e9
 def __gen_traffic(testbed_config,
                   port_config_list,
                   port_id,
-                  duthost,
                   pause_flow_name,
                   global_pause,
                   pause_prio_list,
@@ -167,7 +165,6 @@ def __gen_traffic(testbed_config,
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test
-        duthost (Ansible host instance): device under test
         pause_flow_name (str): name of pause storm
         global_pause (bool): if pause frame is IEEE 802.3X pause
         pause_prio_list (list): priorities to pause for pause frames
@@ -192,9 +189,9 @@ def __gen_traffic(testbed_config,
 
     rx_port_id = port_id
     tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
-                                                    duthost=duthost,
                                                     pattern="many to one",
                                                     rx_port_id=rx_port_id)
+
     pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
     tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
                                 rx_port_id=rx_port_id)
