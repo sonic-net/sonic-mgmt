@@ -121,12 +121,15 @@
 
         - name: Extract VM names from the inventory
           set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort }}
+          when: VM_base|length > 0
 
         - name: Generate vm list of target VMs
           set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) }}
-          when: topology['VMs'] is defined
+          when:
+            - topology['VMs'] is defined
+            - VM_base|length > 0
       run_once: True
       delegate_to: localhost
 
   roles:
-    - { role: eos, when: topology.VMs is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task
+    - { role: eos, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task
