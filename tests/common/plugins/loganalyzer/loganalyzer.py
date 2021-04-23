@@ -17,6 +17,7 @@ COMMON_IGNORE = join(split(__file__)[0], "loganalyzer_common_ignore.txt")
 COMMON_EXPECT = join(split(__file__)[0], "loganalyzer_common_expect.txt")
 SYSLOG_TMP_FOLDER = "/tmp/syslog"
 
+
 class LogAnalyzerError(Exception):
     """Raised when loganalyzer found matches during analysis phase."""
     def __repr__(self):
@@ -24,7 +25,7 @@ class LogAnalyzerError(Exception):
 
 
 class LogAnalyzer:
-    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, additional_files=[], additional_start_str=[]):
+    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, additional_files={}):
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
@@ -39,10 +40,9 @@ class LogAnalyzer:
         self.expected_matches_target = 0
         self._markers = []
         self.fail = True
-        self.additional_files = additional_files
-        self.additional_start_str = additional_start_str
-        if self.additional_files and self.additional_start_str and len(self.additional_files) != len(self.additional_start_str):
-            raise Exception("Additional file length does not match additional start markers")
+
+        self.additional_files = list(additional_files.keys())
+        self.additional_start_str = list(additional_files.values())
 
     def _add_end_marker(self, marker):
         """
@@ -229,7 +229,7 @@ class LogAnalyzer:
         self.save_extracted_log(dest=tmp_folder)
         file_list = [tmp_folder]
 
-        for idx, path in enumerate(self.additional_files):
+        for path in self.additional_files:
             file_dir, file_name = split(path)
             extracted_file_name = os.path.join(self.dut_run_dir, file_name)
             tmp_folder = ".".join((extracted_file_name, timestamp))
