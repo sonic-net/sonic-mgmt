@@ -19,7 +19,7 @@ def collect_all_facts(duthost, namespace=None):
     sonic_db_cmd = "sonic-db-cli -n {} {} HGET {}{}{} {}"
     net_opersate = "cat /sys/class/net/{}/operstate"
     ports_list = []
-    if namespace == None:
+    if namespace is None:
         namespace = ""
     if namespace == "":
         _ = [ports_list.extend(config_facts.get(i, {}).keys())
