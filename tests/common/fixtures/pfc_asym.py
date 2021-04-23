@@ -24,9 +24,10 @@ ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "templates/arp_responder.conf.j2")
 def get_fanout(fanout_graph_facts, setup):
     for fanout_host_name, value in fanout_graph_facts.items():
         for _, ports in value["device_conn"].items():
-            for fanout_inf, peer_info in ports.items():
-                if peer_info["peerport"] == setup["ptf_test_params"]["server_ports"][0]["dut_name"]:
-                    return fanout_host_name
+            for attr, attr_info in ports.items():
+                if attr == "peerport":
+                    if attr_info == setup["ptf_test_params"]["server_ports"][0]["dut_name"]:
+                        return fanout_host_name
     return None
 
 
@@ -112,15 +113,13 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
             dev_conn = fanout_graph_facts[fanout_host_name]["device_conn"]
             plist = []
             if self.server_ports:
-                for _, val in dev_conn.items():
-                    p = ",".join([key for key, value in val.items() if value["peerport"] in self.used_server_ports])
-                    if p:
-                        plist.append(p)
+                p = ",".join([iface for iface, value in dev_conn.items() if value["peerport"] in self.used_server_ports])
+                if p:
+                    plist.append(p)
             if self.non_server_port:
-                for _, val in dev_conn.items():
-                    p = ",".join([key for key, value in val.items() if value["peerport"] in self.used_non_server_port])
-                    if p:
-                        plist.append(p)
+                p = ",".join([iface for iface, value in dev_conn.items() if value["peerport"] in self.used_non_server_port])
+                if p:
+                    plist.append(p)
             params["pfc_fanout_interface"] += ",".join([key for key in plist])
             fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
                 **params)
