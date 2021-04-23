@@ -7,7 +7,7 @@ pytestmark = [
 ]
 
 
-def collect_all_facts(duthost, namespace):
+def collect_all_facts(duthost, namespace=None):
     """
     Collect all data needed for test per each port from DUT
     :param duthost: DUT host object
@@ -19,8 +19,14 @@ def collect_all_facts(duthost, namespace):
     sonic_db_cmd = "sonic-db-cli -n {} {} HGET {}{}{} {}"
     net_opersate = "cat /sys/class/net/{}/operstate"
     ports_list = []
-    _ = [ports_list.extend(config_facts.get(i, {}).keys())
-         for i in ['port_name_to_alias_map', 'PORTCHANNEL', 'MGMT_INTERFACE']]
+    if namespace == None:
+        namespace = ""
+    if namespace == "":
+        _ = [ports_list.extend(config_facts.get(i, {}).keys())
+             for i in ['MGMT_INTERFACE']]
+    else:
+        _ = [ports_list.extend(config_facts.get(i, {}).keys())
+             for i in ['port_name_to_alias_map', 'PORTCHANNEL']]
     for name in ports_list:
         key = name
         # 6 stands for ethernet-csmacd and 161 stands for ieee8023adLag
@@ -35,10 +41,8 @@ def collect_all_facts(duthost, namespace):
             try:
                 admin = config_facts.get('PORT', {})[name]['admin_status']
             except KeyError:
-                #admin = duthost.shell(cmd.format(name, 'admin_status'))['stdout']
                 admin = duthost.shell(sonic_db_cmd.format(namespace, "APPL_DB", "PORT_TABLE", ":", name, "admin_status"))['stdout']
             result[portname].update({'adminstatus': admin})
-            #oper = duthost.shell(cmd.format(name, 'oper_status'))['stdout']
             oper = duthost.shell(sonic_db_cmd.format(namespace, "APPL_DB", "PORT_TABLE", ":", name, "oper_status"))['stdout']
             result[portname].update({'operstatus': oper})
             result[portname].update({'description': config_facts.get('PORT', {})[name]['description']})
@@ -52,6 +56,7 @@ def collect_all_facts(duthost, namespace):
             result[name].update({'operstatus': oper['stdout']})
             result[name].update({'description': config_facts.get(key_word, {})[name].get('description', '')})
         else:
+            key_word = "MGMT_PORT" 
             result.setdefault(name, {})
             result[name].update({'mtu': str(setup[key]['mtu'])})
             result[name].update({'type': if_type})
@@ -71,7 +76,6 @@ def verify_port_snmp(facts, snmp_facts):
     :return: Dict with unequal snmp_facts
     """
     missed = {}
-    import pdb; pdb.set_trace()
     snmp_port_map = { snmp_facts['snmp_interfaces'][idx]['name'] : idx for idx in snmp_facts['snmp_interfaces'] }
 
     for port_name in facts:
@@ -158,7 +162,6 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
     for po_name in config_facts.get('PORTCHANNEL', {}):
         assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
 
-@pytest.mark.bsl
 def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
     """compare the snmp facts between observed states and target state"""
 
@@ -174,6 +177,12 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     # Verify management port in snmp interface list
     for name in config_facts.get('MGMT_INTERFACE', {}):
         assert name in snmp_ifnames, "Management Interface not found in SNMP facts."
+
+    dut_facts = collect_all_facts(duthost)
+    ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
+    speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
+    result = verify_port_ifindex(snmp_facts, speed_snmp)
+    pytest_assert(not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, enum_asic_index):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
