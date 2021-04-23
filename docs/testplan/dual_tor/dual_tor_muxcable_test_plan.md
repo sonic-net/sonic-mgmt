@@ -4,17 +4,20 @@
 
 The scope of this test plan is to verify correct hardware behavior of the Muxcable(Y-Cable). This is a continuation to dual_tor_test_hld.md and please refer this document for more details on topology etc.
 
-The hardware features/properties of the Y-Cable are to be tested in this test plan. The focus is going to be on the following capabilities of the Y-Cable.
+The below hardware features/properties of the Y-Cable are to be tested in this test plan. The focus is going to be on the following capabilities of the Y-Cable.
 
-- Checking the read side of the Cable and establishing the read side is one of the valid values
-- Toggling the MUX to both the sides and ensure the mux-direction/active link side matches with the side mux is toggled to
+- Checking the read side of the Cable and establishing the read side is one of the valid values.
+- Toggling the MUX to both the sides and ensure the mux-direction/active link side matches with the side mux is toggled to.
 - Verify that the mux-direction/active link side also complies with traffic behavior. In particular the side mux is toggled to should be the only side TOR traffic reaches the NIC side. The traffic from NIC side to TOR should be braodcasted.
+- Verify that during toggle/failover number of frames dropped is minimal or zero or whatever the vendor expectation is from Y-Cable for drop count
+- Verify that number of frames received is equal to number of frames sent in both northbound/southbound traffic flows for a predefined set period of time.
 - Verify that the manual switch counter is incremented once the MUX is toggled.
-- Verify the Vendor name is correct by reading the register spec
+- Verify the Vendor name is correct (one of the expected values) by reading the register spec
 - Verify part number is correct by reading the register spec. The part number should be qualified by regex match of the value returned to the value vendor provides.
-- Verify with vendor name and model value, the appropriate model's import module can be imported using y_cable_vendor_mapping.py
+- Verify with vendor name and model value, the appropriate model's import module can be imported using y_cable_vendor_mapping.py mapping logic
 - Check the fimware version is returned correctly and is one of the acceptable values suggested by vendor. The major and minor number can be qualified by a regex match with a predefined pattern
 - Ensure firmware download, upgrade and rollback works fine.
+- Check LOS/LOL fields in the cable spec and check if they are correct
 
 These are some of the vendor specific hardware capabilities which should be tested if available.
 
@@ -50,12 +53,6 @@ The following command can be used to verify the mux port is active/standby
 show muxcable hwmode muxdirection
 ```
 
-The following command can be used to get the mux-direction of the cable
-
-```
-show muxcable hwmode muxdirection
-```
-
 The following command can be used to get the counters of the cable manual/auto
 
 ```
@@ -71,25 +68,25 @@ show muxcable cableinfo <port>
 The following command can be used to get the firmware version
 
 ```
-show muxcable hwmode firmware version <port>
+show muxcable firmware version <port>
 ```
 
 The following command can be used to download the firmware of the muxcable
 
 ```
-config muxcable hwmode firmware download <fwfile> <port>
+config muxcable firmware download <fwfile> <port>
 ```
 
 The following command can be used to activate the firmware of the muxcable
 
 ```
-config muxcable hwmode firmware activate <port>
+config muxcable firmware activate <port>
 ```
 
 The following command can be used to rollback the firmware of the muxcable
 
 ```
-config muxcable hwmode firmware rollback <port>
+config muxcable firmware rollback <port>
 ```
 
 The following command can be used to check the switchmode of the muxcable auto/manual
@@ -121,7 +118,7 @@ sudo show muxcable berinfo <physical_port> <target>
     |-|-|-|
     | Run Cli Command to get read_side of the muxcable | Read Side validation | Ensure the read side is one of the values which is expected from read side Cli command |
     ||||
-    | Toggle the MUX to active/standby | MUX toggle validation | Verify the toggle MUX functioning is happending correctly; Verify the toggle MUX register read is pointing to correct value |
+    | Toggle the MUX to active/standby | MUX toggle validation | Verify the toggle MUX functioning is happening correctly; Verify the toggle MUX register read is pointing to correct value |
     ||||
     | Verify the manual switch counter value is incremented once a toggle MUX is issued | manual switch counter validation | Verify the value is incremented once there is toggle issued |
     ||||
@@ -129,16 +126,25 @@ sudo show muxcable berinfo <physical_port> <target>
     ||||
     | Check the fimware version is returned correctly and is one of the acceptable values suggested by vendor | firmware version validation | Verify the firmware version is in inexpected regex format |
     ||||
-    | Verify firmware download, acticate, rollback execute correctly | firmware upgrade validation | Verify the firmware download executes correctly and return code is correct; firmware activate/download returns correct return code and firmware version command correctly reflect the change |
+    | Verify firmware download, activate, rollback execute correctly | firmware upgrade validation | Verify the firmware download executes correctly and return code is correct; firmware activate/download returns correct return code and firmware version command correctly reflect the change |
+    ||||
+    | Verify that show mux status matches with show mux hwmode muxdirection | linkmgr/cable sanity | Verify both the directions match with each other |
     ||||
 
 2. Server -> Active ToR
+   Server -> Standby ToR
 
     Traffic needs to be validated not reaching the server from one of the links.
     
     | Step | Goal | Expected results |
     |-|-|-|
-    | Mux toggle traffic validation | MUX correctly toggles | Verify traffic is broadcasted from Server to both ToR; ? |
+    | Mux toggle traffic validation from NIC to ToR | MUX correctly toggles | Verify traffic is broadcasted from Server to both ToR; Traffic to be sent from fanout switch to ToR, use tcpdump on ports to validate traffic |
+    ||||
+    | Mux toggle traffic validation from ToR to NIC | MUX correctly toggles | Verify traffic from only active ToR reaches the server; Traffic from standby ToR should not reach the server; use scapy to validate the traffic from ToR to server |
+    ||||
+    | traffic quantity validation from server to NIC | packet count to remain same | Verify number of frames sent from server to ToR and vice-versa on active link remain same; use counters on both fanout and DUT to check that frames match |
+    ||||
+    | During toggle record number of frames dropped | Verify no/minimalistic packet loss during toggle/failover | Verify number of frames sent during a failover are equal to the frmaes received from ToR to server |
     ||||
     | Normal traffic test | traffic validation of Y-Cable | Verify the BER/EYE/SnR are read correctly and in accepatble range |
     
