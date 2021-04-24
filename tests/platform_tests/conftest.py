@@ -159,6 +159,13 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         rand_one_dut_hostname: hostname of a randomly selected DUT
     """
     duthost = duthosts[rand_one_dut_hostname]
+    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
+    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
+        if 'vs' not in device_marks:
+            pytest.skip('Testcase not supported for kvm')
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot", 
                     additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec'})
     marker = loganalyzer.init()
