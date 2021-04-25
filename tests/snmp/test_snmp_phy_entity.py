@@ -163,6 +163,22 @@ def check_image_version(duthosts):
     yield
 
 
+def is_sensor_test_supported(duthost):
+    """
+    Check whether new sensor test is supported in the image.
+    The new sensor test is not supported in 201811, 201911 and 202012
+    The assumption is that image under test always has a correct version.
+    If image version doesn't including above "version keyword", it will be considered
+    as a newer version which support the new sensor test. 
+    """
+    if "201811" in duthost.os_version or "201911" in duthost.os_version or "202012" in duthost.os_version:
+        logging.info("Image doesn't support new sensor test, image version {}, test will be skipped".format(duthost.os_version))
+        return False
+    else:
+        logging.info("Image support new sensor test, image version {}, test will be performed".format(duthost.os_version))
+        return True
+
+
 @pytest.fixture(scope="module")
 def snmp_physical_entity_and_sensor_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """
@@ -288,7 +304,8 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
 
         if not is_null_str(fan_info['speed']):
             tachometers_oid = expect_oid + SENSOR_TYPE_FAN
-            assert tachometers_oid in snmp_physical_entity_info, 'Cannot find fan tachometers info in physical entity mib'
+            assert tachometers_oid in snmp_physical_entity_info, \
+                'Cannot find fan tachometers info in physical entity mib'
             tachometers_fact = snmp_physical_entity_info[tachometers_oid]
             assert tachometers_fact['entPhysDescr'] == 'Tachometers for {}'.format(name)
             assert tachometers_fact['entPhysContainedIn'] == expect_oid
@@ -303,18 +320,19 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             assert tachometers_fact['entPhysModelName'] == ''
             assert tachometers_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
-        # Check fan tachometer sensor facts
-        expect_sensor_oid = expect_oid + SENSOR_TYPE_FAN
-        assert expect_sensor_oid in snmp_entity_sensor_info, 'Cannot find fan {} in entity sensor mib'.format(name)
-        tachometers_sensor_fact = snmp_entity_sensor_info[expect_sensor_oid]
-        assert tachometers_sensor_fact['entPhySensorType'] == str(int(EntitySensorDataType.UNKNOWN))
-        assert tachometers_sensor_fact['entPhySensorPrecision'] == '0'
-        assert tachometers_sensor_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
-        # Fan tachometer sensor value(percent) is a int between 0 and 100
-        assert (0 < int(tachometers_sensor_fact['entPhySensorValue']) <= 100)
-        assert tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
-               or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
-               or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
+        # snmp_entity_sensor_info is only supported in image newer than 202012
+        if is_sensor_test_supported(duthost):
+            expect_sensor_oid = expect_oid + SENSOR_TYPE_FAN
+            assert expect_sensor_oid in snmp_entity_sensor_info, 'Cannot find fan {} in entity sensor mib'.format(name)
+            tachometers_sensor_fact = snmp_entity_sensor_info[expect_sensor_oid]
+            assert tachometers_sensor_fact['entPhySensorType'] == str(int(EntitySensorDataType.UNKNOWN))
+            assert tachometers_sensor_fact['entPhySensorPrecision'] == '0'
+            assert tachometers_sensor_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
+            # Fan tachometer sensor value(percent) is a int between 0 and 100
+            assert (0 < int(tachometers_sensor_fact['entPhySensorValue']) <= 100)
+            assert tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
+                   or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
+                   or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
 
 
 def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
@@ -359,10 +377,10 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         assert psu_snmp_fact['entPhysModelName'] == '' if is_null_str(psu_info['model']) else psu_info['model']
         assert psu_snmp_fact['entPhysIsFRU'] == REPLACEABLE if psu_info['is_replaceable'] == 'True' else NOT_REPLACEABLE
 
-        _check_psu_sensor(name, psu_info, expect_oid, snmp_physical_entity_and_sensor_info)
+        _check_psu_sensor(duthost, name, psu_info, expect_oid, snmp_physical_entity_and_sensor_info)
 
 
-def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_and_sensor_info):
+def _check_psu_sensor(duthost, psu_name, psu_info, psu_oid, snmp_physical_entity_and_sensor_info):
     """
     Check PSU sensor information in physical entity mib
     :param psu_name: PSU name
@@ -395,22 +413,24 @@ def _check_psu_sensor(psu_name, psu_info, psu_oid, snmp_physical_entity_and_sens
         assert phy_entity_snmp_fact['entPhysModelName'] == ''
         assert phy_entity_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
 
-        entity_sensor_snmp_facts = snmp_entity_sensor_info[expect_oid]
-        if field == "current":
-            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.AMPERES))
-        elif field == "voltage":
-            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.VOLTS_DC))
-        elif field == "power":
-            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.WATTS))
-        elif field == "temperature":
-            assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS))
-        else:
-            continue
-        assert entity_sensor_snmp_facts['entPhySensorPrecision'] == '3'
-        assert entity_sensor_snmp_facts['entPhySensorScale'] == EntitySensorDataScale.UNITS
-        assert entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
-               or entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
-               or entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
+        # snmp_entity_sensor_info is only supported in image newer than 202012
+        if is_sensor_test_supported(duthost):
+            entity_sensor_snmp_facts = snmp_entity_sensor_info[expect_oid]
+            if field == "current":
+                assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.AMPERES))
+            elif field == "voltage":
+                assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.VOLTS_DC))
+            elif field == "power":
+                assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.WATTS))
+            elif field == "temperature":
+                assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS))
+            else:
+                continue
+            assert entity_sensor_snmp_facts['entPhySensorPrecision'] == '3'
+            assert entity_sensor_snmp_facts['entPhySensorScale'] == EntitySensorDataScale.UNITS
+            assert entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
+                   or entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
+                   or entity_sensor_snmp_facts['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
 
 
 def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
@@ -435,7 +455,8 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
         if not entity_info or entity_info['parent_name'] != CHASSIS_KEY:
             continue
         position = int(entity_info['position_in_parent'])
-        expect_oid = CHASSIS_MGMT_SUB_ID + DEVICE_TYPE_CHASSIS_THERMAL + position * DEVICE_INDEX_MULTIPLE + SENSOR_TYPE_TEMP
+        expect_oid = CHASSIS_MGMT_SUB_ID + DEVICE_TYPE_CHASSIS_THERMAL + position * DEVICE_INDEX_MULTIPLE + \
+            SENSOR_TYPE_TEMP
         assert expect_oid in snmp_physical_entity_info, 'Cannot find thermal {} in physical entity mib'.format(name)
         thermal_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert thermal_snmp_fact['entPhysDescr'] == name
@@ -450,14 +471,16 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
         assert thermal_snmp_fact['entPhysMfgName'] == ''
         assert thermal_snmp_fact['entPhysModelName'] == ''
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
-
-        thermal_sensor_snmp_fact = snmp_entity_sensor_info[expect_oid]
-        assert thermal_sensor_snmp_fact['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS))
-        assert thermal_sensor_snmp_fact['entPhySensorPrecision'] == '3'
-        assert thermal_sensor_snmp_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
-        assert thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
-               or thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
-               or thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
+        
+        # snmp_entity_sensor_info is only supported in image newer than 202012
+        if is_sensor_test_supported(duthost):
+            thermal_sensor_snmp_fact = snmp_entity_sensor_info[expect_oid]
+            assert thermal_sensor_snmp_fact['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS))
+            assert thermal_sensor_snmp_fact['entPhySensorPrecision'] == '3'
+            assert thermal_sensor_snmp_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS
+            assert thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
+                   or thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
+                   or thermal_sensor_snmp_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
 
 
 def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
@@ -494,7 +517,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
         assert transceiver_snmp_fact['entPhysMfgName'] == transceiver_info['manufacturer']
         assert transceiver_snmp_fact['entPhysModelName'] == transceiver_info['model']
         assert transceiver_snmp_fact['entPhysIsFRU'] == REPLACEABLE if transceiver_info[
-                                                                           'is_replaceable'] == 'True' else NOT_REPLACEABLE
+                                                                        'is_replaceable'] == 'True' else NOT_REPLACEABLE
         _check_transceiver_dom_sensor_info(duthost, name, transceiver_snmp_fact['oid'], snmp_physical_entity_info)
 
 
@@ -619,9 +642,15 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
             assert expect_oid in entity_mib_info
             for field, sensor_tuple in PSU_SENSOR_INFO.items():
                 sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
-                if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
-                    power_off_psu_found = True
-                    break
+                # entity_sensor_mib_info is only supported in image newer than 202012
+                if is_sensor_test_supported(duthost):
+                    if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
+                        power_off_psu_found = True
+                        break
+                else:
+                    if sensor_oid not in entity_mib_info:
+                        power_off_psu_found = True
+                        break
     return power_off_psu_found
 
 
@@ -680,8 +709,12 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
 
         if not is_null_str(fan_info['speed']):
             tachometers_oid = expect_oid + SENSOR_TYPE_FAN
-            assert tachometers_oid not in entity_mib_info and tachometers_oid not in entity_sensor_mib_info, \
-                'Absence fan tachometers info should not in mib'
+            # entity_sensor_mib_info is only supported in image newer than 202012
+            if is_sensor_test_supported(duthost):
+                assert tachometers_oid not in entity_mib_info and tachometers_oid not in entity_sensor_mib_info, \
+                    'Absence fan tachometers info should not in mib'
+            else:
+                assert tachometers_oid not in entity_mib_info, 'Absence fan tachometers info should not in mib'
 
 
 def redis_get_keys(duthost, db_id, pattern):
