@@ -62,8 +62,8 @@ def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
         for port in ports:
             duthost.no_shutdown(ifname=port)
 
-@pytest.fixture(autouse=True)
-def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname):
+@pytest.fixture()
+def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     """
     Advance reboot log analysis.
     This fixture starts log analysis at the beginning of the test. At the end,
@@ -146,6 +146,14 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname):
             service_restart_times.update(report)
     result = service_restart_times
     logging.info(json.dumps(result, indent=4))
+    report_file_name = request.node.name + "_report.json"
+    report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
+        "../logs/platform_tests/")))
+    report_file_path = report_file_dir + "/" + report_file_name
+    if not os.path.exists(report_file_dir):
+        os.makedirs(report_file_dir)
+    with open(report_file_path, 'w') as fp:
+        json.dump(result, fp, indent=4)
 
 
 def pytest_addoption(parser):
