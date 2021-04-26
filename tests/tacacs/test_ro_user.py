@@ -86,7 +86,7 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
             "sudo docker ps -a",
         ],
         "lldpctl": ["sudo lldpctl"],
-        "vtysh": ['sudo rvtysh -c "show version"', 'sudo rvtysh -c "show bgp ipv4 summary json"', 'sudo rvtysh -c "show bgp ipv6 summary json"'],
+        "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"', 'sudo vtysh -c "show bgp ipv6 summary json"'],
         "rvtysh": ['sudo rvtysh -c "show ip bgp su"', 'sudo rvtysh -n 0 -c "show ip bgp su"'],
         "decode-syseeprom": ["sudo decode-syseeprom"],
         "generate_dump": ['sudo generate_dump -s "5 secs ago"'],
