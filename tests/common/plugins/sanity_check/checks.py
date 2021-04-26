@@ -324,7 +324,7 @@ def get_arp_pkt_info(dut):
 
 
 @pytest.fixture(scope='module')
-def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
+def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
                         recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
 
     def _check(*args, **kwargs):
@@ -342,6 +342,8 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
                     'failed_reason': '',
                     'check_item': '{} mux simulator'.format(ptf_server_intf)
                 }
+        request.getfixturevalue('run_garp_service')
+        request.getfixturevalue('run_icmp_responder')
 
         logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
         ptf_port_index = int(ptf_server_intf.replace('eth', ''))
@@ -456,6 +458,9 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
             return results
 
         logger.info('Finished mux simulator check')
+        upper_tor_host.shell("ip neigh flush all")
+        lower_tor_host.shell("ip neigh flush all")
+
         return results
     return _check
 
