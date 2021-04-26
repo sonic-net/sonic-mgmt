@@ -2,6 +2,8 @@
 Utility functions can re-used in testing scripts.
 """
 import collections
+import inspect
+import ipaddress
 import logging
 import six
 import sys
@@ -9,11 +11,16 @@ import threading
 import time
 import re
 
+from io import BytesIO
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
 
+from tests.common.cache import cached
+from tests.common.cache import FactsCache
+
 logger = logging.getLogger(__name__)
+cache = FactsCache()
 
 
 def wait(seconds, msg=""):
@@ -85,6 +92,10 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
 class InterruptableThread(threading.Thread):
     """Thread class that can be interrupted by Exception raised."""
 
+    def set_error_handler(self, error_handler):
+        """Add error handler callback that will be called when the thread exits with error."""
+        self.error_handler = error_handler
+
     def run(self):
         """
         @summary: Run the target function, call `start()` to start the thread
@@ -95,6 +106,8 @@ class InterruptableThread(threading.Thread):
             threading.Thread.run(self)
         except Exception:
             self._e = sys.exc_info()
+            if getattr(self, "error_handler", None) is not None:
+                self.error_handler(*self._e)
 
     def join(self, timeout=None, suppress_exception=False):
         """
@@ -144,7 +157,62 @@ def get_variable_manager(inv_files):
     return VariableManager(loader=DataLoader(), inventory=get_inventory_manager(inv_files))
 
 
-def get_host_vars(inv_files, hostname, variable=None):
+def get_inventory_files(request):
+    """Use request.config.getoption('ansible_inventory') to the get list of inventory files.
+       The 'ansible_inventory' option could have already been converted to a list by #enchance_inventory fixture.
+       Args:
+            request: request paramater for pytest.
+    """
+    if isinstance(request.config.getoption("ansible_inventory"), list):
+        # enhance_inventory fixture changes ansible_inventory to a list.
+        inv_files = request.config.getoption("ansible_inventory")
+    else:
+        inv_files = [inv_file.strip() for inv_file in request.config.getoption("ansible_inventory").split(",")]
+    return inv_files
+
+
+def _get_parameter(function, func_args, func_kargs, argname):
+    """Get the parameter passed as argname to function."""
+    args_binding = inspect.getcallargs(function, *func_args, **func_kargs)
+    return args_binding.get(argname) or args_binding.get("kargs").get(argname)
+
+
+def zone_getter_factory(argname):
+    """Create zone getter function used to retrieve parameter as zone."""
+
+    def _zone_getter(function, func_args, func_kargs):
+        param = _get_parameter(function, func_args, func_kargs, argname)
+        if param is None:
+            raise ValueError("Failed to get parameter '%s' from function %s as zone." % (argname, function))
+        return param
+
+    return _zone_getter
+
+
+def _check_inv_files_after_read(facts, function, func_args, func_kargs):
+    """Check if inventory file matches after read host variable from cached files."""
+    if facts is not FactsCache.NOTEXIST:
+        inv_files = _get_parameter(function, func_args, func_kargs, "inv_files")
+        if inv_files == facts["inv_files"]:
+            return facts["vars"]
+    # no facts cached or facts not in the same inventory, return `NOTEXIST`
+    # to force calling the decorated function to get facts
+    return FactsCache.NOTEXIST
+
+
+def _mark_inv_files_before_write(facts, function, func_args, func_kargs):
+    """Add inventory to the facts before write to cached file."""
+    inv_files = _get_parameter(function, func_args, func_kargs, "inv_files")
+    return {"inv_files": inv_files, "vars": facts}
+
+
+@cached(
+    "host_vars",
+    zone_getter=zone_getter_factory("hostname"),
+    after_read=_check_inv_files_after_read,
+    before_write=_mark_inv_files_before_write
+)
+def get_host_vars(inv_files, hostname):
     """Use ansible's InventoryManager to get value of variables defined for the specified host in the specified
     inventory files.
 
@@ -152,26 +220,25 @@ def get_host_vars(inv_files, hostname, variable=None):
         inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
         hostname (string): Hostname
-        variable (string or None): Variable name. Defaults to None.
 
     Returns:
-        string or dict or None: If variable name is specified, return the variable value. If variable is not found,
-            return None. If variable name is not specified, return all variables in a dictionary. If the host is not
-            found, return None.
+        dict or None: dict if the host is found, None if the host is not found.
     """
     im = get_inventory_manager(inv_files)
     host = im.get_host(hostname)
     if not host:
         logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
         return None
-
-    if variable:
-        return host.vars.get(variable, None)
-    else:
-        return host.vars
+    return host.vars.copy()
 
 
-def get_host_visible_vars(inv_files, hostname, variable=None):
+@cached(
+    "host_visible_vars",
+    zone_getter=zone_getter_factory("hostname"),
+    after_read=_check_inv_files_after_read,
+    before_write=_mark_inv_files_before_write
+)
+def get_host_visible_vars(inv_files, hostname):
     """Use ansible's VariableManager and InventoryManager to get value of variables visible to the specified host.
     The variable could be defined in host_vars or in group_vars that the host belongs to.
 
@@ -179,12 +246,9 @@ def get_host_visible_vars(inv_files, hostname, variable=None):
         inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
         hostname (string): Hostname
-        variable (string or None): Variable name. Defaults to None.
 
     Returns:
-        string or dict or None: If variable name is specified, return the variable value. If variable is not found,
-            return None. If variable name is not specified, return all variables in a dictionary. If the host is not
-            found, return None.
+        dict or None: dict if the host is found, None if the host is not found.
     """
     vm = get_variable_manager(inv_files)
     im = vm._inventory
@@ -192,13 +256,16 @@ def get_host_visible_vars(inv_files, hostname, variable=None):
     if not host:
         logger.error("Unable to find host {} in {}".format(hostname, str(inv_files)))
         return None
-    if variable:
-        return vm.get_vars(host=host).get(variable, None)
-    else:
-        return vm.get_vars(host=host)
+    return vm.get_vars(host=host)
 
 
-def get_group_visible_vars(inv_files, group_name, variable=None):
+@cached(
+    "group_visible_vars",
+    zone_getter=zone_getter_factory("group_name"),
+    after_read=_check_inv_files_after_read,
+    before_write=_mark_inv_files_before_write
+)
+def get_group_visible_vars(inv_files, group_name):
     """Use ansible's VariableManager and InventoryManager to get value of variables visible to the first host belongs
     to the specified group. The variable could be defined in host_vars of the first host or in group_vars that the host
     belongs to.
@@ -207,12 +274,9 @@ def get_group_visible_vars(inv_files, group_name, variable=None):
         inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
         group_name (string): Name of group in ansible inventory.
-        variable (string or None): Variable name. Defaults to None.
 
     Returns:
-        string or dict or None: If variable name is specified, return the variable value. If variable is not found,
-            return None. If variable name is not specified, return all variables in a dictionary. If the group is not
-            found or there is no host in the group, return None.
+        dict or None: dict if the host is found, None if the host is not found.
     """
     vm = get_variable_manager(inv_files)
     im = vm._inventory
@@ -225,13 +289,30 @@ def get_group_visible_vars(inv_files, group_name, variable=None):
         logger.error("No host in group {}".format(group_name))
         return None
     first_host = group_hosts[0]
-    if variable:
-        return vm.get_vars(host=first_host).get(variable, None)
-    else:
-        return vm.get_vars(host=first_host)
+    return vm.get_vars(host=first_host)
 
 
-def get_test_server_vars(inv_files, server, variable=None):
+def get_test_server_host(inv_files, server):
+    """Get test server ansible host from the 'server' column in testbed file."""
+    vm = get_variable_manager(inv_files)
+    im = vm._inventory
+    group = im.groups.get(server, None)
+    if not group:
+        logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
+        return None
+    for host in group.get_hosts():
+        if not re.match(r'VM\d+', host.name):   # This must be the test server host
+            return host
+    return None
+
+
+@cached(
+    "test_server_vars",
+    zone_getter=zone_getter_factory("server"),
+    after_read=_check_inv_files_after_read,
+    before_write=_mark_inv_files_before_write
+)
+def get_test_server_vars(inv_files, server):
     """Use ansible's VariableManager and InventoryManager to get value of variables of test server belong to specified
     server group.
 
@@ -244,24 +325,106 @@ def get_test_server_vars(inv_files, server, variable=None):
         inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
         server (string): Server of test setup in testbed.csv file.
-        variable (string or None): Variable name. Defaults to None.
 
     Returns:
-        string or dict or None: If variable name is specified, return the variable value. If variable is not found,
-            return None. If variable name is not specified, return all variables in a dictionary. If the server group
-            is not found or there is no test server host in the group, return None.
+        dict or None: dict if the host is found, None if the host is not found.
     """
-    vm = get_variable_manager(inv_files)
-    im = vm._inventory
-    group = im.groups.get(server, None)
-    if not group:
-        logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
+    host = get_test_server_host(inv_files, server)
+    if not host:
+        logger.error("Unable to find test server host under group {}".format(server))
         return None
-    for host in group.get_hosts():
-        if not re.match(r'VM\d+', host.name):   # This must be the test server host
-            if variable:
-                return host.vars.get(variable, None)
-            else:
-                return host.vars
-    logger.error("Unable to find test server host under group {}".format(server))
-    return None
+    return host.vars.copy()
+
+
+@cached(
+    "test_server_visible_vars",
+    zone_getter=zone_getter_factory("server"),
+    after_read=_check_inv_files_after_read,
+    before_write=_mark_inv_files_before_write
+)
+def get_test_server_visible_vars(inv_files, server):
+    """Use ansible's VariableManager and InventoryManager to get value of variables visible to the specified server
+    group.
+
+    In testbed.csv file, we can get the server name of each test setup under the 'server' column. For example
+    'server_1', 'server_2', etc. This server name is indeed a group name in used ansible inventory files. This group
+    contains children groups for test server and VMs. This function is try to just return the variables visible to
+    the server group.
+
+    Args:
+        inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
+            it can be get from request.config.getoption("ansible_inventory").
+        server (string): Server of test setup in testbed.csv file.
+
+    Returns:
+        dict or None: dict if the host is found, None if the host is not found.
+    """
+    test_server_host = get_test_server_host(inv_files, server)
+    vm = get_variable_manager(inv_files)
+    if not test_server_host:
+        logger.error("Unable to find host %s in %s", test_server_host, inv_files)
+        return None
+
+    return vm.get_vars(host=test_server_host)
+
+
+def is_ipv4_address(ip_address):
+    """Check if ip address is ipv4."""
+    try:
+        ipaddress.IPv4Address(ip_address)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
+
+def compare_crm_facts(left, right):
+    """Compare CRM facts
+
+    Args:
+        left (dict): crm facts returned by dut.get_crm_facts()
+        right (dict): crm facts returned by dut.get_crm_facts()
+
+    Returns:
+        list: List of unmatched items.
+    """
+    unmatched = []
+
+    for k, v in left['resources'].items():
+        lv = v
+        rv = right['resources'][k]
+        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+
+    left_acl_group = {}
+    for ag in left['acl_group']:
+        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
+        left_acl_group[key] = {
+            'available': ag['available count'],
+            'used': ag['used count']
+        }
+
+    right_acl_group = {}
+    for ag in left['acl_group']:
+        key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
+        right_acl_group[key] = {
+            'available': ag['available count'],
+            'used': ag['used count']
+        }
+
+    for k, v in left_acl_group.items():
+        lv = v
+        rv = right_acl_group[k]
+        if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+
+    return unmatched
+
+
+def dump_scapy_packet_show_output(packet):
+    """Dump packet show output to string."""
+    _stdout, sys.stdout = sys.stdout, BytesIO()
+    try:
+        packet.show()
+        return sys.stdout.getvalue()
+    finally:
+        sys.stdout = _stdout

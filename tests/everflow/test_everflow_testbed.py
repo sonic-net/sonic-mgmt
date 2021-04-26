@@ -19,6 +19,11 @@ pytestmark = [
 ]
 
 
+MEGABYTE = 1024 * 1024
+DEFAULT_PTF_SOCKET_RCV_SIZE = 1 * MEGABYTE
+DEFAULT_PTF_QLEN = 15000
+
+
 @pytest.fixture
 def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
     """
@@ -42,7 +47,8 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
                   'session_dscp' : session_info['session_dscp'],
                   'acl_stage' : acl_stage,
                   'mirror_stage' : mirror_type,
-                  'expect_received' : expect_receive }
+                  'expect_received' : expect_receive,
+                  'check_ttl' : 'True' if not duthost.is_multi_asic else 'False' }
         params.update(kwargs)
 
         ptf_runner(host=ptfhost,
@@ -50,7 +56,8 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
                    platform_dir="ptftests",
                    testname="everflow_tb_test.EverflowTest" if not test_name else test_name,
                    params=params,
-                   socket_recv_size=16384,
+                   socket_recv_size=DEFAULT_PTF_SOCKET_RCV_SIZE,
+                   qlen=DEFAULT_PTF_QLEN,
                    log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
 
     return _partial_ptf_runner
@@ -68,15 +75,20 @@ class EverflowIPv4Tests(BaseEverflowTest):
         This fixture parametrize  dest_port_type and can perform action based
         on that. As of now cleanup is being done here.
         """
+        duthost = duthosts[rand_one_dut_hostname]
+
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"",setup_info[request.param]["namespace"]))
         yield request.param
         
-        duthost = duthosts[rand_one_dut_hostname]
 
         for index in range(0, min(3, len(setup_info[request.param]["dest_port"]))):
             tx_port = setup_info[request.param]["dest_port"][index]
-            peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
+            peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info[request.param]["namespace"])
+            everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip, setup_info[request.param]["namespace"])
+
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"",setup_info[request.param]["namespace"]))
+        time.sleep(15)
 
 
     def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
@@ -90,12 +102,13 @@ class EverflowIPv4Tests(BaseEverflowTest):
             - Route creation and removal
         """
         duthost = duthosts[rand_one_dut_hostname]
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"", setup_info[dest_port_type]["namespace"]))
 
         # Add a route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][0]
-        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-        time.sleep(3)
+        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -110,9 +123,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
         # Add a (better) unresolved route to the mirror session destination IP
-        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo, resolved=False)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
-        time.sleep(3)
+        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo, resolved=False)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is still sent along the original route
         self._run_everflow_test_scenarios(
@@ -125,13 +138,13 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
         # Remove the unresolved route
-        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip, setup_info[dest_port_type]["namespace"])
 
         # Add a better route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][1]
-        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session['session_prefixes'][1], peer_ip)
-        time.sleep(3)
+        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session['session_prefixes'][1], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic uses the new route
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][1]
@@ -145,8 +158,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
         # Remove the better route.
-        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip)
-        time.sleep(3)
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][1], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic switches back to the original route
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
@@ -158,15 +171,16 @@ class EverflowIPv4Tests(BaseEverflowTest):
             rx_port_ptf_id,
             [tx_port_ptf_id]
         )
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"", setup_info[dest_port_type]["namespace"]))
 
     def test_everflow_neighbor_mac_change(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
         duthost = duthosts[rand_one_dut_hostname]
         # Add a route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][0]
-        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-        time.sleep(3)
+        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -184,8 +198,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
         if setup_info[dest_port_type]["dest_port_lag_name"][0] != "Not Applicable":
             tx_port = setup_info[dest_port_type]["dest_port_lag_name"][0]
 
-        duthost.shell("ip neigh replace {} lladdr 00:11:22:33:44:55 nud permanent dev {}".format(peer_ip, tx_port))
-        time.sleep(3)
+        duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip neigh replace {} lladdr 00:11:22:33:44:55 nud permanent dev {}".
+                      format(peer_ip, tx_port), setup_info[dest_port_type]["namespace"]))
+        time.sleep(15)
         try:
             # Verify that everything still works
             self._run_everflow_test_scenarios(
@@ -199,8 +214,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         finally:
             # Clean up the test
-            duthost.shell("ip neigh del {} dev {}".format(peer_ip, tx_port))
-            duthost.shell("ping {} -c3".format(peer_ip))
+            duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip neigh del {} dev {}".format(peer_ip, tx_port), setup_info[dest_port_type]["namespace"]))
+            duthost.get_asic_or_sonic_host_from_namespace(setup_info[dest_port_type]["namespace"]).command("ping {} -c3".format(peer_ip))
 
         # Verify that everything still works
         self._run_everflow_test_scenarios(
@@ -217,14 +232,14 @@ class EverflowIPv4Tests(BaseEverflowTest):
         duthost = duthosts[rand_one_dut_hostname]
         # Create two ECMP next hops
         tx_port = setup_info[dest_port_type]["dest_port"][0]
-        peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-        time.sleep(3)
+        peer_ip_0 = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         tx_port = setup_info[dest_port_type]["dest_port"][1]
-        peer_ip_1, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
-        time.sleep(3)
+        peer_ip_1 = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is sent to one of the next hops
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -241,11 +256,15 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tx_port_ptf_ids
         )
 
+        # Remaining Scenario not applicable for this topology
+        if len(setup_info[dest_port_type]["dest_port"]) <= 2:
+            return
+
         # Add another ECMP next hop
         tx_port = setup_info[dest_port_type]["dest_port"][2]
-        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-        time.sleep(3)
+        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is not sent to this new next hop
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][2]
@@ -256,12 +275,13 @@ class EverflowIPv4Tests(BaseEverflowTest):
             duthost,
             rx_port_ptf_id,
             [tx_port_ptf_id],
-            expect_recv=False
+            expect_recv=False,
+            valid_across_namespace=False
         )
 
         # Remove the extra hop
-        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip)
-        time.sleep(3)
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is not sent to the deleted next hop
         self._run_everflow_test_scenarios(
@@ -271,7 +291,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
             duthost,
             rx_port_ptf_id,
             [tx_port_ptf_id],
-            expect_recv=False
+            expect_recv=False,
+            valid_across_namespace=False
         )
 
         # Verify that mirrored traffic is still sent to one of the original next hops
@@ -286,12 +307,17 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
+
+        # Remaining Scenario not applicable for this topology
+        if len(setup_info[dest_port_type]["dest_port"]) <= 2:
+            pytest.skip("Skip test as not enough neighbors/ports.")
+
         duthost = duthosts[rand_one_dut_hostname]
         # Add a route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][0]
-        peer_ip_0, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-        time.sleep(3)
+        peer_ip_0 = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -307,13 +333,13 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         # Add two new ECMP next hops
         tx_port = setup_info[dest_port_type]["dest_port"][1]
-        peer_ip_1, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1)
+        peer_ip_1 = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_1, setup_info[dest_port_type]["namespace"])
 
         tx_port = setup_info[dest_port_type]["dest_port"][2]
-        peer_ip_2, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_2)
-        time.sleep(3)
+        peer_ip_2 = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_2, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that traffic is still sent along the original next hop
         self._run_everflow_test_scenarios(
@@ -322,7 +348,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
             setup_mirror_session,
             duthost,
             rx_port_ptf_id,
-            [tx_port_ptf_id]
+            [tx_port_ptf_id],
+            valid_across_namespace=False
         )
 
         # Verify that traffic is not sent along either of the new next hops
@@ -337,12 +364,13 @@ class EverflowIPv4Tests(BaseEverflowTest):
             duthost,
             rx_port_ptf_id,
             tx_port_ptf_ids,
-            expect_recv=False
+            expect_recv=False,
+            valid_across_namespace=False
         )
 
         # Remove the original next hop
-        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0)
-        time.sleep(3)
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip_0, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         # Verify that mirrored traffic is no longer sent along the original next hop
         self._run_everflow_test_scenarios(
@@ -375,18 +403,44 @@ class EverflowIPv4Tests(BaseEverflowTest):
             config_method,
             tbinfo
     ):
-        """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table."""
+        """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table.
+        This tests single rate three color policer mode and specifically checks CIR value
+        and switch behaviour under condition when CBS is assumed to be fully absorbed while
+        sending traffic over a period of time. Received packets are accumulated and actual
+        receive rate is calculated and compared with CIR value with tollerance range 10%.
+        """
+        # Add explicit for regular packet so that it's dest port is different then mirror port
+        # NOTE: This is important to add since for the Policer test case regular packets
+        # and mirror packets can go to same interface, which causes tail drop of
+        # police packets and impacts test case cir/cbs calculation.
+        default_tarffic_port_type = "tor" if dest_port_type == "spine" else "spine"
+        default_traffic_tx_port = setup_info[default_tarffic_port_type]["dest_port"][0]
+        default_traffic_peer_ip = everflow_utils.get_neighbor_info(duthost, default_traffic_tx_port, tbinfo)
+        everflow_utils.add_route(duthost, self.DEFAULT_DST_IP + "/32", default_traffic_peer_ip, setup_info[default_tarffic_port_type]["namespace"])
+        time.sleep(15)
+
         # Add explicit route for the mirror session
         tx_port = setup_info[dest_port_type]["dest_port"][0]
-        peer_ip, _ = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip)
+        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
+        everflow_utils.add_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip, setup_info[dest_port_type]["namespace"])
+        time.sleep(15)
 
         try:
             # Add MIRROR_DSCP table for test
             table_name = "EVERFLOW_DSCP"
             table_type = "MIRROR_DSCP"
-            self.apply_acl_table_config(duthost, table_name, table_type, config_method)
+            rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+            bind_interface = setup_info[dest_port_type]["src_port"]
+            if setup_info[dest_port_type]["src_port_lag_name"] != "Not Applicable":
+                bind_interface = setup_info[dest_port_type]["src_port_lag_name"]
 
+            # Temp change for multi-asic to create acl table in host and namespace
+            # Will be removed once CLI is command is enahnced to work across all namespaces.
+            self.apply_acl_table_config(duthost, table_name, table_type, config_method, [bind_interface])
+            bind_interface_namespace = self._get_port_namespace(setup_info, int(rx_port_ptf_id))
+            if bind_interface_namespace:
+                self.apply_acl_table_config(duthost, table_name, table_type, config_method, [bind_interface], bind_interface_namespace) 
             # Add rule to match on DSCP
             self.apply_acl_rule_config(duthost,
                                        table_name,
@@ -395,9 +449,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                        rules=EVERFLOW_DSCP_RULES)
 
             # Run test with expected CIR/CBS in packets/sec and tolerance %
-            rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
-            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-
             partial_ptf_runner(setup_info,
                                policer_mirror_session,
                                self.acl_stage(),
@@ -410,23 +461,22 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                meter_type="packets",
                                cir="100",
                                cbs="100",
+                               send_time="10",
                                tolerance="10")
         finally:
             # Clean up ACL rules and routes
             self.remove_acl_rule_config(duthost, table_name, config_method)
             self.remove_acl_table_config(duthost, table_name, config_method)
-            everflow_utils.remove_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip)
+            if bind_interface_namespace:
+                self.remove_acl_table_config(duthost, table_name, config_method, bind_interface_namespace)
+            everflow_utils.remove_route(duthost, policer_mirror_session["session_prefixes"][0], peer_ip, setup_info[dest_port_type]["namespace"])
+            everflow_utils.remove_route(duthost, self.DEFAULT_DST_IP + "/32", default_traffic_peer_ip, setup_info[default_tarffic_port_type]["namespace"])
 
-    def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port, tx_ports, expect_recv=True):
+    def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port, tx_ports, expect_recv=True, valid_across_namespace=True):
         # FIXME: In the ptf_runner version of these tests, LAGs were passed down to the tests as comma-separated strings of
         # LAG member port IDs (e.g. portchannel0001 -> "2,3"). Because the DSCP test is still using ptf_runner we will preserve
         # this for now, but we should try to make the format a little more friendly once the DSCP test also gets converted.
-        tx_port_ids = []
-        for port in tx_ports:
-            members = port.split(',')
-            for member in members:
-                tx_port_ids.append(int(member))
-
+        tx_port_ids = self._get_tx_port_id_list(tx_ports)
         pkt_dict = {
             "(src ip)": self._base_tcp_packet(ptfadapter, setup, src_ip="20.0.0.10"),
             "(dst ip)": self._base_tcp_packet(ptfadapter, setup, dst_ip="30.0.0.10"),
@@ -449,7 +499,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 pkt,
                 src_port=rx_port,
                 dest_ports=tx_port_ids,
-                expect_recv=expect_recv
+                expect_recv=expect_recv,
+                valid_across_namespace=valid_across_namespace
             )
 
     def _base_tcp_packet(

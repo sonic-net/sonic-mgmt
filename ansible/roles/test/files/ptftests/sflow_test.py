@@ -16,8 +16,8 @@ import threading
 import time
 import select
 from collections import Counter
-import logging 
-import ast 
+import logging
+import ast
 
 class SflowTest(BaseTest):
     def __init__(self):
@@ -38,7 +38,7 @@ class SflowTest(BaseTest):
         if 'polling_int' in self.test_params:
             self.poll_tests = True
             self.polling_int =  self.test_params['polling_int']
-        else: 
+        else:
             self.poll_tests = False
         with open(self.sflow_ports_file) as fp:
             self.interfaces = json.load(fp)
@@ -86,7 +86,7 @@ class SflowTest(BaseTest):
                   stderr=subprocess.STDOUT,
                   shell = False
                   )
-   
+
           flow_count = 0
           counter_count = 0
           port_sample ={}
@@ -135,13 +135,13 @@ class SflowTest(BaseTest):
 
     def packet_analyzer(self, port_sample, collector, poll_test):
         logging.info("Analysing collector  %s"%collector)
-        data= {} 
+        data= {}
         data['total_samples'] = 0
         data['total_flow_count'] = port_sample[collector]['flow_count']
         data['total_counter_count'] = port_sample[collector]['counter_count']
-        data['total_samples'] =  port_sample[collector]['flow_count'] + port_sample[collector]['counter_count'] 
+        data['total_samples'] =  port_sample[collector]['flow_count'] + port_sample[collector]['counter_count']
         logging.info(data)
-        if data['total_flow_count']: 
+        if data['total_flow_count']:
             data['flow_port_count'] = Counter(k['inputPort']  for k  in port_sample[collector]['FlowSample'].values())
 
         if collector not in self.active_col:
@@ -154,7 +154,7 @@ class SflowTest(BaseTest):
                     logging.info("....Polling is disabled , Number of counter samples collected %s"%data['total_counter_count'])
                     self.assertTrue(data['total_counter_count'] == 0,
                         "Received %s counter packets when polling is disabled in %s"%(data['total_counter_count'],collector))
-                else: 
+                else:
                     logging.info("..Analyzing polling test counter packets")
                     self.assertTrue(data['total_samples'] != 0 ,
                         "....Packets are not received in active collector  ,%s"%collector)
@@ -188,23 +188,23 @@ class SflowTest(BaseTest):
         for port in counter_sample:
             # checking  for max  2 samples instead of 1 considering  initial time delay before tests as the counter sampling is random and non-deterministic over period of polling time
             self.assertTrue(1 <= counter_sample[port] <= 2," %s counter sample packets are collected  in %s seconds of  polling interval in port %s instead of 1 or 2  "%(counter_sample[port],self.polling_int,port))
-                
+
     #---------------------------------------------------------------------------
 
-    def analyze_flow_sample(self, data, collector): 
+    def analyze_flow_sample(self, data, collector):
         logging.info("packets collected from interfaces ifindex : %s" %data['flow_port_count'])
-        logging.info("Expected number of packets from each port : %s to %s"%(50*0.6,50*1.4))
+        logging.info("Expected number of packets from each port : %s to %s" % (100 * 0.6, 100 * 1.4))
         for port in self.interfaces:
-            ifindex = self.interfaces[port]['ifindex'] 
-            logging.info("....%s : Flow packets collected from port %s = %s"%(collector,port,data['flow_port_count'][ifindex]))
+            index = self.interfaces[port]['port_index'] ##NOTE: hsflowd is sending index instead of ifindex.
+            logging.info("....%s : Flow packets collected from port %s = %s"%(collector,port,data['flow_port_count'][index]))
             if port in self.enabled_intf :
                 # Checking samples with tolerance of 40 % as the sampling is random and  not deterministic.Over many samples it should converge to a mean of 1:N
-                # Number of packets sent = 50 * sampling rate of interface 
-                self.assertTrue(50*0.6 <= data['flow_port_count'][ifindex] <= 50*1.4 ,
-                        "Expected Number of samples are not collected  collected from Interface %s  in collector %s , Received %s" %(port,collector,data['flow_port_count'][ifindex]))
+                # Number of packets sent = 100 * sampling rate of interface
+                self.assertTrue(100 * 0.6 <= data['flow_port_count'][index] <= 100 * 1.4 ,
+                        "Expected Number of samples are not collected  collected from Interface %s  in collector %s , Received %s" %(port,collector,data['flow_port_count'][index]))
             else:
-                self.assertTrue(data['flow_port_count'][ifindex] == 0 ,
-                               "Packets are collected from Non Sflow interface %s in collector %s"%(port,collector)) 
+                self.assertTrue(data['flow_port_count'][index] == 0 ,
+                               "Packets are collected from Non Sflow interface %s in collector %s"%(port,collector))
 
     #---------------------------------------------------------------------------
 
@@ -213,8 +213,8 @@ class SflowTest(BaseTest):
         ip_dst_addr = '192.168.0.4'
         src_mac = self.dataplane.get_mac(0, 0)
         pktlen=100
-        #send 50*sampling_rate packets in each interface for better  analysis
-        for j in range(0,50,1):
+        #send 100 * sampling_rate packets in each interface for better analysis
+        for j in range(0, 100, 1):
             index = 0
             for intf in self.interfaces:
                 ip_src_addr = str(self.src_ip_list[index])
@@ -249,12 +249,12 @@ class SflowTest(BaseTest):
            if self.polling_int==0:
               time.sleep(20)
            else:
-               #wait for polling time for collector to collect packets 
+               #wait for polling time for collector to collect packets
                logging.info("Waiting for % seconds of polling interval"%self.polling_int)
                time.sleep(self.polling_int)
-        else: 
+        else:
            self.sendTraffic()
-           time.sleep(5)
+           time.sleep(10) # For Test Stability
         self.stop_collector = True
         thr1.join()
         thr2.join()
@@ -262,4 +262,4 @@ class SflowTest(BaseTest):
         logging.debug(self.collector1_samples)
         self.packet_analyzer(self.collector0_samples,'collector0',self.poll_tests)
         self.packet_analyzer(self.collector1_samples,'collector1',self.poll_tests)
- 
+

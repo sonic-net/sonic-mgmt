@@ -42,7 +42,7 @@ def _validate_parameters(tr_details):
     return True
 
 
-def get_counter_name(mode,tg_type,comp_type,direction):
+def get_counter_name(mode,tg_type,comp_type,direction,logger=True):
     tg_type2 = "ixia" if tg_type == "scapy" else tg_type
     traffic_counters = {
         'aggregate': {
@@ -126,7 +126,8 @@ def get_counter_name(mode,tg_type,comp_type,direction):
         }
 
     counter_name = traffic_counters[mode][tg_type2][direction][comp_type]
-    st.debug('TG type: {}, Comp_type: {}, Direction: {}, Counter_name: {}'.format(tg_type, comp_type, direction, counter_name))
+    if logger:
+        st.debug('TG type: {}, Comp_type: {}, Direction: {}, Counter_name: {}'.format(tg_type, comp_type, direction, counter_name))
     return counter_name
 
 
@@ -150,10 +151,13 @@ def _fetch_stats(obj, port, mode, comp_type, direction, stream_elem=None):
     """
 
     stats_mode = 'streamblock' if mode in ['streams', 'traffic_item'] else mode
-    counter_name = get_counter_name(stats_mode, obj.tg_type, comp_type, direction)
+    counter_name = get_counter_name(stats_mode, obj.tg_type, comp_type, direction, logger=False)
     tx_counter = int()
     stats = dict()
-    for loop in range(1, 4):
+    for loop in range(0, 4):
+        if loop > 0:
+            st.log('TG stats are not fully ready. Trying to fetch stats again.... iteration {}'.format(loop))
+            st.wait(2, 'waiting before fetch stats again')
         stats = obj.tg_traffic_stats(port_handle=port, mode=mode)
         if obj.tg_type == 'stc':
             if mode == 'streams':
@@ -172,10 +176,6 @@ def _fetch_stats(obj, port, mode, comp_type, direction, stream_elem=None):
                 tx_counter = 0
             if stats.get('waiting_for_stats', '1') == '0' and (direction == 'rx' or tx_counter != 0):
                     break
-
-        st.wait(2, 'waiting before fetch stats again')
-        st.log('TG stats are not fully ready. Trying to fetch stats again.... iteration {}'.format(loop))
-
     if direction == 'tx' and not tx_counter:
         (name, value) = ('stream handle', stream_elem) if stream_elem else ('port', port)
         msg = 'TX Counter {} is 0 (zero) for {}: {}'.format(counter_name, name, value)
@@ -192,17 +192,6 @@ def _verify_aggregate_stats(tr_details,mode,comp_type,tolerance_factor,delay_fac
     delay = 5 * float(delay_factor)
     tolerance = 5 * float(tolerance_factor)
 
-    ################### scapy ######################
-    for tr_pair in range(1,len(tr_details)+1):
-        tr_pair = str(tr_pair)
-        tx_objs = tr_details[tr_pair]['tx_obj']
-        for obj in tx_objs:
-            if obj.tg_type == 'scapy':
-                delay = 1 * delay
-                break
-        break
-    ################### scapy ######################
-
     st.tg_wait(delay, "aggregate_stats")
 
     port_stats = dict()
@@ -214,44 +203,61 @@ def _verify_aggregate_stats(tr_details,mode,comp_type,tolerance_factor,delay_fac
         rx_ports = tr_details[tr_pair]['rx_ports']
         rx_obj = tr_details[tr_pair]['rx_obj']
 
+        cmsg = 'Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format(tr_pair, tx_ports, rx_ports)
         st.log('Validating Traffic, Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format(tr_pair,tx_ports,rx_ports))
-        exp_val = 0
-        for port,obj,ratio in zip(tx_ports,tx_obj,exp_ratio):
-            tx_ph = obj.get_port_handle(port)
-            # tx_stats = obj.tg_traffic_stats(port_handle=tx_ph, mode=mode)
-            if tx_ph not in port_stats:
-                port_stats[tx_ph] = _fetch_stats(obj, tx_ph, mode, comp_type, 'tx')
-            tx_stats = port_stats[tx_ph]
-            #st.debug(tx_stats)
-            counter_name = get_counter_name(mode,obj.tg_type,comp_type,'tx')
-            cur_tx_val = int(tx_stats[tx_ph][mode]['tx'][counter_name])
-            st.log('Transmit counter_name: {}, counter_val: {}'.format(counter_name,cur_tx_val))
-            exp_val += cur_tx_val * ratio
-        st.log('Total Tx from ports {}: {}'.format(tx_ports,exp_val))
+        retry_count = retry + 1 if not retry and comp_type == 'packet_rate' else retry
+        tx_ph, rx_ph = None, None
+        for loop in range(0, int(retry_count) + 1):
+            if loop > 0:
+                st.log('The difference is not in the given tolerance. So, retrying the stats fetch once again....{}'.format(loop))
+                st.wait(2, 'waiting to before fetch stats again')
+                for port in [tx_ph, rx_ph]: port_stats.pop(port, '')
+            exp_val = 0
+            for port,obj,ratio in zip(tx_ports,tx_obj,exp_ratio):
+                tx_ph = obj.get_port_handle(port)
+                # tx_stats = obj.tg_traffic_stats(port_handle=tx_ph, mode=mode)
+                if tx_ph not in port_stats:
+                    port_stats[tx_ph] = _fetch_stats(obj, tx_ph, mode, comp_type, 'tx')
+                tx_stats = port_stats[tx_ph]
+                #st.debug(tx_stats)
+                counter_name = get_counter_name(mode,obj.tg_type,comp_type,'tx')
+                cur_tx_val = int(tx_stats[tx_ph][mode]['tx'][counter_name])
+                st.log('Transmit counter_name: {}, counter_val: {}'.format(counter_name,cur_tx_val))
+                exp_val += cur_tx_val * ratio
+            st.log('Total Tx from ports {}: {}'.format(tx_ports,exp_val))
 
-        for port,obj in zip(rx_ports,rx_obj):
-            rx_ph = obj.get_port_handle(port)
-            # rx_stats = obj.tg_traffic_stats(port_handle=rx_ph, mode=mode)
-            if rx_ph not in port_stats:
-                port_stats[rx_ph] = _fetch_stats(obj, rx_ph, mode, comp_type, 'rx')
-            rx_stats = port_stats[rx_ph]
-            #st.debug(rx_stats)
-            counter_name = get_counter_name(mode,obj.tg_type,comp_type,'rx')
-            real_rx_val = int(rx_stats[rx_ph][mode]['rx'][counter_name])
-            st.log('Receive counter_name: {}, counter_val: {}'.format(counter_name,real_rx_val))
+            for port,obj in zip(rx_ports,rx_obj):
+                rx_ph = obj.get_port_handle(port)
+                # rx_stats = obj.tg_traffic_stats(port_handle=rx_ph, mode=mode)
+                if rx_ph not in port_stats:
+                    port_stats[rx_ph] = _fetch_stats(obj, rx_ph, mode, comp_type, 'rx')
+                rx_stats = port_stats[rx_ph]
+                #st.debug(rx_stats)
+                counter_name = get_counter_name(mode,obj.tg_type,comp_type,'rx')
+                real_rx_val = int(rx_stats[rx_ph][mode]['rx'][counter_name])
+                st.log('Receive counter_name: {}, counter_val: {}'.format(counter_name,real_rx_val))
 
-        st.log('Total Rx on ports {}: {}'.format(rx_ports, real_rx_val))
+            st.log('Total Rx on ports {}: {}'.format(rx_ports, real_rx_val))
 
-        diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / cur_tx_val)
-        if diff <= tolerance:
-            st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format('Success',tr_pair,tx_ports,rx_ports))
-            st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
-            ret_all.append(True)
-        else:
+            diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / cur_tx_val)
+            if diff <= tolerance:
+                st.log('Traffic Validation: {}, {}'.format('Success',cmsg))
+                st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+                ret_all.append(True)
+                break
+            elif loop != retry_count:
+                if not retry and comp_type == 'packet_rate' and diff > (tolerance + 5):
+                    msg = 'The traffic difference is in not between {} and {}. Skipping the retry'.format(tolerance, tolerance + 5)
+                    st.debug(msg)
+                else:
+                    st.log('Traffic Varification: {}, {}'.format('Failure', cmsg))
+                    st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val, real_rx_val, diff))
+                    continue
             return_value = False
             ret_all.append(False)
-            st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}'.format('Failure',tr_pair,tx_ports,rx_ports))
+            st.log('Traffic Validation: {}, {}'.format('Failure', cmsg))
             st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+            break
     return return_value if return_all==0 else (return_value, ret_all)
 
 
@@ -287,58 +293,72 @@ def _verify_streamlevel_stats(tr_details,mode,comp_type,tolerance_factor,delay_f
                 ratio = ratio * len(stream)
             tx_ph = txObj.get_port_handle(txPort)
             for strelem,ratelem in zip(stream,ratio):
-                exp_val = 0
-                if rx_obj.tg_type == 'stc':
-                    tx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'tx')
-                    rx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'rx')
-                    #rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph,mode='streams',streams=strelem)
-                    if tx_ph not in stream_stats:
-                        stream_stats[tx_ph] = _fetch_stats(txObj, tx_ph, 'streams', comp_type, 'tx', stream_elem=strelem)
-                    rx_stats = stream_stats[tx_ph]
-                    exp_val = int(rx_stats[tx_ph]['stream'][strelem]['tx'][tx_counter_name])
-                    tx_val=exp_val
-                    exp_val = int(exp_val * float(ratelem))
-                    real_rx_val = int(rx_stats[tx_ph]['stream'][strelem]['rx'][rx_counter_name])
-                elif rx_obj.tg_type in ['ixia', 'scapy']:
-                    tx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'tx')
-                    rx_counter_name = get_counter_name(mode,rx_obj.tg_type,comp_type,'rx')
-                    #rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph, mode='traffic_item')
-                    if rx_ph not in stream_stats:
-                        stream_stats[rx_ph] = _fetch_stats(rx_obj, rx_ph, 'traffic_item', comp_type, 'tx', stream_elem=strelem)
-                    rx_stats = stream_stats[rx_ph]
+                retry_count = retry + 1 if not retry and comp_type == 'packet_rate' else retry
+                for loop in range(0, int(retry_count)+1):
+                    if loop > 0:
+                        st.log('The difference is not in the given tolerance. So, retrying the stats fetch once again....{}'.format(loop))
+                        st.wait(2, 'waiting to before fetch stats again')
+                        if rx_obj.tg_type == 'stc': stream_stats.pop(tx_ph, '')
+                        if rx_obj.tg_type in ['ixia', 'scapy']: stream_stats.pop(rx_ph, '')
+                    exp_val = 0
+                    tx_counter_name = get_counter_name(mode, rx_obj.tg_type, comp_type, 'tx')
+                    rx_counter_name = get_counter_name(mode, rx_obj.tg_type, comp_type, 'rx')
+                    if rx_obj.tg_type == 'stc':
+                        #rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph,mode='streams',streams=strelem)
+                        if tx_ph not in stream_stats:
+                            stream_stats[tx_ph] = _fetch_stats(txObj, tx_ph, 'streams', comp_type, 'tx', stream_elem=strelem)
+                        rx_stats = stream_stats[tx_ph]
+                        exp_val = int(rx_stats[tx_ph]['stream'][strelem]['tx'][tx_counter_name])
+                        tx_val=exp_val
+                        exp_val = int(exp_val * float(ratelem))
+                        real_rx_val = int(rx_stats[tx_ph]['stream'][strelem]['rx'][rx_counter_name])
+                    elif rx_obj.tg_type in ['ixia', 'scapy']:
+                        #rx_stats = rx_obj.tg_traffic_stats(port_handle=rx_ph, mode='traffic_item')
+                        if rx_ph not in stream_stats:
+                            stream_stats[rx_ph] = _fetch_stats(rx_obj, rx_ph, 'traffic_item', comp_type, 'tx', stream_elem=strelem)
+                        rx_stats = stream_stats[rx_ph]
 
-                    #Following check is to avoid KeyError traffic_item. Reason is traffic was not started.
-                    #Ixia team is looking into why traffic was not started - might be setup issue
-                    if rx_stats['status'] != '1':
-                        st.error('Could not get traffic_stats from the TGEN, Please check if traffic was started')
-                        return False
-                    try:
-                        exp_val = float(rx_stats['traffic_item'][strelem]['tx'][tx_counter_name])
-                    except Exception:
-                        st.error('Could not get tx counter from the TGEN, Please check if traffic was started')
-                        return False
+                        #Following check is to avoid KeyError traffic_item. Reason is traffic was not started.
+                        #Ixia team is looking into why traffic was not started - might be setup issue
+                        if rx_stats['status'] != '1':
+                            st.error('Could not get traffic_stats from the TGEN, Please check if traffic was started')
+                            return False
+                        try:
+                            exp_val = float(rx_stats['traffic_item'][strelem]['tx'][tx_counter_name])
+                        except Exception:
+                            st.error('Could not get tx counter from the TGEN, Please check if traffic was started')
+                            return False
 
-                    tx_val=exp_val
-                    exp_val = int(exp_val * float(ratelem))
+                        tx_val=exp_val
+                        exp_val = int(exp_val * float(ratelem))
 
-                    try:
-                        real_rx_val = float(rx_stats['traffic_item'][strelem]['rx'][rx_counter_name])
-                    except Exception:
-                        st.error('Could not get rx counter from the TGEN, Please check if traffic was started')
-                        return False
+                        try:
+                            real_rx_val = float(rx_stats['traffic_item'][strelem]['rx'][rx_counter_name])
+                        except Exception:
+                            st.error('Could not get rx counter from the TGEN, Please check if traffic was started')
+                            return False
 
-                st.log('RX counter {} = {}'.format(rx_counter_name,real_rx_val))
-                if tx_val > 0:
-                    diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / tx_val)
-                    if diff <= tolerance:
-                        st.log('Traffic Validation: {}, {} streamid: {}'.format('Success',cmsg, strelem))
-                        st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
-                        ret_all.append(True)
-                        continue
-                return_value = False
-                ret_all.append(False)
-                st.log('Traffic Validation: {}, {} streamid: {}'.format('Failure',cmsg, strelem))
-                st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+                    st.log('RX counter {} = {}'.format(rx_counter_name, real_rx_val))
+                    if tx_val > 0:
+                        diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / tx_val)
+                        if diff <= tolerance:
+                            st.log('Traffic Validation: {}, {} streamid: {}'.format('Success',cmsg, strelem))
+                            st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+                            ret_all.append(True)
+                            break
+                        if loop != retry_count:
+                            if not retry and comp_type == 'packet_rate' and diff > (tolerance + 5):
+                                msg = 'The traffic difference is in not between {} and {}. Skipping the retry'.format(tolerance, tolerance + 5)
+                                st.debug(msg)
+                            else:
+                                st.log('Traffic Varification: {}, {} streamid: {}'.format('Failure', cmsg, strelem))
+                                st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val, real_rx_val, diff))
+                                continue
+                    return_value = False
+                    ret_all.append(False)
+                    st.log('Traffic Validation: {}, {} streamid: {}'.format('Failure',cmsg, strelem))
+                    st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
+                    break
     return return_value if return_all==0 else (return_value, ret_all)
 
 def _verify_analyzer_filter_stats(tr_details,mode,comp_type,tolerance_factor,delay_factor,retry,return_all):
@@ -413,15 +433,15 @@ def _verify_analyzer_filter_stats(tr_details,mode,comp_type,tolerance_factor,del
                 st.log('Receive counter_name: {}, counter_val: {}'.format(rx_counter_name,real_rx_val))
                 diff = (abs(exp_val - real_rx_val) * 100.0) / exp_val if exp_val > 0 else abs(real_rx_val * 100.0 / tx_val)
                 if diff <= tolerance:
-                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}\
-                           streamid: {}, filter param: {}, filter value: {}'.format('Success',tr_pair,tx_ports,rx_ports,strelem,fpelem,fvelem))
+                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}, streamid: {}, filter param: {}, filter value: {}'.format(
+                            'Success', tr_pair, tx_ports, rx_ports, strelem, fpelem, fvelem))
                     st.log('Got expected values; Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
                     ret_all.append(True)
                 else:
                     return_value = False
                     ret_all.append(False)
-                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}\
-                           streamid: {}, filter param: {}, filter value: {}'.format('Failure',tr_pair,tx_ports,rx_ports,strelem,fpelem,fvelem))
+                    st.log('Traffic Validation: {}, Pair: {}, Transmit Ports: {}, Receive Ports: {}, streamid: {}, filter param: {}, filter value: {}'.format(
+                            'Failure', tr_pair, tx_ports, rx_ports, strelem, fpelem, fvelem))
                     st.log('Expected: {}, Actual: {}, diff%: {}'.format(exp_val,real_rx_val,diff))
     return return_value if return_all==0 else (return_value, ret_all)
 
@@ -528,7 +548,7 @@ def validate_tgen_traffic(**kwargs):
     delay_factor = kwargs.get('delay_factor',1)
     delay_factor = delay_factor if float(delay_factor) >= 1 else 1
     tolerance_factor = kwargs.get('tolerance_factor',1)
-    retry = kwargs.get('retry',1)
+    retry = kwargs.get('retry',0)
     comp_type = kwargs.get('comp_type','packet_count')
     return_all = kwargs.get('return_all',0)
     mode = kwargs.get('mode').lower()

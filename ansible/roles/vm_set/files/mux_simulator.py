@@ -9,22 +9,68 @@ This script should be started keep running in background when a topology is crea
 import json
 import logging
 import os
+import random
 import re
 import shlex
 import subprocess
 import sys
 
+from logging.handlers import RotatingFileHandler
 from collections import defaultdict
 
 from flask import Flask, request, jsonify
+from flask.logging import default_handler
 
 app = Flask(__name__)
 
 
-logging.basicConfig(
-    filename='/tmp/mux_simulator.log',
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(message)s')
+UPPER_TOR = 'upper_tor'
+LOWER_TOR = 'lower_tor'
+NIC = 'nic'
+
+# Global variable for storing mux cable flapping
+flap_counter = {}
+
+def get_flap_counter(vm_set, port_index):
+    """
+    @summary: Get the flap counter for a certain mbr
+    @param vm_set: A str, vm_set name
+    @param port_index: An integer, the port_index
+    @return: An dict {'mbr-vms17-8-0': 10}
+    """
+    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    return {mbr_name: flap_counter.get(mbr_name, 0)}
+
+
+def increase_flap_counter(vm_set, port_index):
+    """
+    @summary: Increase the flap counter for a certain mbr by 1
+    @param vm_set: A str, vm_set name
+    @param port_index: An integer, the port_index
+    @return: None
+    """
+    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    flap_counter[mbr_name] = flap_counter.get(mbr_name, 0) + 1
+
+
+def clear_flap_counter(vm_set, port_index):
+    """
+    @summary: Clear the flap counter for a certain mbr
+    @param vm_set: A str, vm_set name
+    @param port_index: An integer, the port_index
+    @return: None
+    """
+    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    flap_counter[mbr_name] = 0
+
+
+def init_flap_counter():
+    """
+    Fill 0 to global flap counter
+    """
+    for intf in os.listdir('/sys/class/net'):
+        if intf.startswith('mbr-'):
+            flap_counter[intf] = 0
 
 
 def run_cmd(cmdline):
@@ -109,10 +155,10 @@ def get_mux_connections(vm_set, port_index):
                 "port_index": 0,
                 "ports": {
                     "nic": "muxy-vms17-8-0",
-                    "tor_a": "enp59s0f1.3216",
-                    "tor_b": "enp59s0f1.3272"
+                    "upper_tor": "enp59s0f1.3216",
+                    "lower_tor": "enp59s0f1.3272"
                 },
-                "active_side": "tor_a"
+                "active_side": "upper_tor"
             }
     """
     cmdline = 'ovs-ofctl --names show mbr-{}-{}'.format(vm_set, port_index)
@@ -124,9 +170,9 @@ def get_mux_connections(vm_set, port_index):
     mux_status = defaultdict(dict)
     mux_status['vm_set'] = vm_set
     mux_status['port_index'] = port_index
-    mux_status['ports']['nic'] = parsed[0][1]
-    mux_status['ports']['tor_a'] = parsed[1][1]
-    mux_status['ports']['tor_b'] = parsed[2][1]
+    mux_status['ports'][NIC] = parsed[0][1]
+    mux_status['ports'][UPPER_TOR] = parsed[1][1]
+    mux_status['ports'][LOWER_TOR] = parsed[2][1]
     mux_status['bridge'] = parsed[3][1]
     return mux_status
 
@@ -221,10 +267,10 @@ def get_mux_status(vm_set, port_index):
                 "port_index": 0,
                 "ports": {
                     "nic": "muxy-vms17-8-0",
-                    "tor_a": "enp59s0f1.3216",
-                    "tor_b": "enp59s0f1.3272"
+                    "upper_tor": "enp59s0f1.3216",
+                    "lower_tor": "enp59s0f1.3272"
                 },
-                "active_side": "tor_a",
+                "active_side": "upper_tor",
                 "active_port": "enp59s0f1.3216",
                 "flows": {
                     "muxy-vms17-8-0":
@@ -268,22 +314,43 @@ def set_active_side(vm_set, port_index, new_active_side):
     Args:
         vm_set (string): The vm_set of test setup.
         port_index (int or string): Index of the port.
-        new_active_side (string): Either "tor_a" or "tor_b".
+        new_active_side (string): One of: 'upper_tor', 'lower_tor', 'toggle', 'random'. If new_active_side is 'toggle',
+            always toggled the active side. If new_active_side is 'random', randomly choose new side from 'upper_tor'
+            and 'lower_tor'.
 
     Returns:
         dict: Return the new full mux status in a dictionary.
     """
     mux_status = get_mux_status(vm_set, port_index)
+
+    if new_active_side == 'random':
+        new_active_side = random.choice([UPPER_TOR, LOWER_TOR])
+
     if mux_status['active_side'] == new_active_side:
+        # Current active side is same as new active side, no need to change.
         return mux_status
+
+    # Need to toggle active side anyway
+    # Increase flap counter
+    increase_flap_counter(vm_set, port_index)
 
     flows = get_flows(vm_set, port_index)
     active_port = get_active_port(flows)
-    nic_port = mux_status['ports']['nic']
+    if new_active_side == 'toggle':
+        new_active_side = UPPER_TOR if mux_status['active_side'] == LOWER_TOR else LOWER_TOR
+
     new_active_port = mux_status['ports'][new_active_side]
     run_cmd('ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'.format(vm_set, port_index, active_port))
-    run_cmd('ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions=output:"{}"'
-        .format(vm_set, port_index, new_active_port, nic_port))
+    actions = []
+    for action in flows[active_port]:
+        action_desc = action['action']
+        if action['out_port']:
+            action_desc += ':"{}"'.format(action['out_port'])
+        actions.append(action_desc)
+    run_cmd('ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions={}'
+        .format(vm_set, port_index, new_active_port, ','.join(actions)))
+    new_flows = get_flows(vm_set, port_index)
+    mux_status['flows'] = new_flows
     mux_status['active_side'] = new_active_side
     mux_status['active_port'] = new_active_port
     return mux_status
@@ -317,9 +384,9 @@ def _validate_posted_data(data):
     Returns:
         tuple: Return the result in a tuple. The first item is either True or False. The second item is extra message.
     """
-    if 'active_side' in data and data['active_side'] in ['tor_a', 'tor_b']:
+    if 'active_side' in data and data['active_side'] in [UPPER_TOR, LOWER_TOR, 'toggle', 'random']:
         return True, ''
-    return False, 'Bad posted data, expected: {"active_side": "tor_a|tor_b"}'
+    return False, 'Bad posted data, expected: {"active_side": "upper_tor|lower_tor|toggle|random"}'
 
 
 @app.route('/mux/<vm_set>/<port_index>', methods=['GET', 'POST'])
@@ -378,15 +445,42 @@ def get_mux_bridges(vm_set):
     """
     bridge_prefix = 'mbr-{}-'.format(vm_set)
     mux_bridges = [intf for intf in os.listdir('/sys/class/net') if intf.startswith(bridge_prefix)]
+    valid_mux_bridges = []
+    for mux_bridge in mux_bridges:
+        out = run_cmd('ovs-vsctl list-ports {}'.format(mux_bridge))
+        if len(out.splitlines()) ==3:
+            valid_mux_bridges.append(mux_bridge)
 
-    return mux_bridges
+    return valid_mux_bridges
 
 
-@app.route('/mux/<vm_set>', methods=['GET'])
+def get_all_mux_status(vm_set):
+    bridge_prefix = 'mbr-{}-'.format(vm_set)
+    mux_bridges = get_mux_bridges(vm_set)
+    all_mux_status = {}
+    for bridge in mux_bridges:
+        port_index = int(bridge.replace(bridge_prefix, ''))
+        all_mux_status[bridge] = get_mux_status(vm_set, port_index)
+    return all_mux_status
+
+
+def update_all_active_side(all_mux_status, new_active_side):
+    new_all_mux_status = {}
+    for bridge, mux_status in all_mux_status.items():
+        vm_set = mux_status['vm_set']
+        port_index = mux_status['port_index']
+        new_all_mux_status[bridge] = set_active_side(vm_set, port_index, new_active_side)
+    return new_all_mux_status
+
+
+@app.route('/mux/<vm_set>', methods=['GET', 'POST'])
 def all_mux_status(vm_set):
     """Handler for requests to /mux/<vm_set>.
 
     For GET request, return detailed status of all the mux Y cables belong to the specified vm_set.
+    For POST request, update mux active side according to poseted data. Posted data format:
+        {"active_side": "upper_tor|upper_tor|random"}
+    The value of "active_side" must be one of "upper_tor", "lower_tor", "toggle" or "random".
 
     Args:
         vm_set (string): The vm_set of test setup.
@@ -394,16 +488,21 @@ def all_mux_status(vm_set):
     Returns:
         object: Return a flask response object.
     """
-    bridge_prefix = 'mbr-{}-'.format(vm_set)
+
     try:
-        mux_bridges = get_mux_bridges(vm_set)
-        all_mux_status = {}
-        for bridge in mux_bridges:
-            port_index = int(bridge.replace(bridge_prefix, ''))
-            all_mux_status[bridge] = get_mux_status(vm_set, port_index)
-        return jsonify(all_mux_status)
+        all_mux_status = get_all_mux_status(vm_set)
+        if request.method == 'GET':
+            return jsonify(all_mux_status)
+        else:
+            data = request.get_json()
+            valid, msg = _validate_posted_data(data)
+            if not valid:
+                app.logger.error('{} {} {}'.format(request.method, request.url, msg))
+                return jsonify({'err_msg': msg}), 400
+            new_all_mux_status = update_all_active_side(all_mux_status, data['active_side'])
+            return jsonify(new_all_mux_status)
     except Exception as e:
-        err_msg = 'Get all mux status failed, vm_set: {}, exception: {}'.format(vm_set, repr(e))
+        err_msg = 'GET/POST all mux status failed, vm_set: {}, exception: {}'.format(vm_set, repr(e))
         app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
         return jsonify({'err_msg': err_msg}), 500
 
@@ -414,12 +513,12 @@ def _validate_out_ports(data):
     Args:
         data (dict): Posted json data. Expected:
                 {"out_ports": [<port>, <port>, ...]}
-            where <port> could be "nic", "tor_a" or "tor_b".
+            where <port> could be "nic", "upper_tor" or "lower_tor".
 
     Returns:
         tuple: Return the result in a tuple. The first item is either True or False. The second item is extra message.
     """
-    supported_out_ports = ['nic', 'tor_a', 'tor_b']
+    supported_out_ports = [NIC, UPPER_TOR, LOWER_TOR]
     try:
         assert 'out_ports' in data, 'Missing "out_ports" field'
         for port in data['out_ports']:
@@ -440,30 +539,30 @@ def update_flow_action_to_nic(mux_status, action):
         dict: The new mux status.
     """
     in_port = mux_status['active_port']
-    out_port = mux_status['ports']['nic'] if action == 'output' else None
+    out_port = mux_status['ports'][NIC] if action == 'output' else None
     action_desc = '{}:"{}"'.format(action, out_port) if out_port else action
     cmdline = 'ovs-ofctl --name mod-flows {} \'in_port="{}" actions={}\''.format(
         mux_status['bridge'],
         in_port,
         action_desc)
     run_cmd(cmdline)
-    flow = {in_port: [{'action': action, 'out_port': out_port}]}
-    mux_status['flows'].update(flow)
+    new_flows = get_flows(mux_status['vm_set'], mux_status['port_index'])
+    mux_status['flows'] = new_flows
     return mux_status
 
 
 def update_flow_action_to_tor(mux_status, action, tor_ports):
-    """Update the action for the flow to "tor_a" and/or "tor_b".
+    """Update the action for the flow to "upper_tor" and/or "lower_tor".
 
     Args:
         mux_status (dict): Current mux status.
         action (string): The action to be applied to flow. Either "output" or "drop".
-        tor_ports (list): A list like ["tor_a", "tor_b"].
+        tor_ports (list): A list like ["upper_tor", "lower_tor"].
 
     Returns:
         dict: The new mux status.
     """
-    nic_port = mux_status['ports']['nic']       # muxy-<vm_set>-<port_index>
+    nic_port = mux_status['ports'][NIC]       # muxy-<vm_set>-<port_index>
     old_output_tor_ports = set([item['out_port'] \
         for item in mux_status['flows'][nic_port] if item['action'] == 'output'])
 
@@ -487,8 +586,8 @@ def update_flow_action_to_tor(mux_status, action, tor_ports):
         nic_port,
         action_desc)
     run_cmd(cmdline)
-    flow = {nic_port: [{'action': 'output', 'out_port': port} for port in output_tor_ports]}
-    mux_status['flows'].update(flow)
+    new_flows = get_flows(mux_status['vm_set'], mux_status['port_index'])
+    mux_status['flows'] = new_flows
     return mux_status
 
 
@@ -501,7 +600,7 @@ def update_flow_action(vm_set, port_index, action, data):
         action (string): The action to be applied to flow. Either "output" or "drop".
         data (dict): Posted json data. Expected:
                 {"out_ports": [<port>, <port>, ...]}
-            where <port> could be "nic", "tor_a" or "tor_b".
+            where <port> could be "nic", "upper_tor" or "lower_tor".
 
     Returns:
         dict: The new mux status.
@@ -509,9 +608,9 @@ def update_flow_action(vm_set, port_index, action, data):
     mux_status = get_mux_status(vm_set, port_index)
     tor_ports = []
     for out_port in data['out_ports']:
-        if out_port == 'nic':
+        if out_port == NIC:
             mux_status = update_flow_action_to_nic(mux_status, action)
-        elif out_port == 'tor_a' or out_port == 'tor_b':
+        elif out_port == UPPER_TOR or out_port == LOWER_TOR:
             tor_ports.append(out_port)
     if tor_ports:
         mux_status = update_flow_action_to_tor(mux_status, action, tor_ports)
@@ -554,14 +653,87 @@ def mux_cable_flow_update(vm_set, port_index, action):
         app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
         return jsonify({'err_msg': err_msg}), 500
 
+@app.route('/mux/<vm_set>/<port_index>/flap_counter', methods=['GET'])
+def flap_counter_port(vm_set, port_index):
+    """
+    Handler for retrieving flap counter for a given port
+    """
+    valid, msg = _validate_param(vm_set, port_index)
+    if not valid:
+        app.logger.error('{} {} {}'.format(request.method, request.url, msg))
+        return jsonify({'err_msg': msg}), 400
+    
+    return get_flap_counter(vm_set, port_index)
+
+
+@app.route('/mux/<vm_set>/flap_counter', methods=['GET'])
+def flap_counter_all(vm_set):
+    """
+    Handler for retrieving flap counter for all ports
+    """
+    ret = {}
+
+    pattern = "mbr-{}".format(vm_set)
+    for mbr, counter in flap_counter.items():
+        if mbr.startswith(pattern):
+            ret[mbr] = counter
+    
+    return ret
+
+
+@app.route('/mux/<vm_set>/clear_flap_counter', methods=['POST'])
+def clear_flap_counter_handler(vm_set):
+    """
+    Handler for clearing flap counter for all ports or a given port
+    Data posted should be {'port_to_clear': '0|1...'} or {'port_to_clear': 'all'}
+    """
+    ret = {}
+    data = request.get_json()
+    if 'port_to_clear' not in data:
+        msg = 'Bad posted data, expected: {"port_to_clear": "all|integer"}'
+        return jsonify({'err_msg': msg}), 400
+    port_indexes = data['port_to_clear']
+    if port_indexes == "all":
+        pattern = "mbr-{}".format(vm_set)
+        for mbr, counter in flap_counter.items():
+            if mbr.startswith(pattern):
+                flap_counter[mbr] = 0
+                ret[mbr] = 0
+    else:
+        indexes = port_indexes.split('|')
+        for index in indexes:
+            valid, msg = _validate_param(vm_set, index)
+            if not valid:
+                continue
+            clear_flap_counter(vm_set, index)
+            mbr_name = "mbr-{}-{}".format(vm_set, index)
+            ret[mbr_name] = 0
+
+    return ret
+
+def config_logging():
+    rfh = RotatingFileHandler(
+        '/tmp/mux_simulator.log',
+        maxBytes=1024*1024,
+        backupCount=5)
+    fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    rfh.setFormatter(fmt)
+    rfh.setLevel(logging.INFO)
+    app.logger.addHandler(rfh)
+    app.logger.removeHandler(default_handler)
+
 
 if __name__ == '__main__':
     usage = '''
     Start mux simulator server at specified port.
     $ sudo python <prog> <port>
     '''
+    config_logging()
+    init_flap_counter()
     if '-v' in sys.argv:
         app.logger.setLevel(logging.DEBUG)
+        for handler in app.logger.handlers:
+            handler.setLevel(logging.DEBUG)
 
     if len(sys.argv) < 2:
         app.logger.error(usage)

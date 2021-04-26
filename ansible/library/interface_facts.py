@@ -6,21 +6,21 @@ import array
 import errno
 import fcntl
 import fnmatch
-import glob
 import platform
 import re
 import signal
-import socket
-import struct
 import datetime
 import getpass
 import pwd
 import ConfigParser
 import StringIO
+import json
 
 from ansible.module_utils.basic import *
 from collections import defaultdict
+from sonic_py_common import multi_asic
 
+INTF_IP_GET_INFO_SCRIPT = "/tmp/gather_intf_ip_info.py"
 DOCUMENTATION = '''
 ---
 module: interfaces_facts
@@ -55,7 +55,15 @@ EXAMPLES = '''
 
 '''
 
-def get_default_interfaces(ip_path, module):
+INTF_IP_GET_INFO_CMDs = r"""#!/usr/bin/python
+import os
+import glob
+import socket
+import struct
+import json
+import subprocess
+
+def get_default_interfaces(ip_path):
     # Use the commands:
     #     ip -4 route get 8.8.8.8                     -> Google public DNS
     #     ip -6 route get 2404:6800:400a:800::1012    -> ipv6.google.com
@@ -66,14 +74,15 @@ def get_default_interfaces(ip_path, module):
     )
     interface = dict(v4 = {}, v6 = {})
     for key in command.keys():
-        """
+        '''
         if key == 'v6' and self.facts['os_family'] == 'RedHat' \
             and self.facts['distribution_version'].startswith('4.'):
             continue
-        """
+        '''
         if key == 'v6' and not socket.has_ipv6:
             continue
-        rc, out, err = module.run_command(command[key])
+        proc = subprocess.Popen(command[key], shell=False, stdout=subprocess.PIPE)
+        (out, err) = proc.communicate()
         if not out:
             # v6 routing may result in
             #   RTNETLINK answers: Invalid argument
@@ -104,36 +113,15 @@ def get_file_content(path, default=None, strip=True):
             datafile.close()
     return data
 
-def main():
-    module = AnsibleModule(
-        argument_spec=dict(
-            ip_path=dict(required=False, default="/sbin/ip"),
-            up_ports=dict(type='raw', default={}),
-        ),
-        supports_check_mode=False)
-
-    """
-    f = Network(module)
-    #facts = linux_network.populate()
-    results = Tree()
-
-    # results['ansible_interfaces_facts'] = facts
-    module.exit_json(ansible_facts=results)
-
-    """
-    m_args = module.params
-    ip_path = m_args['ip_path']
-    up_ports = m_args['up_ports']
-    default_ipv4, default_ipv6 = get_default_interfaces(ip_path, module)
+def gather_ip_interface_info():
     interfaces = dict()
     ips = dict(
         all_ipv4_addresses = [],
         all_ipv6_addresses = [],
     )
-
-    #paths = ['/sys/class/net/Ethernet4', '/sys/class/net/lo', '/sys/class/net/eth0']
+    ip_path = '/sbin/ip'
+    default_ipv4, default_ipv6 = get_default_interfaces(ip_path)
     for path in glob.glob('/sys/class/net/*'):
-    #for path in paths:
         if not os.path.isdir(path):
             continue
         device = os.path.basename(path)
@@ -196,7 +184,7 @@ def main():
             promisc_mode = (data & 0x0100 > 0)
             interfaces[device]['promisc'] = promisc_mode
 
-        def parse_ip_output(module, output, secondary=False):
+        def parse_ip_output(output, secondary=False):
             for line in output.split('\n'):
                 if not line:
                     continue
@@ -212,7 +200,7 @@ def main():
                     else:
                         # pointopoint interfaces do not have a prefix
                         address = words[1]
-                        netmask_length = "32"
+                        netmask_length = '32'
                     address_bin = struct.unpack('!L', socket.inet_aton(address))[0]
                     netmask_bin = (1<<32) - (1<<32>>int(netmask_length))
                     netmask = socket.inet_ntoa(struct.pack('!L', netmask_bin))
@@ -221,16 +209,16 @@ def main():
                     if iface != device:
                         interfaces[iface] = {}
                     if False == secondary:
-                        if "ipv4" not in interfaces[iface]:
+                        if 'ipv4' not in interfaces[iface]:
                             interfaces[iface]['ipv4'] = {'address': address,
                                                          'broadcast': broadcast,
                                                          'netmask': netmask,
                                                          'network': network}
                     else:
-                        if "ipv4_secondaries" not in interfaces[iface]:
-                            interfaces[iface]["ipv4_secondaries"] = []
+                        if 'ipv4_secondaries' not in interfaces[iface]:
+                            interfaces[iface]['ipv4_secondaries'] = []
 
-                        interfaces[iface]["ipv4_secondaries"].append({
+                        interfaces[iface]['ipv4_secondaries'].append({
                             'address': address,
                             'broadcast': broadcast,
                             'netmask': netmask,
@@ -239,9 +227,9 @@ def main():
 
                     # add this secondary IP to the main device
                     if secondary:
-                        if "ipv4_secondaries" not in interfaces[device]:
-                            interfaces[device]["ipv4_secondaries"] = []
-                        interfaces[device]["ipv4_secondaries"].append({
+                        if 'ipv4_secondaries' not in interfaces[device]:
+                            interfaces[device]['ipv4_secondaries'] = []
+                        interfaces[device]['ipv4_secondaries'].append({
                             'address': address,
                             'broadcast': broadcast,
                             'netmask': netmask,
@@ -255,7 +243,7 @@ def main():
                         default_ipv4['network'] = network
                         default_ipv4['macaddress'] = macaddress
                         default_ipv4['mtu'] = interfaces[device]['mtu']
-                        default_ipv4['type'] = interfaces[device].get("type", "unknown")
+                        default_ipv4['type'] = interfaces[device].get('type', 'unknown')
                         default_ipv4['alias'] = words[-1]
                     if not address.startswith('127.'):
                         ips['all_ipv4_addresses'].append(address)
@@ -275,22 +263,74 @@ def main():
                         default_ipv6['scope']      = scope
                         default_ipv6['macaddress'] = macaddress
                         default_ipv6['mtu']        = interfaces[device]['mtu']
-                        default_ipv6['type']       = interfaces[device].get("type", "unknown")
+                        default_ipv6['type']       = interfaces[device].get('type', 'unknown')
                     if not address == '::1':
                         ips['all_ipv6_addresses'].append(address)
 
-        ip_path = module.get_bin_path("ip")
-
         args = [ip_path, 'addr', 'show', 'primary', device]
-        rc, stdout, stderr = module.run_command(args)
-        primary_data = stdout
+        proc = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE)
+        (out, err) = proc.communicate()
+        primary_data = out
 
         args = [ip_path, 'addr', 'show', 'secondary', device]
-        rc, stdout, stderr = module.run_command(args)
-        secondary_data = stdout
+        proc = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE)
+        (out, err) = proc.communicate()
+        secondary_data = out
 
-        parse_ip_output(module, primary_data)
-        parse_ip_output(module, secondary_data, secondary=True)
+        parse_ip_output(primary_data)
+        parse_ip_output(secondary_data, secondary=True)
+
+    buffer = {'interfaces':interfaces, 'ips':ips}
+    print json.dumps(buffer)
+
+gather_ip_interface_info()
+"""
+
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            up_ports=dict(type='raw', default={}),
+            namespace=dict(default=None),
+        ),
+        supports_check_mode=False)
+
+    m_args = module.params
+    up_ports = m_args['up_ports']
+    namespace_passed = m_args['namespace']
+
+    # Create a python script file in the DUT.
+    with open(INTF_IP_GET_INFO_SCRIPT, "w") as f:
+        f.write(INTF_IP_GET_INFO_CMDs)
+        f.close()
+
+    interfaces = dict()
+    ips = dict(
+         all_ipv4_addresses = [],
+         all_ipv6_addresses = [],
+    )
+
+    # Initialize the cmd string which to invoke the python script which we created on the DUT.
+    cmd_prefix = ''
+    cmd = '/usr/bin/python {}'.format(INTF_IP_GET_INFO_SCRIPT)
+
+    for namespace in multi_asic.get_namespace_list():
+        if namespace_passed and namespace != namespace_passed:
+            continue
+        # If the user passed a namespace parameter invoke that script with the cmd_prefix
+        if namespace:
+            cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
+        rc, output, err = module.run_command(cmd_prefix + cmd, use_unsafe_shell=True)
+        if rc != 0:
+            module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, err))
+
+        # Get the output from the gather interface info script.
+        if output:
+            ips_interfaces = json.loads(output)
+            interfaces.update(ips_interfaces["interfaces"])
+            ips.update(ips_interfaces["ips"])
+
+    # Remove the file which was created earlier
+    os.remove(INTF_IP_GET_INFO_SCRIPT)
 
     results = {}
 
@@ -309,4 +349,3 @@ def main():
     module.exit_json(ansible_facts=results)
 
 main()
-

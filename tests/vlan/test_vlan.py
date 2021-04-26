@@ -13,6 +13,7 @@ import pprint
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,19 @@ def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_
         for vlan in vlan_intfs_list:
             duthost.command('config vlan add {}'.format(vlan['vlan_id']))
             duthost.command("config interface ip add Vlan{} {}".format(vlan['vlan_id'], vlan['ip'].upper()))
+
+        # Delete untagged vlans from interfaces to avoid error message
+        # when adding untagged vlan to interface that already have one
+        if '201911' not in duthost.os_version:
+            logger.info("Delete untagged vlans from interfaces")
+            for vlan_port in vlan_ports_list:
+                vlan_members = cfg_facts.get('VLAN_MEMBER', {})
+                vlan_name, vid = vlan_members.keys()[0], vlan_members.keys()[0].replace("Vlan", '')
+                try:
+                    if vlan_members[vlan_name][vlan_port['dev']]['tagging_mode'] == 'untagged':
+                        duthost.command("config vlan member del {} {}".format(vid, vlan_port['dev']))
+                except KeyError:
+                    continue
 
         logger.info("Add members to Vlans")
         for vlan_port in vlan_ports_list:
@@ -231,6 +245,18 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
                                 ip_ttl=ttl)
     return pkt
 
+def build_qinq_packet(outer_vlan_id, vlan_id,
+                      src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
+                      src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
+    pkt = testutils.simple_qinq_tcp_packet(eth_dst=dst_mac,
+                             eth_src=src_mac,
+                             dl_vlan_outer=outer_vlan_id,
+                             vlan_vid=vlan_id,
+                             ip_src=src_ip,
+                             ip_dst=dst_ip,
+                             ip_ttl=ttl)
+    return pkt
+
 def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], device_number=0, timeout=1):
     for port in ports:
         result = testutils.dp_poll(test, device_number=device_number, port_number=port,
@@ -327,7 +353,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
     """
     Test case #3
     Send packets with invalid VLAN ID
-    Verify no port can receive these pacekts
+    Verify no port can receive these packets
     """
 
     logger.info("Test case #3 starting ...")
@@ -345,3 +371,146 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
         testutils.send(ptfadapter, src_port, invalid_tagged_pkt)
         logger.info("Check on " + str(dst_ports) + "...")
         testutils.verify_no_packet_any(ptfadapter, masked_invalid_tagged_pkt, dst_ports)
+
+@pytest.mark.bsl
+def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
+    """
+    Test case #4
+    Send packets w/ src and dst specified over tagged ports in vlan
+    Verify that bidirectional communication between two tagged ports work
+    """
+    vlan_ids = vlan_ports_list[0]['permit_vlanid'].keys()
+    tagged_test_vlan = vlan_ids[0]
+    untagged_test_vlan = vlan_ids[1]
+
+    ports_for_test = []
+
+    for vlan_port in vlan_ports_list:
+        if vlan_port['pvid'] != tagged_test_vlan:
+            ports_for_test.append(vlan_port['port_index'][0])
+
+
+    #take two tagged ports for test
+    src_port = ports_for_test[0]
+    dst_port = ports_for_test[-1]
+
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port)
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
+
+    transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=src_mac, dst_mac=dst_mac)
+    return_transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=dst_mac, dst_mac=src_mac)
+
+    logger.info ("Tagged packet to be sent from port {} to port {}".format(src_port, dst_port))
+
+    testutils.send(ptfadapter, src_port, transmit_tagged_pkt)
+
+    result_dst_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=dst_port,
+                                      timeout=1, exp_pkt=transmit_tagged_pkt)
+
+    if isinstance(result_dst_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("One Way Tagged Packet Transmission Works")
+        logger.info ("Tagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
+    else:
+        pytest.fail("Expected packet was not received")
+
+    logger.info ("Tagged packet to be sent from port {} to port {}".format(dst_port, src_port))
+
+    testutils.send(ptfadapter, dst_port, return_transmit_tagged_pkt)
+
+    result_src_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=src_port,
+                                      timeout=1, exp_pkt=return_transmit_tagged_pkt)
+
+    if isinstance(result_src_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("Two Way Tagged Packet Transmission Works")
+        logger.info ("Tagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
+    else:
+        pytest.fail("Expected packet was not received")
+
+@pytest.mark.bsl
+def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
+    """
+    Test case #5
+    Send packets w/ src and dst specified over untagged ports in vlan
+    Verify that bidirectional communication between two untagged ports work
+    """
+    vlan_ids = vlan_ports_list[0]['permit_vlanid'].keys()
+    tagged_test_vlan = vlan_ids[0]
+    untagged_test_vlan = vlan_ids[1]
+
+    ports_for_test = []
+
+    for vlan_port in vlan_ports_list:
+        if vlan_port['pvid'] != tagged_test_vlan:
+            ports_for_test.append(vlan_port['port_index'][0])
+
+    #take two tagged ports for test
+    src_port = ports_for_test[0]
+    dst_port = ports_for_test[-1]
+
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port)
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
+
+    transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac)
+    return_transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac)
+
+    logger.info ("Untagged packet to be sent from port {} to port {}".format(src_port, dst_port))
+
+    testutils.send(ptfadapter, src_port, transmit_untagged_pkt)
+
+    result_dst_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=dst_port,
+                                      timeout=1, exp_pkt=transmit_untagged_pkt)
+
+    if isinstance(result_dst_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("One Way Untagged Packet Transmission Works")
+        logger.info ("Untagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
+    else:
+        pytest.fail("Expected packet was not received")
+
+    logger.info ("Untagged packet to be sent from port {} to port {}".format(dst_port, src_port))
+
+    testutils.send(ptfadapter, dst_port, return_transmit_untagged_pkt)
+
+    result_src_if = testutils.dp_poll(ptfadapter, device_number=0, port_number=src_port,
+                                      timeout=1, exp_pkt=return_transmit_untagged_pkt)
+
+
+    if isinstance(result_src_if, ptfadapter.dataplane.PollSuccess):
+        logger.info ("Two Way Untagged Packet Transmission Works")
+        logger.info ("Untagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
+    else:
+        pytest.fail("Expected packet was not received")
+
+
+def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, duthost):
+    """
+    Test case #6
+    Send qinq packets w/ src and dst specified over tagged ports in vlan
+    Verify that the qinq packet is switched based on outer vlan tag + src/dst mac
+    """
+
+    # Add more supported platforms to the list as they are tested
+    qinq_switching_supported_platforms = ['mellanox']
+    if duthost.facts["asic_type"] not in qinq_switching_supported_platforms:
+        pytest.skip("Unsupported platform")
+
+    vlan_ids = vlan_ports_list[0]['permit_vlanid'].keys()
+    tagged_test_vlan = vlan_ids[0]
+
+    ports_for_test = []
+    for vlan_port in vlan_ports_list:
+        if vlan_port['pvid'] != tagged_test_vlan:
+            ports_for_test.append(vlan_port['port_index'][0])
+
+    #take two tagged ports for test
+    src_port = ports_for_test[0]
+    dst_port = ports_for_test[-1]
+
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port)
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
+
+    transmit_qinq_pkt = build_qinq_packet(outer_vlan_id=tagged_test_vlan, vlan_id=250, src_mac=src_mac, dst_mac=dst_mac)
+    logger.info ("QinQ packet to be sent from port {} to port {}".format(src_port, dst_port))
+    testutils.send(ptfadapter, src_port, transmit_qinq_pkt)
+
+    testutils.verify_packet(ptfadapter, transmit_qinq_pkt, dst_port)
+    logger.info ("QinQ packet switching worked successfully...")

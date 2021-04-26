@@ -11,7 +11,7 @@
   delegate_to: localhost
   tags: always
 
-- set_fact: sw_type="{{ device_info['Type'] }}"
+- set_fact: sw_type="{{ device_info[inventory_hostname]['Type'] }}"
 
 - set_fact: os='eos'
   when: os is not defined

@@ -10,15 +10,19 @@ import os
 import re
 import string
 import yaml
+import logging
 
 from collections import defaultdict
 from collections import OrderedDict
+
+logger = logging.getLogger(__name__)
 
 
 class TestbedInfo(object):
     """Parse the testbed file used to describe whole testbed info."""
 
-    TESTBED_FIELDS = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -66,13 +70,18 @@ class TestbedInfo(object):
     def _read_testbed_topo_from_csv(self):
         """Read csv testbed info file."""
         with open(self.testbed_filename) as f:
-            topo = csv.DictReader(f, fieldnames=self.TESTBED_FIELDS,
-                                  delimiter=',')
+            header = [field.strip(' #') for field in f.readline().strip().split(',')]
+            print(header)
+            if len(header) == len(self.TESTBED_FIELDS_DEPRECATED):
+                self.testbed_fields = self.TESTBED_FIELDS_DEPRECATED
+            elif len(header) == len(self.TESTBED_FIELDS_RECOMMENDED):
+                self.testbed_fields = self.TESTBED_FIELDS_RECOMMENDED
+            else:
+                raise ValueError('Unsupported testbed fields %s' % str(header))
+            for header_field, expect_field in zip(header, self.testbed_fields):
+                assert header_field == expect_field
 
-            # Validate all field are in the same order and are present
-            header = next(topo)
-            for field in self.TESTBED_FIELDS:
-                assert header[field].replace('#', '').strip() == field
+            topo = csv.DictReader(f, fieldnames=self.testbed_fields, delimiter=',')
 
             for line in topo:
                 if line['conf-name'].lstrip().startswith('#'):
@@ -86,7 +95,7 @@ class TestbedInfo(object):
                         self._cidr_to_ip_mask(line['ptf_ipv6'])
 
                 line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
-                line['duts_map'] = {dut:line['duts'].index(dut) for dut in line['duts']}
+                line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
                 del line['dut']
 
                 self.testbed_topo[line['conf-name']] = line
@@ -132,6 +141,7 @@ class TestbedInfo(object):
             [1]: https://web.archive.org/web/20170903201521/https://pyyaml.org/ticket/64
             [2]: https://github.com/yaml/pyyaml/issues/127
             """
+
             def increase_indent(self, flow=False, indentless=False):
                 return yaml.Dumper.increase_indent(self, flow, False)
 
@@ -149,9 +159,9 @@ class TestbedInfo(object):
             if tb_dict["ptf_ipv6"]:
                 ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
                                                  tb_dict["ptf_netmask_v6"])
-            testbed_mapping = zip(
-                self.TESTBED_FIELDS,
-                [
+
+            if len(self.testbed_fields) == len(self.TESTBED_FIELDS_DEPRECATED):
+                tb_dict_fields = [
                     tb_name,
                     tb_dict["group-name"],
                     tb_dict["topo"],
@@ -164,7 +174,23 @@ class TestbedInfo(object):
                     tb_dict["duts"],
                     tb_dict["comment"]
                 ]
-            )
+            elif len(self.testbed_fields) == len(self.TESTBED_FIELDS_RECOMMENDED):
+                tb_dict_fields = [
+                    tb_name,
+                    tb_dict["group-name"],
+                    tb_dict["topo"],
+                    tb_dict["ptf_image_name"],
+                    tb_dict["ptf"],
+                    ptf_ip,
+                    ptf_ipv6,
+                    tb_dict["server"],
+                    tb_dict["vm_base"] or None,
+                    tb_dict["duts"],
+                    tb_dict["inv_name"],
+                    tb_dict["auto_recover"],
+                    tb_dict["comment"]
+                ]
+            testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
             testbed = OrderedDict(testbed_mapping)
             testbed_data.append(testbed)
 
@@ -178,7 +204,7 @@ class TestbedInfo(object):
                       explicit_start=True, Dumper=IncIndentDumper)
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor)')
+        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2)')
         match = pattern.match(topo_name)
         if match == None:
             raise Exception("Unsupported testbed type - {}".format(topo_name))
@@ -196,13 +222,31 @@ class TestbedInfo(object):
         port format : dut_index.port_index@ptf_index
 
         """
-        m = re.match("(\d+)\.(\d+)@(\d+)", port)
-        (dut_index, port_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        m = re.match("(\d+)(?:\.(\d+))?(?:@(\d+))?", str(port).strip())
+        m1, m2, m3 = m.groups()
+        if m3:
+            # Format: <dut_index>.<port_index>@<ptf_index>
+            # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
+            dut_index = m1
+            port_index = m2
+            ptf_index = m3
+        else:
+            if m2:
+                # Format: <dut_index>.<port_index>
+                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+                dut_index = m1
+                port_index = m2
+                ptf_index = m2
+            else:
+                # Format: <port_index>
+                # Example: ['0', '1', '2']
+                dut_index = '0'
+                port_index = m1
+                ptf_index = m1
+        return dut_index, port_index, ptf_index
 
-        return (dut_index, port_index, ptf_index)
-
-    def calculate_ptf_index_map(self, line):
-        map = defaultdict()
+    def calculate_ptf_index_map(self, tb):
+        map = defaultdict(dict)
 
         # For multi-DUT testbed, because multiple DUTs are sharing a same
         # PTF docker, the ptf docker interface index will not be exactly
@@ -211,39 +255,51 @@ class TestbedInfo(object):
         # in the 2 levels dictionary as:
         # { dut_index : { dut_port_index : ptf_index * } * }
 
-        topo_facts = line['topo']['properties']
+        topo_facts = tb['topo']['properties']
         if 'topology' not in topo_facts:
             return map
 
         topology = topo_facts['topology']
         if 'host_interfaces' in topology:
             for _ports in topology['host_interfaces']:
+                # Example: ['0', '1', '2']
                 # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
-                # if there is no '@' then they are shared, no need to update.
-                ports = str(_ports)
-                for port in ports.split(','):
-                    if '@' in port and '.' in port:
-                        dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
-                        if port_index != ptf_index:
-                            # Need to add this in map
-                            dut_dict = map[dut_index] if dut_index in map else {}
-                            dut_dict[port_index] = ptf_index
-                            map[dut_index] = dut_dict
+                # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
+                for port in str(_ports).split(','):
+                    dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(port)
+                    map[dut_index][dut_port_index] = int(ptf_port_index)
 
         if 'VMs' in topology:
-            for _, vm in topology['VMs'].items():
+            for vm in topology['VMs'].values():
                 if 'vlans' in vm:
-                    for _port in vm['vlans']:
-                        # Example: ['0.31@34', '1.31@35']
-                        port = str(_port)
-                        if '@' in port and '.' in port:
-                            dut_index, port_index, ptf_index = self._parse_dut_port_index(port)
-                            if port_index != ptf_index:
-                                # Need to add this in map
-                                dut_dict = map[dut_index] if dut_index in map else {}
-                                dut_dict[port_index] = ptf_index
-                                map[dut_index] = dut_dict
+                    for port in vm['vlans']:
+                        # Example: '0.31@34'
+                        dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(port)
+                        map[dut_index][dut_port_index] = int(ptf_port_index)
+        return map
 
+    def calculate_ptf_index_map_disabled(self, tb):
+        map = defaultdict(dict)
+        topo_facts = tb['topo']['properties']
+        if 'topology' not in topo_facts:
+            return map
+
+        topology = topo_facts['topology']
+        if 'disabled_host_interfaces' in topology:
+            for _ports in topology['disabled_host_interfaces']:
+                # Example: ['0', '1', '2']
+                # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+                # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
+                for port in str(_ports).split(','):
+                    dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(port)
+                    map[dut_index][dut_port_index] = int(ptf_port_index)
+        return map
+
+    def calculate_ptf_dut_intf_map(self, tb):
+        map = defaultdict(dict)
+        for dut_index, dut_ptf_map in tb['topo']['ptf_map'].items():
+            for dut_port_index, ptf_port_index in dut_ptf_map.items():
+                map[str(ptf_port_index)][dut_index] = int(dut_port_index)
         return map
 
     def parse_topo(self):
@@ -257,6 +313,8 @@ class TestbedInfo(object):
             with open(topo_file, 'r') as fh:
                 tb['topo']['properties'] = yaml.safe_load(fh)
             tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
+            tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
+            tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
 
 
 if __name__ == "__main__":

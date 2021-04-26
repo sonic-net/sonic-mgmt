@@ -43,3 +43,16 @@ def prepare_testbed_ssh_keys(duthost, ptfhost, dut_username):
         chown -R {0}:{0} /home/{0}/.ssh/
     '''.format(dut_username, result['public_key'])
     duthost.shell(cmd)
+
+
+def ssh_authorize_local_user(duthost):
+    """
+    Generate public private key and authorize user on the host.
+    Used to ssh into localhost without password
+    """
+    logger.info("Remove old keys from DUT")
+    duthost.shell("mkdir -p /root/.ssh")
+    duthost.shell("rm -f /root/.ssh/known_hosts")
+    duthost.shell("rm -f /root/.ssh/id_rsa*")
+    duthost.shell("ssh-keygen -q -t rsa -N '' -f /root/.ssh/id_rsa")
+    duthost.shell("cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys")

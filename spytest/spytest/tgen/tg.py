@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 import time
 import json
 import copy
@@ -11,6 +10,7 @@ import utilities.common as utils
 import utilities.parallel as putils
 from spytest.logger import Logger
 from spytest.tgen.init import tg_stc_load,tg_scapy_load,tg_ixia_load
+from spytest.tgen.tg_stubs import TGStubs
 from spytest.tgen.tg_scapy import ScapyClient
 from spytest.dicts import SpyTestDict
 from netaddr import IPAddress
@@ -103,8 +103,21 @@ def get_ixiangpf():
 def get_ixnet():
     return get_ixiangpf().ixnet
 
-class TGBase(object):
+def connect_retry(tg):
+    for i in range(0, 10):
+        ret_ds = tg.connect()
+        if ret_ds:
+            msg = "UNKNOWN" if "log" not in ret_ds else ret_ds.get('log', '')
+            logger.warning('TG Connect Error: %s try: %d' % (msg, i))
+            tgen_wait(10)
+        else:
+            logger.info('TG Connection: Success')
+            return True
+    return False
+
+class TGBase(TGStubs):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port_list=None):
+        TGStubs.__init__(self, logger)
         logger.info('TG Base Init...start')
         self.tg_ns = ""
         self.tg_type = tg_type
@@ -121,17 +134,6 @@ class TGBase(object):
             return
         if self.skip_traffic:
             return
-
-        for i in range(0, 10):
-            ret_ds = self.connect()
-            if ret_ds:
-                msg = "UNKNOWN" if "log" not in ret_ds else ret_ds['log']
-                logger.warning('TG Connect Error: %s try: %d' % (msg, i))
-                tgen_wait(10)
-            else:
-                logger.info('TG Connection: Success')
-                self.tg_connected = True
-                break
 
     def manage_interface_config_handles(self, mode, port_handle, handle):
         logger.debug("manage_interface_config_handles: {} {} {}".format(mode, port_handle, handle))
@@ -154,16 +156,6 @@ class TGBase(object):
 
     def ensure_traffic_stats(self, timeout=60, skip_fail=False, **kwargs):
         pass
-
-    def clean_all(self):
-        return self.override()
-
-    def connect(self):
-        self.override()
-        return None
-
-    def show_status(self):
-        return self.override()
 
     def instrument(self, phase, context):
         pass
@@ -249,6 +241,12 @@ class TGBase(object):
 
     def get_port_handle(self, port):
         return self.tg_port_handle.get(port, None)
+
+    def set_port_handle(self, port, value):
+        if port:
+            self.tg_port_handle[port] = value
+        else:
+            self.tg_port_handle.clear()
 
     def get_port_handle_list(self):
         ph_list = list()
@@ -380,7 +378,6 @@ class TGBase(object):
             op_type = kwargs.pop('output_type',None)
             if self.tg_type == 'ixia':
                 self.get_capture_stats_state(kwargs.get('port_handle'))
-                if self.ix_port == '443': tgen_wait(5, 'waiting to stabilize the captured packets')
                 if op_type == 'hex':
                     func = self.get_hltapi_name('self.local_get_captured_packets')
                 else:
@@ -422,6 +419,8 @@ class TGBase(object):
         if "status" not in ret_ds:
             logger.warning(ret_ds)
             msg = "Unknown" if "log" not in ret_ds else ret_ds['log']
+            if self.tg_type == 'stc' and not ret_ds:
+                tgen_abort("nolog", "tgen_failed_abort", str(msg))
             self.fail("nolog", "tgen_failed_api", msg)
         elif ret_ds['status'] == '1':
             logger.debug('TG API Run Status: Success')
@@ -626,48 +625,11 @@ class TGBase(object):
         pass
     def local_stc_tapi_call(self,param):
         pass
-    def override(self, name=None):
-        name = name or sys._getframe(1).f_code.co_name
-        logger.error("{} should be overriden".format(name))
-        return {}
-    def tg_interface_handle(self, ret_ds):
-        return self.override()
-    def tg_interface_config(self, **kwargs):
-        return self.override()
-    def tg_test_control(self, **kwargs):
-        return self.override()
-    def tg_packet_control(self, **kwargs):
-        return self.override()
-    def tg_traffic_control(self, **kwargs):
-        return self.override()
-    def tg_topology_config(self, **kwargs):
-        return self.override()
-    def tg_packet_stats(self, **kwargs):
-        return self.override()
-    def tg_traffic_stats(self, **kwargs):
-        return self.override()
-    def tg_interface_stats(self, **kwargs):
-        return self.override()
-    def tg_packet_config_buffers(self, **kwargs):
-        return self.override()
-    def tg_packet_config_filter(self, **kwargs):
-        return self.override()
-    def tg_packet_config_triggers(self, **kwargs):
-        return self.override()
-    def tg_convert_porthandle_to_vport(self, **kwargs):
-        return self.override()
-    def tg_protocol_info(self, **kwargs):
-        return self.override()
-    def tg_withdraw_bgp_routes(self, route_handle):
-        return self.override()
-    def tg_readvertise_bgp_routes(self, handle, route_handle):
-        return self.override()
-    def tg_emulation_ospf_config(self, **kwargs):
-        return self.override()
 
 class TGStc(TGBase):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port_list=None):
         TGBase.__init__(self, tg_type, tg_version, tg_ip, tg_port_list)
+        self.tg_connected = connect_retry(self)
         logger.info('TG STC Init...done')
 
     def clean_all(self):
@@ -705,7 +667,7 @@ class TGStc(TGBase):
         ret_ds = get_sth().connect(device=self.tg_ip, port_list=self.tg_port_list,
                              break_locks=1)
         logger.info(ret_ds)
-        if ret_ds['status'] != '1':
+        if ret_ds.get('status') != '1':
             return ret_ds
         port_handle_list=[]
         for port in self.tg_port_list:
@@ -834,9 +796,9 @@ class TGStc(TGBase):
                 kwargs['enable_ping_response'] = 1
         elif fname == 'tg_emulation_bgp_config':
             if kwargs.get('enable_4_byte_as') != None:
-                l_as = int(kwargs['local_as']) / 65536
+                l_as = int(int(kwargs['local_as']) / 65536)
                 l_nn = int(kwargs['local_as']) - (l_as * 65536)
-                r_as = int(kwargs['remote_as']) / 65536
+                r_as = int(int(kwargs['remote_as']) / 65536)
                 r_nn = int(kwargs['remote_as']) - (r_as * 65536)
                 kwargs['local_as4'] = str(l_as)+":"+str(l_nn)
                 kwargs['remote_as4'] = str(r_as)+":"+str(r_nn)
@@ -906,10 +868,10 @@ class TGStc(TGBase):
         port_handle_list = self.get_port_handle_list()
         ret_ds = get_sth().cleanup_session(port_handle=port_handle_list)
         logger.info(ret_ds)
-        if ret_ds['status'] == '1':
+        if ret_ds.get('status') == '1':
             logger.debug('TG API Run Status: Success')
         else:
-            logger.warning('TG API Error: %s' % ret_ds['log'])
+            logger.warning('TG API Error: %s' % ret_ds.get('log', ''))
         self.tg_connected = False
         self.tg_port_handle.clear()
 
@@ -1163,6 +1125,7 @@ class TGIxia(TGBase):
         self.topo_handle = {}
         self.traffic_config_handles = {}
         TGBase.__init__(self, tg_type, tg_version, tg_ip, tg_port_list)
+        self.tg_connected = connect_retry(self)
         logger.info('TG Ixia Init...done')
 
     def clean_all(self):
@@ -2024,6 +1987,7 @@ class TGIxia(TGBase):
                     break
                 state = get_ixnet().getAttribute(capture, cap_type)
         logger.info("Total time taken to capture ready {} sec".format(time.time() - start))
+        if self.ix_port == '443': tgen_wait(5, 'waiting to stabilize the captured packets')
 
     def get_emulation_handle_prefixes(self, ret_ds, kwargs):
         ip_dict = dict()
@@ -2047,11 +2011,18 @@ class TGIxia(TGBase):
         logger.info('IP PREFIXES: {}'.format(ip_dict))
 
 
-class TGScapy(ScapyClient, TGBase):
+class TGScapy(TGBase):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port=8009, tg_port_list=None):
         logger.info('TG Scapy Init')
-        ScapyClient.__init__(self, logger, tg_port)
         TGBase.__init__(self, tg_type, tg_version, tg_ip, tg_port_list)
+        self.sc = ScapyClient(logger, tg_ip, tg_port, tg_port_list, self)
+        self.tg_connected = connect_retry(self)
+
+    def __getattribute__(self, name):
+        try:
+            return object.__getattribute__(self.sc, name)
+        except Exception:
+            return object.__getattribute__(self, name)
 
     def clean_all(self):
         self.server_control("clean-all", "")

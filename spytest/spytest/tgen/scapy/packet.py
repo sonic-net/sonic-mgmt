@@ -44,6 +44,7 @@ stale_list_ignore = [
 
     #
     "circuit_endpoint_type",
+    "enable_stream",
     "enable_stream_only_gen",
     #
 
@@ -123,16 +124,17 @@ class ScapyPacket(object):
 
     def __init__(self, iface, dbg=0, dry=False, hex=False, logger=None):
         self.dry = dry
-        self.logger = logger or Logger()
+        self.errs = []
+        self.logger = logger or Logger(dry)
         try: self.logger.info("SCAPY VERSION = {}".format(Conf().version))
         except Exception: self.logger.info("SCAPY VERSION = UNKNOWN")
         self.utils = Utils(self.dry, logger=self.logger)
         self.max_rate_pps = self.utils.get_env_int("SPYTEST_SCAPY_MAX_RATE_PPS", 100)
         self.dbg = dbg
-        self.show_summary = False
+        self.show_summary = bool(self.dbg > 2)
         self.hex = hex
         self.iface = iface
-        self.is_vde = iface.startswith("vde")
+        self.is_vde = not dry and iface.startswith("vde")
         self.tx_count = 0
         self.rx_count = 0
         self.rx_sock = None
@@ -140,6 +142,7 @@ class ScapyPacket(object):
         self.finished = False
         self.exabgp_nslist = []
         self.cleanup()
+        self.mtu = 9194
         if iface and not self.dry:
             #already init_bridge called in cleanup()
             #self.init_bridge(iface)
@@ -151,25 +154,25 @@ class ScapyPacket(object):
             self.os_system("ip link set dev {0}-br up".format(iface))
             self.os_system("ip link set dev {0} up".format(iface))
             self.os_system("ip link set dev {0} promisc on".format(iface))
-            self.os_system("ip link set dev {0} mtu 9194".format(iface))
-            self.os_system("ip link set dev {0}-br mtu 9194".format(iface))
+            self.os_system("ip link set dev {0} mtu {1}".format(iface, self.mtu))
+            self.os_system("ip link set dev {0}-br mtu {1}".format(iface, self.mtu))
             self.os_system("echo 0 > /sys/class/net/{0}-br/bridge/multicast_snooping".format(iface))
             #self.os_system("ip link del {0}-rx".format(iface))
             self.os_system("ip link add {0}-rx type dummy".format(iface))
-            self.os_system("ip link set dev {0}-rx mtu 9194".format(iface))
+            self.os_system("ip link set dev {0}-rx mtu {1}".format(iface, self.mtu))
             self.configure_ipv6(iface)
             self.os_system("tc qdisc del dev {0} ingress".format(iface))
             self.os_system("tc qdisc add dev {0} ingress".format(iface))
             #self.os_system("tc filter del dev {0} parent ffff: protocol all u32 match u8 0 0 action mirred egress mirror dev {0}-rx".format(iface))
             self.os_system("tc filter add dev {0} parent ffff: protocol all u32 match u8 0 0 action mirred egress mirror dev {0}-rx".format(iface))
             self.os_system("ip link set {0}-rx up".format(iface))
-            if self.dbg > 2:
+            if self.dbg > 5:
                 self.os_system("ifconfig")
         self.rx_open()
 
     def os_system(self, cmd):
         self.logger.info("EXEC: {}".format(cmd))
-        os.system(cmd)
+        return self.utils.exec_cmd(cmd)
 
     def init_bridge(self, iface):
         if iface and not self.dry:
@@ -182,15 +185,31 @@ class ScapyPacket(object):
 
     def configure_ipv6(self, iface):
         iface_rx = "{0}-rx".format(iface)
-        self.os_system("sysctl -w net.ipv6.conf.{}.forwarding=0 >/dev/null".format(iface_rx))
-        self.os_system("sysctl -w net.ipv6.conf.{}.accept_ra=0 >/dev/null".format(iface_rx))
-        self.os_system("sysctl -w net.ipv6.conf.{}.forwarding=1 >/dev/null".format(iface))
-        #self.os_system("sysctl -w net.ipv6.conf.{}.accept_ra=1 >/dev/null".format(iface))
-        self.os_system("sysctl -w net.ipv6.conf.all.forwarding=0 >/dev/null")
+        self.os_system("sysctl -w net.ipv6.conf.{}.forwarding=0".format(iface_rx))
+        self.os_system("sysctl -w net.ipv6.conf.{}.accept_ra=0".format(iface_rx))
+        self.os_system("sysctl -w net.ipv6.conf.{}.forwarding=1".format(iface))
+        #self.os_system("sysctl -w net.ipv6.conf.{}.accept_ra=1".format(iface))
+        self.os_system("sysctl -w net.ipv6.conf.all.forwarding=0")
 
     def __del__(self):
         self.logger.info("packet cleanup todo: ", self.iface)
         self.cleanup()
+
+    def error(self, *args, **kwargs):
+        msg = self.logger.error(*args, **kwargs)
+        self.errs.append(msg)
+        return msg
+
+    def banner(self, *args, **kwargs):
+        msg = self.logger.banner(*args, **kwargs)
+        self.errs.append(msg)
+        return msg
+
+    def get_alerts(self):
+        errs = []
+        errs.extend(self.errs)
+        self.errs = []
+        return errs
 
     def clear_stats(self):
         self.tx_count = 0
@@ -202,8 +221,9 @@ class ScapyPacket(object):
         return None
 
     def cleanup(self):
+        print("ScapyPacket {} cleanup...".format(self.iface))
         self.logger.info("ScapyPacket {} cleanup...".format(self.iface))
-        self.exabgpd_stop()
+        self.exabgpd_stop_all()
         self.finished = True
         self.rx_sock = self.close_sock(self.rx_sock)
         self.tx_sock = self.close_sock(self.tx_sock)
@@ -251,17 +271,17 @@ class ScapyPacket(object):
 
         return packet
 
-    def sendp(self, data, iface, stream_name, left):
+    def sendp(self, pkt, data, iface, stream_name, left):
         self.tx_count = self.tx_count + 1
         self.trace_stats()
 
         if self.dbg > 2 or (self.dbg > 1 and left != 0):
-            cmd = "" if not self.show_summary else Ether(data).command()
+            cmd = "" if not self.show_summary else pkt.command()
             msg = "sendp:{}:{} len:{} count:{} {}".format
             self.logger.debug(msg(iface, stream_name, len(data), self.tx_count, cmd))
 
         if self.dbg > 2:
-            self.trace_packet(data, self.hex)
+            self.trace_packet(pkt, self.hex)
 
         if not self.dry:
             if not self.tx_sock:
@@ -284,11 +304,11 @@ class ScapyPacket(object):
         pass
 
     def show_pkt(self, pkt):
-        try:
-            self.logger.debug(pkt.show2(dump=True))
-        except Exception:
-            self.logger.debug(pkt.command())
-            pkt.show2()
+        if self.dbg > 4:
+            return self.utils.exec_func(pkt.show2)
+        if self.dbg > 3:
+            return self.utils.exec_func(pkt.summary)
+        return ""
 
     def trace_packet(self, pkt, hex=True, fields=True):
         if not fields and not hex: return
@@ -315,7 +335,7 @@ class ScapyPacket(object):
         except Exception:
             crc = binascii.unhexlify('00' * 4)
         bstr = bytes(strpkt+crc)
-        self.sendp(bstr, iface, stream_name, left)
+        self.sendp(pwa.pkt, bstr, iface, stream_name, left)
         return bstr
 
     def check(self, pkt):
@@ -367,7 +387,7 @@ class ScapyPacket(object):
         if value < 0 or value > 13312:
             msg = "invalid value {} = {} shoud be > {} and < {}"
             msg = msg.format(name, value, min_val, max_val)
-            self.logger.error(msg)
+            self.error(msg)
 
     def build_udp(self, kws):
         udp = UDP()
@@ -437,12 +457,38 @@ class ScapyPacket(object):
 
     def fill_emulation_params(self, stream):
 
-         # read params from emulation interfaces
-        if "emulation_src_handle" in stream.kws:
-            emulation_src_handle = stream.kws.pop("emulation_src_handle")
-            intf_ip_addr = emulation_src_handle.kws.get("intf_ip_addr", "0.0.0.0")
-            ipv6_intf_addr = emulation_src_handle.kws.get("ipv6_intf_addr", "")
-            count = self.utils.intval(emulation_src_handle.kws, "count", 1)
+        circuit_endpoint_type = stream.kws.pop("circuit_endpoint_type", None)
+        self.logger.debug("stream.kws-0 = {}".format(stream.kws))
+
+        src_info, dst_info = {}, {}
+        src_intf = stream.kws.pop("emulation_src_handle", None)
+        dst_intf = stream.kws.pop("emulation_dst_handle", None)
+        if src_intf:
+            ns = "ns_{}_{}".format(src_intf.name, 0)
+            src_info = Utils.get_ip_addr_dev("veth1", ns)
+            self.logger.debug("src_info = {} {}".format(ns, src_info))
+            if circuit_endpoint_type == "ipv4":
+                src_info.pop("inet6", "")
+            elif circuit_endpoint_type == "ipv6":
+                src_info.pop("inet", "")
+            stream.kws["mac_src"] = [src_info.get("link/ether", "00:00:00:00:00:00")]
+        if dst_intf:
+            ns = "ns_{}_{}".format(dst_intf.name, 0)
+            dst_info = Utils.get_ip_addr_dev("veth1", ns)
+            self.logger.debug("dst_info = {} {}".format(ns, dst_info))
+            if circuit_endpoint_type == "ipv4":
+                dst_info.pop("inet6", "")
+            elif circuit_endpoint_type == "ipv6":
+                dst_info.pop("inet", "")
+            stream.kws["mac_dst"] = [dst_info.get("link/ether", "00:00:00:00:00:00")]
+
+        # read params from emulation interfaces
+        if src_intf:
+            intf_ip_addr = src_info.get("inet", "0.0.0.0").split("/")[0]
+            intf_ip_addr = src_intf.kws.get("intf_ip_addr", intf_ip_addr)
+            ipv6_intf_addr = src_info.get("inet6", "").split("/")[0]
+            ipv6_intf_addr = src_intf.kws.get("ipv6_intf_addr", ipv6_intf_addr)
+            count = self.utils.intval(src_intf.kws, "count", 1)
             if ipv6_intf_addr:
                 stream.kws["l3_protocol"] = "ipv6"
                 stream.kws["ipv6_src_addr"] = ipv6_intf_addr
@@ -456,19 +502,20 @@ class ScapyPacket(object):
                 if count > 1:
                     stream.kws["ip_src_count"] = count
                     stream.kws["ip_src_mode"] = "increment"
-            try:
-                stream.kws["mac_src"] = [self.get_my_mac(emulation_src_handle)]
-                stream.kws["mac_dst"] = [self.get_arp_mac(emulation_src_handle)]
-            except Exception as exp:
-                self.logger.info(exp)
-                self.logger.info(traceback.format_exc())
+            #try:
+                #stream.kws["mac_src"] = [src_info.get("link/ether", "00:00:00:00:00:00")]
+                #stream.kws["mac_dst"] = [self.get_arp_mac(src_intf)]
+            #except Exception as exp:
+                #self.logger.info(exp)
+                #self.logger.info(traceback.format_exc())
             self.logger.debug("updated stream.kws-1 = {}".format(stream.kws))
 
-        if "emulation_dst_handle" in stream.kws:
-            emulation_dst_handle = stream.kws.pop("emulation_dst_handle")
-            intf_ip_addr = emulation_dst_handle.kws.get("intf_ip_addr", "")
-            ipv6_intf_addr = emulation_dst_handle.kws.get("ipv6_intf_addr", "")
-            count = self.utils.intval(emulation_dst_handle.kws, "count", 1)
+        if dst_intf:
+            intf_ip_addr = dst_info.get("inet", "").split("/")[0]
+            intf_ip_addr = dst_intf.kws.get("intf_ip_addr", intf_ip_addr)
+            ipv6_intf_addr = dst_info.get("inet6", "").split("/")[0]
+            ipv6_intf_addr = dst_intf.kws.get("ipv6_intf_addr", ipv6_intf_addr)
+            count = self.utils.intval(dst_intf.kws, "count", 1)
             if ipv6_intf_addr:
                 stream.kws["l3_protocol"] = "ipv6"
                 stream.kws["ipv6_dst_addr"] = ipv6_intf_addr
@@ -481,6 +528,7 @@ class ScapyPacket(object):
                 if count > 1:
                     stream.kws["ip_dst_count"] = count
                     stream.kws["ip_dst_mode"] = "increment"
+            #stream.kws["mac_dst"] = [dst_info.get("link/ether", "00:00:00:00:00:00")]
             self.logger.debug("updated stream.kws-2 = {}".format(stream.kws))
 
     def build_first(self, stream):
@@ -496,7 +544,11 @@ class ScapyPacket(object):
 
         duration = self.pop_int(kws, "duration", 1)
         duration2 = self.pop_int(kws, "duration2", 0)
+        rate_percent = self.pop_int(kws, "rate_percent", 0)
         rate_pps = self.pop_int(kws, "rate_pps", 1)
+        if rate_percent > 0:
+            rate_pps = self.max_rate_pps
+            self.banner("rate_percent {} not supported using {} pps".format(rate_percent, rate_pps))
         l2_encap = self.pop_str(kws, "l2_encap", "")
         l3_protocol = self.pop_str(kws, "l3_protocol", "")
         l4_protocol = self.pop_str(kws, "l4_protocol", "")
@@ -522,10 +574,10 @@ class ScapyPacket(object):
 
         mac_dst_mode  = kws.get("mac_dst_mode", "fixed").strip()
         if mac_dst_mode not in ["fixed", "increment", "decrement", "list"]:
-            self.logger.error("unhandled option mac_dst_mode = {}".format(mac_dst_mode))
+            self.error("unhandled option mac_dst_mode = {}".format(mac_dst_mode))
         mac_src_mode  = kws.get("mac_src_mode", "fixed").strip()
         if mac_src_mode not in ["fixed", "increment", "decrement", "list"]:
-            self.logger.error("unhandled option mac_src_mode = {}".format(mac_src_mode))
+            self.error("unhandled option mac_src_mode = {}".format(mac_src_mode))
 
         self.ensure_int("l3_length", l3_length, 44, 16365)
         if length_mode in ["random", "increment", "incr"]:
@@ -533,10 +585,10 @@ class ScapyPacket(object):
             self.ensure_int("frame_size_max", frame_size_max, 44, 13312)
             self.ensure_int("frame_size_step", frame_size_step, 0, 13312)
         elif length_mode != "fixed":
-            self.logger.error("unhandled option length_mode = {}".format(length_mode))
+            self.error("unhandled option length_mode = {}".format(length_mode))
 
         if data_pattern_mode != "fixed":
-            self.logger.error("unhandled option data_pattern_mode = {}".format(data_pattern_mode))
+            self.error("unhandled option data_pattern_mode = {}".format(data_pattern_mode))
 
         # update parsed values
         stream.kws["mac_src"] = mac_src
@@ -676,7 +728,7 @@ class ScapyPacket(object):
         # verify unhandled options
         for key, value in kws.items():
             if key not in stale_list_ignore:
-                self.logger.error("unhandled option {} = {}".format(key, value))
+                self.error("unhandled option {} = {}".format(key, value))
 
         pwa = SpyTestDict()
         pwa.add_signature = add_signature
@@ -686,7 +738,7 @@ class ScapyPacket(object):
         pwa.pkts_per_burst = pkts_per_burst
         pwa.transmit_mode = transmit_mode
         if rate_pps > self.max_rate_pps:
-            self.logger.debug("drop the rate from {} to {}".format(rate_pps, self.max_rate_pps))
+            self.error("drop the rate from {} to {}".format(rate_pps, self.max_rate_pps))
             rate_pps = self.max_rate_pps
         pwa.rate_pps = rate_pps
         pwa.duration = duration
@@ -1203,7 +1255,7 @@ class ScapyPacket(object):
 
             return re.search(r"(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", output).groups()[0]
         except Exception as exp:
-            self.logger.debug("Fail-1: get_arp_mac {} {} {}".format(ipv4gw, ipv6gw, exp))
+            self.banner("Fail-1: get_arp_mac {} {} {}".format(ipv4gw, ipv6gw, exp))
 
         # try getting from arping output
         try:
@@ -1212,7 +1264,7 @@ class ScapyPacket(object):
             self.logger.debug("{} = \n {}".format(cmd, output))
             return re.search(r"(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", output).groups()[0]
         except Exception as exp:
-            self.logger.debug("Fail-2: get_arp_mac {} {} {}".format(ipv4gw, ipv6gw, exp))
+            self.banner("Fail-2: get_arp_mac {} {} {}".format(ipv4gw, ipv6gw, exp))
 
         return default
 
@@ -1225,7 +1277,7 @@ class ScapyPacket(object):
             if ip._version == 6:
                 cmd = "ip netns exec ns_{0} ping6 -c 1 {1}".format(ns, ping_dst)
         except Exception as exp:
-            self.logger.error(exp)
+            self.error(exp)
 
         # execute the command
         return self.utils.cmdexec(cmd)
@@ -1251,21 +1303,25 @@ class ScapyPacket(object):
             self.logger.info("===================================")
 
     def exabgpd_file(self, ns, extn):
-        cwd = self.logger.logs_dir
-        #return "{}/logs/current/exabgpd_{}.{}".format(cwd, ns, extn)
-        return "{}/exabgpd_{}.{}".format(cwd, ns, extn)
+        return "{}/exabgpd_{}.{}".format(self.logger.logs_dir, ns, extn)
 
-    def exabgpd_stop(self, ns0=None):
-        nslist = self.exabgp_nslist if ns0 is None else [ns0]
-        for ns in nslist:
-            logfile = self.exabgpd_file(ns, "log")
-            pidfile = self.exabgpd_file(ns, "pid")
-            self.log_large_file(logfile)
-            self.logger.info(self.utils.cat_file(pidfile))
+    def exabgpd_stop_all(self):
+        self.os_system("ps -ef")
+        for pidfile in self.utils.list_files(self.logger.logs_dir, "exabgpd_*.pid"):
             cmd = "pkill -F {}".format(pidfile)
-            self.utils.cmdexec(cmd)
-            if ns in self.exabgp_nslist:
-                self.exabgp_nslist.remove(ns)
+            print(cmd)
+            out = self.os_system(cmd)
+            print(out)
+
+    def exabgpd_stop(self, ns):
+        logfile = self.exabgpd_file(ns, "log")
+        pidfile = self.exabgpd_file(ns, "pid")
+        self.log_large_file(logfile)
+        self.logger.info(self.utils.cat_file(pidfile))
+        cmd = "pkill -F {}".format(pidfile)
+        self.os_system(cmd)
+        if ns in self.exabgp_nslist:
+            self.exabgp_nslist.remove(ns)
         return True
 
     def config_exabgp_one(self, enable, intf, index=0):
@@ -1279,7 +1335,6 @@ class ScapyPacket(object):
         pidfile = self.exabgpd_file(ns, "pid")
         envfile = self.exabgpd_file(ns, "env")
         cfgfile = self.exabgpd_file(ns, "cfg")
-        cmdfile = self.exabgpd_file(ns, "cmd")
 
         intf_ip_addr = intf.kws.get("intf_ip_addr", "")
         ipv6_intf_addr = intf.kws.get("ipv6_intf_addr", "")
@@ -1289,40 +1344,13 @@ class ScapyPacket(object):
         remote_ipv6_addr = intf.bgp_kws.get("remote_ipv6_addr", "")
         if remote_ipv6_addr: remote_ip_addr = remote_ipv6_addr
 
-        as_path = intf.bgp_kws.get("as_path", None)
-        as_seq = None
-        if as_path and "as_seq:" in as_path:
-            try: as_seq = int(as_path.replace("as_path:", ""))
-            except Exception: as_seq = None
-
         remote_as = self.utils.intval(intf.bgp_kws, "remote_as", 65001)
         local_as = self.utils.intval(intf.bgp_kws, "local_as", 65007)
+        #enable_4_byte_as = self.utils.intval(intf.bgp_kws, "enable_4_byte_as", 0)
         #ip_version = self.utils.intval(intf.bgp_kws, "ip_version", 4)
 
-        #############################
-        cmds = []
-        num_routes = self.utils.intval(intf.bgp_kws, "num_routes", 0)
-        prefix = intf.bgp_kws.get("prefix", "")
-        if not prefix and num_routes > 0:
-            msg = "Prefix not specified num_routes={}".format(num_routes)
-            self.logger.error(msg)
-        else:
-            for _ in range(num_routes):
-                remote_ipv6_addr = intf.bgp_kws.get("remote_ipv6_addr", "")
-                if remote_ipv6_addr:
-                    cmd = "announce route {}/128 next-hop self".format(prefix)
-                    prefix = self.utils.incrementIPv6(prefix, "0:0:0:1::")
-                else:
-                    cmd = "announce route {}/24 next-hop self".format(prefix)
-                    prefix = self.utils.incrementIPv4(prefix, "0.0.1.0")
-                # append as-path sequence
-                if as_seq: cmd = cmd + "as-path [{}]".format(as_seq)
-                cmds.append(cmd)
-        self.utils.fwrite("\n".join(cmds), cmdfile)
-        #############################
-        # TODO: batch routes
-        # announce attribute next-hop self nlri 100.10.0.0/16 100.20.0.0/16
-        #############################
+        # create route config
+        cmdfile = self.config_exabgp_route(enable, intf, index)
 
         # build router id from ns
         router_id = ns.replace("_", ".") + ".0"
@@ -1410,13 +1438,50 @@ class ScapyPacket(object):
 
         return True
 
+    def config_exabgp_route(self, enable, intf, index=0):
+        ns = "{}_{}".format(intf.name, index)
+        cmdfile = self.exabgpd_file(ns, "cmd")
+        cmds = []
+
+        for br in intf.bgp_routes.values():
+            if not br.enable: continue
+            as_path = br.get("as_path", None)
+            as_seq = None
+            if as_path and "as_seq:" in as_path:
+                try: as_seq = int(as_path.replace("as_path:", ""))
+                except Exception: as_seq = None
+
+            num_routes = self.utils.intval(br, "num_routes", 0)
+            prefix = br.get("prefix", "")
+            if not prefix and num_routes > 0:
+                msg = "Prefix not specified num_routes={}".format(num_routes)
+                self.error(msg)
+            else:
+                for _ in range(num_routes):
+                    remote_ipv6_addr = intf.bgp_kws.get("remote_ipv6_addr", "")
+                    if remote_ipv6_addr:
+                        cmd = "announce route {}/128 next-hop self".format(prefix)
+                        prefix = self.utils.incrementIPv6(prefix, "0:0:0:1::")
+                    else:
+                        cmd = "announce route {}/24 next-hop self".format(prefix)
+                        prefix = self.utils.incrementIPv4(prefix, "0.0.1.0")
+                    # append as-path sequence
+                    if as_seq: cmd = cmd + "as-path [{}]".format(as_seq)
+                    cmds.append(cmd)
+        self.utils.fwrite("\n".join(cmds), cmdfile)
+        #############################
+        # TODO: batch routes
+        # announce attribute next-hop self nlri 100.10.0.0/16 100.20.0.0/16
+        #############################
+        return cmdfile
+
     def control_exabgp(self, intf):
         num_routes = self.utils.intval(intf.bgp_kws, "num_routes", 0)
         ns = "{}_{}".format(intf.name, 0)
         prefix = intf.bgp_kws.get("prefix", "")
         if not prefix:
             msg = "Prefix not specified num_routes={}".format(num_routes)
-            self.logger.error(msg)
+            self.error(msg)
             #return False
         #envfile = self.exabgpd_file(ns, "env")
         for _ in range(num_routes):
@@ -1445,7 +1510,7 @@ class ScapyPacket(object):
                 prefix = self.utils.incrementIPv4(prefix, "0.0.1.0")
             output = self.utils.cmdexec(cmd)
             if "could not send command to ExaBGP" in output:
-                self.logger.error(output)
+                self.error(output)
                 return False
         return True
 
@@ -1461,6 +1526,10 @@ class ScapyPacket(object):
             retval = self.config_exabgp(True, intf)
         return retval
 
+    def apply_bgp_route(self, enable, route):
+        route.enable = enable
+        return self.apply_bgp("", True, route.intf)
+
     def config_igmp(self, mode, intf, host):
         ns = "{}_{}".format(intf.name, 0)
         igmp_version = host.get("igmp_version", "v3")
@@ -1468,7 +1537,7 @@ class ScapyPacket(object):
         ip4_addr = host.get("grp_ip_addr_start", "224.0.0.1")
         ip4_step = "0.0.1.0"
 
-        self.logger.error("TODO: config_igmp {} = {} {}".format(mode, intf.iface, host))
+        self.error("TODO: config_igmp {} = {} {}".format(mode, intf.iface, host))
 
         # force IGMP version
         if igmp_version == "v2":
@@ -1497,8 +1566,10 @@ if __name__ == '__main__':
 
     #kwargs = ut_stream_get(0)
     #kwargs = ut_stream_get(0, mac_dst_mode='list', mac_dst=["00.00.00.00.00.02", "00.00.00.00.00.04", "00.00.00.00.00.06"])
-    kwargs = ut_stream_get(0, mac_src_mode='list', mac_src="00.00.00.00.00.02 00.00.00.00.00.04 00.00.00.00.00.06")
-    s = ScapyStream(0, None, None, **kwargs)
+    #kwargs = ut_stream_get(0, mac_src_mode='list', mac_src="00.00.00.00.00.02 00.00.00.00.00.04 00.00.00.00.00.06")
+    kwargs = ut_stream_get(16)
+    s = ScapyStream(0, 0, None, None, **kwargs)
+
     pwa = packet.build_first(s)
     while pwa:
         packet.logger.info("=======================================================")

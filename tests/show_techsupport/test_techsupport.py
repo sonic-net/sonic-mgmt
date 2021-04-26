@@ -1,12 +1,19 @@
-import pytest
 import os
 import pprint
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+import pytest
 import time
-from random import randint
-from tests.common.utilities import wait_until
-from log_messages import *
+
 import logging
+
+from random import randint
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.utilities import wait_until
+
+from log_messages import *
+
+import tech_support_cmds as cmds 
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -73,13 +80,13 @@ def setup_acl_rules(duthost, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl_setup(duthosts, rand_one_dut_hostname):
+def acl_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     setup fixture gathers all test required information from DUT facts and testbed
     :param duthost: DUT host object
     :return: dictionary with all test required information
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info('Creating temporary folder for test {}'.format(ACL_RUN_DIR))
     duthost.command("mkdir -p {}".format(ACL_RUN_DIR))
     tmp_path = duthost.tempfile(path=ACL_RUN_DIR, state='directory', prefix='acl', suffix="")['path']
@@ -107,14 +114,14 @@ def teardown_acl(dut, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl(duthosts, rand_one_dut_hostname, acl_setup):
+def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
     """
     setup/teardown ACL rules based on test class requirements
     :param duthost: DUT host object
     :param acl_setup: setup information
     :return:
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
     loganalyzer.load_common_config()
 
@@ -138,8 +145,8 @@ def acl(duthosts, rand_one_dut_hostname, acl_setup):
 # MIRRORING PART #
 
 @pytest.fixture(scope='function')
-def neighbor_ip(duthosts, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def neighbor_ip(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # ptf-32 topo is not supported in mirroring
     if tbinfo['topo']['name'] == 'ptf32':
         pytest.skip('Unsupported Topology')
@@ -159,11 +166,11 @@ def neighbor_ip(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture(scope='function')
-def mirror_setup(duthosts, rand_one_dut_hostname):
+def mirror_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     setup fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     duthost.command('mkdir -p {}'.format(MIRROR_RUN_DIR))
     tmp_path = duthost.tempfile(path=MIRROR_RUN_DIR, state='directory', prefix='mirror', suffix="")['path']
 
@@ -174,26 +181,26 @@ def mirror_setup(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='function')
-def gre_version(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_type = duthost.facts['asic_type']
     if asic_type in ["mellanox"]:
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
-    if asic_type in ["barefoot"]:
+    elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
     else:
         SESSION_INFO['gre'] = 0x6558
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, rand_one_dut_hostname, neighbor_ip, mirror_setup, gre_version):
+def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
     :param mirror_setup: mirror_setup fixture
     :param mirror_config: mirror_config fixture
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
@@ -240,7 +247,7 @@ def teardown_mirroring(dut, tmp_path):
     dut.command('config mirror_session remove {}'.format(SESSION_INFO['name']))
 
 
-@pytest.fixture(scope='function', params=['acl', 'mirroring'], autouse=True)
+@pytest.fixture(scope='function', params=['acl', 'mirroring'])
 def config(request):
     """
     fixture to add configurations on setup by received parameters.
@@ -262,13 +269,13 @@ def execute_command(duthost, since):
     return stdout['rc'] == SUCCESS_CODE
 
 
-def test_techsupport(request, config, duthosts, rand_one_dut_hostname):
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
     :param duthost: DUT host
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
     since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
@@ -282,3 +289,152 @@ def test_techsupport(request, config, duthosts, rand_one_dut_hostname):
         stdout = duthost.command("rm -rf {}".format(tar_file))
         logger.debug("Sleeping for {} seconds".format(loop_delay))
         time.sleep(loop_delay)
+
+
+def add_asic_arg(format_str, cmds_list, asic_num):
+    """ 
+    Add ASIC specific arg using the supplied string formatter 
+
+    New commands are added for each ASIC. In case of a regex
+    paramter, new regex is created for each ASIC.
+    """
+    updated_cmds = []
+    for cmd in cmds_list:
+        if isinstance(cmd, str):
+            if "{}" in cmd:
+                if asic_num == 1:
+                    updated_cmds.append(cmd.format(""))
+                else:
+                    for asic in range(0, asic_num):
+                        asic_arg = format_str.format(asic)
+                        updated_cmds.append(cmd.format(asic_arg))
+            else:
+                updated_cmds.append(cmd)
+        else:
+            if "{}" in cmd.pattern:
+                if asic_num == 1:
+                    mod_pattern = cmd.pattern.format("")
+                    updated_cmds.append(re.compile(mod_pattern))
+                else:
+                    for asic in range(0, asic_num):
+                        asic_arg = format_str.format(asic)
+                        mod_pattern = cmd.pattern.format(asic_arg)
+                        updated_cmds.append(re.compile(mod_pattern))
+            else:
+                updated_cmds.append(cmd)
+    return updated_cmds
+
+
+@pytest.fixture(scope='function')
+def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Prepare a list of commands to be expected in the 
+    show techsupport output. All the expected commands are 
+    categorized into groups. 
+
+    For multi ASIC platforms, command strings are generated based on
+    the number of ASICs.
+
+    Also adds hardware specific commands
+
+    Returns:
+        A dict of command groups with each group containing a list of commands
+    """
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    num = duthost.num_asics()
+
+    cmds_to_check = {
+        "cp_proc_files": cmds.copy_proc_files,
+        "show_platform_cmds": cmds.show_platform_cmds,
+        "ip_cmds": cmds.ip_cmds,
+        "bridge_cmds": cmds.bridge_cmds,
+        "frr_cmds": add_asic_arg("  -n  {}", cmds.frr_cmds, num),
+        "bgp_cmds": add_asic_arg("  -n  {}", cmds.bgp_cmds, num),
+        "nat_cmds": cmds.nat_cmds,
+        "bfd_cmds": add_asic_arg("  -n  {}", cmds.bfd_cmds, num),
+        "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
+        "docker_cmds": add_asic_arg("{}", cmds.docker_cmds, num),
+        "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
+        "misc_cmds": cmds.misc_cmds,
+    }
+
+    if duthost.facts["asic_type"] == "broadcom":
+        cmds_to_check.update(
+            {
+                "broadcom_cmd_bcmcmd": 
+                    add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
+                "broadcom_cmd_misc": 
+                    add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
+                "copy_config_cmds": 
+                    add_asic_arg("/{}", cmds.copy_config_cmds, num),
+            }
+        )
+
+    return cmds_to_check
+
+
+def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
+    """ 
+    Check commands within a group against the command list 
+
+    Returns: list commands not found
+    """
+
+    cmd_not_found = defaultdict(list)
+    ignore_set = cmds.ignore_list.get(cmd_group_name)
+    for cmd_name in cmd_group_to_check:
+        found = False
+        cmd_str = cmd_name if isinstance(cmd_name, str) else cmd_name.pattern
+        logger.info("Checking for {}".format(cmd_str))
+
+        for command in cmdlist:
+            if isinstance(cmd_name, str):
+                result = cmd_name in command
+            else:
+                result = cmd_name.search(command)
+            if result:
+                found = True
+                break
+
+        if not found:
+            if not ignore_set or cmd_str not in ignore_set:
+                cmd_not_found[cmd_group_name].append(cmd_str)
+
+    return cmd_not_found
+
+
+def test_techsupport_commands(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
+):
+    """
+    This test checks list of commands that will be run when executing
+    'show techsupport' CLI against a standard expected list of commands
+    to run.
+
+    The test invokes show techsupport with noop option, which just
+    returns the list of commands that will be run when collecting
+    tech support data.
+
+    Args:
+    commands_to_check: contains a dict of command groups with each
+    group containing a list of related commands.
+    """
+
+    cmd_not_found = defaultdict(list)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    stdout = duthost.shell(
+        'sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"'
+    )
+
+    pytest_assert(stdout['rc'] == 0, 'generate_dump command failed')
+
+    cmd_list = stdout["stdout_lines"]
+
+    for cmd_group_name, cmd_group_to_check in commands_to_check.items():
+        cmd_not_found.update(
+            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list)
+        )
+
+    pytest_assert(len(cmd_not_found) == 0, cmd_not_found)

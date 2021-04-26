@@ -12,15 +12,17 @@ function usage
   echo "    $0 [options] refresh-dut <topo-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <topo-name> <vault-password-file>"
   echo "    $0 [options] config-vm <topo-name> <vm-name> <vault-password-file>"
+  echo "    $0 [options] announce-routes <topo-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos) (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'veos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
+  echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
   echo
   echo "Positional Arguments:"
   echo "    <server-name>         : Hostname of server on which to start VMs"
@@ -41,14 +43,17 @@ function usage
   echo "To start VMs for specified topology on server: $0 start-topo-vms 'topo-name' ~/.password"
   echo "To stop all VMs on a server:  $0 stop-vms 'server-name' ~/.password"
   echo "To stop VMs for specified topology on server: $0 stop-topo-vms 'topo-name' ~/.password"
+  echo "To cleanup *all* vms and docker: $0 cleanup-vmhost 'server-name' ~/.password"
   echo "To deploy a topology on a server: $0 add-topo 'topo-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
+  echo "To remove a topology and keysight-api-server container on a server: $0 remove-topo 'topo-name' ~/.password remove_keysight_api_server"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password"
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
   echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
   echo "To configure a VM on a server: $0 config-vm 'topo-name' 'vm-name' ~/.password"
+  echo "To announce routes to DUT: $0 announce-routes 'topo-name' ~/.password"
   echo "To generate minigraph for DUT in a topology: $0 gen-mg 'topo-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in a topology: $0 deploy-mg 'topo-name' 'inventory' ~/.password"
   echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
@@ -96,11 +101,12 @@ function read_csv
   vm_base=${line_arr[8]}
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
+  inv_name=${line_arr[10]}
 }
 
 function read_yaml
 {
-  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1' in str(tb)))")
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['conf-name']))")
 
   IFS=$'+' read -r -a tb_lines <<< $content
   linecount=${#tb_lines[@]}
@@ -119,9 +125,9 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut comment;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut inv_name auto_recover comment;
   do
-    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb['$attr'])")
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
     line_arr=("${line_arr[@]}" "$value")
   done
@@ -136,6 +142,7 @@ function read_yaml
   vm_base=${line_arr[8]}
   dut=${line_arr[9]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
+  inv_name=${line_arr[10]}
 }
 
 function read_file
@@ -159,7 +166,7 @@ function start_vms
   shift
   echo "Starting VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" testbed_start_VMs.yml \
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" -e vm_type="$vm_type" testbed_start_VMs.yml \
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
@@ -171,7 +178,7 @@ function stop_vms
   shift
   echo "Stopping VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e vm_type="$vm_type" testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function start_topo_vms
@@ -212,9 +219,19 @@ function add_topo
 
   echo "$dut" "$duts"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" $@
+  if [ -n "$sonic_vm_dir" ]; then
+      ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
 
-  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+        -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        $ansible_options $@
+
+  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
+    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  fi
 
   # Delete the obsoleted arp entry for the PTF IP
   ip neighbor flush $ptf_ip
@@ -232,7 +249,25 @@ function remove_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" $@
+  remove_keysight_api_server=0
+  for i in "$@"
+  do
+    if [[ "remove_keysight_api_server" == "$i" ]]; then
+      remove_keysight_api_server=1
+      shift
+    fi
+  done
+
+  if [ -n "$sonic_vm_dir" ]; then
+      ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+      -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+      -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+      -e remove_keysight_api_server="$remove_keysight_api_server" \
+      $ansible_options $@
 
   echo Done
 }
@@ -287,7 +322,16 @@ function refresh_dut
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -vvv -i $vmfile testbed_refresh_dut.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" $@
+  if [ -n "$sonic_vm_dir" ]; then
+      ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+        -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        -e force_stop_sonic_vm="yes" \
+        $ansible_options $@
 
   echo Done
 }
@@ -312,6 +356,23 @@ function disconnect_vms
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_disconnect_vms.yml --vault-password-file="$2" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$vm_set_name"
 
   echo Done
+}
+
+function announce_routes
+{
+  topology=$1
+  passfile=$2
+  shift
+  shift
+
+  echo "Announce routes '$topology'"
+
+  read_file $topology
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "$inv_name" testbed_announce_routes.yml --vault-password-file="$passfile" \
+      -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
+
+  echo done
 }
 
 function generate_minigraph
@@ -416,13 +477,26 @@ function stop_k8s_vms
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_k8s_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e k8s="true" $@
 }
 
+function cleanup_vmhost
+{
+  server=$1
+  passwd=$2
+  shift
+  shift
+  echo "Cleaning vm_host server '${server}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" testbed_cleanup.yml \
+      --vault-password-file="${passwd}" -l "${server}" $@
+}
+
 vmfile=veos
 tbfile=testbed.csv
 vm_type=veos
 vm_num=0
 msetnumber=1
+sonic_vm_dir=""
 
-while getopts "t:m:k:n:s:" OPTION; do
+while getopts "t:m:k:n:s:d:" OPTION; do
     case $OPTION in
     t)
         tbfile=$OPTARG
@@ -438,6 +512,9 @@ while getopts "t:m:k:n:s:" OPTION; do
         ;;
     s)
         msetnumber=$OPTARG
+        ;;
+    d)
+        sonic_vm_dir=$OPTARG
         ;;
     *)
         usage
@@ -478,11 +555,15 @@ case "${subcmd}" in
                ;;
   config-vm)   config_vm $@
                ;;
+  announce-routes) announce_routes $@
+               ;;
   gen-mg)      generate_minigraph $@
                ;;
   deploy-mg)   deploy_minigraph $@
                ;;
   test-mg)     test_minigraph $@
+               ;;
+  cleanup-vmhost) cleanup_vmhost $@
                ;;
   create-master) start_k8s_vms $@
                  setup_k8s_vms $@

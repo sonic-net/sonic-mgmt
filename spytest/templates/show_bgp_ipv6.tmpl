@@ -10,6 +10,7 @@ Value STATUS_CODE ([sdhirSR*>=#]*)
 Value INTERNAL ([ie\?]?)
 Value Filldown VRF (\S+)
 Value Filldown AS_NUM (\d+)
+Value ORIGIN ([ie\?]?)
 
 
 Start
@@ -22,11 +23,11 @@ Start
 Bgp_table
   ^\s*${STATUS_CODE}\s+${INTERNAL}\s+${NEXT_HOP}\s*$$ -> Continue
   ^\s{1,45}${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
-  ^\s*${STATUS_CODE}\s{1,16}${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s*$$ -> Continue
+  ^\s*${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NETWORK}\s+${NEXT_HOP}\s*$$ -> Continue
   ^\s{1,45}${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
-  ^\s*${STATUS_CODE}\s{1,16}${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
+  ^\s*${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*\s+${ORIGIN}\s*$$ -> Record
   ^\s*${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NEXT_HOP}\s+${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
-  ^\s*${STATUS_CODE}\s+${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s+\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
+  ^\s*${STATUS_CODE}\s+${INTERNAL}\s+${NETWORK}\s+${NEXT_HOP}\s+\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
   ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s+${INTERNAL}\s*$$ -> Record
   ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${LOCAL_PREF}\s+${WEIGHT}\s+${INTERNAL}\s*$$ -> Record
   ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${WEIGHT}\s+${AS_PATH}\s+${INTERNAL}\s*$$ -> Record
@@ -35,3 +36,4 @@ Bgp_table
   ^\s*${STATUS_CODE}\s+${NETWORK}\s+${NEXT_HOP}\s+${METRIC}\s+${INTERNAL}\s*$$ -> Record
 
 EOF
+

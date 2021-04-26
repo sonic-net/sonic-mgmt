@@ -100,3 +100,19 @@ def traffic_action_control(tg_handler, actions=["reset", "clear_stats"]):
         tg_handler["tg"].tg_traffic_control(action=action, port_handle=tg_port_handler)
     return tg_handler
 
+def get_min(v1, v2):
+    return v1 if v1 < v2 else v2
+
+def get_max(v1, v2):
+    return v1 if v1 > v2 else v2
+
+def normalize_pps(value):
+    from spytest import cutils
+    if not is_soft_tgen(): return value
+    max_value = cutils.get_env_int("SPYTEST_SCAPY_MAX_RATE_PPS", 100)
+    return get_min(value, max_value)
+
+def normalize_mtu(value):
+    if not is_soft_tgen(): return value
+    return get_min(value, 9000)
+

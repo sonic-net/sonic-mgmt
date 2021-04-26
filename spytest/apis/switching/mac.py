@@ -2,12 +2,12 @@ import re
 import json
 
 from spytest import st
-from spytest.utils import filter_and_select
 
 import apis.common.wait as waitapi
 
 from apis.system.rest import get_rest,delete_rest,config_rest
 from utilities.utils import get_interface_number_from_name
+from utilities.common import filter_and_select, iterable
 
 
 def get_mac(dut,**kwargs):
@@ -109,9 +109,8 @@ def get_mac_entries_by_mac_address(dut, mac_address, **kwargs):
         mac_entries = st.show(dut, command,type=cli_type)
     elif cli_type in ["rest-patch", "rest-put"]:
         entries = get_mac(dut, cli_type=cli_type)
-        st.debug(entries)
         mac_entries = []
-        for entry in entries:
+        for entry in iterable(entries):
             exp = "^{}".format(mac_address.strip())
             if re.search(exp, entry['macaddress'], re.IGNORECASE):
                 mac_entries.append(entry)
@@ -134,6 +133,9 @@ def get_mac_count(dut, cli_type=""):
     if cli_type == 'click':
         field = "mac_count"
         command = "show mac count"
+        if not st.is_feature_supported("show-mac-count-command", dut):
+            st.community_unsupported(command, dut)
+            return 0
         output = st.show(dut, command, type=cli_type)
     elif cli_type == 'klish':
         field =  "count"
@@ -346,7 +348,6 @@ def delete_mac(dut, mac, vlan, cli_type=""):
     else:
         st.log("Unsupported cli")
         return False
-
     return True
 
 def config_mac_agetime(dut, agetime, cli_type="", config= "add", **kwargs):
@@ -391,11 +392,12 @@ def get_mac_agetime(dut, cli_type=""):
     command = ''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if cli_type == 'click':
-        command = "show mac aging_time"
         if st.is_feature_supported("show-mac-aging-time-command", dut):
             command = "show mac aging-time"
-        if st.is_feature_supported("show-mac-aging_time-command", dut):
-            st.community_unsupported(command, dut)
+        elif st.is_feature_supported("show-mac-aging_time-command", dut):
+            command = "show mac aging_time"
+        else:
+            st.community_unsupported("show mac aging-time", dut)
             return 300
     elif cli_type == 'klish':
         command = "show mac address-table aging-time"
@@ -566,7 +568,7 @@ def configure_macmove_threshold(dut, **kwargs):
     """
 
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
-    if cli_type in ["rest-put", "rest-patch"]: cli_type = 'click'
+    if cli_type in ["rest-put", "rest-patch"]: cli_type = 'klish'
     command =''
     if cli_type == "click":
         if 'count' in kwargs:
@@ -575,9 +577,9 @@ def configure_macmove_threshold(dut, **kwargs):
             command += " config mac dampening_threshold_interval {}\n".format(kwargs['interval'])
     elif cli_type == "klish":
         if 'count' in kwargs:
-            command = " mac address-table dampening-threshold {}\n".format(kwargs['count'])
+            command = "mac address-table dampening-threshold {}\n".format(kwargs['count'])
         if 'interval' in kwargs:
-            st.log('cmd is not available in klish')
+            command += "mac address-table dampening-interval {}\n".format(kwargs['interval'])
     elif cli_type in ["rest-put", "rest-patch"]:
         st.log('Needs to add rest url support')
         #url = st.get_datastore(dut, "rest_urls")["config_interface"]
@@ -600,12 +602,14 @@ def verify_mac_dampening_threshold(dut, **kwargs):
     usage
     verify_mac_dampening_threshold(dut1,count=2)
     """
-    cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
-    if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
+    #cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
+    #if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
+    ## Changes in klish command as part of bug fix, fallback to click till fixing templates.
+    cli_type = 'click'
     if cli_type == 'click':
         cmd = "show mac dampening_threshold"
     else:
-        cmd = "show mac dampening-threshold"
+        cmd = "show mac dampening"
     parsed_output = st.show(dut,cmd,type=cli_type)
     if len(parsed_output) == 0:
         st.error("OUTPUT is Empty")
@@ -626,17 +630,20 @@ def verify_mac_dampening_disabled_ports(dut, **kwargs):
     verify_mac_dampening_disabled_ports(data.dut1, port_list = ['Ethernet127','Ethernet126'])
 
     """
+    parsed_output = []
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
     if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
     if cli_type == 'click':
         cmd = "show mac dampening_disabled_ports"
     else:
         cmd = "show mac dampening-disabled-ports"
+
     parsed_output = st.show(dut,cmd,type=cli_type)
 
     if len(parsed_output) == 0:
-        st.error("OUTPUT is Empty")
-        return False
+        ### Klish output empty when disabled ports are not there
+        parsed_output = [{'port_list':['None']}]
+    st.log("DEBUG==>{}".format(parsed_output))
 
     if 'return_output' in kwargs:
         return parsed_output

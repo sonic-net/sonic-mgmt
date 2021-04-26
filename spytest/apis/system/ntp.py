@@ -1,14 +1,18 @@
-
 import json
 import re
+import datetime
+import copy
 from spytest import st
-from spytest.utils import filter_and_select
-from utilities.utils import ensure_service_params
+
+from utilities.common import filter_and_select, iterable, make_list
+from utilities.utils import ensure_service_params, get_interface_number_from_name
+
 from apis.system.rest import config_rest, get_rest, delete_rest
+errors_list = ['error', 'invalid', 'usage', 'illegal', 'unrecognized']
+
 
 def add_ntp_servers(dut, iplist=[], cli_type=''):
     """
-
     :param dut:
     :param iplist:
     :return:
@@ -71,7 +75,7 @@ def delete_ntp_servers(dut, cli_type=''):
         st.log("No servers to delete")
         return True
     else:
-        for ent in output:
+        for ent in iterable(output):
             server_ip = ent["remote"].strip("+*#o-x").strip()
             if cli_type == "click":
                 commands.append("config ntp del {}".format(server_ip))
@@ -181,16 +185,16 @@ def verify_ntp_server_details(dut, server_ip=None, **kwargs):
     if not output:
        flag = 0
     if server_ip is None:
-        if "No association ID's returned" in output:
+        if "No association ID's returned" in str(output):
             return True
-        elif "%Error: Resource not found" in output:
+        elif "%Error: Resource not found" in str(output):
             return True
         else:
             return False
     else:
         server_ips = [server_ip] if type(server_ip) is str else list([str(e) for e in server_ip])
         data = kwargs
-        for ent in output:
+        for ent in iterable(output):
             remote_ip = ent["remote"].strip("+*#o-x").strip()
             if remote_ip in server_ips:
                 if 'remote' in data and remote_ip not in data['remote']:
@@ -507,14 +511,14 @@ def verify_ntp_service_status(dut, status, iteration=1, delay=1):
 def verify_ntp_server_exists(dut, server_ip=None, **kwargs):
     output = show_ntp_server(dut)
     if server_ip is None:
-        if "No association ID's returned" in output:
+        if "No association ID's returned" in str(output):
             return True
         else:
             return False
     else:
         server_ips = [server_ip] if type(server_ip) is str else list([str(e) for e in server_ip])
         data = kwargs
-        for ent in output:
+        for ent in iterable(output):
             remote_ip = ent["remote"].strip("+*#o-x").strip()
             if remote_ip in server_ips:
                 if 'remote' in data and remote_ip not in data['remote']:
@@ -579,9 +583,9 @@ def get_rest_server_info(server_output):
         for server in servers:
             temp = dict()
             server_details = server['state']
-            req_params = ['address', 'openconfig-system-ext:reach', 'openconfig-system-ext:now', 'stratum', 'openconfig-system-ext:peerdelay', 'openconfig-system-ext:peertype', 'openconfig-system-ext:peeroffset', 'openconfig-system-ext:peerjitter', 'poll-interval', 'openconfig-system-ext:refid']
+            req_params = ['address', 'openconfig-system-ext:reach', 'openconfig-system-ext:now', 'stratum', 'openconfig-system-ext:peerdelay', 'openconfig-system-ext:peertype', 'openconfig-system-ext:peeroffset', 'openconfig-system-ext:peerjitter', 'poll-interval', 'openconfig-system-ext:refid', 'openconfig-system-ext:selmode']
             if all(param in server_details for param in req_params):
-                temp['remote'] = str(server_details['address'])
+                temp['remote'] = str(server_details['openconfig-system-ext:selmode']+server_details['address'])
                 temp['reach'] = str(server_details['openconfig-system-ext:reach'])
                 temp['when'] = str(server_details['openconfig-system-ext:now'])
                 temp['st'] = str(server_details['stratum'])
@@ -616,5 +620,254 @@ def get_time_zone_info(data):
         ret_val.append(out)
         return ret_val
     else:
-        st.log("invalid data")
+        st.error("invalid data")
         return False
+
+
+def get_ntp_logs(dut, filter=None):
+    """
+    To get the NTP related logs from /var/log/ntp.log
+    :param dut:
+    :param filter:
+    :return out_list
+    """
+    command = "cat /var/log/ntp.log"
+    command = "{} | grep '{}'".format(command, filter) if filter else command
+    output = st.show(dut, command, skip_tmpl=True, skip_error_check=True, faster_cli=False, max_time=1200)
+    out_list = output.strip().split('\n')[:-1]
+    for _ in range(out_list.count("'")):
+        out_list.remove("'")
+    return out_list
+
+
+def verify_time_synch(server_time, client_time):
+    diff=10
+    month_dict = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+    try:
+        time1 = datetime.datetime(int(server_time['year']), month_dict[server_time['month']], int(server_time['monthday']), int(server_time['hours']), int(server_time['minutes']), int(server_time['seconds']))
+        time2 = datetime.datetime(int(client_time['year']), month_dict[client_time['month']], int(client_time['monthday']), int(client_time['hours']), int(client_time['minutes']), int(client_time['seconds']))
+        difference = (time1 - time2).total_seconds()
+    except Exception as e:
+        st.error("'{}' exception occurred".format(e))
+        return False
+    return True if int(difference) < diff else False
+
+
+def verify_ntp_synch(dut, server):
+    entries = show_ntp_server(dut)
+    if filter_and_select(entries, None, {'remote': "*{}".format(server)}):
+        st.debug("NTP synchronized with server: {}".format(server))
+        return True
+    st.error("NTP not synchronized with server: {}".format(server))
+    return False
+
+
+def config_ntp_parameters(dut, **kwargs):
+    """
+    To Configure NTP paramters
+    Author: Jagadish Chatrasi (jagadish.chatrasi@broadcom.com)
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    config = kwargs.get('config', True)
+    skip_error = kwargs.get('skip_error', False)
+    commands = list()
+    if cli_type == "klish":
+        if 'source_intf' in kwargs:
+            config_string = '' if config else 'no '
+            for src_intf in make_list(kwargs['source_intf']):
+                intf_data = get_interface_number_from_name(src_intf)
+                commands.append('{}ntp source-interface {} {}'.format(config_string, intf_data['type'], intf_data['number']))
+        if 'vrf' in kwargs:
+            if not config:
+                commands.append('no ntp vrf')
+            else:
+                commands.append('ntp vrf {}'.format(kwargs['vrf']))
+        if 'authenticate' in kwargs:
+            config_string = '' if config else 'no '
+            commands.append('{}ntp authenticate'.format(config_string))
+        if kwargs.get('auth_key_id'):
+            if not config:
+                commands.append('no ntp authentication-key {}'.format(kwargs['auth_key_id']))
+            else:
+                if kwargs.get('auth_type') and kwargs.get('auth_string'):
+                    commands.append('ntp authentication-key {} {} "{}"'.format(kwargs['auth_key_id'], kwargs['auth_type'], kwargs['auth_string']))
+        if kwargs.get('trusted_key'):
+            config_string = '' if config else 'no '
+            commands.append('{}ntp trusted-key {}'.format(config_string, kwargs['trusted_key']))
+        if kwargs.get('servers'):
+            servers = make_list(kwargs.get('servers'))
+            for server in servers:
+                if not config:
+                    commands.append('no ntp server {}'.format(server))
+                else:
+                    commands.append('ntp server {} key {}'.format(server, kwargs['server_key']) if kwargs.get('server_key') else 'ntp server {}'.format(server))
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        if 'source_intf' in kwargs:
+            for src_intf in make_list(kwargs['source_intf']):
+                src_intf = 'eth0' if src_intf == "Management0" else src_intf
+                if config:
+                    url = rest_urls['ntp_config_source_interface']
+                    payload = json.loads("""{"openconfig-system-ext:ntp-source-interface": ["string"]}""")
+                    payload["openconfig-system-ext:ntp-source-interface"] = [src_intf]
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                        return False
+                else:
+                    url = rest_urls['ntp_delete_source_interface'].format(src_intf)
+                    if not delete_rest(dut, rest_url=url):
+                        return False
+        if 'vrf' in kwargs:
+            if config:
+                url = rest_urls['ntp_config_vrf_delete']
+                payload = json.loads("""{"openconfig-system-ext:vrf": "string"}""")
+                payload["openconfig-system-ext:vrf"] = kwargs['vrf']
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
+            else:
+                url = rest_urls['ntp_config_vrf_delete']
+                if not delete_rest(dut, rest_url=url):
+                    return False
+        if 'authenticate' in kwargs:
+            url = rest_urls['ntp_config']
+            if config:
+                payload = json.loads("""{"openconfig-system:config": {"enable-ntp-auth": true}}""")
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
+            else:
+                payload = json.loads("""{"openconfig-system:config": {"enable-ntp-auth": false}}""")
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
+        if kwargs.get('auth_key_id'):
+            keymap = {"md5" : "NTP_AUTH_MD5", 'sha1' : 'NTP_AUTH_SHA1', 'sha2-256' : 'NTP_AUTH_SHA2_256'}
+            if not config:
+                url = rest_urls['ntp_key_delete'].format(kwargs['auth_key_id'])
+                if not delete_rest(dut, rest_url=url):
+                    return False
+            else:
+                if kwargs.get('auth_type') and kwargs.get('auth_string'):
+                    url = rest_urls['ntp_key_config']
+                    payload = json.loads("""{"openconfig-system:ntp-keys": {
+                                                "ntp-key": [
+                                                  {
+                                                    "key-id": 0,
+                                                    "config": {
+                                                      "key-id": 0,
+                                                      "key-type": "string",
+                                                      "openconfig-system-ext:encrypted": false,
+                                                      "key-value": "string"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }""")
+                    payload["openconfig-system:ntp-keys"]["ntp-key"][0]["key-id"] = int(kwargs['auth_key_id'])
+                    payload["openconfig-system:ntp-keys"]["ntp-key"][0]["config"]["key-id"] = int(kwargs['auth_key_id'])
+                    payload["openconfig-system:ntp-keys"]["ntp-key"][0]["config"]["key-type"] = keymap[kwargs['auth_type']]
+                    payload["openconfig-system:ntp-keys"]["ntp-key"][0]["config"]["key-value"] = kwargs['auth_string']
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                        return False
+        if kwargs.get('trusted_key'):
+            if config:
+                url = rest_urls['ntp_config']
+                payload = json.loads("""{"openconfig-system:config": {"openconfig-system-ext:trusted-key": [0]}}""")
+                payload["openconfig-system:config"]["openconfig-system-ext:trusted-key"] = [int(kwargs['trusted_key'])]
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
+            else:
+                url = rest_urls["ntp_trusted_key_delete"].format(kwargs['trusted_key'])
+                if not delete_rest(dut, rest_url=url):
+                    return False
+        if kwargs.get('servers'):
+            servers = make_list(kwargs.get('servers'))
+            for server in servers:
+                if not config:
+                    url = rest_urls['delete_ntp_server'].format(server)
+                    if not delete_rest(dut, rest_url=url):
+                        return False
+                else:
+                    url = rest_urls['config_ntp_server']
+                    if kwargs.get('server_key'):
+                        payload = json.loads("""{"openconfig-system:servers": {
+                                                    "server": [
+                                                      {
+                                                        "address": "string",
+                                                        "config": {
+                                                          "address": "string",
+                                                          "openconfig-system-ext:key-id": 0
+                                                        }
+                                                      }
+                                                    ]
+                                                  }
+                                                }""")
+                        payload["openconfig-system:servers"]["server"][0]["address"] = server
+                        payload["openconfig-system:servers"]["server"][0]["config"]["address"] = server
+                        payload["openconfig-system:servers"]["server"][0]["config"]["openconfig-system-ext:key-id"] = int(kwargs.get('server_key'))
+                    else:
+                        payload = json.loads("""{"openconfig-system:servers": {
+                                                    "server": [
+                                                      {
+                                                        "address": "string",
+                                                        "config": {
+                                                          "address": "string"
+                                                        }
+                                                      }
+                                                    ]
+                                                  }
+                                                }""")
+                        payload["openconfig-system:servers"]["server"][0]["address"] = server
+                        payload["openconfig-system:servers"]["server"][0]["config"]["address"] = server
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                        return False
+    else:
+        st.error("Unsupported CLI_TYPE: {}".format(cli_type))
+        return False
+    if commands:
+        response = st.config(dut, commands, type=cli_type, skip_error_check=skip_error)
+        if any(error in response.lower() for error in errors_list):
+            st.error("The response is: {}".format(response))
+            return False
+    return True
+
+def show(dut, kwargs):
+    """
+    To get the show output of NTP servers/global configuration
+    Author: Jagadish Chatrasi (jagadish.chatrasi@broadcom)
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type == 'click' else cli_type
+    if cli_type == 'klish':
+        if kwargs.get('server'):
+            command = 'show ntp server'
+        elif kwargs.get('global'):
+            command = 'show ntp global'
+        else:
+            st.error('show command is not called for server/global')
+            return False
+        return st.show(dut, command, type=cli_type)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        output = []
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        if kwargs.get('server'):
+            url = rest_urls["show_ntp_server"]
+            payload = get_rest(dut, rest_url=url)["output"]["openconfig-system:server"]
+            for row in payload:
+                table_data = {'server': row["state"]["address"]}
+                output.append(copy.deepcopy(table_data))
+        elif kwargs.get('global'):
+            url = rest_urls["show_ntp_global"]
+            table_data = {'source_intf' : "", 'vrf' : ""}
+            payload = get_rest(dut, rest_url=url)["output"]["openconfig-system:state"]
+            if "openconfig-system-ext:ntp-source-interface" in payload:
+                table_data['source_intf'] = payload["openconfig-system-ext:ntp-source-interface"]
+            if "openconfig-system-ext:vrf" in payload:
+                table_data['vrf'] = payload["openconfig-system-ext:vrf"]
+            output.append(copy.deepcopy(table_data))
+        else:
+            st.error('show command is not called for server/global')
+            return False
+        st.log("OUTPUT : {}".format(output))
+        return output
+    else:
+        st.error("Unsupported CLI_TYPE: {}".format(cli_type))
+        return False
+

@@ -1,0 +1,11 @@
+Value source_intf (\S+)
+Value vrf (mgmt|default)
+
+Start
+  ^\s*\-+\s*$$
+  ^\s*NTP\s*Global\s*Configuration\s*$$
+  ^\s*\-+\s*$$
+  ^\s*NTP\s*source\-interface\s*\:\s*${source_intf}\s*$$
+  ^\s*NTP\s*vrf\s*\:\s*${vrf}\s*$$ -> Record
+
+EOF

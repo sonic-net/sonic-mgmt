@@ -2,4 +2,15 @@
 *.pyc
 __pycache__/
 .pytest_cache/
+
+# Ansible files
+.ansible
+ansible.log
+
+# Test generated files
 tests/logs
+tests/_cache
+tests/metadata
+
+# Dev tools
+.vscode/

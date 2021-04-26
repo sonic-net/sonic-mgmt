@@ -28,11 +28,9 @@ def unescape(txt=''):
     tmp = ''
     while txt and txt != tmp:
         tmp = str(txt)
-        try:
-            txt = unquote(tmp, encoding='utf-8', errors='replace').replace(u"\u200b", '')
-        except Exception:
-            txt = unquote(tmp)
-    return txt
+        try: txt = unquote(tmp)
+        except Exception: pass
+    return txt.replace(u"\u200b", '')
 
 def escapeKeyValue(val):
     return str(val).replace("\\", "\\\\").replace("]", "\\]")
@@ -63,7 +61,7 @@ def getAttrValLists(path, var):
             else:
                 vals[i] = ''
     return attrs, vals
-     
+
 def toRest(path='', var={}, method='get', json=None):
     ''' Covert template path to Rest path '''
     method = toMethod(method)
@@ -89,7 +87,8 @@ def toGNMI(path='', var={}, action='get', data=None):
     if (action.lower() == 'create'):
         action = 'UPDATE'
         if isinstance(body, dict):
-            tk = list(filter(lambda t: t and len(t), path.split('/')))[-1]
+            tk = [t for t in path.split('/') if t and len(t)]
+            tk = tk[-1] if tk else ""
             if tk:
                 m = re.search(r'^\s*(\S+)=\{', tk)
                 if m and m.group(1):

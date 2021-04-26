@@ -172,7 +172,7 @@ class BgpRoutes(object):
             entry['nexthop'] = rt['nextHop']
             entry['origin']  = rt['bgpOriginCode']
             entry['weigh']   = rt['weight']
-            entry['aspath']  = rt['asPath'].split()
+            entry['aspath']  = rt['path'].split()
             self.facts['bgp_route_neiadv']["{}/{}".format(rt['addrPrefix'], rt['prefixLen'])] = entry
 
     def parse_bgp_route_adv(self, cmd_result):

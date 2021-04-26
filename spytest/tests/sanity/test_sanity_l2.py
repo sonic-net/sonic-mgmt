@@ -595,73 +595,111 @@ def test_base_line_vlan_create_delete_and_mac_learning_with_bum():
                              "Unknown": data.unknown_mac}
             mac_incr_cnt = 7
             tg_info = {}
-            new_src_mac = []
-            st.log("Reseting and creating the traffic stream.")
-            tg1.tg_traffic_control(port_handle=tg_ph_1, action='reset')
-            for mac_addr in mac_addr_list:
-                st.log("Start '{}' traffic test with destination MAC = {}".format(mac_addr, mac_addr_list[mac_addr]))
-                new_src_mac.append("00:00:00:00:09:4{}".format(mac_incr_cnt))
-
-                rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps,
-                                           mac_src=new_src_mac[-1], vlan_id=data.vlan, vlan="enable",
-                                           transmit_mode="continuous", mac_dst=mac_addr_list[mac_addr],
-                                           l2_encap='ethernet_ii_vlan', port_handle2=[tg_ph_1, tg_ph_2, tg_ph_3])
-                tg_info[mac_addr] = rv['stream_id']
-                mac_incr_cnt += 1
-
-            st.log("Sending traffic and verifying the stats")
-            tg1.tg_traffic_control(action='clear_stats', stream_handle=tg_info.values())
-            tg1.tg_traffic_control(stream_handle=tg_info.values(), action='run')
-            st.wait(data.post_wait_time_run)
-            tg1.tg_traffic_control(stream_handle=tg_info.values(), action='stop')
-
-            traffic_details = {
-                '1': {
-                    'tx_ports': [vars.T1D1P1],
-                    'tx_obj': [tg1],
-                    'exp_ratio': [2],
-                    'rx_ports': [vars.T1D1P2, vars.T1D1P3],
-                    'rx_obj': [tg1, tg1],
-                    'stream_list': [[tg_info['Unknown']]]
-                },
-                '2': {
-                    'tx_ports': [vars.T1D1P1],
-                    'tx_obj': [tg1],
-                    'exp_ratio': [2],
-                    'rx_ports': [vars.T1D1P2, vars.T1D1P3],
-                    'rx_obj': [tg1, tg1],
-                    'stream_list': [[tg_info['Broadcast']]]
-                },
-                '3': {
-                    'tx_ports': [vars.T1D1P1],
-                    'tx_obj': [tg1],
-                    'exp_ratio': [2],
-                    'rx_ports': [vars.T1D1P2, vars.T1D1P3],
-                    'rx_obj': [tg1, tg1],
-                    'stream_list': [[tg_info['Multicast']]]
-                }
-            }
-
-            intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P1)
-            intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P2)
-            intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P3)
-
-            st.log('MAC address validation.')
-            for mac in new_src_mac:
-                if not mac_obj.verify_mac_address_table(vars.D1, mac, port=vars.D1T1P1):
-                    st.error("MAC '{}' is failed to learn in port = {}".format(mac, vars.D1T1P1))
-                    assert False
-            st.log('MAC address validation passed.')
-
-            # Sending BUM traffic from one port and verifying on other two ports. Providing rx_ports as a input to port_handle2 param, the rx count would be double the tx count
-            result_all = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='streamblock',comp_type='packet_count',return_all=1)
             result = True
-            for result1, traffic_type in zip(result_all[1], ['Unknown', 'Broadcast', 'Multicast']):
-                result = result and result1
-                if result1:
-                    st.log("Traffic successfully forwarded for the traffic type {}".format(traffic_type))
-                else:
-                    st.error("Traffic failed to forwarded for the traffic type {}".format(traffic_type))
+            if st.is_soft_tgen():
+                for mac_addr in mac_addr_list:
+                    st.log(
+                        "Start '{}' traffic test with destination MAC = {}".format(mac_addr, mac_addr_list[mac_addr]))
+                    new_src_mac = ("00:00:00:00:09:4{}".format(mac_incr_cnt))
+                    tg1.tg_traffic_control(action='reset')
+                    rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps,
+                                               mac_src=new_src_mac, vlan_id=data.vlan, vlan="enable",
+                                               transmit_mode="continuous", mac_dst=mac_addr_list[mac_addr],
+                                               l2_encap='ethernet_ii_vlan')
+                    tg_info[mac_addr] = rv['stream_id']
+                    mac_incr_cnt += 1
+                    tg1.tg_traffic_control(action='clear_stats')
+                    st.log("Sending traffic and verifying the stats")
+                    tg1.tg_traffic_control(stream_handle=tg_info[mac_addr], action='run')
+                    st.wait(data.post_wait_time_run)
+                    tg1.tg_traffic_control(stream_handle=tg_info[mac_addr], action='stop')
+                    traffic_details = {
+                        '1': {
+                            'tx_ports': [vars.T1D1P1],
+                            'tx_obj': [tg1],
+                            'exp_ratio': [1],
+                            'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                            'rx_obj': [tg1, tg1]
+                        }
+                    }
+                    intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P1)
+                    intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P2)
+                    intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P3)
+                    st.log('MAC address validation.')
+                    if not mac_obj.verify_mac_address_table(vars.D1, new_src_mac, port=vars.D1T1P1):
+                        st.error("MAC '{}' is failed to learn in port = {}".format(new_src_mac, vars.D1T1P1))
+                        assert False
+                    st.log('MAC address validation passed.')
+                    result1 = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate',
+                                                          comp_type='packet_count')
+                    result = result and result1
+                    if result1:
+                        st.log("Traffic successfully forwarded for the traffic type {}".format(mac_addr))
+                    else:
+                        st.error("Traffic failed to forwarded for the traffic type {}".format(mac_addr))
+            else:
+                new_src_mac = []
+                st.log("Reseting and creating the traffic stream.")
+                tg1.tg_traffic_control(port_handle=tg_ph_1, action='reset')
+                for mac_addr in mac_addr_list:
+                    st.log(
+                        "Start '{}' traffic test with destination MAC = {}".format(mac_addr, mac_addr_list[mac_addr]))
+                    new_src_mac.append("00:00:00:00:09:4{}".format(mac_incr_cnt))
+                    rv = tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', rate_pps=data.rate_pps,
+                                               mac_src=new_src_mac[-1], vlan_id=data.vlan, vlan="enable",
+                                               transmit_mode="continuous", mac_dst=mac_addr_list[mac_addr],
+                                               l2_encap='ethernet_ii_vlan', port_handle2=[tg_ph_1, tg_ph_2, tg_ph_3])
+                    tg_info[mac_addr] = rv['stream_id']
+                    mac_incr_cnt += 1
+                st.log("Sending traffic and verifying the stats")
+                tg1.tg_traffic_control(action='clear_stats', stream_handle=tg_info.values())
+                tg1.tg_traffic_control(stream_handle=tg_info.values(), action='run')
+                st.wait(data.post_wait_time_run)
+                tg1.tg_traffic_control(stream_handle=tg_info.values(), action='stop')
+                traffic_details = {
+                    '1': {
+                        'tx_ports': [vars.T1D1P1],
+                        'tx_obj': [tg1],
+                        'exp_ratio': [2],
+                        'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                        'rx_obj': [tg1, tg1],
+                        'stream_list': [[tg_info['Unknown']]]
+                    },
+                    '2': {
+                        'tx_ports': [vars.T1D1P1],
+                        'tx_obj': [tg1],
+                        'exp_ratio': [2],
+                        'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                        'rx_obj': [tg1, tg1],
+                        'stream_list': [[tg_info['Broadcast']]]
+                    },
+                    '3': {
+                        'tx_ports': [vars.T1D1P1],
+                        'tx_obj': [tg1],
+                        'exp_ratio': [2],
+                        'rx_ports': [vars.T1D1P2, vars.T1D1P3],
+                        'rx_obj': [tg1, tg1],
+                        'stream_list': [[tg_info['Multicast']]]
+                    }
+                }
+                intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P1)
+                intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P2)
+                intf_obj.show_specific_interface_counters(vars.D1, vars.D1T1P3)
+                st.log('MAC address validation.')
+                for mac in new_src_mac:
+                    if not mac_obj.verify_mac_address_table(vars.D1, mac, port=vars.D1T1P1):
+                        st.error("MAC '{}' is failed to learn in port = {}".format(mac, vars.D1T1P1))
+                        assert False
+                st.log('MAC address validation passed.')
+                # Sending BUM traffic from one port and verifying on other two ports. Providing rx_ports as a input to port_handle2 param, the rx count would be double the tx count
+                result_all = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='streamblock',
+                                                         comp_type='packet_count', return_all=1)
+                for result1, traffic_type in zip(result_all[1], ['Unknown', 'Broadcast', 'Multicast']):
+                    result = result and result1
+                    if result1:
+                        st.log("Traffic successfully forwarded for the traffic type {}".format(traffic_type))
+                    else:
+                        st.error("Traffic failed to forwarded for the traffic type {}".format(traffic_type))
             if not result:
                 st.error("traffic_verification_failed")
                 assert False

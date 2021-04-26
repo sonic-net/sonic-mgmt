@@ -1,10 +1,13 @@
 import json
 import logging
 from datetime import datetime
+from time import sleep
 
 import pytest
 from jinja2 import Template
 from netaddr import IPAddress
+from vnet_constants import DUT_VXLAN_PORT_JSON
+from vnet_utils import render_template_to_host
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -98,6 +101,12 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     logger.info("Gather some facts")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
+    logger.info("Copying vxlan_switch.json")
+    render_template_to_host("vxlan_switch.j2", duthost, DUT_VXLAN_PORT_JSON)
+    duthost.shell("docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON))
+    duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
+    sleep(3)
+
     logger.info("Prepare PTF")
     prepare_ptf(ptfhost, mg_facts, duthost)
 
@@ -140,6 +149,8 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
 def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds):
     duthost = duthosts[rand_one_dut_hostname]
 
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
+
     vxlan_enabled, scenario = vxlan_status
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
@@ -152,6 +163,7 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfho
                         "count": COUNT,
                         "sonic_admin_user": creds.get('sonicadmin_user'),
                         "sonic_admin_password": creds.get('sonicadmin_password'),
-                        "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
+                        "sonic_admin_alt_password": sonic_admin_alt_password,
+                        "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
                 qlen=10000,
                 log_file=log_file)

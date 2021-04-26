@@ -1,16 +1,23 @@
 import os
 import sys
 import time
+import glob
 import random
 import socket
 import struct
 import inspect
+import fnmatch
 import threading
 
 from collections import deque
 from itertools import islice
 from tempfile import mkstemp
 import subprocess
+
+try:
+    from StringIO import StringIO ## for Python 2
+except ImportError:
+    from io import StringIO ## for Python 3
 
 from logger import Logger
 
@@ -41,12 +48,12 @@ class Utils(object):
 
     def fwrite(self, content, fname = "", mode="w"):
         if fname == "" or self.dry:
-            _, fname = mkstemp()
+            tmp_dir = os.getenv("TMPDIR", "/tmp/scapy-tgen/tmp/")
+            Utils.ensure_folder(tmp_dir)
+            _, fname = mkstemp(prefix=tmp_dir)
             self.tmp_files.append(fname)
         else:
-            directory = os.path.dirname(fname)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+            Utils.ensure_parent(fname)
         with open(fname, mode) as fd:
             fd.write(content)
         return fname
@@ -57,7 +64,7 @@ class Utils(object):
             with open(fname, 'r') as fd:
                 for line in islice(fd, count):
                     lines.append(line)
-            return "".join(lines)
+            return "".join(lines).strip()
         except Exception:
             pass
         return default
@@ -68,7 +75,7 @@ class Utils(object):
             with open(fname, 'r') as fd:
                 for line in deque(fd, maxlen=count):
                     lines.append(line)
-            return "".join(lines)
+            return "".join(lines).strip()
         except Exception:
             pass
         return default
@@ -79,13 +86,18 @@ class Utils(object):
         except Exception:
             return -1
 
-    def cmdexec(self, cmd, msg=None):
-        self.logger.debug("cmdexec: " + cmd)
-        if self.dry: return "skipped-for-dry-run"
+    @staticmethod
+    def process_exec(cmd):
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (out, err) = p.communicate()
         p.wait()
         return out or err
+
+    def cmdexec(self, cmd, msg=None, dbg=True):
+        if dbg:
+            self.logger.debug("cmdexec: " + cmd)
+        if self.dry: return "skipped-for-dry-run"
+        return self.process_exec(cmd)
 
     def shexec(self, *args):
         cmds = "".join(args)
@@ -114,11 +126,9 @@ class Utils(object):
             th.join()
 
     def cat_file(self, filepath):
-        marker = "\n#######################"
-        content = marker + " cat {}\n".format(filepath)
-        content = content + self.fread(filepath)
-        content = content + marker + "\n"
-        return content
+        marker = "#######################"
+        content = self.fread(filepath).strip()
+        return "\n{0} {1}\n{0}\n".format(marker, content)
 
     def line_info(self):
         stk = inspect.stack()
@@ -297,4 +307,59 @@ class Utils(object):
         if isinstance(arg, list):
             return arg
         return [arg]
+
+    def exec_func(self, func, *args, **kwargs):
+        this_stderr, this_stdout = StringIO(), StringIO()
+        save_stderr, save_stdout = sys.stderr, sys.stdout
+        sys.stderr, sys.stdout = this_stderr, this_stdout
+        func(*args, **kwargs)
+        sys.stderr, sys.stdout = save_stderr, save_stdout
+        msgs = map(str.strip, [this_stdout.getvalue(), this_stderr.getvalue()])
+        return self.logger.debug("\n".join([s for s in msgs if s]))
+
+    def exec_cmd(self, cmd):
+        ret = self.cmdexec(cmd, dbg=False)
+        ret = "\n".join([s for s in ret.split("\n") if s])
+        return self.logger.debug(ret)
+
+    @staticmethod
+    def list_files_tree(dir_path, pattern="*"):
+        matches = []
+        for root, _, filenames in os.walk(dir_path):
+            for filename in fnmatch.filter(filenames, pattern):
+                matches.append(os.path.join(root, filename))
+        return matches
+
+    @staticmethod
+    def list_files(entry, pattern="*"):
+        if os.path.isdir(entry):
+            return Utils.list_files_tree(entry, pattern)
+        if os.path.isfile(entry):
+            return [entry]
+        return glob.glob(entry)
+
+    @staticmethod
+    def ensure_folder(path):
+        path = os.path.abspath(path)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+    @staticmethod
+    def ensure_parent(filename):
+        path = os.path.dirname(filename)
+        Utils.ensure_folder(path)
+
+    @staticmethod
+    def get_ip_addr_dev(intf, ns=None):
+        cmd = "ip addr show dev {}".format(intf)
+        if ns: cmd = "ip netns exec {} {}".format(ns, cmd)
+        output = Utils.process_exec(cmd).split()
+        retval = {}
+        for x in ['inet', 'inet6', 'state', 'link/ether', 'ether']:
+            if x in output:
+                idx = output.index(x)
+                retval[x] = output[idx+1]
+        print(cmd, output, retval)
+        return retval
+
 

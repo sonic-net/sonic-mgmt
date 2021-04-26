@@ -32,6 +32,8 @@ def _parse_args(pre_parse=False):
                         help="testbed file path -- default: ./testbed.yaml")
     parser.add_argument("--test-suite", action="append",
                         default=[], help="test suites")
+    parser.add_argument("--test-paths", action="append",
+                        default=[], help="test paths")
     parser.add_argument("--tclist-file", action="append",
                         default=None, help="test case list file path")
     parser.add_argument("--logs-path", action="store",
@@ -81,14 +83,14 @@ def _parse_args(pre_parse=False):
     # update sys.argv with arguments from suite args
     if args.test_suite:
         addl_args = parse_suite_files(args.test_suite)
-        print("\nSuite Arguments {}\n".format(" ".join(addl_args)))
         index = sys.argv.index("--test-suite")
         new_argv = []
         new_argv.extend(sys.argv[:index])
         new_argv.extend(addl_args)
         new_argv.extend(sys.argv[index+2:])
         sys.argv = new_argv
-        #print("\nSuite Arguments {}\n".format(" ".join(sys.argv)))
+        print("\nSuite Arguments {}\n".format(" ".join(addl_args)))
+        print("\nExpanded Arguments {}\n".format(" ".join(sys.argv)))
         os.environ["SPYTEST_SUITE_ARGS"] = " ".join(addl_args)
         return _parse_args(pre_parse=pre_parse)
 
@@ -147,6 +149,9 @@ def _parse_args(pre_parse=False):
 
     if args.open_config_api:
         os.environ["SPYTEST_OPENCONFIG_API"] = args.open_config_api
+
+    if args.test_paths:
+        os.environ["SPYTEST_TEST_PATHS"] = ",".join(args.test_paths)
 
     prefix=""
     prefix="results"

@@ -114,30 +114,31 @@ class Result(object):
 
     def set_default_error(self, res, code, *args):
         self.default_result = res
-        try:
-            if code:
-                self.default_desc = self.build_msg(code, *args)
-            else:
-                self.default_desc = None
-        except Exception as e:
-            print(e)
-            self.default_desc = "Invalid error code {} : {}".format(code, e)
-            self.default_result = "Fail"
+        if not code:
+            self.default_desc = None
+        else:
+            self.default_desc, msg_ok = self.msg(code, *args)
+            if not msg_ok: self.default_result = "Fail"
         return self.default_desc
 
     def set(self, res, code, *args):
         if self.result and self.result != "Pass":
             msg = "result already set to {} -- ignoring".format(self.result)
-            print(msg)
             return msg
         self.result = res
+        self.desc, msg_ok = self.msg(code, *args)
+        if not msg_ok: self.result = "Fail"
+        return self.desc
+
+    def msg(self, code, *args):
         try:
-            self.desc = self.build_msg(code, *args)
+            desc = self.build_msg(code, *args)
+            msg_ok = True
         except Exception as e:
             print(e)
-            self.desc = "Invalid error code {} : {}".format(code, e)
-            self.result = "Fail"
-        return self.desc
+            desc = "Invalid error code {} : {}".format(code, e)
+            msg_ok = False
+        return desc, msg_ok
 
     def _build_record(self, nodeid, func, tcid, time_taken, comp, result=None,
                       desc=None, rtype="Executed", index=0, syslog_count=0,

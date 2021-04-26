@@ -41,11 +41,13 @@ def create_session(dut, **kwargs):
         st.log("Unsupported mirror type ..")
         return False
     if cli_type == "click":
-        command = "config mirror_session add "
-        if st.is_feature_supported("span-mirror-session", dut):
-            command += " {}".format(kwargs["mirror_type"])
-        command += " {}".format(kwargs["session_name"])
-        if "mirror_type" in kwargs and kwargs["mirror_type"] == "span":
+        if not st.is_feature_supported("span-mirror-session", dut):
+            command = "config mirror_session add {}".format(kwargs["session_name"])
+        elif not st.is_feature_supported("config_mirror_session_add_type", dut):
+            command = "config mirror_session {} add {}".format(kwargs["mirror_type"], kwargs["session_name"])
+        else:
+            command = "config mirror_session add {} {}".format(kwargs["mirror_type"], kwargs["session_name"])
+        if kwargs["mirror_type"] == "span":
             if "destination_ifname" in kwargs:
                 command += " {}".format(kwargs["destination_ifname"])
             if "source_ifname" in kwargs:

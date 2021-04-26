@@ -226,3 +226,5 @@ All_configured_servers_received_packets : Test case passed. All configured helpe
 IP_helper_service_is_not_up : Test case failed, IP helper is not up
 Vrf_Config_verification_failed : VRF config verification failed
 IP_helper_test_case_msg_status : Test case {} {}
+
+accessing_shell_status: Accessing {} shell after enable/disalbe bgp error handling {}

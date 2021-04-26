@@ -11,16 +11,6 @@
         <StartDevice>{{ inventory_hostname }}</StartDevice>
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
       </DeviceLinkBase>
-{% if 'dualtor' in topo %}
-{% set cable_position = 'U' if inventory_hostname == dual_tor_facts['positions']['upper'] else 'L' %}
-      <DeviceLinkBase>
-        <ElementType>LogicalLink</ElementType>
-        <EndDevice>{{ inventory_hostname }}</EndDevice>
-        <EndPort>{{ port_alias[dut_intfs[if_index]] }}</EndPort>
-        <StartDevice>{{ dual_tor_facts['cables'][index] }}</StartDevice>
-        <StartPort>{{ cable_position }}</StartPort>
-      </DeviceLinkBase>
-{% endif %}
 {% endfor %}
 {% endfor %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
@@ -33,26 +23,91 @@
         <StartPort>eth0</StartPort>
       </DeviceLinkBase>
 {% endfor %}
+{% if 'dualtor' in topo %}
+{% set cable_position = 'U' if inventory_hostname == dual_tor_facts['positions']['upper'] else 'L' %}
+{% for cable in dual_tor_facts['cables'] %}
+      <DeviceLinkBase>
+        <ElementType>LogicalLink</ElementType>
+        <EndDevice>{{ inventory_hostname }}</EndDevice>
+        <EndPort>{{ cable['dut_intf'] }}</EndPort>
+        <StartDevice>{{ cable['hostname'] }}</StartDevice>
+        <StartPort>{{ cable_position }}</StartPort>
+      </DeviceLinkBase>
+{% endfor %}
 {% endif %}
+{% endif %}
+{% for asic in asic_topo_config %}
+{% for neigh_asic in  asic_topo_config[asic]['neigh_asic'] %}
+{% for intf in asic_topo_config[asic]['neigh_asic'][neigh_asic]['intfs'][0] | sort %}
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <Bandwidth>40000</Bandwidth>
+        <ChassisInternal>true</ChassisInternal>
+        <EndDevice>{{ neigh_asic }}</EndDevice>
+        <EndPort>{{ intf }}</EndPort>
+        <FlowControl>true</FlowControl>
+        <StartDevice>{{ asic }}</StartDevice>
+        <StartPort>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][loop.index-1] }}</StartPort>
+        <Validate>true</Validate>
+      </DeviceLinkBase>
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% for asic_intf in front_panel_asic_ifnames %}
+      <DeviceLinkBase i:type="DeviceInterfaceLink">
+        <ElementType>DeviceInterfaceLink</ElementType>
+        <Bandwidth>40000</Bandwidth>
+        <ChassisInternal>true</ChassisInternal>
+        <EndDevice>{{ asic_intf.split('-')[1] }}</EndDevice>
+        <EndPort>{{ asic_intf }}</EndPort>
+        <FlowControl>true</FlowControl>
+        <StartDevice>{{ inventory_hostname }}</StartDevice>
+        <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
+        <Validate>true</Validate>
+      </DeviceLinkBase>
+{% endfor %}
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
         <Hostname>{{ inventory_hostname }}</Hostname>
         <HwSku>{{ hwsku }}</HwSku>
+{% if 'loopback' in dual_tor_facts %}
+        <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv4'] }}</a:IPPrefix>
+        </Address>
+        <AddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv6'] }}</a:IPPrefix>
+        </AddressV6>
+{% endif %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
       </Device>
 {% if 'neighbor' in dual_tor_facts %}
+{% set neighbor_hostname = dual_tor_facts['neighbor']['hostname'] %}
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
-        <Hostname>{{ dual_tor_facts['neighbor']['hostname'] }}</Hostname>
+        <Hostname>{{ neighbor_hostname }}</Hostname>
         <HwSku>{{ dual_tor_facts['neighbor']['hwsku'] }}</HwSku>
+{% if 'loopback' in dual_tor_facts %}
+        <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv4'] }}</a:IPPrefix>
+        </Address>
+        <AddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
+        </AddressV6>
+{% endif %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
         </ManagementAddress>
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}
+{% set server_base_address_v4 = (vlan_configs.values() | list)[0]['prefix'] %}
+{% set server_base_address_v4 = server_base_address_v4 | ipaddr('network') %}
+{% set server_base_address_v4 = '.'.join(server_base_address_v4.split('.')[:-1]) + '.{}' %}
+{% set server_base_address_v6 = (vlan_configs.values() | list)[0]['prefix_v6'] %}
+{% set server_base_address_v6 = server_base_address_v6 | ipaddr('network') %}
+{% set server_base_address_v6 = ':'.join(server_base_address_v6.split(':')[:-1]) + ':{:x}' %}
 {% for cable in dual_tor_facts['cables'] %}
       <Device i:type="SmartCable">
         <ElementType>SmartCable</ElementType>
@@ -69,16 +124,32 @@
           <d5p1:IPPrefix>::/0</d5p1:IPPrefix>
         </ManagementAddressV6>
         <SerialNumber i:nil="true" />
-        <Hostname>cable</Hostname>
+        <Hostname>{{ cable['hostname'] }}</Hostname>
+      </Device>
+      <Device i:type="Server">
+        <ElementType>Server</ElementType>
+        <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>{{ server_base_address_v4.format(loop.index + 1) }}/26</d5p1:IPPrefix>
+        </Address> 
+        <AddressV6 xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>{{ server_base_address_v6.format(loop.index + 1) }}/96</d5p1:IPPrefix>
+        </AddressV6>
+        <ManagementAddress xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
+          <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
+        </ManagementAddress>
+        <Hostname>Servers{{ loop.index - 1 }}</Hostname>
       </Device>
 {% endfor %}
 {% endif %}
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
+{% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
 {% if 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
+{% elif 'T3' in dev %}
+{% set dev_type = 'CoreRouter' %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
 {% else %}
@@ -91,8 +162,36 @@
          </ManagementAddress>
          <HwSku>Arista-VM</HwSku>
       </Device>
+{% endif %}
 {% endfor %}
 {% endif %}
+{% for asic in asic_topo_config %}
+      <Device i:type="Asic">
+        <ElementType>Asic</ElementType>
+        <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>0.0.0.0/0</a:IPPrefix>
+        </Address>
+        <AddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>::/0</a:IPPrefix>
+        </AddressV6>
+        <AssociatedClustersStr/>
+        <AssociatedSliceStr/>
+        <AssociatedTagsStr/>
+        <ClusterName/>
+        <DeploymentId i:nil="true"/>
+        <DeviceLocation i:nil="true"/>
+        <HomeDatacenter i:nil="true"/>
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>0.0.0.0/0</a:IPPrefix>
+        </ManagementAddress>
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>::/0</a:IPPrefix>
+        </ManagementAddressV6>
+        <SerialNumber i:nil="true"/>
+        <Hostname>{{ asic }}</Hostname>
+        <HwSku>Broadcom-Trident2</HwSku>
+      </Device>
+{% endfor %}
     </Devices>
   </PngDec>
 

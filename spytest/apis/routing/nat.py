@@ -638,6 +638,25 @@ def poll_for_nat_statistics(dut, itr=15, delay=2, **kwargs):
         st.wait(delay)
         i += 1
 
+def poll_for_twice_nat_statistics(dut, itr=15, delay=2, **kwargs):
+    """
+    :param :dut:
+    :param :acl_table:
+    :param :acl_rule:
+    :param :itr:
+    :param :delay:
+    :return:
+    """
+    i = 1
+    while True:
+        result = verify_twice_nat_statistics(dut, **kwargs)
+        if result is None:
+            if i >= itr:
+                return None
+            st.wait(delay)
+            i += 1
+        else:
+            return result
 
 def verify_nat_statistics(dut, **kwargs):
     """
@@ -678,6 +697,37 @@ def verify_nat_statistics(dut, **kwargs):
     else:
         return False
 
+
+def verify_twice_nat_statistics(dut, **kwargs):
+    """
+    Verify Twice NAT Statistics
+
+    :param dut:
+    :return:
+    """
+    stats = ['packets', 'bytes']
+    cli_type = st.get_ui_type(dut, **kwargs)
+    output = show_nat_statistics(dut, cli_type=cli_type)
+    match = {}
+
+    if 'protocol' in kwargs:
+        match['protocol'] = kwargs['protocol']
+    if 'src_ip' in kwargs:
+        match['src_ip'] = kwargs['src_ip']
+    if 'src_ip_port' in kwargs:
+        match['src_ip_port'] = kwargs['src_ip_port']
+    if 'dst_ip' in kwargs:
+        match['dst_ip'] = kwargs['dst_ip']
+    if 'dst_ip_port' in kwargs:
+        match['dst_ip_port'] = kwargs['dst_ip_port']
+
+    st.debug(match)
+    entries = filter_and_select(output, stats, match)
+
+    if entries and (int(entries[0]['packets']) > 0):
+        return entries
+    else:
+        return None
 
 def get_nat_translations(dut, **kwargs):
     """

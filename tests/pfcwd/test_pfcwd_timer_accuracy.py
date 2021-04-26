@@ -39,7 +39,7 @@ def ignore_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
             ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
             ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*"
         ]
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
     yield
 
@@ -77,9 +77,10 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand
     # enable routing from mgmt interface to localhost
     dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=1, sysctl_set=True)
     # rule to forward syslog packets from mgmt interface to localhost
+    syslog_ip = duthost.get_rsyslog_ipv4()
     dut.iptables(action="insert", chain="PREROUTING", table="nat", protocol="udp",
                  destination=eth0_ip, destination_port=514, jump="DNAT",
-                 to_destination="127.0.0.1:514")
+                 to_destination="{}:514".format(syslog_ip))
 
     logger.info("--- Pfcwd Timer Testrun ---")
     yield { 'timers' : timers,
@@ -143,7 +144,7 @@ class TestPfcwdAllTimer(object):
         self.dut.shell("logrotate -f /etc/logrotate.conf")
         self.storm_handle.start_storm()
         logger.info("Wait for queue to recover from PFC storm")
-        time.sleep(5)
+        time.sleep(8)
 
         storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
         storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")

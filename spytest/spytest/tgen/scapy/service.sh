@@ -12,11 +12,16 @@ if [ -f $ROOT/service.pid ]; then
   rm -f $ROOT/service.pid
 fi
 
+export TMPDIR=$ROOT/tmp/
+rm -rf $TMPDIR;mkdir $TMPDIR
+
 mkdir -p $ROOT/logs
 VER=$(date +%Y_%d_%m-%H_%M_%S)
-find $ROOT/logs/current -name "*.pid" | xargs -r -L 1 pkill -F
-mv -f $ROOT/logs/current $ROOT/logs/$VER
-mkdir -p $ROOT/logs/current
+if [ -d $ROOT/logs/current ]; then
+  find $ROOT/logs/current -name "*.pid" | xargs -r -L 1 pkill -F
+  mv -f $ROOT/logs/current $ROOT/logs/$VER
+fi
+mkdir $ROOT/logs/current
 
 export HOME=$ROOT/logs/current
 export SCAPY_TGEN_LOGS_PATH=$HOME

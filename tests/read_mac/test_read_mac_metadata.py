@@ -8,6 +8,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from datetime import datetime
 from tests.common.reboot import reboot
+from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,8 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope='function')
-def cleanup_read_mac(duthosts, rand_one_dut_hostname, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def cleanup_read_mac(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     logger.info('Remove temporary images')
     duthost.shell("rm -rf {}".format(BINARY_FILE_ON_DUTHOST))
@@ -32,8 +33,8 @@ def cleanup_read_mac(duthosts, rand_one_dut_hostname, localhost):
     if backup_minigraph_exist:
         logger.info("Apply minigraph from backup")
         duthost.shell("mv /etc/sonic/minigraph.xml.backup /etc/sonic/minigraph.xml")
-        duthost.shell("config load_minigraph -y")
-        duthost.shell("config save -y")
+        config_reload(duthost, config_source='minigraph')
+
 
 class ReadMACMetadata():
     def __init__(self, request):
@@ -85,8 +86,7 @@ class ReadMACMetadata():
 
             if current_minigraph:
                 logger.info("Execute cli 'config load_minigraph -y' to apply new minigraph")
-                duthost.shell("config load_minigraph -y")
-                duthost.shell("config save -y")
+                config_reload(duthost, config_source='minigraph')
 
             logger.info("Remove old (not current) sonic image")
             duthost.reduce_and_add_sonic_images(disk_used_pcent = 1)

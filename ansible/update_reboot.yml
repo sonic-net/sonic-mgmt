@@ -1,0 +1,14 @@
+---
+# This playbook will update the apt cache, and do a reboot if cache was updates.
+
+- name: update apt cache
+  apt: update_cache=yes upgrade=yes
+  environment: "{{ proxy_env | default({}) }}"
+  register: apt_update_res
+  become: true
+
+- name: reboot vm_host
+  reboot: reboot_timeout=600
+  when: '"0 upgraded" not in apt_update_res.stdout'
+  become: true
+

@@ -10,9 +10,10 @@
 # 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
 # 2. 'vxlan_enabled' is a boolean parameter. When the parameter is true the test will fail if vxlan test failing. When the parameter is false the test will not fail. By default this parameter is false.
 # 3. 'count' is an integer parameter. It defines how many packets are sent for each combination of ingress/egress interfaces. By default the parameter equal to 1
-# 4. 'dut_host' is the ip address of dut.
+# 4. 'dut_hostname' is the name of dut.
 # 5. 'sonic_admin_user': User name to login dut
 # 6. 'sonic_admin_password': Password for sonic_admin_user to login dut
+# 7. 'sonic_admin_alt_password': Alternate Password for sonic_admin_user to login dut
 
 import sys
 import os.path
@@ -45,13 +46,13 @@ def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, devi
         raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
 
     total_rcv_pkt_cnt = 0
-    while True:
-        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout)
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout, exp_pkt=exp_packet)
         if isinstance(result, test.dataplane.PollSuccess):
-            if ptf.dataplane.match_exp_pkt(exp_packet, result.packet):
-                total_rcv_pkt_cnt += 1
-                if total_rcv_pkt_cnt == exp_packet_number:
-                    break
+            total_rcv_pkt_cnt += 1
+            if total_rcv_pkt_cnt == exp_packet_number:
+                break
         else:
             break
 
@@ -170,9 +171,9 @@ class Vxlan(BaseTest):
             raise Exception("required parameter 'config_file' is not present")
         config = self.test_params['config_file']
 
-        if 'dut_host' not in self.test_params:
-            raise Exception("required parameter 'dut_host' is not present")
-        self.dut_host = self.test_params['dut_host']
+        if 'dut_hostname' not in self.test_params:
+            raise Exception("required parameter 'dut_hostname' is not present")
+        self.dut_hostname = self.test_params['dut_hostname']
 
         if 'sonic_admin_user' not in self.test_params:
             raise Exception("required parameter 'sonic_admin_user' is not present")
@@ -181,6 +182,10 @@ class Vxlan(BaseTest):
         if 'sonic_admin_password' not in self.test_params:
             raise Exception("required parameter 'sonic_admin_password' is not present")
         self.sonic_admin_password = self.test_params['sonic_admin_password']
+
+        if 'sonic_admin_alt_password' not in self.test_params:
+            raise Exception("required parameter 'sonic_admin_alt_password' is not present")
+        self.sonic_admin_alt_password = self.test_params['sonic_admin_alt_password']
 
         if not os.path.isfile(config):
             raise Exception("the config file %s doesn't exist" % config)
@@ -252,9 +257,10 @@ class Vxlan(BaseTest):
         time.sleep(10)
         self.dataplane.flush()
         self.dut_connection = DeviceConnection(
-            self.dut_host,
+            self.dut_hostname,
             self.sonic_admin_user,
-            password=self.sonic_admin_password
+            password=self.sonic_admin_password,
+            alt_password=self.sonic_admin_alt_password
         )
 
         return

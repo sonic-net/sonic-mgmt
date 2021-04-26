@@ -1,4 +1,4 @@
-# This role creates a set of VM with veos or Ubuntu for Kubernetes master
+# This role creates a set of VM with veos or SONiC or Ubuntu for Kubernetes master
 # Input parameters for the role:
 # - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
@@ -166,19 +166,19 @@
       when: home_path is not defined
     - debug: msg="{{ home_path }}"
 
-- name: Require veos VMs by default
+- name: Require veos or SONiC VMs by default
   set_fact:
-    veos_vm_required: true
+    vm_required: true
 
-- name: veos VMs not needed when setting up Kubernetes master
+- name: veos or SONiC VMs not needed when setting up Kubernetes master
   set_fact:
-    veos_vm_required: false
+    vm_required: false
   when:
     - k8s is defined
 
 - name: VMs not needed in case of Keysight API Server
   set_fact:
-    veos_vm_required: false
+    vm_required: false
   when:
     - ptf_imagename is defined
     - ptf_imagename == "docker-keysight-api-server"
@@ -204,6 +204,17 @@
   become: true
 
 - block:
+
+    - name: Require VMs as VEOS by default
+      set_fact:
+        vm_type: "veos"
+      when: vm_type is not defined
+
+    - name: Check VM type
+      fail:
+        msg: "Cannot support this VM type {{ vm_type }}"
+      when: vm_type not in supported_vm_types
+
     - name: Ensure {{ root_path }} exists
       file: path={{ root_path }} state=directory
 
@@ -252,7 +263,7 @@
       include_tasks: renumber_topo.yml
       when: action == 'renumber_topo'
 
-  when: veos_vm_required is defined and veos_vm_required == True
+  when: vm_required is defined and vm_required == True
 
 - name: Add topology
   include_tasks: add_topo.yml

@@ -3,7 +3,6 @@ import pytest
 import json
 
 from spytest import st, tgapi, SpyTestDict
-from spytest.utils import random_vlan_list
 
 import apis.switching.vlan as vlan_obj
 import apis.qos.acl as acl_obj
@@ -70,7 +69,7 @@ def get_handles():
 def apply_module_configuration():
     print_log("Applying module configuration")
 
-    data.vlan = str(random_vlan_list()[0])
+    data.vlan = str(utils.random_vlan_list()[0])
     data.dut1_lag_members = [vars.D1D2P1, vars.D1D2P2]
     data.dut2_lag_members = [vars.D2D1P1, vars.D2D1P2]
 
@@ -123,8 +122,8 @@ def clear_module_configuration():
     ])
     # delete portchannel
     utils.exec_all(True, [
-        utils.ExecAllFunc(pc_obj.delete_portchannel, vars.D1, data.portChannelName, data.cli_type),
-        utils.ExecAllFunc(pc_obj.delete_portchannel, vars.D2, data.portChannelName, data.cli_type),
+        utils.ExecAllFunc(pc_obj.delete_portchannel, vars.D1, data.portChannelName),
+        utils.ExecAllFunc(pc_obj.delete_portchannel, vars.D2, data.portChannelName),
     ])
     # delete vlan
     utils.exec_all(True, [
@@ -210,7 +209,7 @@ def verify_packet_count(tx, tx_port, rx, rx_port, table):
     tg_tx = data.tgmap[tx]
     tg_rx = data.tgmap[rx]
     exp_ratio = 0
-    action = "DROP"
+    #action = "DROP"
     attr_list = []
     traffic_details = dict()
     action_list = []
@@ -235,7 +234,7 @@ def verify_packet_count(tx, tx_port, rx, rx_port, table):
             attr_list.append(attr)
             action_list.append(action)
     result_all = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='streamblock',
-                                    comp_type='packet_count', return_all=1, delay_factor=1.2)
+                                    comp_type='packet_count', return_all=1, delay_factor=1, retry=1)
     for result1, action, attr in zip(result_all[1], action_list, attr_list):
         result = result and result1
         if result1:
@@ -971,10 +970,9 @@ def test_ft_mac_acl_prioirty_ingress():
     st.wait(2)
     transmit('tg1')
     #transmit('tg2')
-    print_log('Check acl priority to verify packets are forwarded when MAC and IPv4 ACLs rules are in "forward" ')
+    print_log('Check acl priority to verify packets are forwarded when MAC and IPv4 ACLs rules are in "forward"')
     result1 = verify_packet_count('tg1', vars.T1D1P1, 'tg2', vars.T1D2P1, "L3_IPV4_INGRESS|rule1")
-    print_log('Check acl priority to verify packets are dropped when MAC acl rule is forward and IPv4 ACL \
-                rule is in "drop" ')
+    print_log('Check acl priority to verify packets are dropped when MAC acl rule is forward and IPv4 ACL rule is in "drop"')
     result2 = verify_packet_count('tg1', vars.T1D1P1, 'tg2', vars.T1D2P1, "L3_IPV4_INGRESS|rule4")
     verify_acl_hit_counters(vars.D1, "L2_MAC_INGRESS", acl_type="mac")
     print_log('Verify ACL hit counters on IPv4)" ')
@@ -1000,12 +998,10 @@ def test_ft_mac_acl_prioirty_egress():
     acl_obj.apply_acl_config(vars.D1, acl_config)
     st.wait(2)
     transmit('tg2')
-    print_log('Check acl priority to verify packets are dropped when MAC rule is drop and \
-                IPv4 ACLs rules are in "forward" ')
+    print_log('Check acl priority to verify packets are dropped when MAC rule is drop and IPv4 ACLs rules are in "forward"')
     verify_packet_count('tg2', vars.T1D2P1,'tg1', vars.T1D1P1,  "L3_IPV4_EGRESS|rule1")
     result2 = verify_packet_count('tg2', vars.T1D2P1, 'tg1', vars.T1D1P1, "L2_MAC_EGRESS|rule1")
-    print_log('Check acl priority to verify packets are dropped when MAC rule is drop and \
-                    IPv4 ACLs rules are in "drop" ')
+    print_log('Check acl priority to verify packets are dropped when MAC rule is drop and IPv4 ACLs rules are in "drop"')
     result3 = verify_packet_count('tg2', vars.T1D2P1,'tg1', vars.T1D1P1,  "L3_IPV4_EGRESS|rule2")
     print_log('Verify ACL hit counters on IPv4)" ')
     result4 = verify_acl_hit_counters(vars.D1,"L2_MAC_EGRESS", acl_type="mac")
@@ -1103,7 +1099,7 @@ def test_ft_acl_gnmi():
     if not gnmi_set_out:
         st.report_fail("error_string_found", ' ', ' ')
     gnmi_get_out = gnmiapi.gnmi_get(vars.D1, xpath)
-    if "rpc error:" in gnmi_get_out:
+    if "rpc error:" in str(gnmi_get_out):
         st.report_fail("error_string_found", 'rpc error:', ' ')
     transmit('tg1')
     result1 = verify_packet_count('tg1', vars.T1D1P1, 'tg2', vars.T1D2P1, "L3_IPV4_INGRESS|rule2")

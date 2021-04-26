@@ -30,6 +30,7 @@ frr_config_file = "/etc/sonic/frr/frr.conf"
 tmp_frr_file = "/tmp/frr.conf"
 rsyslog_conf_file = "/etc/rsyslog.d/99-default.conf"
 tmp_rsyslog_conf_file = "/tmp/rsyslog-default.conf"
+pim_config_file = "/etc/sonic/frr/pimd.conf"
 
 var_log_dir = "/var/log"
 spytest_dir = "/etc/spytest"
@@ -321,7 +322,9 @@ def apply_file(filepath, method):
         if not os.path.exists(old_file + ".orig"):
             commands_to_execute.append("cp {0} {0}.orig".format(old_file))
         commands_to_execute.append("cp {} {}".format(filepath, old_file))
-
+    elif filepath.endswith('.pim'):
+        backup_file(pim_config_file)
+        commands_to_execute.append("cp {} {}".format(filepath, pim_config_file))
     if commands_to_execute:
         execute_cmds(commands_to_execute)
     else:

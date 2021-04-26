@@ -2,7 +2,7 @@
 #Author: prudviraj k (prudviraj.kristipati.@broadcom.com)
 
 from spytest import st
-from utilities.common import filter_and_select, dicts_list_values,integer_parse
+from utilities.common import filter_and_select, dicts_list_values,integer_parse, iterable
 from utilities.utils import get_dict_from_redis_cli, get_interface_number_from_name
 from apis.common import redis
 from apis.system.rest import config_rest, delete_rest, get_rest
@@ -355,7 +355,7 @@ def load_json_config(dut, convert_json, config_file):
 def multicast_queue_start_value(dut, *argv, **kwargs):
     result = True
     output = show(dut, *argv, **kwargs)
-    for queue in output:
+    for queue in iterable(output):
         if queue.get('mc8'):
             result = True
             break

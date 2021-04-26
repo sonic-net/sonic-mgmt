@@ -60,7 +60,7 @@ def interface_operation(dut, interfaces, operation="shutdown", skip_verify=True,
     interfaces_li = make_list(interfaces)
     if cli_type == "click":
         response = portapi.set_status(dut, interfaces_li, operation)
-        if "Error" in response:
+        if "Error" in str(response):
             st.log(response)
             return False
 
@@ -220,7 +220,7 @@ def interface_properties_set(dut, interfaces_list, property, value, skip_error=F
                         st.log("Provided fec value not supported ...")
                         return False
                     if value != "none":
-                        command = " fec {}".format(value)
+                        command = " fec {}".format(value.upper())
                     else:
                         command = " fec off"
                 else:
@@ -537,7 +537,7 @@ def show_specific_interface_counters(dut, interface_name,  cli_type=''):
         url = rest_urls['per_interface_details'].format(interface_name)
         output = []
         result = get_rest(dut, rest_url = url, timeout=60)
-        processed_output = portapi.process_intf_counters_rest_output(result, single_port=True)
+        processed_output = portapi.process_intf_counters_rest_output(result)
         if processed_output:
             output.extend(processed_output)
     st.log(output)
@@ -1304,22 +1304,15 @@ def verify_portgroup(dut, **kwargs):
     interface = kwargs.get("interface", None)
     portgroup = kwargs.get("portgroup", None)
     speed = kwargs.get("speed", None)
-    result = 0
     output = show_portgroup(dut, interface=interface,cli_type=cli_type)
     if not output:
         st.log("Empty output observed - {}".format(output))
         return False
     for data in output:
         if portgroup and str(data["portgroup"]) != str(portgroup):
-            result = 1
-        else:
-            result = 0
+            return False
         if speed and str(speed) not in data["speed"]:
-            result = 1
-        else:
-            result = 0
-    if result:
-        return False
+            return False
     return True
 
 def is_port_group_supported(dut, cli_type=""):

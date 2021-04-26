@@ -25,8 +25,12 @@
   register: lab
 
 - set_fact:
-    dev_vlans: "{{ devinfo.ansible_facts.device_vlan_range|flatten(levels=1) }}"
     lab_devices: "{{ lab.ansible_facts.device_info }}"
+
+- name: Collect DUTs vlans
+  set_fact:
+    dev_vlans: "{{ dev_vlans|default([]) + item.value }}"
+  loop: "{{ devinfo['ansible_facts']['device_vlan_range'] | dict2items }}"
 
 - name: Find the root fanout switch
   set_fact:

@@ -900,7 +900,7 @@ def test_ft_lacp_graceful_restart_with_cold_boot():
         st.report_fail('portchannel_member_state_failed')
     config_save(vars.D2)
     slog.clear_logging(vars.D2)
-    [output, exceptions] = exec_all(True, [ExecAllFunc(st.reboot, vars.D2), ExecAllFunc(poll_wait, portchannel_obj.verify_portchannel_details, 10, vars.D1, [data.portchannel_name, data.portchannel_name2], [data.lag_down, data.lag_down], [None, None], [[vars.D1D2P1, vars.D1D2P2], [vars.D1D2P3, vars.D1D2P4]])])
+    [output, exceptions] = exec_all(True, [ExecAllFunc(st.reboot, vars.D2), ExecAllFunc(poll_wait, portchannel_obj.verify_portchannel_details, 60, vars.D1, [data.portchannel_name, data.portchannel_name2], [data.lag_down, data.lag_down], [None, None], [[vars.D1D2P1, vars.D1D2P2], [vars.D1D2P3, vars.D1D2P4]])])
     ensure_no_exception(exceptions)
     if False in output:
         st.report_fail('portchannel_member_state_failed')

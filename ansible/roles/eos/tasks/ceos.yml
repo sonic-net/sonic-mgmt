@@ -1,3 +1,15 @@
+- snmp_facts: host={{ ansible_host }} version=v2c is_eos=true community={{ snmp_rocommunity }}
+  delegate_to: localhost
+  register: snmp_data
+  ignore_errors: true
+
+- name: set force_restart=yes for ceos container
+  set_fact: force_restart=yes
+
+- name: set farce_restart=no for ceos container
+  set_fact: force_restart=no
+  when: snmp_data.ansible_facts.ansible_sysname is defined
+
 - include_tasks: ceos_config.yml
 
 - name: Create cEOS container ceos_{{ vm_set_name }}_{{ inventory_hostname }}
@@ -8,7 +20,7 @@
     command: /sbin/init systemd.setenv=INTFTYPE=eth systemd.setenv=ETBA=1 systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1 systemd.setenv=CEOS=1 systemd.setenv=EOS_PLATFORM=ceoslab systemd.setenv=container=docker systemd.setenv=MGMT_INTF=eth0
     pull: no
     state: started
-    restart: yes
+    restart: "{{ force_restart }}"
     tty: yes
     network_mode: container:net_{{ vm_set_name }}_{{ inventory_hostname }}
     detach: True
