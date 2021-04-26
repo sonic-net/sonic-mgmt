@@ -3,8 +3,10 @@ import ipaddress
 import json
 import logging
 
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,9 @@ class MultiAsicSonicHost(object):
                     self.backend_asics.append(asic)
 
         self.critical_services_tracking_list()
+
+    def __repr__(self):
+        return '<MultiAsicSonicHost> {}'.format(self.hostname)
 
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
@@ -109,6 +114,12 @@ class MultiAsicSonicHost(object):
 
         return [asic.namespace for asic in self.frontend_asics]
 
+    def get_sonic_host_and_frontend_asic_instance(self):
+        if self.sonichost.facts['num_asic'] == 1:
+            return [self.sonichost]
+
+        return [self.sonichost] + [asic for asic in self.frontend_asics]
+
     def get_backend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
@@ -125,6 +136,15 @@ class MultiAsicSonicHost(object):
         if asic_index is None:
             return self.asics[0]
         return self.asics[asic_index]
+
+    def asic_instance_from_namespace(self, namespace=DEFAULT_NAMESPACE):
+        if not namespace:
+            return self.asics[0]
+
+        for asic in self.asics:
+            if asic.namespace == namespace:
+                return asic
+        return None
 
     def get_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
@@ -166,6 +186,12 @@ class MultiAsicSonicHost(object):
             return cmd
         ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
         return ns_cmd
+    
+    def get_linux_ip_cmd_for_namespace(self, cmd, namespace):
+        if not namespace:
+            return cmd
+        ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
+        return ns_cmd
 
     def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
         asic_id = self.get_asic_id_from_namespace(namespace)
@@ -195,10 +221,18 @@ class MultiAsicSonicHost(object):
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
 
-    def get_asic(self, asic_id):
+    def get_asic_or_sonic_host(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
             return self.sonichost
         return self.asics[asic_id]
+
+    def get_asic_or_sonic_host_from_namespace(self, namespace=DEFAULT_NAMESPACE):
+        if not namespace:
+            return self.sonichost
+        for asic in self.asics:
+            if asic.namespace == namespace:
+                return asic
+        return None
 
     def stop_service(self, service):
         if service in self._DEFAULT_SERVICES:
@@ -238,3 +272,77 @@ class MultiAsicSonicHost(object):
                 return False
 
         return True
+
+    def get_port_asic_instance(self, port):
+        """
+        Returns the ASIC instance to which the port belongs
+        Args:
+            port: Port ID
+
+        Returns:
+            returns the ASIC instance if found, else None
+        """
+        for asic in self.asics:
+            if asic.port_exists(port):
+                return asic
+
+        pytest_assert(
+            False,
+            "ASIC instance not found for port {}".format(port)
+        )
+
+    def get_queue_oid_asic_instance(self, queue_oid):
+        """
+        Returns the ASIC instance which has the queue OID saved.
+        Queue OIDs are saved only when requested for a given port and queue.
+
+        Args:
+            queue_oid: Queue OID
+
+        Returns:
+            returns the ASIC instance if found, else None
+        """
+        asic = None
+        for asic in self.asics:
+            if queue_oid in asic.queue_oid:
+                return asic
+
+        pytest_assert(
+            False,
+            "ASIC instance not found for queue OID {}".format(queue_oid)
+        )
+
+    def get_queue_oid(self, port, queue_num):
+        """
+        Get the queue OID of given port and queue number. The queue OID is
+        saved for the purpose of returning the ASIC instance of the
+        queue OID
+
+        Args:
+            port: Port ID
+            queue_num: Queue
+        Returns:
+            Queue OID
+        """
+        asic = self.get_port_asic_instance(port)
+        return asic.get_queue_oid(port, queue_num)
+
+    def has_config_subcommand(self, command):
+        """
+        Check if a config/show subcommand exists on the device
+        
+        It is up to the caller of the function to ensure that `command` 
+        does not have any unintended side effects when run
+
+        Args:
+            command (str): the command to be checked, which should begin with 'config' or 'show'
+        Returns:
+            (bool) True if the command exists, false otherwise
+        """
+        try:
+            self.shell(command) 
+            # If the command executes successfully, we can assume it exists
+            return True
+        except RunAnsibleModuleFail as e:
+            # If 'No such command' is found in stderr, the command doesn't exist
+            return 'No such command' not in e.results['stderr']

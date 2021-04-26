@@ -55,6 +55,7 @@ def is_replaceable(conn):
 # NOTE: The get_change_event() method is not represented here because there is no reliable way
 # to test this method in an automated fashion.
 
+
 def get_base_mac(conn):
     return chassis_api(conn, 'get_base_mac')
 
@@ -89,6 +90,10 @@ def get_all_modules(conn):
 
 def get_module(conn, index):
     return chassis_api(conn, 'get_module', [index])
+
+
+def get_module_index(conn, mod_name):
+    return chassis_api(conn, 'get_module_index', [mod_name])
 
 
 def get_num_fans(conn):
@@ -169,3 +174,15 @@ def get_watchdog(conn):
 
 def get_eeprom(conn):
     return chassis_api(conn, 'get_eeprom')
+
+
+def get_supervisor_slot(conn):
+    return chassis_api(conn, 'get_supervisor_slot')
+
+
+def get_my_slot(conn):
+    return chassis_api(conn, 'get_my_slot')
+
+
+def is_modular_chassis(conn):
+    return chassis_api(conn, 'is_modular_chassis')

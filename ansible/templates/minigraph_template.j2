@@ -2,11 +2,11 @@
 {% set vms=vm_topo_config['vm'].keys() | sort %}
 {% set vms_number = vms | length %}
 {% if 'loopback' in vm_topo_config['DUT'] %}
-{% if type is not defined or type != 'supervisor' %}
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% set lp_ipv4 = vm_topo_config['DUT']['loopback']['ipv4'][dut_index|int] %}
 {% set lp_ipv4_addr = lp_ipv4.split('/')[0] %}
 {% endif %}
-{% if type is not defined or type != 'supervisor' %}
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% set lp_ipv6 = vm_topo_config['DUT']['loopback']['ipv6'][dut_index|int] %}
 {% set lp_ipv6_addr = lp_ipv6.split('/')[0] %}
 {% endif %}

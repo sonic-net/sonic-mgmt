@@ -1,5 +1,6 @@
 import pytest
 import time
+import json
 import logging
 
 from test_crm import RESTORE_CMDS, CRM_POLLING_INTERVAL
@@ -32,14 +33,25 @@ def pytest_runtest_teardown(item, nextitem):
             item.funcargs["duthost"].command(cmd)
 
         test_name = item.function.func_name
-        logger.info("Execute test cleanup")
+        duthosts = item.funcargs['duthosts']
+        hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
+        dut = None
+        if duthosts and hostname: # unable to test hostname in duthosts
+            dut = duthosts[hostname]
+
+        if not dut:
+            dut = item.funcargs['duthost']
+            logger.warning('fallback to use duthost {} instead from {} {}'.format(dut.hostname, duthosts, hostname))
+            hostname = dut.hostname
+
+        logger.info("Execute test cleanup: dut {} {}".format(hostname, json.dumps(RESTORE_CMDS, indent=4)))
         # Restore DUT after specific test steps
         # Test case name is used to mitigate incorrect cleanup if some of tests was failed on cleanup step and list of
         # cleanup commands was not cleared
         for cmd in RESTORE_CMDS[test_name]:
             logger.info(cmd)
             try:
-                item.funcargs["duthost"].shell(cmd)
+                dut.shell(cmd)
             except RunAnsibleModuleFail as err:
                 failures.append("Failure during command execution '{command}':\n{error}".format(command=cmd,
                     error=str(err)))
@@ -56,8 +68,8 @@ def pytest_runtest_teardown(item, nextitem):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_thresholds(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
     crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor",
         "ipv6_neighbor", "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
@@ -72,11 +84,12 @@ def crm_thresholds(duthosts, rand_one_dut_hostname):
     return res
 
 
-@pytest.fixture(scope="module", autouse=True)
-def crm_interface(duthosts, rand_one_dut_hostname, tbinfo):
+@pytest.fixture(scope="function", autouse=True)
+def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, enum_frontend_asic_index):
     """ Return tuple of two DUT interfaces """
-    duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
         crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]
@@ -88,9 +101,9 @@ def crm_interface(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthosts, rand_one_dut_hostname):
+def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Set CRM polling interval to 1 second """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
@@ -98,7 +111,11 @@ def set_polling_interval(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def collector():
+def collector(duthosts, rand_one_dut_hostname):
     """ Fixture for sharing variables beatween test cases """
+    duthost = duthosts[rand_one_dut_hostname]
     data = {}
+    for asic in duthost.asics:
+        data[asic.asic_index] = {}
+
     yield data

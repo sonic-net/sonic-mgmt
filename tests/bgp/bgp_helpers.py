@@ -89,7 +89,7 @@ def parse_exabgp_dump(host):
     Parse the dump file of exabgp, and build a set for checking routes
     """
     routes = set()
-    output_lines = host.shell("cat {}".format(DUMP_FILE))['stdout_lines']
+    output_lines = host.shell("cat {}".format(DUMP_FILE), verbose=False)['stdout_lines']
     for line in output_lines:
         routes.add(line)
     return routes
@@ -100,7 +100,7 @@ def parse_rib(host, ip_ver):
     """
     routes = {}
     cmd = "vtysh -c \"show bgp ipv%d json\"" % ip_ver
-    route_data = json.loads(host.shell(cmd)['stdout'])
+    route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
     for ip, nexthops in route_data['routes'].iteritems():
         aspath = set()
         for nexthop in nexthops:

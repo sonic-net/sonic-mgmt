@@ -159,9 +159,9 @@ class TestbedInfo(object):
             if tb_dict["ptf_ipv6"]:
                 ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
                                                  tb_dict["ptf_netmask_v6"])
-            testbed_mapping = zip(
-                self.testbed_fields,
-                [
+
+            if len(self.testbed_fields) == len(self.TESTBED_FIELDS_DEPRECATED):
+                tb_dict_fields = [
                     tb_name,
                     tb_dict["group-name"],
                     tb_dict["topo"],
@@ -174,7 +174,23 @@ class TestbedInfo(object):
                     tb_dict["duts"],
                     tb_dict["comment"]
                 ]
-            )
+            elif len(self.testbed_fields) == len(self.TESTBED_FIELDS_RECOMMENDED):
+                tb_dict_fields = [
+                    tb_name,
+                    tb_dict["group-name"],
+                    tb_dict["topo"],
+                    tb_dict["ptf_image_name"],
+                    tb_dict["ptf"],
+                    ptf_ip,
+                    ptf_ipv6,
+                    tb_dict["server"],
+                    tb_dict["vm_base"] or None,
+                    tb_dict["duts"],
+                    tb_dict["inv_name"],
+                    tb_dict["auto_recover"],
+                    tb_dict["comment"]
+                ]
+            testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
             testbed = OrderedDict(testbed_mapping)
             testbed_data.append(testbed)
 
@@ -188,7 +204,7 @@ class TestbedInfo(object):
                       explicit_start=True, Dumper=IncIndentDumper)
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor)')
+        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2)')
         match = pattern.match(topo_name)
         if match == None:
             raise Exception("Unsupported testbed type - {}".format(topo_name))

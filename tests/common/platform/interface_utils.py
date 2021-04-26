@@ -39,7 +39,7 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
-    asichost = dut.get_asic(asic_index)
+    asichost = dut.asic_instance(asic_index)
     namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
     #TODO Remove this logic when minigraph facts supports namespace in multi_asic

@@ -61,17 +61,21 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
+    - name: set ptf image name
+      set_fact:
+        ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
+
     - name: set vm
       set_fact:
         vm_base: "{{ testbed_facts['vm_base'] }}"
       when: "testbed_facts['vm_base'] != ''"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
     delegate_to: localhost
 
   - name: find interface name mapping and individual interface speed if defined from dut
-    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
+    port_alias: hwsku="{{ hwsku }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -111,7 +115,7 @@
     when: vm_file is not defined
 
   - set_fact:
-      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      VM_topo: "{% if 'ptf' in topo or 'docker-keysight-api-server' in ptf_image %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
@@ -155,6 +159,15 @@
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
+
+  # create map of VM to asic interface names
+  - name: find all interface asic names
+    set_fact:
+      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
+    when: front_panel_asic_ifnames != [] 
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -367,6 +380,18 @@
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
+
+      - name: Wait for switch to become reachable again
+        become: false
+        local_action: wait_for
+        args:
+          host: "{{ ansible_host }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH_[\\w\\.]+ Debian"
+          delay: 10
+          timeout: 600
+        changed_when: false
 
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
