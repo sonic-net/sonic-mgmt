@@ -239,4 +239,5 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
     yield
 
+    logger.info("Stopping GARP service on PTF host")
     ptfhost.shell('supervisorctl stop garp_service')
