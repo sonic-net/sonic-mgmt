@@ -5,6 +5,7 @@ import re
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -644,12 +645,14 @@ class TestConfigInterface():
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface shutdown {}'.format(ifmode, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down')
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down'),
+                        "Interface {} should be admin down".format(test_intf))
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface startup {}'.format(ifmode, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up')
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up'),
+                        "Interface {} should be admin up".format(test_intf))
 
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf):
