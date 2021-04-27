@@ -193,13 +193,14 @@ class MockerHelper:
         :param value: Value to write to sys fs file.
         :return:
         """
-        out = self.dut.stat(path=file_path)
-        if not out['stat']['exists']:
-            raise SysfsNotExistError('{} not exist'.format(file_path))
-        if out['stat']['islnk']:
-            self._unlink(file_path)
-        else:
-            self._cache_file_value(file_path)
+        if file_path not in self.regular_file_list and file_path not in self.unlink_file_list:
+            out = self.dut.stat(path=file_path)
+            if not out['stat']['exists']:
+                raise SysfsNotExistError('{} not exist'.format(file_path))
+            if out['stat']['islnk']:
+                self._unlink(file_path)
+            else:
+                self._cache_file_value(file_path)
         self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
 
     def read_thermal_value(self, file_path):
@@ -242,13 +243,12 @@ class MockerHelper:
         :param file_path: Regular file path.
         :return:
         """
-        if file_path not in self.regular_file_list:
-            try:
-                output = self.dut.command("cat %s" % file_path)
-                value = output["stdout"]
-                self.regular_file_list[file_path] = value.strip()
-            except Exception as e:
-                assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
+        try:
+            output = self.dut.command("cat %s" % file_path)
+            value = output["stdout"]
+            self.regular_file_list[file_path] = value.strip()
+        except Exception as e:
+            assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
 
     def _unlink(self, file_path):
         """
@@ -256,12 +256,11 @@ class MockerHelper:
         :param file_path: Sys fs file path.
         :return:
         """
-        if file_path not in self.unlink_file_list:
-            readlink_output = self.dut.command('readlink {}'.format(file_path))
-            self.unlink_file_list[file_path] = readlink_output["stdout"]
-            self.dut.command('unlink {}'.format(file_path))
-            self.dut.command('touch {}'.format(file_path))
-            self.dut.command('chown admin {}'.format(file_path))
+        readlink_output = self.dut.command('readlink {}'.format(file_path))
+        self.unlink_file_list[file_path] = readlink_output["stdout"]
+        self.dut.command('unlink {}'.format(file_path))
+        self.dut.command('touch {}'.format(file_path))
+        self.dut.command('chown admin {}'.format(file_path))
 
     def deinit(self):
         """
