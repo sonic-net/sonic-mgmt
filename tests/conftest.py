@@ -303,6 +303,8 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(ansible_adhoc, tbinfo, duthost):
+    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+        return None
     if "ptf" in tbinfo:
         return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:
