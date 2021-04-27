@@ -473,12 +473,13 @@ class BaseAclTest(object):
         return wait_until(60, 2, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
-        res = duthost.command('aclshow -a')
+        for asic_id in duthost.get_frontend_asic_ids():
+            res = duthost.asic_instance(asic_id).command('aclshow -a')
 
-        num_of_lines = len(res['stdout'].split('\n'))
+            num_of_lines = len(res['stdout'].split('\n'))
 
-        if num_of_lines <= 2 or 'N/A' in res['stdout']:
-            return False
+            if num_of_lines <= 2 or 'N/A' in res['stdout']:
+                return False
 
         return True
 
@@ -603,8 +604,11 @@ class BaseAclTest(object):
 
         return exp_pkt
 
-    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version):
+    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         """Verify that unmatched packets are dropped."""
+        if stage == "egress":
+            pytest.skip("No default deny rule exists for egress ACL rules")
+
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
 

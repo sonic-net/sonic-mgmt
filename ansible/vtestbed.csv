@@ -6,3 +6,4 @@ vms-kvm-t0-2,vms6-3,t0,docker-ptf,ptf-03,10.250.0.108/24,fec0::ffff:afa:8/64,ser
 vms-kvm-dual-t0,vms6-4,dualtor,docker-ptf,ptf-04,10.250.0.109/24,fec0::ffff:afa:9/64,server_1,VM0108,[vlab-05;vlab-06],veos_vtb,False,Dual-TOR testbed
 vms-kvm-multi-asic-t1-lag,vms6-4,t1-64-lag,docker-ptf,ptf-05,10.250.0.110/24,fec0::ffff:afa:a/64,server_1,VM0104,[vlab-07],veos_vtb,False,Tests multi-asic virtual switch vm
 vms-kvm-four-asic-t1-lag,vms6-4,t1-8-lag,docker-ptf,ptf-05,10.250.0.110/24,fec0::ffff:afa:a/64,server_1,VM0104,[vlab-08],veos_vtb,False,Tests multi-asic virtual switch vm
+vms-kvm-t2,vms6-4,t2-vs,docker-ptf,ptf-04,10.250.0.109/24,fec0::ffff:afa:9/64,server_1,VM0100,[vlab-t2-01;vlab-t2-02;vlab-t2-sup],veos_vtb,False,T2 Virtual chassis
