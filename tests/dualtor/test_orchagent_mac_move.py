@@ -25,7 +25,8 @@ pytestmark = [
 ]
 
 
-NEW_NEIGHBOR = "192.168.0.100"
+NEW_NEIGHBOR_IPV4_ADDR = "192.168.0.100"
+NEW_NEIGHBOR_HWADDR = "02:AA:BB:CC:DD:EE"
 
 
 @pytest.fixture(scope="function")
@@ -41,15 +42,15 @@ def announce_new_neighbor(ptfadapter, rand_selected_dut, tbinfo):
             ptf_iface = dut_to_ptf_intf_map[dut_iface]
             ptf_iface_mac = ptfadapter.dataplane.ports[(0, ptf_iface)].mac()
             garp_packet = testutils.simple_arp_packet(
-                eth_src=ptf_iface_mac,
-                hw_snd=ptf_iface_mac,
-                ip_snd=NEW_NEIGHBOR,
-                ip_tgt=NEW_NEIGHBOR,
+                eth_src=NEW_NEIGHBOR_HWADDR,
+                hw_snd=NEW_NEIGHBOR_HWADDR,
+                ip_snd=NEW_NEIGHBOR_IPV4_ADDR,
+                ip_tgt=NEW_NEIGHBOR_IPV4_ADDR,
                 arp_op=2
             )
             logging.info(
                 "GARP packet to announce new neighbor %s to mux interface %s:\n%s",
-                NEW_NEIGHBOR, dut_iface, dump_scapy_packet_show_output(garp_packet)
+                NEW_NEIGHBOR_IPV4_ADDR, dut_iface, dump_scapy_packet_show_output(garp_packet)
             )
             testutils.send(ptfadapter, int(ptf_iface), garp_packet, count=5)
             # let the generator stops here to allow the caller to execute testings
@@ -84,7 +85,7 @@ def test_mac_move(
     test_port = next(announce_new_neighbor)
     announce_new_neighbor.send(None)
     logging.info("let new neighbor learnt on active port %s", test_port)
-    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR)
+    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
     server_traffic_monitor = ServerTrafficMonitor(
         tor, vmhost, test_port,
@@ -97,8 +98,17 @@ def test_mac_move(
     test_port = next(announce_new_neighbor)
     announce_new_neighbor.send(lambda iface: set_dual_tor_state_to_orchagent(tor, "standby", [iface]))
     logging.info("mac move to a standby port %s", test_port)
-    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR)
+    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
+    server_traffic_monitor = ServerTrafficMonitor(
+        tor, vmhost, test_port,
+        conn_graph_facts, exp_pkt, existing=False
+    )
+    with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
+        testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
+
+    # standby forwarding check after fdb ageout/flush
+    tor.shell("fdbclear")
     server_traffic_monitor = ServerTrafficMonitor(
         tor, vmhost, test_port,
         conn_graph_facts, exp_pkt, existing=False
@@ -110,11 +120,20 @@ def test_mac_move(
     test_port = next(announce_new_neighbor)
     announce_new_neighbor.send(None)
     logging.info("mac move to another active port %s", test_port)
-    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR)
+    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
     server_traffic_monitor = ServerTrafficMonitor(
         tor, vmhost, test_port,
         conn_graph_facts, exp_pkt, existing=True
+    )
+    with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
+        testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
+
+    # active forwarding check after fdb ageout/flush
+    tor.shell("fdbclear")
+    server_traffic_monitor = ServerTrafficMonitor(
+        tor, vmhost, test_port,
+        conn_graph_facts, exp_pkt, existing=False
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
