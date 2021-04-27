@@ -13,7 +13,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-PORT_TOGGLE_TIMEOUT = 10
+PORT_TOGGLE_TIMEOUT = 30
 
 @pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
