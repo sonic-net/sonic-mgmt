@@ -418,7 +418,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     time.sleep(5)
 
     psu_under_test = None
-    psu_line_pattern = get_dut_psu_line_pattern(duthost)
+    psu_line_pattern = get_dut_psu_line_pattern(dut)
     cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
     for line in cli_psu_status["stdout_lines"][2:]:
         psu_match = psu_line_pattern.match(line)
