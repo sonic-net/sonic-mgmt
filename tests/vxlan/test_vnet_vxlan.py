@@ -10,6 +10,7 @@ from vnet_utils import generate_dut_config_files, safe_open_template, \
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,8 @@ pytestmark = [
 vlan_tagging_mode = ""
 
 def get_vxlan_srcport_range_enabled(duthost):
+    if not isMellanoxDevice(duthost):
+	return False
     dut_platform = duthost.facts["platform"]
     dut_hwsku = duthost.facts["hwsku"]
     sai_profile = "/usr/share/sonic/device/%s/%s/sai.profile" % (dut_platform, dut_hwsku)
