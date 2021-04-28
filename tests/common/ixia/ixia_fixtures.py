@@ -57,7 +57,7 @@ def ixia_api_serv_user(duthosts, rand_one_dut_hostname):
         Ixia API server username.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['user']
+    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['user']
 
 
 @pytest.fixture(scope = "module")
@@ -72,7 +72,7 @@ def ixia_api_serv_passwd(duthosts, rand_one_dut_hostname):
         Ixia API server password.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['password']
+    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['password']
 
 
 @pytest.fixture(scope = "module")
@@ -87,7 +87,7 @@ def ixia_api_serv_port(duthosts, rand_one_dut_hostname):
         Ixia API server REST port.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['rest_port']
+    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['rest_port']
 
 
 @pytest.fixture(scope = "module")
@@ -103,7 +103,7 @@ def ixia_api_serv_session_id(duthosts, rand_one_dut_hostname):
         Ixia API server session id.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['secret_group_vars']['ixia_api_server']['session_id']
+    return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['session_id']
 
 
 @pytest.fixture(scope = "module")
