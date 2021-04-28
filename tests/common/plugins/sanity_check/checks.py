@@ -217,6 +217,9 @@ def check_bgp(duthosts):
 
             if any(asic_check_results):
                 check_result['failed'] = True
+            else:
+                # Need this to cover case where there were down neighbors in one check and now they are all up
+                check_result['failed'] = False
             return not check_result['failed']
 
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
