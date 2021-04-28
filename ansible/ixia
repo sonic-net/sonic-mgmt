@@ -1,0 +1,57 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+        acs-repo.corp.microsoft.com:
+
+    ixia:
+      children:
+        sonic:
+        ixia_chassis:
+
+    ptf:
+      hosts:
+        msr-ixia-api-serv-1:
+          ansible_host: 10.64.246.150
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+  children:
+    sonic_dell64_40:
+    sonic_mlnx32_100:
+    sonic_arista32_100:
+
+sonic_dell64_40:
+  hosts:
+    msr-s6100-dut-1:
+      ansible_host: 10.3.147.1
+  vars:
+    hwsku: Force10-S6100
+    iface_speed: 40000
+
+sonic_mlnx32_100:
+  hosts:
+    msr-sn2700-dut-1:
+      ansible_host: 10.3.147.0
+  vars:
+    hwsku: Mellanox-SN2700
+    iface_speed: 100000
+
+sonic_arista32_100:
+  hosts:
+    msr-a7060-dut-1:
+      ansible_host: 10.3.147.3
+  vars:
+    hwsku: Arista-7060CX-32S-C32
+    iface_speed: 100000
+
+ixia_chassis:
+  hosts:
+    msr-ixia-1:
+    msr-ixia-2:
+      ansible_host: 10.3.145.24
