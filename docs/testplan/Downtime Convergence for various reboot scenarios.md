@@ -96,6 +96,20 @@ Measure the downtime convergence time when warm-reboot is issued while traffic i
 |   | BGP+ Control plane  | 139  |
 |   | Control plane (Loopback ping)  | 30  |
 
+For above test case, below are the test results when BGP is running on routed interface without LAG.
+
+| Reboot Type         | Event | Convergence (s) |
+| :---         |     :---:      | :---: |
+|   | Server-Server Traffic - IPv4  | 0  |
+|   | Server-Server Traffic - IPv6  | 0  |
+|   | Server-T1 Traffic - IPv4  | 0  |
+|   | Server-T1 Traffic - IPv6  | 0  |
+| Warm-reboot  | T1-Server Traffic - IPv4  | 0  |
+|   | T1-Server Traffic - IPv6  | 0  |
+|   | BGP Control plane  | 78  |
+|   | BGP+ Control plane  | 78  |
+|   | Control plane (Loopback ping)  | 29  |
+
 
 ### Test case # 2 – Downtime Convergence measurement for fast-reboot while sending traffic
 #### Test objective
@@ -136,6 +150,20 @@ Measure the downtime convergence time when fast-reboot is issued while traffic i
 |   | BGP+ Control plane  | 82  |
 |   | Control plane (Loopback ping)  | 30  |
 
+For above test case, below are the test results when BGP is running on routed interface without LAG.
+
+| Reboot Type         | Event | Convergence (s) |
+| :---         |     :---:      | :---: |
+|   | Server-Server Traffic - IPv4  | 8  |
+|   | Server-Server Traffic - IPv6  | 8  |
+|   | Server-T1 Traffic - IPv4  | 14  |
+|   | Server-T1 Traffic - IPv6  | 15  |
+| Fast-reboot  | T1-Server Traffic - IPv4  | 8  |
+|   | T1-Server Traffic - IPv6  | 8  |
+|   | BGP Control plane  | 83  |
+|   | BGP+ Control plane  | 83  |
+|   | Control plane (Loopback ping)  | 32  |
+
 ### Test case # 3 – Downtime Convergence measurement for cold-reboot while sending traffic
 #### Test objective
 Measure the downtime convergence time when cold-reboot is issued while traffic is running.
@@ -174,6 +202,21 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 |   | BGP Control plane  | 92  |
 |   | BGP+ Control plane  | 92  |
 |   | Control plane (Loopback ping)  | 45  |
+
+For above test case, below are the test results when BGP is running on routed interface without LAG.
+
+| Reboot Type         | Event | Convergence (s) |
+| :---         |     :---:      | :---: |
+|   | Server-Server Traffic - IPv4  | 73  |
+|   | Server-Server Traffic - IPv6  | 72  |
+|   | Server-T1 Traffic - IPv4  | 83  |
+|   | Server-T1 Traffic - IPv6  | 87  |
+| Cold-reboot  | T1-Server Traffic - IPv4  | 76  |
+|   | T1-Server Traffic - IPv6  | 77  |
+|   | BGP Control plane  | 93  |
+|   | BGP+ Control plane  | 93  |
+|   | Control plane (Loopback ping)  | 44  |
+
 
 ### Test case # 4 – Downtime Convergence measurement for soft-reboot while sending traffic
 #### Test objective
