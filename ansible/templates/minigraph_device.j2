@@ -26,6 +26,23 @@
 {% endfor %}
 {% endif %}
       </EthernetInterfaces>
+{% if switch_type is defined and switch_type == 'voq' %}
+      <SystemPorts>
+{% set num_of_sysports = all_sysports | length %}
+{% for index in range(num_of_sysports) %}
+        <SystemPort>
+          <Name>{{ all_sysports[index]['name'] }}</Name>
+          <Device>{{ all_sysports[index]['device'] }}</Device>
+          <Speed>{{ all_sysports[index]['speed'] }}</Speed>
+          <SystemPortId>{{ index }}</SystemPortId>
+          <SwitchId>{{ all_sysports[index]['switchid'] }}</SwitchId>
+          <CoreId>{{ all_sysports[index]['coreid'] }}</CoreId>
+          <CorePortId>{{ all_sysports[index]['core_portid'] }}</CorePortId>
+          <NumVoq>{{ all_sysports[index]['num_voq'] }}</NumVoq>
+        </SystemPort>
+{% endfor %}
+      </SystemPorts>
+{% endif %}
       <FlowControl>true</FlowControl>
       <Height>0</Height>
       <HwSku>{{ hwsku }}</HwSku>

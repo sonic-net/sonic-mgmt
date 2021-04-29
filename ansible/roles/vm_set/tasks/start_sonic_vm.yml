@@ -29,7 +29,7 @@
   when: not file_stat.stat.exists
 
 - name: Get DUT port alias
-  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }}
+  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asics }}
   delegate_to: localhost
 
 - name: Define SONiC vm {{ dut_name }}
@@ -56,7 +56,7 @@
              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
              new_password={{ sonic_password }}
-             num_asic={{ num_asic }}
+             num_asic={{ num_asics }}
   register: kickstart_output
 
 - name: Fail if kickstart gives error for {{ dut_name }}

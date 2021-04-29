@@ -363,6 +363,7 @@ makeLab(data, veos, devices, outfile)
 """
 def makeLab(data, devices, testbed, outfile):
     deviceGroup = data
+    start_switchid = 0
     with open(outfile, "w") as toWrite:
         for key, value in deviceGroup.items():
             #children section
@@ -377,6 +378,7 @@ def makeLab(data, devices, testbed, outfile):
                 toWrite.write("[" + key + "]\n")
                 for host in value.get("host"):
                     entry = host
+                    dev = devices.get(host.lower())
 
                     if "ptf" in key:
                         try: #get ansible host
@@ -416,6 +418,96 @@ def makeLab(data, devices, testbed, outfile):
                                 entry += "\tansible_ssh_pass=" + ansible_ssh_pass
                             except:
                                 print("\t\t" + host + ": ansible_ssh_pass not found")
+                        try: #get hwsku
+                            hwsku = dev.get("hwsku")
+                            if hwsku is not None:
+                               entry += "\thwsku=" + hwsku
+                        except:
+                            print("\t\t" + host + ": hwsku not found")
+
+                        try: #get card_type
+                            card_type = dev.get("card_type")
+                            if card_type is not None:
+                               entry += "\tcard_type=" + card_type
+                        except:
+                           print("\t\t" + host + ": card_type not found")
+
+                        try: #get num_asics
+                            num_asics = dev.get("num_asics")
+                            if num_asics is not None:
+                               entry += "\tnum_asics=" + str( num_asics )
+                        except:
+                            print("\t\t" + host + " num_asics not found")
+
+                        if card_type != 'supervisor':
+                           entry += "\tstart_switchid=" + str( start_switchid )
+                           if num_asic is not None:
+                              start_switchid += int( num_asic )
+                           else:
+                              start_switchid += 1
+
+                        try: #get frontend_asics
+                            frontend_asics = dev.get("frontend_asics")
+                            if frontend_asics is not None:
+                               entry += "\tfrontend_asics=" + frontend_asics.__str__()
+                        except:
+                            print("\t\t" + host + ": frontend_asics not found")
+
+                        try: #get asics_host_ip
+                            asics_host_ip = dev.get("asics_host_ip")
+                            if asics_host_ip is not None:
+                               entry += " \tasics_host_ip=" + str( asics_host_ip )
+                        except:
+                            print("\t\t" + host + " asics_host_ip not found")
+
+                        try: #get asics_host_ipv6
+                            asics_host_ipv6 = dev.get("asics_host_ipv6")
+                            if asics_host_ipv6 is not None:
+                               entry += "\tasics_host_ipv6=" + str( asics_host_ipv6 )
+                        except:
+                            print("\t\t" + host + " asics_host_ipv6 not found")
+
+                        try: #get voq_inband_ip
+                            voq_inband_ip = dev.get("voq_inband_ip")
+                            if voq_inband_ip is not None:
+                               entry += "\tvoq_inband_ip=" + str( voq_inband_ip )
+                        except:
+                            print("\t\t" + host + " voq_inband_ip not found")
+
+                        try: #get voq_inband_ipv6
+                            voq_inband_ip = dev.get("voq_inband_ipv6")
+                            if voq_inband_ip is not None:
+                               entry += "\tvoq_inband_ipv6=" + str( voq_inband_ipv6 )
+                        except:
+                            print("\t\t" + host + " voq_inband_ipv6 not found")
+
+                        try: #get voq_inband_intf
+                            voq_inband_intf = dev.get("voq_inband_intf")
+                            if voq_inband_intf is not None:
+                               entry += "\tvoq_inband_intf=" + str( voq_inband_intf )
+                        except:
+                            print("\t\t" + host + " voq_inband_intf not found")
+
+                        try: #get voq_inband_type
+                            voq_inband_type = dev.get("voq_inband_type")
+                            if voq_inband_type is not None:
+                               entry += "\tvoq_inband_type=" + str( voq_inband_type )
+                        except:
+                            print("\t\t" + host + " voq_inband_type not found")
+
+                        try: #get switch_type
+                            switch_type = dev.get("switch_type")
+                            if switch_type is not None:
+                               entry += "\tswitch_type=" + str( switch_type )
+                        except:
+                            print("\t\t" + host + " switch_type not found")
+
+                        try: #get max_cores
+                            max_cores = dev.get("max_cores")
+                            if max_cores is not None:
+                               entry += "\tmax_cores=" + str( max_cores )
+                        except:
+                            print("\t\t" + host + " max_cores not found")
 
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
@@ -457,6 +549,10 @@ def makeVeos(data, veos, devices, outfile):
                     try:
                         ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
                         entry += "\tansible_host=" + ansible_host.split("/")[0]
+                        if dev.get("device_type") == "DevSonic":
+                            entry += "\ttype=" + dev.get("type")
+                            entry += "\thwsku=" + dev.get("hwsku")
+                            entry += "\tcard_type=" + dev.get("card_type")
                     except:
                         try:
                             ansible_host = veos.get(key).get(host).get("ansible_host")

@@ -71,13 +71,28 @@
     delegate_to: localhost
 
   - name: find interface name mapping and individual interface speed if defined from dut
-    port_alias: hwsku="{{ hwsku }}"
+    port_alias:
+      hwsku: "{{ hwsku }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      start_switchid: "{{ start_switchid | default(0) }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
-    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
+    port_alias:
+      hwsku="{{ hwsku }}"
+      num_asic="{{ num_asics }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      start_switchid: "{{ start_switchid | default(0) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
+
+  - name: set all VoQ information
+    set_fact:
+      all_sysports: "{{ all_system_ports | default( [] ) + item.value['ansible_facts']['sysports'] }}"
+    with_dict: "{{ hostvars }}"
+    when: item.value['ansible_facts']['sysports'] is defined
 
   - name: find all enabled host_interfaces
     set_fact:
