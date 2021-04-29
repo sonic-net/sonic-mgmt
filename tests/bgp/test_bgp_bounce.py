@@ -8,6 +8,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import apply_bgp_config
 from bgp_helpers import get_no_export_output
+from bgp_helpers import BGP_ANNOUNCE_TIME
 
 pytestmark = [
     pytest.mark.topology('t1')
@@ -39,12 +40,18 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     # Apply bgp plain config
     apply_bgp_config(duthost, bgp_plain_config)
 
+    # Give additional delay for routes to be propogated
+    time.sleep(BGP_ANNOUNCE_TIME)
+
     # Take action on one of the ToR VM
     no_export_route_num = get_no_export_output(vm_host)
     pytest_assert(not no_export_route_num, "Routes has no_export attribute")
 
     # Apply bgp no export config
     apply_bgp_config(duthost, bgp_no_export_config)
+
+    # Give additional delay for routes to be propogated
+    time.sleep(BGP_ANNOUNCE_TIME)
 
     # Take action on one of the ToR VM
     no_export_route_num = get_no_export_output(vm_host)
