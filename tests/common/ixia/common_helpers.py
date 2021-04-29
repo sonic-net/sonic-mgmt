@@ -13,8 +13,6 @@ in .csv format etc.
 
 import ipaddr
 from netaddr import IPNetwork
-from ipaddress import IPv6Network, IPv6Address
-from random import getrandbits
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
 def increment_ip_address (ip, incr=1) :
@@ -120,32 +118,6 @@ def get_addrs_in_subnet(subnet, number_of_ip):
         del ip_addrs[-1]
 
     return ip_addrs[:number_of_ip]
-
-
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
-    """
-    Get N IPv6 addresses in a subnet.
-
-    Args:
-        subnet (str): IPv6 subnet, e.g., '2001::1/64'
-        number_of_ip (int): Number of IP addresses to get
-
-    Return:
-        Return n IPv6 addresses in this subnet in a list.
-    """
-
-    subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
-    subnet = unicode(subnet, "utf-8")
-    ipv6_list = []
-    for i in range(number_of_ip):
-        network = IPv6Network(subnet)
-        address = IPv6Address(
-            network.network_address + getrandbits(
-                network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
-
-    return ipv6_list
-
 
 def get_peer_ixia_chassis(conn_data, dut_hostname):
     """

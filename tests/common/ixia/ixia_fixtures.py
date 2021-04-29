@@ -9,9 +9,8 @@ from ixnetwork_restpy import SessionAssistant
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_peer_ixia_chassis, get_ipv6_addrs_in_subnet
+    get_peer_ixia_chassis
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
-import snappi
 
 try:
     from abstract_open_traffic_generator.port import Port
@@ -295,111 +294,3 @@ def ixia_testbed(conn_graph_facts,
         config.devices.append(device)
 
     return config
-
-
-@pytest.fixture(scope='module')
-def snappi_api(ixia_api_serv_ip,
-               ixia_api_serv_port):
-    """
-    Snappi session fixture for snappi Tgen API
-
-    Args:
-        ixia_api_serv_ip (pytest fixture): ixia_api_serv_ip fixture
-        ixia_api_serv_port (pytest fixture): ixia_api_serv_port fixture.
-    """
-    host = "https://" + ixia_api_serv_ip + ":" + str(ixia_api_serv_port)
-    api = snappi.api(host=host, ext="ixnetwork")
-
-    yield api
-
-    if api.assistant is not None:
-        api.assistant.Session.remove()
-
-
-@pytest.fixture(scope="module")
-def tgen_ports(duthost,
-               conn_graph_facts,
-               fanout_graph_facts):
-
-    """
-    Populate tgen ports info of T0 testbed and returns as a list
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-        conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
-
-    Return:
-        [{'card_id': '1',
-        'ip': '22.1.1.2',
-        'ipv6': '3001::2',
-        'ipv6_prefix': u'64',
-        'location': '10.36.78.238;1;2',
-        'peer_device': 'sonic-s6100-dut',
-        'peer_ip': u'22.1.1.1',
-        'peer_ipv6': u'3001::1',
-        'peer_port': 'Ethernet8',
-        'port_id': '2',
-        'prefix': u'24',
-        'speed': 'speed_400_gbps'},
-        {'card_id': '1',
-        'ip': '21.1.1.2',
-        'ipv6': '2001::2',
-        'ipv6_prefix': u'64',
-        'location': '10.36.78.238;1;1',
-        'peer_device': 'sonic-s6100-dut',
-        'peer_ip': u'21.1.1.1',
-        'peer_ipv6': u'2001::1',
-        'peer_port': 'Ethernet0',
-        'port_id': '1',
-        'prefix': u'24',
-        'speed': 'speed_400_gbps'}]
-    """
-
-    speed_type = {'50000': 'speed_50_gbps',
-                  '100000': 'speed_100_gbps',
-                  '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps'}
-
-    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
-                                        dut_hostname=duthost.hostname)
-    ixia_fanout_id = list(fanout_graph_facts.keys()).index(ixia_fanout)
-    ixia_fanout_list = IxiaFanoutManager(fanout_graph_facts)
-    ixia_fanout_list.get_fanout_device_details(device_number=ixia_fanout_id)
-    ixia_ports = ixia_fanout_list.get_ports(peer_device=duthost.hostname)
-    port_speed = None
-
-    for i in range(len(ixia_ports)):
-        if port_speed is None:
-            port_speed = int(ixia_ports[i]['speed'])
-
-        elif port_speed != int(ixia_ports[i]['speed']):
-            """ All the ports should have the same bandwidth """
-            return None
-
-    config_facts = duthost.config_facts(host=duthost.hostname,
-                                        source="running")['ansible_facts']
-
-    for port in ixia_ports:
-        port['location'] = get_tgen_location(port)
-        port['speed'] = speed_type[port['speed']]
-
-    for port in ixia_ports:
-
-        peer_port = port['peer_port']
-        int_addrs = config_facts['INTERFACE'][peer_port].keys()
-        ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
-        ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
-        if not ipv4_subnet:
-            raise Exception("IPv4 is not configured on the interface {}"
-                            .format(peer_port))
-        port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
-        port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
-
-        if not ipv6_subnet:
-            raise Exception("IPv6 is not configured on the interface {}"
-                            .format(peer_port))
-        port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
-        port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
-
-    return ixia_ports
