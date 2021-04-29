@@ -913,11 +913,12 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         Returns:
             str: The MAC address of the specified interface, or None if it is not found.
         """
-        for iface, iface_info in self.setup()['ansible_facts'].items():
-            if iface_name in iface:
-                return iface_info["macaddress"]
-
-        return None
+        try:
+            mac = self.command('cat /sys/class/net/{}/address'.format(iface_name))['stdout']
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
+            return None
 
     def get_container_autorestart_states(self):
         """
@@ -1127,7 +1128,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "th"
         elif "Broadcom Limited Device b971" in output:
             asic = "th2"
-        elif "Broadcom Limited Device b850" in output:
+        elif ("Broadcom Limited Device b850" in output or
+              "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
         elif "Broadcom Limited Device b870" in output:
             asic = "td3"
@@ -1135,6 +1137,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "th3"
 
         return asic
+
+    def get_facts(self):
+        return self.facts
 
     def get_running_config_facts(self):
         return self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
@@ -1269,11 +1274,31 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return crm_facts
 
+    def start_service(self, service_name, docker_name):
+        logging.debug("Starting {}".format(service_name))
+        if not self.is_service_fully_started(docker_name):
+            self.command("sudo systemctl start {}".format(service_name))
+            logging.debug("started {}".format(service_name))
+
     def stop_service(self, service_name, docker_name):
         logging.debug("Stopping {}".format(service_name))
         if self.is_service_fully_started(docker_name):
-            self.command("systemctl stop {}".format(service_name))
+            self.command("sudo systemctl stop {}".format(service_name))
         logging.debug("Stopped {}".format(service_name))
+
+    def restart_service(self, service_name, docker_name):
+        logging.debug("Restarting {}".format(service_name))
+        if self.is_service_fully_started(docker_name):
+            self.command("sudo systemctl restart {}".format(service_name))
+            logging.debug("Restarted {}".format(service_name))
+        else:
+            self.command("sudo systemctl start {}".format(service_name))
+            logging.debug("started {}".format(service_name))
+
+    def reset_service(self, service_name, docker_name):
+        logging.debug("Stopping {}".format(service_name))
+        self.command("sudo systemctl reset-failed {}".format(service_name))
+        logging.debug("Resetting {}".format(service_name))
 
     def delete_container(self, service):
         self.command(

@@ -1,7 +1,8 @@
 import pytest
 import logging
 import ipaddr as ipaddress
-from bgp_helpers import parse_rib, verify_all_routes_announce_to_bgpmon 
+from bgp_helpers import parse_rib, verify_all_routes_announce_to_bgpmon,remove_bgp_neighbors,restore_bgp_neighbors
+from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.assertions import pytest_assert
 import re
 
@@ -14,22 +15,37 @@ logger = logging.getLogger(__name__)
 TS_NORMAL = "System Mode: Normal"
 TS_MAINTENANCE = "System Mode: Maintenance"
 TS_INCONSISTENT = "System Mode: Not consistent"
+TS_NO_NEIGHBORS = "System Mode: No external neighbors"
 
 @pytest.fixture
 def traffic_shift_community(duthost):
     community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')['stdout']
     return community
 
+def verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
+    prefix = "BGP{} : ".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
+    result_str = "{}{}".format(prefix, match_result)
+    if result_str in outputs:
+        return True
+    else:
+        return False
+
+def verify_traffic_shift(host, outputs, match_result):
+    for asic_index in host.get_frontend_asic_ids():
+        if not verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
+            return "ERROR"
+
+    return match_result
+
 def get_traffic_shift_state(host):
     outputs = host.shell('TSC')['stdout_lines']
-    for out in outputs:
-        if TS_NORMAL == out.strip():
-            return TS_NORMAL
-        if TS_MAINTENANCE == out.strip():
-            return TS_MAINTENANCE
-        if TS_INCONSISTENT == out.strip():
-            return TS_INCONSISTENT
-    pytest.fail("TSC return unexpected state {}".format(out))
+    if verify_traffic_shift(host, outputs, TS_NORMAL) is not "ERROR":
+        return TS_NORMAL
+    if verify_traffic_shift(host, outputs, TS_MAINTENANCE) is not "ERROR":
+        return TS_MAINTENANCE
+    if verify_traffic_shift(host, outputs, TS_INCONSISTENT) is not "ERROR":
+        return TS_INCONSISTENT
+    pytest.fail("TSC return unexpected state {}".format("ERROR"))
 
 def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
     """
@@ -173,3 +189,40 @@ def test_TSB(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown):
                   "Not all ipv4 routes are announced to neighbors")
     pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
                   "Not all ipv6 routes are announced to neighbors")
+
+def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown):
+    """
+    Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
+    """
+    bgp_neighbors = {}
+    asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
+
+    try:
+        # Remove the Neighbors for the particular BGP instance
+        bgp_neighbors = remove_bgp_neighbors(duthost, asic_index)
+
+        # Issue TSA on DUT
+        output = duthost.shell("TSA")['stdout_lines']
+
+        # Set the DUT in maintenance state
+        # Verify ASIC0 has no neighbors message.
+        pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
+
+        # Recover to Normal state
+        duthost.shell("TSB")['stdout_lines']
+
+        # Verify DUT is in Normal state, and ASIC0 has no neighbors message.
+        pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
+
+        # Check the traffic state
+        duthost.shell("TSC")['stdout_lines']
+
+        # Verify DUT is in Normal state, and ASIC0 has no neighbors message.
+        pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
+
+    finally:
+        # Restore BGP neighbors
+        restore_bgp_neighbors(duthost, asic_index, bgp_neighbors)
+
+        # Recover to Normal state
+        duthost.shell("TSB")

@@ -3,6 +3,7 @@ import ipaddress
 import json
 import logging
 
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
@@ -225,12 +226,34 @@ class MultiAsicSonicHost(object):
             return self.sonichost
         return self.asics[asic_id]
 
+    def get_asic_or_sonic_host_from_namespace(self, namespace=DEFAULT_NAMESPACE):
+        if not namespace:
+            return self.sonichost
+        for asic in self.asics:
+            if asic.namespace == namespace:
+                return asic
+        return None
+
+    def start_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.start_service(service, service)
+
+        for asic in self.asics:
+            asic.start_service(service)
+
     def stop_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.stop_service(service, service)
 
         for asic in self.asics:
             asic.stop_service(service)
+
+    def restart_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.restart_service(service, service)
+
+        for asic in self.asics:
+            asic.restart_service(service)
 
     def delete_container(self, service):
         if service in self._DEFAULT_SERVICES:
@@ -329,3 +352,23 @@ class MultiAsicSonicHost(object):
         """
         asic = self.get_port_asic_instance(port)
         return asic.get_queue_oid(port, queue_num)
+
+    def has_config_subcommand(self, command):
+        """
+        Check if a config/show subcommand exists on the device
+        
+        It is up to the caller of the function to ensure that `command` 
+        does not have any unintended side effects when run
+
+        Args:
+            command (str): the command to be checked, which should begin with 'config' or 'show'
+        Returns:
+            (bool) True if the command exists, false otherwise
+        """
+        try:
+            self.shell(command) 
+            # If the command executes successfully, we can assume it exists
+            return True
+        except RunAnsibleModuleFail as e:
+            # If 'No such command' is found in stderr, the command doesn't exist
+            return 'No such command' not in e.results['stderr']

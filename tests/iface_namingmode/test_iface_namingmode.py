@@ -27,7 +27,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_alias_facts = duthost.port_alias(hwsku=hwsku)['ansible_facts']
+    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=True)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
@@ -936,7 +936,7 @@ class TestShowIP():
         as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route 20c0:a800::/64'.format(ifmode))['stdout']
+        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route ::/0'.format(ifmode))['stdout']
         logger.info('route:\n{}'.format(route))
 
         if mode == 'alias':

@@ -28,11 +28,11 @@ class SonicAsic(object):
         """
         self.sonichost = sonichost
         self.asic_index = asic_index
-        self._ns_arg = ""
+        self.ns_arg = ""
         if self.sonichost.is_multi_asic:
             self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
             self.cli_ns_option = "-n {}".format(self.namespace)
-            self._ns_arg = "sudo ip netns exec {} ".format(self.namespace)
+            self.ns_arg = "sudo ip netns exec {} ".format(self.namespace)
         else:
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
@@ -172,6 +172,14 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.interface_facts(*module_args, **complex_args)
 
+    def get_service_name(self, service):
+        if (not self.sonichost.is_multi_asic or
+            service not in self._DEFAULT_ASIC_SERVICES
+        ):
+            return service
+
+        return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
+
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
             service not in self._DEFAULT_ASIC_SERVICES
@@ -180,18 +188,25 @@ class SonicAsic(object):
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
 
+    def start_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.start_service(service_name, docker_name)
+
     def stop_service(self, service):
-        if not self.sonichost.is_multi_asic:
-            service_name = service
-            docker_name = service
-        else:
-            service_name = self._MULTI_ASIC_SERVICE_NAME.format(
-                service, self.asic_index
-            )
-            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
-                service, self.asic_index
-            )
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
         return self.sonichost.stop_service(service_name, docker_name)
+
+    def restart_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.restart_service(service_name, docker_name)
+
+    def reset_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.reset_service(service_name, docker_name)
 
     def delete_container(self, service):
         if self.sonichost.is_multi_asic:
@@ -214,6 +229,42 @@ class SonicAsic(object):
             )
         return self.sonichost.is_service_running(service_name, docker_name)
 
+    def ping_v4(self, ipv4, count=1):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv4 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_aton(ipv4)
+        except socket.error:
+            raise Exception("Invalid IPv4 address {}".format(ipv4))
+
+        try:
+            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
+                self.ns_arg, count, ipv4
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return True
+
+    def is_backend_portchannel(self, port_channel):
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+        if port_channel in mg_facts["minigraph_portchannels"]:
+            port_name = next(
+                iter(
+                    mg_facts["minigraph_portchannels"][port_channel]["members"]
+                )
+            )
+            if "Ethernet-BP" not in port_name:
+                return False
+        return True
+
     def get_active_ip_interfaces(self):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -223,7 +274,7 @@ class SonicAsic(object):
             Dict of Interfaces and their IPv4 address
         """
         ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-        return self.sonichost.active_ip_interfaces(ip_ifs, self._ns_arg)
+        return self.sonichost.active_ip_interfaces(ip_ifs, self.ns_arg)
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
@@ -242,7 +293,7 @@ class SonicAsic(object):
         check_opt = "-C INPUT"
         cmd = (
             "{}/sbin/{} -t filter {{}} -p tcp -j DROP --destination-port bgp"
-        ).format(self._ns_arg, ipcmd)
+        ).format(self.ns_arg, ipcmd)
 
         check_cmd = cmd.format(check_opt)
         run_cmd = cmd.format(run_opt)
@@ -312,7 +363,7 @@ class SonicAsic(object):
         if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
             return self.sonichost.command(cmdstr)
 
-        cmdstr = "sudo ip netns exec {} ".format(self.namespace) + cmdstr
+        cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
         return self.sonichost.command(cmdstr)
 
