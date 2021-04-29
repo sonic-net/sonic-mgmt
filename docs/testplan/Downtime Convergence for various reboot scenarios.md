@@ -68,7 +68,7 @@ Measure the downtime convergence time when warm-reboot is issued while traffic i
 
 
 #### Test steps
-* Configure a IPv4 and IPv6 EBGP sessions between test port and the SONiC switch on top of a LAG.
+* Configure IPv4 and IPv6 EBGP sessions between test port and the SONiC switch on top of a LAG.
 * Advertise 4000 IPv4 and 3000 IPv6 routes through BGP.
 * Configure 2000 vlan hosts per server.
 * Start all protocols and verify that IPv4 BGP neighborship is established.
@@ -122,7 +122,7 @@ Measure the downtime convergence time when fast-reboot is issued while traffic i
 
 
 #### Test steps
-* Configure a IPv4 EBGP session between test port and the SONiC switch on top of a LAG.
+* Configure IPv4 and IPv6 EBGP sessions between test port and the SONiC switch on top of a LAG.
 * Advertise 4000 IPv4 and 3000 IPv6 routes through BGP.
 * Configure 2000 vlan hosts per server.
 * Start all protocols and verify that IPv4 BGP neighborship is established.
@@ -175,7 +175,7 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 
 
 #### Test steps
-* Configure a IPv4 EBGP session between test port and the SONiC switch on top of a LAG.
+* Configure IPv4 and IPv6 EBGP sessions between test port and the SONiC switch on top of a LAG.
 * Advertise 4000 IPv4 and 3000 IPv6 routes through BGP.
 * Configure 2000 vlan hosts per server.
 * Start all protocols and verify that IPv4 BGP neighborship is established.
@@ -229,7 +229,7 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 
 
 #### Test steps
-* Configure a IPv4 EBGP session between test port and the SONiC switch on top of a LAG.
+* Configure IPv4 and IPv6 EBGP sessions between test port and the SONiC switch on top of a LAG.
 * Advertise 4000 IPv4 and 3000 IPv6 routes through BGP.
 * Configure 2000 vlan hosts per server.
 * Start all protocols and verify that IPv4 BGP neighborship is established.
