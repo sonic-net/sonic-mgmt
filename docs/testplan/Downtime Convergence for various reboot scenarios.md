@@ -63,7 +63,7 @@ Measure the downtime convergence time when warm-reboot is issued while traffic i
 
 <p float="left">
   <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
-  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
+  <img src="Img/Warm-reboot-graph.png" width="400" /> 
 </p>
 
 
