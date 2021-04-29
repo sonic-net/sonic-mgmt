@@ -5,8 +5,7 @@ import shutil
 import tempfile
 import signal
 import traceback
-from multiprocessing import Process, Manager
-import multiprocessing as mp
+from multiprocessing import Process, Manager, Pipe
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ class SonicProcess(Process):
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
-        self._pconn, self._cconn = mp.Pipe()
+        self._pconn, self._cconn = Pipe()
         self._exception = None
 
     def run(self):
